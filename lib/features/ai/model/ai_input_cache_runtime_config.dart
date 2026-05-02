@@ -12,6 +12,7 @@ class AiInputCacheRuntimeConfig {
     required this.mode,
     required this.updateInterval,
     required this.breakpointCount,
+    this.breakpointPositions = const <double>[],
   });
 
   /// 一个明确的"无缓存"哨兵；适配器收到 null 或 disabled 都走旧路径。
@@ -30,6 +31,11 @@ class AiInputCacheRuntimeConfig {
 
   /// Anthropic 上限就是 4，超过会报 400。
   final int breakpointCount;
+
+  /// 2026-05-04 — 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
+  /// 长度 == [breakpointCount] - 1 时优先用此布点；否则适配器沿用 mode-based
+  /// 自动布点。最后一个断点恒位于消息流末尾。
+  final List<double> breakpointPositions;
 
   bool get isEffectivelyEnabled => enabled && breakpointCount > 0;
 }

@@ -98,6 +98,7 @@ class AiSessionRuntimeContext {
     this.aiInputCacheUpdateMode = 'allMessages',
     this.aiInputCacheUpdateInterval = 10,
     this.aiInputCacheBreakpointCount = 4,
+    this.aiInputCacheBreakpointPositions = const <double>[],
     required this.memoryEnabled,
     required this.memoryEntries,
     this.templateId = '',
@@ -186,6 +187,10 @@ class AiSessionRuntimeContext {
 
   /// 2026-05-01 — Anthropic cache breakpoint 最大数量 (1..4)。
   final int aiInputCacheBreakpointCount;
+
+  /// 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
+  /// 空列表 = 沿用 mode-based 自动布点。
+  final List<double> aiInputCacheBreakpointPositions;
   final bool memoryEnabled;
   final List<UserMemoryEntry> memoryEntries;
 
@@ -338,6 +343,7 @@ class AiSessionRuntimeContext {
       'ai_input_cache_update_mode': aiInputCacheUpdateMode,
       'ai_input_cache_update_interval': aiInputCacheUpdateInterval,
       'ai_input_cache_breakpoint_count': aiInputCacheBreakpointCount,
+      'ai_input_cache_breakpoint_positions': aiInputCacheBreakpointPositions,
       'single_round_tool_call_limit': singleRoundToolCallLimit,
       'sequential_tool_round_limit': sequentialToolRoundLimit,
       'max_recent_errors': maxRecentErrors,

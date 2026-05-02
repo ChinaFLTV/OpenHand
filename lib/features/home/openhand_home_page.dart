@@ -2783,6 +2783,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           settingsController.aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount:
           settingsController.aiInputCacheBreakpointCount,
+      aiInputCacheBreakpointPositions:
+          settingsController.aiInputCacheBreakpointPositions,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       maxRecentErrors: settingsController.aiMaxRecentErrors,
@@ -3022,6 +3024,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           settingsController.aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount:
           settingsController.aiInputCacheBreakpointCount,
+      aiInputCacheBreakpointPositions:
+          settingsController.aiInputCacheBreakpointPositions,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       maxRecentErrors: settingsController.aiMaxRecentErrors,

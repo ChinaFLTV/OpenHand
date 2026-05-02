@@ -2217,6 +2217,8 @@ class AiSessionController extends ChangeNotifier {
             mode: runtimeContext.aiInputCacheUpdateMode,
             updateInterval: runtimeContext.aiInputCacheUpdateInterval,
             breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
+            breakpointPositions:
+                runtimeContext.aiInputCacheBreakpointPositions,
           ),
         );
       } catch (error) {

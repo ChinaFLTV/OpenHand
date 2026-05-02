@@ -804,6 +804,26 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     List<Map<String, Object?>> requestMessages,
     {required int budget, required AiInputCacheRuntimeConfig config}) {
     if (budget <= 0 || requestMessages.isEmpty) return;
+    // 2026-05-04 — 优先尊重用户自定义的前 N-1 个静态缓存点位置。
+    // 当 positions 长度匹配 (breakpointCount-1) 时：
+    //   * 前 N-1 个断点 = positions[i] * (msgs.length-1) round 后的索引；
+    //   * 最后一个断点 = msgs.length-1 (固定落在尾部)；
+    //   * 索引去重，再按预算 budget 截断。
+    final positions = config.breakpointPositions;
+    final lastIndex = requestMessages.length - 1;
+    if (positions.isNotEmpty && positions.length == config.breakpointCount - 1) {
+      final selected = <int>{lastIndex};
+      for (final p in positions) {
+        final clamped = p.isFinite ? p.clamp(0.0, 1.0) : 1.0;
+        final idx = (clamped * lastIndex).round().clamp(0, lastIndex);
+        selected.add(idx);
+      }
+      final ordered = selected.toList()..sort((a, b) => b.compareTo(a));
+      for (final index in ordered.take(budget)) {
+        _attachCacheControlToMessageTail(requestMessages[index]);
+      }
+      return;
+    }
     // 候选索引从尾部回溯，按 mode 过滤；保证最少打到最后一条消息。
     final candidates = <int>[];
     final interval = config.updateInterval <= 0 ? 1 : config.updateInterval;

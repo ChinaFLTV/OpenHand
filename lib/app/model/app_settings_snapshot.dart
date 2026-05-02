@@ -52,6 +52,7 @@ class AppSettingsSnapshot {
       aiInputCacheUpdateMode: defaultAiInputCacheUpdateMode,
       aiInputCacheUpdateInterval: defaultAiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount: defaultAiInputCacheBreakpointCount,
+      aiInputCacheBreakpointPositions: defaultAiInputCacheBreakpointPositions,
       aiWriteToolSummaryMaxChars: defaultAiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: defaultAiSequentialToolRoundLimit,
@@ -155,6 +156,7 @@ class AppSettingsSnapshot {
     required this.aiInputCacheUpdateMode,
     required this.aiInputCacheUpdateInterval,
     required this.aiInputCacheBreakpointCount,
+    required this.aiInputCacheBreakpointPositions,
     required this.aiWriteToolSummaryMaxChars,
     required this.aiSingleRoundToolCallLimit,
     required this.aiSequentialToolRoundLimit,
@@ -295,6 +297,11 @@ class AppSettingsSnapshot {
   static const int defaultAiInputCacheBreakpointCount = 4;
   static const int minAiInputCacheBreakpointCount = 1;
   static const int maxAiInputCacheBreakpointCount = 4;
+
+  /// 2026-05-04 — 用户自定义的前 N-1 个静态缓存点位置，单位是消息流的
+  /// 百分比 [0, 1]。空列表表示沿用 mode-based 自动布点；非空时长度应 ==
+  /// `aiInputCacheBreakpointCount - 1`，最后一个断点固定落在末尾消息。
+  static const List<double> defaultAiInputCacheBreakpointPositions = <double>[];
 
   /// 2026-04-27 — 写类工具结果摘要中保留原始 summary 文本的字符上限。
   /// 超过该上限的 result_text 会被刪除（不进入 prompt history）。
@@ -466,6 +473,10 @@ class AppSettingsSnapshot {
   /// 2026-05-02 — cache_control 断点数量（1-4）。
   final int aiInputCacheBreakpointCount;
 
+  /// 2026-05-04 — 用户自定义的前 N-1 个断点位置（百分比 0..1，升序）。
+  /// 空列表表示沿用 mode-based 自动布点。
+  final List<double> aiInputCacheBreakpointPositions;
+
   /// 2026-04-27 — 写类工具摘要中 result_text 的字符上限。
   final int aiWriteToolSummaryMaxChars;
   final int aiSingleRoundToolCallLimit;
@@ -598,6 +609,7 @@ class AppSettingsSnapshot {
     String? aiInputCacheUpdateMode,
     int? aiInputCacheUpdateInterval,
     int? aiInputCacheBreakpointCount,
+    List<double>? aiInputCacheBreakpointPositions,
     int? aiWriteToolSummaryMaxChars,
     int? aiSingleRoundToolCallLimit,
     int? aiSequentialToolRoundLimit,
@@ -694,6 +706,8 @@ class AppSettingsSnapshot {
           aiInputCacheUpdateInterval ?? this.aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount:
           aiInputCacheBreakpointCount ?? this.aiInputCacheBreakpointCount,
+      aiInputCacheBreakpointPositions: aiInputCacheBreakpointPositions ??
+          this.aiInputCacheBreakpointPositions,
       aiWriteToolSummaryMaxChars:
           aiWriteToolSummaryMaxChars ?? this.aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit:

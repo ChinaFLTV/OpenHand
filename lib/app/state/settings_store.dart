@@ -173,6 +173,8 @@ class SettingsStore {
       'ai_input_cache_update_mode': snapshot.aiInputCacheUpdateMode,
       'ai_input_cache_update_interval': snapshot.aiInputCacheUpdateInterval,
       'ai_input_cache_breakpoint_count': snapshot.aiInputCacheBreakpointCount,
+      'ai_input_cache_breakpoint_positions':
+          snapshot.aiInputCacheBreakpointPositions,
       'ai_write_tool_summary_max_chars': snapshot.aiWriteToolSummaryMaxChars,
       'ai_single_round_tool_call_limit': snapshot.aiSingleRoundToolCallLimit,
       'ai_max_recent_errors': snapshot.aiMaxRecentErrors,
@@ -396,6 +398,27 @@ class SettingsStore {
                 AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
               )
             : AppSettingsSnapshot.defaultAiInputCacheBreakpointCount;
+    // 2026-05-04 — 用户自定义前 N-1 个静态缓存点位置（百分比 0..1，升序）。
+    // JSON 形如 [0.25, 0.5, 0.75]；非法元素直接忽略，越界 clamp 至 [0,1]。
+    final List<double> aiInputCacheBreakpointPositions = () {
+      final raw = json['ai_input_cache_breakpoint_positions'];
+      if (raw is! List) {
+        return AppSettingsSnapshot.defaultAiInputCacheBreakpointPositions;
+      }
+      final parsed = <double>[];
+      for (final entry in raw) {
+        double? v;
+        if (entry is num) {
+          v = entry.toDouble();
+        } else if (entry is String) {
+          v = double.tryParse(entry);
+        }
+        if (v == null || v.isNaN || !v.isFinite) continue;
+        parsed.add(v.clamp(0.0, 1.0));
+      }
+      parsed.sort();
+      return List<double>.unmodifiable(parsed);
+    }();
     final aiWriteToolSummaryMaxChars =
         json['ai_write_tool_summary_max_chars'] is int &&
             (json['ai_write_tool_summary_max_chars'] as int) >=
@@ -949,6 +972,7 @@ class SettingsStore {
       aiInputCacheUpdateMode: aiInputCacheUpdateMode,
       aiInputCacheUpdateInterval: aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount: aiInputCacheBreakpointCount,
+      aiInputCacheBreakpointPositions: aiInputCacheBreakpointPositions,
       aiWriteToolSummaryMaxChars: aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,

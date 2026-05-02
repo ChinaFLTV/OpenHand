@@ -29,6 +29,7 @@ import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/error_snackbar.dart';
+import '../../shared/widgets/multi_thumb_slider.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/rolling_text.dart';
 import '../ai/ai_session_controller.dart';
@@ -1881,6 +1882,8 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
+              const SizedBox(height: 18),
+              _buildAiInputCacheBreakpointPositionsRow(context),
             ],
           ),
         ),
@@ -3341,6 +3344,75 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
+  /// 2026-05-04 — 缓存断点位置滑块行：N-1 个可拖拽拇指 + 末尾固定锚。
+  /// 拖拽实时更新本地草稿，松手时通过 SettingsController 持久化。
+  Widget _buildAiInputCacheBreakpointPositionsRow(BuildContext context) {
+    final controller = context.watch<SettingsController>();
+    final count = controller.aiInputCacheBreakpointCount;
+    final thumbCount = (count - 1).clamp(0, 3);
+    // 没有可拖拽断点时（count=1），整行收起，避免空白控件。
+    if (thumbCount == 0) {
+      return const SizedBox.shrink();
+    }
+    final raw = controller.aiInputCacheBreakpointPositions;
+    // 缺省 = 均匀铺开。例如 count=4 → [0.25, 0.5, 0.75]。
+    final List<double> values = (raw.length == thumbCount)
+        ? List<double>.from(raw)
+        : List<double>.generate(
+            thumbCount,
+            (i) => (i + 1) / count,
+          );
+    final liveKey = ValueKey<int>(thumbCount);
+    return _ResponsiveSettingRow(
+      title: _localizedText(
+        context,
+        zh: '缓存断点位置',
+        en: 'Cache Breakpoint Positions',
+      ),
+      subtitle: _localizedText(
+        context,
+        zh:
+            '拖动 $thumbCount 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。',
+        en:
+            'Drag the $thumbCount thumbs to position the first N-1 static cache breakpoints across the message stream (0%-100%). The Nth breakpoint is locked to the tail (the locked dot). Tap "Reset" to redistribute evenly.',
+      ),
+      control: _AiInputCacheBreakpointPositionsControl(
+        key: liveKey,
+        initialValues: List<double>.unmodifiable(values),
+        thumbCount: thumbCount,
+        onCommit: (positions) =>
+            _saveAiInputCacheBreakpointPositions(context, positions),
+        onReset: () => _saveAiInputCacheBreakpointPositions(
+          context,
+          const <double>[],
+        ),
+      ),
+      controlMaxWidth: 460,
+    );
+  }
+
+  Future<void> _saveAiInputCacheBreakpointPositions(
+    BuildContext context,
+    List<double> positions,
+  ) async {
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiInputCacheBreakpointPositions(positions);
+    if (!context.mounted) return;
+    if (!saved) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '缓存断点位置已保存',
+        en: 'Cache breakpoint positions saved',
+      ),
+    );
+  }
+
   Future<void> _saveWriteToolSummaryMaxChars(
     BuildContext context,
     String rawValue,
@@ -4316,3 +4388,106 @@ List<Widget> _intersperse(List<Widget> items, Widget separator) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Dialog animation settings section
 // ─────────────────────────────────────────────────────────────────────────────
+
+// 2026-05-04 — 缓存断点位置滑块控件。持有本地草稿在拖拽中实时回流，
+// `onChangeEnd` 时提交持久化。`thumbCount` 变更（例如用户保存了不同的
+// breakpointCount）会通过 ValueKey 触发整个 widget 重建，从而吃下新
+// initialValues。
+class _AiInputCacheBreakpointPositionsControl extends StatefulWidget {
+  const _AiInputCacheBreakpointPositionsControl({
+    super.key,
+    required this.initialValues,
+    required this.thumbCount,
+    required this.onCommit,
+    required this.onReset,
+  });
+
+  final List<double> initialValues;
+  final int thumbCount;
+  final Future<void> Function(List<double>) onCommit;
+  final VoidCallback onReset;
+
+  @override
+  State<_AiInputCacheBreakpointPositionsControl> createState() =>
+      _AiInputCacheBreakpointPositionsControlState();
+}
+
+class _AiInputCacheBreakpointPositionsControlState
+    extends State<_AiInputCacheBreakpointPositionsControl> {
+  late List<double> _draft;
+
+  @override
+  void initState() {
+    super.initState();
+    _draft = List<double>.from(widget.initialValues);
+  }
+
+  @override
+  void didUpdateWidget(
+    covariant _AiInputCacheBreakpointPositionsControl oldWidget,
+  ) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValues != widget.initialValues &&
+        !_listEqual(oldWidget.initialValues, widget.initialValues)) {
+      _draft = List<double>.from(widget.initialValues);
+    }
+  }
+
+  bool _listEqual(List<double> a, List<double> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final percentLabel = _draft
+        .map((v) => '${(v * 100).round()}%')
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MultiThumbSlider(
+          values: _draft,
+          onChanged: (next) => setState(() => _draft = next),
+          onChangeEnd: (_) => widget.onCommit(_draft),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          children: [
+            for (var i = 0; i < percentLabel.length; i++)
+              Text(
+                'P${i + 1}: ${percentLabel[i]}',
+                style: theme.textTheme.bodySmall,
+              ),
+            Text(
+              'P${percentLabel.length + 1}: 100% (locked)',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: widget.onReset,
+            icon: const Icon(Icons.refresh_rounded),
+            label: Text(
+              Localizations.localeOf(context).languageCode == 'en'
+                  ? 'Reset to even'
+                  : '重置为均匀分布',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

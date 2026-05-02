@@ -61,6 +61,7 @@ class SettingsController extends ChangeNotifier {
        _aiInputCacheUpdateMode = snapshot.aiInputCacheUpdateMode,
        _aiInputCacheUpdateInterval = snapshot.aiInputCacheUpdateInterval,
        _aiInputCacheBreakpointCount = snapshot.aiInputCacheBreakpointCount,
+       _aiInputCacheBreakpointPositions = snapshot.aiInputCacheBreakpointPositions,
        _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
        _aiMaxRecentErrors = snapshot.aiMaxRecentErrors,
@@ -169,6 +170,7 @@ class SettingsController extends ChangeNotifier {
   String _aiInputCacheUpdateMode;
   int _aiInputCacheUpdateInterval;
   int _aiInputCacheBreakpointCount;
+  List<double> _aiInputCacheBreakpointPositions;
   int _aiWriteToolSummaryMaxChars;
   int _aiSingleRoundToolCallLimit;
   int _aiMaxRecentErrors;
@@ -289,6 +291,11 @@ class SettingsController extends ChangeNotifier {
   String get aiInputCacheUpdateMode => _aiInputCacheUpdateMode;
   int get aiInputCacheUpdateInterval => _aiInputCacheUpdateInterval;
   int get aiInputCacheBreakpointCount => _aiInputCacheBreakpointCount;
+
+  /// 2026-05-04 — 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
+  /// 空列表表示沿用 mode-based 自动布点。
+  List<double> get aiInputCacheBreakpointPositions =>
+      _aiInputCacheBreakpointPositions;
   int get aiWriteToolSummaryMaxChars => _aiWriteToolSummaryMaxChars;
   int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
   int get aiMaxRecentErrors => _aiMaxRecentErrors;
@@ -699,6 +706,36 @@ class SettingsController extends ChangeNotifier {
       _aiInputCacheBreakpointCount = clamped;
       return _MutationDisposition.apply;
     });
+  }
+
+  /// 2026-05-04 — 提交用户拖拽得到的前 N-1 个缓存点位置。空列表表示
+  /// 撤销自定义、回到 mode-based 自动布点。
+  Future<bool> updateAiInputCacheBreakpointPositions(
+    List<double> positions,
+  ) async {
+    final cleaned = <double>[];
+    for (final v in positions) {
+      if (!v.isFinite || v.isNaN) continue;
+      cleaned.add(v.clamp(0.0, 1.0));
+    }
+    cleaned.sort();
+    final next = List<double>.unmodifiable(cleaned);
+    return _commitMutation(() {
+      if (_listEqualsDouble(_aiInputCacheBreakpointPositions, next)) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiInputCacheBreakpointPositions = next;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  static bool _listEqualsDouble(List<double> a, List<double> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   Future<bool> updateAiWriteToolSummaryMaxChars(int value) async {
@@ -1855,6 +1892,7 @@ class SettingsController extends ChangeNotifier {
       aiInputCacheUpdateMode: _aiInputCacheUpdateMode,
       aiInputCacheUpdateInterval: _aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount: _aiInputCacheBreakpointCount,
+      aiInputCacheBreakpointPositions: _aiInputCacheBreakpointPositions,
       aiWriteToolSummaryMaxChars: _aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
       aiMaxRecentErrors: _aiMaxRecentErrors,
@@ -1947,6 +1985,7 @@ class SettingsController extends ChangeNotifier {
     _aiInputCacheUpdateMode = snapshot.aiInputCacheUpdateMode;
     _aiInputCacheUpdateInterval = snapshot.aiInputCacheUpdateInterval;
     _aiInputCacheBreakpointCount = snapshot.aiInputCacheBreakpointCount;
+    _aiInputCacheBreakpointPositions = snapshot.aiInputCacheBreakpointPositions;
     _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
     _aiMaxRecentErrors = snapshot.aiMaxRecentErrors;
