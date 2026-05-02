@@ -567,11 +567,15 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     final cachedTokens = promptTokensDetails is Map
         ? _readInt(promptTokensDetails['cached_tokens'])
         : null;
+    // DeepSeek surfaces cache stats as flat keys on `usage` instead of
+    // OpenAI's nested `prompt_tokens_details.cached_tokens` form. Spec:
+    // https://api-docs.deepseek.com/guides/kv_cache
+    final deepseekCacheHit = _readInt(usageMap['prompt_cache_hit_tokens']);
     return AiTokenUsage(
       promptTokens: _readInt(usageMap['prompt_tokens']),
       completionTokens: _readInt(usageMap['completion_tokens']),
       totalTokens: _readInt(usageMap['total_tokens']),
-      cacheReadTokens: cachedTokens,
+      cacheReadTokens: cachedTokens ?? deepseekCacheHit,
     );
   }
 
