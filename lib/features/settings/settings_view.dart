@@ -3919,7 +3919,9 @@ class _AiInputCacheBreakpointPositionsControlState
   }
 
   // 与 ai_prompt_builder.dart 中实际编排一一对应；权重为视觉占比（不是
-  // 真实 token 占比，仅作示意，便于一眼看清是哪一段）。
+  // 真实 token 占比，仅作示意，便于一眼看清是哪一段）。配色采用低饱和
+  // 调色板，深浅模式下都可读。每段附带 cacheHint，提示该段对缓存命中
+  // 的稳定性影响。
   List<_PromptStructureSegment> _segments(bool isEn) {
     return [
       _PromptStructureSegment(
@@ -3928,7 +3930,10 @@ class _AiInputCacheBreakpointPositionsControlState
         summary: isEn
             ? 'Template system instructions, workspace instructions and runtime environment snapshot (OS / cwd / repo digest).'
             : '模板系统指令、工作区指令与运行时环境快照（OS / cwd / 仓库摘要）。',
-        color: const Color(0xFF6750A4),
+        cacheHint: isEn
+            ? 'Cache-friendly: highly stable across turns — ideal first breakpoint.'
+            : '缓存友好：跨轮极稳定，最适合作为第一个断点。',
+        color: const Color(0xFF6F4FB4),
         weight: 1.2,
       ),
       _PromptStructureSegment(
@@ -3937,7 +3942,10 @@ class _AiInputCacheBreakpointPositionsControlState
         summary: isEn
             ? 'Behavioural rules from the active prompt template (output format & guardrails).'
             : '当前提示词模板的开发者指令（行为规则与输出格式约束）。',
-        color: const Color(0xFF3F51B5),
+        cacheHint: isEn
+            ? 'Cache-friendly: rarely changes within a session.'
+            : '缓存友好：会话内极少变动。',
+        color: const Color(0xFF4955A6),
         weight: 1.0,
       ),
       _PromptStructureSegment(
@@ -3946,7 +3954,10 @@ class _AiInputCacheBreakpointPositionsControlState
         summary: isEn
             ? 'Built-in tool catalog, MCP capabilities and skill loaders the model can call (with DSML invocation rules).'
             : '内置工具目录、MCP 能力与 Skill 加载器（含 DSML 调用约束）。',
-        color: const Color(0xFF0288D1),
+        cacheHint: isEn
+            ? 'Cache-friendly: stable unless tool registry changes.'
+            : '较稳定：除非工具注册表变化，否则可放心命中缓存。',
+        color: const Color(0xFF2D6FA4),
         weight: 1.5,
       ),
       _PromptStructureSegment(
@@ -3955,7 +3966,10 @@ class _AiInputCacheBreakpointPositionsControlState
         summary: isEn
             ? 'Session metadata JSON: counters, todo list, plan flags, attachments.'
             : '会话元数据 JSON：计数器、Todo、计划标记、附件等。',
-        color: const Color(0xFF00897B),
+        cacheHint: isEn
+            ? 'Volatile: counters tick every turn — caching here often misses.'
+            : '易变：每轮计数器都会更新，断点放此处易失效。',
+        color: const Color(0xFF3E847B),
         weight: 0.6,
       ),
       _PromptStructureSegment(
@@ -3964,7 +3978,10 @@ class _AiInputCacheBreakpointPositionsControlState
         summary: isEn
             ? 'Long-term user memory facts integrated as tacit knowledge.'
             : '长期用户记忆事实，作为已掌握的常识自然融入。',
-        color: const Color(0xFF43A047),
+        cacheHint: isEn
+            ? 'Mostly stable: changes only when memory entries are edited.'
+            : '相对稳定：仅在记忆条目变更时才会失效。',
+        color: const Color(0xFF4F8C50),
         weight: 1.0,
       ),
       _PromptStructureSegment(
@@ -3973,7 +3990,10 @@ class _AiInputCacheBreakpointPositionsControlState
         summary: isEn
             ? 'Reusable prompt fragments authored by the user (project-level guidance).'
             : '用户预设的可复用指令片段（项目级权威指引）。',
-        color: const Color(0xFF7CB342),
+        cacheHint: isEn
+            ? 'Stable: edited rarely; safe to anchor a breakpoint after this band.'
+            : '稳定：极少修改，断点落在它后面较稳妥。',
+        color: const Color(0xFF84A03A),
         weight: 0.8,
       ),
       _PromptStructureSegment(
@@ -3982,7 +4002,10 @@ class _AiInputCacheBreakpointPositionsControlState
         summary: isEn
             ? 'Compressed summary of older conversations + recent chat snippets.'
             : '较早会话的压缩摘要 + 最近聊天纪要。',
-        color: const Color(0xFFFB8C00),
+        cacheHint: isEn
+            ? 'Slowly evolving: refreshed when compression runs.'
+            : '缓慢演化：仅在压缩重生成时刷新。',
+        color: const Color(0xFFB07B2C),
         weight: 0.6,
       ),
       _PromptStructureSegment(
@@ -3991,7 +4014,10 @@ class _AiInputCacheBreakpointPositionsControlState
         summary: isEn
             ? 'Past user / assistant / tool turns within the current session.'
             : '当前会话中的历史消息（用户 / 助手 / 工具结果）。',
-        color: const Color(0xFFE53935),
+        cacheHint: isEn
+            ? 'Append-only: mid-history breakpoints survive new turns at the tail.'
+            : '仅追加：放在历史中段的断点能跨多轮命中尾部新增内容。',
+        color: const Color(0xFFB85549),
         weight: 2.4,
       ),
       _PromptStructureSegment(
@@ -4000,7 +4026,10 @@ class _AiInputCacheBreakpointPositionsControlState
         summary: isEn
             ? 'The user message currently being answered (with attachment metadata).'
             : '当前正在回答的用户消息（含附件元数据）。',
-        color: const Color(0xFFD81B60),
+        cacheHint: isEn
+            ? 'Always changing: this is what the dynamic breakpoint targets.'
+            : '每轮变化：动态断点正是为命中此段而设。',
+        color: const Color(0xFFA04079),
         weight: 0.6,
       ),
     ];
@@ -4022,8 +4051,8 @@ class _AiInputCacheBreakpointPositionsControlState
           padding: const EdgeInsets.only(bottom: 6),
           child: Text(
             isEn
-                ? 'Each band maps to a prompt section. Drag the P-pins to position the static cache breakpoints; the dashed pin at the right is the dynamic breakpoint that follows the update interval.'
-                : '彩色段对应实际 prompt 各部分。拖动 P 插桩定位静态缓存断点；最右侧虚线插桩为动态断点（跟随更新间隔自动落点）。',
+                ? 'Each band maps to a prompt section. Drag the P-pins to position the static cache breakpoints; the dashed pin at the right is the dynamic breakpoint that follows the update interval. Band widths are illustrative — they do not reflect real token usage.'
+                : '彩色段对应实际 prompt 各部分。拖动 P 插桩定位静态缓存断点；最右侧虚线插桩为动态断点（跟随更新间隔自动落点）。各段宽度仅作示意，并非真实 token 占比。',
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -4193,6 +4222,7 @@ class _PromptStructureSegment {
     required this.id,
     required this.label,
     required this.summary,
+    required this.cacheHint,
     required this.color,
     required this.weight,
   });
@@ -4200,6 +4230,7 @@ class _PromptStructureSegment {
   final String id;
   final String label;
   final String summary;
+  final String cacheHint;
   final Color color;
   final double weight;
 }
@@ -4220,7 +4251,11 @@ class _StructureSegmentTile extends StatelessWidget {
             text: '${segment.label}\n',
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
-          TextSpan(text: segment.summary),
+          TextSpan(text: '${segment.summary}\n\n'),
+          TextSpan(
+            text: segment.cacheHint,
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          ),
         ],
       ),
       waitDuration: const Duration(milliseconds: 250),
@@ -4302,8 +4337,22 @@ class _StaticPegHandle extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Center(
-              child: Container(width: 2, color: accent),
+            child: Stack(
+              alignment: Alignment.topCenter,
+              children: [
+                // Vertical guide line down to the bar.
+                Center(
+                  child: Container(width: 2, color: accent),
+                ),
+                // Downward-pointing triangle that rests on the bar surface.
+                Positioned(
+                  bottom: 0,
+                  child: CustomPaint(
+                    size: const Size(10, 6),
+                    painter: _DownTrianglePainter(color: accent),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -4312,7 +4361,28 @@ class _StaticPegHandle extends StatelessWidget {
   }
 }
 
-class _DynamicPegHandle extends StatelessWidget {
+class _DownTrianglePainter extends CustomPainter {
+  _DownTrianglePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DownTrianglePainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _DynamicPegHandle extends StatefulWidget {
   const _DynamicPegHandle({
     required this.accent,
     required this.totalHeight,
@@ -4324,30 +4394,66 @@ class _DynamicPegHandle extends StatelessWidget {
   final String tooltip;
 
   @override
+  State<_DynamicPegHandle> createState() => _DynamicPegHandleState();
+}
+
+class _DynamicPegHandleState extends State<_DynamicPegHandle>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: widget.tooltip,
       waitDuration: const Duration(milliseconds: 250),
       child: SizedBox(
         width: 22,
-        height: totalHeight,
+        height: widget.totalHeight,
         child: Column(
           children: [
-            Container(
-              width: 22,
-              height: 18,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: accent, width: 1.4),
-              ),
-              alignment: Alignment.center,
-              child: Icon(Icons.bolt_rounded, size: 12, color: accent),
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) {
+                final t = _pulseController.value;
+                return Container(
+                  width: 22,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: widget.accent.withValues(alpha: 0.18 + 0.18 * t),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: widget.accent, width: 1.4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.accent.withValues(alpha: 0.15 + 0.25 * t),
+                        blurRadius: 4 + 6 * t,
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: child,
+                );
+              },
+              child: Icon(Icons.bolt_rounded, size: 12, color: widget.accent),
             ),
             Expanded(
               child: CustomPaint(
                 size: const Size(22, double.infinity),
-                painter: _DashedLinePainter(color: accent),
+                painter: _DashedLinePainter(color: widget.accent),
               ),
             ),
           ],
@@ -4392,22 +4498,49 @@ class _SegmentLegendChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Tooltip(
-      message: segment.summary,
-      waitDuration: const Duration(milliseconds: 250),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      richMessage: TextSpan(
         children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: segment.color,
-              shape: BoxShape.circle,
-            ),
+          TextSpan(
+            text: '${segment.label}\n',
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(width: 4),
-          Text(segment.label, style: theme.textTheme.bodySmall),
+          TextSpan(text: '${segment.summary}\n\n'),
+          TextSpan(
+            text: segment.cacheHint,
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          ),
         ],
+      ),
+      waitDuration: const Duration(milliseconds: 250),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: segment.color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: segment.color.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: segment.color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              segment.label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
