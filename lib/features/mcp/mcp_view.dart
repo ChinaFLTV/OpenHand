@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
+import '../../shared/widgets/highlight_pulse.dart';
 import 'data/mcp_store.dart';
 import 'mcp_controller.dart';
 import 'model/mcp_server.dart';
@@ -116,7 +117,9 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       (controller) => controller.mcpEnabled,
     );
 
-    return Column(
+    return Stack(
+      children: [
+        Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         LayoutBuilder(
@@ -208,6 +211,16 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               errorMessage: mcpSnapshot.errorMessage,
               servers: mcpSnapshot.servers,
             ),
+          ),
+        ),
+      ],
+    ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: HighlightPulse(signal: mcpController.saveSuccessSignal),
           ),
         ),
       ],

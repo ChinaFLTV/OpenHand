@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
+import '../../shared/widgets/highlight_pulse.dart';
 import 'data/memory_store.dart';
 import 'memory_controller.dart';
 import 'model/user_memory_entry.dart';
@@ -63,7 +64,9 @@ class MemoryView extends StatelessWidget {
       (controller) => controller.memoryEnabled,
     );
 
-    return Column(
+    return Stack(
+      children: [
+        Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         LayoutBuilder(
@@ -154,6 +157,18 @@ class MemoryView extends StatelessWidget {
               isLoading: memorySnapshot.isLoading,
               errorMessage: memorySnapshot.errorMessage,
               entries: memorySnapshot.entries,
+            ),
+          ),
+        ),
+      ],
+    ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: HighlightPulse(
+              signal: memoryController.saveSuccessSignal,
             ),
           ),
         ),

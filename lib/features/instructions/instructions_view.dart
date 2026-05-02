@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
+import '../../shared/widgets/highlight_pulse.dart';
 import 'instructions_controller.dart';
 import 'model/user_instruction_entry.dart';
 
@@ -43,7 +44,9 @@ class InstructionsView extends StatelessWidget {
         );
     final controller = context.read<InstructionsController>();
 
-    return Column(
+    return Stack(
+      children: [
+        Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         LayoutBuilder(
@@ -110,6 +113,16 @@ class InstructionsView extends StatelessWidget {
               ? Duration.zero
               : const Duration(milliseconds: 220),
             child: _buildBody(context, controller, snapshot),
+          ),
+        ),
+      ],
+    ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: HighlightPulse(signal: controller.saveSuccessSignal),
           ),
         ),
       ],

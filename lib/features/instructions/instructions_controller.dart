@@ -67,6 +67,12 @@ class InstructionsController extends ChangeNotifier {
       .where((entry) => entry.enabled)
       .toList(growable: false);
 
+  final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
+
+  /// Increments after each successful `_store.saveAll`. UI may listen via
+  /// `HighlightPulse` to flash on commit.
+  ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
+
   @override
   void notifyListeners() {
     if (_isDisposed) return;
@@ -76,6 +82,7 @@ class InstructionsController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _saveSuccessSignal.dispose();
     super.dispose();
   }
 
@@ -236,6 +243,7 @@ class InstructionsController extends ChangeNotifier {
     notifyListeners();
     try {
       await _store.saveAll(_entries);
+      _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
       return true;
     } catch (error) {
       _setEntries(previous);

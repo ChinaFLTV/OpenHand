@@ -60,6 +60,11 @@ class MemoryController extends ChangeNotifier {
   MemoryPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _operationQueue = Future<void>.value();
+  final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
+
+  /// Increments after each successful `_store.save`. UI may listen via
+  /// `HighlightPulse` to flash on commit.
+  ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -100,6 +105,7 @@ class MemoryController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _saveSuccessSignal.dispose();
     super.dispose();
   }
 
@@ -251,6 +257,7 @@ class MemoryController extends ChangeNotifier {
         _persistenceIssue = null;
         notifyListeners();
       }
+      _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
       return true;
     } catch (error) {
       _setEntries(previousEntries);

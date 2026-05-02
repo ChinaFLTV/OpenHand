@@ -83,6 +83,11 @@ class McpController extends ChangeNotifier {
   Future<void> _operationQueue = Future<void>.value();
   Timer? _pageActivationWorkTimer;
   Timer? _healthCheckTimer;
+  final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
+
+  /// Increments after each successful `_store.save`. UI may listen via
+  /// `HighlightPulse` to flash on commit.
+  ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -118,6 +123,7 @@ class McpController extends ChangeNotifier {
     } catch (_) {
       // Best-effort cleanup; super.dispose() must still be called.
     }
+    _saveSuccessSignal.dispose();
     super.dispose();
   }
 
@@ -440,6 +446,7 @@ class McpController extends ChangeNotifier {
         _persistenceIssue = null;
         notifyListeners();
       }
+      _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
       _reconcileHealthCheckTimer();
       if (_isPageActive &&
           shouldAutoRefreshTools &&
