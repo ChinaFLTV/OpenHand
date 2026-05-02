@@ -12,6 +12,7 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/hover_lift.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import 'data/mcp_store.dart';
 import 'mcp_controller.dart';
@@ -1057,7 +1058,8 @@ class _McpServerCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
-    return Card(
+    return HoverLift(
+      child: Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -1305,6 +1307,7 @@ class _McpServerCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

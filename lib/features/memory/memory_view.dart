@@ -9,6 +9,7 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/hover_lift.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import 'data/memory_store.dart';
 import 'memory_controller.dart';
@@ -908,7 +909,8 @@ class _MemoryEntryCard extends StatelessWidget {
         .toList(growable: false);
     final hiddenTagCount = displayTags.length - visibleTags.length;
 
-    return Card(
+    return HoverLift(
+      child: Card(
       clipBehavior: Clip.antiAlias,
       color: isProfile
           ? colorScheme.primaryContainer.withValues(alpha: 0.35)
@@ -1057,6 +1059,7 @@ class _MemoryEntryCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
+import '../../shared/widgets/hover_lift.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import 'model/local_skill.dart';
@@ -1503,7 +1504,8 @@ class _SkillCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
-    return Card(
+    return HoverLift(
+      child: Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
@@ -1604,6 +1606,7 @@ class _SkillCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
