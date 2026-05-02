@@ -3430,282 +3430,284 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get progExpFEThisFileIsStillInLarge3 =>
-      'This file is still in large-file preview mode. Open the full editor before formatting.';
+      'Diese Datei ist noch im Vorschaumodus für große Dateien. Öffnen Sie den vollen Editor, bevor Sie formatieren.';
 
   @override
-  String get progExpFEFormatDocument => 'Format Document';
+  String get progExpFEFormatDocument => 'Dokument formatieren';
 
   @override
   String get progExpFETheCurrentFileIsNotReady =>
-      'The current file is not ready yet. Try again in a moment.';
+      'Die aktuelle Datei ist noch nicht bereit. Versuchen Sie es in einem Moment erneut.';
 
   @override
   String get progExpFETheFormatterDidNotReturnAny =>
-      'The formatter did not return any edits to apply.';
+      'Der Formatter gab keine anzuwendenden Edits zurück.';
 
   @override
   String get progExpFEFormattingProducedTheSameContentSo =>
-      'Formatting produced the same content, so no text changed.';
+      'Die Formatierung ergab den gleichen Inhalt, daher hat sich kein Text geändert.';
 
   @override
-  String get progExpFEGoToDefinition => 'Go to Definition';
+  String get progExpFEGoToDefinition => 'Zur Definition gehen';
 
   @override
   String get progExpFENoDefinitionWasFoundAtThe =>
-      'No definition was found at the current cursor position.';
+      'An der aktuellen Cursorposition wurde keine Definition gefunden.';
 
   @override
   String get progExpFEMultipleDefinitionsWereFoundChooseA =>
-      'Multiple definitions were found. Choose a target to navigate to.';
+      'Mehrere Definitionen gefunden. Wählen Sie ein Ziel zum Navigieren.';
 
   @override
-  String get progExpFEFindReferences => 'Find References';
+  String get progExpFEFindReferences => 'Verweise finden';
 
   @override
   String get progExpFENoReferencesWereFoundAtThe =>
-      'No references were found at the current cursor position.';
+      'An der aktuellen Cursorposition wurden keine Verweise gefunden.';
 
   @override
-  String get progExpFEHoverInfo => 'Hover Info';
+  String get progExpFEHoverInfo => 'Hover-Info';
 
   @override
   String get progExpFEThereIsNoHoverInformationAt =>
-      'There is no hover information at the current cursor position.';
+      'An der aktuellen Cursorposition gibt es keine Hover-Information.';
 
   @override
-  String get progExpFELspBackend => 'LSP Backend';
+  String get progExpFELspBackend => 'LSP-Backend';
 
   @override
   String get progExpFEReResolveTheBackendForThe =>
-      'Re-resolve the backend for the current file';
+      'Backend für aktuelle Datei neu auflösen';
 
   @override
-  String get progExpFEInspectBackendDetails => 'Inspect backend details';
+  String get progExpFEInspectBackendDetails => 'Backend-Details prüfen';
 
   @override
-  String get progExpFECloseEsc => 'Close (Esc)';
+  String get progExpFECloseEsc => 'Schließen (Esc)';
 
   @override
-  String get progExpFEToggleComment => 'Toggle Comment';
+  String get progExpFEToggleComment => 'Kommentar umschalten';
 
   @override
   String get progExpFEThisLanguageDoesNotHaveA =>
-      'This language does not have a configured comment strategy yet, so comment toggling is unavailable.';
+      'Diese Sprache hat noch keine konfigurierte Kommentar-Strategie, daher ist das Kommentar-Umschalten nicht verfügbar.';
 
   @override
-  String get progExpFEGoToImplementation => 'Go to Implementation';
+  String get progExpFEGoToImplementation => 'Zur Implementierung gehen';
 
   @override
-  String get progExpFESignatureHelp => 'Signature Help';
+  String get progExpFESignatureHelp => 'Signaturhilfe';
 
   @override
   String get progExpFEThereIsNoSignatureHelpAvailable =>
-      'There is no signature help available at the current cursor position.';
+      'An der aktuellen Cursorposition ist keine Signaturhilfe verfügbar.';
 
   @override
-  String get progExpFEPreviousMatch => 'Previous Match';
+  String get progExpFEPreviousMatch => 'Vorherige Übereinstimmung';
 
   @override
-  String get progExpFENextMatch => 'Next Match';
+  String get progExpFENextMatch => 'Nächste Übereinstimmung';
 
   @override
-  String get progExpFEMatchCase => 'Match Case';
+  String get progExpFEMatchCase => 'Groß-/Kleinschreibung beachten';
 
   @override
-  String get progExpFEShowReplace => 'Show Replace';
+  String get progExpFEShowReplace => 'Ersetzen anzeigen';
 
   @override
-  String get progExpFEReplaceCurrent => 'Replace Current';
+  String get progExpFEReplaceCurrent => 'Aktuelle ersetzen';
 
   @override
-  String get progExpFEReplaceAll => 'Replace All';
+  String get progExpFEReplaceAll => 'Alle ersetzen';
 
   @override
-  String get progExpFECurrentFileSymbols => 'Current File Symbols';
+  String get progExpFECurrentFileSymbols => 'Symbole der aktuellen Datei';
 
   @override
-  String get progExpFEWorkspaceSymbols => 'Workspace Symbols';
+  String get progExpFEWorkspaceSymbols => 'Arbeitsbereichssymbole';
 
   @override
-  String get progExpFERefreshDiagnostics => 'Refresh diagnostics';
+  String get progExpFERefreshDiagnostics => 'Diagnose aktualisieren';
 
   @override
-  String get progExpFESymbols => 'Symbols';
+  String get progExpFESymbols => 'Symbole';
 
   @override
   String get progExpFESymbolNavigationShiftCmdCtrlO =>
-      'Symbol navigation (Shift+Cmd/Ctrl+O)';
+      'Symbol-Navigation (Shift+Cmd/Strg+O)';
 
   @override
-  String get progExpFEWorkspace => 'Workspace';
+  String get progExpFEWorkspace => 'Arbeitsbereich';
 
   @override
   String get progExpFEWorkspaceSymbolSearchCmdCtrlT =>
-      'Workspace symbol search (Cmd/Ctrl+T)';
+      'Arbeitsbereichs-Symbolsuche (Cmd/Strg+T)';
 
   @override
   String get progExpFEShowDiagnosticsForTheCurrentFile =>
-      'Show diagnostics for the current file';
+      'Diagnose für aktuelle Datei anzeigen';
 
   @override
   String get progExpFEInspectTheLspBackendBoundTo =>
-      'Inspect the LSP backend bound to the current file';
+      'Das an die aktuelle Datei gebundene LSP-Backend prüfen';
 
   @override
   String get progExpFEDef => 'Def';
 
   @override
   String get progExpFEGoToDefinitionF12CmdCtrl =>
-      'Go to Definition (F12 / Cmd/Ctrl+B)';
+      'Zur Definition gehen (F12 / Cmd/Strg+B)';
 
   @override
   String get progExpFERefs => 'Refs';
 
   @override
   String get progExpFEFindReferencesShiftF12CmdCtrl =>
-      'Find References (Shift+F12 / Cmd/Ctrl+Shift+B)';
+      'Verweise finden (Shift+F12 / Cmd/Strg+Shift+B)';
 
   @override
   String get progExpFEHover => 'Hover';
 
   @override
-  String get progExpFEHoverInfoCmdCtrlI => 'Hover Info (Cmd/Ctrl+I)';
+  String get progExpFEHoverInfoCmdCtrlI => 'Hover-Info (Cmd/Strg+I)';
 
   @override
-  String get progExpFERename => 'Rename';
+  String get progExpFERename => 'Umbenennen';
 
   @override
-  String get progExpFERenameSymbolF2 => 'Rename Symbol (F2)';
+  String get progExpFERenameSymbolF2 => 'Symbol umbenennen (F2)';
 
   @override
-  String get progExpFEActions => 'Actions';
+  String get progExpFEActions => 'Aktionen';
 
   @override
-  String get progExpFECodeActionsCmdCtrl => 'Code Actions (Cmd/Ctrl+.)';
+  String get progExpFECodeActionsCmdCtrl => 'Code-Aktionen (Cmd/Strg+.)';
 
   @override
-  String get progExpFEFormat => 'Format';
+  String get progExpFEFormat => 'Formatieren';
 
   @override
   String get progExpFENoImplementationWasFoundAtThe =>
-      'No implementation was found at the current cursor position.';
+      'An der aktuellen Cursorposition wurde keine Implementierung gefunden.';
 
   @override
   String get progExpFEMultipleImplementationsFoundChooseATarge =>
-      'Multiple implementations found. Choose a target to navigate to.';
+      'Mehrere Implementierungen gefunden. Wählen Sie ein Ziel zum Navigieren.';
 
   @override
-  String get progExpFERefactor => 'Refactor';
+  String get progExpFERefactor => 'Refaktorisieren';
 
   @override
   String get progExpFEReviewTheChangesBeforeApplying =>
-      'Review the changes before applying.';
+      'Prüfen Sie die Änderungen vor dem Anwenden.';
 
   @override
-  String get progExpFESaveFile => 'Save file';
+  String get progExpFESaveFile => 'Datei speichern';
 
   @override
   String get progExpFECloseEditorReturnToSession =>
-      'Close editor, return to session';
+      'Editor schließen, zur Sitzung zurückkehren';
 
   @override
   String get progExpFEShowQuickFixesForThisDiagnostic =>
-      'Show quick fixes for this diagnostic line';
+      'Schnellkorrekturen für diese Diagnosezeile anzeigen';
 
   @override
   String get progExpFELargeFilePerformanceModeIsActive =>
-      'Large-file performance mode is active: using a virtualized read-only preview to avoid full-document layout stalls.';
+      'Großdatei-Leistungsmodus aktiv: virtualisierte schreibgeschützte Vorschau wird verwendet, um vollständige Dokumentlayout-Stillstände zu vermeiden.';
 
   @override
-  String get progExpFEOpenFullEditorAnyway => 'Open full editor anyway';
+  String get progExpFEOpenFullEditorAnyway => 'Vollen Editor trotzdem öffnen';
 
   @override
-  String get settingsShortcuts => 'Shortcuts';
+  String get settingsShortcuts => 'Tastenkürzel';
 
   @override
   String get settingsConfigureKeyCombinationsForCommonActions =>
-      'Configure key combinations for common actions. OpenHand currently supports up to four simultaneous keys.';
+      'Tastenkombinationen für häufige Aktionen konfigurieren. OpenHand unterstützt derzeit bis zu vier gleichzeitige Tasten.';
 
   @override
-  String get settingsBuiltInTools => 'Built-in Tools';
+  String get settingsBuiltInTools => 'Integrierte Werkzeuge';
 
   @override
   String get settingsCrons => 'Crons';
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
-      'Controls retention and cold-start cleanup of cron execution history. The cleanup worker runs once per cold start with a hard timeout, single-flight lock and silentLog-only failures so it can never leak resources or loop indefinitely.';
+      'Steuert die Aufbewahrung und Cold-Start-Bereinigung des Cron-Ausführungsverlaufs. Der Bereinigungs-Worker läuft einmal pro Kaltstart mit hartem Timeout, Single-Flight-Sperre und nur silentLog-Fehlern, sodass er nie Ressourcen leaken oder endlos schleifen kann.';
 
   @override
   String get settingsHermesTalker => 'Hermes Talker';
 
   @override
   String get settingsConfigureHermesTalkerSelfLearningEvery =>
-      'Configure Hermes Talker self-learning: every 5 minutes a system cron scans sessions from the last 7 days and dispatches a restricted sub-agent to update memory and skills in the background.';
+      'Hermes Talker Selbstlernen konfigurieren: Alle 5 Minuten scannt ein System-Cron Sitzungen der letzten 7 Tage und sendet einen eingeschränkten Sub-Agenten, um Speicher und Skills im Hintergrund zu aktualisieren.';
 
   @override
   String get settingsEditor => 'Editor';
 
   @override
   String get settingsManagePerLanguageLspBackendsInstall =>
-      'Manage per-language LSP backends, install roots, and download assistant settings. Saved mappings are applied directly to editor navigation, diagnostics, rename, and code actions.';
+      'Pro-Sprache LSP-Backends, Installationsrouten und Download-Assistenteneinstellungen verwalten. Gespeicherte Zuordnungen werden direkt auf Editor-Navigation, Diagnose, Umbenennung und Code-Aktionen angewendet.';
 
   @override
-  String get settingsAppData => 'App Data';
+  String get settingsAppData => 'App-Daten';
 
   @override
-  String get settingsPerResponseToolCallLimit => 'Per-Response Tool Call Limit';
+  String get settingsPerResponseToolCallLimit =>
+      'Werkzeugaufruflimit pro Antwort';
 
   @override
-  String get settingsSaveLimit => 'Save Limit';
+  String get settingsSaveLimit => 'Limit speichern';
 
   @override
-  String get settingsSequentialToolRoundLimit => 'Sequential Tool Round Limit';
+  String get settingsSequentialToolRoundLimit =>
+      'Limit für aufeinanderfolgende Werkzeugrunden';
 
   @override
-  String get settingsSessionSettings => 'Session Settings';
+  String get settingsSessionSettings => 'Sitzungseinstellungen';
 
   @override
   String get settingsConfigureDefaultBehaviourForNewSessions =>
-      'Configure default behaviour for new sessions, including timeouts, auto-title, default mode, and permissions.';
+      'Standardverhalten für neue Sitzungen konfigurieren, einschließlich Timeouts, Auto-Titel, Standardmodus und Berechtigungen.';
 
   @override
-  String get settingsSendTimeoutS => 'Send Timeout (s)';
+  String get settingsSendTimeoutS => 'Sende-Timeout (s)';
 
   @override
   String get settingsMaximumWaitTimeToEstablishThe =>
-      'Maximum wait time to establish the HTTP connection and send the request. Default: 60 s.';
+      'Maximale Wartezeit, um die HTTP-Verbindung herzustellen und die Anfrage zu senden. Standard: 60 s.';
 
   @override
-  String get settingsSaveTimeout => 'Save Timeout';
+  String get settingsSaveTimeout => 'Timeout speichern';
 
   @override
-  String get settingsResponseTimeoutS => 'Response Timeout (s)';
+  String get settingsResponseTimeoutS => 'Antwort-Timeout (s)';
 
   @override
   String get settingsMaximumWaitForACompleteResponse =>
-      'Maximum wait for a complete response in non-streaming mode. Default: 120 s.';
+      'Maximale Wartezeit für eine vollständige Antwort im Nicht-Streaming-Modus. Standard: 120 s.';
 
   @override
-  String get settingsStreamIdleTimeoutS => 'Stream Idle Timeout (s)';
+  String get settingsStreamIdleTimeoutS => 'Stream-Leerlauf-Timeout (s)';
 
   @override
   String get settingsMaximumIdleWaitBetweenStreamChunks =>
-      'Maximum idle wait between stream chunks. Exceeding this causes \"Request timed out.\". Default: 120 s.';
+      'Maximale Leerlauf-Wartezeit zwischen Stream-Chunks. Bei Überschreitung führt dies zu „Request timed out.“. Standard: 120 s.';
 
   @override
-  String get settingsAutoTitle => 'Auto Title';
+  String get settingsAutoTitle => 'Auto-Titel';
 
   @override
   String get settingsWhenEnabledATitleIsAutomatically =>
-      'When enabled, a title is automatically generated after the first message in a new session.';
+      'Wenn aktiviert, wird nach der ersten Nachricht in einer neuen Sitzung automatisch ein Titel generiert.';
 
   @override
-  String get settingsDefaultSessionMode => 'Default Session Mode';
+  String get settingsDefaultSessionMode => 'Standard-Sitzungsmodus';
 
   @override
   String get settingsDefaultInteractionModeForNewSessions =>
-      'Default interaction mode for new sessions: Chat or Plan.';
+      'Standard-Interaktionsmodus für neue Sitzungen: Chat oder Plan.';
 
   @override
   String get settingsChat => 'Chat';
@@ -3714,337 +3716,343 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsPlan => 'Plan';
 
   @override
-  String get settingsDefaultFullAccess => 'Default Full Access';
+  String get settingsDefaultFullAccess => 'Standard-Vollzugriff';
 
   @override
   String get settingsWhenEnabledNewSessionsStartIn =>
-      'When enabled, new sessions start in full-access mode, allowing the AI to execute file and command operations without per-action confirmation.';
+      'Wenn aktiviert, starten neue Sitzungen im Vollzugriffsmodus, sodass die KI Datei- und Befehlsoperationen ohne Bestätigung pro Aktion ausführen kann.';
 
   @override
-  String get settingsUserProfile => 'User Profile';
+  String get settingsUserProfile => 'Benutzerprofil';
 
   @override
   String get settingsMaintainAGlobalUserProfileLanguage =>
-      'Maintain a global user profile (language style, focus areas, communication preferences). When non-empty, the profile is woven into the system prompt of every thread template so the AI feels personalised; self-learning incrementally refines it.';
+      'Verwalten Sie ein globales Benutzerprofil (Sprachstil, Schwerpunktbereiche, Kommunikationspräferenzen). Wenn nicht leer, wird das Profil in den Systemprompt jeder Faden-Vorlage eingewoben, sodass sich die KI personalisiert anfühlt; das Selbstlernen verfeinert es schrittweise.';
 
   @override
-  String get settingsModelProviderManagement => 'Model Provider Management';
+  String get settingsModelProviderManagement => 'Modellanbieter-Verwaltung';
 
   @override
   String get settingsAddSelectTestAndMaintainModel =>
-      'Add, select, test, and maintain model provider configurations. Each provider can serve multiple models.';
+      'Modellanbieter-Konfigurationen hinzufügen, auswählen, testen und pflegen. Jeder Anbieter kann mehrere Modelle bereitstellen.';
 
   @override
-  String get settingsCompressionTrigger => 'Compression Trigger';
+  String get settingsCompressionTrigger => 'Kompressions-Trigger';
 
   @override
   String get settingsOnceTheUncompressedHistoryInA =>
-      'Once the uncompressed history in a thread exceeds this value, OpenHand creates a new summary checkpoint.';
+      'Sobald der unkomprimierte Verlauf in einem Faden diesen Wert überschreitet, erstellt OpenHand einen neuen Zusammenfassungs-Checkpoint.';
 
   @override
   String get settingsToolCallOutputCompressionThreshold =>
-      'Tool Call Output Compression Threshold';
+      'Schwellwert für Werkzeugaufruf-Ausgabekompression';
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.';
+      'Wenn ein Werkzeugaufruf mehr Rohzeichen zurückgibt als dieser Schwellwert, verdichtet OpenHand das Ergebnis in eine strukturierte Zusammenfassung (betroffene Pfade + Zweck + Kopf-/Endausschnitt), bevor es zum Verlauf hinzugefügt wird. Standard 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
-      'Defaults to 40. If one assistant response exceeds this many tool calls, OpenHand posts a warning message and stops the round safely.';
+      'Standard 40. Wenn eine Assistenten-Antwort diese Anzahl an Werkzeugaufrufen überschreitet, sendet OpenHand eine Warnung und stoppt die Runde sicher.';
 
   @override
   String get settingsDefaultsTo24RoundsIfThe =>
-      'Defaults to 24 rounds. If the assistant keeps requesting another tool round after each execution, OpenHand stops once this round limit is reached to prevent runaway tool loops.';
+      'Standard 24 Runden. Wenn der Assistent nach jeder Ausführung weitere Werkzeugrunden anfordert, stoppt OpenHand bei Erreichen dieses Rundenlimits, um außer Kontrolle geratene Werkzeugschleifen zu verhindern.';
 
   @override
-  String get settingsImageSizeLimit => 'Image Size Limit';
+  String get settingsImageSizeLimit => 'Bildgrößen-Limit';
 
   @override
   String get settingsDefaultsTo1mbImageAttachmentsLarger =>
-      'Defaults to 1MB. Image attachments larger than this cap are auto-compressed before the editor opens and stored within the limit, keeping sessions and prompts compact.';
+      'Standard 1 MB. Bildanhänge, die größer sind als dieses Limit, werden vor dem Öffnen des Editors automatisch komprimiert und innerhalb des Limits gespeichert, um Sitzungen und Prompts kompakt zu halten.';
 
   @override
-  String get settingsCostControl => 'Cost Control';
+  String get settingsCostControl => 'Kostenkontrolle';
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Reduce token costs by freezing the prompt static prefix and inserting protocol-level cache breakpoints. When enabled: a new session freezes the current built-in tools / skills / MCP / instructions / memory as an immutable prefix; the provider and model are locked once the first user message is sent; the Anthropic adapter automatically injects cache_control breakpoints.';
+      'Reduzieren Sie Token-Kosten, indem Sie das statische Prompt-Präfix einfrieren und Cache-Breakpoints auf Protokollebene einfügen. Wenn aktiviert: Eine neue Sitzung friert die aktuellen integrierten Werkzeuge / Skills / MCP / Anweisungen / Speicher als unveränderliches Präfix ein; der Anbieter und das Modell werden gesperrt, sobald die erste Benutzernachricht gesendet wird; der Anthropic-Adapter injiziert automatisch cache_control-Breakpoints.';
 
   @override
-  String get settingsEnableInputCache => 'Enable Input Cache';
+  String get settingsEnableInputCache => 'Eingabecache aktivieren';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      'Disabled by default. When enabled, every newly created session — across all thread templates and models — freezes its prompt static prefix (system instructions / tool definitions / skills / MCP / instructions / memory). Subsequent edits to skills, MCP, memory, etc. do NOT affect existing sessions; they only take effect for sessions created afterward — ensuring maximum immutability and cache hit rate.';
+      'Standardmäßig deaktiviert. Wenn aktiviert, friert jede neu erstellte Sitzung – über alle Faden-Vorlagen und Modelle hinweg – ihr statisches Prompt-Präfix ein (Systemanweisungen / Werkzeugdefinitionen / Skills / MCP / Anweisungen / Speicher). Spätere Änderungen an Skills, MCP, Speicher etc. wirken sich NICHT auf bestehende Sitzungen aus; sie greifen nur in danach erstellten Sitzungen – für maximale Unveränderlichkeit und Cache-Trefferquote.';
 
   @override
   String get settingsCacheBreakpointUpdateMode =>
-      'Cache Breakpoint Update Mode';
+      'Cache-Breakpoint-Aktualisierungsmodus';
 
   @override
   String get settingsChooseTheSlidingUnitForThe =>
-      'Choose the sliding unit for the dynamic cache breakpoint: total message count (user+assistant), user-message-only count, or accumulated tokens threshold.';
+      'Wählen Sie die gleitende Einheit für den dynamischen Cache-Breakpoint: Gesamt-Nachrichtenanzahl (Benutzer+Assistent), nur Benutzer-Nachrichtenanzahl oder akkumulierter Token-Schwellwert.';
 
   @override
   String get settingsByMessageCountUserAssistant =>
-      'By message count (user+assistant)';
+      'Nach Nachrichtenanzahl (Benutzer+Assistent)';
 
   @override
-  String get settingsByUserMessageCountOnly => 'By user-message count only';
+  String get settingsByUserMessageCountOnly =>
+      'Nur nach Benutzer-Nachrichtenanzahl';
 
   @override
-  String get settingsByAccumulatedTokens => 'By accumulated tokens';
+  String get settingsByAccumulatedTokens => 'Nach akkumulierten Token';
 
   @override
   String get settingsCacheBreakpointUpdateInterval =>
-      'Cache Breakpoint Update Interval';
+      'Cache-Breakpoint-Aktualisierungsintervall';
 
   @override
   String get settingsDefault10MeaningDependsOnThe =>
-      'Default 10. Meaning depends on the mode above: message count (1-50 recommended) / user-message count (1-30 recommended) / tokens threshold (≥1000 recommended).';
+      'Standard 10. Bedeutung hängt vom obigen Modus ab: Nachrichtenanzahl (1-50 empfohlen) / Benutzer-Nachrichtenanzahl (1-30 empfohlen) / Token-Schwellwert (≥1000 empfohlen).';
 
   @override
-  String get settingsSave => 'Save';
+  String get settingsSave => 'Speichern';
 
   @override
-  String get settingsCacheBreakpointCount => 'Cache Breakpoint Count';
+  String get settingsCacheBreakpointCount => 'Anzahl der Cache-Breakpoints';
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      'Default 4, range 1-4. Anthropic supports up to 4 cache_control breakpoints per request. The first N-1 are pinned at static prefix slice points (system prompt / tools / skills / MCP / instructions / memory); the Nth slides through the message stream per the update interval above.';
+      'Standard 4, Bereich 1-4. Anthropic unterstützt bis zu 4 cache_control-Breakpoints pro Anfrage. Die ersten N-1 sind an statischen Präfix-Schnittpunkten (System-Prompt / Werkzeuge / Skills / MCP / Anweisungen / Speicher) angeheftet; der N-te gleitet gemäß dem obigen Aktualisierungsintervall durch den Nachrichtenstrom.';
 
   @override
-  String get settingsCommandSafety => 'Command Safety';
+  String get settingsCommandSafety => 'Befehlssicherheit';
 
   @override
   String get settingsControlWriteCommandConfirmationForBash =>
-      'Control write-command confirmation for bash and manage deny rules in one place.';
+      'Schreib-Befehlsbestätigung für bash steuern und Verweigerungsregeln an einem Ort verwalten.';
 
   @override
-  String get settingsWriteCommandConfirmation => 'Write Command Confirmation';
+  String get settingsWriteCommandConfirmation => 'Schreib-Befehlsbestätigung';
 
   @override
   String get settingsEnabledByDefaultWhenTheAi =>
-      'Enabled by default. When the AI tries to run a write-like bash command, OpenHand will ask for your confirmation first.';
+      'Standardmäßig aktiviert. Wenn die KI versucht, einen schreibähnlichen bash-Befehl auszuführen, fragt OpenHand zuerst nach Ihrer Bestätigung.';
 
   @override
-  String get settingsAllowCommandList => 'Allow Command List';
+  String get settingsAllowCommandList => 'Erlaubte Befehlsliste';
 
   @override
   String get settingsMatchingWriteLikeBashCommandsSkip =>
-      'Matching write-like bash commands skip the confirmation dialog and run immediately. Only use this for stable command patterns you explicitly trust.';
+      'Übereinstimmende schreibähnliche bash-Befehle überspringen den Bestätigungsdialog und werden sofort ausgeführt. Nur für stabile Befehlsmuster verwenden, denen Sie ausdrücklich vertrauen.';
 
   @override
-  String get settingsAddAllowRule => 'Add Allow Rule';
+  String get settingsAddAllowRule => 'Erlaubnisregel hinzufügen';
 
   @override
-  String get settingsNoAllowRulesConfigured => 'No allow rules configured';
+  String get settingsNoAllowRulesConfigured =>
+      'Keine Erlaubnisregeln konfiguriert';
 
   @override
   String get settingsAddARuleToLetMatching =>
-      'Add a rule to let matching write commands bypass confirmation.';
+      'Fügen Sie eine Regel hinzu, damit übereinstimmende Schreibbefehle die Bestätigung umgehen.';
 
   @override
-  String get settingsDenyCommandList => 'Deny Command List';
+  String get settingsDenyCommandList => 'Verweigerungsbefehlsliste';
 
   @override
   String get settingsMatchingBashCommandsAreBlockedBefore =>
-      'Matching bash commands are blocked before execution and the denial result is returned to the model instead. Supports regex and simple wildcard patterns such as `rm *`.';
+      'Übereinstimmende bash-Befehle werden vor der Ausführung blockiert und das Verweigerungsergebnis stattdessen an das Modell zurückgegeben. Unterstützt Regex und einfache Wildcards wie „rm *“.';
 
   @override
-  String get settingsAddRule => 'Add Rule';
+  String get settingsAddRule => 'Regel hinzufügen';
 
   @override
-  String get settingsNoDenyRulesConfigured => 'No deny rules configured';
+  String get settingsNoDenyRulesConfigured =>
+      'Keine Verweigerungsregeln konfiguriert';
 
   @override
   String get settingsAddARuleToBlockMatching =>
-      'Add a rule to block matching bash commands before they run.';
+      'Fügen Sie eine Regel hinzu, um übereinstimmende bash-Befehle vor der Ausführung zu blockieren.';
 
   @override
-  String get settingsTelemetry => 'Telemetry';
+  String get settingsTelemetry => 'Telemetrie';
 
   @override
   String get settingsWhenEnabledOpenhandCapturesRawAi =>
-      'When enabled, OpenHand captures raw AI responses, request parameters, timings and errors so you can inspect them from message/session audit dialogs.';
+      'Wenn aktiviert, erfasst OpenHand rohe KI-Antworten, Anfrageparameter, Zeiten und Fehler, sodass Sie sie in Nachrichten-/Sitzungs-Audit-Dialogen prüfen können.';
 
   @override
-  String get settingsDebugMode => 'Debug Mode';
+  String get settingsDebugMode => 'Debug-Modus';
 
   @override
   String get settingsOffByDefaultWhenEnabledEvery =>
-      'Off by default. When enabled, every message card exposes an Audit pill on hover/focus and each session toolbar shows a session-level Audit action.';
+      'Standardmäßig aus. Wenn aktiviert, zeigt jede Nachrichtenkarte beim Hovern/Fokussieren eine Audit-Pille, und jede Sitzungs-Toolbar zeigt eine Audit-Aktion auf Sitzungsebene.';
 
   @override
-  String get settingsCaptureRawPayload => 'Capture Raw Payload';
+  String get settingsCaptureRawPayload => 'Rohnutzlast erfassen';
 
   @override
   String get settingsEnabledByDefaultOnlyActiveWhen =>
-      'Enabled by default. Only active when debug mode is on. Attaches the raw JSON/SSE chunks to message metadata for auditing.';
+      'Standardmäßig aktiviert. Nur aktiv, wenn der Debug-Modus eingeschaltet ist. Hängt die rohen JSON-/SSE-Chunks zur Auditierung an die Nachrichten-Metadaten an.';
 
   @override
-  String get settingsCaptureEnvironment => 'Capture Environment';
+  String get settingsCaptureEnvironment => 'Umgebung erfassen';
 
   @override
   String get settingsOffByDefaultOnlyActiveWhen =>
-      'Off by default. Only active when debug mode is on. Attaches working directory, platform details and process environment variables (may contain secrets) to message metadata — enable with care.';
+      'Standardmäßig aus. Nur aktiv, wenn der Debug-Modus eingeschaltet ist. Hängt Arbeitsverzeichnis, Plattform-Details und Prozess-Umgebungsvariablen (kann Geheimnisse enthalten) an die Nachrichten-Metadaten an – mit Vorsicht aktivieren.';
 
   @override
-  String get settingsShortcutBindings => 'Shortcut Bindings';
+  String get settingsShortcutBindings => 'Tastenkürzel-Zuweisungen';
 
   @override
   String get settingsClickRecordThenPressTheNew =>
-      'Click record, then press the new key combination to update a binding. Model and session switching wrap around automatically.';
+      'Klicken Sie auf „Aufzeichnen“ und drücken Sie dann die neue Tastenkombination, um eine Zuweisung zu aktualisieren. Modell- und Sitzungswechsel umlaufen automatisch.';
 
   @override
   String get settingsAutoCleanupExecutionHistory =>
-      'Auto-cleanup execution history';
+      'Ausführungsverlauf automatisch bereinigen';
 
   @override
   String get settingsOnEveryColdStartAnAsync =>
-      'On every cold start, an async worker runs once to delete history older than the retention window. The worker is single-flight, has a hard timeout, and silently logs failures so it can never block the UI or loop indefinitely.';
+      'Bei jedem Kaltstart läuft einmal ein asynchroner Worker, um Verlauf älter als das Aufbewahrungsfenster zu löschen. Der Worker ist Single-Flight, hat ein hartes Timeout und protokolliert Fehler still, sodass er die Oberfläche niemals blockieren oder endlos schleifen kann.';
 
   @override
-  String get settingsEnableSelfLearning => 'Enable self-learning';
+  String get settingsEnableSelfLearning => 'Selbstlernen aktivieren';
 
   @override
   String get settingsWhenOffTheSchedulerSkipsEvery =>
-      'When off, the scheduler skips every Hermes Talker session. The system cron entry is preserved but never dispatches a sub-agent.';
+      'Wenn aus, überspringt der Scheduler jede Hermes Talker Sitzung. Der System-Cron-Eintrag bleibt erhalten, sendet aber niemals einen Sub-Agenten.';
 
   @override
-  String get settingsShowSelfLearningMessages => 'Show self-learning messages';
+  String get settingsShowSelfLearningMessages =>
+      'Selbstlern-Nachrichten anzeigen';
 
   @override
   String get settingsWhenOffSelfLearningCardsAre =>
-      'When off, \"self-learning\" cards are hidden from the chat transcript (background learning still runs). Defaults to on.';
+      'Wenn aus, werden „Selbstlern“-Karten aus dem Chat-Verlauf ausgeblendet (Hintergrundlernen läuft weiter). Standard ein.';
 
   @override
-  String get settingsToolCatalogOverview => 'Tool Catalog Overview';
+  String get settingsToolCatalogOverview => 'Werkzeugkatalog-Übersicht';
 
   @override
-  String get settingsResetAll => 'Reset All';
+  String get settingsResetAll => 'Alle zurücksetzen';
 
   @override
-  String get settingsEnableAll => 'Enable All';
+  String get settingsEnableAll => 'Alle aktivieren';
 
   @override
-  String get settingsDisableAll => 'Disable All';
+  String get settingsDisableAll => 'Alle deaktivieren';
 
   @override
   String get settingsNoBuiltInToolConfigurations =>
-      'No built-in tool configurations';
+      'Keine integrierten Werkzeugkonfigurationen';
 
   @override
   String get settingsClickResetAllToRestoreThe =>
-      'Click \"Reset All\" to restore the default tool list.';
+      'Klicken Sie auf „Alle zurücksetzen“, um die Standardwerkzeugliste wiederherzustellen.';
 
   @override
-  String get settingsResetBuiltInToolConfigs => 'Reset Built-in Tool Configs';
+  String get settingsResetBuiltInToolConfigs =>
+      'Integrierte Werkzeugkonfigurationen zurücksetzen';
 
   @override
-  String get settingsCancel => 'Cancel';
+  String get settingsCancel => 'Abbrechen';
 
   @override
-  String get settingsReset => 'Reset';
+  String get settingsReset => 'Zurücksetzen';
 
   @override
-  String get settingsDeleteCustomTool => 'Delete Custom Tool';
+  String get settingsDeleteCustomTool => 'Benutzerdefiniertes Werkzeug löschen';
 
   @override
-  String get settingsDelete => 'Delete';
+  String get settingsDelete => 'Löschen';
 
   @override
-  String get settingsSendTimeoutSaved => 'Send timeout saved.';
+  String get settingsSendTimeoutSaved => 'Sende-Timeout gespeichert.';
 
   @override
-  String get settingsResponseTimeoutSaved => 'Response timeout saved.';
+  String get settingsResponseTimeoutSaved => 'Antwort-Timeout gespeichert.';
 
   @override
-  String get settingsStreamIdleTimeoutSaved => 'Stream idle timeout saved.';
+  String get settingsStreamIdleTimeoutSaved =>
+      'Stream-Leerlauf-Timeout gespeichert.';
 
   @override
   String get settingsCacheBreakpointUpdateIntervalSaved =>
-      'Cache breakpoint update interval saved';
+      'Cache-Breakpoint-Aktualisierungsintervall gespeichert';
 
   @override
   String get settingsCacheBreakpointCountSaved =>
-      'Cache breakpoint count saved';
+      'Anzahl der Cache-Breakpoints gespeichert';
 
   @override
-  String get settingsCacheBreakpointPositions => 'Cache Breakpoint Positions';
+  String get settingsCacheBreakpointPositions => 'Cache-Breakpoint-Positionen';
 
   @override
   String get settingsCacheBreakpointPositionsSaved =>
-      'Cache breakpoint positions saved';
+      'Cache-Breakpoint-Positionen gespeichert';
 
   @override
   String get settingsEnterAToolCallLimitGreater =>
-      'Enter a tool call limit greater than 0.';
+      'Werkzeugaufruflimit größer als 0 eingeben.';
 
   @override
   String get settingsThePerResponseToolCallLimit =>
-      'The per-response tool call limit has been saved.';
+      'Werkzeugaufruflimit pro Antwort gespeichert.';
 
   @override
   String get settingsEnterASequentialToolRoundLimit =>
-      'Enter a sequential tool round limit greater than 0.';
+      'Limit für aufeinanderfolgende Werkzeugrunden größer als 0 eingeben.';
 
   @override
   String get settingsTheSequentialToolRoundLimitHas =>
-      'The sequential tool round limit has been saved.';
+      'Limit für aufeinanderfolgende Werkzeugrunden gespeichert.';
 
   @override
-  String get settingsDeleteDenyRule => 'Delete Deny Rule';
+  String get settingsDeleteDenyRule => 'Verweigerungsregel löschen';
 
   @override
   String get settingsTheDenyCommandRuleHasBeen =>
-      'The deny command rule has been deleted.';
+      'Verweigerungs-Befehlsregel gelöscht.';
 
   @override
-  String get settingsDeleteAllowRule => 'Delete Allow Rule';
+  String get settingsDeleteAllowRule => 'Erlaubnisregel löschen';
 
   @override
   String get settingsTheAllowCommandRuleHasBeen =>
-      'The allow command rule has been deleted.';
+      'Erlaubnis-Befehlsregel gelöscht.';
 
   @override
-  String get settingsTheShortcutHasBeenUpdated =>
-      'The shortcut has been updated.';
+  String get settingsTheShortcutHasBeenUpdated => 'Tastenkürzel aktualisiert.';
 
   @override
   String get settingsTheEditorShortcutHasBeenUpdated =>
-      'The editor shortcut has been updated.';
+      'Editor-Tastenkürzel aktualisiert.';
 
   @override
-  String get settingsSendMessage => 'Send Message';
+  String get settingsSendMessage => 'Nachricht senden';
 
   @override
-  String get settingsCollapseOrExpandComposer => 'Collapse or Expand Composer';
+  String get settingsCollapseOrExpandComposer =>
+      'Eingabefeld einklappen oder erweitern';
 
   @override
-  String get settingsPreviousModel => 'Previous Model';
+  String get settingsPreviousModel => 'Vorheriges Modell';
 
   @override
-  String get settingsNextModel => 'Next Model';
+  String get settingsNextModel => 'Nächstes Modell';
 
   @override
-  String get settingsToggleAutoFollow => 'Toggle Auto Follow';
+  String get settingsToggleAutoFollow => 'Auto-Folgen umschalten';
 
   @override
-  String get settingsPreviousSession => 'Previous Session';
+  String get settingsPreviousSession => 'Vorherige Sitzung';
 
   @override
-  String get settingsNextSession => 'Next Session';
+  String get settingsNextSession => 'Nächste Sitzung';
 
   @override
-  String get settingsSaveFile => 'Save File';
+  String get settingsSaveFile => 'Datei speichern';
 
   @override
-  String get settingsTriggerCompletion => 'Trigger Completion';
+  String get settingsTriggerCompletion => 'Vervollständigung auslösen';
 
   @override
-  String get settingsShowSignatureHelp => 'Show Signature Help';
+  String get settingsShowSignatureHelp => 'Signaturhilfe anzeigen';
 
   @override
   String get settingsFind => 'Find';
