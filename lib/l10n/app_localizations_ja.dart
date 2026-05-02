@@ -2703,590 +2703,580 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tlCallUnnamed => '（名称未設定）';
 
   @override
-  String get tlCallJustNow => 'just now';
+  String get tlCallJustNow => 'たった今';
 
   @override
-  String get sessMetaMessages => 'Messages';
+  String get sessMetaMessages => 'メッセージ';
 
   @override
-  String get sessMetaPromptBuilds => 'Prompt Builds';
+  String get sessMetaPromptBuilds => 'プロンプト構築回数';
 
   @override
-  String get sessMetaCompressions => 'Compressions';
+  String get sessMetaCompressions => '圧縮回数';
 
   @override
-  String get sessMetaTotalTokens => 'Total Tokens';
+  String get sessMetaTotalTokens => '合計トークン';
 
   @override
-  String get sessMetaMode => 'Mode';
+  String get sessMetaMode => 'モード';
 
   @override
-  String get sessMetaRuntimeTools => 'Runtime Tools';
+  String get sessMetaRuntimeTools => 'ランタイムツール';
 
   @override
-  String get sessMetaPending => 'Pending';
+  String get sessMetaPending => '保留中';
 
   @override
-  String get sessMetaCurrentSessionMetadata => 'Current Session Metadata';
+  String get sessMetaCurrentSessionMetadata => '現在のセッションメタデータ';
 
   @override
-  String get sessMetaSessionOverview => 'Session Overview';
+  String get sessMetaSessionOverview => 'セッション概要';
 
   @override
-  String get sessMetaExtendedMetadata => 'Extended Metadata';
+  String get sessMetaExtendedMetadata => '拡張メタデータ';
 
   @override
-  String get sessMetaStatistics => 'Statistics';
+  String get sessMetaStatistics => '統計';
 
   @override
-  String get sessMetaUser => 'User';
+  String get sessMetaUser => 'ユーザー';
 
   @override
-  String get sessMetaAssistant => 'Assistant';
+  String get sessMetaAssistant => 'アシスタント';
 
   @override
-  String get sessMetaTool => 'Tool';
+  String get sessMetaTool => 'ツール';
 
   @override
-  String get sessMetaSkill => 'Skill';
+  String get sessMetaSkill => 'スキル';
 
   @override
-  String get sessMetaCompression => 'Compression';
+  String get sessMetaCompression => '圧縮';
 
   @override
-  String get sessMetaEnvironment => 'Environment';
+  String get sessMetaEnvironment => '環境';
 
   @override
-  String get sessMetaCommandPolicy => 'Command Policy';
+  String get sessMetaCommandPolicy => 'コマンドポリシー';
 
   @override
-  String get sessMetaPromptMetadataIsNotAvailableYet =>
-      'Prompt metadata is not available yet.';
+  String get sessMetaPromptMetadataIsNotAvailableYet => 'プロンプトメタデータはまだ利用できません。';
 
   @override
-  String get sessMetaWriteConfirmation => 'Write Confirmation';
+  String get sessMetaWriteConfirmation => '書き込み確認';
 
   @override
-  String get sessMetaRequired => 'Required';
+  String get sessMetaRequired => '必須';
 
   @override
-  String get sessMetaNotRequired => 'Not required';
+  String get sessMetaNotRequired => '不要';
 
   @override
-  String get sessMetaAllowRules => 'Allow Rules';
+  String get sessMetaAllowRules => '許可ルール';
 
   @override
-  String get sessMetaThereAreNoSurfacedAllowCommand =>
-      'There are no surfaced allow command rules.';
+  String get sessMetaThereAreNoSurfacedAllowCommand => '表示する許可コマンドルールはありません。';
 
   @override
-  String get sessMetaRuntimeOrchestration => 'Runtime Orchestration';
+  String get sessMetaRuntimeOrchestration => 'ランタイムオーケストレーション';
 
   @override
-  String get sessMetaStateSource => 'State Source';
+  String get sessMetaStateSource => '状態ソース';
 
   @override
   String get sessMetaGeneratedFromTheCurrentModelMcp =>
-      'Generated from the current model, MCP/skills, and plan state';
+      '現在のモデル、MCP/スキル、プラン状態から生成';
 
   @override
   String get sessMetaTheLastPersistedRuntimeSnapshot =>
-      'The last persisted runtime snapshot';
+      '最後に永続化されたランタイムスナップショット';
 
   @override
-  String get sessMetaToolCatalogState => 'Tool Catalog State';
+  String get sessMetaToolCatalogState => 'ツールカタログ状態';
 
   @override
-  String get sessMetaGateReason => 'Gate Reason';
+  String get sessMetaGateReason => 'ゲート理由';
 
   @override
-  String get sessMetaRuntimeToolCount => 'Runtime Tool Count';
+  String get sessMetaRuntimeToolCount => 'ランタイムツール数';
 
   @override
-  String get sessMetaRefreshesNextRound => 'Refreshes next round';
+  String get sessMetaRefreshesNextRound => '次のラウンドで更新';
 
   @override
-  String get sessMetaRuntimeNotices => 'Runtime Notices';
+  String get sessMetaRuntimeNotices => 'ランタイム通知';
 
   @override
-  String get sessMetaCurrentRuntimeTools => 'Current Runtime Tools';
+  String get sessMetaCurrentRuntimeTools => '現在のランタイムツール';
 
   @override
-  String get sessMetaTaskTracking => 'Task Tracking';
+  String get sessMetaTaskTracking => 'タスク追跡';
 
   @override
-  String get sessMetaCurrentTodos => 'Current Todos';
+  String get sessMetaCurrentTodos => '現在の TODO';
 
   @override
-  String get sessMetaPlanRecords => 'Plan Records';
+  String get sessMetaPlanRecords => 'プラン記録';
 
   @override
-  String get sessMetaTodowriteReminder => 'TodoWrite Reminder';
+  String get sessMetaTodowriteReminder => 'TodoWrite リマインダー';
 
   @override
-  String get sessMetaTriggered => 'Triggered';
+  String get sessMetaTriggered => '発動';
 
   @override
-  String get sessMetaNotTriggered => 'Not triggered';
+  String get sessMetaNotTriggered => '未発動';
 
   @override
-  String get sessMetaUnavailable => 'Unavailable';
+  String get sessMetaUnavailable => '利用不可';
 
   @override
-  String get sessMetaReminderReason => 'Reminder Reason';
+  String get sessMetaReminderReason => 'リマインダー理由';
 
   @override
-  String get sessMetaPlanHistory => 'Plan History';
+  String get sessMetaPlanHistory => 'プラン履歴';
 
   @override
-  String get sessMetaRecentErrors => 'Recent Errors';
+  String get sessMetaRecentErrors => '最近のエラー';
 
   @override
-  String get sessMetaThereAreNoSessionErrorsTo =>
-      'There are no session errors to review.';
+  String get sessMetaThereAreNoSessionErrorsTo => '確認するセッションエラーはありません。';
 
   @override
-  String get sessMetaLastPromptMetadata => 'Last Prompt Metadata';
+  String get sessMetaLastPromptMetadata => '最後のプロンプトメタデータ';
 
   @override
-  String get sessMetaClose => 'Close';
+  String get sessMetaClose => '閉じる';
 
   @override
-  String get sessMetaPendingApproval => 'Pending Approval';
+  String get sessMetaPendingApproval => '承認待ち';
 
   @override
-  String get sessMetaInProgress => 'In Progress';
+  String get sessMetaInProgress => '進行中';
 
   @override
-  String get sessMetaCompleted => 'Completed';
+  String get sessMetaCompleted => '完了';
 
   @override
-  String get sessMetaFailed => 'Failed';
+  String get sessMetaFailed => '失敗';
 
   @override
-  String get sessMetaCancelled => 'Cancelled';
+  String get sessMetaCancelled => 'キャンセル';
 
   @override
-  String get sessMetaCreated => 'Created';
+  String get sessMetaCreated => '作成日時';
 
   @override
-  String get sessMetaUpdated => 'Updated';
+  String get sessMetaUpdated => '更新日時';
 
   @override
-  String get sessMetaErrorDetail => 'Error Detail';
+  String get sessMetaErrorDetail => 'エラー詳細';
 
   @override
-  String get sessMetaPresented => 'Presented';
+  String get sessMetaPresented => '表示';
 
   @override
   String get sessMetaThisSessionEndedEarlyRetryThe =>
-      'This session ended early. Retry the request or continue with a more specific instruction.';
+      'このセッションは途中で終了しました。リクエストをリトライするか、より具体的な指示で続行してください。';
 
   @override
-  String get sessMetaToolCallsStoppedForSafety =>
-      'Tool Calls Stopped for Safety';
+  String get sessMetaToolCallsStoppedForSafety => '安全のためツール呼び出しを停止';
 
   @override
   String get sessMetaOpenhandStoppedThisSessionForSafety =>
-      'OpenHand stopped this session for safety after too many sequential tool rounds. This stop happened in the session controller before the next tool could run, not because one specific tool execution failed. Ask the assistant to summarize the current progress or give a more specific next step.';
+      '連続ツールラウンドが多すぎたため、OpenHand は安全のためこのセッションを停止しました。この停止は次のツールが実行される前にセッションコントローラで発生したものであり、特定のツール実行が失敗したわけではありません。アシスタントに現在の進捗を要約させるか、より具体的な次のステップを指示してください。';
 
   @override
-  String get sessMetaResponseInterrupted => 'Response Interrupted';
+  String get sessMetaResponseInterrupted => '応答が中断されました';
 
   @override
   String get sessMetaTheResponseWasInterruptedWhileStreaming =>
-      'The response was interrupted while streaming and this session has stopped. Retry the request or continue with a new message.';
+      'ストリーミング中に応答が中断され、このセッションは停止しました。リクエストをリトライするか、新しいメッセージで続行してください。';
 
   @override
-  String get sessMetaRequestFailed => 'Request Failed';
+  String get sessMetaRequestFailed => 'リクエストが失敗しました';
 
   @override
   String get sessMetaTheRequestFailedBeforeTheAssistant =>
-      'The request failed before the assistant could continue. Check the configuration and retry, or send a new message.';
+      'アシスタントが続行する前にリクエストが失敗しました。設定を確認してリトライするか、新しいメッセージを送ってください。';
 
   @override
-  String get sessMetaContinuationFailed => 'Continuation Failed';
+  String get sessMetaContinuationFailed => '継続が失敗しました';
 
   @override
   String get sessMetaTheSessionFailedWhileRequestingThe =>
-      'The session failed while requesting the next assistant round after continuing execution. Completed steps and tool results were preserved. Reply with continue/retry, or check the configuration and try again.';
+      '実行を継続した後、次のアシスタントラウンドのリクエスト中にセッションが失敗しました。完了したステップとツール結果は保持されています。「continue/retry」と返信するか、設定を確認してから再度お試しください。';
 
   @override
-  String get sessMetaSafetyStop => 'Safety Stop';
+  String get sessMetaSafetyStop => '安全停止';
 
   @override
-  String get sessMetaStreamError => 'Stream Error';
+  String get sessMetaStreamError => 'ストリームエラー';
 
   @override
-  String get sessMetaRequestError => 'Request Error';
+  String get sessMetaRequestError => 'リクエストエラー';
 
   @override
-  String get sessMetaContinuationError => 'Continuation Error';
+  String get sessMetaContinuationError => '継続エラー';
 
   @override
-  String get sessMetaToolExecutionError => 'Tool Execution Error';
+  String get sessMetaToolExecutionError => 'ツール実行エラー';
 
   @override
-  String get sessMetaCompressionError => 'Compression Error';
+  String get sessMetaCompressionError => '圧縮エラー';
 
   @override
-  String get sessMetaPromptBlocked => 'Prompt Blocked';
+  String get sessMetaPromptBlocked => 'プロンプトブロック';
 
   @override
-  String get sessMetaTitleGenerationError => 'Title Generation Error';
+  String get sessMetaTitleGenerationError => 'タイトル生成エラー';
 
   @override
-  String get sessMetaSessionError => 'Session Error';
+  String get sessMetaSessionError => 'セッションエラー';
 
   @override
-  String get auditNoData => 'No data';
+  String get auditNoData => 'データなし';
 
   @override
-  String get auditCopyJson => 'Copy JSON';
+  String get auditCopyJson => 'JSON をコピー';
 
   @override
-  String get auditCopiedToClipboard => 'Copied to clipboard';
+  String get auditCopiedToClipboard => 'クリップボードにコピーしました';
 
   @override
-  String get auditMessageAudit => 'Message Audit';
+  String get auditMessageAudit => 'メッセージ監査';
 
   @override
-  String get auditClose => 'Close';
+  String get auditClose => '閉じる';
 
   @override
-  String get auditOverview => 'Overview';
+  String get auditOverview => '概要';
 
   @override
-  String get auditMessageId => 'Message ID';
+  String get auditMessageId => 'メッセージ ID';
 
   @override
-  String get auditSessionId => 'Session ID';
+  String get auditSessionId => 'セッション ID';
 
   @override
-  String get auditRole => 'Role';
+  String get auditRole => 'ロール';
 
   @override
-  String get auditKind => 'Kind';
+  String get auditKind => '種別';
 
   @override
-  String get auditCharacterCount => 'Character Count';
+  String get auditCharacterCount => '文字数';
 
   @override
-  String get auditStreaming => 'Streaming';
+  String get auditStreaming => 'ストリーミング';
 
   @override
-  String get auditDeleted => 'Deleted';
+  String get auditDeleted => '削除済み';
 
   @override
-  String get auditHasError => 'Has Error';
+  String get auditHasError => 'エラーあり';
 
   @override
-  String get auditTiming => 'Timing';
+  String get auditTiming => 'タイミング';
 
   @override
-  String get auditStartedCreated => 'Started / Created';
+  String get auditStartedCreated => '開始 / 作成';
 
   @override
-  String get auditEnded => 'Ended';
+  String get auditEnded => '終了';
 
   @override
-  String get auditDurationMs => 'Duration (ms)';
+  String get auditDurationMs => '所要時間 (ms)';
 
   @override
-  String get auditModelTokens => 'Model & Tokens';
+  String get auditModelTokens => 'モデルとトークン';
 
   @override
-  String get auditModelId => 'Model ID';
+  String get auditModelId => 'モデル ID';
 
   @override
-  String get auditModelLabel => 'Model Label';
+  String get auditModelLabel => 'モデルラベル';
 
   @override
-  String get auditTotalTokens => 'Total Tokens';
+  String get auditTotalTokens => '合計トークン';
 
   @override
-  String get auditPromptTokens => 'Prompt Tokens';
+  String get auditPromptTokens => 'プロンプトトークン';
 
   @override
-  String get auditCompletionTokens => 'Completion Tokens';
+  String get auditCompletionTokens => '応答トークン';
 
   @override
-  String get auditTokenBreakdown => 'Token Breakdown';
+  String get auditTokenBreakdown => 'トークン内訳';
 
   @override
-  String get auditError => 'Error';
+  String get auditError => 'エラー';
 
   @override
-  String get auditContent => 'Content';
+  String get auditContent => 'コンテンツ';
 
   @override
   String get auditFullComposedPromptThatWasActually =>
-      'Full composed prompt that was actually sent to the AI for this round (system instructions, tool catalog, memory, history and user input).';
+      'このラウンドで実際に AI に送信された完全な合成プロンプト（システム指示、ツールカタログ、メモリ、履歴、ユーザー入力）。';
 
   @override
   String get auditWaitingForComposedPromptInjectionAuto =>
-      'Waiting for composed prompt injection (auto-refreshes during streaming).';
+      '合成プロンプトの注入を待っています（ストリーミング中に自動更新）。';
 
   @override
-  String get auditUserRawInput => 'User Raw Input';
+  String get auditUserRawInput => 'ユーザーの生入力';
 
   @override
-  String get auditStructuredPromptTurns => 'Structured Prompt Turns';
+  String get auditStructuredPromptTurns => '構造化プロンプトターン';
 
   @override
-  String get auditNone => 'None';
+  String get auditNone => 'なし';
 
   @override
-  String get auditPromptMetadata => 'Prompt Metadata';
+  String get auditPromptMetadata => 'プロンプトメタデータ';
 
   @override
-  String get auditRequest => 'Request';
+  String get auditRequest => 'リクエスト';
 
   @override
-  String get auditMethod => 'Method';
+  String get auditMethod => 'メソッド';
 
   @override
-  String get auditHeaders => 'Headers';
+  String get auditHeaders => 'ヘッダー';
 
   @override
   String get auditNotCapturedEnableSettingsAiTelemetry =>
-      'Not captured (enable Settings → AI → Telemetry Debug)';
+      '未取得（設定 → AI → テレメトリデバッグを有効化してください）';
 
   @override
   String get auditBodyQueryPath => 'Body / Query / Path';
 
   @override
-  String get auditRawAiResponse => 'Raw AI Response';
+  String get auditRawAiResponse => 'AI 生レスポンス';
 
   @override
-  String get auditExpandRawResponse => 'Expand raw response';
+  String get auditExpandRawResponse => '生レスポンスを展開';
 
   @override
   String get auditNotCapturedDebugDisabledOrResponse =>
-      'Not captured: debug disabled or response unavailable';
+      '未取得：デバッグが無効、または応答が利用できません';
 
   @override
-  String get auditAttachments => 'Attachments';
+  String get auditAttachments => '添付ファイル';
 
   @override
-  String get auditAttachmentList => 'Attachment list';
+  String get auditAttachmentList => '添付ファイル一覧';
 
   @override
-  String get auditNoAttachments => 'No attachments';
+  String get auditNoAttachments => '添付ファイルなし';
 
   @override
-  String get auditFullMetadata => 'Full Metadata';
+  String get auditFullMetadata => '完全なメタデータ';
 
   @override
-  String get auditMessageMetadata => 'Message metadata';
+  String get auditMessageMetadata => 'メッセージメタデータ';
 
   @override
-  String get auditSessionEnvironment => 'Session Environment';
+  String get auditSessionEnvironment => 'セッション環境';
 
   @override
-  String get auditEnvironmentSnapshot => 'Environment snapshot';
+  String get auditEnvironmentSnapshot => '環境スナップショット';
 
   @override
-  String get auditAuditSnapshotCopied => 'Audit snapshot copied';
+  String get auditAuditSnapshotCopied => '監査スナップショットをコピーしました';
 
   @override
-  String get auditCopyAuditSnapshot => 'Copy Audit Snapshot';
+  String get auditCopyAuditSnapshot => '監査スナップショットをコピー';
 
   @override
-  String get auditSessionMetadataSaved => 'Session metadata saved';
+  String get auditSessionMetadataSaved => 'セッションメタデータを保存しました';
 
   @override
-  String get auditSessionAudit => 'Session Audit';
+  String get auditSessionAudit => 'セッション監査';
 
   @override
-  String get auditTemplate => 'Template';
+  String get auditTemplate => 'テンプレート';
 
   @override
-  String get auditCreatedAt => 'Created At';
+  String get auditCreatedAt => '作成日時';
 
   @override
-  String get auditUpdatedAt => 'Updated At';
+  String get auditUpdatedAt => '更新日時';
 
   @override
-  String get auditMessages => 'Messages';
+  String get auditMessages => 'メッセージ';
 
   @override
-  String get auditLastModel => 'Last Model';
+  String get auditLastModel => '最後のモデル';
 
   @override
-  String get auditTitleEditable => 'Title (Editable)';
+  String get auditTitleEditable => 'タイトル（編集可）';
 
   @override
-  String get auditSessionTitle => 'Session title';
+  String get auditSessionTitle => 'セッションタイトル';
 
   @override
-  String get auditSaveTitle => 'Save Title';
+  String get auditSaveTitle => 'タイトルを保存';
 
   @override
-  String get auditSessionMetadataEditableJson =>
-      'Session Metadata (Editable JSON)';
+  String get auditSessionMetadataEditableJson => 'セッションメタデータ（編集可能 JSON）';
 
   @override
   String get auditSaveWritesBackThroughTheSession =>
-      'Save writes back through the session controller with live UI diff; removed keys are cleared.';
+      '保存はセッションコントローラ経由でライブ UI 差分とともに書き戻されます。削除されたキーはクリアされます。';
 
   @override
-  String get auditSaveMetadata => 'Save Metadata';
+  String get auditSaveMetadata => 'メタデータを保存';
 
   @override
-  String get auditRuntimePromptMetadataReadOnly =>
-      'Runtime Prompt Metadata (Read-only)';
+  String get auditRuntimePromptMetadataReadOnly => 'ランタイムプロンプトメタデータ（読み取り専用）';
 
   @override
   String get auditUsefulForPromptConstructionTroubleshooti =>
-      'Useful for prompt-construction troubleshooting; auto-updated by runtime.';
+      'プロンプト構築のトラブルシューティングに有用です。ランタイムにより自動更新されます。';
 
   @override
   String get auditLastPromptMetadata => 'last_prompt_metadata';
 
   @override
-  String get auditNoRuntimePromptMetadataYet =>
-      'No runtime prompt metadata yet';
+  String get auditNoRuntimePromptMetadataYet => 'ランタイムプロンプトメタデータはまだありません';
 
   @override
-  String get auditEnvironment => 'Environment';
+  String get auditEnvironment => '環境';
 
   @override
-  String get auditErrorList => 'Error list';
+  String get auditErrorList => 'エラー一覧';
 
   @override
-  String get auditNoErrorsRecorded => 'No errors recorded';
+  String get auditNoErrorsRecorded => '記録されたエラーはありません';
 
   @override
-  String get auditTapARowToInspectA =>
-      'Tap a row to inspect a message; delete removes it from storage.';
+  String get auditTapARowToInspectA => '行をタップしてメッセージを確認します。削除でストレージから削除されます。';
 
   @override
-  String get auditNoMessages => 'No messages';
+  String get auditNoMessages => 'メッセージなし';
 
   @override
-  String get auditAudit => 'Audit';
+  String get auditAudit => '監査';
 
   @override
-  String get auditDelete => 'Delete';
+  String get auditDelete => '削除';
 
   @override
-  String get progExpFESelectOpenedFile => 'Select Opened File';
+  String get progExpFESelectOpenedFile => '開いたファイルを選択';
 
   @override
-  String get progExpFEExpandSelected => 'Expand Selected';
+  String get progExpFEExpandSelected => '選択を展開';
 
   @override
-  String get progExpFECollapseAll => 'Collapse All';
+  String get progExpFECollapseAll => 'すべて折りたたむ';
 
   @override
   String get progExpFETypeASymbolNameToSearch =>
-      'Type a symbol name to search across files in the current workspace.';
+      'シンボル名を入力して、現在のワークスペースのファイル全体を検索します。';
 
   @override
   String get progExpFENoWorkspaceSymbolBackendIsAvailable =>
-      'No workspace symbol backend is available for the current file.';
+      '現在のファイルに対応するワークスペースシンボルバックエンドはありません。';
 
   @override
   String get progExpFENoMatchingWorkspaceSymbolsWereFound =>
-      'No matching workspace symbols were found.';
+      '一致するワークスペースシンボルは見つかりませんでした。';
 
   @override
   String get progExpFEFetchingWorkspaceSymbolsFailedConfirmTha =>
-      'Fetching workspace symbols failed. Confirm that the active language server supports workspace/symbol.';
+      'ワークスペースシンボルの取得に失敗しました。アクティブな言語サーバーが workspace/symbol をサポートしているか確認してください。';
 
   @override
   String get progExpFEThisFileIsStillInLarge =>
-      'This file is still in large-file preview mode, so the symbol bar is using local extraction to stay responsive.';
+      'このファイルはまだ大きなファイルプレビューモードのため、シンボルバーは応答性を維持するためにローカル抽出を使用しています。';
 
   @override
   String get progExpFENoLspSymbolBackendIsAvailable =>
-      'No LSP symbol backend is available for this file, so the symbol bar fell back to local extraction.';
+      'このファイルに対応する LSP シンボルバックエンドがないため、シンボルバーはローカル抽出にフォールバックしました。';
 
   @override
   String get progExpFETheLspServerReturnedAnEmpty =>
-      'The LSP server returned an empty symbol list.';
+      'LSP サーバーは空のシンボルリストを返しました。';
 
   @override
   String get progExpFEFetchingLspSymbolsFailedSoThe =>
-      'Fetching LSP symbols failed, so the symbol bar fell back to local extraction.';
+      'LSP シンボルの取得に失敗したため、シンボルバーはローカル抽出にフォールバックしました。';
 
   @override
-  String get progExpFERenameSymbol => 'Rename Symbol';
+  String get progExpFERenameSymbol => 'シンボル名を変更';
 
   @override
   String get progExpFEReviewTheDiffForThisRename =>
-      'Review the diff for this rename before deciding whether to apply it.';
+      '適用するかどうかを判断する前に、この名前変更の差分を確認してください。';
 
   @override
   String get progExpFETheRenameWasCancelledAndNo =>
-      'The rename was cancelled and no changes were applied.';
+      '名前変更はキャンセルされ、変更は適用されませんでした。';
 
   @override
   String get progExpFETheSymbolAtTheCurrentCursor =>
-      'The symbol at the current cursor position cannot be renamed.';
+      '現在のカーソル位置のシンボルは名前変更できません。';
 
   @override
   String get progExpFETheLanguageServerDidNotReturn =>
-      'The language server did not return any edits to apply.';
+      '言語サーバーは適用する編集を返しませんでした。';
 
   @override
-  String get progExpFECodeActions => 'Code Actions';
+  String get progExpFECodeActions => 'コードアクション';
 
   @override
   String get progExpFENoCodeActionsAreAvailableAt =>
-      'No code actions are available at the current cursor position.';
+      '現在のカーソル位置で利用可能なコードアクションはありません。';
 
   @override
   String get progExpFEReviewTheDiffFromThisCode =>
-      'Review the diff from this code action before applying it.';
+      'このコードアクションを適用する前に差分を確認してください。';
 
   @override
   String get progExpFEIfTheLanguageServerCommandRequests =>
-      'If the language-server command requests edits while running, those edits will also be previewed first.';
+      '実行中に言語サーバーコマンドが編集を要求した場合、それらの編集も先にプレビューされます。';
 
   @override
   String get progExpFETheCodeActionWasCancelledAnd =>
-      'The code action was cancelled and no changes were applied.';
+      'コードアクションはキャンセルされ、変更は適用されませんでした。';
 
   @override
-  String get progExpFEExecutedTheLanguageServerCommand =>
-      'Executed the language-server command.';
+  String get progExpFEExecutedTheLanguageServerCommand => '言語サーバーコマンドを実行しました。';
 
   @override
   String get progExpFESomeLanguageServerRequestedEditsWere =>
-      'Some language-server requested edits were skipped.';
+      '言語サーバーが要求した一部の編集はスキップされました。';
 
   @override
   String get progExpFEThisCodeActionDidNotReturn =>
-      'This code action did not return any applicable edits.';
+      'このコードアクションは適用可能な編集を返しませんでした。';
 
   @override
-  String get progExpFEQuickFix => 'Quick Fix';
+  String get progExpFEQuickFix => 'クイックフィックス';
 
   @override
   String get progExpFENoQuickFixesAreAvailableFor =>
-      'No quick fixes are available for the hovered diagnostic.';
+      'ホバーしている診断にはクイックフィックスがありません。';
 
   @override
   String get progExpFENoCodeActionsAreAvailableFor =>
-      'No code actions are available for the hovered diagnostic.';
+      'ホバーしている診断にはコードアクションがありません。';
 
   @override
-  String get progExpFENoQuickFixesAreAvailableFor2 =>
-      'No quick fixes are available for this diagnostic line.';
+  String get progExpFENoQuickFixesAreAvailableFor2 => 'この診断行にはクイックフィックスがありません。';
 
   @override
   String get progExpFETheCurrentFileIsStillLoading =>
-      'The current file is still loading, so LSP actions are not available yet.';
+      '現在のファイルはまだ読み込み中のため、LSP アクションはまだ利用できません。';
 
   @override
   String get progExpFEThisFileIsStillInLarge2 =>
-      'This file is still in large-file preview mode. Open the full editor before running LSP navigation.';
+      'このファイルはまだ大きなファイルプレビューモードです。LSP ナビゲーションを実行する前にフルエディタを開いてください。';
 
   @override
   String get progExpFETheCurrentFileIsStillLoading2 =>
-      'The current file is still loading, so document-level edit actions are not available yet.';
+      '現在のファイルはまだ読み込み中のため、ドキュメントレベルの編集アクションはまだ利用できません。';
 
   @override
   String get progExpFEThisFileIsStillInLarge3 =>
