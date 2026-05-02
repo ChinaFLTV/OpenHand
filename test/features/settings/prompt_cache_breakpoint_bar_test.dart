@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:openhand/features/settings/widgets/prompt_cache_breakpoint_bar.dart';
+import 'package:openhand/l10n/app_localizations.dart';
 
 Future<void> _pumpBar(
   WidgetTester tester, {
@@ -16,6 +17,9 @@ Future<void> _pumpBar(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SizedBox(
           width: 600,

@@ -7228,6 +7228,84 @@ abstract class AppLocalizations {
   /// **'缓存断点位置已保存'**
   String get settingsCacheBreakpointPositionsSaved;
 
+  /// No description provided for @cacheBarTopDescription.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'彩色段对应实际 prompt 各部分。拖动 P 插桩定位静态缓存断点；最右侧虚线插桩为动态断点（跟随更新间隔自动落点）。各段宽度仅作示意，并非真实 token 占比。'**
+  String get cacheBarTopDescription;
+
+  /// No description provided for @cacheBarSectionSysLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[0] 系统指令'**
+  String get cacheBarSectionSysLabel;
+
+  /// No description provided for @cacheBarSectionDevLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[1] 开发者指令'**
+  String get cacheBarSectionDevLabel;
+
+  /// No description provided for @cacheBarSectionToolsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[2] 工具目录'**
+  String get cacheBarSectionToolsLabel;
+
+  /// No description provided for @cacheBarSectionStateLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[3] 会话状态'**
+  String get cacheBarSectionStateLabel;
+
+  /// No description provided for @cacheBarSectionMemoryLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[4] 用户记忆'**
+  String get cacheBarSectionMemoryLabel;
+
+  /// No description provided for @cacheBarSectionUserInstLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[4.5] 用户指令'**
+  String get cacheBarSectionUserInstLabel;
+
+  /// No description provided for @cacheBarSectionSummaryLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[5] 会话摘要'**
+  String get cacheBarSectionSummaryLabel;
+
+  /// No description provided for @cacheBarSectionHistoryLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'历史消息'**
+  String get cacheBarSectionHistoryLabel;
+
+  /// No description provided for @cacheBarSectionLatestLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[6] 最新消息'**
+  String get cacheBarSectionLatestLabel;
+
+  /// No description provided for @cacheBarDynamicTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'动态断点：跟随缓存更新间隔自动落点。'**
+  String get cacheBarDynamicTooltip;
+
+  /// No description provided for @cacheBarDynamicSuffix.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'（动态）'**
+  String get cacheBarDynamicSuffix;
+
+  /// No description provided for @cacheBarResetEven.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置为均匀分布'**
+  String get cacheBarResetEven;
+
   /// No description provided for @settingsAiBudgetUsdPerSession.
   ///
   /// In zh_Hans, this message translates to:

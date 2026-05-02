@@ -3811,6 +3811,46 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsCacheBreakpointPositionsSaved => 'キャッシュブレークポイント位置を保存しました';
 
   @override
+  String get cacheBarTopDescription =>
+      '各バンドはプロンプトの各セクションに対応します。P ピンをドラッグして静的キャッシュブレークポイントを配置します。右端の破線ピンは更新間隔に追従する動的ブレークポイントです。バンドの幅はあくまで概念的な表示であり、実際のトークン使用量を反映するものではありません。';
+
+  @override
+  String get cacheBarSectionSysLabel => '[0] システム';
+
+  @override
+  String get cacheBarSectionDevLabel => '[1] 開発者';
+
+  @override
+  String get cacheBarSectionToolsLabel => '[2] ツール';
+
+  @override
+  String get cacheBarSectionStateLabel => '[3] 状態';
+
+  @override
+  String get cacheBarSectionMemoryLabel => '[4] メモリ';
+
+  @override
+  String get cacheBarSectionUserInstLabel => '[4.5] 指示';
+
+  @override
+  String get cacheBarSectionSummaryLabel => '[5] 要約';
+
+  @override
+  String get cacheBarSectionHistoryLabel => '履歴';
+
+  @override
+  String get cacheBarSectionLatestLabel => '[6] 最新';
+
+  @override
+  String get cacheBarDynamicTooltip => '動的ブレークポイント — キャッシュ更新間隔に追従します。';
+
+  @override
+  String get cacheBarDynamicSuffix => '（動的）';
+
+  @override
+  String get cacheBarResetEven => '均等にリセット';
+
+  @override
   String get settingsAiBudgetUsdPerSession => 'セッションごとの予算（USD）';
 
   @override

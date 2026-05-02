@@ -4011,6 +4011,47 @@ class AppLocalizationsFr extends AppLocalizations {
       'Positions des points d’arrêt de cache enregistrées';
 
   @override
+  String get cacheBarTopDescription =>
+      'Chaque bande correspond à une section du prompt. Faites glisser les épingles P pour placer les points de rupture statiques du cache ; l’épingle pointillée à droite est le point de rupture dynamique qui suit l’intervalle de mise à jour. Les largeurs des bandes sont indicatives — elles ne reflètent pas l’utilisation réelle des tokens.';
+
+  @override
+  String get cacheBarSectionSysLabel => '[0] Système';
+
+  @override
+  String get cacheBarSectionDevLabel => '[1] Développeur';
+
+  @override
+  String get cacheBarSectionToolsLabel => '[2] Outils';
+
+  @override
+  String get cacheBarSectionStateLabel => '[3] État';
+
+  @override
+  String get cacheBarSectionMemoryLabel => '[4] Mémoire';
+
+  @override
+  String get cacheBarSectionUserInstLabel => '[4.5] Inst.';
+
+  @override
+  String get cacheBarSectionSummaryLabel => '[5] Résumé';
+
+  @override
+  String get cacheBarSectionHistoryLabel => 'Historique';
+
+  @override
+  String get cacheBarSectionLatestLabel => '[6] Récent';
+
+  @override
+  String get cacheBarDynamicTooltip =>
+      'Point de rupture dynamique — suit l’intervalle de mise à jour du cache.';
+
+  @override
+  String get cacheBarDynamicSuffix => '(dynamique)';
+
+  @override
+  String get cacheBarResetEven => 'Réinitialiser uniformément';
+
+  @override
   String get settingsAiBudgetUsdPerSession => 'Budget par session (USD)';
 
   @override

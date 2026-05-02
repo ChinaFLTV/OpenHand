@@ -9,6 +9,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
+
 class PromptCacheBreakpointBar extends StatefulWidget {
   const PromptCacheBreakpointBar({
     super.key,
@@ -69,11 +71,11 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
   // 真实 token 占比，仅作示意，便于一眼看清是哪一段）。配色采用低饱和
   // 调色板，深浅模式下都可读。每段附带 cacheHint，提示该段对缓存命中
   // 的稳定性影响。
-  List<_PromptStructureSegment> _segments(bool isEn) {
+  List<_PromptStructureSegment> _segments(AppLocalizations l10n, bool isEn) {
     return [
       _PromptStructureSegment(
         id: 'sys',
-        label: isEn ? '[0] System' : '[0] 系统指令',
+        label: l10n.cacheBarSectionSysLabel,
         summary: isEn
             ? 'Template system instructions, workspace instructions and runtime environment snapshot (OS / cwd / repo digest).'
             : '模板系统指令、工作区指令与运行时环境快照（OS / cwd / 仓库摘要）。',
@@ -85,7 +87,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
       ),
       _PromptStructureSegment(
         id: 'dev',
-        label: isEn ? '[1] Developer' : '[1] 开发者指令',
+        label: l10n.cacheBarSectionDevLabel,
         summary: isEn
             ? 'Behavioural rules from the active prompt template (output format & guardrails).'
             : '当前提示词模板的开发者指令（行为规则与输出格式约束）。',
@@ -97,7 +99,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
       ),
       _PromptStructureSegment(
         id: 'tools',
-        label: isEn ? '[2] Tools' : '[2] 工具目录',
+        label: l10n.cacheBarSectionToolsLabel,
         summary: isEn
             ? 'Built-in tool catalog, MCP capabilities and skill loaders the model can call (with DSML invocation rules).'
             : '内置工具目录、MCP 能力与 Skill 加载器（含 DSML 调用约束）。',
@@ -109,7 +111,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
       ),
       _PromptStructureSegment(
         id: 'state',
-        label: isEn ? '[3] State' : '[3] 会话状态',
+        label: l10n.cacheBarSectionStateLabel,
         summary: isEn
             ? 'Session metadata JSON: counters, todo list, plan flags, attachments.'
             : '会话元数据 JSON：计数器、Todo、计划标记、附件等。',
@@ -121,7 +123,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
       ),
       _PromptStructureSegment(
         id: 'memory',
-        label: isEn ? '[4] Memory' : '[4] 用户记忆',
+        label: l10n.cacheBarSectionMemoryLabel,
         summary: isEn
             ? 'Long-term user memory facts integrated as tacit knowledge.'
             : '长期用户记忆事实，作为已掌握的常识自然融入。',
@@ -133,7 +135,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
       ),
       _PromptStructureSegment(
         id: 'user_inst',
-        label: isEn ? '[4.5] Inst.' : '[4.5] 用户指令',
+        label: l10n.cacheBarSectionUserInstLabel,
         summary: isEn
             ? 'Reusable prompt fragments authored by the user (project-level guidance).'
             : '用户预设的可复用指令片段（项目级权威指引）。',
@@ -145,7 +147,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
       ),
       _PromptStructureSegment(
         id: 'summary',
-        label: isEn ? '[5] Summary' : '[5] 会话摘要',
+        label: l10n.cacheBarSectionSummaryLabel,
         summary: isEn
             ? 'Compressed summary of older conversations + recent chat snippets.'
             : '较早会话的压缩摘要 + 最近聊天纪要。',
@@ -157,7 +159,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
       ),
       _PromptStructureSegment(
         id: 'history',
-        label: isEn ? 'History' : '历史消息',
+        label: l10n.cacheBarSectionHistoryLabel,
         summary: isEn
             ? 'Past user / assistant / tool turns within the current session.'
             : '当前会话中的历史消息（用户 / 助手 / 工具结果）。',
@@ -169,7 +171,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
       ),
       _PromptStructureSegment(
         id: 'latest',
-        label: isEn ? '[6] Latest' : '[6] 最新消息',
+        label: l10n.cacheBarSectionLatestLabel,
         summary: isEn
             ? 'The user message currently being answered (with attachment metadata).'
             : '当前正在回答的用户消息（含附件元数据）。',
@@ -186,8 +188,9 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final isEn = Localizations.localeOf(context).languageCode == 'en';
-    final segments = _segments(isEn);
+    final segments = _segments(l10n, isEn);
     final percentLabel = _draft
         .map((v) => '${(v * 100).round()}%')
         .toList(growable: false);
@@ -197,9 +200,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
         Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: Text(
-            isEn
-                ? 'Each band maps to a prompt section. Drag the P-pins to position the static cache breakpoints; the dashed pin at the right is the dynamic breakpoint that follows the update interval. Band widths are illustrative — they do not reflect real token usage.'
-                : '彩色段对应实际 prompt 各部分。拖动 P 插桩定位静态缓存断点；最右侧虚线插桩为动态断点（跟随更新间隔自动落点）。各段宽度仅作示意，并非真实 token 占比。',
+            l10n.cacheBarTopDescription,
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -261,9 +262,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
                       child: _DynamicPegHandle(
                         accent: cs.tertiary,
                         totalHeight: _topReserve + _barHeight,
-                        tooltip: isEn
-                            ? 'Dynamic breakpoint — follows the cache update interval.'
-                            : '动态断点：跟随缓存更新间隔自动落点。',
+                        tooltip: l10n.cacheBarDynamicTooltip,
                       ),
                     ),
                   ],
@@ -291,8 +290,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
                 style: theme.textTheme.bodySmall,
               ),
             Text(
-              'P${percentLabel.length + 1}: 100% '
-              '${isEn ? '(dynamic)' : '（动态）'}',
+              'P${percentLabel.length + 1}: 100% ${l10n.cacheBarDynamicSuffix}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.tertiary,
                 fontWeight: FontWeight.w600,
@@ -306,7 +304,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
           child: TextButton.icon(
             onPressed: widget.onReset,
             icon: const Icon(Icons.refresh_rounded),
-            label: Text(isEn ? 'Reset to even' : '重置为均匀分布'),
+            label: Text(l10n.cacheBarResetEven),
           ),
         ),
       ],

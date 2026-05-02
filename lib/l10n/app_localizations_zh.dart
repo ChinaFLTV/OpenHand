@@ -3753,6 +3753,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
 
   @override
+  String get cacheBarTopDescription =>
+      '彩色段对应实际 prompt 各部分。拖动 P 插桩定位静态缓存断点；最右侧虚线插桩为动态断点（跟随更新间隔自动落点）。各段宽度仅作示意，并非真实 token 占比。';
+
+  @override
+  String get cacheBarSectionSysLabel => '[0] 系统指令';
+
+  @override
+  String get cacheBarSectionDevLabel => '[1] 开发者指令';
+
+  @override
+  String get cacheBarSectionToolsLabel => '[2] 工具目录';
+
+  @override
+  String get cacheBarSectionStateLabel => '[3] 会话状态';
+
+  @override
+  String get cacheBarSectionMemoryLabel => '[4] 用户记忆';
+
+  @override
+  String get cacheBarSectionUserInstLabel => '[4.5] 用户指令';
+
+  @override
+  String get cacheBarSectionSummaryLabel => '[5] 会话摘要';
+
+  @override
+  String get cacheBarSectionHistoryLabel => '历史消息';
+
+  @override
+  String get cacheBarSectionLatestLabel => '[6] 最新消息';
+
+  @override
+  String get cacheBarDynamicTooltip => '动态断点：跟随缓存更新间隔自动落点。';
+
+  @override
+  String get cacheBarDynamicSuffix => '（动态）';
+
+  @override
+  String get cacheBarResetEven => '重置为均匀分布';
+
+  @override
   String get settingsAiBudgetUsdPerSession => '单会话预算（USD）';
 
   @override
@@ -7965,6 +8005,46 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
 
   @override
+  String get cacheBarTopDescription =>
+      '彩色段对应实际 prompt 各部分。拖动 P 插桩定位静态缓存断点；最右侧虚线插桩为动态断点（跟随更新间隔自动落点）。各段宽度仅作示意，并非真实 token 占比。';
+
+  @override
+  String get cacheBarSectionSysLabel => '[0] 系统指令';
+
+  @override
+  String get cacheBarSectionDevLabel => '[1] 开发者指令';
+
+  @override
+  String get cacheBarSectionToolsLabel => '[2] 工具目录';
+
+  @override
+  String get cacheBarSectionStateLabel => '[3] 会话状态';
+
+  @override
+  String get cacheBarSectionMemoryLabel => '[4] 用户记忆';
+
+  @override
+  String get cacheBarSectionUserInstLabel => '[4.5] 用户指令';
+
+  @override
+  String get cacheBarSectionSummaryLabel => '[5] 会话摘要';
+
+  @override
+  String get cacheBarSectionHistoryLabel => '历史消息';
+
+  @override
+  String get cacheBarSectionLatestLabel => '[6] 最新消息';
+
+  @override
+  String get cacheBarDynamicTooltip => '动态断点：跟随缓存更新间隔自动落点。';
+
+  @override
+  String get cacheBarDynamicSuffix => '（动态）';
+
+  @override
+  String get cacheBarResetEven => '重置为均匀分布';
+
+  @override
   String get settingsAiBudgetUsdPerSession => '单会话预算（USD）';
 
   @override
@@ -12174,6 +12254,46 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
+
+  @override
+  String get cacheBarTopDescription =>
+      '彩色段對應實際 prompt 各部分。拖動 P 插樁定位靜態快取斷點；最右側虛線插樁為動態斷點（跟隨更新間隔自動落點）。各段寬度僅作示意，並非真實 token 佔比。';
+
+  @override
+  String get cacheBarSectionSysLabel => '[0] 系統指令';
+
+  @override
+  String get cacheBarSectionDevLabel => '[1] 開發者指令';
+
+  @override
+  String get cacheBarSectionToolsLabel => '[2] 工具目錄';
+
+  @override
+  String get cacheBarSectionStateLabel => '[3] 會話狀態';
+
+  @override
+  String get cacheBarSectionMemoryLabel => '[4] 使用者記憶';
+
+  @override
+  String get cacheBarSectionUserInstLabel => '[4.5] 使用者指令';
+
+  @override
+  String get cacheBarSectionSummaryLabel => '[5] 會話摘要';
+
+  @override
+  String get cacheBarSectionHistoryLabel => '歷史訊息';
+
+  @override
+  String get cacheBarSectionLatestLabel => '[6] 最新訊息';
+
+  @override
+  String get cacheBarDynamicTooltip => '動態斷點：跟隨快取更新間隔自動落點。';
+
+  @override
+  String get cacheBarDynamicSuffix => '（動態）';
+
+  @override
+  String get cacheBarResetEven => '重設為均勻分佈';
 
   @override
   String get settingsAiBudgetUsdPerSession => '單會話預算（USD）';

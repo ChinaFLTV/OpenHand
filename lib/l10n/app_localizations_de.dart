@@ -3987,6 +3987,47 @@ class AppLocalizationsDe extends AppLocalizations {
       'Cache-Breakpoint-Positionen gespeichert';
 
   @override
+  String get cacheBarTopDescription =>
+      'Jedes Band entspricht einem Prompt-Abschnitt. Ziehe die P-Pins, um die statischen Cache-Breakpoints zu platzieren; der gestrichelte Pin rechts ist der dynamische Breakpoint, der dem Aktualisierungsintervall folgt. Die Bandbreiten sind illustrativ — sie spiegeln nicht den tatsächlichen Token-Verbrauch wider.';
+
+  @override
+  String get cacheBarSectionSysLabel => '[0] System';
+
+  @override
+  String get cacheBarSectionDevLabel => '[1] Entwickler';
+
+  @override
+  String get cacheBarSectionToolsLabel => '[2] Werkzeuge';
+
+  @override
+  String get cacheBarSectionStateLabel => '[3] Zustand';
+
+  @override
+  String get cacheBarSectionMemoryLabel => '[4] Gedächtnis';
+
+  @override
+  String get cacheBarSectionUserInstLabel => '[4.5] Anweis.';
+
+  @override
+  String get cacheBarSectionSummaryLabel => '[5] Zusammenfassung';
+
+  @override
+  String get cacheBarSectionHistoryLabel => 'Verlauf';
+
+  @override
+  String get cacheBarSectionLatestLabel => '[6] Neueste';
+
+  @override
+  String get cacheBarDynamicTooltip =>
+      'Dynamischer Breakpoint — folgt dem Cache-Aktualisierungsintervall.';
+
+  @override
+  String get cacheBarDynamicSuffix => '(dynamisch)';
+
+  @override
+  String get cacheBarResetEven => 'Gleichmäßig zurücksetzen';
+
+  @override
   String get settingsAiBudgetUsdPerSession => 'Budget pro Sitzung (USD)';
 
   @override
