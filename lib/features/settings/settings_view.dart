@@ -33,6 +33,7 @@ import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import '../../shared/widgets/rolling_text.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_allow_command_rule.dart';
@@ -2669,7 +2670,8 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed);
+      _showSnackBar(context, l10n.skillOperationFailed,
+          kind: _SettingsSnackKind.error);
     }
   }
 
@@ -2896,7 +2898,8 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = int.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue <= 0) {
-      _showSnackBar(context, l10n.aiCompressionThresholdInvalid);
+      _showSnackBar(context, l10n.aiCompressionThresholdInvalid,
+          kind: _SettingsSnackKind.error);
       return;
     }
     final saved = await context
@@ -2912,7 +2915,8 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     _compressionThresholdController.text = '$parsedValue';
-    _showSnackBar(context, l10n.aiCompressionThresholdSaved);
+    _showSnackBar(context, l10n.aiCompressionThresholdSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _saveToolResultCompressionThreshold(
@@ -2922,7 +2926,8 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = int.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue <= 0) {
-      _showSnackBar(context, l10n.aiToolResultCompressionThresholdInvalid);
+      _showSnackBar(context, l10n.aiToolResultCompressionThresholdInvalid,
+          kind: _SettingsSnackKind.error);
       return;
     }
     final saved = await context
@@ -2939,7 +2944,8 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _toolResultCompressionThresholdController.text =
         '${context.read<SettingsController>().aiToolResultCompressionThresholdChars}';
-    _showSnackBar(context, l10n.aiToolResultCompressionThresholdSaved);
+    _showSnackBar(context, l10n.aiToolResultCompressionThresholdSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _saveToolResultCompressionHeadTailWindow(
@@ -2969,7 +2975,8 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _toolResultCompressionHeadTailWindowController.text =
         '${context.read<SettingsController>().aiToolResultCompressionHeadTailWindowChars}';
-    _showSnackBar(context, l10n.aiToolResultCompressionHeadTailWindowSaved);
+    _showSnackBar(context, l10n.aiToolResultCompressionHeadTailWindowSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _saveToolResultCompressionMaxPathHits(
@@ -2979,7 +2986,8 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = int.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue < 0 || parsedValue > 200) {
-      _showSnackBar(context, l10n.aiToolResultCompressionMaxPathHitsInvalid);
+      _showSnackBar(context, l10n.aiToolResultCompressionMaxPathHitsInvalid,
+          kind: _SettingsSnackKind.error);
       return;
     }
     final saved = await context
@@ -2996,7 +3004,8 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _toolResultCompressionMaxPathHitsController.text =
         '${context.read<SettingsController>().aiToolResultCompressionMaxPathHits}';
-    _showSnackBar(context, l10n.aiToolResultCompressionMaxPathHitsSaved);
+    _showSnackBar(context, l10n.aiToolResultCompressionMaxPathHitsSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _saveAiInputCacheUpdateInterval(
@@ -3167,7 +3176,8 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = int.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue < 0 || parsedValue > 8192) {
-      _showSnackBar(context, l10n.aiWriteToolSummaryMaxCharsInvalid);
+      _showSnackBar(context, l10n.aiWriteToolSummaryMaxCharsInvalid,
+          kind: _SettingsSnackKind.error);
       return;
     }
     final saved = await context
@@ -3184,7 +3194,8 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _writeToolSummaryMaxCharsController.text =
         '${context.read<SettingsController>().aiWriteToolSummaryMaxChars}';
-    _showSnackBar(context, l10n.aiWriteToolSummaryMaxCharsSaved);
+    _showSnackBar(context, l10n.aiWriteToolSummaryMaxCharsSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _saveToolCallLimit(BuildContext context, String rawValue) async {
@@ -3252,7 +3263,8 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsed == null ||
         parsed < AppSettingsSnapshot.minAiMaxRecentErrors ||
         parsed > AppSettingsSnapshot.maxAiMaxRecentErrors) {
-      _showSnackBar(context, l10n.aiMaxRecentErrorsInvalid);
+      _showSnackBar(context, l10n.aiMaxRecentErrorsInvalid,
+          kind: _SettingsSnackKind.error);
       return;
     }
     final saved = await context
@@ -3267,7 +3279,8 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _maxRecentErrorsController.text =
         '${context.read<SettingsController>().aiMaxRecentErrors}';
-    _showSnackBar(context, l10n.aiMaxRecentErrorsSaved);
+    _showSnackBar(context, l10n.aiMaxRecentErrorsSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _saveMaxPlanHistoryEntries(
@@ -3279,7 +3292,8 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsed == null ||
         parsed < AppSettingsSnapshot.minAiMaxPlanHistoryEntries ||
         parsed > AppSettingsSnapshot.maxAiMaxPlanHistoryEntries) {
-      _showSnackBar(context, l10n.aiMaxPlanHistoryEntriesInvalid);
+      _showSnackBar(context, l10n.aiMaxPlanHistoryEntriesInvalid,
+          kind: _SettingsSnackKind.error);
       return;
     }
     final saved = await context
@@ -3294,7 +3308,8 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _maxPlanHistoryEntriesController.text =
         '${context.read<SettingsController>().aiMaxPlanHistoryEntries}';
-    _showSnackBar(context, l10n.aiMaxPlanHistoryEntriesSaved);
+    _showSnackBar(context, l10n.aiMaxPlanHistoryEntriesSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _saveMaxTruncationContinuations(
@@ -3306,7 +3321,8 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsed == null ||
         parsed < AppSettingsSnapshot.minAiMaxTruncationContinuations ||
         parsed > AppSettingsSnapshot.maxAiMaxTruncationContinuations) {
-      _showSnackBar(context, l10n.aiMaxTruncationContinuationsInvalid);
+      _showSnackBar(context, l10n.aiMaxTruncationContinuationsInvalid,
+          kind: _SettingsSnackKind.error);
       return;
     }
     final saved = await context
@@ -3321,7 +3337,8 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _maxTruncationContinuationsController.text =
         '${context.read<SettingsController>().aiMaxTruncationContinuations}';
-    _showSnackBar(context, l10n.aiMaxTruncationContinuationsSaved);
+    _showSnackBar(context, l10n.aiMaxTruncationContinuationsSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _saveEstimatedCharactersPerToken(
@@ -3333,7 +3350,8 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsed == null ||
         parsed < AppSettingsSnapshot.minAiEstimatedCharactersPerToken ||
         parsed > AppSettingsSnapshot.maxAiEstimatedCharactersPerToken) {
-      _showSnackBar(context, l10n.aiEstimatedCharactersPerTokenInvalid);
+      _showSnackBar(context, l10n.aiEstimatedCharactersPerTokenInvalid,
+          kind: _SettingsSnackKind.error);
       return;
     }
     final saved = await context
@@ -3348,7 +3366,8 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _estimatedCharactersPerTokenController.text =
         '${context.read<SettingsController>().aiEstimatedCharactersPerToken}';
-    _showSnackBar(context, l10n.aiEstimatedCharactersPerTokenSaved);
+    _showSnackBar(context, l10n.aiEstimatedCharactersPerTokenSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   /// Renders [bytes] as a human-friendly MB value used by the limit field.
@@ -3371,7 +3390,8 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = double.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue <= 0) {
-      _showSnackBar(context, l10n.aiImageSizeLimitInvalid);
+      _showSnackBar(context, l10n.aiImageSizeLimitInvalid,
+          kind: _SettingsSnackKind.error);
       return;
     }
     final bytes = (parsedValue * 1024 * 1024).round();
@@ -3392,7 +3412,8 @@ class _SettingsViewState extends State<SettingsView> {
         .read<SettingsController>()
         .aiImageSizeLimitBytes;
     _imageSizeLimitController.text = _formatImageSizeLimitInput(effectiveBytes);
-    _showSnackBar(context, l10n.aiImageSizeLimitSaved);
+    _showSnackBar(context, l10n.aiImageSizeLimitSaved,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _showDenyCommandRuleDialog(
@@ -3584,7 +3605,8 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.memoryOperationFailed);
+      _showSnackBar(context, l10n.memoryOperationFailed,
+          kind: _SettingsSnackKind.error);
     }
   }
 
@@ -3604,7 +3626,8 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.mcpOperationFailed);
+      _showSnackBar(context, l10n.mcpOperationFailed,
+          kind: _SettingsSnackKind.error);
     }
   }
 
@@ -3623,7 +3646,8 @@ class _SettingsViewState extends State<SettingsView> {
     if (!context.mounted || submitted != true) {
       return;
     }
-    _showSnackBar(context, l10n.aiModelSaveSuccess);
+    _showSnackBar(context, l10n.aiModelSaveSuccess,
+        kind: _SettingsSnackKind.success);
   }
 
   Future<void> _testAiModel(AiModelConfig model) async {
@@ -3640,7 +3664,8 @@ class _SettingsViewState extends State<SettingsView> {
         return;
       }
       final l10n = AppLocalizations.of(context)!;
-      _showSnackBar(context, l10n.aiModelTestSuccess(model.providerLabel));
+      _showSnackBar(context, l10n.aiModelTestSuccess(model.providerLabel),
+          kind: _SettingsSnackKind.success);
     } on AiChatException catch (error) {
       if (!mounted) {
         return;
@@ -3716,12 +3741,14 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(context, l10n.aiModelDeleteSuccess);
+    _showSnackBar(context, l10n.aiModelDeleteSuccess,
+        kind: _SettingsSnackKind.success);
   }
 
   void _showPersistenceFailureSnackBar(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    _showSnackBar(context, l10n.settingsPersistenceSaveFailedBody);
+    _showSnackBar(context, l10n.settingsPersistenceSaveFailedBody,
+        kind: _SettingsSnackKind.error);
   }
 
   String _normalizeAiModelTestMessage(String raw, String fallback) {
@@ -3887,16 +3914,27 @@ class _SettingsViewState extends State<SettingsView> {
     };
   }
 
-  void _showSnackBar(BuildContext context, String message) {
+  void _showSnackBar(BuildContext context, String message,
+      {_SettingsSnackKind kind = _SettingsSnackKind.info}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) {
         return;
       }
       final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(SnackBar(content: Text(message)));
+      if (messenger == null) return;
+      switch (kind) {
+        case _SettingsSnackKind.success:
+          messenger.showSnackBar(OpenHandSnackBar.success(context, message));
+        case _SettingsSnackKind.error:
+          messenger.showSnackBar(OpenHandSnackBar.error(context, message));
+        case _SettingsSnackKind.info:
+          messenger.showSnackBar(SnackBar(content: Text(message)));
+      }
     });
   }
 }
+
+enum _SettingsSnackKind { info, success, error }
 
 List<Widget> _intersperse(List<Widget> items, Widget separator) {
   if (items.isEmpty) {
