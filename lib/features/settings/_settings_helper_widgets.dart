@@ -613,7 +613,8 @@ class _AiModelTile extends StatelessWidget {
         ? l10n.aiModelCount(allModels.length)
         : _localizedText(context, zh: '无模型', en: 'No models');
 
-    return InkWell(
+    return MicroPressFeedback(
+      child: InkWell(
       onTap: onSelect,
       borderRadius: BorderRadius.circular(24),
       child: DecoratedBox(
@@ -807,6 +808,7 @@ class _AiModelTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

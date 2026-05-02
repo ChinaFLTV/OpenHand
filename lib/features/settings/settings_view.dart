@@ -32,6 +32,7 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/micro_press_feedback.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import '../../shared/widgets/rolling_text.dart';
