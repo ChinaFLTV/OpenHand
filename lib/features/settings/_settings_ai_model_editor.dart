@@ -1105,6 +1105,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _maxSummaryLengthController;
   late final TextEditingController _maxOutputLengthController;
   late final TextEditingController _maxThinkingLengthController;
+  late final TextEditingController _inputUsdPer1MController;
+  late final TextEditingController _outputUsdPer1MController;
+  late final TextEditingController _cacheReadUsdPer1MController;
+  late final TextEditingController _cacheWriteUsdPer1MController;
   bool? _isMultimodal;
   bool? _supportsAttachments;
   late Set<AiModelModality> _supportedModalities;
@@ -1137,6 +1141,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     );
     _maxThinkingLengthController = TextEditingController(
       text: p.maxThinkingLength?.toString() ?? '',
+    );
+    _inputUsdPer1MController = TextEditingController(
+      text: p.inputUsdPer1M?.toString() ?? '',
+    );
+    _outputUsdPer1MController = TextEditingController(
+      text: p.outputUsdPer1M?.toString() ?? '',
+    );
+    _cacheReadUsdPer1MController = TextEditingController(
+      text: p.cacheReadUsdPer1M?.toString() ?? '',
+    );
+    _cacheWriteUsdPer1MController = TextEditingController(
+      text: p.cacheWriteUsdPer1M?.toString() ?? '',
     );
 
     if (hasExisting) {
@@ -1223,12 +1239,26 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _maxSummaryLengthController.dispose();
     _maxOutputLengthController.dispose();
     _maxThinkingLengthController.dispose();
+    _inputUsdPer1MController.dispose();
+    _outputUsdPer1MController.dispose();
+    _cacheReadUsdPer1MController.dispose();
+    _cacheWriteUsdPer1MController.dispose();
     super.dispose();
   }
 
   int? _parsePositiveInt(String value) {
     final parsed = int.tryParse(value.trim());
     if (parsed == null || parsed <= 0) return null;
+    return parsed;
+  }
+
+  double? _parseNonNegativeDouble(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    final parsed = double.tryParse(trimmed);
+    if (parsed == null || !parsed.isFinite || parsed.isNaN || parsed < 0) {
+      return null;
+    }
     return parsed;
   }
 
@@ -1248,6 +1278,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       maxThinkingLength: _parsePositiveInt(_maxThinkingLengthController.text),
       capabilities: _capabilities,
       supportsAttachments: _supportsAttachments,
+      inputUsdPer1M: _parseNonNegativeDouble(_inputUsdPer1MController.text),
+      outputUsdPer1M: _parseNonNegativeDouble(_outputUsdPer1MController.text),
+      cacheReadUsdPer1M:
+          _parseNonNegativeDouble(_cacheReadUsdPer1MController.text),
+      cacheWriteUsdPer1M:
+          _parseNonNegativeDouble(_cacheWriteUsdPer1MController.text),
     );
     Navigator.of(context).pop(profile);
   }
@@ -1530,6 +1566,81 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         labelText: _localizedText(
                           zh: '思考长度',
                           en: 'Thinking Length',
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildSectionHeader(
+                _localizedText(
+                  zh: 'Token 单价（USD / 1M tokens，留空表示未配置）',
+                  en: 'Token pricing (USD / 1M tokens, leave blank if unset)',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: _inputUsdPer1MController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          zh: '输入价',
+                          en: 'Input',
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _outputUsdPer1MController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          zh: '输出价',
+                          en: 'Output',
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: _cacheReadUsdPer1MController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          zh: '缓存读取价',
+                          en: 'Cache Read',
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _cacheWriteUsdPer1MController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          zh: '缓存写入价',
+                          en: 'Cache Write',
                         ),
                         isDense: true,
                       ),
