@@ -180,6 +180,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   selectable: widget.selectable,
                   fullContentFile: toolCall.stderrFile,
                 ),
+              ],
               if (toolCall.showResultText) ...[
                 if (toolCall.stdout.isNotEmpty || toolCall.stderr.isNotEmpty)
                   const SizedBox(height: 10),

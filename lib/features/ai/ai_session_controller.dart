@@ -29,6 +29,7 @@ import 'service/ai_attachment_service.dart';
 import 'service/ai_bash_tool_service.dart';
 import 'service/ai_chat_service.dart';
 import 'service/ai_claude_hook_service.dart';
+import 'service/ai_dsml_partial_stream_scanner.dart';
 import 'service/ai_dsml_tool_call_parser.dart';
 import 'service/ai_image_summary_extractor.dart';
 import 'service/ai_plan_approval_detector.dart';
@@ -2285,6 +2286,12 @@ class AiSessionController extends ChangeNotifier {
       String? reasoningMessageId;
       AiTokenUsage? streamedUsage;
       final toolCallMessageIds = <int, String>{};
+      // Per-stream map from canonical DSML invoke ID (e.g.
+      // `dsml-tool-call-3`) to the synthetic message ID we minted for the
+      // gray "constructing" preview card. Lets follow-up text deltas update
+      // the same card instead of creating duplicates, AND lets the
+      // post-stream sync match preview ⇄ committed by ID.
+      final partialDsmlPreviewMessageIds = <String, String>{};
       final assistantRawBuffer = StringBuffer();
       final reasoningRawBuffer = StringBuffer();
       Timer? previewTimer;
@@ -2530,6 +2537,76 @@ class AiSessionController extends ChangeNotifier {
               ),
             );
             sessionChanged = true;
+            // Progressive DSML "constructing" preview: scan the raw buffer
+            // for partial `<DSML:invoke>` blocks the model is text-streaming
+            // (i.e. no native toolCallDelta events). Each detected invoke
+            // becomes a gray-state tool-call card BEFORE stream-end
+            // extraction; `_syncToolCallMessagesFromResult` matches on
+            // `tool_call_id` so the same card transitions into running
+            // state when the executor picks it up. See
+            // [ai_dsml_partial_stream_scanner.dart].
+            final partialInvokes = scanPartialDsmlInvokes(
+              assistantRawBuffer.toString(),
+            );
+            if (partialInvokes.isNotEmpty) {
+              for (final invoke in partialInvokes) {
+                final messageId = partialDsmlPreviewMessageIds.putIfAbsent(
+                  invoke.id,
+                  _idGenerator,
+                );
+                streamedSession = _upsertMessage(
+                  streamedSession,
+                  messageId: messageId,
+                  create: () => AiSessionMessage.toolCall(
+                    id: messageId,
+                    content: _renderToolCallContent(
+                      name: invoke.name,
+                      arguments: invoke.argumentsJson,
+                    ),
+                    createdAt: _clock().toUtc(),
+                    modelId: model.id,
+                    modelLabel: model.displayName,
+                    metadata: <String, Object?>{
+                      'tool_call_index': invoke.index,
+                      'tool_call_id': invoke.id,
+                      'tool_name': invoke.name,
+                      'tool_arguments': invoke.argumentsJson,
+                      'tool_arguments_streaming': !invoke.isComplete,
+                      'tool_calls': <Map<String, Object?>>[
+                        <String, Object?>{
+                          'id': invoke.id,
+                          'name': invoke.name,
+                          'arguments': invoke.argumentsJson,
+                        },
+                      ],
+                    },
+                  ),
+                  update: (message) => message.copyWith(
+                    content: _renderToolCallContent(
+                      name: invoke.name,
+                      arguments: invoke.argumentsJson,
+                    ),
+                    metadata: <String, Object?>{
+                      ...message.metadata,
+                      'tool_call_index': invoke.index,
+                      'tool_call_id': invoke.id,
+                      'tool_name': invoke.name,
+                      'tool_arguments': invoke.argumentsJson,
+                      'tool_arguments_streaming': !invoke.isComplete,
+                      'tool_calls': <Map<String, Object?>>[
+                        <String, Object?>{
+                          'id': invoke.id,
+                          'name': invoke.name,
+                          'arguments': invoke.argumentsJson,
+                        },
+                      ],
+                    },
+                    modelId: model.id,
+                    modelLabel: model.displayName,
+                  ),
+                );
+              }
+            }
           case AiChatStreamEventType.reasoningDelta:
             final delta = event.reasoningDelta ?? '';
             if (delta.isEmpty) {
