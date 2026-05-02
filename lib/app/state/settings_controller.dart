@@ -1719,6 +1719,7 @@ class SettingsController extends ChangeNotifier {
     String? username,
     String? password,
     List<String>? exceptions,
+    String? testEndpoint,
   }) async {
     return _commitMutation(() {
       final normalizedHost = host?.trim();
@@ -1729,6 +1730,12 @@ class SettingsController extends ChangeNotifier {
           ?.map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toList(growable: false);
+      String? normalizedTestEndpoint;
+      if (testEndpoint != null) {
+        final trimmed = testEndpoint.trim();
+        normalizedTestEndpoint =
+            trimmed.isEmpty ? AppProxySettings.defaultTestEndpoint : trimmed;
+      }
       final next = _proxySettings.copyWith(
         mode: mode,
         protocols: normalizedProtocols,
@@ -1738,6 +1745,7 @@ class SettingsController extends ChangeNotifier {
         username: username,
         password: password,
         exceptions: normalizedExceptions,
+        testEndpoint: normalizedTestEndpoint,
       );
       if (next == _proxySettings) {
         return _MutationDisposition.successNoChange;

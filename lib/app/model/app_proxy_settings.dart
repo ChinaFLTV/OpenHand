@@ -88,6 +88,7 @@ class AppProxySettings {
     required this.username,
     required this.password,
     required this.exceptions,
+    this.testEndpoint = defaultTestEndpoint,
   });
 
   factory AppProxySettings.defaults() => const AppProxySettings(
@@ -155,6 +156,13 @@ class AppProxySettings {
       }
     }
 
+    final rawTestEndpoint = rawJson['test_endpoint'] is String
+        ? (rawJson['test_endpoint'] as String).trim()
+        : '';
+    final testEndpoint = rawTestEndpoint.isEmpty
+        ? defaults.testEndpoint
+        : rawTestEndpoint;
+
     return AppProxySettings(
       mode: mode,
       protocols: usableProtocols,
@@ -164,6 +172,7 @@ class AppProxySettings {
       username: username,
       password: password,
       exceptions: List<String>.unmodifiable(exceptions),
+      testEndpoint: testEndpoint,
     );
   }
 
@@ -176,6 +185,15 @@ class AppProxySettings {
   final String password;
   final List<String> exceptions;
 
+  /// 代理连通性测试使用的 URL。空字符串同于默认值。
+  final String testEndpoint;
+
+  /// 2026-05-04 — 代理连通性测试默认 URL。Google generate_204
+  /// 是历史上最稳的 "204 No Content" 探针，响应体 0 字节、
+  /// 不会被透明压缩、不会被 UA 鉴权拦截。
+  static const String defaultTestEndpoint =
+      'https://www.google.com/generate_204';
+
   Map<String, Object?> toJson() => <String, Object?>{
         'mode': mode.jsonValue,
         'protocols':
@@ -186,6 +204,7 @@ class AppProxySettings {
         'username': username,
         'password': password,
         'exceptions': List<String>.unmodifiable(exceptions),
+        'test_endpoint': testEndpoint,
       };
 
   AppProxySettings copyWith({
@@ -197,6 +216,7 @@ class AppProxySettings {
     String? username,
     String? password,
     List<String>? exceptions,
+    String? testEndpoint,
   }) {
     return AppProxySettings(
       mode: mode ?? this.mode,
@@ -207,6 +227,7 @@ class AppProxySettings {
       username: username ?? this.username,
       password: password ?? this.password,
       exceptions: exceptions ?? this.exceptions,
+      testEndpoint: testEndpoint ?? this.testEndpoint,
     );
   }
 
@@ -233,7 +254,8 @@ class AppProxySettings {
         other.protocols.length == protocols.length &&
         other.protocols.containsAll(protocols) &&
         other.exceptions.length == exceptions.length &&
-        _listEquals(other.exceptions, exceptions);
+        _listEquals(other.exceptions, exceptions) &&
+        other.testEndpoint == testEndpoint;
   }
 
   @override
@@ -246,6 +268,7 @@ class AppProxySettings {
         password,
         Object.hashAll(protocols),
         Object.hashAll(exceptions),
+        testEndpoint,
       );
 }
 

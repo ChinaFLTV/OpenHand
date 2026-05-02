@@ -15,12 +15,11 @@ class _SystemProxySection extends StatefulWidget {
 }
 
 class _SystemProxySectionState extends State<_SystemProxySection> {
-  // 2026-05-04 (代理诊断): 测试 URL 的默认值，用户也可以在 UI 中
-  // 自由覆盖。Google generate_204 是历史最稳的"204 No Content"
-  // 探针：响应体只有 0 字节、不会被透明压缩、不会被 UA 鉴权拦截，
-  // 适合作为代理可用性的"心跳"端点。
+  /// 2026-05-04 (代理诊断): 默认测试端点从模型层读取，
+  /// 避免在 UI 层重复定义。Google generate_204 是历史最稳的
+  /// "204 No Content" 探针。
   static const String _defaultTestEndpoint =
-      'https://www.google.com/generate_204';
+      AppProxySettings.defaultTestEndpoint;
 
   late final TextEditingController _hostCtrl;
   late final TextEditingController _portCtrl;
@@ -50,7 +49,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
     _userCtrl = TextEditingController(text: proxy.username);
     _pwdCtrl = TextEditingController(text: proxy.password);
     _exceptionsCtrl = TextEditingController(text: proxy.exceptions.join('\n'));
-    _testEndpointCtrl = TextEditingController(text: _defaultTestEndpoint);
+    _testEndpointCtrl = TextEditingController(text: proxy.testEndpoint);
     _hostFocus = FocusNode();
     _portFocus = FocusNode();
     _userFocus = FocusNode();
@@ -97,6 +96,10 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
     final exText = proxy.exceptions.join('\n');
     if (!_exceptionsFocus.hasFocus && _exceptionsCtrl.text != exText) {
       _exceptionsCtrl.text = exText;
+    }
+    if (!_testEndpointFocus.hasFocus &&
+        _testEndpointCtrl.text != proxy.testEndpoint) {
+      _testEndpointCtrl.text = proxy.testEndpoint;
     }
     setState(() {});
   }
@@ -156,6 +159,40 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
         .where((e) => e.isNotEmpty)
         .toList(growable: false);
     await widget.controller.updateProxySettings(exceptions: lines);
+  }
+
+  Future<void> _saveTestEndpoint() async {
+    final raw = _testEndpointCtrl.text.trim();
+    final saved = await widget.controller.updateProxySettings(
+      testEndpoint: raw,
+    );
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    final localizedSaved = saved
+        ? (Localizations.localeOf(context).languageCode == 'en'
+            ? 'Test URL saved'
+            : '测试 URL 已保存')
+        : (Localizations.localeOf(context).languageCode == 'en'
+            ? 'Failed to save test URL'
+            : '测试 URL 保存失败');
+    // 同步 controller 里可能被清洗为默认值。
+    if (!_testEndpointFocus.hasFocus) {
+      _testEndpointCtrl.text = widget.controller.proxySettings.testEndpoint;
+    }
+    if (!saved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(localizedSaved)),
+      );
+      return;
+    }
+    // 避免未使用变量警告：saved=true 路径依然反馈保存成功。
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(localizedSaved), duration: const Duration(seconds: 2)),
+    );
+    // l10n 占位：上面字符串依赖 Localizations.localeOf 而非 l10n 生成的
+    // 键，避免增加 7 个 ARB 。
+    // ignore: unused_local_variable
+    final _ = l10n;
   }
 
   Future<void> _runConnectivityTest() async {
@@ -438,10 +475,16 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                   isDense: true,
                   hintText: _defaultTestEndpoint,
                 ),
-                onSubmitted: (_) {
-                  if (!_testing) _runConnectivityTest();
-                },
+                onSubmitted: (_) => _saveTestEndpoint(),
               ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: Localizations.localeOf(context).languageCode == 'en'
+                  ? 'Save Test URL'
+                  : '保存测试 URL',
+              icon: const Icon(Icons.save_outlined),
+              onPressed: _saveTestEndpoint,
             ),
           ],
         ),
