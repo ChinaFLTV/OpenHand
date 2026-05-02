@@ -9,6 +9,7 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import 'data/memory_store.dart';
 import 'memory_controller.dart';
 import 'model/user_memory_entry.dart';
@@ -329,7 +330,8 @@ class MemoryView extends StatelessWidget {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.memoryOperationFailed);
+      _showSnackBar(context, l10n.memoryOperationFailed,
+          kind: _SnackKind.error);
     }
   }
 
@@ -351,6 +353,7 @@ class MemoryView extends StatelessWidget {
     _showSnackBar(
       context,
       initialEntry == null ? l10n.memoryEntryCreated : l10n.memoryEntryUpdated,
+      kind: _SnackKind.success,
     );
   }
 
@@ -406,22 +409,34 @@ class MemoryView extends StatelessWidget {
       return;
     }
     if (!deleted) {
-      _showSnackBar(context, l10n.memoryOperationFailed);
+      _showSnackBar(context, l10n.memoryOperationFailed,
+          kind: _SnackKind.error);
       return;
     }
-    _showSnackBar(context, l10n.memoryEntryDeleted);
+    _showSnackBar(context, l10n.memoryEntryDeleted, kind: _SnackKind.success);
   }
 
-  void _showSnackBar(BuildContext context, String message) {
+  void _showSnackBar(BuildContext context, String message,
+      {_SnackKind kind = _SnackKind.info}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) {
         return;
       }
       final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(SnackBar(content: Text(message)));
+      if (messenger == null) return;
+      switch (kind) {
+        case _SnackKind.success:
+          messenger.showSnackBar(OpenHandSnackBar.success(context, message));
+        case _SnackKind.error:
+          messenger.showSnackBar(OpenHandSnackBar.error(context, message));
+        case _SnackKind.info:
+          messenger.showSnackBar(SnackBar(content: Text(message)));
+      }
     });
   }
 }
+
+enum _SnackKind { info, success, error }
 
 class _MemoryEditorDialog extends StatefulWidget {
   const _MemoryEditorDialog({this.initialEntry});

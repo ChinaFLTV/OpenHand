@@ -12,6 +12,7 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import 'data/mcp_store.dart';
 import 'mcp_controller.dart';
 import 'model/mcp_server.dart';
@@ -316,7 +317,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.mcpOperationFailed);
+      _showSnackBar(context, l10n.mcpOperationFailed,
+          kind: _SnackKind.error);
     }
   }
 
@@ -347,6 +349,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     _showSnackBar(
       context,
       initialServer == null ? l10n.mcpServerCreated : l10n.mcpServerUpdated,
+      kind: _SnackKind.success,
     );
   }
 
@@ -383,10 +386,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       return;
     }
     if (!deleted) {
-      _showSnackBar(context, l10n.mcpOperationFailed);
+      _showSnackBar(context, l10n.mcpOperationFailed,
+          kind: _SnackKind.error);
       return;
     }
-    _showSnackBar(context, l10n.mcpServerDeleted);
+    _showSnackBar(context, l10n.mcpServerDeleted, kind: _SnackKind.success);
   }
 
   Future<void> _updateServerEnabled(
@@ -402,19 +406,30 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     if (!context.mounted || saved) {
       return;
     }
-    _showSnackBar(context, l10n.mcpOperationFailed);
+    _showSnackBar(context, l10n.mcpOperationFailed, kind: _SnackKind.error);
   }
 
-  void _showSnackBar(BuildContext context, String message) {
+  void _showSnackBar(BuildContext context, String message,
+      {_SnackKind kind = _SnackKind.info}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) {
         return;
       }
       final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(SnackBar(content: Text(message)));
+      if (messenger == null) return;
+      switch (kind) {
+        case _SnackKind.success:
+          messenger.showSnackBar(OpenHandSnackBar.success(context, message));
+        case _SnackKind.error:
+          messenger.showSnackBar(OpenHandSnackBar.error(context, message));
+        case _SnackKind.info:
+          messenger.showSnackBar(SnackBar(content: Text(message)));
+      }
     });
   }
 }
+
+enum _SnackKind { info, success, error }
 
 class _McpServerEditorDialog extends StatefulWidget {
   const _McpServerEditorDialog({
