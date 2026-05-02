@@ -33,6 +33,58 @@ class HardnessApiPhaseResult {
   final String? errorMessage;
 }
 
+String? validateHardnessHandoffDocument(String content) {
+  final normalized = content.trim();
+  if (normalized.length < 120) {
+    return '内容过短';
+  }
+  final h1Pattern = RegExp(
+    r'^#\s+Hardness Engineering\s+(?:交接文档|会话摘要)\s*$',
+    multiLine: true,
+  );
+  if (!h1Pattern.hasMatch(normalized)) {
+    return '缺少 # Hardness Engineering 会话摘要';
+  }
+  final sectionBodyByHeading = _markdownSectionBodies(normalized);
+  String? requireSection(String label, List<String> headings) {
+    for (final heading in headings) {
+      final body = sectionBodyByHeading[heading]?.trim();
+      if (body != null && body.length >= 6) {
+        return null;
+      }
+    }
+    return '缺少或内容过空：$label';
+  }
+
+  return requireSection('原始任务', const <String>['原始任务']) ??
+      requireSection('当前状态', const <String>['当前状态', '当前进展']) ??
+      requireSection('未解决问题', const <String>[
+        '未解决问题',
+        '未解决问题（含未闭环的 CLI 失败 / 未确认写命令 / 未读交接）',
+        '未完成事项',
+      ]) ??
+      requireSection('风险与边界情况', const <String>['风险与边界情况', '已知问题与风险']);
+}
+
+Map<String, String> _markdownSectionBodies(String content) {
+  final headingPattern = RegExp(r'^##\s+(.+?)\s*$', multiLine: true);
+  final matches = headingPattern.allMatches(content).toList(growable: false);
+  final result = <String, String>{};
+  for (var index = 0; index < matches.length; index++) {
+    final match = matches[index];
+    final heading = match.group(1)?.trim();
+    if (heading == null || heading.isEmpty) {
+      continue;
+    }
+    final bodyStart = match.end;
+    final bodyEnd = index + 1 < matches.length
+        ? matches[index + 1].start
+        : content.length;
+    result[heading] = content.substring(bodyStart, bodyEnd).trim();
+  }
+  return result;
+}
+
 /// Executes a single Hardness Engineering phase using an API-based model
 /// (URL mode) instead of a CLI tool. This bridges the gap between the
 /// Hardness phase orchestration protocol and the standard AI session
@@ -713,9 +765,12 @@ class HardnessApiPhaseRunner {
       );
       return null;
     }
-    final validationError = _validateHandoffDocument(handoffDocContent);
+    final validationError = validateHardnessHandoffDocument(handoffDocContent);
     if (validationError != null) {
       emit('⚠ 交接文档结构不完整：$validationError — 退化为截断模式继续执行');
+      emit(
+        '  {"handoff_validation":"failed","reason":${jsonEncode(validationError)}}',
+      );
       _trimConversationFallback(
         conversation,
         contextWindowTokens: contextWindowTokens,
@@ -738,7 +793,28 @@ class HardnessApiPhaseRunner {
       await handoffDir.create(recursive: true);
       final handoffFile = File(p.join(handoffDir.path, handoffFileName));
       await handoffFile.writeAsString(handoffDocContent, flush: true);
+      final metadataFile = File('${handoffFile.path}.json');
+      final metadata = <String, Object?>{
+        'schema_version': 1,
+        'phase': phase.storageValue,
+        'phase_label': phase.displayNameZh,
+        'session_index': _handoffSessionCounter,
+        'source_turn_count': conversation.length,
+        'source_characters': totalChars,
+        'context_window_tokens': contextWindowTokens,
+        'effective_threshold_characters': effectiveCharThreshold,
+        'handoff_characters': handoffDocContent.length,
+        'model_id': model.id,
+        'model_label': model.displayName,
+        'validation_status': 'passed',
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      };
+      await metadataFile.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(metadata),
+        flush: true,
+      );
       emit('📋 交接文档已保存：${handoffFile.path}');
+      emit('📋 交接元数据已保存：${metadataFile.path}');
     } catch (e) {
       emit('⚠ 交接文档保存失败：$e');
     }
@@ -810,47 +886,56 @@ class HardnessApiPhaseRunner {
 
   /// System prompt for the handoff document generation.
   static const String _handoffSystemPrompt = '''
-你是一个专门生成交接文档的助手。你的任务是将对话历史压缩为一份结构化的交接文档，以便下一个会话能够无缝接力完成工作。
+你是 Hardness Engineering 会话的交接摘要器。只输出 Markdown 正文，不调用工具，不输出解释前后缀。
 
-## 输出格式要求
+目标：把对话历史压缩为持久化、信息密度高、可接力执行的会话摘要。全文使用简体中文；路径、命令、文件名、CLI 名、模型名、PASS/FAIL、退出码、轮次编号保留原文。
 
-请使用以下模板输出交接文档（全文简体中文，技术标识保留原文）：
+必须保留：原始任务、当前阶段、最近活跃角色、已完成/待完成步骤、所有持久化文件路径、未闭环 CLI 失败、未确认写命令、未读交接、活跃后台进程、风险与边界情况。
+
+请严格使用以下章节顺序；没有事实的章节也要写“暂无已确认事项”，不要省略关键章节：
 
 ```markdown
-# Hardness Engineering 交接文档
+# Hardness Engineering 会话摘要
+
+## 配置
+- 工作目录：{path}
+- 持久化目录：{path}
+- 角色 / CLI / 模型：{已知配置}
 
 ## 原始任务
-{从对话中提取的原始任务描述}
+{task description}
 
-## 已完成工作
-{已完成的具体步骤和成果，按时间顺序列出}
+## 当前状态
+- 阶段：{current_phase}
+- 最近活跃角色：{role / agent_id}
+- 已完成步骤：{list}
+- 待完成步骤：{list}
 
-## 当前进展
-- 当前阶段：{阶段名称}
-- 最后一次操作：{描述}
-- 进度评估：{百分比或描述}
+## 本次会话已创建的持久化文件
+- 计划：{paths}
+- 反馈：{paths}
+- 交接：{paths}
+- Lessons：{paths}
+- Meta：{paths / status}
 
-## 关键发现与决策
-{重要的技术发现、设计决策、约束条件}
+## 当前成果
+{已完成事项的简要描述}
 
-## 已修改/创建的文件
-{列出所有已修改或创建的文件路径}
+## 未解决问题（含未闭环的 CLI 失败 / 未确认写命令 / 未读交接）
+- {轮次 / 角色 / CLI / 现象 / 状态}
 
-## 工具调用结果摘要
-{重要的工具调用及其结果}
+## 活跃后台进程
+- {BashBackground id / 命令 / 用途 / stop 状态}
 
-## 未完成事项
-{仍需完成的步骤和注意事项}
-
-## 已知问题与风险
-{已发现的问题、失败的尝试、潜在风险}
+## 风险与边界情况
+{已知限制、脆弱假设、需用户介入的开放问题}
 ```
 
-## 关键原则
-1. **不丢失关键信息**：所有重要的技术决策、文件路径、代码变更必须保留
-2. **简洁高效**：去除冗余对话和重复内容，保留核心事实
-3. **可操作性**：下一个会话读到交接文档后应能立即继续工作
-4. **准确性**：不得编造对话中不存在的信息
+规则：
+1. 稳定事实优先；不要编造。
+2. 显式区分“已确认”和“待确认”。
+3. 同一事实不要重复表达。
+4. 任何写命令、CLI 失败、deny-list 命中事件必须逐条保留。
 ''';
 
   /// Builds the resume prompt for the new session after handoff.
@@ -903,27 +988,6 @@ $phasePrompt
       }
       estimatedTokens -= removedChars ~/ _estimatedCharsPerToken;
     }
-  }
-
-  String? _validateHandoffDocument(String content) {
-    final normalized = content.trim();
-    if (normalized.length < 120) {
-      return '内容过短';
-    }
-    const requiredHeadings = <String>[
-      '# Hardness Engineering 交接文档',
-      '## 原始任务',
-      '## 当前进展',
-      '## 未完成事项',
-      '## 已知问题与风险',
-    ];
-    final missing = requiredHeadings
-        .where((heading) => !normalized.contains(heading))
-        .toList(growable: false);
-    if (missing.isNotEmpty) {
-      return '缺少 ${missing.join('、')}';
-    }
-    return null;
   }
 
   Map<String, dynamic> _tryDecodeJsonMap(String raw) {

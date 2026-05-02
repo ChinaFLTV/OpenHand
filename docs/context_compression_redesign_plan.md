@@ -202,6 +202,8 @@ Hardness API phase runner 有独立交接压缩：
 | Phase 2 测试 | `test/features/ai/service/ai_prompt_builder_compression_test.dart` | 覆盖旧工具结果被清理、最近结果仍保留原文 |
 | Phase 3 | `ai_prompt_builder.dart` / `_home_session_metadata_dialog.dart` | 写入上下文预算估算元数据，并在会话元数据弹窗展示预算状态、估算 token、剩余 token 与使用率 |
 | Phase 3 测试 | `test/features/ai/service/ai_prompt_builder_compression_test.dart` | 覆盖 prompt build 输出上下文预算元数据 |
+| Phase 4 | `hardness_api_phase_runner.dart` | handoff system prompt 对齐会话摘要结构，校验关键章节正文，保存同名 JSON sidecar 元数据 |
+| Phase 4 测试 | `test/features/hardness/hardness_handoff_validation_test.dart` | 覆盖新旧 handoff 标题兼容、缺章节与空正文拒绝 |
 
 ## 5. OpenHand 目标架构
 
@@ -318,6 +320,8 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 ### Phase 4：Hardness Handoff 增强
 
 优先级：中
+
+状态：已在 2026-05-03 落地第一版；当前记录 sidecar 元数据并阻断结构不完整的 handoff，尚未接入 session error 持久化。
 
 1. 将 `_handoffSystemPrompt` 与 `assets/prompts/hardness_engineering/compression_summary_instructions.md` 对齐，避免两套清单漂移。
 2. handoff 校验从 heading 检查升级为必填段落 + 关键字段检查。
