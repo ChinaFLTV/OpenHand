@@ -303,16 +303,18 @@ class _ToolbarPill extends StatelessWidget {
     if (onTap == null) {
       return child;
     }
-    return Material(
-      color: Colors.transparent,
-      borderRadius: _borderRadius999,
-      child: InkWell(
-        onTap: onTap,
+    return MicroPressFeedback(
+      child: Material(
+        color: Colors.transparent,
         borderRadius: _borderRadius999,
-        overlayColor: WidgetStatePropertyAll<Color>(
-          theme.colorScheme.primary.withValues(alpha: 0.08),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: _borderRadius999,
+          overlayColor: WidgetStatePropertyAll<Color>(
+            theme.colorScheme.primary.withValues(alpha: 0.08),
+          ),
+          child: child,
         ),
-        child: child,
       ),
     );
   }
@@ -673,29 +675,30 @@ class _PlanTimelineVisibilityButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      borderRadius: _borderRadius999,
-      child: InkWell(
-        onTap: onTap,
+    return MicroPressFeedback(
+      child: Material(
+        color: Colors.transparent,
         borderRadius: _borderRadius999,
-        overlayColor: WidgetStatePropertyAll<Color>(
-          color.withValues(alpha: 0.08),
-        ),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.10),
-            borderRadius: _borderRadius999,
-            border: Border.all(color: color.withValues(alpha: 0.20)),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: _borderRadius999,
+          overlayColor: WidgetStatePropertyAll<Color>(
+            color.withValues(alpha: 0.08),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 6),
-              Text(
-                label,
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: _borderRadius999,
+              border: Border.all(color: color.withValues(alpha: 0.20)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: color,
                   fontWeight: FontWeight.w700,
@@ -704,6 +707,7 @@ class _PlanTimelineVisibilityButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
