@@ -173,8 +173,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   // 70 → 120 → 150 ms：再放慢一档，给 elasticOut 主峰之外
   // 后续的回弹收敛留够呼吸时间，每张卡片真正"安顿好"再让
   // 下一张登场，整体观感从"踏点"升级为"从容落子"。
+  // 2026-05-02 (补强): 3 → 2，覆盖"两张新卡片同帧追加"场景。
+  // 现在只要一次 diff 里有多于 1 张新增卡片，就会进入串行
+  // materialization，避免双卡/混合类型卡片同帧挤入列表导致
+  // transcript 高度突跳、布局抖动和 markdown/code-block 解析峰值。
   static const int _dripStartChunkSize = 1;
-  static const int _dripActivationThreshold = 3;
+  static const int _dripActivationThreshold = 2;
   static const Duration _dripStepInterval = Duration(milliseconds: 150);
 
   @override
@@ -412,11 +416,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           newAdditions++;
         }
       }
-      if (newAdditions >= _dripActivationThreshold) {
-        final initialLimit = math.min(
-          activeIdSet.length + _dripStartChunkSize,
-          fullTailLength,
-        );
+      final dripInProgress = _dripTimer != null && _materializedTailLimit != null;
+      final shouldDrip =
+          newAdditions >= _dripActivationThreshold ||
+          (dripInProgress && newAdditions > 0);
+      if (shouldDrip) {
+        final initialLimit = dripInProgress
+            ? (_materializedTailLimit ?? activeIdSet.length)
+            : math.min(
+                activeIdSet.length + _dripStartChunkSize,
+                fullTailLength,
+              );
         _materializedTailLimit = initialLimit;
         _beginIncrementalDrip(initialLimit);
       } else {
