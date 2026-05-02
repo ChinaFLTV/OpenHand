@@ -2313,4 +2313,197 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get tokenPopupPromptChars => 'Prompt-Zeichen';
+
+  @override
+  String get toolbarSessionMetadata => 'Sitzungsmetadaten';
+
+  @override
+  String get toolbarProviderModelLocked =>
+      'Anbieter & Modell gesperrt, um Cache-Treffer zu sichern';
+
+  @override
+  String get toolbarModelLocked => 'Modell gesperrt';
+
+  @override
+  String get toolbarSessionAudit => 'Sitzungsprüfung';
+
+  @override
+  String get toolbarShowPlan => 'Plan einblenden';
+
+  @override
+  String get toolbarHidePlan => 'Plan ausblenden';
+
+  @override
+  String get toolbarPlanAwaitingApproval => 'Plan wartet auf Freigabe';
+
+  @override
+  String get toolbarPlanNeedsReview => 'Plan zu prüfen';
+
+  @override
+  String get toolbarPlanNeedsAttention => 'Plan benötigt Aufmerksamkeit';
+
+  @override
+  String get toolbarPlanCompleted => 'Plan abgeschlossen';
+
+  @override
+  String get toolbarPlanInProgress => 'Plan in Bearbeitung';
+
+  @override
+  String get toolbarPlanConfirmToBegin => 'Zur Ausführung bestätigen';
+
+  @override
+  String get toolbarPlanInspectBeforeResume =>
+      'Vor dem Fortsetzen abgeschlossene Schritte, Artefakte und Todos prüfen';
+
+  @override
+  String get toolbarPlanStepFailed =>
+      'Ein Schritt schlug fehl. Bitte prüfen und fortfahren.';
+
+  @override
+  String get toolbarPlanPending => 'Ausstehend';
+
+  @override
+  String get toolbarPlanReview => 'Zur Prüfung';
+
+  @override
+  String get toolbarToolsProtocolUnsupported =>
+      'Das aktuelle Modellprotokoll unterstützt keine Tool-Aufrufe';
+
+  @override
+  String get toolbarRuntimeNoSnapshot => 'Noch kein Laufzeit-Tool-Snapshot';
+
+  @override
+  String get toolbarToolsCatalogStale =>
+      'Tool-Katalog veraltet, wird nächste Runde aktualisiert';
+
+  @override
+  String get toolbarRuntimeCatalogSynced =>
+      'Laufzeit-Tool-Katalog synchronisiert';
+
+  @override
+  String get toolbarPlanAwaitingNoExecTools =>
+      'Plan wartet auf Freigabe, Ausführungstools bleiben verborgen';
+
+  @override
+  String get toolbarPlanReviewBeforeResume =>
+      'Abgeschlossene Schritte, Artefakte und Todos prüfen';
+
+  @override
+  String get toolbarPlanApprovedExecOpen =>
+      'Plan freigegeben, Ausführungstools verfügbar';
+
+  @override
+  String get toolbarPlanOnlyPlanningExitAllowed =>
+      'Nur Planungstools verfügbar, bis der Ausführungsplan bereit ist';
+
+  @override
+  String get toolbarPlanOnlyPlanningOnly =>
+      'Aktuell nur Planungstools verfügbar';
+
+  @override
+  String get toolbarModeJustSwitched =>
+      'Modus gerade gewechselt, Katalog wird nächste Runde aktualisiert';
+
+  @override
+  String get toolbarChatModeNoTools =>
+      'Im Chat-Modus sind aktuell keine Tools verfügbar';
+
+  @override
+  String get toolbarChatModeAllTools =>
+      'Chat-Modus zeigt den vollständigen Laufzeit-Katalog';
+
+  @override
+  String get toolbarRuntimeNoSnapshotPrompt =>
+      'Noch kein Laufzeit-Snapshot. Bitte zuerst eine Anfrage senden.';
+
+  @override
+  String get toolbarGateNoReason => 'Keine Gate-Begründung verfügbar';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchPlan =>
+      'Modellprotokoll unterstützt keine Tool-Aufrufe. Klicken zum Wechsel in Planmodus.';
+
+  @override
+  String get toolbarGateChatActiveSwitchPlan =>
+      'Chat-Modus aktiv. Klicken zum Wechsel in Planmodus.';
+
+  @override
+  String get toolbarGatePlanActiveSwitchChat =>
+      'Planmodus aktiv. Klicken zum Wechsel in Chat-Modus.';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchChat =>
+      'Modellprotokoll unterstützt keine Tool-Aufrufe. Planmodus kann Schritte organisieren, aber keine Ausführung. Klicken zum Wechsel in Chat-Modus.';
+
+  @override
+  String get toolbarGatePlanJustSwitchedToChat =>
+      'Planmodus gerade gewechselt. Laufzeittools aktualisieren sich nächste Runde. Klicken für Chat-Modus.';
+
+  @override
+  String get toolbarGatePlanAwaitingSwitchChat =>
+      'Plan wartet auf Freigabe. Ausführungstools bleiben bis zur Freigabe verborgen. Klicken für Chat-Modus.';
+
+  @override
+  String get toolbarGatePlanReviewSwitchChat =>
+      'Plan zu prüfen. Vor dem Fortsetzen abgeschlossene Schritte, Artefakte und Todos prüfen. Klicken für Chat-Modus.';
+
+  @override
+  String get toolbarGatePlanExecutingSwitchChat =>
+      'Plan wird ausgeführt. Laufzeittools laut aktuellem Katalog verfügbar. Klicken für Chat-Modus.';
+
+  @override
+  String get toolbarGatePlanModeSwitchChat =>
+      'Planmodus aktiv. Erst planen, dann nach Freigabe ausführen. Klicken für Chat-Modus.';
+
+  @override
+  String get toolbarFilesShow => 'Projektdateien';
+
+  @override
+  String get toolbarFilesHide => 'Dateien ausblenden';
+
+  @override
+  String get toolbarRuntimeModeChat => 'Chat-Modus';
+
+  @override
+  String get toolbarRuntimeModeChatCompact => 'Chat';
+
+  @override
+  String get toolbarRuntimeModePlan => 'Planmodus';
+
+  @override
+  String get toolbarRuntimeModePlanCompact => 'Plan';
+
+  @override
+  String get toolbarRuntimeModePlanAwaiting => 'Plan wartet auf Freigabe';
+
+  @override
+  String get toolbarRuntimeModePlanAwaitingCompact => 'Wartet auf Freigabe';
+
+  @override
+  String get toolbarRuntimeModePlanReview => 'Plan zu prüfen';
+
+  @override
+  String get toolbarRuntimeModePlanReviewCompact => 'Zu prüfen';
+
+  @override
+  String get toolbarRuntimeModePlanExecution => 'Plan-Ausführung';
+
+  @override
+  String get toolbarRuntimeModePlanExecutionCompact => 'Ausführen';
+
+  @override
+  String get toolbarRuntimeModePlanDrafting => 'Plan-Entwurf';
+
+  @override
+  String get toolbarRuntimeModePlanDraftCompact => 'Entwurf';
+
+  @override
+  String toolbarRuntimeNotices(int count) {
+    return '$count Laufzeit-Hinweise';
+  }
+
+  @override
+  String toolbarPlanStepsCompleted(int completed, int total) {
+    return '$completed/$total Schritte abgeschlossen';
+  }
 }

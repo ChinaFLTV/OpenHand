@@ -761,5 +761,77 @@
   "tokenPopupSessionHeading": "セッション",
   "tokenPopupMessages": "メッセージ数",
   "tokenPopupPromptBuilds": "プロンプト生成",
-  "tokenPopupPromptChars": "プロンプト文字数"
+  "tokenPopupPromptChars": "プロンプト文字数",
+  "toolbarSessionMetadata": "セッションメタデータ",
+  "toolbarProviderModelLocked": "プロバイダとモデルを固定してキャッシュヒット率を確保",
+  "toolbarModelLocked": "モデルロック中",
+  "toolbarSessionAudit": "セッション監査",
+  "toolbarShowPlan": "プラン展開",
+  "toolbarHidePlan": "プラン折畳",
+  "toolbarPlanAwaitingApproval": "プラン承認待ち",
+  "toolbarPlanNeedsReview": "プラン要再確認",
+  "toolbarPlanNeedsAttention": "プラン要対応",
+  "toolbarPlanCompleted": "プラン完了",
+  "toolbarPlanInProgress": "プラン進行中",
+  "toolbarPlanConfirmToBegin": "確認後に実行を開始してください",
+  "toolbarPlanInspectBeforeResume": "再開前に完了済ステップ・成果物・Todo を確認",
+  "toolbarPlanStepFailed": "ステップ失敗。確認のうえ続行してください。",
+  "toolbarPlanPending": "承認待ち",
+  "toolbarPlanReview": "要確認",
+  "toolbarToolsProtocolUnsupported": "現在のモデルプロトコルはツール呼出に未対応",
+  "toolbarRuntimeNoSnapshot": "ランタイムツールのスナップショット未生成",
+  "toolbarToolsCatalogStale": "ツールカタログ期限切れ。次のラウンドで更新",
+  "toolbarRuntimeCatalogSynced": "ランタイムツールカタログ同期済",
+  "toolbarPlanAwaitingNoExecTools": "プラン承認待ちのため、実行ツールは非表示",
+  "toolbarPlanReviewBeforeResume": "完了済ステップ・成果物・Todo を確認してください",
+  "toolbarPlanApprovedExecOpen": "プラン承認済。実行ツール開放",
+  "toolbarPlanOnlyPlanningExitAllowed": "計画ツールのみ開放。準備でき次第実行計画を提出",
+  "toolbarPlanOnlyPlanningOnly": "現在は計画ツールのみ開放",
+  "toolbarModeJustSwitched": "モード切替直後。次のラウンドでツールカタログ更新",
+  "toolbarChatModeNoTools": "チャットモードでは現在ツール無し",
+  "toolbarChatModeAllTools": "チャットモードは完全なランタイムカタログを開放",
+  "toolbarRuntimeNoSnapshotPrompt": "ランタイムスナップショット未取得。先にリクエストを送信",
+  "toolbarGateNoReason": "ゲート理由なし",
+  "toolbarGateProtocolUnsupportedSwitchPlan": "現在のモデルプロトコルはツール呼出に未対応。タップで計画モードへ。",
+  "toolbarGateChatActiveSwitchPlan": "チャットモード中。タップで計画モードへ切替",
+  "toolbarGatePlanActiveSwitchChat": "計画モード中。タップでチャットへ切替",
+  "toolbarGateProtocolUnsupportedSwitchChat": "モデルプロトコル未対応。計画モードでステップ整理は可能だが実行は不可。タップでチャットへ。",
+  "toolbarGatePlanJustSwitchedToChat": "計画モード切替直後。次のラウンドでツール更新。タップでチャットへ。",
+  "toolbarGatePlanAwaitingSwitchChat": "プラン承認待ち。承認まで実行ツール非表示。タップでチャットへ。",
+  "toolbarGatePlanReviewSwitchChat": "プラン要再確認。続行前にステップ・成果物・Todo を確認。タップでチャットへ。",
+  "toolbarGatePlanExecutingSwitchChat": "プラン実行中。ランタイムカタログに従いツール開放。タップでチャットへ。",
+  "toolbarGatePlanModeSwitchChat": "計画モード中。計画後、承認を経て実行。タップでチャットへ。",
+  "toolbarFilesShow": "プロジェクト",
+  "toolbarFilesHide": "プロジェクト隠す",
+  "toolbarRuntimeModeChat": "チャットモード",
+  "toolbarRuntimeModeChatCompact": "チャット",
+  "toolbarRuntimeModePlan": "計画モード",
+  "toolbarRuntimeModePlanCompact": "計画",
+  "toolbarRuntimeModePlanAwaiting": "プラン承認待ち",
+  "toolbarRuntimeModePlanAwaitingCompact": "承認待ち",
+  "toolbarRuntimeModePlanReview": "プラン要再確認",
+  "toolbarRuntimeModePlanReviewCompact": "要確認",
+  "toolbarRuntimeModePlanExecution": "プラン実行",
+  "toolbarRuntimeModePlanExecutionCompact": "実行",
+  "toolbarRuntimeModePlanDrafting": "プラン策定中",
+  "toolbarRuntimeModePlanDraftCompact": "策定中",
+  "toolbarRuntimeNotices": "{count} 件のランタイム通知",
+  "@toolbarRuntimeNotices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolbarPlanStepsCompleted": "{completed}/{total} 完了",
+  "@toolbarPlanStepsCompleted": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

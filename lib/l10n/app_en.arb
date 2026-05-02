@@ -761,5 +761,77 @@
   "tokenPopupSessionHeading": "Session",
   "tokenPopupMessages": "Messages",
   "tokenPopupPromptBuilds": "Prompt Builds",
-  "tokenPopupPromptChars": "Prompt Chars"
+  "tokenPopupPromptChars": "Prompt Chars",
+  "toolbarSessionMetadata": "Session Metadata",
+  "toolbarProviderModelLocked": "Provider & model locked to ensure cache hit",
+  "toolbarModelLocked": "Model Locked",
+  "toolbarSessionAudit": "Session Audit",
+  "toolbarShowPlan": "Show Plan",
+  "toolbarHidePlan": "Hide Plan",
+  "toolbarPlanAwaitingApproval": "Plan Awaiting Approval",
+  "toolbarPlanNeedsReview": "Plan Needs Review",
+  "toolbarPlanNeedsAttention": "Plan Needs Attention",
+  "toolbarPlanCompleted": "Plan Completed",
+  "toolbarPlanInProgress": "Plan In Progress",
+  "toolbarPlanConfirmToBegin": "Confirm to begin execution",
+  "toolbarPlanInspectBeforeResume": "Inspect completed steps, artifacts, and todos before resuming",
+  "toolbarPlanStepFailed": "A step failed. Review it and continue.",
+  "toolbarPlanPending": "Pending",
+  "toolbarPlanReview": "Review",
+  "toolbarToolsProtocolUnsupported": "The current model protocol does not support tool calls",
+  "toolbarRuntimeNoSnapshot": "No runtime tool snapshot yet",
+  "toolbarToolsCatalogStale": "The tool catalog is stale and will refresh next round",
+  "toolbarRuntimeCatalogSynced": "The runtime tool catalog is synchronized",
+  "toolbarPlanAwaitingNoExecTools": "The plan is awaiting approval, so execution tools stay hidden",
+  "toolbarPlanReviewBeforeResume": "Review completed steps, artifacts, and todos before resuming",
+  "toolbarPlanApprovedExecOpen": "The plan is approved and execution tools are available",
+  "toolbarPlanOnlyPlanningExitAllowed": "Only planning tools are available until the execution plan is ready",
+  "toolbarPlanOnlyPlanningOnly": "Only planning tools are available right now",
+  "toolbarModeJustSwitched": "The mode just changed, so the tool catalog will refresh next round",
+  "toolbarChatModeNoTools": "No tools are available in chat mode right now",
+  "toolbarChatModeAllTools": "Chat mode currently exposes the full runtime catalog",
+  "toolbarRuntimeNoSnapshotPrompt": "No runtime snapshot is available yet; send a request first",
+  "toolbarGateNoReason": "No gate reason available",
+  "toolbarGateProtocolUnsupportedSwitchPlan": "The current model protocol does not support tool calls. Click to switch to plan mode.",
+  "toolbarGateChatActiveSwitchPlan": "Chat mode is active. Click to switch to plan mode.",
+  "toolbarGatePlanActiveSwitchChat": "Plan mode is active. Click to switch to chat mode.",
+  "toolbarGateProtocolUnsupportedSwitchChat": "The current model protocol does not support tool calls. Plan mode can still organize steps, but tool execution stays unavailable. Click to switch to chat mode.",
+  "toolbarGatePlanJustSwitchedToChat": "Plan mode just changed. Runtime tools will refresh on the next round. Click to switch to chat mode.",
+  "toolbarGatePlanAwaitingSwitchChat": "The plan is awaiting approval. Execution tools stay hidden until approval. Click to switch to chat mode.",
+  "toolbarGatePlanReviewSwitchChat": "The plan needs review. Inspect completed steps, artifacts, and todos before continuing. Click to switch to chat mode.",
+  "toolbarGatePlanExecutingSwitchChat": "The plan is executing. Runtime tools are exposed according to the current catalog. Click to switch to chat mode.",
+  "toolbarGatePlanModeSwitchChat": "Plan mode is active. It plans first, then executes after approval. Click to switch to chat mode.",
+  "toolbarFilesShow": "Project Files",
+  "toolbarFilesHide": "Hide Files",
+  "toolbarRuntimeModeChat": "Chat Mode",
+  "toolbarRuntimeModeChatCompact": "Chat Mode",
+  "toolbarRuntimeModePlan": "Plan Mode",
+  "toolbarRuntimeModePlanCompact": "Plan Mode",
+  "toolbarRuntimeModePlanAwaiting": "Plan Awaiting Approval",
+  "toolbarRuntimeModePlanAwaitingCompact": "Plan Awaiting",
+  "toolbarRuntimeModePlanReview": "Plan Needs Review",
+  "toolbarRuntimeModePlanReviewCompact": "Plan Review",
+  "toolbarRuntimeModePlanExecution": "Plan Execution",
+  "toolbarRuntimeModePlanExecutionCompact": "Plan Execute",
+  "toolbarRuntimeModePlanDrafting": "Plan Drafting",
+  "toolbarRuntimeModePlanDraftCompact": "Plan Draft",
+  "toolbarRuntimeNotices": "{count} runtime notices",
+  "@toolbarRuntimeNotices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolbarPlanStepsCompleted": "{completed}/{total} steps completed",
+  "@toolbarPlanStepsCompleted": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

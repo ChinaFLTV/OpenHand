@@ -2191,6 +2191,182 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tokenPopupPromptChars => 'Prompt 字符';
+
+  @override
+  String get toolbarSessionMetadata => '会话元数据';
+
+  @override
+  String get toolbarProviderModelLocked => '已锁定服务商与模型以保证缓存命中';
+
+  @override
+  String get toolbarModelLocked => '模型已锁定';
+
+  @override
+  String get toolbarSessionAudit => '会话审计';
+
+  @override
+  String get toolbarShowPlan => '展开计划';
+
+  @override
+  String get toolbarHidePlan => '收起计划';
+
+  @override
+  String get toolbarPlanAwaitingApproval => '计划待确认';
+
+  @override
+  String get toolbarPlanNeedsReview => '计划待复核';
+
+  @override
+  String get toolbarPlanNeedsAttention => '计划需要处理';
+
+  @override
+  String get toolbarPlanCompleted => '计划已完成';
+
+  @override
+  String get toolbarPlanInProgress => '计划推进中';
+
+  @override
+  String get toolbarPlanConfirmToBegin => '请确认后开始执行';
+
+  @override
+  String get toolbarPlanInspectBeforeResume => '继续前先检查已完成步骤、产物和 Todo';
+
+  @override
+  String get toolbarPlanStepFailed => '当前步骤执行失败，请检查后继续';
+
+  @override
+  String get toolbarPlanPending => '等待确认';
+
+  @override
+  String get toolbarPlanReview => '待复核';
+
+  @override
+  String get toolbarToolsProtocolUnsupported => '当前模型协议不支持工具调用';
+
+  @override
+  String get toolbarRuntimeNoSnapshot => '尚未生成运行时工具快照';
+
+  @override
+  String get toolbarToolsCatalogStale => '工具目录已过期，等待下一轮刷新';
+
+  @override
+  String get toolbarRuntimeCatalogSynced => '运行时工具目录已同步';
+
+  @override
+  String get toolbarPlanAwaitingNoExecTools => '计划待确认，当前轮不开放执行工具';
+
+  @override
+  String get toolbarPlanReviewBeforeResume => '需要先复核已有步骤、产物和 Todo';
+
+  @override
+  String get toolbarPlanApprovedExecOpen => '计划已获准执行，当前轮开放执行工具';
+
+  @override
+  String get toolbarPlanOnlyPlanningExitAllowed => '当前仅开放规划工具，可在准备好后提交执行计划';
+
+  @override
+  String get toolbarPlanOnlyPlanningOnly => '当前仅开放规划工具';
+
+  @override
+  String get toolbarModeJustSwitched => '模式刚切换，等待下一轮重新计算工具目录';
+
+  @override
+  String get toolbarChatModeNoTools => '聊天模式当前没有可用工具';
+
+  @override
+  String get toolbarChatModeAllTools => '聊天模式当前开放完整运行时工具目录';
+
+  @override
+  String get toolbarRuntimeNoSnapshotPrompt => '当前还没有运行时快照，请先发起一轮请求';
+
+  @override
+  String get toolbarGateNoReason => '暂无门控说明';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchPlan =>
+      '当前模型协议不支持工具调用。点击切换到计划模式。';
+
+  @override
+  String get toolbarGateChatActiveSwitchPlan => '当前为聊天模式，点击切换到计划模式';
+
+  @override
+  String get toolbarGatePlanActiveSwitchChat => '当前为计划模式，点击切换到聊天模式';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchChat =>
+      '当前模型协议不支持工具调用。计划模式仍可组织步骤，但不会开放工具执行。点击切换到聊天模式。';
+
+  @override
+  String get toolbarGatePlanJustSwitchedToChat =>
+      '计划模式刚切换完成，运行时工具会在下一轮自动刷新。点击切换到聊天模式。';
+
+  @override
+  String get toolbarGatePlanAwaitingSwitchChat =>
+      '计划待确认。当前轮不会暴露执行工具，请先确认计划。点击切换到聊天模式。';
+
+  @override
+  String get toolbarGatePlanReviewSwitchChat =>
+      '计划待复核。继续执行前应先检查已完成步骤、产物与 Todo。点击切换到聊天模 式。';
+
+  @override
+  String get toolbarGatePlanExecutingSwitchChat =>
+      '计划执行中。当前轮会按运行时目录暴露执行工具。点击切换到聊天模式。';
+
+  @override
+  String get toolbarGatePlanModeSwitchChat =>
+      '当前为计划模式，会先规划，再在获得确认后执行。点击切换到聊天模式。';
+
+  @override
+  String get toolbarFilesShow => '项目文件';
+
+  @override
+  String get toolbarFilesHide => '收起项目';
+
+  @override
+  String get toolbarRuntimeModeChat => '聊天模式';
+
+  @override
+  String get toolbarRuntimeModeChatCompact => '聊天模式';
+
+  @override
+  String get toolbarRuntimeModePlan => '计划模式';
+
+  @override
+  String get toolbarRuntimeModePlanCompact => '计划模式';
+
+  @override
+  String get toolbarRuntimeModePlanAwaiting => '计划待确认';
+
+  @override
+  String get toolbarRuntimeModePlanAwaitingCompact => '计划待确认';
+
+  @override
+  String get toolbarRuntimeModePlanReview => '计划待复核';
+
+  @override
+  String get toolbarRuntimeModePlanReviewCompact => '计划待复核';
+
+  @override
+  String get toolbarRuntimeModePlanExecution => '执行计划';
+
+  @override
+  String get toolbarRuntimeModePlanExecutionCompact => '执行计划';
+
+  @override
+  String get toolbarRuntimeModePlanDrafting => '计划规划中';
+
+  @override
+  String get toolbarRuntimeModePlanDraftCompact => '计划规划中';
+
+  @override
+  String toolbarRuntimeNotices(int count) {
+    return '$count 项运行时 Notice';
+  }
+
+  @override
+  String toolbarPlanStepsCompleted(int completed, int total) {
+    return '已完成 $completed/$total 项';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -4380,6 +4556,182 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get tokenPopupPromptChars => 'Prompt 字符';
+
+  @override
+  String get toolbarSessionMetadata => '会话元数据';
+
+  @override
+  String get toolbarProviderModelLocked => '已锁定服务商与模型以保证缓存命中';
+
+  @override
+  String get toolbarModelLocked => '模型已锁定';
+
+  @override
+  String get toolbarSessionAudit => '会话审计';
+
+  @override
+  String get toolbarShowPlan => '展开计划';
+
+  @override
+  String get toolbarHidePlan => '收起计划';
+
+  @override
+  String get toolbarPlanAwaitingApproval => '计划待确认';
+
+  @override
+  String get toolbarPlanNeedsReview => '计划待复核';
+
+  @override
+  String get toolbarPlanNeedsAttention => '计划需要处理';
+
+  @override
+  String get toolbarPlanCompleted => '计划已完成';
+
+  @override
+  String get toolbarPlanInProgress => '计划推进中';
+
+  @override
+  String get toolbarPlanConfirmToBegin => '请确认后开始执行';
+
+  @override
+  String get toolbarPlanInspectBeforeResume => '继续前先检查已完成步骤、产物和 Todo';
+
+  @override
+  String get toolbarPlanStepFailed => '当前步骤执行失败，请检查后继续';
+
+  @override
+  String get toolbarPlanPending => '等待确认';
+
+  @override
+  String get toolbarPlanReview => '待复核';
+
+  @override
+  String get toolbarToolsProtocolUnsupported => '当前模型协议不支持工具调用';
+
+  @override
+  String get toolbarRuntimeNoSnapshot => '尚未生成运行时工具快照';
+
+  @override
+  String get toolbarToolsCatalogStale => '工具目录已过期，等待下一轮刷新';
+
+  @override
+  String get toolbarRuntimeCatalogSynced => '运行时工具目录已同步';
+
+  @override
+  String get toolbarPlanAwaitingNoExecTools => '计划待确认，当前轮不开放执行工具';
+
+  @override
+  String get toolbarPlanReviewBeforeResume => '需要先复核已有步骤、产物和 Todo';
+
+  @override
+  String get toolbarPlanApprovedExecOpen => '计划已获准执行，当前轮开放执行工具';
+
+  @override
+  String get toolbarPlanOnlyPlanningExitAllowed => '当前仅开放规划工具，可在准备好后提交执行计划';
+
+  @override
+  String get toolbarPlanOnlyPlanningOnly => '当前仅开放规划工具';
+
+  @override
+  String get toolbarModeJustSwitched => '模式刚切换，等待下一轮重新计算工具目录';
+
+  @override
+  String get toolbarChatModeNoTools => '聊天模式当前没有可用工具';
+
+  @override
+  String get toolbarChatModeAllTools => '聊天模式当前开放完整运行时工具目录';
+
+  @override
+  String get toolbarRuntimeNoSnapshotPrompt => '当前还没有运行时快照，请先发起一轮请求';
+
+  @override
+  String get toolbarGateNoReason => '暂无门控说明';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchPlan =>
+      '当前模型协议不支持工具调用。点击切换到计划模式。';
+
+  @override
+  String get toolbarGateChatActiveSwitchPlan => '当前为聊天模式，点击切换到计划模式';
+
+  @override
+  String get toolbarGatePlanActiveSwitchChat => '当前为计划模式，点击切换到聊天模式';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchChat =>
+      '当前模型协议不支持工具调用。计划模式仍可组织步骤，但不会开放工具执行。点击切换到聊天模式。';
+
+  @override
+  String get toolbarGatePlanJustSwitchedToChat =>
+      '计划模式刚切换完成，运行时工具会在下一轮自动刷新。点击切换到聊天模式。';
+
+  @override
+  String get toolbarGatePlanAwaitingSwitchChat =>
+      '计划待确认。当前轮不会暴露执行工具，请先确认计划。点击切换到聊天模式。';
+
+  @override
+  String get toolbarGatePlanReviewSwitchChat =>
+      '计划待复核。继续执行前应先检查已完成步骤、产物与 Todo。点击切换到聊天模 式。';
+
+  @override
+  String get toolbarGatePlanExecutingSwitchChat =>
+      '计划执行中。当前轮会按运行时目录暴露执行工具。点击切换到聊天模式。';
+
+  @override
+  String get toolbarGatePlanModeSwitchChat =>
+      '当前为计划模式，会先规划，再在获得确认后执行。点击切换到聊天模式。';
+
+  @override
+  String get toolbarFilesShow => '项目文件';
+
+  @override
+  String get toolbarFilesHide => '收起项目';
+
+  @override
+  String get toolbarRuntimeModeChat => '聊天模式';
+
+  @override
+  String get toolbarRuntimeModeChatCompact => '聊天模式';
+
+  @override
+  String get toolbarRuntimeModePlan => '计划模式';
+
+  @override
+  String get toolbarRuntimeModePlanCompact => '计划模式';
+
+  @override
+  String get toolbarRuntimeModePlanAwaiting => '计划待确认';
+
+  @override
+  String get toolbarRuntimeModePlanAwaitingCompact => '计划待确认';
+
+  @override
+  String get toolbarRuntimeModePlanReview => '计划待复核';
+
+  @override
+  String get toolbarRuntimeModePlanReviewCompact => '计划待复核';
+
+  @override
+  String get toolbarRuntimeModePlanExecution => '执行计划';
+
+  @override
+  String get toolbarRuntimeModePlanExecutionCompact => '执行计划';
+
+  @override
+  String get toolbarRuntimeModePlanDrafting => '计划规划中';
+
+  @override
+  String get toolbarRuntimeModePlanDraftCompact => '计划规划中';
+
+  @override
+  String toolbarRuntimeNotices(int count) {
+    return '$count 项运行时 Notice';
+  }
+
+  @override
+  String toolbarPlanStepsCompleted(int completed, int total) {
+    return '已完成 $completed/$total 项';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -6568,4 +6920,180 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tokenPopupPromptChars => 'Prompt 字元';
+
+  @override
+  String get toolbarSessionMetadata => '會話元數據';
+
+  @override
+  String get toolbarProviderModelLocked => '已鎖定服務商與模型以保證緩存命中';
+
+  @override
+  String get toolbarModelLocked => '模型已鎖定';
+
+  @override
+  String get toolbarSessionAudit => '會話審計';
+
+  @override
+  String get toolbarShowPlan => '展開計劃';
+
+  @override
+  String get toolbarHidePlan => '收起計劃';
+
+  @override
+  String get toolbarPlanAwaitingApproval => '計劃待確認';
+
+  @override
+  String get toolbarPlanNeedsReview => '計劃待覆核';
+
+  @override
+  String get toolbarPlanNeedsAttention => '計劃需要處理';
+
+  @override
+  String get toolbarPlanCompleted => '計劃已完成';
+
+  @override
+  String get toolbarPlanInProgress => '計劃推進中';
+
+  @override
+  String get toolbarPlanConfirmToBegin => '請確認後開始執行';
+
+  @override
+  String get toolbarPlanInspectBeforeResume => '繼續前先檢查已完成步驟、產物和 Todo';
+
+  @override
+  String get toolbarPlanStepFailed => '當前步驟執行失敗，請檢查後繼續';
+
+  @override
+  String get toolbarPlanPending => '等待確認';
+
+  @override
+  String get toolbarPlanReview => '待覆核';
+
+  @override
+  String get toolbarToolsProtocolUnsupported => '當前模型協議不支援工具調用';
+
+  @override
+  String get toolbarRuntimeNoSnapshot => '尚未生成運行時工具快照';
+
+  @override
+  String get toolbarToolsCatalogStale => '工具目錄已過期，等待下一輪刷新';
+
+  @override
+  String get toolbarRuntimeCatalogSynced => '運行時工具目錄已同步';
+
+  @override
+  String get toolbarPlanAwaitingNoExecTools => '計劃待確認，當前輪不開放執行工具';
+
+  @override
+  String get toolbarPlanReviewBeforeResume => '需要先覆核已有步驟、產物和 Todo';
+
+  @override
+  String get toolbarPlanApprovedExecOpen => '計劃已獲准執行，當前輪開放執行工具';
+
+  @override
+  String get toolbarPlanOnlyPlanningExitAllowed => '當前僅開放規劃工具，可在準備好後提交執行計劃';
+
+  @override
+  String get toolbarPlanOnlyPlanningOnly => '當前僅開放規劃工具';
+
+  @override
+  String get toolbarModeJustSwitched => '模式剛切換，等待下一輪重新計算工具目錄';
+
+  @override
+  String get toolbarChatModeNoTools => '聊天模式當前沒有可用工具';
+
+  @override
+  String get toolbarChatModeAllTools => '聊天模式當前開放完整運行時工具目錄';
+
+  @override
+  String get toolbarRuntimeNoSnapshotPrompt => '當前還沒有運行時快照，請先發起一輪請求';
+
+  @override
+  String get toolbarGateNoReason => '暫無門控說明';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchPlan =>
+      '當前模型協議不支援工具調用。點擊切換到計劃模式。';
+
+  @override
+  String get toolbarGateChatActiveSwitchPlan => '當前為聊天模式，點擊切換到計劃模式';
+
+  @override
+  String get toolbarGatePlanActiveSwitchChat => '當前為計劃模式，點擊切換到聊天模式';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchChat =>
+      '當前模型協議不支援工具調用。計劃模式仍可組織步驟，但不會開放工具執行。點擊切換到聊天模式。';
+
+  @override
+  String get toolbarGatePlanJustSwitchedToChat =>
+      '計劃模式剛切換完成，運行時工具會在下一輪自動刷新。點擊切換到聊天模式。';
+
+  @override
+  String get toolbarGatePlanAwaitingSwitchChat =>
+      '計劃待確認。當前輪不會暴露執行工具，請先確認計劃。點擊切換到聊天模式。';
+
+  @override
+  String get toolbarGatePlanReviewSwitchChat =>
+      '計劃待覆核。繼續執行前應先檢查已完成步驟、產物與 Todo。點擊切換到聊天模式。';
+
+  @override
+  String get toolbarGatePlanExecutingSwitchChat =>
+      '計劃執行中。當前輪會按運行時目錄暴露執行工具。點擊切換到聊天模式。';
+
+  @override
+  String get toolbarGatePlanModeSwitchChat =>
+      '當前為計劃模式，會先規劃，再在獲得確認後執行。點擊切換到聊天模式。';
+
+  @override
+  String get toolbarFilesShow => '專案檔案';
+
+  @override
+  String get toolbarFilesHide => '收起專案';
+
+  @override
+  String get toolbarRuntimeModeChat => '聊天模式';
+
+  @override
+  String get toolbarRuntimeModeChatCompact => '聊天模式';
+
+  @override
+  String get toolbarRuntimeModePlan => '計劃模式';
+
+  @override
+  String get toolbarRuntimeModePlanCompact => '計劃模式';
+
+  @override
+  String get toolbarRuntimeModePlanAwaiting => '計劃待確認';
+
+  @override
+  String get toolbarRuntimeModePlanAwaitingCompact => '計劃待確認';
+
+  @override
+  String get toolbarRuntimeModePlanReview => '計劃待覆核';
+
+  @override
+  String get toolbarRuntimeModePlanReviewCompact => '計劃待覆核';
+
+  @override
+  String get toolbarRuntimeModePlanExecution => '執行計劃';
+
+  @override
+  String get toolbarRuntimeModePlanExecutionCompact => '執行計劃';
+
+  @override
+  String get toolbarRuntimeModePlanDrafting => '計劃規劃中';
+
+  @override
+  String get toolbarRuntimeModePlanDraftCompact => '計劃規劃中';
+
+  @override
+  String toolbarRuntimeNotices(int count) {
+    return '$count 項運行時 Notice';
+  }
+
+  @override
+  String toolbarPlanStepsCompleted(int completed, int total) {
+    return '已完成 $completed/$total 項';
+  }
 }

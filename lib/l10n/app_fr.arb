@@ -761,5 +761,77 @@
   "tokenPopupSessionHeading": "Session",
   "tokenPopupMessages": "Messages",
   "tokenPopupPromptBuilds": "Constructions de prompt",
-  "tokenPopupPromptChars": "Caractères de prompt"
+  "tokenPopupPromptChars": "Caractères de prompt",
+  "toolbarSessionMetadata": "Métadonnées de session",
+  "toolbarProviderModelLocked": "Fournisseur & modèle verrouillés pour assurer le cache",
+  "toolbarModelLocked": "Modèle verrouillé",
+  "toolbarSessionAudit": "Audit de session",
+  "toolbarShowPlan": "Afficher le plan",
+  "toolbarHidePlan": "Masquer le plan",
+  "toolbarPlanAwaitingApproval": "Plan en attente",
+  "toolbarPlanNeedsReview": "Plan à revoir",
+  "toolbarPlanNeedsAttention": "Plan à traiter",
+  "toolbarPlanCompleted": "Plan terminé",
+  "toolbarPlanInProgress": "Plan en cours",
+  "toolbarPlanConfirmToBegin": "Confirmer pour démarrer",
+  "toolbarPlanInspectBeforeResume": "Vérifier les étapes, artefacts et todos avant de reprendre",
+  "toolbarPlanStepFailed": "Une étape a échoué. Vérifiez puis continuez.",
+  "toolbarPlanPending": "En attente",
+  "toolbarPlanReview": "À revoir",
+  "toolbarToolsProtocolUnsupported": "Le protocole du modèle ne prend pas en charge les outils",
+  "toolbarRuntimeNoSnapshot": "Aucun instantané d'outils runtime",
+  "toolbarToolsCatalogStale": "Le catalogue est obsolète, mise à jour prochaine",
+  "toolbarRuntimeCatalogSynced": "Catalogue d'outils runtime synchronisé",
+  "toolbarPlanAwaitingNoExecTools": "Plan en attente, outils d'exécution masqués",
+  "toolbarPlanReviewBeforeResume": "Vérifier étapes, artefacts et todos",
+  "toolbarPlanApprovedExecOpen": "Plan approuvé, outils d'exécution disponibles",
+  "toolbarPlanOnlyPlanningExitAllowed": "Outils de planification uniquement, jusqu'à plan prêt",
+  "toolbarPlanOnlyPlanningOnly": "Outils de planification uniquement",
+  "toolbarModeJustSwitched": "Mode changé, catalogue mis à jour à la prochaine ronde",
+  "toolbarChatModeNoTools": "Aucun outil disponible en mode discussion",
+  "toolbarChatModeAllTools": "Mode discussion expose le catalogue complet",
+  "toolbarRuntimeNoSnapshotPrompt": "Aucun instantané runtime, envoyez d'abord une requête",
+  "toolbarGateNoReason": "Aucune raison de blocage",
+  "toolbarGateProtocolUnsupportedSwitchPlan": "Protocole sans support outils. Cliquer pour passer en mode plan.",
+  "toolbarGateChatActiveSwitchPlan": "Mode discussion actif. Cliquer pour passer en mode plan.",
+  "toolbarGatePlanActiveSwitchChat": "Mode plan actif. Cliquer pour discussion.",
+  "toolbarGateProtocolUnsupportedSwitchChat": "Protocole sans support outils. Mode plan peut structurer les étapes mais pas exécuter. Cliquer pour discussion.",
+  "toolbarGatePlanJustSwitchedToChat": "Mode plan changé. Outils mis à jour à la prochaine ronde. Cliquer pour discussion.",
+  "toolbarGatePlanAwaitingSwitchChat": "Plan en attente. Outils masqués jusqu'à approbation. Cliquer pour discussion.",
+  "toolbarGatePlanReviewSwitchChat": "Plan à revoir. Vérifier étapes, artefacts et todos avant de continuer. Cliquer pour discussion.",
+  "toolbarGatePlanExecutingSwitchChat": "Plan en exécution. Outils selon catalogue. Cliquer pour discussion.",
+  "toolbarGatePlanModeSwitchChat": "Mode plan actif. Planifie puis exécute après approbation. Cliquer pour discussion.",
+  "toolbarFilesShow": "Fichiers projet",
+  "toolbarFilesHide": "Masquer fichiers",
+  "toolbarRuntimeModeChat": "Mode discussion",
+  "toolbarRuntimeModeChatCompact": "Discussion",
+  "toolbarRuntimeModePlan": "Mode plan",
+  "toolbarRuntimeModePlanCompact": "Plan",
+  "toolbarRuntimeModePlanAwaiting": "Plan en attente",
+  "toolbarRuntimeModePlanAwaitingCompact": "En attente",
+  "toolbarRuntimeModePlanReview": "Plan à revoir",
+  "toolbarRuntimeModePlanReviewCompact": "À revoir",
+  "toolbarRuntimeModePlanExecution": "Exécution",
+  "toolbarRuntimeModePlanExecutionCompact": "Exécuter",
+  "toolbarRuntimeModePlanDrafting": "Plan en préparation",
+  "toolbarRuntimeModePlanDraftCompact": "Brouillon",
+  "toolbarRuntimeNotices": "{count} notices runtime",
+  "@toolbarRuntimeNotices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolbarPlanStepsCompleted": "{completed}/{total} étapes terminées",
+  "@toolbarPlanStepsCompleted": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

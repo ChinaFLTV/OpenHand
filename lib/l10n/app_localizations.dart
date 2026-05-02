@@ -4257,6 +4257,336 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'Prompt 字符'**
   String get tokenPopupPromptChars;
+
+  /// No description provided for @toolbarSessionMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话元数据'**
+  String get toolbarSessionMetadata;
+
+  /// No description provided for @toolbarProviderModelLocked.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已锁定服务商与模型以保证缓存命中'**
+  String get toolbarProviderModelLocked;
+
+  /// No description provided for @toolbarModelLocked.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型已锁定'**
+  String get toolbarModelLocked;
+
+  /// No description provided for @toolbarSessionAudit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话审计'**
+  String get toolbarSessionAudit;
+
+  /// No description provided for @toolbarShowPlan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'展开计划'**
+  String get toolbarShowPlan;
+
+  /// No description provided for @toolbarHidePlan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'收起计划'**
+  String get toolbarHidePlan;
+
+  /// No description provided for @toolbarPlanAwaitingApproval.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划待确认'**
+  String get toolbarPlanAwaitingApproval;
+
+  /// No description provided for @toolbarPlanNeedsReview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划待复核'**
+  String get toolbarPlanNeedsReview;
+
+  /// No description provided for @toolbarPlanNeedsAttention.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划需要处理'**
+  String get toolbarPlanNeedsAttention;
+
+  /// No description provided for @toolbarPlanCompleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划已完成'**
+  String get toolbarPlanCompleted;
+
+  /// No description provided for @toolbarPlanInProgress.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划推进中'**
+  String get toolbarPlanInProgress;
+
+  /// No description provided for @toolbarPlanConfirmToBegin.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请确认后开始执行'**
+  String get toolbarPlanConfirmToBegin;
+
+  /// No description provided for @toolbarPlanInspectBeforeResume.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'继续前先检查已完成步骤、产物和 Todo'**
+  String get toolbarPlanInspectBeforeResume;
+
+  /// No description provided for @toolbarPlanStepFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前步骤执行失败，请检查后继续'**
+  String get toolbarPlanStepFailed;
+
+  /// No description provided for @toolbarPlanPending.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待确认'**
+  String get toolbarPlanPending;
+
+  /// No description provided for @toolbarPlanReview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'待复核'**
+  String get toolbarPlanReview;
+
+  /// No description provided for @toolbarToolsProtocolUnsupported.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前模型协议不支持工具调用'**
+  String get toolbarToolsProtocolUnsupported;
+
+  /// No description provided for @toolbarRuntimeNoSnapshot.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚未生成运行时工具快照'**
+  String get toolbarRuntimeNoSnapshot;
+
+  /// No description provided for @toolbarToolsCatalogStale.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具目录已过期，等待下一轮刷新'**
+  String get toolbarToolsCatalogStale;
+
+  /// No description provided for @toolbarRuntimeCatalogSynced.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行时工具目录已同步'**
+  String get toolbarRuntimeCatalogSynced;
+
+  /// No description provided for @toolbarPlanAwaitingNoExecTools.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划待确认，当前轮不开放执行工具'**
+  String get toolbarPlanAwaitingNoExecTools;
+
+  /// No description provided for @toolbarPlanReviewBeforeResume.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'需要先复核已有步骤、产物和 Todo'**
+  String get toolbarPlanReviewBeforeResume;
+
+  /// No description provided for @toolbarPlanApprovedExecOpen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划已获准执行，当前轮开放执行工具'**
+  String get toolbarPlanApprovedExecOpen;
+
+  /// No description provided for @toolbarPlanOnlyPlanningExitAllowed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前仅开放规划工具，可在准备好后提交执行计划'**
+  String get toolbarPlanOnlyPlanningExitAllowed;
+
+  /// No description provided for @toolbarPlanOnlyPlanningOnly.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前仅开放规划工具'**
+  String get toolbarPlanOnlyPlanningOnly;
+
+  /// No description provided for @toolbarModeJustSwitched.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模式刚切换，等待下一轮重新计算工具目录'**
+  String get toolbarModeJustSwitched;
+
+  /// No description provided for @toolbarChatModeNoTools.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'聊天模式当前没有可用工具'**
+  String get toolbarChatModeNoTools;
+
+  /// No description provided for @toolbarChatModeAllTools.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'聊天模式当前开放完整运行时工具目录'**
+  String get toolbarChatModeAllTools;
+
+  /// No description provided for @toolbarRuntimeNoSnapshotPrompt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前还没有运行时快照，请先发起一轮请求'**
+  String get toolbarRuntimeNoSnapshotPrompt;
+
+  /// No description provided for @toolbarGateNoReason.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无门控说明'**
+  String get toolbarGateNoReason;
+
+  /// No description provided for @toolbarGateProtocolUnsupportedSwitchPlan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前模型协议不支持工具调用。点击切换到计划模式。'**
+  String get toolbarGateProtocolUnsupportedSwitchPlan;
+
+  /// No description provided for @toolbarGateChatActiveSwitchPlan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前为聊天模式，点击切换到计划模式'**
+  String get toolbarGateChatActiveSwitchPlan;
+
+  /// No description provided for @toolbarGatePlanActiveSwitchChat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前为计划模式，点击切换到聊天模式'**
+  String get toolbarGatePlanActiveSwitchChat;
+
+  /// No description provided for @toolbarGateProtocolUnsupportedSwitchChat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前模型协议不支持工具调用。计划模式仍可组织步骤，但不会开放工具执行。点击切换到聊天模式。'**
+  String get toolbarGateProtocolUnsupportedSwitchChat;
+
+  /// No description provided for @toolbarGatePlanJustSwitchedToChat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划模式刚切换完成，运行时工具会在下一轮自动刷新。点击切换到聊天模式。'**
+  String get toolbarGatePlanJustSwitchedToChat;
+
+  /// No description provided for @toolbarGatePlanAwaitingSwitchChat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划待确认。当前轮不会暴露执行工具，请先确认计划。点击切换到聊天模式。'**
+  String get toolbarGatePlanAwaitingSwitchChat;
+
+  /// No description provided for @toolbarGatePlanReviewSwitchChat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划待复核。继续执行前应先检查已完成步骤、产物与 Todo。点击切换到聊天模 式。'**
+  String get toolbarGatePlanReviewSwitchChat;
+
+  /// No description provided for @toolbarGatePlanExecutingSwitchChat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划执行中。当前轮会按运行时目录暴露执行工具。点击切换到聊天模式。'**
+  String get toolbarGatePlanExecutingSwitchChat;
+
+  /// No description provided for @toolbarGatePlanModeSwitchChat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前为计划模式，会先规划，再在获得确认后执行。点击切换到聊天模式。'**
+  String get toolbarGatePlanModeSwitchChat;
+
+  /// No description provided for @toolbarFilesShow.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'项目文件'**
+  String get toolbarFilesShow;
+
+  /// No description provided for @toolbarFilesHide.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'收起项目'**
+  String get toolbarFilesHide;
+
+  /// No description provided for @toolbarRuntimeModeChat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'聊天模式'**
+  String get toolbarRuntimeModeChat;
+
+  /// No description provided for @toolbarRuntimeModeChatCompact.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'聊天模式'**
+  String get toolbarRuntimeModeChatCompact;
+
+  /// No description provided for @toolbarRuntimeModePlan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划模式'**
+  String get toolbarRuntimeModePlan;
+
+  /// No description provided for @toolbarRuntimeModePlanCompact.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划模式'**
+  String get toolbarRuntimeModePlanCompact;
+
+  /// No description provided for @toolbarRuntimeModePlanAwaiting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划待确认'**
+  String get toolbarRuntimeModePlanAwaiting;
+
+  /// No description provided for @toolbarRuntimeModePlanAwaitingCompact.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划待确认'**
+  String get toolbarRuntimeModePlanAwaitingCompact;
+
+  /// No description provided for @toolbarRuntimeModePlanReview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划待复核'**
+  String get toolbarRuntimeModePlanReview;
+
+  /// No description provided for @toolbarRuntimeModePlanReviewCompact.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划待复核'**
+  String get toolbarRuntimeModePlanReviewCompact;
+
+  /// No description provided for @toolbarRuntimeModePlanExecution.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行计划'**
+  String get toolbarRuntimeModePlanExecution;
+
+  /// No description provided for @toolbarRuntimeModePlanExecutionCompact.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行计划'**
+  String get toolbarRuntimeModePlanExecutionCompact;
+
+  /// No description provided for @toolbarRuntimeModePlanDrafting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划规划中'**
+  String get toolbarRuntimeModePlanDrafting;
+
+  /// No description provided for @toolbarRuntimeModePlanDraftCompact.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划规划中'**
+  String get toolbarRuntimeModePlanDraftCompact;
+
+  /// No description provided for @toolbarRuntimeNotices.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count} 项运行时 Notice'**
+  String toolbarRuntimeNotices(int count);
+
+  /// No description provided for @toolbarPlanStepsCompleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已完成 {completed}/{total} 项'**
+  String toolbarPlanStepsCompleted(int completed, int total);
 }
 
 class _AppLocalizationsDelegate

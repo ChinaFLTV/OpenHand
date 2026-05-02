@@ -82,11 +82,10 @@ class _SessionToolbar extends StatelessWidget {
                               const SizedBox(width: 8),
                               _ToolbarPill(
                                 icon: Icons.info_outline_rounded,
-                                label: _localizedText(
-                                  context,
-                                  zh: '运行时 Notice ${runtimeStatus.notices.length}',
-                                  en: 'Runtime Notices ${runtimeStatus.notices.length}',
-                                ),
+                                label: AppLocalizations.of(context)!
+                                    .toolbarRuntimeNotices(
+                                      runtimeStatus.notices.length,
+                                    ),
                                 onTap: () {
                                   _showSessionMetadataDialog(
                                     context,
@@ -108,11 +107,7 @@ class _SessionToolbar extends StatelessWidget {
                             const SizedBox(width: 8),
                             _ToolbarPill(
                               icon: Icons.data_object_rounded,
-                              label: _localizedText(
-                                context,
-                                zh: '会话元数据',
-                                en: 'Session Metadata',
-                              ),
+                              label: AppLocalizations.of(context)!.toolbarSessionMetadata,
                               onTap: () {
                                 _showSessionMetadataDialog(
                                   context,
@@ -130,18 +125,10 @@ class _SessionToolbar extends StatelessWidget {
                             if (_isInputCacheLocked(context, session)) ...[
                               const SizedBox(width: 8),
                               Tooltip(
-                                message: _localizedText(
-                                  context,
-                                  zh: '已锁定服务商与模型以保证缓存命中',
-                                  en: 'Provider & model locked to ensure cache hit',
-                                ),
+                                message: AppLocalizations.of(context)!.toolbarProviderModelLocked,
                                 child: _ToolbarPill(
                                   icon: Icons.lock_outline_rounded,
-                                  label: _localizedText(
-                                    context,
-                                    zh: '模型已锁定',
-                                    en: 'Model Locked',
-                                  ),
+                                  label: AppLocalizations.of(context)!.toolbarModelLocked,
                                 ),
                               ),
                             ],
@@ -151,11 +138,7 @@ class _SessionToolbar extends StatelessWidget {
                               const SizedBox(width: 8),
                               _ToolbarPill(
                                 icon: Icons.fact_check_outlined,
-                                label: _localizedText(
-                                  context,
-                                  zh: '会话审计',
-                                  en: 'Session Audit',
-                                ),
+                                label: AppLocalizations.of(context)!.toolbarSessionAudit,
                                 onTap: () {
                                   _showSessionAuditDialog(
                                     context,
@@ -185,8 +168,8 @@ class _SessionToolbar extends StatelessWidget {
                         ? Icons.unfold_more_rounded
                         : Icons.unfold_less_rounded,
                     label: planTimelineCollapsed
-                        ? _localizedText(context, zh: '展开计划', en: 'Show Plan')
-                        : _localizedText(context, zh: '收起计划', en: 'Hide Plan'),
+                        ? AppLocalizations.of(context)!.toolbarShowPlan
+                        : AppLocalizations.of(context)!.toolbarHidePlan,
                     onTap: () {
                       onPlanTimelineCollapsedChanged?.call(
                         !planTimelineCollapsed,
@@ -201,11 +184,7 @@ class _SessionToolbar extends StatelessWidget {
                   icon: fileExplorerVisible
                       ? Icons.folder_open_rounded
                       : Icons.folder_outlined,
-                  label: _localizedText(
-                    context,
-                    zh: fileExplorerVisible ? '收起项目' : '项目文件',
-                    en: fileExplorerVisible ? 'Hide Files' : 'Project Files',
-                  ),
+                  label: _localizedFilesToggle(context, fileExplorerVisible),
                   onTap: onFileExplorerToggled,
                 ),
                 const SizedBox(width: 10),
@@ -538,36 +517,23 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
         ? colorScheme.primary
         : colorScheme.tertiary;
     final headline = data.awaitingApproval
-        ? _localizedText(context, zh: '计划待确认', en: 'Plan Awaiting Approval')
+        ? AppLocalizations.of(context)!.toolbarPlanAwaitingApproval
         : data.requiresReview
-        ? _localizedText(context, zh: '计划待复核', en: 'Plan Needs Review')
+        ? AppLocalizations.of(context)!.toolbarPlanNeedsReview
         : data.hasFailedStep
-        ? _localizedText(context, zh: '计划需要处理', en: 'Plan Needs Attention')
+        ? AppLocalizations.of(context)!.toolbarPlanNeedsAttention
         : data.isComplete
-        ? _localizedText(context, zh: '计划已完成', en: 'Plan Completed')
-        : _localizedText(context, zh: '计划推进中', en: 'Plan In Progress');
+        ? AppLocalizations.of(context)!.toolbarPlanCompleted
+        : AppLocalizations.of(context)!.toolbarPlanInProgress;
     final subtitle = data.awaitingApproval
-        ? _localizedText(
-            context,
-            zh: '请确认后开始执行',
-            en: 'Confirm to begin execution',
-          )
+        ? AppLocalizations.of(context)!.toolbarPlanConfirmToBegin
         : data.requiresReview
-        ? _localizedText(
-            context,
-            zh: '继续前先检查已完成步骤、产物和 Todo',
-            en: 'Inspect completed steps, artifacts, and todos before resuming',
-          )
+        ? AppLocalizations.of(context)!.toolbarPlanInspectBeforeResume
         : data.hasFailedStep
-        ? _localizedText(
-            context,
-            zh: '当前步骤执行失败，请检查后继续',
-            en: 'A step failed. Review it and continue.',
-          )
-        : _localizedText(
-            context,
-            zh: '已完成 ${data.completedStepCount}/${data.steps.length} 项',
-            en: '${data.completedStepCount}/${data.steps.length} steps completed',
+        ? AppLocalizations.of(context)!.toolbarPlanStepFailed
+        : AppLocalizations.of(context)!.toolbarPlanStepsCompleted(
+            data.completedStepCount,
+            data.steps.length,
           );
     return Container(
       width: double.infinity,
@@ -632,7 +598,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
               ),
               if (onVisibilityToggle != null) ...[
                 _PlanTimelineVisibilityButton(
-                  label: _localizedText(context, zh: '收起计划', en: 'Hide Plan'),
+                  label: AppLocalizations.of(context)!.toolbarHidePlan,
                   icon: Icons.unfold_less_rounded,
                   color: statusColor,
                   onTap: onVisibilityToggle,
@@ -643,9 +609,9 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
                 duration: const Duration(milliseconds: 180),
                 child: Text(
                   data.awaitingApproval
-                      ? _localizedText(context, zh: '等待确认', en: 'Pending')
+                      ? AppLocalizations.of(context)!.toolbarPlanPending
                       : data.requiresReview
-                      ? _localizedText(context, zh: '待复核', en: 'Review')
+                      ? AppLocalizations.of(context)!.toolbarPlanReview
                       : '${data.completedStepCount}/${data.steps.length}',
                   key: ValueKey<String>(
                     '${data.awaitingApproval}-${data.requiresReview}-${data.completedStepCount}-${data.steps.length}',
@@ -1510,48 +1476,38 @@ String _runtimeModeLabel(
   AiSessionMode? explicitMode,
 }) {
   final mode = explicitMode ?? status?.sessionMode ?? AiSessionMode.chat;
+  final l10n = AppLocalizations.of(context)!;
   if (mode != AiSessionMode.plan) {
-    return _localizedText(
-      context,
-      zh: '聊天模式',
-      en: compact ? 'Chat Mode' : 'Chat Mode',
-    );
+    return compact ? l10n.toolbarRuntimeModeChatCompact : l10n.toolbarRuntimeModeChat;
   }
   if (status != null && status.sessionMode == AiSessionMode.plan) {
     if (status.awaitingPlanApproval) {
-      return _localizedText(
-        context,
-        zh: '计划待确认',
-        en: compact ? 'Plan Awaiting' : 'Plan Awaiting Approval',
-      );
+      return compact
+          ? l10n.toolbarRuntimeModePlanAwaitingCompact
+          : l10n.toolbarRuntimeModePlanAwaiting;
     }
     if (status.planRecoveryRequired) {
-      return _localizedText(
-        context,
-        zh: '计划待复核',
-        en: compact ? 'Plan Review' : 'Plan Needs Review',
-      );
+      return compact
+          ? l10n.toolbarRuntimeModePlanReviewCompact
+          : l10n.toolbarRuntimeModePlanReview;
     }
     if (status.planExecutionApproved) {
-      return _localizedText(
-        context,
-        zh: '执行计划',
-        en: compact ? 'Plan Execute' : 'Plan Execution',
-      );
+      return compact
+          ? l10n.toolbarRuntimeModePlanExecutionCompact
+          : l10n.toolbarRuntimeModePlanExecution;
     }
     if (status.hasActivePlanState) {
-      return _localizedText(
-        context,
-        zh: '计划规划中',
-        en: compact ? 'Plan Draft' : 'Plan Drafting',
-      );
+      return compact
+          ? l10n.toolbarRuntimeModePlanDraftCompact
+          : l10n.toolbarRuntimeModePlanDrafting;
     }
   }
-  return _localizedText(
-    context,
-    zh: '计划模式',
-    en: compact ? 'Plan Mode' : 'Plan Mode',
-  );
+  return compact ? l10n.toolbarRuntimeModePlanCompact : l10n.toolbarRuntimeModePlan;
+}
+
+String _localizedFilesToggle(BuildContext context, bool visible) {
+  final l10n = AppLocalizations.of(context)!;
+  return visible ? l10n.toolbarFilesHide : l10n.toolbarFilesShow;
 }
 
 IconData _runtimeModeIcon(
@@ -1581,92 +1537,32 @@ String _runtimeToolCatalogStatusLabel(
   _RuntimeToolCatalogStatus status,
 ) {
   if (!status.supportsToolCalls) {
-    return _localizedText(
-      context,
-      zh: '当前模型协议不支持工具调用',
-      en: 'The current model protocol does not support tool calls',
-    );
+    return AppLocalizations.of(context)!.toolbarToolsProtocolUnsupported;
   }
   if (!status.hasSnapshot) {
-    return _localizedText(
-      context,
-      zh: '尚未生成运行时工具快照',
-      en: 'No runtime tool snapshot yet',
-    );
+    return AppLocalizations.of(context)!.toolbarRuntimeNoSnapshot;
   }
   if (status.stale) {
-    return _localizedText(
-      context,
-      zh: '工具目录已过期，等待下一轮刷新',
-      en: 'The tool catalog is stale and will refresh next round',
-    );
+    return AppLocalizations.of(context)!.toolbarToolsCatalogStale;
   }
-  return _localizedText(
-    context,
-    zh: '运行时工具目录已同步',
-    en: 'The runtime tool catalog is synchronized',
-  );
+  return AppLocalizations.of(context)!.toolbarRuntimeCatalogSynced;
 }
 
 String _runtimeToolGateReasonLabel(BuildContext context, String gateReason) {
   return switch (gateReason.trim()) {
-    'awaiting_plan_approval' => _localizedText(
-      context,
-      zh: '计划待确认，当前轮不开放执行工具',
-      en: 'The plan is awaiting approval, so execution tools stay hidden',
-    ),
-    'plan_mode_recovery_inspection' => _localizedText(
-      context,
-      zh: '需要先复核已有步骤、产物和 Todo',
-      en: 'Review completed steps, artifacts, and todos before resuming',
-    ),
-    'plan_mode_execution' => _localizedText(
-      context,
-      zh: '计划已获准执行，当前轮开放执行工具',
-      en: 'The plan is approved and execution tools are available',
-    ),
-    'plan_mode_planning_with_exit_allowed' => _localizedText(
-      context,
-      zh: '当前仅开放规划工具，可在准备好后提交执行计划',
-      en: 'Only planning tools are available until the execution plan is ready',
-    ),
-    'plan_mode_planning_only' => _localizedText(
-      context,
-      zh: '当前仅开放规划工具',
-      en: 'Only planning tools are available right now',
-    ),
-    'mode_switch_requires_refresh' => _localizedText(
-      context,
-      zh: '模式刚切换，等待下一轮重新计算工具目录',
-      en: 'The mode just changed, so the tool catalog will refresh next round',
-    ),
-    'chat_mode_no_tools' => _localizedText(
-      context,
-      zh: '聊天模式当前没有可用工具',
-      en: 'No tools are available in chat mode right now',
-    ),
-    'chat_mode' => _localizedText(
-      context,
-      zh: '聊天模式当前开放完整运行时工具目录',
-      en: 'Chat mode currently exposes the full runtime catalog',
-    ),
-    'model_no_tool_support' => _localizedText(
-      context,
-      zh: '当前模型协议不支持工具调用',
-      en: 'The current model protocol does not support tool calls',
-    ),
-    'no_runtime_snapshot' => _localizedText(
-      context,
-      zh: '当前还没有运行时快照，请先发起一轮请求',
-      en: 'No runtime snapshot is available yet; send a request first',
-    ),
+    'awaiting_plan_approval' => AppLocalizations.of(context)!.toolbarPlanAwaitingNoExecTools,
+    'plan_mode_recovery_inspection' => AppLocalizations.of(context)!.toolbarPlanReviewBeforeResume,
+    'plan_mode_execution' => AppLocalizations.of(context)!.toolbarPlanApprovedExecOpen,
+    'plan_mode_planning_with_exit_allowed' => AppLocalizations.of(context)!.toolbarPlanOnlyPlanningExitAllowed,
+    'plan_mode_planning_only' => AppLocalizations.of(context)!.toolbarPlanOnlyPlanningOnly,
+    'mode_switch_requires_refresh' => AppLocalizations.of(context)!.toolbarModeJustSwitched,
+    'chat_mode_no_tools' => AppLocalizations.of(context)!.toolbarChatModeNoTools,
+    'chat_mode' => AppLocalizations.of(context)!.toolbarChatModeAllTools,
+    'model_no_tool_support' => AppLocalizations.of(context)!.toolbarToolsProtocolUnsupported,
+    'no_runtime_snapshot' => AppLocalizations.of(context)!.toolbarRuntimeNoSnapshotPrompt,
     _ =>
       gateReason.isEmpty
-          ? _localizedText(
-              context,
-              zh: '暂无门控说明',
-              en: 'No gate reason available',
-            )
+          ? AppLocalizations.of(context)!.toolbarGateNoReason
           : gateReason,
   };
 }
@@ -1678,65 +1574,29 @@ String _composerModeTooltip(
 ) {
   if (mode != AiSessionMode.plan) {
     if (status != null && !status.supportsToolCalls) {
-      return _localizedText(
-        context,
-        zh: '当前模型协议不支持工具调用。点击切换到计划模式。',
-        en: 'The current model protocol does not support tool calls. Click to switch to plan mode.',
-      );
+      return AppLocalizations.of(context)!.toolbarGateProtocolUnsupportedSwitchPlan;
     }
-    return _localizedText(
-      context,
-      zh: '当前为聊天模式，点击切换到计划模式',
-      en: 'Chat mode is active. Click to switch to plan mode.',
-    );
+    return AppLocalizations.of(context)!.toolbarGateChatActiveSwitchPlan;
   }
   if (status == null) {
-    return _localizedText(
-      context,
-      zh: '当前为计划模式，点击切换到聊天模式',
-      en: 'Plan mode is active. Click to switch to chat mode.',
-    );
+    return AppLocalizations.of(context)!.toolbarGatePlanActiveSwitchChat;
   }
   if (!status.supportsToolCalls) {
-    return _localizedText(
-      context,
-      zh: '当前模型协议不支持工具调用。计划模式仍可组织步骤，但不会开放工具执行。点击切换到聊天模式。',
-      en: 'The current model protocol does not support tool calls. Plan mode can still organize steps, but tool execution stays unavailable. Click to switch to chat mode.',
-    );
+    return AppLocalizations.of(context)!.toolbarGateProtocolUnsupportedSwitchChat;
   }
   if (status.stale) {
-    return _localizedText(
-      context,
-      zh: '计划模式刚切换完成，运行时工具会在下一轮自动刷新。点击切换到聊天模式。',
-      en: 'Plan mode just changed. Runtime tools will refresh on the next round. Click to switch to chat mode.',
-    );
+    return AppLocalizations.of(context)!.toolbarGatePlanJustSwitchedToChat;
   }
   if (status.awaitingPlanApproval) {
-    return _localizedText(
-      context,
-      zh: '计划待确认。当前轮不会暴露执行工具，请先确认计划。点击切换到聊天模式。',
-      en: 'The plan is awaiting approval. Execution tools stay hidden until approval. Click to switch to chat mode.',
-    );
+    return AppLocalizations.of(context)!.toolbarGatePlanAwaitingSwitchChat;
   }
   if (status.planRecoveryRequired) {
-    return _localizedText(
-      context,
-      zh: '计划待复核。继续执行前应先检查已完成步骤、产物与 Todo。点击切换到聊天模式。',
-      en: 'The plan needs review. Inspect completed steps, artifacts, and todos before continuing. Click to switch to chat mode.',
-    );
+    return AppLocalizations.of(context)!.toolbarGatePlanReviewSwitchChat;
   }
   if (status.planExecutionApproved) {
-    return _localizedText(
-      context,
-      zh: '计划执行中。当前轮会按运行时目录暴露执行工具。点击切换到聊天模式。',
-      en: 'The plan is executing. Runtime tools are exposed according to the current catalog. Click to switch to chat mode.',
-    );
+    return AppLocalizations.of(context)!.toolbarGatePlanExecutingSwitchChat;
   }
-  return _localizedText(
-    context,
-    zh: '当前为计划模式，会先规划，再在获得确认后执行。点击切换到聊天模式。',
-    en: 'Plan mode is active. It plans first, then executes after approval. Click to switch to chat mode.',
-  );
+  return AppLocalizations.of(context)!.toolbarGatePlanModeSwitchChat;
 }
 
 /// 2026-05-01 — 输入缓存锁定判断。

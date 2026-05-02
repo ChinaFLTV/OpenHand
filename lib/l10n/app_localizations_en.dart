@@ -2306,4 +2306,196 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tokenPopupPromptChars => 'Prompt Chars';
+
+  @override
+  String get toolbarSessionMetadata => 'Session Metadata';
+
+  @override
+  String get toolbarProviderModelLocked =>
+      'Provider & model locked to ensure cache hit';
+
+  @override
+  String get toolbarModelLocked => 'Model Locked';
+
+  @override
+  String get toolbarSessionAudit => 'Session Audit';
+
+  @override
+  String get toolbarShowPlan => 'Show Plan';
+
+  @override
+  String get toolbarHidePlan => 'Hide Plan';
+
+  @override
+  String get toolbarPlanAwaitingApproval => 'Plan Awaiting Approval';
+
+  @override
+  String get toolbarPlanNeedsReview => 'Plan Needs Review';
+
+  @override
+  String get toolbarPlanNeedsAttention => 'Plan Needs Attention';
+
+  @override
+  String get toolbarPlanCompleted => 'Plan Completed';
+
+  @override
+  String get toolbarPlanInProgress => 'Plan In Progress';
+
+  @override
+  String get toolbarPlanConfirmToBegin => 'Confirm to begin execution';
+
+  @override
+  String get toolbarPlanInspectBeforeResume =>
+      'Inspect completed steps, artifacts, and todos before resuming';
+
+  @override
+  String get toolbarPlanStepFailed => 'A step failed. Review it and continue.';
+
+  @override
+  String get toolbarPlanPending => 'Pending';
+
+  @override
+  String get toolbarPlanReview => 'Review';
+
+  @override
+  String get toolbarToolsProtocolUnsupported =>
+      'The current model protocol does not support tool calls';
+
+  @override
+  String get toolbarRuntimeNoSnapshot => 'No runtime tool snapshot yet';
+
+  @override
+  String get toolbarToolsCatalogStale =>
+      'The tool catalog is stale and will refresh next round';
+
+  @override
+  String get toolbarRuntimeCatalogSynced =>
+      'The runtime tool catalog is synchronized';
+
+  @override
+  String get toolbarPlanAwaitingNoExecTools =>
+      'The plan is awaiting approval, so execution tools stay hidden';
+
+  @override
+  String get toolbarPlanReviewBeforeResume =>
+      'Review completed steps, artifacts, and todos before resuming';
+
+  @override
+  String get toolbarPlanApprovedExecOpen =>
+      'The plan is approved and execution tools are available';
+
+  @override
+  String get toolbarPlanOnlyPlanningExitAllowed =>
+      'Only planning tools are available until the execution plan is ready';
+
+  @override
+  String get toolbarPlanOnlyPlanningOnly =>
+      'Only planning tools are available right now';
+
+  @override
+  String get toolbarModeJustSwitched =>
+      'The mode just changed, so the tool catalog will refresh next round';
+
+  @override
+  String get toolbarChatModeNoTools =>
+      'No tools are available in chat mode right now';
+
+  @override
+  String get toolbarChatModeAllTools =>
+      'Chat mode currently exposes the full runtime catalog';
+
+  @override
+  String get toolbarRuntimeNoSnapshotPrompt =>
+      'No runtime snapshot is available yet; send a request first';
+
+  @override
+  String get toolbarGateNoReason => 'No gate reason available';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchPlan =>
+      'The current model protocol does not support tool calls. Click to switch to plan mode.';
+
+  @override
+  String get toolbarGateChatActiveSwitchPlan =>
+      'Chat mode is active. Click to switch to plan mode.';
+
+  @override
+  String get toolbarGatePlanActiveSwitchChat =>
+      'Plan mode is active. Click to switch to chat mode.';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchChat =>
+      'The current model protocol does not support tool calls. Plan mode can still organize steps, but tool execution stays unavailable. Click to switch to chat mode.';
+
+  @override
+  String get toolbarGatePlanJustSwitchedToChat =>
+      'Plan mode just changed. Runtime tools will refresh on the next round. Click to switch to chat mode.';
+
+  @override
+  String get toolbarGatePlanAwaitingSwitchChat =>
+      'The plan is awaiting approval. Execution tools stay hidden until approval. Click to switch to chat mode.';
+
+  @override
+  String get toolbarGatePlanReviewSwitchChat =>
+      'The plan needs review. Inspect completed steps, artifacts, and todos before continuing. Click to switch to chat mode.';
+
+  @override
+  String get toolbarGatePlanExecutingSwitchChat =>
+      'The plan is executing. Runtime tools are exposed according to the current catalog. Click to switch to chat mode.';
+
+  @override
+  String get toolbarGatePlanModeSwitchChat =>
+      'Plan mode is active. It plans first, then executes after approval. Click to switch to chat mode.';
+
+  @override
+  String get toolbarFilesShow => 'Project Files';
+
+  @override
+  String get toolbarFilesHide => 'Hide Files';
+
+  @override
+  String get toolbarRuntimeModeChat => 'Chat Mode';
+
+  @override
+  String get toolbarRuntimeModeChatCompact => 'Chat Mode';
+
+  @override
+  String get toolbarRuntimeModePlan => 'Plan Mode';
+
+  @override
+  String get toolbarRuntimeModePlanCompact => 'Plan Mode';
+
+  @override
+  String get toolbarRuntimeModePlanAwaiting => 'Plan Awaiting Approval';
+
+  @override
+  String get toolbarRuntimeModePlanAwaitingCompact => 'Plan Awaiting';
+
+  @override
+  String get toolbarRuntimeModePlanReview => 'Plan Needs Review';
+
+  @override
+  String get toolbarRuntimeModePlanReviewCompact => 'Plan Review';
+
+  @override
+  String get toolbarRuntimeModePlanExecution => 'Plan Execution';
+
+  @override
+  String get toolbarRuntimeModePlanExecutionCompact => 'Plan Execute';
+
+  @override
+  String get toolbarRuntimeModePlanDrafting => 'Plan Drafting';
+
+  @override
+  String get toolbarRuntimeModePlanDraftCompact => 'Plan Draft';
+
+  @override
+  String toolbarRuntimeNotices(int count) {
+    return '$count runtime notices';
+  }
+
+  @override
+  String toolbarPlanStepsCompleted(int completed, int total) {
+    return '$completed/$total steps completed';
+  }
 }

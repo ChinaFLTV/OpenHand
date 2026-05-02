@@ -2314,4 +2314,197 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tokenPopupPromptChars => 'Caractères de prompt';
+
+  @override
+  String get toolbarSessionMetadata => 'Métadonnées de session';
+
+  @override
+  String get toolbarProviderModelLocked =>
+      'Fournisseur & modèle verrouillés pour assurer le cache';
+
+  @override
+  String get toolbarModelLocked => 'Modèle verrouillé';
+
+  @override
+  String get toolbarSessionAudit => 'Audit de session';
+
+  @override
+  String get toolbarShowPlan => 'Afficher le plan';
+
+  @override
+  String get toolbarHidePlan => 'Masquer le plan';
+
+  @override
+  String get toolbarPlanAwaitingApproval => 'Plan en attente';
+
+  @override
+  String get toolbarPlanNeedsReview => 'Plan à revoir';
+
+  @override
+  String get toolbarPlanNeedsAttention => 'Plan à traiter';
+
+  @override
+  String get toolbarPlanCompleted => 'Plan terminé';
+
+  @override
+  String get toolbarPlanInProgress => 'Plan en cours';
+
+  @override
+  String get toolbarPlanConfirmToBegin => 'Confirmer pour démarrer';
+
+  @override
+  String get toolbarPlanInspectBeforeResume =>
+      'Vérifier les étapes, artefacts et todos avant de reprendre';
+
+  @override
+  String get toolbarPlanStepFailed =>
+      'Une étape a échoué. Vérifiez puis continuez.';
+
+  @override
+  String get toolbarPlanPending => 'En attente';
+
+  @override
+  String get toolbarPlanReview => 'À revoir';
+
+  @override
+  String get toolbarToolsProtocolUnsupported =>
+      'Le protocole du modèle ne prend pas en charge les outils';
+
+  @override
+  String get toolbarRuntimeNoSnapshot => 'Aucun instantané d\'outils runtime';
+
+  @override
+  String get toolbarToolsCatalogStale =>
+      'Le catalogue est obsolète, mise à jour prochaine';
+
+  @override
+  String get toolbarRuntimeCatalogSynced =>
+      'Catalogue d\'outils runtime synchronisé';
+
+  @override
+  String get toolbarPlanAwaitingNoExecTools =>
+      'Plan en attente, outils d\'exécution masqués';
+
+  @override
+  String get toolbarPlanReviewBeforeResume =>
+      'Vérifier étapes, artefacts et todos';
+
+  @override
+  String get toolbarPlanApprovedExecOpen =>
+      'Plan approuvé, outils d\'exécution disponibles';
+
+  @override
+  String get toolbarPlanOnlyPlanningExitAllowed =>
+      'Outils de planification uniquement, jusqu\'à plan prêt';
+
+  @override
+  String get toolbarPlanOnlyPlanningOnly =>
+      'Outils de planification uniquement';
+
+  @override
+  String get toolbarModeJustSwitched =>
+      'Mode changé, catalogue mis à jour à la prochaine ronde';
+
+  @override
+  String get toolbarChatModeNoTools =>
+      'Aucun outil disponible en mode discussion';
+
+  @override
+  String get toolbarChatModeAllTools =>
+      'Mode discussion expose le catalogue complet';
+
+  @override
+  String get toolbarRuntimeNoSnapshotPrompt =>
+      'Aucun instantané runtime, envoyez d\'abord une requête';
+
+  @override
+  String get toolbarGateNoReason => 'Aucune raison de blocage';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchPlan =>
+      'Protocole sans support outils. Cliquer pour passer en mode plan.';
+
+  @override
+  String get toolbarGateChatActiveSwitchPlan =>
+      'Mode discussion actif. Cliquer pour passer en mode plan.';
+
+  @override
+  String get toolbarGatePlanActiveSwitchChat =>
+      'Mode plan actif. Cliquer pour discussion.';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchChat =>
+      'Protocole sans support outils. Mode plan peut structurer les étapes mais pas exécuter. Cliquer pour discussion.';
+
+  @override
+  String get toolbarGatePlanJustSwitchedToChat =>
+      'Mode plan changé. Outils mis à jour à la prochaine ronde. Cliquer pour discussion.';
+
+  @override
+  String get toolbarGatePlanAwaitingSwitchChat =>
+      'Plan en attente. Outils masqués jusqu\'à approbation. Cliquer pour discussion.';
+
+  @override
+  String get toolbarGatePlanReviewSwitchChat =>
+      'Plan à revoir. Vérifier étapes, artefacts et todos avant de continuer. Cliquer pour discussion.';
+
+  @override
+  String get toolbarGatePlanExecutingSwitchChat =>
+      'Plan en exécution. Outils selon catalogue. Cliquer pour discussion.';
+
+  @override
+  String get toolbarGatePlanModeSwitchChat =>
+      'Mode plan actif. Planifie puis exécute après approbation. Cliquer pour discussion.';
+
+  @override
+  String get toolbarFilesShow => 'Fichiers projet';
+
+  @override
+  String get toolbarFilesHide => 'Masquer fichiers';
+
+  @override
+  String get toolbarRuntimeModeChat => 'Mode discussion';
+
+  @override
+  String get toolbarRuntimeModeChatCompact => 'Discussion';
+
+  @override
+  String get toolbarRuntimeModePlan => 'Mode plan';
+
+  @override
+  String get toolbarRuntimeModePlanCompact => 'Plan';
+
+  @override
+  String get toolbarRuntimeModePlanAwaiting => 'Plan en attente';
+
+  @override
+  String get toolbarRuntimeModePlanAwaitingCompact => 'En attente';
+
+  @override
+  String get toolbarRuntimeModePlanReview => 'Plan à revoir';
+
+  @override
+  String get toolbarRuntimeModePlanReviewCompact => 'À revoir';
+
+  @override
+  String get toolbarRuntimeModePlanExecution => 'Exécution';
+
+  @override
+  String get toolbarRuntimeModePlanExecutionCompact => 'Exécuter';
+
+  @override
+  String get toolbarRuntimeModePlanDrafting => 'Plan en préparation';
+
+  @override
+  String get toolbarRuntimeModePlanDraftCompact => 'Brouillon';
+
+  @override
+  String toolbarRuntimeNotices(int count) {
+    return '$count notices runtime';
+  }
+
+  @override
+  String toolbarPlanStepsCompleted(int completed, int total) {
+    return '$completed/$total étapes terminées';
+  }
 }

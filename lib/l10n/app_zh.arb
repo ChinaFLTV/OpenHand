@@ -761,5 +761,77 @@
   "tokenPopupSessionHeading": "会话累计",
   "tokenPopupMessages": "消息总数",
   "tokenPopupPromptBuilds": "Prompt 构建",
-  "tokenPopupPromptChars": "Prompt 字符"
+  "tokenPopupPromptChars": "Prompt 字符",
+  "toolbarSessionMetadata": "会话元数据",
+  "toolbarProviderModelLocked": "已锁定服务商与模型以保证缓存命中",
+  "toolbarModelLocked": "模型已锁定",
+  "toolbarSessionAudit": "会话审计",
+  "toolbarShowPlan": "展开计划",
+  "toolbarHidePlan": "收起计划",
+  "toolbarPlanAwaitingApproval": "计划待确认",
+  "toolbarPlanNeedsReview": "计划待复核",
+  "toolbarPlanNeedsAttention": "计划需要处理",
+  "toolbarPlanCompleted": "计划已完成",
+  "toolbarPlanInProgress": "计划推进中",
+  "toolbarPlanConfirmToBegin": "请确认后开始执行",
+  "toolbarPlanInspectBeforeResume": "继续前先检查已完成步骤、产物和 Todo",
+  "toolbarPlanStepFailed": "当前步骤执行失败，请检查后继续",
+  "toolbarPlanPending": "等待确认",
+  "toolbarPlanReview": "待复核",
+  "toolbarToolsProtocolUnsupported": "当前模型协议不支持工具调用",
+  "toolbarRuntimeNoSnapshot": "尚未生成运行时工具快照",
+  "toolbarToolsCatalogStale": "工具目录已过期，等待下一轮刷新",
+  "toolbarRuntimeCatalogSynced": "运行时工具目录已同步",
+  "toolbarPlanAwaitingNoExecTools": "计划待确认，当前轮不开放执行工具",
+  "toolbarPlanReviewBeforeResume": "需要先复核已有步骤、产物和 Todo",
+  "toolbarPlanApprovedExecOpen": "计划已获准执行，当前轮开放执行工具",
+  "toolbarPlanOnlyPlanningExitAllowed": "当前仅开放规划工具，可在准备好后提交执行计划",
+  "toolbarPlanOnlyPlanningOnly": "当前仅开放规划工具",
+  "toolbarModeJustSwitched": "模式刚切换，等待下一轮重新计算工具目录",
+  "toolbarChatModeNoTools": "聊天模式当前没有可用工具",
+  "toolbarChatModeAllTools": "聊天模式当前开放完整运行时工具目录",
+  "toolbarRuntimeNoSnapshotPrompt": "当前还没有运行时快照，请先发起一轮请求",
+  "toolbarGateNoReason": "暂无门控说明",
+  "toolbarGateProtocolUnsupportedSwitchPlan": "当前模型协议不支持工具调用。点击切换到计划模式。",
+  "toolbarGateChatActiveSwitchPlan": "当前为聊天模式，点击切换到计划模式",
+  "toolbarGatePlanActiveSwitchChat": "当前为计划模式，点击切换到聊天模式",
+  "toolbarGateProtocolUnsupportedSwitchChat": "当前模型协议不支持工具调用。计划模式仍可组织步骤，但不会开放工具执行。点击切换到聊天模式。",
+  "toolbarGatePlanJustSwitchedToChat": "计划模式刚切换完成，运行时工具会在下一轮自动刷新。点击切换到聊天模式。",
+  "toolbarGatePlanAwaitingSwitchChat": "计划待确认。当前轮不会暴露执行工具，请先确认计划。点击切换到聊天模式。",
+  "toolbarGatePlanReviewSwitchChat": "计划待复核。继续执行前应先检查已完成步骤、产物与 Todo。点击切换到聊天模 式。",
+  "toolbarGatePlanExecutingSwitchChat": "计划执行中。当前轮会按运行时目录暴露执行工具。点击切换到聊天模式。",
+  "toolbarGatePlanModeSwitchChat": "当前为计划模式，会先规划，再在获得确认后执行。点击切换到聊天模式。",
+  "toolbarFilesShow": "项目文件",
+  "toolbarFilesHide": "收起项目",
+  "toolbarRuntimeModeChat": "聊天模式",
+  "toolbarRuntimeModeChatCompact": "聊天模式",
+  "toolbarRuntimeModePlan": "计划模式",
+  "toolbarRuntimeModePlanCompact": "计划模式",
+  "toolbarRuntimeModePlanAwaiting": "计划待确认",
+  "toolbarRuntimeModePlanAwaitingCompact": "计划待确认",
+  "toolbarRuntimeModePlanReview": "计划待复核",
+  "toolbarRuntimeModePlanReviewCompact": "计划待复核",
+  "toolbarRuntimeModePlanExecution": "执行计划",
+  "toolbarRuntimeModePlanExecutionCompact": "执行计划",
+  "toolbarRuntimeModePlanDrafting": "计划规划中",
+  "toolbarRuntimeModePlanDraftCompact": "计划规划中",
+  "toolbarRuntimeNotices": "{count} 项运行时 Notice",
+  "@toolbarRuntimeNotices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolbarPlanStepsCompleted": "已完成 {completed}/{total} 项",
+  "@toolbarPlanStepsCompleted": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

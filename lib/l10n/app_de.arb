@@ -761,5 +761,77 @@
   "tokenPopupSessionHeading": "Sitzung",
   "tokenPopupMessages": "Nachrichten",
   "tokenPopupPromptBuilds": "Prompt-Builds",
-  "tokenPopupPromptChars": "Prompt-Zeichen"
+  "tokenPopupPromptChars": "Prompt-Zeichen",
+  "toolbarSessionMetadata": "Sitzungsmetadaten",
+  "toolbarProviderModelLocked": "Anbieter & Modell gesperrt, um Cache-Treffer zu sichern",
+  "toolbarModelLocked": "Modell gesperrt",
+  "toolbarSessionAudit": "Sitzungsprüfung",
+  "toolbarShowPlan": "Plan einblenden",
+  "toolbarHidePlan": "Plan ausblenden",
+  "toolbarPlanAwaitingApproval": "Plan wartet auf Freigabe",
+  "toolbarPlanNeedsReview": "Plan zu prüfen",
+  "toolbarPlanNeedsAttention": "Plan benötigt Aufmerksamkeit",
+  "toolbarPlanCompleted": "Plan abgeschlossen",
+  "toolbarPlanInProgress": "Plan in Bearbeitung",
+  "toolbarPlanConfirmToBegin": "Zur Ausführung bestätigen",
+  "toolbarPlanInspectBeforeResume": "Vor dem Fortsetzen abgeschlossene Schritte, Artefakte und Todos prüfen",
+  "toolbarPlanStepFailed": "Ein Schritt schlug fehl. Bitte prüfen und fortfahren.",
+  "toolbarPlanPending": "Ausstehend",
+  "toolbarPlanReview": "Zur Prüfung",
+  "toolbarToolsProtocolUnsupported": "Das aktuelle Modellprotokoll unterstützt keine Tool-Aufrufe",
+  "toolbarRuntimeNoSnapshot": "Noch kein Laufzeit-Tool-Snapshot",
+  "toolbarToolsCatalogStale": "Tool-Katalog veraltet, wird nächste Runde aktualisiert",
+  "toolbarRuntimeCatalogSynced": "Laufzeit-Tool-Katalog synchronisiert",
+  "toolbarPlanAwaitingNoExecTools": "Plan wartet auf Freigabe, Ausführungstools bleiben verborgen",
+  "toolbarPlanReviewBeforeResume": "Abgeschlossene Schritte, Artefakte und Todos prüfen",
+  "toolbarPlanApprovedExecOpen": "Plan freigegeben, Ausführungstools verfügbar",
+  "toolbarPlanOnlyPlanningExitAllowed": "Nur Planungstools verfügbar, bis der Ausführungsplan bereit ist",
+  "toolbarPlanOnlyPlanningOnly": "Aktuell nur Planungstools verfügbar",
+  "toolbarModeJustSwitched": "Modus gerade gewechselt, Katalog wird nächste Runde aktualisiert",
+  "toolbarChatModeNoTools": "Im Chat-Modus sind aktuell keine Tools verfügbar",
+  "toolbarChatModeAllTools": "Chat-Modus zeigt den vollständigen Laufzeit-Katalog",
+  "toolbarRuntimeNoSnapshotPrompt": "Noch kein Laufzeit-Snapshot. Bitte zuerst eine Anfrage senden.",
+  "toolbarGateNoReason": "Keine Gate-Begründung verfügbar",
+  "toolbarGateProtocolUnsupportedSwitchPlan": "Modellprotokoll unterstützt keine Tool-Aufrufe. Klicken zum Wechsel in Planmodus.",
+  "toolbarGateChatActiveSwitchPlan": "Chat-Modus aktiv. Klicken zum Wechsel in Planmodus.",
+  "toolbarGatePlanActiveSwitchChat": "Planmodus aktiv. Klicken zum Wechsel in Chat-Modus.",
+  "toolbarGateProtocolUnsupportedSwitchChat": "Modellprotokoll unterstützt keine Tool-Aufrufe. Planmodus kann Schritte organisieren, aber keine Ausführung. Klicken zum Wechsel in Chat-Modus.",
+  "toolbarGatePlanJustSwitchedToChat": "Planmodus gerade gewechselt. Laufzeittools aktualisieren sich nächste Runde. Klicken für Chat-Modus.",
+  "toolbarGatePlanAwaitingSwitchChat": "Plan wartet auf Freigabe. Ausführungstools bleiben bis zur Freigabe verborgen. Klicken für Chat-Modus.",
+  "toolbarGatePlanReviewSwitchChat": "Plan zu prüfen. Vor dem Fortsetzen abgeschlossene Schritte, Artefakte und Todos prüfen. Klicken für Chat-Modus.",
+  "toolbarGatePlanExecutingSwitchChat": "Plan wird ausgeführt. Laufzeittools laut aktuellem Katalog verfügbar. Klicken für Chat-Modus.",
+  "toolbarGatePlanModeSwitchChat": "Planmodus aktiv. Erst planen, dann nach Freigabe ausführen. Klicken für Chat-Modus.",
+  "toolbarFilesShow": "Projektdateien",
+  "toolbarFilesHide": "Dateien ausblenden",
+  "toolbarRuntimeModeChat": "Chat-Modus",
+  "toolbarRuntimeModeChatCompact": "Chat",
+  "toolbarRuntimeModePlan": "Planmodus",
+  "toolbarRuntimeModePlanCompact": "Plan",
+  "toolbarRuntimeModePlanAwaiting": "Plan wartet auf Freigabe",
+  "toolbarRuntimeModePlanAwaitingCompact": "Wartet auf Freigabe",
+  "toolbarRuntimeModePlanReview": "Plan zu prüfen",
+  "toolbarRuntimeModePlanReviewCompact": "Zu prüfen",
+  "toolbarRuntimeModePlanExecution": "Plan-Ausführung",
+  "toolbarRuntimeModePlanExecutionCompact": "Ausführen",
+  "toolbarRuntimeModePlanDrafting": "Plan-Entwurf",
+  "toolbarRuntimeModePlanDraftCompact": "Entwurf",
+  "toolbarRuntimeNotices": "{count} Laufzeit-Hinweise",
+  "@toolbarRuntimeNotices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolbarPlanStepsCompleted": "{completed}/{total} Schritte abgeschlossen",
+  "@toolbarPlanStepsCompleted": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

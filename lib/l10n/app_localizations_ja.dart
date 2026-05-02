@@ -2287,4 +2287,179 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tokenPopupPromptChars => 'プロンプト文字数';
+
+  @override
+  String get toolbarSessionMetadata => 'セッションメタデータ';
+
+  @override
+  String get toolbarProviderModelLocked => 'プロバイダとモデルを固定してキャッシュヒット率を確保';
+
+  @override
+  String get toolbarModelLocked => 'モデルロック中';
+
+  @override
+  String get toolbarSessionAudit => 'セッション監査';
+
+  @override
+  String get toolbarShowPlan => 'プラン展開';
+
+  @override
+  String get toolbarHidePlan => 'プラン折畳';
+
+  @override
+  String get toolbarPlanAwaitingApproval => 'プラン承認待ち';
+
+  @override
+  String get toolbarPlanNeedsReview => 'プラン要再確認';
+
+  @override
+  String get toolbarPlanNeedsAttention => 'プラン要対応';
+
+  @override
+  String get toolbarPlanCompleted => 'プラン完了';
+
+  @override
+  String get toolbarPlanInProgress => 'プラン進行中';
+
+  @override
+  String get toolbarPlanConfirmToBegin => '確認後に実行を開始してください';
+
+  @override
+  String get toolbarPlanInspectBeforeResume => '再開前に完了済ステップ・成果物・Todo を確認';
+
+  @override
+  String get toolbarPlanStepFailed => 'ステップ失敗。確認のうえ続行してください。';
+
+  @override
+  String get toolbarPlanPending => '承認待ち';
+
+  @override
+  String get toolbarPlanReview => '要確認';
+
+  @override
+  String get toolbarToolsProtocolUnsupported => '現在のモデルプロトコルはツール呼出に未対応';
+
+  @override
+  String get toolbarRuntimeNoSnapshot => 'ランタイムツールのスナップショット未生成';
+
+  @override
+  String get toolbarToolsCatalogStale => 'ツールカタログ期限切れ。次のラウンドで更新';
+
+  @override
+  String get toolbarRuntimeCatalogSynced => 'ランタイムツールカタログ同期済';
+
+  @override
+  String get toolbarPlanAwaitingNoExecTools => 'プラン承認待ちのため、実行ツールは非表示';
+
+  @override
+  String get toolbarPlanReviewBeforeResume => '完了済ステップ・成果物・Todo を確認してください';
+
+  @override
+  String get toolbarPlanApprovedExecOpen => 'プラン承認済。実行ツール開放';
+
+  @override
+  String get toolbarPlanOnlyPlanningExitAllowed => '計画ツールのみ開放。準備でき次第実行計画を提出';
+
+  @override
+  String get toolbarPlanOnlyPlanningOnly => '現在は計画ツールのみ開放';
+
+  @override
+  String get toolbarModeJustSwitched => 'モード切替直後。次のラウンドでツールカタログ更新';
+
+  @override
+  String get toolbarChatModeNoTools => 'チャットモードでは現在ツール無し';
+
+  @override
+  String get toolbarChatModeAllTools => 'チャットモードは完全なランタイムカタログを開放';
+
+  @override
+  String get toolbarRuntimeNoSnapshotPrompt => 'ランタイムスナップショット未取得。先にリクエストを送信';
+
+  @override
+  String get toolbarGateNoReason => 'ゲート理由なし';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchPlan =>
+      '現在のモデルプロトコルはツール呼出に未対応。タップで計画モードへ。';
+
+  @override
+  String get toolbarGateChatActiveSwitchPlan => 'チャットモード中。タップで計画モードへ切替';
+
+  @override
+  String get toolbarGatePlanActiveSwitchChat => '計画モード中。タップでチャットへ切替';
+
+  @override
+  String get toolbarGateProtocolUnsupportedSwitchChat =>
+      'モデルプロトコル未対応。計画モードでステップ整理は可能だが実行は不可。タップでチャットへ。';
+
+  @override
+  String get toolbarGatePlanJustSwitchedToChat =>
+      '計画モード切替直後。次のラウンドでツール更新。タップでチャットへ。';
+
+  @override
+  String get toolbarGatePlanAwaitingSwitchChat =>
+      'プラン承認待ち。承認まで実行ツール非表示。タップでチャットへ。';
+
+  @override
+  String get toolbarGatePlanReviewSwitchChat =>
+      'プラン要再確認。続行前にステップ・成果物・Todo を確認。タップでチャットへ。';
+
+  @override
+  String get toolbarGatePlanExecutingSwitchChat =>
+      'プラン実行中。ランタイムカタログに従いツール開放。タップでチャットへ。';
+
+  @override
+  String get toolbarGatePlanModeSwitchChat => '計画モード中。計画後、承認を経て実行。タップでチャットへ。';
+
+  @override
+  String get toolbarFilesShow => 'プロジェクト';
+
+  @override
+  String get toolbarFilesHide => 'プロジェクト隠す';
+
+  @override
+  String get toolbarRuntimeModeChat => 'チャットモード';
+
+  @override
+  String get toolbarRuntimeModeChatCompact => 'チャット';
+
+  @override
+  String get toolbarRuntimeModePlan => '計画モード';
+
+  @override
+  String get toolbarRuntimeModePlanCompact => '計画';
+
+  @override
+  String get toolbarRuntimeModePlanAwaiting => 'プラン承認待ち';
+
+  @override
+  String get toolbarRuntimeModePlanAwaitingCompact => '承認待ち';
+
+  @override
+  String get toolbarRuntimeModePlanReview => 'プラン要再確認';
+
+  @override
+  String get toolbarRuntimeModePlanReviewCompact => '要確認';
+
+  @override
+  String get toolbarRuntimeModePlanExecution => 'プラン実行';
+
+  @override
+  String get toolbarRuntimeModePlanExecutionCompact => '実行';
+
+  @override
+  String get toolbarRuntimeModePlanDrafting => 'プラン策定中';
+
+  @override
+  String get toolbarRuntimeModePlanDraftCompact => '策定中';
+
+  @override
+  String toolbarRuntimeNotices(int count) {
+    return '$count 件のランタイム通知';
+  }
+
+  @override
+  String toolbarPlanStepsCompleted(int completed, int total) {
+    return '$completed/$total 完了';
+  }
 }
