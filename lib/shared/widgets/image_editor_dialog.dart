@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 import '../../app/support/safe_subprocess.dart';
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
+import 'highlight_pulse.dart';
 import 'openhand_dialog_action_button.dart';
 
 /// Result returned by [showImageEditorDialog] when the user confirms.
@@ -167,6 +168,13 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   final GlobalKey<ScaffoldMessengerState> _messengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
+  /// Increments after each significant in-dialog action lands (currently
+  /// reset-all + reset-adjustments). Drives the top-edge [HighlightPulse]
+  /// to confirm the user's action without an extra SnackBar.
+  final ValueNotifier<int> _actionPulse = ValueNotifier<int>(0);
+
+  void _firePulse() => _actionPulse.value = _actionPulse.value + 1;
+
   @override
   void initState() {
     super.initState();
@@ -176,6 +184,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   @override
   void dispose() {
     _watermarkController.dispose();
+    _actionPulse.dispose();
     _dismissProcessingOverlay();
     super.dispose();
   }
@@ -196,15 +205,22 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             key: _messengerKey,
             child: Scaffold(
               backgroundColor: colorScheme.surfaceContainerHigh,
-              body: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.imageEditorTitle,
-                      style: theme.textTheme.headlineSmall,
-                    ),
+              // 2026-05 — Stack the Scaffold body with a top-edge
+              // HighlightPulse so user-triggered "important" actions
+              // (currently reset-all / reset-adjustments) get a brief
+              // primary-tinted confirmation flash. Honors reduceMotion
+              // via the pulse widget itself.
+              body: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.imageEditorTitle,
+                          style: theme.textTheme.headlineSmall,
+                        ),
                     const SizedBox(height: 8),
                     Text(
                       l10n.imageEditorCropHint,
@@ -257,6 +273,16 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                     _buildActionBar(context),
                   ],
                 ),
+              ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: HighlightPulse(signal: _actionPulse),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1217,6 +1243,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     setState(() {
       _resetAdjustmentControls();
     });
+    _firePulse();
   }
 
   void _handleResetAll() {
@@ -1231,6 +1258,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       _hasBakedChanges = false;
       _resetAdjustmentControls();
     });
+    _firePulse();
   }
 
   void _resetAdjustmentControls({bool clearMessages = true}) {
