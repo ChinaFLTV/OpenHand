@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:openhand/features/ai/model/ai_attachment.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
@@ -287,6 +288,71 @@ void main() {
     expect(promptText, isNot(contains('MIDDLE_SHOULD_BE_OMITTED')));
     expect(promptText, contains('HHHH'));
     expect(promptText, contains('TTTT'));
+  });
+
+  test('bounds attachment details in compression prompts', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final longDocumentText = List<String>.filled(2500, 'D').join();
+    final message = AiSessionMessage.user(
+      id: 'u1',
+      content: 'summarize attachments',
+      createdAt: now,
+      metadata: <String, Object?>{
+        aiSessionMessageAttachmentsMetadataKey:
+            AiMessageAttachment.listToMetadata(<AiMessageAttachment>[
+              AiMessageAttachment(
+                id: 'doc1',
+                name: 'long.txt',
+                storagePath: '/tmp/long.txt',
+                kind: AiAttachmentKind.text,
+                mimeType: 'text/plain',
+                sizeBytes: longDocumentText.length,
+                promptText: '${longDocumentText}SHOULD_BE_TRUNCATED',
+              ),
+              const AiMessageAttachment(
+                id: 'img1',
+                name: 'photo.png',
+                storagePath: '/tmp/photo.png',
+                kind: AiAttachmentKind.image,
+                mimeType: 'image/png',
+                sizeBytes: 1024,
+              ),
+            ]),
+      },
+    );
+    final session = _session(
+      template: template,
+      now: now,
+      messages: <AiSessionMessage>[message],
+    );
+
+    final prompt = const AiPromptBuilder().buildCompressionPrompt(
+      templateBundle: bundle,
+      template: template,
+      session: session,
+      runtimeContext: _runtimeContext(),
+      messagesToCompress: <AiSessionMessage>[message],
+      previousCompressionPoint: null,
+    );
+    final promptText = prompt.last.content;
+
+    expect(promptText, contains('[attachment_content_truncated:'));
+    expect(promptText, isNot(contains('SHOULD_BE_TRUNCATED')));
+    expect(promptText, contains('[image] photo.png (image/png)'));
   });
 }
 

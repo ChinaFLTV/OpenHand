@@ -47,6 +47,7 @@ class AiPromptBuilder {
   static const int _contextBudgetManualCompactBufferTokens = 3000;
   static const int _checkpointPromptMaxChars = 40000;
   static const int _checkpointPromptEdgeChars = 18000;
+  static const int _compressionAttachmentDetailMaxChars = 2000;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -1657,16 +1658,36 @@ $identity''';
       ..writeln()
       ..writeln('Attachments:');
     for (final attachment in attachments) {
-      final detail = attachment.isImage
-          ? attachment.summaryText.trim()
-          : attachment.promptText.trim();
-      if (detail.isNotEmpty) {
-        buffer.writeln('- $detail');
-        continue;
-      }
-      buffer.writeln('- ${attachment.name} (${attachment.kind.storageValue})');
+      buffer.writeln('- ${_renderAttachmentForCompression(attachment)}');
     }
     return buffer.toString().trim();
+  }
+
+  String _renderAttachmentForCompression(AiMessageAttachment attachment) {
+    final summary = attachment.summaryText.trim();
+    if (summary.isNotEmpty) {
+      return _boundedCompressionAttachmentDetail(summary);
+    }
+    if (attachment.isImage) {
+      return '[image] ${attachment.name} (${attachment.mimeType})';
+    }
+    final promptText = attachment.promptText.trim();
+    if (promptText.isNotEmpty) {
+      return _boundedCompressionAttachmentDetail(promptText);
+    }
+    return '[${attachment.kind.storageValue}] ${attachment.name} (${attachment.mimeType})';
+  }
+
+  String _boundedCompressionAttachmentDetail(String detail) {
+    final trimmed = detail.trim();
+    if (trimmed.length <= _compressionAttachmentDetailMaxChars) {
+      return trimmed;
+    }
+    final head = trimmed
+        .substring(0, _compressionAttachmentDetailMaxChars)
+        .trimRight();
+    final omitted = trimmed.length - head.length;
+    return '$head\n[attachment_content_truncated: omitted $omitted chars]';
   }
 
   List<AiMessageAttachment> _readAttachments(Map<String, Object?> metadata) {
