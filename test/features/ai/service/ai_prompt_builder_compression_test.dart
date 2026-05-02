@@ -12,6 +12,7 @@ import 'package:openhand/features/ai/model/ai_token_usage.dart';
 import 'package:openhand/features/ai/service/ai_prompt_builder.dart';
 import 'package:openhand/features/ai/service/ai_prompt_template_repository.dart';
 import 'package:openhand/features/memory/model/user_memory_entry.dart';
+import 'package:openhand/features/skills/model/local_skill.dart';
 
 void main() {
   test('compression prompt uses concise no-tools identity', () {
@@ -443,6 +444,92 @@ void main() {
     expect(promptText, contains(file.path));
     expect(promptText, contains('print("restored")'));
   });
+
+  test('restores invoked skill context after compact', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'openhand-restored-skill-test-',
+    );
+    addTearDown(() async {
+      if (await root.exists()) {
+        await root.delete(recursive: true);
+      }
+    });
+    final manifest = File('${root.path}/SKILL.md');
+    await manifest.writeAsString(
+      '# Flutter Audit\nUse WidgetTester carefully.\n',
+    );
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final skillResult = AiSessionMessage.skillResult(
+      id: 'skill-before-compact',
+      content: 'skill invoked',
+      createdAt: now,
+      metadata: <String, Object?>{
+        'tool_call_id': 'call-skill-before-compact',
+        'tool_name': 'skill__flutter-audit',
+        'tool_source': 'skill',
+        'skill_name': 'flutter-audit',
+        'skill_manifest_path': manifest.path,
+      },
+    );
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: 'cp-skill-restore',
+      content: 'summary',
+      createdAt: now,
+      metadata: const <String, Object?>{},
+    );
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: 'continue',
+      createdAt: now,
+    );
+    final messages = <AiSessionMessage>[skillResult, checkpoint, latest];
+    final session = _session(template: template, now: now, messages: messages);
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(),
+      runtimeContext: _runtimeContext(
+        availableSkills: <LocalSkill>[
+          LocalSkill(
+            name: 'flutter-audit',
+            description: 'Audit Flutter widgets',
+            directoryPath: root.path,
+            manifestPath: manifest.path,
+            relativeDirectoryPath: 'flutter-audit',
+            defaultPrompt: 'Always preserve accessibility labels.',
+          ),
+        ],
+      ),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: messages,
+      latestUserMessageId: latest.id,
+    );
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
+    final rehydration = Map<String, Object?>.from(
+      result.metadata['post_compact_rehydration']! as Map,
+    );
+
+    expect(promptText, contains('# [5.7] Restored Skill Context'));
+    expect(promptText, contains('Always preserve accessibility labels.'));
+    expect(promptText, contains('Use WidgetTester carefully.'));
+    expect(rehydration['invoked_skill_count'], 1);
+    expect(rehydration['restored_channels'], contains('invoked_skills'));
+  });
 }
 
 AiSessionMessage _toolCall(String id, String callId, DateTime now) {
@@ -534,8 +621,10 @@ AiSession _session({
   );
 }
 
-AiSessionRuntimeContext _runtimeContext() {
-  return const AiSessionRuntimeContext(
+AiSessionRuntimeContext _runtimeContext({
+  List<LocalSkill> availableSkills = const <LocalSkill>[],
+}) {
+  return AiSessionRuntimeContext(
     localeTag: 'zh-Hans',
     appVersion: '0.1.0',
     appBuildNumber: '1',
@@ -545,6 +634,7 @@ AiSessionRuntimeContext _runtimeContext() {
     userMemoryFilePath: '/tmp/memory.md',
     compressionThresholdChars: 12000,
     memoryEnabled: true,
-    memoryEntries: <UserMemoryEntry>[],
+    memoryEntries: const <UserMemoryEntry>[],
+    availableSkills: availableSkills,
   );
 }

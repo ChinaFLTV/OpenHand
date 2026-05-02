@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/silent_log.dart';
 import '../../instructions/model/user_instruction_entry.dart';
 import '../../memory/model/user_memory_entry.dart';
+import '../../skills/model/local_skill.dart';
 import '../model/ai_attachment.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_session.dart';
@@ -53,6 +54,9 @@ class AiPromptBuilder {
   static const int _postCompactRestoreMaxFileBytes = 256 * 1024;
   static const int _postCompactRestoreMaxCharsPerFile = 12000;
   static const int _postCompactRestoreTotalChars = 30000;
+  static const int _postCompactRestoreMaxSkills = 3;
+  static const int _postCompactRestoreMaxSkillChars = 8000;
+  static const int _postCompactRestoreTotalSkillChars = 20000;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -259,6 +263,11 @@ class AiPromptBuilder {
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
     );
+    final restoredSkillContext = _renderPostCompactRestoredSkillContext(
+      historyMessages: historyMessages,
+      runtimeContext: runtimeContext,
+      latestCompressionPoint: latestCompressionPoint,
+    );
 
     final messages = <AiChatTurn>[
       AiChatTurn(
@@ -345,6 +354,11 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content: '# [5.6] Restored File Context\n\n$restoredFileContext',
+        ),
+      if (restoredSkillContext.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content: '# [5.7] Restored Skill Context\n\n$restoredSkillContext',
         ),
       ...latestUserTurns,
     ];
@@ -534,6 +548,7 @@ class AiPromptBuilder {
       latestCompressionPoint,
     );
     final recentReadFiles = _recentReadFileAnchors(historyMessages);
+    final recentInvokedSkills = _recentInvokedSkillAnchors(historyMessages);
     final restoredChannels = <String>[
       'system_instructions',
       'developer_instructions',
@@ -554,6 +569,7 @@ class AiPromptBuilder {
       if (session.pendingPlan?.trim().isNotEmpty == true) 'pending_plan',
       if (session.planHistory.isNotEmpty) 'plan_history',
       if (recentReadFiles.isNotEmpty) 'recent_read_files',
+      if (recentInvokedSkills.isNotEmpty) 'invoked_skills',
     ];
     return <String, Object?>{
       'active': latestCompressionPoint != null,
@@ -578,6 +594,8 @@ class AiPromptBuilder {
       'repository_snapshot_present': repositorySnapshot != null,
       'recent_read_file_count': recentReadFiles.length,
       if (recentReadFiles.isNotEmpty) 'recent_read_files': recentReadFiles,
+      'invoked_skill_count': recentInvokedSkills.length,
+      if (recentInvokedSkills.isNotEmpty) 'invoked_skills': recentInvokedSkills,
     };
   }
 
@@ -2078,6 +2096,147 @@ $content
     final head = content.substring(0, maxChars).trimRight();
     final omitted = content.length - head.length;
     return '$head\n[restored_file_truncated: omitted $omitted chars]';
+  }
+
+  String _renderPostCompactRestoredSkillContext({
+    required List<AiSessionMessage> historyMessages,
+    required AiSessionRuntimeContext runtimeContext,
+    required AiSessionMessage? latestCompressionPoint,
+  }) {
+    if (latestCompressionPoint == null) {
+      return '';
+    }
+    final checkpointIndex = historyMessages.indexWhere(
+      (message) => message.id == latestCompressionPoint.id,
+    );
+    if (checkpointIndex <= 0 || runtimeContext.availableSkills.isEmpty) {
+      return '';
+    }
+    final preCheckpointMessages = historyMessages
+        .take(checkpointIndex)
+        .toList(growable: false);
+    final anchors = _recentInvokedSkillAnchors(preCheckpointMessages);
+    if (anchors.isEmpty) {
+      return '';
+    }
+    final skillsByName = <String, LocalSkill>{
+      for (final skill in runtimeContext.availableSkills)
+        skill.name.trim().toLowerCase(): skill,
+    };
+    final sections = <String>[];
+    var usedChars = 0;
+    for (final anchor in anchors) {
+      if (sections.length >= _postCompactRestoreMaxSkills ||
+          usedChars >= _postCompactRestoreTotalSkillChars) {
+        break;
+      }
+      final name = '${anchor['name'] ?? ''}'.trim();
+      final skill = skillsByName[name.toLowerCase()];
+      if (skill == null) {
+        continue;
+      }
+      final restored = _tryReadPostCompactRestoredSkill(skill);
+      if (restored == null || restored.trim().isEmpty) {
+        continue;
+      }
+      final remainingBudget = _postCompactRestoreTotalSkillChars - usedChars;
+      final content = restored.length > remainingBudget
+          ? _truncateRestoredFileContent(restored, remainingBudget)
+          : restored;
+      if (content.trim().isEmpty) {
+        continue;
+      }
+      usedChars += content.length;
+      sections.add('''## ${skill.name}
+description: ${skill.description}
+directory: ${skill.directoryPath}
+manifest_path: ${skill.manifestPath}
+
+```text
+$content
+```''');
+    }
+    if (sections.isEmpty) {
+      return '';
+    }
+    return 'Skills restored after compaction. These are bounded snapshots of skills invoked before the latest checkpoint.\n\n${sections.join('\n\n')}';
+  }
+
+  String? _tryReadPostCompactRestoredSkill(LocalSkill skill) {
+    try {
+      final manifestFile = File(skill.manifestPath);
+      final stat = manifestFile.statSync();
+      if (stat.type != FileSystemEntityType.file ||
+          stat.size <= 0 ||
+          stat.size > _postCompactRestoreMaxFileBytes) {
+        return null;
+      }
+      final buffer = StringBuffer();
+      final defaultPrompt = (skill.defaultPrompt ?? '').trim();
+      if (defaultPrompt.isNotEmpty) {
+        buffer
+          ..writeln('default_prompt:')
+          ..writeln(defaultPrompt)
+          ..writeln();
+      }
+      buffer
+        ..writeln('manifest:')
+        ..writeln(manifestFile.readAsStringSync().trimRight());
+      return _truncateRestoredFileContent(
+        buffer.toString().trimRight(),
+        _postCompactRestoreMaxSkillChars,
+      );
+    } catch (error, stackTrace) {
+      silentLog(
+        'AiPromptBuilder',
+        'tryReadPostCompactRestoredSkill',
+        error,
+        stackTrace,
+      );
+      return null;
+    }
+  }
+
+  List<Map<String, Object?>> _recentInvokedSkillAnchors(
+    List<AiSessionMessage> messages, {
+    int maxSkills = _postCompactRestoreMaxSkills,
+  }) {
+    final anchors = <Map<String, Object?>>[];
+    final seenNames = <String>{};
+    for (
+      var i = messages.length - 1;
+      i >= 0 && anchors.length < maxSkills;
+      i--
+    ) {
+      final message = messages[i];
+      final source = '${message.metadata['tool_source'] ?? ''}'.trim();
+      final skillName = '${message.metadata['skill_name'] ?? ''}'.trim();
+      if (message.kind != AiSessionMessageKind.skill &&
+          source != 'skill' &&
+          skillName.isEmpty) {
+        continue;
+      }
+      final toolName = '${message.metadata['tool_name'] ?? ''}'.trim();
+      final normalizedName = skillName.isNotEmpty
+          ? skillName
+          : toolName.startsWith('skill__')
+          ? toolName.substring('skill__'.length)
+          : toolName;
+      if (normalizedName.isEmpty ||
+          !seenNames.add(normalizedName.toLowerCase())) {
+        continue;
+      }
+      anchors.add(<String, Object?>{
+        'name': normalizedName,
+        'message_id': message.id,
+        'created_at': message.createdAt.toUtc().toIso8601String(),
+        if ('${message.metadata['skill_manifest_path'] ?? ''}'
+            .trim()
+            .isNotEmpty)
+          'manifest_path': '${message.metadata['skill_manifest_path']}',
+      });
+    }
+    return anchors.reversed.toList(growable: false);
   }
 
   String _firstNonEmptyLine(String text, int maxChars) {
