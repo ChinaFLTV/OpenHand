@@ -297,6 +297,10 @@ abstract final class OpenHandTheme {
         contentTextStyle: baseTheme.textTheme.bodyMedium?.copyWith(
           color: colorScheme.onInverseSurface,
         ),
+        actionTextColor: colorScheme.inversePrimary,
+        closeIconColor: colorScheme.onInverseSurface.withValues(alpha: 0.78),
+        elevation: 6,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       textTheme: baseTheme.textTheme.copyWith(
