@@ -29,7 +29,6 @@ import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/error_snackbar.dart';
-import '../../shared/widgets/multi_thumb_slider.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/rolling_text.dart';
 import '../ai/ai_session_controller.dart';
@@ -3857,10 +3856,12 @@ List<Widget> _intersperse(List<Widget> items, Widget separator) {
 // Dialog animation settings section
 // ─────────────────────────────────────────────────────────────────────────────
 
-// 2026-05-04 — 缓存断点位置滑块控件。持有本地草稿在拖拽中实时回流，
-// `onChangeEnd` 时提交持久化。`thumbCount` 变更（例如用户保存了不同的
-// breakpointCount）会通过 ValueKey 触发整个 widget 重建，从而吃下新
-// initialValues。
+// 2026-05-05 — 缓存断点位置控件（结构条 + 可拖拽插桩）。
+// 顶部展示一条对照实际 prompt 结构的彩色分段条（[0] 系统指令 / [1] 开发者指令 /
+// [2] 工具目录 / [3] 会话状态 / [4] 用户记忆 / [4.5] 用户指令 / [5] 会话摘要 /
+// 历史 / [6] 最新消息），鼠标悬停显示该段简要概述；
+// 上方铺有 N-1 个静态插桩（用户可拖动），尾部固定一个动态插桩（跟随
+// 缓存更新间隔）。拖拽实时更新本地草稿，松手时提交持久化。
 class _AiInputCacheBreakpointPositionsControl extends StatefulWidget {
   const _AiInputCacheBreakpointPositionsControl({
     super.key,
@@ -3883,6 +3884,13 @@ class _AiInputCacheBreakpointPositionsControl extends StatefulWidget {
 class _AiInputCacheBreakpointPositionsControlState
     extends State<_AiInputCacheBreakpointPositionsControl> {
   late List<double> _draft;
+  int? _draggingIndex;
+
+  static const double _barHeight = 26;
+  static const double _pegHeadWidth = 22;
+  static const double _pegHeadHeight = 18;
+  static const double _pegHeadTopGap = 2;
+  static const double _topReserve = _pegHeadHeight + _pegHeadTopGap;
 
   @override
   void initState() {
@@ -3910,21 +3918,193 @@ class _AiInputCacheBreakpointPositionsControlState
     return true;
   }
 
+  // 与 ai_prompt_builder.dart 中实际编排一一对应；权重为视觉占比（不是
+  // 真实 token 占比，仅作示意，便于一眼看清是哪一段）。
+  List<_PromptStructureSegment> _segments(bool isEn) {
+    return [
+      _PromptStructureSegment(
+        id: 'sys',
+        label: isEn ? '[0] System' : '[0] 系统指令',
+        summary: isEn
+            ? 'Template system instructions, workspace instructions and runtime environment snapshot (OS / cwd / repo digest).'
+            : '模板系统指令、工作区指令与运行时环境快照（OS / cwd / 仓库摘要）。',
+        color: const Color(0xFF6750A4),
+        weight: 1.2,
+      ),
+      _PromptStructureSegment(
+        id: 'dev',
+        label: isEn ? '[1] Developer' : '[1] 开发者指令',
+        summary: isEn
+            ? 'Behavioural rules from the active prompt template (output format & guardrails).'
+            : '当前提示词模板的开发者指令（行为规则与输出格式约束）。',
+        color: const Color(0xFF3F51B5),
+        weight: 1.0,
+      ),
+      _PromptStructureSegment(
+        id: 'tools',
+        label: isEn ? '[2] Tools' : '[2] 工具目录',
+        summary: isEn
+            ? 'Built-in tool catalog, MCP capabilities and skill loaders the model can call (with DSML invocation rules).'
+            : '内置工具目录、MCP 能力与 Skill 加载器（含 DSML 调用约束）。',
+        color: const Color(0xFF0288D1),
+        weight: 1.5,
+      ),
+      _PromptStructureSegment(
+        id: 'state',
+        label: isEn ? '[3] State' : '[3] 会话状态',
+        summary: isEn
+            ? 'Session metadata JSON: counters, todo list, plan flags, attachments.'
+            : '会话元数据 JSON：计数器、Todo、计划标记、附件等。',
+        color: const Color(0xFF00897B),
+        weight: 0.6,
+      ),
+      _PromptStructureSegment(
+        id: 'memory',
+        label: isEn ? '[4] Memory' : '[4] 用户记忆',
+        summary: isEn
+            ? 'Long-term user memory facts integrated as tacit knowledge.'
+            : '长期用户记忆事实，作为已掌握的常识自然融入。',
+        color: const Color(0xFF43A047),
+        weight: 1.0,
+      ),
+      _PromptStructureSegment(
+        id: 'user_inst',
+        label: isEn ? '[4.5] Inst.' : '[4.5] 用户指令',
+        summary: isEn
+            ? 'Reusable prompt fragments authored by the user (project-level guidance).'
+            : '用户预设的可复用指令片段（项目级权威指引）。',
+        color: const Color(0xFF7CB342),
+        weight: 0.8,
+      ),
+      _PromptStructureSegment(
+        id: 'summary',
+        label: isEn ? '[5] Summary' : '[5] 会话摘要',
+        summary: isEn
+            ? 'Compressed summary of older conversations + recent chat snippets.'
+            : '较早会话的压缩摘要 + 最近聊天纪要。',
+        color: const Color(0xFFFB8C00),
+        weight: 0.6,
+      ),
+      _PromptStructureSegment(
+        id: 'history',
+        label: isEn ? 'History' : '历史消息',
+        summary: isEn
+            ? 'Past user / assistant / tool turns within the current session.'
+            : '当前会话中的历史消息（用户 / 助手 / 工具结果）。',
+        color: const Color(0xFFE53935),
+        weight: 2.4,
+      ),
+      _PromptStructureSegment(
+        id: 'latest',
+        label: isEn ? '[6] Latest' : '[6] 最新消息',
+        summary: isEn
+            ? 'The user message currently being answered (with attachment metadata).'
+            : '当前正在回答的用户消息（含附件元数据）。',
+        color: const Color(0xFFD81B60),
+        weight: 0.6,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isEn = Localizations.localeOf(context).languageCode == 'en';
+    final segments = _segments(isEn);
     final percentLabel = _draft
         .map((v) => '${(v * 100).round()}%')
         .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MultiThumbSlider(
-          values: _draft,
-          onChanged: (next) => setState(() => _draft = next),
-          onChangeEnd: (_) => widget.onCommit(_draft),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            isEn
+                ? 'Each band maps to a prompt section. Drag the P-pins to position the static cache breakpoints; the dashed pin at the right is the dynamic breakpoint that follows the update interval.'
+                : '彩色段对应实际 prompt 各部分。拖动 P 插桩定位静态缓存断点；最右侧虚线插桩为动态断点（跟随更新间隔自动落点）。',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            if (width <= 0) {
+              return const SizedBox(height: _topReserve + _barHeight);
+            }
+            return SizedBox(
+              height: _topReserve + _barHeight,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: (d) => _onPanStart(d.localPosition.dx, width),
+                onPanUpdate: (d) => _onPanUpdate(d.localPosition.dx, width),
+                onPanEnd: (_) => _onPanEnd(),
+                onTapDown: (d) => _onTap(d.localPosition.dx, width),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: _topReserve,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Row(
+                          children: [
+                            for (final seg in segments)
+                              Expanded(
+                                flex: (seg.weight * 100).round(),
+                                child: _StructureSegmentTile(
+                                  segment: seg,
+                                  height: _barHeight,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    for (var i = 0; i < _draft.length; i++)
+                      Positioned(
+                        left:
+                            (_draft[i].clamp(0.0, 1.0) * width) -
+                            _pegHeadWidth / 2,
+                        top: 0,
+                        child: _StaticPegHandle(
+                          index: i,
+                          active: _draggingIndex == i,
+                          accent: cs.primary,
+                          totalHeight: _topReserve + _barHeight,
+                        ),
+                      ),
+                    Positioned(
+                      left: width - _pegHeadWidth / 2,
+                      top: 0,
+                      child: _DynamicPegHandle(
+                        accent: cs.tertiary,
+                        totalHeight: _topReserve + _barHeight,
+                        tooltip: isEn
+                            ? 'Dynamic breakpoint — follows the cache update interval.'
+                            : '动态断点：跟随缓存更新间隔自动落点。',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 6,
+          children: [
+            for (final seg in segments) _SegmentLegendChip(segment: seg),
+          ],
+        ),
+        const SizedBox(height: 10),
         Wrap(
           spacing: 12,
           runSpacing: 4,
@@ -3935,9 +4115,11 @@ class _AiInputCacheBreakpointPositionsControlState
                 style: theme.textTheme.bodySmall,
               ),
             Text(
-              'P${percentLabel.length + 1}: 100% (locked)',
+              'P${percentLabel.length + 1}: 100% '
+              '${isEn ? '(dynamic)' : '（动态）'}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: cs.tertiary,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -3948,14 +4130,285 @@ class _AiInputCacheBreakpointPositionsControlState
           child: TextButton.icon(
             onPressed: widget.onReset,
             icon: const Icon(Icons.refresh_rounded),
-            label: Text(
-              Localizations.localeOf(context).languageCode == 'en'
-                  ? 'Reset to even'
-                  : '重置为均匀分布',
-            ),
+            label: Text(isEn ? 'Reset to even' : '重置为均匀分布'),
           ),
         ),
       ],
+    );
+  }
+
+  void _onPanStart(double dx, double width) {
+    if (_draft.isEmpty) return;
+    final v = (dx / width).clamp(0.0, 1.0);
+    final idx = _nearestPegIndex(v);
+    setState(() => _draggingIndex = idx);
+    _movePeg(idx, v);
+  }
+
+  void _onPanUpdate(double dx, double width) {
+    final idx = _draggingIndex;
+    if (idx == null) return;
+    final v = (dx / width).clamp(0.0, 1.0);
+    _movePeg(idx, v);
+  }
+
+  void _onPanEnd() {
+    final wasDragging = _draggingIndex != null;
+    setState(() => _draggingIndex = null);
+    if (wasDragging) widget.onCommit(_draft);
+  }
+
+  void _onTap(double dx, double width) {
+    if (_draft.isEmpty) return;
+    final v = (dx / width).clamp(0.0, 1.0);
+    final idx = _nearestPegIndex(v);
+    _movePeg(idx, v);
+    widget.onCommit(_draft);
+  }
+
+  int _nearestPegIndex(double v) {
+    var best = 0;
+    var bestDist = double.infinity;
+    for (var i = 0; i < _draft.length; i++) {
+      final d = (_draft[i] - v).abs();
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  void _movePeg(int idx, double next) {
+    final clone = List<double>.from(_draft);
+    final lower = idx == 0 ? 0.0 : clone[idx - 1];
+    final upper = idx == clone.length - 1 ? 1.0 : clone[idx + 1];
+    clone[idx] = next.clamp(lower, upper);
+    setState(() => _draft = clone);
+  }
+}
+
+class _PromptStructureSegment {
+  const _PromptStructureSegment({
+    required this.id,
+    required this.label,
+    required this.summary,
+    required this.color,
+    required this.weight,
+  });
+
+  final String id;
+  final String label;
+  final String summary;
+  final Color color;
+  final double weight;
+}
+
+class _StructureSegmentTile extends StatelessWidget {
+  const _StructureSegmentTile({required this.segment, required this.height});
+
+  final _PromptStructureSegment segment;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      richMessage: TextSpan(
+        children: [
+          TextSpan(
+            text: '${segment.label}\n',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          TextSpan(text: segment.summary),
+        ],
+      ),
+      waitDuration: const Duration(milliseconds: 250),
+      preferBelow: false,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.help,
+        child: Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: segment.color.withValues(alpha: 0.88),
+            border: Border(
+              right: BorderSide(color: theme.colorScheme.surface),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              segment.label,
+              maxLines: 1,
+              overflow: TextOverflow.fade,
+              softWrap: false,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StaticPegHandle extends StatelessWidget {
+  const _StaticPegHandle({
+    required this.index,
+    required this.active,
+    required this.accent,
+    required this.totalHeight,
+  });
+
+  final int index;
+  final bool active;
+  final Color accent;
+  final double totalHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 22,
+      height: totalHeight,
+      child: Column(
+        children: [
+          Container(
+            width: 22,
+            height: 18,
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.45),
+                        blurRadius: 6,
+                      ),
+                    ]
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              'P${index + 1}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Container(width: 2, color: accent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DynamicPegHandle extends StatelessWidget {
+  const _DynamicPegHandle({
+    required this.accent,
+    required this.totalHeight,
+    required this.tooltip,
+  });
+
+  final Color accent;
+  final double totalHeight;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 250),
+      child: SizedBox(
+        width: 22,
+        height: totalHeight,
+        child: Column(
+          children: [
+            Container(
+              width: 22,
+              height: 18,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: accent, width: 1.4),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.bolt_rounded, size: 12, color: accent),
+            ),
+            Expanded(
+              child: CustomPaint(
+                size: const Size(22, double.infinity),
+                painter: _DashedLinePainter(color: accent),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  _DashedLinePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2;
+    const dash = 4.0;
+    const gap = 3.0;
+    var y = 0.0;
+    final cx = size.width / 2;
+    while (y < size.height) {
+      final end = (y + dash).clamp(0.0, size.height);
+      canvas.drawLine(Offset(cx, y), Offset(cx, end), paint);
+      y += dash + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedLinePainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _SegmentLegendChip extends StatelessWidget {
+  const _SegmentLegendChip({required this.segment});
+
+  final _PromptStructureSegment segment;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: segment.summary,
+      waitDuration: const Duration(milliseconds: 250),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: segment.color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(segment.label, style: theme.textTheme.bodySmall),
+        ],
+      ),
     );
   }
 }
