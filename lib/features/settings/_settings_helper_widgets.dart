@@ -566,6 +566,9 @@ class _AiProviderModelChip extends StatelessWidget {
     );
 
     Widget result = chip;
+    if (enabled && effectiveOnPressed != null) {
+      result = MicroPressFeedback(child: result);
+    }
     final trimmedTooltip = tooltip?.trim();
     if (enabled && trimmedTooltip != null && trimmedTooltip.isNotEmpty) {
       result = Tooltip(message: trimmedTooltip, child: result);
