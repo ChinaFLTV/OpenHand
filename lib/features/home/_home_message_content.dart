@@ -684,9 +684,6 @@ class _MessageMarkdownThemeData {
           fontFamily: 'monospace',
           backgroundColor: subtleSurface,
         );
-    final codeBlockSurface = useDarkCodeSurface
-        ? Colors.white.withValues(alpha: 0.08)
-        : subtleSurface;
     return _MessageMarkdownThemeData(
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         a: bodyStyle.copyWith(
@@ -722,12 +719,14 @@ class _MessageMarkdownThemeData {
           borderRadius: _borderRadius18,
           border: Border(left: BorderSide(color: accentColor, width: 3)),
         ),
-        codeblockPadding: const EdgeInsets.all(12),
-        codeblockDecoration: BoxDecoration(
-          color: codeBlockSurface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: borderColor),
-        ),
+        // Message bubbles render fenced code blocks through the custom
+        // `_HighlightedCodeBlockBuilder`, and `flutter_markdown_plus`
+        // still wraps every `pre` in `codeblockDecoration`. Keep the
+        // markdown-level wrapper inert here so only the highlighted panel
+        // owns the visible border/radius; otherwise the two shells drift
+        // apart (14 vs 18 radius) and create a double-outline ghost.
+        codeblockPadding: EdgeInsets.zero,
+        codeblockDecoration: const BoxDecoration(),
         horizontalRuleDecoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor, width: 1.2)),
         ),
