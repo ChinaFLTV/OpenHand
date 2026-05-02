@@ -811,3 +811,104 @@ class _AiModelTile extends StatelessWidget {
     );
   }
 }
+
+/// A 4 px primary-tinted bar at the top edge of the settings pane that
+/// fades+slides in for ~140 ms and then drains over ~520 ms each time
+/// the controller's [SettingsController.saveSuccessSignal] increments.
+/// Provides positive confirmation that "your tweak landed" without
+/// stealing focus or layout space (overlaid via Stack/IgnorePointer).
+/// Honors `MediaQuery.disableAnimationsOf` by collapsing all timings.
+class _SettingsSavePulse extends StatefulWidget {
+  const _SettingsSavePulse({required this.signal});
+
+  final ValueListenable<int> signal;
+
+  @override
+  State<_SettingsSavePulse> createState() => _SettingsSavePulseState();
+}
+
+class _SettingsSavePulseState extends State<_SettingsSavePulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  int? _lastSeen;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 660),
+    );
+    _lastSeen = widget.signal.value;
+    widget.signal.addListener(_onSignal);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SettingsSavePulse oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.signal != widget.signal) {
+      oldWidget.signal.removeListener(_onSignal);
+      _lastSeen = widget.signal.value;
+      widget.signal.addListener(_onSignal);
+    }
+  }
+
+  void _onSignal() {
+    if (!mounted) return;
+    final next = widget.signal.value;
+    if (_lastSeen == next) return;
+    _lastSeen = next;
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      // ReduceMotion: skip the animation entirely.
+      return;
+    }
+    _ctrl.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    widget.signal.removeListener(_onSignal);
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        final v = _ctrl.value;
+        if (v == 0) return const SizedBox.shrink();
+        // Two-stage envelope: 0..0.22 = ramp in, 0.22..1 = decay.
+        final double opacity;
+        if (v < 0.22) {
+          opacity = (v / 0.22).clamp(0.0, 1.0);
+        } else {
+          final t = (1 - (v - 0.22) / 0.78).clamp(0.0, 1.0);
+          opacity = Curves.easeOutCubic.transform(t);
+        }
+        return Container(
+          height: 3,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                cs.primary.withValues(alpha: 0),
+                cs.primary.withValues(alpha: 0.85 * opacity),
+                cs.primary.withValues(alpha: 0),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: cs.primary.withValues(alpha: 0.45 * opacity),
+                blurRadius: 12,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

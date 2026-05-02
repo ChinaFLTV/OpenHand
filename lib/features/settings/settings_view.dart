@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -412,29 +413,48 @@ class _SettingsViewState extends State<SettingsView> {
 
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-      child: ListView.separated(
-        padding: const EdgeInsets.only(bottom: 8),
-        itemCount: sections.length,
-        separatorBuilder: (context, index) {
-          final current = sections[index];
-          if (current == _SettingsSection.header &&
-              sections[index + 1] == _SettingsSection.persistenceIssue) {
-            return const SizedBox(height: 18);
-          }
-          if (current == _SettingsSection.header ||
-              current == _SettingsSection.persistenceIssue) {
-            return const SizedBox(height: 24);
-          }
-          return const SizedBox(height: 18);
-        },
-        itemBuilder: (context, index) {
-          return _buildSettingsSection(
-            context,
-            settingsController,
-            appInfo,
-            sections[index],
-          );
-        },
+      child: Stack(
+        children: [
+          ListView.separated(
+            padding: const EdgeInsets.only(bottom: 8),
+            itemCount: sections.length,
+            separatorBuilder: (context, index) {
+              final current = sections[index];
+              if (current == _SettingsSection.header &&
+                  sections[index + 1] == _SettingsSection.persistenceIssue) {
+                return const SizedBox(height: 18);
+              }
+              if (current == _SettingsSection.header ||
+                  current == _SettingsSection.persistenceIssue) {
+                return const SizedBox(height: 24);
+              }
+              return const SizedBox(height: 18);
+            },
+            itemBuilder: (context, index) {
+              return _buildSettingsSection(
+                context,
+                settingsController,
+                appInfo,
+                sections[index],
+              );
+            },
+          ),
+          // Top-edge highlight pulse fired whenever any settings mutation
+          // is successfully persisted. Subscribes to the controller's
+          // `saveSuccessSignal` so individual `_save*` paths don't have
+          // to wire up per-row notifiers. Honors reduceMotion via the
+          // pulse widget itself.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: _SettingsSavePulse(
+                signal: settingsController.saveSuccessSignal,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

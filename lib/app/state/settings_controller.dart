@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -236,6 +237,13 @@ class SettingsController extends ChangeNotifier {
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
 
+  /// Increments every time a mutation is successfully persisted to disk.
+  /// Settings panels can listen on this to fire ephemeral feedback effects
+  /// (e.g. a soft highlight pulse) without each `_save*` call site needing
+  /// to wire up a per-row notifier.
+  final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
+  ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
+
   ThemeMode get themeMode => _themeMode;
   OpenHandThemePreset get themePreset => _themePreset;
   AppLanguage get language => _language;
@@ -426,6 +434,7 @@ class SettingsController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _saveSuccessSignal.dispose();
     super.dispose();
   }
 
@@ -2129,6 +2138,11 @@ class SettingsController extends ChangeNotifier {
                 _persistenceIssue = null;
                 notifyListeners();
               }
+              // Successful persistence — fire the highlight-pulse signal
+              // so subscribed surfaces (currently the settings panel) can
+              // flash a soft confirmation without each `_save*` call site
+              // needing its own per-row notifier.
+              _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
               completer.complete(true);
             } catch (error) {
               try {
