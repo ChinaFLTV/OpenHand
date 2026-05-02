@@ -7,6 +7,7 @@ import '../../app/model/app_settings_snapshot.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
@@ -112,6 +113,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   bool _modelMenuOpen = false;
   int _fetchSequence = 0;
   List<String> _allTerminalsCached = [];
+  final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
   static const Map<String, List<String>> _terminalsByPlatform = {
     'macOS': [
@@ -200,6 +202,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   @override
   void dispose() {
     _taskController.dispose();
+    _errorPulse.dispose();
     super.dispose();
   }
 
@@ -602,6 +605,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         _selectedWindow == null ||
         _selectedTab == null ||
         _taskController.text.trim().isEmpty) {
+      _errorPulse.value++;
       return;
     }
 
@@ -678,7 +682,9 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         constraints: const BoxConstraints(maxWidth: 800),
         child: SizedBox(
           width: double.maxFinite,
-          child: SingleChildScrollView(
+          child: Stack(
+            children: [
+              SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -758,6 +764,19 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                 ],
               ],
             ),
+          ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: HighlightPulse(
+                    signal: _errorPulse,
+                    color: const Color(0xFFEF4444),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
