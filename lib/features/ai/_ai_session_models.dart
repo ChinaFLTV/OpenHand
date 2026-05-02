@@ -14,6 +14,15 @@ class _CompressionWindowSelection {
   final List<AiSessionMessage> discardedMessages;
 }
 
+class _CompressionMessageGroup {
+  const _CompressionMessageGroup({required this.messages});
+
+  final List<AiSessionMessage> messages;
+
+  int get characterCount =>
+      messages.fold<int>(0, (sum, message) => sum + message.characterCount);
+}
+
 class _ClaudeCodeDocsTarget {
   const _ClaudeCodeDocsTarget({required this.url, required this.label});
 

@@ -196,6 +196,8 @@ Hardness API phase runner 有独立交接压缩：
 | Hardness | `hardness_api_phase_runner.dart` | handoff 生成后检查最小长度和关键 heading，不合格退化截断 |
 | 测试 | `test/app/model/app_settings_snapshot_compression_test.dart` | 覆盖压缩阈值归一化 |
 | 测试 | `test/features/ai/service/ai_prompt_builder_compression_test.dart` | 覆盖压缩 prompt 简洁无工具且不回灌完整 system |
+| Phase 1 | `ai_session_controller.dart` / `_ai_session_models.dart` | 通用压缩窗口改为按消息组保留与压缩，PTL 重试也只丢完整组 |
+| Phase 1 测试 | `test/features/ai/ai_session_controller_compression_group_test.dart` | 覆盖工具调用组分组与 PTL 重试整组丢弃 |
 
 ## 5. OpenHand 目标架构
 
@@ -274,6 +276,8 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 ### Phase 1：窗口安全与测试补齐
 
 优先级：高
+
+状态：已在 2026-05-03 继续落地第一版；后续仍可追加更细的端到端 fake chat client 测试。
 
 1. 新增 `_CompressionMessageGroup`，在 `ai_session_controller.dart` 内部使用，避免拆出过多文件。
 2. 将保留窗口和压缩窗口从“按单条消息”改为“按 group”。

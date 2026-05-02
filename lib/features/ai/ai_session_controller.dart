@@ -47,6 +47,80 @@ part '_ai_session_utils.dart';
 typedef WriteCommandConfirmationCallback =
     Future<bool> Function(BashCommandApprovalRequest request);
 
+@visibleForTesting
+List<List<AiSessionMessage>> groupSessionMessagesForCompression(
+  List<AiSessionMessage> messages,
+) {
+  return _buildCompressionMessageGroups(
+    messages,
+  ).map((group) => group.messages).toList(growable: false);
+}
+
+@visibleForTesting
+({
+  List<AiSessionMessage> discardedMessages,
+  List<AiSessionMessage> messagesToCompress,
+})?
+retryCompressionWindowAfterPromptTooLong(List<AiSessionMessage> messages) {
+  final groups = _buildCompressionMessageGroups(messages);
+  if (groups.length <= 1) {
+    return null;
+  }
+  final dropGroupCount = math.min(
+    groups.length - 1,
+    math.max(1, (groups.length * 0.2).ceil()),
+  );
+  return (
+    discardedMessages: _flattenCompressionGroups(groups.take(dropGroupCount)),
+    messagesToCompress: _flattenCompressionGroups(groups.skip(dropGroupCount)),
+  );
+}
+
+List<_CompressionMessageGroup> _buildCompressionMessageGroups(
+  List<AiSessionMessage> messages,
+) {
+  final groups = <_CompressionMessageGroup>[];
+  var current = <AiSessionMessage>[];
+  for (final message in messages) {
+    final startsAssistantRound = _startsCompressionAssistantRound(
+      message,
+      current,
+    );
+    if (startsAssistantRound && current.isNotEmpty) {
+      groups.add(_CompressionMessageGroup(messages: current));
+      current = <AiSessionMessage>[message];
+    } else {
+      current.add(message);
+    }
+  }
+  if (current.isNotEmpty) {
+    groups.add(_CompressionMessageGroup(messages: current));
+  }
+  return groups;
+}
+
+bool _startsCompressionAssistantRound(
+  AiSessionMessage message,
+  List<AiSessionMessage> current,
+) {
+  if (message.kind == AiSessionMessageKind.assistant) {
+    return true;
+  }
+  if (message.kind != AiSessionMessageKind.toolCall || current.isEmpty) {
+    return false;
+  }
+  final previousKind = current.last.kind;
+  return previousKind != AiSessionMessageKind.assistant &&
+      previousKind != AiSessionMessageKind.reasoning &&
+      previousKind != AiSessionMessageKind.toolCall;
+}
+
+List<AiSessionMessage> _flattenCompressionGroups(
+  Iterable<_CompressionMessageGroup> groups,
+) {
+  return <AiSessionMessage>[for (final group in groups) ...group.messages];
+}
+
 enum AiSendPhase {
   idle,
   compressing,
@@ -4914,37 +4988,36 @@ class AiSessionController extends ChangeNotifier {
           (message) => message.kind != AiSessionMessageKind.compressionPoint,
         )
         .toList(growable: false);
+    final activeConversationGroups = _buildCompressionMessageGroups(
+      activeConversationMessages,
+    );
     final threshold = _effectiveCompressionThresholdChars(
       runtimeContext: runtimeContext,
       model: model,
     );
 
-    final retainedMessages = <AiSessionMessage>[];
+    final retainedGroups = <_CompressionMessageGroup>[];
     var retainedCharacterCount = 0;
-    for (
-      var index = activeConversationMessages.length - 1;
-      index >= 0;
-      index--
-    ) {
-      final message = activeConversationMessages[index];
-      final nextCharacterCount =
-          retainedCharacterCount + message.characterCount;
-      if (retainedMessages.isNotEmpty && nextCharacterCount > threshold) {
+    for (var index = activeConversationGroups.length - 1; index >= 0; index--) {
+      final group = activeConversationGroups[index];
+      final nextCharacterCount = retainedCharacterCount + group.characterCount;
+      if (retainedGroups.isNotEmpty && nextCharacterCount > threshold) {
         break;
       }
-      retainedMessages.insert(0, message);
+      retainedGroups.insert(0, group);
       retainedCharacterCount = nextCharacterCount;
     }
 
-    final compressedMessageCount =
-        activeConversationMessages.length - retainedMessages.length;
-    if (compressedMessageCount <= 0) {
+    final compressedGroupCount =
+        activeConversationGroups.length - retainedGroups.length;
+    if (compressedGroupCount <= 0) {
       return session;
     }
 
-    final candidateMessagesToCompress = activeConversationMessages
-        .take(compressedMessageCount)
+    final candidateGroupsToCompress = activeConversationGroups
+        .take(compressedGroupCount)
         .toList(growable: false);
+    final retainedMessages = _flattenCompressionGroups(retainedGroups);
     final previousCompressionPoint = session.latestCompressionPoint;
     final templateBundle = await _templateRepository.loadBundle(
       session.templateId,
@@ -4956,14 +5029,14 @@ class AiSessionController extends ChangeNotifier {
       session: session,
       runtimeContext: runtimeContext,
       model: model,
-      candidateMessages: candidateMessagesToCompress,
+      candidateGroups: candidateGroupsToCompress,
       previousCompressionPoint: previousCompressionPoint,
     );
     final messagesToCompress = compressionWindow.messagesToCompress;
     if (messagesToCompress.isEmpty) {
       _debugSessionLog(
         session.id,
-        'compression_window_empty candidate_count=${candidateMessagesToCompress.length} max_context_tokens=${model.maxContextTokens ?? 0}',
+        'compression_window_empty candidate_group_count=${candidateGroupsToCompress.length} max_context_tokens=${model.maxContextTokens ?? 0}',
       );
       return session;
     }
@@ -5002,25 +5075,24 @@ class AiSessionController extends ChangeNotifier {
           break;
         } catch (error) {
           if (!_looksLikeCompressionPromptTooLong(error) ||
-              retryMessagesToCompress.length <= 1 ||
               promptTooLongRetryCount >= 3) {
             rethrow;
           }
-          promptTooLongRetryCount += 1;
-          final dropCount = math.min(
-            retryMessagesToCompress.length - 1,
-            math.max(1, (retryMessagesToCompress.length * 0.2).ceil()),
+          final retryWindow = retryCompressionWindowAfterPromptTooLong(
+            retryMessagesToCompress,
           );
+          if (retryWindow == null) {
+            rethrow;
+          }
+          promptTooLongRetryCount += 1;
           retryDiscardedMessages = <AiSessionMessage>[
             ...retryDiscardedMessages,
-            ...retryMessagesToCompress.take(dropCount),
+            ...retryWindow.discardedMessages,
           ];
-          retryMessagesToCompress = retryMessagesToCompress
-              .skip(dropCount)
-              .toList(growable: false);
+          retryMessagesToCompress = retryWindow.messagesToCompress;
           _debugSessionLog(
             session.id,
-            'compression_prompt_too_long_retry attempt=$promptTooLongRetryCount dropped=$dropCount remaining=${retryMessagesToCompress.length}',
+            'compression_prompt_too_long_retry attempt=$promptTooLongRetryCount dropped=${retryWindow.discardedMessages.length} remaining=${retryMessagesToCompress.length}',
           );
         }
       }
@@ -6433,18 +6505,19 @@ $trimmedSummary''';
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
     required AiModelConfig model,
-    required List<AiSessionMessage> candidateMessages,
+    required List<_CompressionMessageGroup> candidateGroups,
     required AiSessionMessage? previousCompressionPoint,
   }) {
     final maxContextTokens = model.maxContextTokens;
-    if (candidateMessages.isEmpty ||
+    if (candidateGroups.isEmpty ||
         maxContextTokens == null ||
         maxContextTokens <= 0) {
       return _CompressionWindowSelection(
-        messagesToCompress: candidateMessages,
+        messagesToCompress: _flattenCompressionGroups(candidateGroups),
         discardedMessages: const <AiSessionMessage>[],
       );
     }
+    final candidateMessages = _flattenCompressionGroups(candidateGroups);
     if (_compressionPromptFitsModelContext(
       templateBundle: templateBundle,
       template: template,
@@ -6461,11 +6534,13 @@ $trimmedSummary''';
     }
 
     var left = 0;
-    var right = candidateMessages.length - 1;
+    var right = candidateGroups.length - 1;
     var bestStartIndex = -1;
     while (left <= right) {
       final middle = left + ((right - left) ~/ 2);
-      final candidateSlice = candidateMessages.sublist(middle);
+      final candidateSlice = _flattenCompressionGroups(
+        candidateGroups.skip(middle),
+      );
       final fits = _compressionPromptFitsModelContext(
         templateBundle: templateBundle,
         template: template,
@@ -6491,10 +6566,12 @@ $trimmedSummary''';
     }
     final resolvedStartIndex = bestStartIndex;
     return _CompressionWindowSelection(
-      messagesToCompress: candidateMessages.sublist(resolvedStartIndex),
-      discardedMessages: candidateMessages
-          .take(resolvedStartIndex)
-          .toList(growable: false),
+      messagesToCompress: _flattenCompressionGroups(
+        candidateGroups.skip(resolvedStartIndex),
+      ),
+      discardedMessages: _flattenCompressionGroups(
+        candidateGroups.take(resolvedStartIndex),
+      ),
     );
   }
 
