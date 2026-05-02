@@ -9,6 +9,7 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/appear_once.dart';
 import 'data/skill_market_client.dart';
 import 'model/skill_market.dart';
 import 'skills_controller.dart';
@@ -264,14 +265,17 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                         const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final skill = skills[index];
-                      return _SkillMarketResultTile(
-                        skill: skill,
-                        installed: _isMarketSkillInstalled(
-                          skill,
-                          installedSkillKeys,
+                      return AppearOnce(
+                        key: ValueKey<String>('skill-market-${skill.slug}'),
+                        child: _SkillMarketResultTile(
+                          skill: skill,
+                          installed: _isMarketSkillInstalled(
+                            skill,
+                            installedSkillKeys,
+                          ),
+                          selected: _selectedSkill?.slug == skill.slug,
+                          onTap: () => _selectSkill(skill),
                         ),
-                        selected: _selectedSkill?.slug == skill.slug,
-                        onTap: () => _selectSkill(skill),
                       );
                     },
                   ),
