@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/model/hook_config.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'hooks_controller.dart';
 
@@ -56,37 +57,48 @@ class HooksView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        // Content
-        if (entries.isEmpty)
-          _EmptyState(isZh: isZh)
-        else
-          Expanded(
-            child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(
-                context,
-              ).copyWith(scrollbars: false),
-              child: ListView.separated(
-                itemCount: entries.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final entry = entries[index];
-                  return _HookEntryCard(
-                    key: ValueKey<String>('hook-entry-${entry.id}'),
-                    entry: entry,
-                    isZh: isZh,
-                    onEdit: () => _showHookEditorDialog(context, entry),
-                    onToggle: (enabled) {
-                      hooksController.toggleHookEnabled(
-                        entry.id,
-                        enabled: enabled,
-                      );
-                    },
-                    onDelete: () => _confirmDelete(context, entry),
-                  );
-                },
-              ),
-            ),
+        // Content — empty ↔ list cross-fade; entries fade in on insert.
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: entries.isEmpty
+                ? KeyedSubtree(
+                    key: const ValueKey<String>('empty'),
+                    child: _EmptyState(isZh: isZh),
+                  )
+                : ScrollConfiguration(
+                    key: const ValueKey<String>('list'),
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
+                    child: ListView.separated(
+                      itemCount: entries.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        return AppearOnce(
+                          key: ValueKey<String>('hook-entry-${entry.id}'),
+                          child: _HookEntryCard(
+                            entry: entry,
+                            isZh: isZh,
+                            onEdit: () =>
+                                _showHookEditorDialog(context, entry),
+                            onToggle: (enabled) {
+                              hooksController.toggleHookEnabled(
+                                entry.id,
+                                enabled: enabled,
+                              );
+                            },
+                            onDelete: () => _confirmDelete(context, entry),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
           ),
+        ),
       ],
     );
   }
@@ -171,7 +183,6 @@ class _EmptyState extends StatelessWidget {
 
 class _HookEntryCard extends StatelessWidget {
   const _HookEntryCard({
-    super.key,
     required this.entry,
     required this.isZh,
     required this.onEdit,

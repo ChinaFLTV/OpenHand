@@ -13,6 +13,7 @@ import '../../app/support/openhand_notification_service.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/ansi_text.dart';
+import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'cron_parser.dart';
 import 'crons_controller.dart';
@@ -68,39 +69,58 @@ class CronsView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        // Content
-        if (isLoading && entries.isEmpty)
-          const Expanded(child: Center(child: CircularProgressIndicator()))
-        else if (entries.isEmpty)
-          _CronEmptyState(isZh: isZh)
-        else
-          Expanded(
-            child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(
-                context,
-              ).copyWith(scrollbars: false),
-              child: ListView.separated(
-                itemCount: entries.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final entry = entries[index];
-                  return _CronEntryCard(
-                    key: ValueKey<String>('cron-entry-${entry.id}'),
-                    entry: entry,
-                    isZh: isZh,
-                    onEdit: () => _showCronEditorDialog(context, entry),
-                    onToggle: (enabled) {
-                      controller.toggleCronEnabled(entry.id, enabled: enabled);
-                    },
-                    onDelete: () => _confirmDelete(context, entry),
-                    onHistory: () => _showHistoryDialog(context, entry),
-                    onRunNow: () => controller.runNow(entry.id),
-                  );
-                },
-              ),
-            ),
+        // Content — three states fade across smoothly so the list does not
+        // pop when entries arrive or are removed.
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: (isLoading && entries.isEmpty)
+                ? const Center(
+                    key: ValueKey<String>('loading'),
+                    child: CircularProgressIndicator(),
+                  )
+                : entries.isEmpty
+                ? KeyedSubtree(
+                    key: const ValueKey<String>('empty'),
+                    child: _CronEmptyState(isZh: isZh),
+                  )
+                : ScrollConfiguration(
+                    key: const ValueKey<String>('list'),
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
+                    child: ListView.separated(
+                      itemCount: entries.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        return AppearOnce(
+                          key: ValueKey<String>('cron-entry-${entry.id}'),
+                          child: _CronEntryCard(
+                            entry: entry,
+                            isZh: isZh,
+                            onEdit: () =>
+                                _showCronEditorDialog(context, entry),
+                            onToggle: (enabled) {
+                              controller.toggleCronEnabled(
+                                entry.id,
+                                enabled: enabled,
+                              );
+                            },
+                            onDelete: () => _confirmDelete(context, entry),
+                            onHistory: () =>
+                                _showHistoryDialog(context, entry),
+                            onRunNow: () => controller.runNow(entry.id),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
           ),
+        ),
       ],
     );
   }
@@ -202,7 +222,6 @@ class _CronEmptyState extends StatelessWidget {
 
 class _CronEntryCard extends StatelessWidget {
   const _CronEntryCard({
-    super.key,
     required this.entry,
     required this.isZh,
     required this.onEdit,
