@@ -1,5 +1,4 @@
 {
-  "@@locale": "zh_Hans",
   "appTitle": "OpenHand",
   "@appTitle": {
     "description": "Application brand name. Keep as \"OpenHand\" untranslated."
@@ -143,14 +142,20 @@
   "aiModelTestSuccess": "{modelName} 测试通过。",
   "@aiModelTestSuccess": {
     "placeholders": {
-      "modelName": {}
+      "modelName": {
+        "type": "String"
+      }
     }
   },
   "aiModelTestFailure": "{modelName} 测试失败：{reason}",
   "@aiModelTestFailure": {
     "placeholders": {
-      "modelName": {},
-      "reason": {}
+      "modelName": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "aiModelSelectionRequired": "请先在设置中添加并选择一个 AI 模型提供商。",
@@ -159,13 +164,17 @@
   "aiModelScanSuccess": "发现 {count} 个模型。",
   "@aiModelScanSuccess": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "aiModelScanFailed": "扫描失败：{reason}",
   "@aiModelScanFailed": {
     "placeholders": {
-      "reason": {}
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "aiModelScanEmpty": "未从该提供商扫描到模型。",
@@ -175,7 +184,9 @@
   "aiModelCount": "{count} 个模型",
   "@aiModelCount": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "chatModelButton": "选择模型",
@@ -691,16 +702,6 @@
   "imageEditorProcessing": "处理中…",
   "builtinToolTimeoutLabel": "超时时间（秒）",
   "builtinToolTimeoutHint": "默认 {seconds}s",
-  "builtinToolTimeoutHelper": "留空则使用默认 {seconds}s",
-  "builtinToolRetryLabel": "失败/超时自动重试",
-  "builtinToolRetryBody": "默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。",
-  "builtinToolMaxRetriesLabel": "最大重试次数 (0–{max})",
-  "builtinToolMaxRetriesHelper": "不含首次执行；上限 {max} 次",
-  "builtinToolBackoffLabel": "重试退避基线（毫秒）",
-  "builtinToolBackoffHint": "默认 {ms}ms",
-  "builtinToolBackoffHelper": "指数退避：第 N 次重试等待 base × 2^(N-1)ms，上限 {max}ms",
-  "selfLearningFlushIntervalLabel": "流式刷新间隔：{ms}ms",
-  "selfLearningFlushIntervalHelper": "自我学习卡片流式输出的持久化间隔（{min}–{max}ms）。调小=更实时但更多布局抖动；调大=更平滑但增量延迟更高。默认 600ms。",
   "@builtinToolTimeoutHint": {
     "placeholders": {
       "seconds": {
@@ -708,6 +709,7 @@
       }
     }
   },
+  "builtinToolTimeoutHelper": "留空则使用默认 {seconds}s",
   "@builtinToolTimeoutHelper": {
     "placeholders": {
       "seconds": {
@@ -715,6 +717,9 @@
       }
     }
   },
+  "builtinToolRetryLabel": "失败/超时自动重试",
+  "builtinToolRetryBody": "默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。",
+  "builtinToolMaxRetriesLabel": "最大重试次数 (0–{max})",
   "@builtinToolMaxRetriesLabel": {
     "placeholders": {
       "max": {
@@ -722,6 +727,7 @@
       }
     }
   },
+  "builtinToolMaxRetriesHelper": "不含首次执行；上限 {max} 次",
   "@builtinToolMaxRetriesHelper": {
     "placeholders": {
       "max": {
@@ -729,6 +735,8 @@
       }
     }
   },
+  "builtinToolBackoffLabel": "重试退避基线（毫秒）",
+  "builtinToolBackoffHint": "默认 {ms}ms",
   "@builtinToolBackoffHint": {
     "placeholders": {
       "ms": {
@@ -736,6 +744,7 @@
       }
     }
   },
+  "builtinToolBackoffHelper": "指数退避：第 N 次重试等待 base × 2^(N-1)ms，上限 {max}ms",
   "@builtinToolBackoffHelper": {
     "placeholders": {
       "max": {
@@ -743,6 +752,7 @@
       }
     }
   },
+  "selfLearningFlushIntervalLabel": "流式刷新间隔：{ms}ms",
   "@selfLearningFlushIntervalLabel": {
     "placeholders": {
       "ms": {
@@ -750,6 +760,7 @@
       }
     }
   },
+  "selfLearningFlushIntervalHelper": "自我学习卡片流式输出的持久化间隔（{min}–{max}ms）。调小=更实时但更多布局抖动；调大=更平滑但增量延迟更高。默认 600ms。",
   "@selfLearningFlushIntervalHelper": {
     "placeholders": {
       "min": {
@@ -773,13 +784,17 @@
   "tsmDeleteSelectedConfirm": "将永久删除 {count} 个线程及其消息。此操作无法撤销。",
   "@tsmDeleteSelectedConfirm": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tsmDeleteFailedCount": "{count} 个线程删除失败",
   "@tsmDeleteFailedCount": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tsmSessionMissing": "会话不存在或已被删除",
@@ -789,7 +804,9 @@
   "tsmExportingSession": "正在导出 “{title}”…",
   "@tsmExportingSession": {
     "placeholders": {
-      "title": {}
+      "title": {
+        "type": "String"
+      }
     }
   },
   "tsmExportComplete": "导出完成",
@@ -803,14 +820,20 @@
   "tsmBatchExportSubtitle": "即将导出 {count} 个线程…",
   "@tsmBatchExportSubtitle": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tsmBatchExportDone": "批量导出完成：成功 {ok} / 失败 {failed}",
   "@tsmBatchExportDone": {
     "placeholders": {
-      "ok": {},
-      "failed": {}
+      "ok": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
     }
   },
   "tsmMenuPreview": "预览",
@@ -838,7 +861,9 @@
   "tsmPreviewMessageCount": "{count} 条消息",
   "@tsmPreviewMessageCount": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tsmClosePreview": "关闭预览",
@@ -858,7 +883,9 @@
   "tsmSortDisabledHint": "当前为「{mode}」排序，拖拽手柄已禁用，切回「手动顺序」可继续调整。",
   "@tsmSortDisabledHint": {
     "placeholders": {
-      "mode": {}
+      "mode": {
+        "type": "String"
+      }
     }
   },
   "tsmSortManual": "手动顺序",
@@ -888,13 +915,17 @@
   "tsmHeaderSubtitle": "共 {count} 个线程 · 长按或拖拽手柄可调整顺序，双击/右键查看更多操作",
   "@tsmHeaderSubtitle": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tsmSelectedCount": "已选 {count}",
   "@tsmSelectedCount": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tsmBatchExportButton": "批量导出",
@@ -956,14 +987,20 @@
   "proxyTestSuccess": "连通成功（{latency} ms，via {via}）",
   "@proxyTestSuccess": {
     "placeholders": {
-      "latency": {},
-      "via": {}
+      "latency": {
+        "type": "int"
+      },
+      "via": {
+        "type": "String"
+      }
     }
   },
   "proxyTestFailure": "连通失败：{reason}",
   "@proxyTestFailure": {
     "placeholders": {
-      "reason": {}
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "proxyTestEndpointLabel": "测试 URL",
@@ -972,7 +1009,9 @@
   "proxyTestVerdictProxy": "代理 {endpoint}",
   "@proxyTestVerdictProxy": {
     "placeholders": {
-      "endpoint": {}
+      "endpoint": {
+        "type": "String"
+      }
     }
   },
   "proxyTestEndpointInvalid": "测试 URL 无效（需以 http:// 或 https:// 开头）",
@@ -1987,5 +2026,6 @@
         "type": "Object"
       }
     }
-  }
+  },
+  "@@locale": "zh_Hans"
 }

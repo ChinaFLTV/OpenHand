@@ -1,5 +1,4 @@
 {
-  "@@locale": "de",
   "appTitle": "OpenHand",
   "@appTitle": {
     "description": "Application brand name. Keep as \"OpenHand\" untranslated."
@@ -143,14 +142,20 @@
   "aiModelTestSuccess": "{modelName} hat den Test bestanden.",
   "@aiModelTestSuccess": {
     "placeholders": {
-      "modelName": {}
+      "modelName": {
+        "type": "String"
+      }
     }
   },
   "aiModelTestFailure": "{modelName}-Test fehlgeschlagen: {reason}",
   "@aiModelTestFailure": {
     "placeholders": {
-      "modelName": {},
-      "reason": {}
+      "modelName": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "aiModelSelectionRequired": "Fügen Sie zuerst in den Einstellungen einen KI-Modellanbieter hinzu und wählen Sie ihn aus.",
@@ -159,13 +164,17 @@
   "aiModelScanSuccess": "{count} Modelle gefunden.",
   "@aiModelScanSuccess": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "aiModelScanFailed": "Scan fehlgeschlagen: {reason}",
   "@aiModelScanFailed": {
     "placeholders": {
-      "reason": {}
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "aiModelScanEmpty": "Bei diesem Anbieter wurden keine Modelle gefunden.",
@@ -175,7 +184,9 @@
   "aiModelCount": "{count} Modelle",
   "@aiModelCount": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "chatModelButton": "Modell auswählen",
@@ -691,32 +702,129 @@
   "imageEditorProcessing": "Verarbeitung …",
   "builtinToolTimeoutLabel": "Timeout (Sekunden)",
   "builtinToolTimeoutHint": "Standard {seconds}s",
+  "@builtinToolTimeoutHint": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolTimeoutHelper": "Leer = Standard {seconds}s",
+  "@builtinToolTimeoutHelper": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolRetryLabel": "Bei Fehlschlag / Timeout erneut versuchen",
   "builtinToolRetryBody": "Standardmäßig aus. Wird nur bei echten failed/timed_out-Ergebnissen ausgelöst; ungültige Argumente oder abgelehnte Aufrufe werden nicht erneut versucht.",
   "builtinToolMaxRetriesLabel": "Max. Wiederholungen (0–{max})",
+  "@builtinToolMaxRetriesLabel": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolMaxRetriesHelper": "Erstversuch ausgenommen; bei {max} begrenzt",
+  "@builtinToolMaxRetriesHelper": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolBackoffLabel": "Wiederholungs-Backoff-Basis (ms)",
   "builtinToolBackoffHint": "Standard {ms}ms",
+  "@builtinToolBackoffHint": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolBackoffHelper": "Exponentiell: n-te Wiederholung wartet Basis × 2^(N-1) ms, begrenzt auf {max}ms",
+  "@builtinToolBackoffHelper": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "selfLearningFlushIntervalLabel": "Stream-Flush-Intervall: {ms}ms",
+  "@selfLearningFlushIntervalLabel": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
   "selfLearningFlushIntervalHelper": "Persistenzintervall für die Streaming-Ausgabe der Selbstlernkarte ({min}–{max}ms). Kleiner = mehr Echtzeit, aber mehr Layout-Jitter; größer = glatter, aber höhere Latenz pro Chunk. Standard 600ms.",
+  "@selfLearningFlushIntervalHelper": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "tsmRenameThreadTitle": "Thread umbenennen",
   "tsmRenameHint": "Thread-Titel eingeben",
   "tsmRenameFailed": "Umbenennen fehlgeschlagen",
   "tsmDeleteThreadTitle": "Thread löschen",
   "tsmDeleteSelectedTitle": "Ausgewählte Threads löschen",
   "tsmDeleteSelectedConfirm": "{count} Thread(s) und ihre Nachrichten werden endgültig gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.",
+  "@tsmDeleteSelectedConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmDeleteFailedCount": "{count} Thread(s) konnten nicht gelöscht werden",
+  "@tsmDeleteFailedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmSessionMissing": "Sitzung fehlt oder wurde gelöscht",
   "tsmExportSessionDataTitle": "Sitzungsdaten exportieren",
   "tsmExportingSession": "Exportiere „{title}“…",
+  "@tsmExportingSession": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "tsmExportComplete": "Export abgeschlossen",
   "tsmExportFailed": "Export fehlgeschlagen",
   "tsmChooseExportFolder": "Exportordner auswählen",
   "tsmBatchExportTitle": "Stapelexport",
   "tsmBatchExportSubtitle": "{count} Threads werden gleich exportiert…",
+  "@tsmBatchExportSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmBatchExportDone": "Stapelexport abgeschlossen: {ok} erfolgreich / {failed} fehlgeschlagen",
+  "@tsmBatchExportDone": {
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
   "tsmMenuPreview": "Vorschau",
   "tsmMenuRename": "Umbenennen",
   "tsmMenuExportSession": "Sitzung exportieren",
@@ -729,6 +837,13 @@
   "tsmArchiveUpdateFailed": "Archivstatus konnte nicht aktualisiert werden",
   "tsmUntitledThread": "(Unbenannter Thread)",
   "tsmPreviewMessageCount": "{count} Nachrichten",
+  "@tsmPreviewMessageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmClosePreview": "Vorschau schließen",
   "tsmNoMessages": "Keine Nachrichten",
   "tsmEmptyMessage": "(leer)",
@@ -737,6 +852,13 @@
   "tsmDensityCompact": "Kompakt",
   "tsmAllTemplates": "Alle Vorlagen",
   "tsmSortDisabledHint": "Sortiert nach „{mode}\". Ziehgriffe sind deaktiviert; wechseln Sie zurück zu „Manuelle Reihenfolge\", um neu anzuordnen.",
+  "@tsmSortDisabledHint": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
   "tsmSortManual": "Manuelle Reihenfolge",
   "tsmSortUpdated": "Zuletzt aktualisiert",
   "tsmSortCreated": "Zuletzt erstellt",
@@ -750,7 +872,21 @@
   "tsmClose": "Schließen",
   "tsmTitle": "Thread-Sitzungsverwaltung",
   "tsmHeaderSubtitle": "{count} Thread(s) · Lange drücken oder Griff ziehen, um neu zu sortieren; Doppelklick / Rechtsklick für mehr",
+  "@tsmHeaderSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmSelectedCount": "{count} ausgewählt",
+  "@tsmSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmBatchExportButton": "Stapelexport",
   "tsmDeleteSelectedButton": "Auswahl löschen",
   "tsmEmptyState": "Noch keine Thread-Sitzungen",
@@ -792,14 +928,20 @@
   "proxyTestSuccess": "OK ({latency} ms, über {via})",
   "@proxyTestSuccess": {
     "placeholders": {
-      "latency": {},
-      "via": {}
+      "latency": {
+        "type": "int"
+      },
+      "via": {
+        "type": "String"
+      }
     }
   },
   "proxyTestFailure": "Fehlgeschlagen: {reason}",
   "@proxyTestFailure": {
     "placeholders": {
-      "reason": {}
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "proxyTestEndpointLabel": "Test-URL",
@@ -808,7 +950,9 @@
   "proxyTestVerdictProxy": "Proxy {endpoint}",
   "@proxyTestVerdictProxy": {
     "placeholders": {
-      "endpoint": {}
+      "endpoint": {
+        "type": "String"
+      }
     }
   },
   "proxyTestEndpointInvalid": "Test-URL ist ungültig (muss mit http:// oder https:// beginnen)",
@@ -1823,5 +1967,6 @@
         "type": "Object"
       }
     }
-  }
+  },
+  "@@locale": "de"
 }

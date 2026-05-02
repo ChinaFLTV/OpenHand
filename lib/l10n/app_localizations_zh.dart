@@ -410,12 +410,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiModelTesting => '测试中';
 
   @override
-  String aiModelTestSuccess(Object modelName) {
+  String aiModelTestSuccess(String modelName) {
     return '$modelName 测试通过。';
   }
 
   @override
-  String aiModelTestFailure(Object modelName, Object reason) {
+  String aiModelTestFailure(String modelName, String reason) {
     return '$modelName 测试失败：$reason';
   }
 
@@ -429,12 +429,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiModelScanning => '正在扫描可用模型…';
 
   @override
-  String aiModelScanSuccess(Object count) {
+  String aiModelScanSuccess(int count) {
     return '发现 $count 个模型。';
   }
 
   @override
-  String aiModelScanFailed(Object reason) {
+  String aiModelScanFailed(String reason) {
     return '扫描失败：$reason';
   }
 
@@ -451,7 +451,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiModelManualIdAdd => '添加';
 
   @override
-  String aiModelCount(Object count) {
+  String aiModelCount(int count) {
     return '$count 个模型';
   }
 
@@ -1800,12 +1800,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tsmDeleteSelectedTitle => '删除所选线程';
 
   @override
-  String tsmDeleteSelectedConfirm(Object count) {
+  String tsmDeleteSelectedConfirm(int count) {
     return '将永久删除 $count 个线程及其消息。此操作无法撤销。';
   }
 
   @override
-  String tsmDeleteFailedCount(Object count) {
+  String tsmDeleteFailedCount(int count) {
     return '$count 个线程删除失败';
   }
 
@@ -1816,7 +1816,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tsmExportSessionDataTitle => '导出会话数据';
 
   @override
-  String tsmExportingSession(Object title) {
+  String tsmExportingSession(String title) {
     return '正在导出 “$title”…';
   }
 
@@ -1833,12 +1833,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tsmBatchExportTitle => '批量导出';
 
   @override
-  String tsmBatchExportSubtitle(Object count) {
+  String tsmBatchExportSubtitle(int count) {
     return '即将导出 $count 个线程…';
   }
 
   @override
-  String tsmBatchExportDone(Object ok, Object failed) {
+  String tsmBatchExportDone(int ok, int failed) {
     return '批量导出完成：成功 $ok / 失败 $failed';
   }
 
@@ -1876,7 +1876,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tsmUntitledThread => '(未命名线程)';
 
   @override
-  String tsmPreviewMessageCount(Object count) {
+  String tsmPreviewMessageCount(int count) {
     return '$count 条消息';
   }
 
@@ -1902,7 +1902,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tsmAllTemplates => '全部模板';
 
   @override
-  String tsmSortDisabledHint(Object mode) {
+  String tsmSortDisabledHint(String mode) {
     return '当前为「$mode」排序，拖拽手柄已禁用，切回「手动顺序」可继续调整。';
   }
 
@@ -1943,12 +1943,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tsmTitle => '线程会话管理';
 
   @override
-  String tsmHeaderSubtitle(Object count) {
+  String tsmHeaderSubtitle(int count) {
     return '共 $count 个线程 · 长按或拖拽手柄可调整顺序，双击/右键查看更多操作';
   }
 
   @override
-  String tsmSelectedCount(Object count) {
+  String tsmSelectedCount(int count) {
     return '已选 $count';
   }
 
@@ -2073,12 +2073,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get proxyTesting => '测试中…';
 
   @override
-  String proxyTestSuccess(Object latency, Object via) {
+  String proxyTestSuccess(int latency, String via) {
     return '连通成功（$latency ms，via $via）';
   }
 
   @override
-  String proxyTestFailure(Object reason) {
+  String proxyTestFailure(String reason) {
     return '连通失败：$reason';
   }
 
@@ -2092,7 +2092,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get proxyTestVerdictDirect => '直连';
 
   @override
-  String proxyTestVerdictProxy(Object endpoint) {
+  String proxyTestVerdictProxy(String endpoint) {
     return '代理 $endpoint';
   }
 
@@ -4604,12 +4604,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiModelTesting => '测试中';
 
   @override
-  String aiModelTestSuccess(Object modelName) {
+  String aiModelTestSuccess(String modelName) {
     return '$modelName 测试通过。';
   }
 
   @override
-  String aiModelTestFailure(Object modelName, Object reason) {
+  String aiModelTestFailure(String modelName, String reason) {
     return '$modelName 测试失败：$reason';
   }
 
@@ -4623,12 +4623,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiModelScanning => '正在扫描可用模型…';
 
   @override
-  String aiModelScanSuccess(Object count) {
+  String aiModelScanSuccess(int count) {
     return '发现 $count 个模型。';
   }
 
   @override
-  String aiModelScanFailed(Object reason) {
+  String aiModelScanFailed(String reason) {
     return '扫描失败：$reason';
   }
 
@@ -4645,7 +4645,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiModelManualIdAdd => '添加';
 
   @override
-  String aiModelCount(Object count) {
+  String aiModelCount(int count) {
     return '$count 个模型';
   }
 
@@ -5994,12 +5994,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tsmDeleteSelectedTitle => '删除所选线程';
 
   @override
-  String tsmDeleteSelectedConfirm(Object count) {
+  String tsmDeleteSelectedConfirm(int count) {
     return '将永久删除 $count 个线程及其消息。此操作无法撤销。';
   }
 
   @override
-  String tsmDeleteFailedCount(Object count) {
+  String tsmDeleteFailedCount(int count) {
     return '$count 个线程删除失败';
   }
 
@@ -6010,7 +6010,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tsmExportSessionDataTitle => '导出会话数据';
 
   @override
-  String tsmExportingSession(Object title) {
+  String tsmExportingSession(String title) {
     return '正在导出 “$title”…';
   }
 
@@ -6027,12 +6027,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tsmBatchExportTitle => '批量导出';
 
   @override
-  String tsmBatchExportSubtitle(Object count) {
+  String tsmBatchExportSubtitle(int count) {
     return '即将导出 $count 个线程…';
   }
 
   @override
-  String tsmBatchExportDone(Object ok, Object failed) {
+  String tsmBatchExportDone(int ok, int failed) {
     return '批量导出完成：成功 $ok / 失败 $failed';
   }
 
@@ -6070,7 +6070,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tsmUntitledThread => '(未命名线程)';
 
   @override
-  String tsmPreviewMessageCount(Object count) {
+  String tsmPreviewMessageCount(int count) {
     return '$count 条消息';
   }
 
@@ -6096,7 +6096,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tsmAllTemplates => '全部模板';
 
   @override
-  String tsmSortDisabledHint(Object mode) {
+  String tsmSortDisabledHint(String mode) {
     return '当前为「$mode」排序，拖拽手柄已禁用，切回「手动顺序」可继续调整。';
   }
 
@@ -6137,12 +6137,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tsmTitle => '线程会话管理';
 
   @override
-  String tsmHeaderSubtitle(Object count) {
+  String tsmHeaderSubtitle(int count) {
     return '共 $count 个线程 · 长按或拖拽手柄可调整顺序，双击/右键查看更多操作';
   }
 
   @override
-  String tsmSelectedCount(Object count) {
+  String tsmSelectedCount(int count) {
     return '已选 $count';
   }
 
@@ -6267,12 +6267,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get proxyTesting => '测试中…';
 
   @override
-  String proxyTestSuccess(Object latency, Object via) {
+  String proxyTestSuccess(int latency, String via) {
     return '连通成功（$latency ms，via $via）';
   }
 
   @override
-  String proxyTestFailure(Object reason) {
+  String proxyTestFailure(String reason) {
     return '连通失败：$reason';
   }
 
@@ -6286,7 +6286,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get proxyTestVerdictDirect => '直连';
 
   @override
-  String proxyTestVerdictProxy(Object endpoint) {
+  String proxyTestVerdictProxy(String endpoint) {
     return '代理 $endpoint';
   }
 
@@ -8797,12 +8797,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get aiModelTesting => '測試中';
 
   @override
-  String aiModelTestSuccess(Object modelName) {
+  String aiModelTestSuccess(String modelName) {
     return '$modelName 測試通過。';
   }
 
   @override
-  String aiModelTestFailure(Object modelName, Object reason) {
+  String aiModelTestFailure(String modelName, String reason) {
     return '$modelName 測試失敗：$reason';
   }
 
@@ -8816,12 +8816,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get aiModelScanning => '正在掃描可用模型…';
 
   @override
-  String aiModelScanSuccess(Object count) {
+  String aiModelScanSuccess(int count) {
     return '發現 $count 個模型。';
   }
 
   @override
-  String aiModelScanFailed(Object reason) {
+  String aiModelScanFailed(String reason) {
     return '掃描失敗：$reason';
   }
 
@@ -8838,7 +8838,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get aiModelManualIdAdd => '添加';
 
   @override
-  String aiModelCount(Object count) {
+  String aiModelCount(int count) {
     return '$count 個模型';
   }
 
@@ -10187,12 +10187,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmDeleteSelectedTitle => '刪除選取的執行緒';
 
   @override
-  String tsmDeleteSelectedConfirm(Object count) {
+  String tsmDeleteSelectedConfirm(int count) {
     return '將永久刪除 $count 個執行緒及其訊息，此操作無法復原。';
   }
 
   @override
-  String tsmDeleteFailedCount(Object count) {
+  String tsmDeleteFailedCount(int count) {
     return '$count 個執行緒刪除失敗';
   }
 
@@ -10203,7 +10203,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmExportSessionDataTitle => '匯出工作階段資料';
 
   @override
-  String tsmExportingSession(Object title) {
+  String tsmExportingSession(String title) {
     return '正在匯出「$title」…';
   }
 
@@ -10220,12 +10220,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmBatchExportTitle => '批次匯出';
 
   @override
-  String tsmBatchExportSubtitle(Object count) {
+  String tsmBatchExportSubtitle(int count) {
     return '即將匯出 $count 個執行緒…';
   }
 
   @override
-  String tsmBatchExportDone(Object ok, Object failed) {
+  String tsmBatchExportDone(int ok, int failed) {
     return '批次匯出完成：成功 $ok 件 / 失敗 $failed 件';
   }
 
@@ -10263,7 +10263,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmUntitledThread => '（未命名執行緒）';
 
   @override
-  String tsmPreviewMessageCount(Object count) {
+  String tsmPreviewMessageCount(int count) {
     return '$count 則訊息';
   }
 
@@ -10289,7 +10289,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmAllTemplates => '所有範本';
 
   @override
-  String tsmSortDisabledHint(Object mode) {
+  String tsmSortDisabledHint(String mode) {
     return '目前依「$mode」排序，拖曳控制點已停用；切回「手動排序」即可重新排列。';
   }
 
@@ -10330,12 +10330,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmTitle => '執行緒工作階段管理';
 
   @override
-  String tsmHeaderSubtitle(Object count) {
+  String tsmHeaderSubtitle(int count) {
     return '共 $count 個執行緒 · 長按或拖曳控制點可重新排序，按兩下或按右鍵可叫出更多選項';
   }
 
   @override
-  String tsmSelectedCount(Object count) {
+  String tsmSelectedCount(int count) {
     return '已選取 $count 個';
   }
 
@@ -10460,12 +10460,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get proxyTesting => '測試中…';
 
   @override
-  String proxyTestSuccess(Object latency, Object via) {
+  String proxyTestSuccess(int latency, String via) {
     return '連通成功（$latency ms，via $via）';
   }
 
   @override
-  String proxyTestFailure(Object reason) {
+  String proxyTestFailure(String reason) {
     return '連通失敗：$reason';
   }
 
@@ -10479,7 +10479,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get proxyTestVerdictDirect => '直連';
 
   @override
-  String proxyTestVerdictProxy(Object endpoint) {
+  String proxyTestVerdictProxy(String endpoint) {
     return '代理 $endpoint';
   }
 

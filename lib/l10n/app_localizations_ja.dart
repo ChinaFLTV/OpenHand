@@ -413,12 +413,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiModelTesting => 'テスト中';
 
   @override
-  String aiModelTestSuccess(Object modelName) {
+  String aiModelTestSuccess(String modelName) {
     return '$modelName のテストに合格しました。';
   }
 
   @override
-  String aiModelTestFailure(Object modelName, Object reason) {
+  String aiModelTestFailure(String modelName, String reason) {
     return '$modelName のテストに失敗しました：$reason';
   }
 
@@ -432,12 +432,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiModelScanning => '利用可能なモデルをスキャン中…';
 
   @override
-  String aiModelScanSuccess(Object count) {
+  String aiModelScanSuccess(int count) {
     return '$count 件のモデルが見つかりました。';
   }
 
   @override
-  String aiModelScanFailed(Object reason) {
+  String aiModelScanFailed(String reason) {
     return 'スキャンに失敗しました：$reason';
   }
 
@@ -454,7 +454,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiModelManualIdAdd => '追加';
 
   @override
-  String aiModelCount(Object count) {
+  String aiModelCount(int count) {
     return '$count モデル';
   }
 
@@ -1826,12 +1826,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmDeleteSelectedTitle => '選択したスレッドを削除';
 
   @override
-  String tsmDeleteSelectedConfirm(Object count) {
+  String tsmDeleteSelectedConfirm(int count) {
     return '$count 件のスレッドとそのメッセージを完全に削除します。この操作は取り消せません。';
   }
 
   @override
-  String tsmDeleteFailedCount(Object count) {
+  String tsmDeleteFailedCount(int count) {
     return '$count 件のスレッドの削除に失敗しました';
   }
 
@@ -1842,7 +1842,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmExportSessionDataTitle => 'セッションデータをエクスポート';
 
   @override
-  String tsmExportingSession(Object title) {
+  String tsmExportingSession(String title) {
     return '「$title」をエクスポート中…';
   }
 
@@ -1859,12 +1859,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmBatchExportTitle => '一括エクスポート';
 
   @override
-  String tsmBatchExportSubtitle(Object count) {
+  String tsmBatchExportSubtitle(int count) {
     return '$count 件のスレッドをエクスポートします…';
   }
 
   @override
-  String tsmBatchExportDone(Object ok, Object failed) {
+  String tsmBatchExportDone(int ok, int failed) {
     return '一括エクスポート完了：成功 $ok 件 / 失敗 $failed 件';
   }
 
@@ -1902,7 +1902,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmUntitledThread => '(無題のスレッド)';
 
   @override
-  String tsmPreviewMessageCount(Object count) {
+  String tsmPreviewMessageCount(int count) {
     return '$count 件のメッセージ';
   }
 
@@ -1928,7 +1928,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmAllTemplates => 'すべてのテンプレート';
 
   @override
-  String tsmSortDisabledHint(Object mode) {
+  String tsmSortDisabledHint(String mode) {
     return '「$mode」で並び替え中です。ドラッグハンドルは無効化されています。並べ替えるには「手動の順序」に戻してください。';
   }
 
@@ -1969,12 +1969,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmTitle => 'スレッドセッション管理';
 
   @override
-  String tsmHeaderSubtitle(Object count) {
+  String tsmHeaderSubtitle(int count) {
     return '$count 件のスレッド · 長押しまたはハンドルをドラッグして並び替え、ダブルクリックまたは右クリックでメニューを表示';
   }
 
   @override
-  String tsmSelectedCount(Object count) {
+  String tsmSelectedCount(int count) {
     return '$count 件選択中';
   }
 
@@ -2101,12 +2101,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get proxyTesting => 'テスト中…';
 
   @override
-  String proxyTestSuccess(Object latency, Object via) {
+  String proxyTestSuccess(int latency, String via) {
     return 'OK ($latency ms、$via 経由)';
   }
 
   @override
-  String proxyTestFailure(Object reason) {
+  String proxyTestFailure(String reason) {
     return '失敗：$reason';
   }
 
@@ -2120,7 +2120,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get proxyTestVerdictDirect => '直接';
 
   @override
-  String proxyTestVerdictProxy(Object endpoint) {
+  String proxyTestVerdictProxy(String endpoint) {
     return 'プロキシ $endpoint';
   }
 

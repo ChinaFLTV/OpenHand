@@ -1,5 +1,4 @@
 {
-  "@@locale": "fr",
   "appTitle": "OpenHand",
   "@appTitle": {
     "description": "Application brand name. Keep as \"OpenHand\" untranslated."
@@ -143,14 +142,20 @@
   "aiModelTestSuccess": "{modelName} a réussi le test.",
   "@aiModelTestSuccess": {
     "placeholders": {
-      "modelName": {}
+      "modelName": {
+        "type": "String"
+      }
     }
   },
   "aiModelTestFailure": "Échec du test de {modelName} : {reason}",
   "@aiModelTestFailure": {
     "placeholders": {
-      "modelName": {},
-      "reason": {}
+      "modelName": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "aiModelSelectionRequired": "Ajoutez et sélectionnez d’abord un fournisseur de modèle IA dans les paramètres.",
@@ -159,13 +164,17 @@
   "aiModelScanSuccess": "{count} modèles trouvés.",
   "@aiModelScanSuccess": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "aiModelScanFailed": "Échec de l’analyse : {reason}",
   "@aiModelScanFailed": {
     "placeholders": {
-      "reason": {}
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "aiModelScanEmpty": "Aucun modèle trouvé chez ce fournisseur.",
@@ -175,7 +184,9 @@
   "aiModelCount": "{count} modèles",
   "@aiModelCount": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "chatModelButton": "Choisir un modèle",
@@ -691,32 +702,129 @@
   "imageEditorProcessing": "Traitement…",
   "builtinToolTimeoutLabel": "Délai d’expiration (secondes)",
   "builtinToolTimeoutHint": "Par défaut {seconds}s",
+  "@builtinToolTimeoutHint": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolTimeoutHelper": "Vide = par défaut {seconds}s",
+  "@builtinToolTimeoutHelper": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolRetryLabel": "Réessayer en cas d’échec / délai dépassé",
   "builtinToolRetryBody": "Désactivé par défaut. Ne se déclenche que sur les résultats réels failed/timed_out ; ne réessaiera pas les arguments invalides ou les appels refusés.",
   "builtinToolMaxRetriesLabel": "Tentatives max. (0–{max})",
+  "@builtinToolMaxRetriesLabel": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolMaxRetriesHelper": "Hors première tentative ; plafonné à {max}",
+  "@builtinToolMaxRetriesHelper": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolBackoffLabel": "Base de recul des tentatives (ms)",
   "builtinToolBackoffHint": "Par défaut {ms}ms",
+  "@builtinToolBackoffHint": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolBackoffHelper": "Exponentiel : la nième tentative attend base × 2^(N-1) ms, plafonné à {max}ms",
+  "@builtinToolBackoffHelper": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "selfLearningFlushIntervalLabel": "Intervalle de vidage du flux : {ms}ms",
+  "@selfLearningFlushIntervalLabel": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
   "selfLearningFlushIntervalHelper": "Intervalle de persistance de la sortie en flux de la carte d’auto-apprentissage ({min}–{max}ms). Plus petit = plus en temps réel mais plus d’à-coups de mise en page ; plus grand = plus fluide mais latence par bloc plus élevée. Par défaut 600ms.",
+  "@selfLearningFlushIntervalHelper": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "tsmRenameThreadTitle": "Renommer le fil",
   "tsmRenameHint": "Saisir un titre de fil",
   "tsmRenameFailed": "Échec du renommage",
   "tsmDeleteThreadTitle": "Supprimer le fil",
   "tsmDeleteSelectedTitle": "Supprimer les fils sélectionnés",
   "tsmDeleteSelectedConfirm": "{count} fil(s) et leurs messages seront supprimés définitivement. Cette action est irréversible.",
+  "@tsmDeleteSelectedConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmDeleteFailedCount": "Échec de la suppression de {count} fil(s)",
+  "@tsmDeleteFailedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmSessionMissing": "Session introuvable ou supprimée",
   "tsmExportSessionDataTitle": "Exporter les données de session",
   "tsmExportingSession": "Exportation de « {title} »…",
+  "@tsmExportingSession": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "tsmExportComplete": "Exportation terminée",
   "tsmExportFailed": "Échec de l'exportation",
   "tsmChooseExportFolder": "Choisir le dossier d'export",
   "tsmBatchExportTitle": "Exportation par lots",
   "tsmBatchExportSubtitle": "Exportation imminente de {count} fils…",
+  "@tsmBatchExportSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmBatchExportDone": "Export par lots terminé : {ok} réussis / {failed} échoués",
+  "@tsmBatchExportDone": {
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
   "tsmMenuPreview": "Aperçu",
   "tsmMenuRename": "Renommer",
   "tsmMenuExportSession": "Exporter la session",
@@ -729,6 +837,13 @@
   "tsmArchiveUpdateFailed": "Échec de la mise à jour de l'archivage",
   "tsmUntitledThread": "(Fil sans titre)",
   "tsmPreviewMessageCount": "{count} messages",
+  "@tsmPreviewMessageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmClosePreview": "Fermer l'aperçu",
   "tsmNoMessages": "Aucun message",
   "tsmEmptyMessage": "(vide)",
@@ -737,6 +852,13 @@
   "tsmDensityCompact": "Compact",
   "tsmAllTemplates": "Tous les modèles",
   "tsmSortDisabledHint": "Trié par « {mode} ». Les poignées sont désactivées ; revenez à « Ordre manuel » pour réorganiser.",
+  "@tsmSortDisabledHint": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
   "tsmSortManual": "Ordre manuel",
   "tsmSortUpdated": "Récemment mis à jour",
   "tsmSortCreated": "Récemment créés",
@@ -750,7 +872,21 @@
   "tsmClose": "Fermer",
   "tsmTitle": "Gestion des sessions de fil",
   "tsmHeaderSubtitle": "{count} fil(s) · maintenez ou glissez la poignée pour réorganiser, double-clic / clic droit pour plus d'options",
+  "@tsmHeaderSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmSelectedCount": "{count} sélectionné(s)",
+  "@tsmSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmBatchExportButton": "Exporter par lots",
   "tsmDeleteSelectedButton": "Supprimer la sélection",
   "tsmEmptyState": "Aucune session de fil pour le moment",
@@ -792,14 +928,20 @@
   "proxyTestSuccess": "OK ({latency} ms, via {via})",
   "@proxyTestSuccess": {
     "placeholders": {
-      "latency": {},
-      "via": {}
+      "latency": {
+        "type": "int"
+      },
+      "via": {
+        "type": "String"
+      }
     }
   },
   "proxyTestFailure": "Échec : {reason}",
   "@proxyTestFailure": {
     "placeholders": {
-      "reason": {}
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "proxyTestEndpointLabel": "URL de test",
@@ -808,7 +950,9 @@
   "proxyTestVerdictProxy": "proxy {endpoint}",
   "@proxyTestVerdictProxy": {
     "placeholders": {
-      "endpoint": {}
+      "endpoint": {
+        "type": "String"
+      }
     }
   },
   "proxyTestEndpointInvalid": "L'URL de test est invalide (doit commencer par http:// ou https://)",
@@ -1823,5 +1967,6 @@
         "type": "Object"
       }
     }
-  }
+  },
+  "@@locale": "fr"
 }

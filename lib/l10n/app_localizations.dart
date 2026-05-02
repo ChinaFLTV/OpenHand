@@ -896,13 +896,13 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'{modelName} 测试通过。'**
-  String aiModelTestSuccess(Object modelName);
+  String aiModelTestSuccess(String modelName);
 
   /// No description provided for @aiModelTestFailure.
   ///
   /// In zh_Hans, this message translates to:
   /// **'{modelName} 测试失败：{reason}'**
-  String aiModelTestFailure(Object modelName, Object reason);
+  String aiModelTestFailure(String modelName, String reason);
 
   /// No description provided for @aiModelSelectionRequired.
   ///
@@ -926,13 +926,13 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'发现 {count} 个模型。'**
-  String aiModelScanSuccess(Object count);
+  String aiModelScanSuccess(int count);
 
   /// No description provided for @aiModelScanFailed.
   ///
   /// In zh_Hans, this message translates to:
   /// **'扫描失败：{reason}'**
-  String aiModelScanFailed(Object reason);
+  String aiModelScanFailed(String reason);
 
   /// No description provided for @aiModelScanEmpty.
   ///
@@ -962,7 +962,7 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'{count} 个模型'**
-  String aiModelCount(Object count);
+  String aiModelCount(int count);
 
   /// No description provided for @chatModelButton.
   ///
@@ -3536,13 +3536,13 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'将永久删除 {count} 个线程及其消息。此操作无法撤销。'**
-  String tsmDeleteSelectedConfirm(Object count);
+  String tsmDeleteSelectedConfirm(int count);
 
   /// No description provided for @tsmDeleteFailedCount.
   ///
   /// In zh_Hans, this message translates to:
   /// **'{count} 个线程删除失败'**
-  String tsmDeleteFailedCount(Object count);
+  String tsmDeleteFailedCount(int count);
 
   /// No description provided for @tsmSessionMissing.
   ///
@@ -3560,7 +3560,7 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'正在导出 “{title}”…'**
-  String tsmExportingSession(Object title);
+  String tsmExportingSession(String title);
 
   /// No description provided for @tsmExportComplete.
   ///
@@ -3590,13 +3590,13 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'即将导出 {count} 个线程…'**
-  String tsmBatchExportSubtitle(Object count);
+  String tsmBatchExportSubtitle(int count);
 
   /// No description provided for @tsmBatchExportDone.
   ///
   /// In zh_Hans, this message translates to:
   /// **'批量导出完成：成功 {ok} / 失败 {failed}'**
-  String tsmBatchExportDone(Object ok, Object failed);
+  String tsmBatchExportDone(int ok, int failed);
 
   /// No description provided for @tsmMenuPreview.
   ///
@@ -3668,7 +3668,7 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'{count} 条消息'**
-  String tsmPreviewMessageCount(Object count);
+  String tsmPreviewMessageCount(int count);
 
   /// No description provided for @tsmClosePreview.
   ///
@@ -3716,7 +3716,7 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'当前为「{mode}」排序，拖拽手柄已禁用，切回「手动顺序」可继续调整。'**
-  String tsmSortDisabledHint(Object mode);
+  String tsmSortDisabledHint(String mode);
 
   /// No description provided for @tsmSortManual.
   ///
@@ -3794,13 +3794,13 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'共 {count} 个线程 · 长按或拖拽手柄可调整顺序，双击/右键查看更多操作'**
-  String tsmHeaderSubtitle(Object count);
+  String tsmHeaderSubtitle(int count);
 
   /// No description provided for @tsmSelectedCount.
   ///
   /// In zh_Hans, this message translates to:
   /// **'已选 {count}'**
-  String tsmSelectedCount(Object count);
+  String tsmSelectedCount(int count);
 
   /// No description provided for @tsmBatchExportButton.
   ///
@@ -4034,13 +4034,13 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'连通成功（{latency} ms，via {via}）'**
-  String proxyTestSuccess(Object latency, Object via);
+  String proxyTestSuccess(int latency, String via);
 
   /// No description provided for @proxyTestFailure.
   ///
   /// In zh_Hans, this message translates to:
   /// **'连通失败：{reason}'**
-  String proxyTestFailure(Object reason);
+  String proxyTestFailure(String reason);
 
   /// No description provided for @proxyTestEndpointLabel.
   ///
@@ -4064,7 +4064,7 @@ abstract class AppLocalizations {
   ///
   /// In zh_Hans, this message translates to:
   /// **'代理 {endpoint}'**
-  String proxyTestVerdictProxy(Object endpoint);
+  String proxyTestVerdictProxy(String endpoint);
 
   /// No description provided for @proxyTestEndpointInvalid.
   ///

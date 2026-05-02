@@ -404,7 +404,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
 
       ok = response.statusCode >= 200 && response.statusCode < 400;
       summary = ok
-          ? l10n.proxyTestSuccess(_totalStopwatch.elapsedMilliseconds.toString(), viaLabel)
+          ? l10n.proxyTestSuccess(_totalStopwatch.elapsedMilliseconds, viaLabel)
           : l10n.proxyTestFailure('HTTP ${response.statusCode}');
     } catch (error, stack) {
       silentLog('settings_proxy', 'connectivityTest', error, stack);

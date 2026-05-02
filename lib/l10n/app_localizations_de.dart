@@ -430,12 +430,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiModelTesting => 'Teste';
 
   @override
-  String aiModelTestSuccess(Object modelName) {
+  String aiModelTestSuccess(String modelName) {
     return '$modelName hat den Test bestanden.';
   }
 
   @override
-  String aiModelTestFailure(Object modelName, Object reason) {
+  String aiModelTestFailure(String modelName, String reason) {
     return '$modelName-Test fehlgeschlagen: $reason';
   }
 
@@ -450,12 +450,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiModelScanning => 'Verfügbare Modelle werden gescannt …';
 
   @override
-  String aiModelScanSuccess(Object count) {
+  String aiModelScanSuccess(int count) {
     return '$count Modelle gefunden.';
   }
 
   @override
-  String aiModelScanFailed(Object reason) {
+  String aiModelScanFailed(String reason) {
     return 'Scan fehlgeschlagen: $reason';
   }
 
@@ -473,7 +473,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiModelManualIdAdd => 'Hinzufügen';
 
   @override
-  String aiModelCount(Object count) {
+  String aiModelCount(int count) {
     return '$count Modelle';
   }
 
@@ -1934,12 +1934,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmDeleteSelectedTitle => 'Ausgewählte Threads löschen';
 
   @override
-  String tsmDeleteSelectedConfirm(Object count) {
+  String tsmDeleteSelectedConfirm(int count) {
     return '$count Thread(s) und ihre Nachrichten werden endgültig gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.';
   }
 
   @override
-  String tsmDeleteFailedCount(Object count) {
+  String tsmDeleteFailedCount(int count) {
     return '$count Thread(s) konnten nicht gelöscht werden';
   }
 
@@ -1950,7 +1950,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmExportSessionDataTitle => 'Sitzungsdaten exportieren';
 
   @override
-  String tsmExportingSession(Object title) {
+  String tsmExportingSession(String title) {
     return 'Exportiere „$title“…';
   }
 
@@ -1967,12 +1967,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmBatchExportTitle => 'Stapelexport';
 
   @override
-  String tsmBatchExportSubtitle(Object count) {
+  String tsmBatchExportSubtitle(int count) {
     return '$count Threads werden gleich exportiert…';
   }
 
   @override
-  String tsmBatchExportDone(Object ok, Object failed) {
+  String tsmBatchExportDone(int ok, int failed) {
     return 'Stapelexport abgeschlossen: $ok erfolgreich / $failed fehlgeschlagen';
   }
 
@@ -2012,7 +2012,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmUntitledThread => '(Unbenannter Thread)';
 
   @override
-  String tsmPreviewMessageCount(Object count) {
+  String tsmPreviewMessageCount(int count) {
     return '$count Nachrichten';
   }
 
@@ -2038,7 +2038,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmAllTemplates => 'Alle Vorlagen';
 
   @override
-  String tsmSortDisabledHint(Object mode) {
+  String tsmSortDisabledHint(String mode) {
     return 'Sortiert nach „$mode\". Ziehgriffe sind deaktiviert; wechseln Sie zurück zu „Manuelle Reihenfolge\", um neu anzuordnen.';
   }
 
@@ -2079,12 +2079,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmTitle => 'Thread-Sitzungsverwaltung';
 
   @override
-  String tsmHeaderSubtitle(Object count) {
+  String tsmHeaderSubtitle(int count) {
     return '$count Thread(s) · Lange drücken oder Griff ziehen, um neu zu sortieren; Doppelklick / Rechtsklick für mehr';
   }
 
   @override
-  String tsmSelectedCount(Object count) {
+  String tsmSelectedCount(int count) {
     return '$count ausgewählt';
   }
 
@@ -2214,12 +2214,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get proxyTesting => 'Wird getestet…';
 
   @override
-  String proxyTestSuccess(Object latency, Object via) {
+  String proxyTestSuccess(int latency, String via) {
     return 'OK ($latency ms, über $via)';
   }
 
   @override
-  String proxyTestFailure(Object reason) {
+  String proxyTestFailure(String reason) {
     return 'Fehlgeschlagen: $reason';
   }
 
@@ -2234,7 +2234,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get proxyTestVerdictDirect => 'direkt';
 
   @override
-  String proxyTestVerdictProxy(Object endpoint) {
+  String proxyTestVerdictProxy(String endpoint) {
     return 'Proxy $endpoint';
   }
 

@@ -426,12 +426,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiModelTesting => 'Testing';
 
   @override
-  String aiModelTestSuccess(Object modelName) {
+  String aiModelTestSuccess(String modelName) {
     return '$modelName passed the test.';
   }
 
   @override
-  String aiModelTestFailure(Object modelName, Object reason) {
+  String aiModelTestFailure(String modelName, String reason) {
     return '$modelName test failed: $reason';
   }
 
@@ -446,12 +446,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiModelScanning => 'Scanning available models…';
 
   @override
-  String aiModelScanSuccess(Object count) {
+  String aiModelScanSuccess(int count) {
     return 'Found $count models.';
   }
 
   @override
-  String aiModelScanFailed(Object reason) {
+  String aiModelScanFailed(String reason) {
     return 'Scan failed: $reason';
   }
 
@@ -468,7 +468,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiModelManualIdAdd => 'Add';
 
   @override
-  String aiModelCount(Object count) {
+  String aiModelCount(int count) {
     return '$count models';
   }
 
@@ -1909,12 +1909,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tsmDeleteSelectedTitle => 'Delete Selected Threads';
 
   @override
-  String tsmDeleteSelectedConfirm(Object count) {
+  String tsmDeleteSelectedConfirm(int count) {
     return 'Will permanently delete $count threads and their messages. This cannot be undone.';
   }
 
   @override
-  String tsmDeleteFailedCount(Object count) {
+  String tsmDeleteFailedCount(int count) {
     return '$count thread(s) failed to delete';
   }
 
@@ -1925,7 +1925,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tsmExportSessionDataTitle => 'Export Session Data';
 
   @override
-  String tsmExportingSession(Object title) {
+  String tsmExportingSession(String title) {
     return 'Exporting \"$title\"…';
   }
 
@@ -1942,12 +1942,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tsmBatchExportTitle => 'Batch Export';
 
   @override
-  String tsmBatchExportSubtitle(Object count) {
+  String tsmBatchExportSubtitle(int count) {
     return 'About to export $count threads…';
   }
 
   @override
-  String tsmBatchExportDone(Object ok, Object failed) {
+  String tsmBatchExportDone(int ok, int failed) {
     return 'Batch export done: $ok ok / $failed failed';
   }
 
@@ -1985,7 +1985,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tsmUntitledThread => '(Untitled Thread)';
 
   @override
-  String tsmPreviewMessageCount(Object count) {
+  String tsmPreviewMessageCount(int count) {
     return '$count messages';
   }
 
@@ -2011,7 +2011,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tsmAllTemplates => 'All Templates';
 
   @override
-  String tsmSortDisabledHint(Object mode) {
+  String tsmSortDisabledHint(String mode) {
     return 'Sorted by \"$mode\". Drag handles are disabled; switch back to \"Manual Order\" to reorder.';
   }
 
@@ -2052,12 +2052,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tsmTitle => 'Thread Session Management';
 
   @override
-  String tsmHeaderSubtitle(Object count) {
+  String tsmHeaderSubtitle(int count) {
     return '$count thread(s) · long-press / drag the handle to reorder, double-click / right-click for more';
   }
 
   @override
-  String tsmSelectedCount(Object count) {
+  String tsmSelectedCount(int count) {
     return '$count selected';
   }
 
@@ -2186,12 +2186,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get proxyTesting => 'Testing…';
 
   @override
-  String proxyTestSuccess(Object latency, Object via) {
+  String proxyTestSuccess(int latency, String via) {
     return 'OK ($latency ms, via $via)';
   }
 
   @override
-  String proxyTestFailure(Object reason) {
+  String proxyTestFailure(String reason) {
     return 'Failed: $reason';
   }
 
@@ -2206,7 +2206,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get proxyTestVerdictDirect => 'direct';
 
   @override
-  String proxyTestVerdictProxy(Object endpoint) {
+  String proxyTestVerdictProxy(String endpoint) {
     return 'proxy $endpoint';
   }
 

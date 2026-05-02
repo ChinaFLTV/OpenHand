@@ -432,12 +432,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiModelTesting => 'Test en cours';
 
   @override
-  String aiModelTestSuccess(Object modelName) {
+  String aiModelTestSuccess(String modelName) {
     return '$modelName a réussi le test.';
   }
 
   @override
-  String aiModelTestFailure(Object modelName, Object reason) {
+  String aiModelTestFailure(String modelName, String reason) {
     return 'Échec du test de $modelName : $reason';
   }
 
@@ -452,12 +452,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiModelScanning => 'Analyse des modèles disponibles…';
 
   @override
-  String aiModelScanSuccess(Object count) {
+  String aiModelScanSuccess(int count) {
     return '$count modèles trouvés.';
   }
 
   @override
-  String aiModelScanFailed(Object reason) {
+  String aiModelScanFailed(String reason) {
     return 'Échec de l’analyse : $reason';
   }
 
@@ -474,7 +474,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiModelManualIdAdd => 'Ajouter';
 
   @override
-  String aiModelCount(Object count) {
+  String aiModelCount(int count) {
     return '$count modèles';
   }
 
@@ -1951,12 +1951,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmDeleteSelectedTitle => 'Supprimer les fils sélectionnés';
 
   @override
-  String tsmDeleteSelectedConfirm(Object count) {
+  String tsmDeleteSelectedConfirm(int count) {
     return '$count fil(s) et leurs messages seront supprimés définitivement. Cette action est irréversible.';
   }
 
   @override
-  String tsmDeleteFailedCount(Object count) {
+  String tsmDeleteFailedCount(int count) {
     return 'Échec de la suppression de $count fil(s)';
   }
 
@@ -1967,7 +1967,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmExportSessionDataTitle => 'Exporter les données de session';
 
   @override
-  String tsmExportingSession(Object title) {
+  String tsmExportingSession(String title) {
     return 'Exportation de « $title »…';
   }
 
@@ -1984,12 +1984,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmBatchExportTitle => 'Exportation par lots';
 
   @override
-  String tsmBatchExportSubtitle(Object count) {
+  String tsmBatchExportSubtitle(int count) {
     return 'Exportation imminente de $count fils…';
   }
 
   @override
-  String tsmBatchExportDone(Object ok, Object failed) {
+  String tsmBatchExportDone(int ok, int failed) {
     return 'Export par lots terminé : $ok réussis / $failed échoués';
   }
 
@@ -2028,7 +2028,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmUntitledThread => '(Fil sans titre)';
 
   @override
-  String tsmPreviewMessageCount(Object count) {
+  String tsmPreviewMessageCount(int count) {
     return '$count messages';
   }
 
@@ -2054,7 +2054,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmAllTemplates => 'Tous les modèles';
 
   @override
-  String tsmSortDisabledHint(Object mode) {
+  String tsmSortDisabledHint(String mode) {
     return 'Trié par « $mode ». Les poignées sont désactivées ; revenez à « Ordre manuel » pour réorganiser.';
   }
 
@@ -2095,12 +2095,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmTitle => 'Gestion des sessions de fil';
 
   @override
-  String tsmHeaderSubtitle(Object count) {
+  String tsmHeaderSubtitle(int count) {
     return '$count fil(s) · maintenez ou glissez la poignée pour réorganiser, double-clic / clic droit pour plus d\'options';
   }
 
   @override
-  String tsmSelectedCount(Object count) {
+  String tsmSelectedCount(int count) {
     return '$count sélectionné(s)';
   }
 
@@ -2230,12 +2230,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proxyTesting => 'Test en cours…';
 
   @override
-  String proxyTestSuccess(Object latency, Object via) {
+  String proxyTestSuccess(int latency, String via) {
     return 'OK ($latency ms, via $via)';
   }
 
   @override
-  String proxyTestFailure(Object reason) {
+  String proxyTestFailure(String reason) {
     return 'Échec : $reason';
   }
 
@@ -2250,7 +2250,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proxyTestVerdictDirect => 'directe';
 
   @override
-  String proxyTestVerdictProxy(Object endpoint) {
+  String proxyTestVerdictProxy(String endpoint) {
     return 'proxy $endpoint';
   }
 

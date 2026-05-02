@@ -1,5 +1,4 @@
 {
-  "@@locale": "ja",
   "appTitle": "OpenHand",
   "@appTitle": {
     "description": "Application brand name. Keep as \"OpenHand\" untranslated."
@@ -143,14 +142,20 @@
   "aiModelTestSuccess": "{modelName} のテストに合格しました。",
   "@aiModelTestSuccess": {
     "placeholders": {
-      "modelName": {}
+      "modelName": {
+        "type": "String"
+      }
     }
   },
   "aiModelTestFailure": "{modelName} のテストに失敗しました：{reason}",
   "@aiModelTestFailure": {
     "placeholders": {
-      "modelName": {},
-      "reason": {}
+      "modelName": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "aiModelSelectionRequired": "まず設定で AI モデルプロバイダーを追加して選択してください。",
@@ -159,13 +164,17 @@
   "aiModelScanSuccess": "{count} 件のモデルが見つかりました。",
   "@aiModelScanSuccess": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "aiModelScanFailed": "スキャンに失敗しました：{reason}",
   "@aiModelScanFailed": {
     "placeholders": {
-      "reason": {}
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "aiModelScanEmpty": "このプロバイダーからはモデルが見つかりませんでした。",
@@ -175,7 +184,9 @@
   "aiModelCount": "{count} モデル",
   "@aiModelCount": {
     "placeholders": {
-      "count": {}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "chatModelButton": "モデルを選択",
@@ -691,32 +702,129 @@
   "imageEditorProcessing": "処理中...",
   "builtinToolTimeoutLabel": "タイムアウト (秒)",
   "builtinToolTimeoutHint": "既定 {seconds} 秒",
+  "@builtinToolTimeoutHint": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolTimeoutHelper": "空欄＝既定 {seconds} 秒",
+  "@builtinToolTimeoutHelper": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolRetryLabel": "失敗 / タイムアウト時に再試行",
   "builtinToolRetryBody": "既定はオフ。実際の failed/timed_out のみ再試行されます。引数不正や拒否された呼び出しは再試行しません。",
   "builtinToolMaxRetriesLabel": "最大再試行回数 (0–{max})",
+  "@builtinToolMaxRetriesLabel": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolMaxRetriesHelper": "初回試行を除く。{max} で上限",
+  "@builtinToolMaxRetriesHelper": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolBackoffLabel": "再試行バックオフのベース (ms)",
   "builtinToolBackoffHint": "既定 {ms}ms",
+  "@builtinToolBackoffHint": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
   "builtinToolBackoffHelper": "指数：N 回目はベース × 2^(N-1) ms 待機、{max}ms で上限",
+  "@builtinToolBackoffHelper": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "selfLearningFlushIntervalLabel": "ストリームフラッシュ間隔: {ms}ms",
+  "@selfLearningFlushIntervalLabel": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
   "selfLearningFlushIntervalHelper": "自己学習カードのストリーミング出力の永続化間隔 ({min}–{max}ms)。小さいほどリアルタイム性が高いがレイアウトのジッターが増えます。大きいほどスムーズですがチャンクごとのレイテンシが増えます。既定値は 600ms。",
+  "@selfLearningFlushIntervalHelper": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "tsmRenameThreadTitle": "スレッドの名前を変更",
   "tsmRenameHint": "スレッドのタイトルを入力",
   "tsmRenameFailed": "名前の変更に失敗しました",
   "tsmDeleteThreadTitle": "スレッドを削除",
   "tsmDeleteSelectedTitle": "選択したスレッドを削除",
   "tsmDeleteSelectedConfirm": "{count} 件のスレッドとそのメッセージを完全に削除します。この操作は取り消せません。",
+  "@tsmDeleteSelectedConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmDeleteFailedCount": "{count} 件のスレッドの削除に失敗しました",
+  "@tsmDeleteFailedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmSessionMissing": "セッションが見つからないか削除されています",
   "tsmExportSessionDataTitle": "セッションデータをエクスポート",
   "tsmExportingSession": "「{title}」をエクスポート中…",
+  "@tsmExportingSession": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "tsmExportComplete": "エクスポート完了",
   "tsmExportFailed": "エクスポートに失敗しました",
   "tsmChooseExportFolder": "エクスポート先フォルダを選択",
   "tsmBatchExportTitle": "一括エクスポート",
   "tsmBatchExportSubtitle": "{count} 件のスレッドをエクスポートします…",
+  "@tsmBatchExportSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmBatchExportDone": "一括エクスポート完了：成功 {ok} 件 / 失敗 {failed} 件",
+  "@tsmBatchExportDone": {
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
   "tsmMenuPreview": "プレビュー",
   "tsmMenuRename": "名前を変更",
   "tsmMenuExportSession": "セッションをエクスポート",
@@ -729,6 +837,13 @@
   "tsmArchiveUpdateFailed": "アーカイブ状態の更新に失敗しました",
   "tsmUntitledThread": "(無題のスレッド)",
   "tsmPreviewMessageCount": "{count} 件のメッセージ",
+  "@tsmPreviewMessageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmClosePreview": "プレビューを閉じる",
   "tsmNoMessages": "メッセージがありません",
   "tsmEmptyMessage": "(空)",
@@ -737,6 +852,13 @@
   "tsmDensityCompact": "コンパクト",
   "tsmAllTemplates": "すべてのテンプレート",
   "tsmSortDisabledHint": "「{mode}」で並び替え中です。ドラッグハンドルは無効化されています。並べ替えるには「手動の順序」に戻してください。",
+  "@tsmSortDisabledHint": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
   "tsmSortManual": "手動の順序",
   "tsmSortUpdated": "更新が新しい順",
   "tsmSortCreated": "作成が新しい順",
@@ -750,7 +872,21 @@
   "tsmClose": "閉じる",
   "tsmTitle": "スレッドセッション管理",
   "tsmHeaderSubtitle": "{count} 件のスレッド · 長押しまたはハンドルをドラッグして並び替え、ダブルクリックまたは右クリックでメニューを表示",
+  "@tsmHeaderSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmSelectedCount": "{count} 件選択中",
+  "@tsmSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tsmBatchExportButton": "一括エクスポート",
   "tsmDeleteSelectedButton": "選択を削除",
   "tsmEmptyState": "スレッドセッションがまだありません",
@@ -792,14 +928,20 @@
   "proxyTestSuccess": "OK ({latency} ms、{via} 経由)",
   "@proxyTestSuccess": {
     "placeholders": {
-      "latency": {},
-      "via": {}
+      "latency": {
+        "type": "int"
+      },
+      "via": {
+        "type": "String"
+      }
     }
   },
   "proxyTestFailure": "失敗：{reason}",
   "@proxyTestFailure": {
     "placeholders": {
-      "reason": {}
+      "reason": {
+        "type": "String"
+      }
     }
   },
   "proxyTestEndpointLabel": "テスト URL",
@@ -808,7 +950,9 @@
   "proxyTestVerdictProxy": "プロキシ {endpoint}",
   "@proxyTestVerdictProxy": {
     "placeholders": {
-      "endpoint": {}
+      "endpoint": {
+        "type": "String"
+      }
     }
   },
   "proxyTestEndpointInvalid": "テスト URL が無効です（http:// または https:// で始まる必要があります）",
@@ -1823,5 +1967,6 @@
         "type": "Object"
       }
     }
-  }
+  },
+  "@@locale": "ja"
 }
