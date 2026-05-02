@@ -1584,7 +1584,9 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
         builder: (context, _) {
           final t = _ctrl.value;
           return AnimatedContainer(
-            duration: const Duration(milliseconds: 280),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 280),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
@@ -3645,7 +3647,9 @@ class _SelfLearningMarkdown extends StatelessWidget {
         : base.copyWith(p: theme.textTheme.bodyMedium?.copyWith(height: 1.5));
     return ClipRect(
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 220),
+        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
         child: _SafeMarkdownBody(

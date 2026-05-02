@@ -823,7 +823,9 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
             ),
           )
         : AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: chipDecoration,

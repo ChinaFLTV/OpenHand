@@ -955,7 +955,9 @@ class _ThreadSessionManagementDialogState
                         : _buildList(visible),
                   ),
                   AnimatedSize(
-                    duration: const Duration(milliseconds: 220),
+                    duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
                     alignment: Alignment.centerLeft,
                     child: _previewSession == null
@@ -1270,11 +1272,15 @@ class _ThreadSessionManagementDialogState
       return KeyedSubtree(
         key: ValueKey<String>('row-wrapper-${session.id}'),
         child: AnimatedSize(
-          duration: const Duration(milliseconds: 240),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 240),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
             opacity: isAnimatingOut ? 0.0 : 1.0,
             child: isAnimatingOut
                 ? const SizedBox(width: double.infinity, height: 0)

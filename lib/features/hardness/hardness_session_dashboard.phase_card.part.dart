@@ -219,7 +219,9 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     // running → completed). AnimatedContainer handles backgroundColor and
     // borderColor interpolation automatically.
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 380),
+      duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: backgroundColor,

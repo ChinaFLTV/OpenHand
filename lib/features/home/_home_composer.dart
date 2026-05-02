@@ -1152,7 +1152,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           const SizedBox(height: 12),
         ],
         AnimatedSize(
-          duration: const Duration(milliseconds: 180),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           child: SizedBox(
             height: widget.composerHeight,
@@ -1515,7 +1517,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     return Card(
       color: colorScheme.surfaceContainerHigh,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
+        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 260),
         curve: Curves.easeInOutCubicEmphasized,
         padding: EdgeInsets.fromLTRB(18, 14, 18, widget.isCollapsed ? 10 : 18),
         child: Column(
@@ -2113,7 +2117,9 @@ class _ReorderableAttachmentWrapState
                 onRemove: () => widget.onRemove(attachment.filePath),
                 builder: (context, requestRemove) {
                   return AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
+                    duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
                     transform: isHovering
                         ? (Matrix4.identity()
@@ -2382,7 +2388,9 @@ class _ReorderableProjectReferenceWrapState
                 settings: chipAnim,
                 onRemove: () => widget.onRemove(ref.path),
                 builder: (context, requestRemove) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
                   curve: Curves.easeOutCubic,
                   transform: isHovering
                       ? (Matrix4.identity()

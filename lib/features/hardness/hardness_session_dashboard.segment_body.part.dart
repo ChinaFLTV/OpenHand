@@ -315,7 +315,9 @@ class _HeThinkingSegmentBody extends StatelessWidget {
 
     return ClipRect(
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 220),
+        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
         curve: Curves.easeInOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -373,7 +375,9 @@ class _HeStreamingThinkingBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRect(
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 180),
+        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -625,7 +629,9 @@ class _HeCommandStripState extends State<_HeCommandStrip>
     return GestureDetector(
       onTap: _toggle,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),

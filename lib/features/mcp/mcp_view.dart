@@ -1368,7 +1368,9 @@ class _McpHealthStatusDot extends StatelessWidget {
     return Tooltip(
       message: _healthStatusDotTooltip(context, server, healthStatus),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
         width: 16,
         height: 16,
         decoration: BoxDecoration(
@@ -1443,7 +1445,9 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
         // Wrap chip count animates smoothly when the user expands /
         // collapses the preview, instead of snapping to the new height.
         AnimatedSize(
-          duration: const Duration(milliseconds: 220),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topLeft,
           child: Align(

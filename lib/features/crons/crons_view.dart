@@ -1837,7 +1837,9 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           borderRadius: BorderRadius.circular(20),
           onTap: () => onChanged(!value),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(

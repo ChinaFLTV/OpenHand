@@ -136,7 +136,9 @@ class _AuditDialogSizeAnimator extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRect(
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 260),
+        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 260),
         curve: Curves.easeInOutCubic,
         alignment: Alignment.topCenter,
         child: child,
@@ -242,7 +244,9 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
           ],
           ClipRect(
             child: AnimatedSize(
-              duration: const Duration(milliseconds: 220),
+              duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
               curve: Curves.easeInOutCubic,
               alignment: Alignment.topLeft,
               child: !widget.collapsible || _expanded
@@ -433,7 +437,9 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
           else
             ClipRect(
               child: AnimatedSize(
-                duration: const Duration(milliseconds: 220),
+                duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
                 curve: Curves.easeInOutCubic,
                 alignment: Alignment.topLeft,
                 child: _expanded

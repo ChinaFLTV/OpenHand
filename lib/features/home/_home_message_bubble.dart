@@ -269,7 +269,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
             // (slightly smaller) animated outer bounds.
             child: ClipRect(
               child: AnimatedSize(
-                duration: const Duration(milliseconds: 200),
+                duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
                 alignment: Alignment.topLeft,
                 child: Column(
@@ -3352,7 +3354,9 @@ class _FullscreenChromeButtonState extends State<_FullscreenChromeButton> {
           behavior: HitTestBehavior.opaque,
           onTap: widget.onPressed,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 140),
             curve: Curves.easeOut,
             width: 38,
             height: 38,

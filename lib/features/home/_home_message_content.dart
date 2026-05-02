@@ -86,7 +86,9 @@ class _CompressionCheckpointBody extends StatelessWidget {
               const SizedBox(height: 8),
               ClipRect(
                 child: AnimatedSize(
-                  duration: const Duration(milliseconds: 220),
+                  duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
                   curve: Curves.easeInOutCubic,
                   alignment: Alignment.topLeft,
                   child: expanded
@@ -170,7 +172,9 @@ class _ReasoningBody extends StatelessWidget {
     }
     return ClipRect(
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 220),
+        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
         curve: Curves.easeInOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -234,7 +238,9 @@ class _StreamingReasoningBody extends StatelessWidget {
     final effectiveContent = content.isEmpty ? ' ' : content;
     return ClipRect(
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 180),
+        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -406,7 +412,9 @@ class _CollapsibleMessageMarkdownBodyState
         const SizedBox(height: 8),
         ClipRect(
           child: AnimatedSize(
-            duration: const Duration(milliseconds: 200),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topLeft,
             child: _collapsed

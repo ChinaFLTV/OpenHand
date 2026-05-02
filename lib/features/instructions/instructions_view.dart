@@ -617,7 +617,9 @@ class _InstructionToggleCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           onTap: onChanged == null ? null : () => onChanged!(!value),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: value
