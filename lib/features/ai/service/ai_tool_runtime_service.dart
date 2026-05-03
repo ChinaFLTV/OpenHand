@@ -31,11 +31,13 @@ class AiResolvedToolCatalog {
     required this.definitions,
     required this.toolsByName,
     this.notices = const <String>[],
+    this.mcpServerInstructionsByName = const <String, String>{},
   });
 
   final List<AiToolDefinition> definitions;
   final Map<String, AiResolvedTool> toolsByName;
   final List<String> notices;
+  final Map<String, String> mcpServerInstructionsByName;
 
   AiResolvedTool? find(String name) {
     final direct = toolsByName[name];
@@ -192,7 +194,8 @@ class AiToolRuntimeService {
        _hookService = hookService,
        _mcpToolService = mcpToolService,
        _backgroundChatClient = backgroundChatClient,
-       _httpClient = httpClient ?? SystemProxyResolver.instance.createHttpClient(),
+       _httpClient =
+           httpClient ?? SystemProxyResolver.instance.createHttpClient(),
        _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
        _fileTracker = fileTrackerService ?? AiFileTrackerService(),
        _fileHistory = fileHistoryService ?? AiFileHistoryService() {
@@ -344,6 +347,7 @@ class AiToolRuntimeService {
     final definitions = <AiToolDefinition>[];
     final toolsByName = <String, AiResolvedTool>{};
     final notices = <String>[];
+    final mcpServerInstructionsByName = <String, String>{};
 
     void register(AiResolvedTool tool) {
       if (toolsByName.containsKey(tool.name)) {
@@ -381,6 +385,10 @@ class AiToolRuntimeService {
         if (catalog.warningMessage?.trim().isNotEmpty ?? false) {
           notices.add('MCP ${server.name}: ${catalog.warningMessage!.trim()}');
         }
+        final serverInstructions = catalog.serverInstructions.trim();
+        if (serverInstructions.isNotEmpty) {
+          mcpServerInstructionsByName[server.name] = serverInstructions;
+        }
         final takenNames = toolsByName.keys.toSet();
         for (final mcpTool in catalog.tools) {
           final tool = _buildMcpTool(
@@ -413,6 +421,7 @@ class AiToolRuntimeService {
       definitions: definitions,
       toolsByName: toolsByName,
       notices: notices,
+      mcpServerInstructionsByName: mcpServerInstructionsByName,
     );
   }
 
@@ -425,6 +434,7 @@ class AiToolRuntimeService {
     final definitions = <AiToolDefinition>[];
     final toolsByName = <String, AiResolvedTool>{};
     final notices = <String>[];
+    final mcpServerInstructionsByName = <String, String>{};
 
     void register(AiResolvedTool tool) {
       if (toolsByName.containsKey(tool.name)) {
@@ -468,6 +478,10 @@ class AiToolRuntimeService {
       if (catalog.warningMessage?.trim().isNotEmpty ?? false) {
         notices.add('MCP ${server.name}: ${catalog.warningMessage!.trim()}');
       }
+      final serverInstructions = catalog.serverInstructions.trim();
+      if (serverInstructions.isNotEmpty) {
+        mcpServerInstructionsByName[server.name] = serverInstructions;
+      }
       final takenNames = toolsByName.keys.toSet();
       for (final mcpTool in catalog.tools) {
         final tool = _buildMcpTool(
@@ -495,6 +509,7 @@ class AiToolRuntimeService {
       definitions: definitions,
       toolsByName: toolsByName,
       notices: notices,
+      mcpServerInstructionsByName: mcpServerInstructionsByName,
     );
   }
 
@@ -697,7 +712,8 @@ class AiToolRuntimeService {
           break;
         }
       } catch (error) {
-        if (builtinCfg == null || !builtinCfg.retryOnFailure ||
+        if (builtinCfg == null ||
+            !builtinCfg.retryOnFailure ||
             attempts > maxRetries) {
           attemptResult = _toolExecutionErrorResult(
             tool: resolvedTool,
@@ -787,6 +803,7 @@ class AiToolRuntimeService {
       final cap = payloadCap < value.length ? payloadCap : value.length;
       return '${value.substring(0, cap)}$notice';
     }
+
     final truncatedStdout = capStream(result.stdout);
     final truncatedStderr = capStream(result.stderr);
     return AiToolExecutionResult(
@@ -850,7 +867,8 @@ class AiToolRuntimeService {
       metadata: <String, Object?>{
         'file_tracker': _fileTracker,
         'file_history': _fileHistory,
-        'write_confirmation_timeout_ms': _bashToolService.writeConfirmationTimeoutMs,
+        'write_confirmation_timeout_ms':
+            _bashToolService.writeConfirmationTimeoutMs,
       },
     );
     final registryResult = await _toolRegistry.tryExecute(

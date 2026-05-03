@@ -6,6 +6,7 @@ class McpToolCatalog {
     this.tools = const <McpTool>[],
     this.errorMessage,
     this.warningMessage,
+    this.serverInstructions = '',
     this.lastScannedAt,
   });
 
@@ -13,6 +14,7 @@ class McpToolCatalog {
   final List<McpTool> tools;
   final String? errorMessage;
   final String? warningMessage;
+  final String serverInstructions;
   final DateTime? lastScannedAt;
 
   bool get isLoading => status == McpToolCatalogStatus.loading;
@@ -20,6 +22,7 @@ class McpToolCatalog {
       status == McpToolCatalogStatus.failed &&
       (errorMessage?.trim().isNotEmpty ?? false);
   bool get hasWarning => warningMessage?.trim().isNotEmpty ?? false;
+  bool get hasServerInstructions => serverInstructions.trim().isNotEmpty;
 
   McpToolCatalog copyWith({
     McpToolCatalogStatus? status,
@@ -28,6 +31,8 @@ class McpToolCatalog {
     bool clearErrorMessage = false,
     String? warningMessage,
     bool clearWarningMessage = false,
+    String? serverInstructions,
+    bool clearServerInstructions = false,
     DateTime? lastScannedAt,
   }) {
     return McpToolCatalog(
@@ -39,6 +44,9 @@ class McpToolCatalog {
       warningMessage: clearWarningMessage
           ? null
           : warningMessage ?? this.warningMessage,
+      serverInstructions: clearServerInstructions
+          ? ''
+          : serverInstructions ?? this.serverInstructions,
       lastScannedAt: lastScannedAt ?? this.lastScannedAt,
     );
   }

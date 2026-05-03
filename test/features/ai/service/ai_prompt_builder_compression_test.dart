@@ -729,6 +729,9 @@ void main() {
           parameters: <String, Object?>{'type': 'object'},
         ),
       ],
+      mcpServerInstructionsByName: const <String, String>{
+        'filesystem': 'Use this server only for paths inside the workspace.',
+      },
     );
     final promptText = result.messages.map((turn) => turn.content).join('\n');
     final rehydration = Map<String, Object?>.from(
@@ -738,9 +741,16 @@ void main() {
     expect(promptText, contains('# [5.9] Restored MCP Context'));
     expect(promptText, contains('filesystem (stdio, enabled=true)'));
     expect(promptText, contains('mcp__filesystem__read_file'));
+    expect(promptText, contains('## MCP Server Instructions'));
+    expect(
+      promptText,
+      contains('Use this server only for paths inside the workspace.'),
+    );
     expect(rehydration['mcp_server_count'], 1);
+    expect(rehydration['mcp_server_instruction_count'], 1);
     expect(rehydration['mcp_tool_count'], 1);
     expect(rehydration['restored_channels'], contains('mcp_context'));
+    expect(rehydration['restored_channels'], contains('mcp_instructions'));
   });
 }
 

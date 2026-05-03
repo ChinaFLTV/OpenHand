@@ -59,6 +59,7 @@ class AiPromptBuilder {
   static const int _postCompactRestoreTotalSkillChars = 20000;
   static const int _postCompactRestoreMaxPlanChars = 12000;
   static const int _postCompactRestoreMaxMcpChars = 12000;
+  static const int _postCompactRestoreMaxMcpInstructionChars = 4000;
   static const int _postCompactRestoreMaxMcpTools = 40;
   static const int _compressionUserManifestMaxChars = 12000;
   static const int _compressionUserManifestMaxCharsPerMessage = 1200;
@@ -73,6 +74,7 @@ class AiPromptBuilder {
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage latestUserMessage,
     List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
+    Map<String, String> mcpServerInstructionsByName = const <String, String>{},
     bool useDsmlToolCalls = false,
   }) {
     final sessionMessages = <AiSessionMessage>[
@@ -88,6 +90,7 @@ class AiPromptBuilder {
       sessionMessages: sessionMessages,
       latestUserMessageId: latestUserMessage.id,
       availableTools: availableTools,
+      mcpServerInstructionsByName: mcpServerInstructionsByName,
       useDsmlToolCalls: useDsmlToolCalls,
     );
   }
@@ -101,6 +104,7 @@ class AiPromptBuilder {
     required List<AiSessionMessage> sessionMessages,
     String? latestUserMessageId,
     List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
+    Map<String, String> mcpServerInstructionsByName = const <String, String>{},
     bool useDsmlToolCalls = false,
   }) {
     final repositorySnapshot = _effectiveRepositorySnapshot(
@@ -170,6 +174,7 @@ class AiPromptBuilder {
       memoryEntries: memoryEntries,
       repositorySnapshot: repositorySnapshot,
       availableToolNames: availableToolNames,
+      mcpServerInstructionsByName: mcpServerInstructionsByName,
       latestCompressionPoint: latestCompressionPoint,
     );
     final planRecoveryRequired =
@@ -281,6 +286,7 @@ class AiPromptBuilder {
     final restoredMcpContext = _renderPostCompactRestoredMcpContext(
       runtimeContext: runtimeContext,
       availableTools: availableTools,
+      mcpServerInstructionsByName: mcpServerInstructionsByName,
       latestCompressionPoint: latestCompressionPoint,
     );
 
@@ -558,6 +564,7 @@ class AiPromptBuilder {
     required List<UserMemoryEntry> memoryEntries,
     required AiRepositorySnapshot? repositorySnapshot,
     required List<String> availableToolNames,
+    required Map<String, String> mcpServerInstructionsByName,
     required AiSessionMessage? latestCompressionPoint,
   }) {
     final skillToolCount = availableToolNames
@@ -568,6 +575,13 @@ class AiPromptBuilder {
         .length;
     final builtinToolCount =
         availableToolNames.length - skillToolCount - mcpToolCount;
+    final mcpServerInstructionNames = mcpServerInstructionsByName.entries
+        .where(
+          (entry) =>
+              entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty,
+        )
+        .map((entry) => entry.key.trim())
+        .toList(growable: false);
     final sidecarMarkdownPath = _sessionCompactMemoryMarkdownPath(
       session,
       latestCompressionPoint,
@@ -594,8 +608,11 @@ class AiPromptBuilder {
       if (session.pendingPlan?.trim().isNotEmpty == true) 'pending_plan',
       if (session.planHistory.isNotEmpty) 'plan_history',
       if (_hasRestorablePlanContext(session)) 'plan_context',
-      if (mcpToolCount > 0 || runtimeContext.availableMcpServers.isNotEmpty)
+      if (mcpToolCount > 0 ||
+          runtimeContext.availableMcpServers.isNotEmpty ||
+          mcpServerInstructionNames.isNotEmpty)
         'mcp_context',
+      if (mcpServerInstructionNames.isNotEmpty) 'mcp_instructions',
       if (recentReadFiles.isNotEmpty) 'recent_read_files',
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills',
     ];
@@ -613,10 +630,13 @@ class AiPromptBuilder {
       'skill_tool_count': skillToolCount,
       'mcp_tool_count': mcpToolCount,
       'mcp_server_count': runtimeContext.availableMcpServers.length,
+      'mcp_server_instruction_count': mcpServerInstructionNames.length,
       if (runtimeContext.availableMcpServers.isNotEmpty)
         'mcp_server_names': runtimeContext.availableMcpServers
             .map((server) => server.name)
             .toList(growable: false),
+      if (mcpServerInstructionNames.isNotEmpty)
+        'mcp_server_instruction_names': mcpServerInstructionNames,
       'memory_enabled': runtimeContext.memoryEnabled,
       'memory_entry_count': memoryEntries.length,
       'workspace_instruction_document_count':
@@ -2525,6 +2545,7 @@ $content
   String _renderPostCompactRestoredMcpContext({
     required AiSessionRuntimeContext runtimeContext,
     required List<AiToolDefinition> availableTools,
+    required Map<String, String> mcpServerInstructionsByName,
     required AiSessionMessage? latestCompressionPoint,
   }) {
     if (latestCompressionPoint == null) {
@@ -2536,7 +2557,14 @@ $content
     final servers = runtimeContext.availableMcpServers
         .where((server) => server.name.trim().isNotEmpty)
         .toList(growable: false);
-    if (mcpTools.isEmpty && servers.isEmpty) {
+    final serverInstructionsByName = <String, String>{
+      for (final entry in mcpServerInstructionsByName.entries)
+        if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)
+          entry.key.trim(): entry.value.trim(),
+    };
+    if (mcpTools.isEmpty &&
+        servers.isEmpty &&
+        serverInstructionsByName.isEmpty) {
       return '';
     }
 
@@ -2617,11 +2645,58 @@ $content
       }
     }
 
+    if (serverInstructionsByName.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## MCP Server Instructions');
+      final renderedNames = <String>{};
+      for (final server in servers) {
+        final instructions = serverInstructionsByName[server.name];
+        if (instructions == null || instructions.isEmpty) {
+          continue;
+        }
+        renderedNames.add(server.name);
+        _writeMcpServerInstructionBlock(
+          buffer: buffer,
+          serverName: server.name,
+          instructions: instructions,
+        );
+      }
+      final extraEntries =
+          serverInstructionsByName.entries
+              .where((entry) => !renderedNames.contains(entry.key))
+              .toList(growable: false)
+            ..sort((left, right) => left.key.compareTo(right.key));
+      for (final entry in extraEntries) {
+        _writeMcpServerInstructionBlock(
+          buffer: buffer,
+          serverName: entry.key,
+          instructions: entry.value,
+        );
+      }
+    }
+
     return _truncateRestoredContextContent(
       buffer.toString().trimRight(),
       _postCompactRestoreMaxMcpChars,
       'restored_mcp_truncated',
     );
+  }
+
+  void _writeMcpServerInstructionBlock({
+    required StringBuffer buffer,
+    required String serverName,
+    required String instructions,
+  }) {
+    final boundedInstructions = _truncateRestoredContextContent(
+      instructions,
+      _postCompactRestoreMaxMcpInstructionChars,
+      'mcp_server_instructions_truncated',
+    );
+    buffer
+      ..writeln()
+      ..writeln('### $serverName')
+      ..writeln(boundedInstructions);
   }
 
   int _renderMcpToolLines(

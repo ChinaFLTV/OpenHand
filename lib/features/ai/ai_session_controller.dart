@@ -1476,6 +1476,8 @@ class AiSessionController extends ChangeNotifier {
             definitions: const <AiToolDefinition>[],
             toolsByName: const <String, AiResolvedTool>{},
             notices: baseCatalog.notices,
+            mcpServerInstructionsByName:
+                baseCatalog.mcpServerInstructionsByName,
           )
         : _toolCatalogForRound(
             session: session,
@@ -2342,6 +2344,8 @@ class AiSessionController extends ChangeNotifier {
         sessionMessages: workingSession.activeConversationMessagesForPrompt,
         latestUserMessageId: activeLatestUserMessageId,
         availableTools: toolsForRound,
+        mcpServerInstructionsByName:
+            toolCatalogForRound.mcpServerInstructionsByName,
         useDsmlToolCalls: !supportsNativeToolCalls,
       );
       late final AiChatStreamingResponse streamResponse;
@@ -4402,6 +4406,7 @@ class AiSessionController extends ChangeNotifier {
             .toList(growable: false),
         toolsByName: Map<String, AiResolvedTool>.fromEntries(filteredEntries),
         notices: baseCatalog.notices,
+        mcpServerInstructionsByName: baseCatalog.mcpServerInstructionsByName,
       );
     }
     final allowExitPlanMode =
@@ -4421,6 +4426,7 @@ class AiSessionController extends ChangeNotifier {
           .toList(growable: false),
       toolsByName: Map<String, AiResolvedTool>.fromEntries(filteredEntries),
       notices: baseCatalog.notices,
+      mcpServerInstructionsByName: baseCatalog.mcpServerInstructionsByName,
     );
   }
 

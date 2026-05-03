@@ -68,6 +68,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         status: McpToolCatalogStatus.ready,
         tools: discovered.tools,
         warningMessage: discovered.warningMessage,
+        serverInstructions: discovered.serverInstructions,
         lastScannedAt: scannedAt,
       );
     } on TimeoutException {
@@ -182,6 +183,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         ),
         expectResponse: true,
       ).then((response) => response.message),
+      serverInstructions: session.instructions,
     );
   }
 
@@ -196,6 +198,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             params: cursor == null ? null : <String, Object?>{'cursor': cursor},
           ),
         ),
+        serverInstructions: session.instructions,
       );
     } finally {
       await session.close();
@@ -222,6 +225,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             params: cursor == null ? null : <String, Object?>{'cursor': cursor},
           ),
         ),
+        serverInstructions: session.instructions,
       );
     } finally {
       await session.close();
@@ -344,6 +348,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     );
     final initializeResult = _extractResult(initializeResponse.message);
     final protocolVersion = _readText(initializeResult['protocolVersion']);
+    final instructions = _readText(initializeResult['instructions']);
     final negotiatedProtocolVersion = protocolVersion.isNotEmpty
         ? protocolVersion
         : _streamableHttpProtocolVersion;
@@ -361,6 +366,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       uri: resolvedUri,
       protocolVersion: negotiatedProtocolVersion,
       sessionId: initializeResponse.sessionId,
+      instructions: instructions,
     );
   }
 
@@ -376,7 +382,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       requestTimeout: _requestTimeout,
     );
     try {
-      _extractResult(
+      final initializeResult = _extractResult(
         await session.sendRequest(
           _jsonRpcInitializeRequest(
             id: _nextId(),
@@ -384,6 +390,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           ),
         ),
       );
+      session.instructions = _readText(initializeResult['instructions']);
       await session.sendNotification(
         _jsonRpcNotification('notifications/initialized'),
       );
@@ -404,7 +411,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       requestTimeout: _requestTimeout,
     );
     try {
-      _extractResult(
+      final initializeResult = _extractResult(
         await session.sendRequest(
           _jsonRpcInitializeRequest(
             id: _nextId(),
@@ -412,6 +419,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           ),
         ),
       );
+      session.instructions = _readText(initializeResult['instructions']);
       await session.sendNotification(
         _jsonRpcNotification('notifications/initialized'),
       );
@@ -423,8 +431,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_DiscoveredTools> _listTools(
-    Future<Map<String, Object?>?> Function(String? cursor) sendRequest,
-  ) async {
+    Future<Map<String, Object?>?> Function(String? cursor) sendRequest, {
+    String serverInstructions = '',
+  }) async {
     final tools = <McpTool>[];
     final warnings = <String>[];
     final seenToolIds = <String>{};
@@ -489,6 +498,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     return _DiscoveredTools(
       tools: tools,
       warningMessage: warnings.isEmpty ? null : warnings.join(' '),
+      serverInstructions: serverInstructions,
     );
   }
 
@@ -1231,10 +1241,15 @@ class McpToolDiscoveryException implements Exception {
 }
 
 class _DiscoveredTools {
-  const _DiscoveredTools({required this.tools, this.warningMessage});
+  const _DiscoveredTools({
+    required this.tools,
+    this.warningMessage,
+    this.serverInstructions = '',
+  });
 
   final List<McpTool> tools;
   final String? warningMessage;
+  final String serverInstructions;
 }
 
 class _ResolvedToolOutputMetadata {
@@ -1254,11 +1269,13 @@ class _InitializedStreamableHttpSession {
     required this.uri,
     required this.protocolVersion,
     this.sessionId,
+    this.instructions = '',
   });
 
   final Uri uri;
   final String protocolVersion;
   final String? sessionId;
+  final String instructions;
 }
 
 class _JsonRpcHttpResponse {
@@ -1293,6 +1310,7 @@ class _LegacySseSession {
   final StreamController<Map<String, Object?>> _messages;
   final StreamSubscription<String> _subscription;
   final Duration _requestTimeout;
+  String instructions = '';
 
   static Future<_LegacySseSession> connect({
     required http.Client client,
@@ -1360,7 +1378,12 @@ class _LegacySseSession {
             messages.add(message);
           }
         } catch (error, stack) {
-          silentLog('mcp_tool_discovery_service', 'decode SSE event payload', error, stack);
+          silentLog(
+            'mcp_tool_discovery_service',
+            'decode SSE event payload',
+            error,
+            stack,
+          );
         }
       }
       eventName = '';
@@ -1527,6 +1550,7 @@ class _StdioSession {
       <String, Completer<Map<String, Object?>?>>{};
   final Map<String, Map<String, Object?>> _bufferedResponses =
       <String, Map<String, Object?>>{};
+  String instructions = '';
   late final StreamSubscription<List<int>> _stdoutSubscription;
   late final StreamSubscription<String> _stderrSubscription;
 
@@ -1879,10 +1903,7 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
     return AiTransportDiagnosticMessages.socket(error, contextLabel: label);
   }
   if (error is http.ClientException) {
-    return AiTransportDiagnosticMessages.httpClient(
-      error,
-      contextLabel: label,
-    );
+    return AiTransportDiagnosticMessages.httpClient(error, contextLabel: label);
   }
   if (error is ProcessException) {
     return AiTransportDiagnosticMessages.format(

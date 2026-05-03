@@ -216,7 +216,7 @@ Hardness API phase runner 有独立交接压缩：
 | 真实文件内容恢复 | `ai_prompt_builder.dart` | checkpoint 后从最近 Read 文件锚点中恢复最多 5 个现存文本文件内容，按单文件/总字符预算注入 `[5.6] Restored File Context` |
 | Invoked Skill 恢复 | `ai_prompt_builder.dart` | checkpoint 后恢复最近调用过且当前仍可用的最多 3 个技能 manifest/default prompt，注入 `[5.7] Restored Skill Context` |
 | Plan Context 恢复 | `ai_prompt_builder.dart` | checkpoint 后恢复当前 plan mode、pending plan、最近 plan record 与 todos，按 12K 字符预算注入 `[5.8] Restored Plan Context` |
-| MCP Context 恢复 | `ai_prompt_builder.dart` | checkpoint 后复宣当前 MCP servers 与 MCP tool names/descriptions，按 40 工具/12K 字符预算注入 `[5.9] Restored MCP Context` |
+| MCP Context 恢复 | `ai_prompt_builder.dart` / `mcp_tool_discovery_service.dart` | checkpoint 后复宣当前 MCP servers、MCP tool names/descriptions 与真实 InitializeResult.instructions，按 40 工具/12K 字符预算注入 `[5.9] Restored MCP Context` |
 | 压缩 Manifest | `ai_prompt_builder.dart` / `assets/prompts/*/compression_summary_instructions.md` | 压缩 payload 显式加入 `User Messages Manifest` 与 `Resource Recovery Manifest`，所有模板要求保留用户消息章节和资源恢复锚点 |
 | Summary 规范化 | `ai_session_controller.dart` | 对齐 Claude Code `formatCompactSummary`，写入 checkpoint 前剥离 `<analysis>` 草稿并提取 `<summary>` 正文 |
 
@@ -373,7 +373,7 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 11. **真实文件内容恢复**：在最新 checkpoint 存在时，Prompt Builder 会尝试从 checkpoint 之前最近 Read 过的文件里恢复最多 5 个仍存在的文本文件快照，并以 12K/文件、30K/总量预算注入 `[5.6] Restored File Context`；读取失败走 `silentLog`，不阻断 prompt 构建。
 12. **Invoked Skill 内容恢复**：对齐 Claude Code `createSkillAttachmentIfNeeded`，OpenHand 在 checkpoint 后从历史 skill 调用元数据里恢复最近 3 个仍在 `availableSkills` 中的技能 manifest/default prompt，并按 8K/技能、20K/总量预算注入 `[5.7] Restored Skill Context`。
 13. **Plan Context 内容恢复**：对齐 Claude Code `createPlanAttachmentIfNeeded` / plan mode attachment 的意图，OpenHand 在 checkpoint 后将当前 plan mode、审批状态、pending plan、最近 3 条 plan record 以及当前 todo 列表重注入 `[5.8] Restored Plan Context`，总量限制 12K 字符，避免压缩后模型丢失继续执行计划所需的结构状态。
-14. **MCP Context 复宣**：对齐 Claude Code `getMcpInstructionsDeltaAttachment` 的 post-compact 复宣策略，OpenHand 在 checkpoint 后额外注入 `[5.9] Restored MCP Context`，列出当前 MCP servers 与可见 MCP tools；由于 OpenHand 目前未持久保存 MCP InitializeResult.instructions，本阶段先恢复 server/tool 可见性，后续可扩展为真实 server instruction delta。
+14. **MCP Context 复宣**：对齐 Claude Code `getMcpInstructionsDeltaAttachment` 的 post-compact 复宣策略，OpenHand 在 MCP tool discovery 阶段保存 InitializeResult.instructions，并经 `McpToolCatalog` / `AiResolvedToolCatalog` 传入 Prompt Builder；checkpoint 后 `[5.9] Restored MCP Context` 会复宣当前 MCP servers、可见 MCP tools 与真实 server instructions，其中单 server instructions 4K、总 MCP context 12K 字符封顶。
 15. **压缩输入 Manifest**：结合文章中 Claude Code “All user messages” 与 Manus “最小可恢复锚点”思想，compression payload 在完整 transcript 之前额外提供有界 `User Messages Manifest`（12K 总量、1.2K/条）和 `Resource Recovery Manifest`（最多 40 个 Read/WebFetch 锚点），避免模型在长 transcript 中漏掉用户约束或可重新加载的路径/URL。
 16. **Summary 规范化**：对齐 Claude Code `formatCompactSummary`，OpenHand 在生成 compression checkpoint 前会剥离 `<analysis>...</analysis>` 草稿并提取 `<summary>...</summary>` 正文，防止压缩模型的草稿推理污染持久 checkpoint。
 
