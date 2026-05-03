@@ -6,6 +6,7 @@
 以下信息必须保留 — 任何一项被压缩掉都会让后续会话无法继续推进：
 
 - **Objective**：用户目标、约束、验收标准。
+- **User Messages**：所有用户非工具消息的原始意图、约束变更和关键措辞；优先参考 `User Messages Manifest` 防止遗漏。
 - **Confirmed Context**：环境、路径、ID、版本、约定 — 已被工具调用证实的事实。
 - **Key Decisions**：架构与设计选择 + 决策依据。
 - **Code Changes**：被修改 / 创建的文件，附简要描述与关键行号。
@@ -29,6 +30,7 @@
 
 ```markdown
 ## Objective
+## User Messages
 ## Confirmed Context
 ## Key Decisions
 ## Code Changes
@@ -48,4 +50,5 @@
 4. 若已存在更早的检查点，向前增量整合，不要原文复述上一份。
 5. 关键代码片段仅保留必要部分（一两行 + 行号引用），不要把整文件粘进来。
 6. 简洁但完整：足够支撑下一回合直接续作而不需要重新跑发现性工具。
+7. `User Messages` 必须覆盖 source user messages；可压缩措辞，但不得丢掉约束、纠正、批准/拒绝和附加任务。
 </rules>

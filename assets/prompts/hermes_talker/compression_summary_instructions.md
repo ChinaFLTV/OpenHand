@@ -10,6 +10,7 @@
 | 类别 | 内容 |
 |---|---|
 | **Objective** | 用户目标、约束、验收标准 |
+| **User Messages** | 所有用户非工具消息的原始意图、约束变更和关键措辞；优先参考 `User Messages Manifest` 防止遗漏 |
 | **Confirmed Context** | 环境、路径、ID、版本号、约定 — 已被工具调用证实 |
 | **Key Decisions** | 架构 / 设计选择 + 决策依据 |
 | **Code Changes** | 被修改 / 创建的文件，附简要描述与关键行号 |
@@ -35,6 +36,7 @@
 
 ```markdown
 ## Objective
+## User Messages
 ## Confirmed Context
 ## Key Decisions
 ## Code Changes
@@ -55,4 +57,5 @@
 4. 若已存在更早的检查点，向前增量整合 — 不要原文复述上一份。
 5. 简洁但完整：足够支撑下一回合直接续作，不需要重跑 Focus Context 已覆盖的发现性工具。
 6. 所有 `Memory` / `SkillManager` 写操作必须**完整保留**，不得概括 — 防止下一轮重新创建近重复条目。
+7. `User Messages` 必须覆盖 source user messages；可压缩措辞，但不得丢掉约束、纠正、批准/拒绝和附加任务。
 </rules>

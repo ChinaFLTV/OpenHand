@@ -60,6 +60,9 @@ class AiPromptBuilder {
   static const int _postCompactRestoreMaxPlanChars = 12000;
   static const int _postCompactRestoreMaxMcpChars = 12000;
   static const int _postCompactRestoreMaxMcpTools = 40;
+  static const int _compressionUserManifestMaxChars = 12000;
+  static const int _compressionUserManifestMaxCharsPerMessage = 1200;
+  static const int _compressionResourceManifestMaxItems = 40;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -1146,7 +1149,16 @@ class AiPromptBuilder {
         'compression_threshold_chars': runtimeContext.compressionThresholdChars,
       'previous_checkpoint_present': previousCompressionPoint != null,
       'messages_to_compress_count': messagesToCompress.length,
+      'user_message_count': messagesToCompress
+          .where((message) => message.kind == AiSessionMessageKind.user)
+          .length,
     };
+    final userMessageManifest = _renderCompressionUserMessageManifest(
+      messagesToCompress,
+    );
+    final resourceManifest = _renderCompressionResourceManifest(
+      messagesToCompress,
+    );
     final transcript = messagesToCompress
         .map(
           (message) =>
@@ -1173,7 +1185,7 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.user,
         content:
-            '# Compression Task Payload\n\n```json\n${const JsonEncoder.withIndent('  ').convert(payload)}\n```\n\n## Previous Checkpoint\n\n$previousCheckpointText\n\n## Messages To Compress\n\n$transcript',
+            '# Compression Task Payload\n\n```json\n${const JsonEncoder.withIndent('  ').convert(payload)}\n```\n\n## Previous Checkpoint\n\n$previousCheckpointText${userMessageManifest.isEmpty ? '' : '\n\n## User Messages Manifest\n\n$userMessageManifest'}${resourceManifest.isEmpty ? '' : '\n\n## Resource Recovery Manifest\n\n$resourceManifest'}\n\n## Messages To Compress\n\n$transcript',
       ),
     ];
   }
@@ -1713,6 +1725,139 @@ $identity''';
       p.join(sessionsDirectoryPath, sessionId, 'attachments'),
     );
     return p.isWithin(modernRoot, normalizedStoragePath);
+  }
+
+  String _renderCompressionUserMessageManifest(
+    List<AiSessionMessage> messages,
+  ) {
+    final userMessages = messages
+        .where((message) => message.kind == AiSessionMessageKind.user)
+        .toList(growable: false);
+    if (userMessages.isEmpty) {
+      return '';
+    }
+    final buffer = StringBuffer()
+      ..writeln(
+        'All source user messages are listed here so compression preserves the user\'s original intent and wording.',
+      );
+    var usedChars = buffer.length;
+    var rendered = 0;
+    for (final message in userMessages) {
+      final rawContent = _renderMessageForCompression(message).trim();
+      final content = _truncateCompressionManifestText(
+        rawContent.isEmpty ? '[empty user message]' : rawContent,
+        _compressionUserManifestMaxCharsPerMessage,
+        'user_message_truncated',
+      ).replaceAll('\n', '\n  ');
+      final entry =
+          '\n- [${message.createdAt.toIso8601String()}][id=${message.id}] $content';
+      if (usedChars + entry.length > _compressionUserManifestMaxChars) {
+        break;
+      }
+      buffer.write(entry);
+      usedChars += entry.length;
+      rendered += 1;
+    }
+    final omitted = userMessages.length - rendered;
+    if (omitted > 0) {
+      buffer.write(
+        '\n- [user_messages_manifest_truncated: omitted $omitted messages]',
+      );
+    }
+    return buffer.toString().trimRight();
+  }
+
+  String _renderCompressionResourceManifest(List<AiSessionMessage> messages) {
+    final lines = <String>[];
+    final seen = <String>{};
+    for (final message in messages) {
+      final metadata = message.metadata;
+      final readPath = '${metadata['read_file_path'] ?? ''}'.trim();
+      if (lines.length < _compressionResourceManifestMaxItems &&
+          readPath.isNotEmpty &&
+          seen.add('file:$readPath')) {
+        final attributes = <String>[
+          'file',
+          'message_id=${message.id}',
+          if ('${metadata['read_file_kind'] ?? ''}'.trim().isNotEmpty)
+            'kind=${metadata['read_file_kind']}',
+          if ('${metadata['read_render_mode'] ?? ''}'.trim().isNotEmpty)
+            'render=${metadata['read_render_mode']}',
+          if (metadata['read_truncated'] == true) 'truncated=true',
+        ];
+        lines.add('- ${attributes.join(' · ')} · $readPath');
+      }
+
+      final webUrl = _firstNonEmptyMetadataValue(metadata, const <String>[
+        'webfetch_final_url',
+        'webfetch_source_url',
+        'webfetch_redirect_url',
+      ]);
+      if (lines.length < _compressionResourceManifestMaxItems &&
+          webUrl.isNotEmpty &&
+          seen.add('url:$webUrl')) {
+        lines.add('- url · message_id=${message.id} · $webUrl');
+      }
+      if (lines.length >= _compressionResourceManifestMaxItems) {
+        break;
+      }
+    }
+    if (lines.isEmpty) {
+      return '';
+    }
+    final omitted = _countCompressionResourceAnchors(messages) - lines.length;
+    return <String>[
+      'Minimal anchors for resources that can be reloaded after compaction.',
+      ...lines,
+      if (omitted > 0)
+        '- [resource_manifest_truncated: omitted $omitted anchors]',
+    ].join('\n');
+  }
+
+  int _countCompressionResourceAnchors(List<AiSessionMessage> messages) {
+    final seen = <String>{};
+    for (final message in messages) {
+      final metadata = message.metadata;
+      final readPath = '${metadata['read_file_path'] ?? ''}'.trim();
+      if (readPath.isNotEmpty) {
+        seen.add('file:$readPath');
+      }
+      final webUrl = _firstNonEmptyMetadataValue(metadata, const <String>[
+        'webfetch_final_url',
+        'webfetch_source_url',
+        'webfetch_redirect_url',
+      ]);
+      if (webUrl.isNotEmpty) {
+        seen.add('url:$webUrl');
+      }
+    }
+    return seen.length;
+  }
+
+  String _firstNonEmptyMetadataValue(
+    Map<String, Object?> metadata,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = '${metadata[key] ?? ''}'.trim();
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  String _truncateCompressionManifestText(
+    String content,
+    int maxChars,
+    String marker,
+  ) {
+    if (content.length <= maxChars) {
+      return content.trimRight();
+    }
+    final head = content.substring(0, maxChars).trimRight();
+    final omitted = content.length - head.length;
+    return '$head\n[$marker: omitted $omitted chars]';
   }
 
   String _renderMessageForCompression(AiSessionMessage message) {

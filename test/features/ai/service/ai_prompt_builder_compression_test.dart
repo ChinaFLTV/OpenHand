@@ -60,6 +60,63 @@ void main() {
     expect(prompt.last.content, contains('继续排查远端终端问题'));
   });
 
+  test('compression prompt includes user and resource manifests', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final userMessage = AiSessionMessage.user(
+      id: 'u-manifest',
+      content: '请保留这个关键约束：不要删除 sidecar。',
+      createdAt: now,
+    );
+    final readResult = AiSessionMessage.toolResult(
+      id: 'read-manifest',
+      content: '1\tvoid main() {}',
+      createdAt: now,
+      metadata: const <String, Object?>{
+        'tool_call_id': 'call-read-manifest',
+        'tool_name': 'Read',
+        'status': 'success',
+        'read_file_path': '/tmp/project/lib/main.dart',
+        'read_file_kind': 'text',
+        'read_render_mode': 'line',
+      },
+    );
+    final session = _session(
+      template: template,
+      now: now,
+      messages: <AiSessionMessage>[userMessage, readResult],
+    );
+
+    final prompt = const AiPromptBuilder().buildCompressionPrompt(
+      templateBundle: bundle,
+      template: template,
+      session: session,
+      runtimeContext: _runtimeContext(),
+      messagesToCompress: session.messages,
+      previousCompressionPoint: null,
+    );
+    final payload = prompt.last.content;
+
+    expect(payload, contains('## User Messages Manifest'));
+    expect(payload, contains('[id=u-manifest]'));
+    expect(payload, contains('不要删除 sidecar'));
+    expect(payload, contains('## Resource Recovery Manifest'));
+    expect(payload, contains('/tmp/project/lib/main.dart'));
+  });
+
   test('micro compact clears older consumed tool results', () {
     const template = AiThreadTemplate(
       id: 'default',

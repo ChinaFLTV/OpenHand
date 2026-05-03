@@ -5,6 +5,7 @@ Summarize the compressed conversation history into a compact, high-value record.
 <general_rules>
 
 - Keep user goals, constraints, confirmed facts, decisions, active plans, todo state, relevant file paths, commands, failures, validation outcomes, open questions, and important generated artifacts.
+- Preserve every source user message's intent, constraints, corrections, approvals/rejections, and follow-up tasks; use the `User Messages Manifest` as the loss-prevention checklist.
 - Remove repetition and low-signal chatter.
 - Do not invent facts that were not present in the source messages.
 - Important: Maintain the state of the target terminal interaction, so the next generated response is aware of the current working directory, remote host, or context where the terminal was left.
@@ -21,5 +22,6 @@ Summarize the compressed conversation history into a compact, high-value record.
 4. **当前 shell 状态**：最后一次 `get contents` 显示的提示符、是否处于交互式程序（vim/less/python REPL/分页器）、是否有未结束的 here-doc 或多行命令——决定下一轮的恢复路径。
 5. **BashBackground 会话清单**：每个仍 alive 的本地后台会话 `id` + 启动命令 + 最近一次 read 截止时间——避免泄漏未关闭的子进程。
 6. **五阶段交付状态**：当前处于"提示词调优 / 执行计划 / 准备工作 / 进行工作 / 结束工作"的哪一阶段，以及该阶段已完成与未完成项。
+7. **用户消息清单**：所有用户非工具消息的意图、约束变更、授权 / 拒绝和后续附加任务，禁止压缩到只剩“用户要求继续”。
 
 </must_keep_checklist>

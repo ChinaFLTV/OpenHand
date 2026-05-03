@@ -34,6 +34,14 @@ void main() {
         isTrue,
         reason: '${template.id} compression summary needs preserve/rules shape',
       );
+      expect(
+        _hasUserMessageCompressionContract(
+          bundle.compressionSummaryInstructions,
+        ),
+        isTrue,
+        reason:
+            '${template.id} compression summary must preserve user messages',
+      );
     }
   });
 
@@ -135,4 +143,9 @@ int _countIgnoreCase(String haystack, String needle) {
     count++;
     index += normalizedNeedle.length;
   }
+}
+
+bool _hasUserMessageCompressionContract(String content) {
+  final lower = content.toLowerCase();
+  return lower.contains('user messages') || lower.contains('用户消息');
 }

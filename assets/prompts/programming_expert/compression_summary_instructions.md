@@ -8,6 +8,7 @@
 以下信息必须保留 — 任何一项被压缩掉都会让接力执行失败：
 
 - **Objective**：用户目标、约束、验收标准。
+- **User Messages**：所有用户非工具消息的原始意图、约束变更和关键措辞；优先参考 `User Messages Manifest` 防止遗漏。
 - **Code Context**：被修改的文件路径、行号、符号名。
 - **Architecture**：架构选择、设计模式、决策依据。
 - **Plan State**：进行中 / 待办 / 已完成的 todo。
@@ -31,6 +32,9 @@
 ```markdown
 ## Objective
 [主目标 + 验收标准]
+
+## User Messages
+[所有 source user messages 的意图 / 约束 / 纠正 / 批准或拒绝]
 
 ## Confirmed Context
 [环境、路径、约定 — 已被工具调用证实]
@@ -65,4 +69,5 @@
 4. 若已存在更早的检查点，向前增量整合 — 不要原文复述上一份。
 5. 关键代码片段仅保留必要部分（一两行 + 行号引用），不要把整文件粘进来。
 6. 简洁但完整：足够支撑下一回合直接续作。
+7. `User Messages` 必须覆盖 source user messages；可压缩措辞，但不得丢掉约束、纠正、批准/拒绝和附加任务。
 </rules>
