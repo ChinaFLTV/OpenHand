@@ -2419,6 +2419,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedDialogClose => '关闭';
 
   @override
+  String get snackToolSearchLoadedCopyAction => '复制 select:';
+
+  @override
+  String get snackToolSearchLoadedCopiedToast => '已复制';
+
+  @override
+  String get snackToolSearchLoadedClearAction => '清空已加载列表';
+
+  @override
+  String get snackToolSearchLoadedClearedToast => '已清空已加载列表';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
@@ -6814,6 +6826,18 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedDialogClose => '关闭';
 
   @override
+  String get snackToolSearchLoadedCopyAction => '复制 select:';
+
+  @override
+  String get snackToolSearchLoadedCopiedToast => '已复制';
+
+  @override
+  String get snackToolSearchLoadedClearAction => '清空已加载列表';
+
+  @override
+  String get snackToolSearchLoadedClearedToast => '已清空已加载列表';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
@@ -11206,6 +11230,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedDialogClose => '關閉';
+
+  @override
+  String get snackToolSearchLoadedCopyAction => '複製 select:';
+
+  @override
+  String get snackToolSearchLoadedCopiedToast => '已複製';
+
+  @override
+  String get snackToolSearchLoadedClearAction => '清空已載入清單';
+
+  @override
+  String get snackToolSearchLoadedClearedToast => '已清空已載入清單';
 
   @override
   String toolbarPlanStepsCompleted(int completed, int total) {

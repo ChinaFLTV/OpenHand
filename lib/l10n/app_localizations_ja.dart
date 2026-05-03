@@ -2447,6 +2447,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedDialogClose => '閉じる';
 
   @override
+  String get snackToolSearchLoadedCopyAction => 'select: をコピー';
+
+  @override
+  String get snackToolSearchLoadedCopiedToast => 'コピー済み';
+
+  @override
+  String get snackToolSearchLoadedClearAction => 'ロード済み一覧をクリア';
+
+  @override
+  String get snackToolSearchLoadedClearedToast => 'ロード済み一覧をクリアしました';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '$completed/$total 完了';
   }

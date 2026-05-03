@@ -1265,10 +1265,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           label: l10n.snackToolSearchLoadedAction,
           onPressed: () {
             final controller = _observedSessionController;
+            final sessionId = event.sessionId;
             final names = controller == null
                 ? const <String>[]
-                : controller.loadedMcpToolNamesForSession(event.sessionId);
-            _showToolSearchLoadedDialog(names);
+                : controller.loadedMcpToolNamesForSession(sessionId);
+            _showToolSearchLoadedDialog(
+              names: names,
+              onClear: controller == null
+                  ? null
+                  : () => controller.clearLoadedMcpToolsForSession(sessionId),
+            );
           },
         ),
       ),
@@ -1305,56 +1311,106 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
           label: l10n.snackToolSearchLoadedAction,
-          onPressed: () =>
-              _showToolSearchLoadedDialog(List<String>.from(loadedNames)..sort()),
+          onPressed: () => _showToolSearchLoadedDialog(
+            names: List<String>.from(loadedNames)..sort(),
+          ),
         ),
       ),
     );
   }
 
-  void _showToolSearchLoadedDialog(List<String> names) {
+  void _showToolSearchLoadedDialog({
+    required List<String> names,
+    void Function()? onClear,
+  }) {
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(l10n.snackToolSearchLoadedDialogTitle),
-          content: SizedBox(
-            width: 420,
-            child: names.isEmpty
-                ? Text(
-                    '—',
-                    style: Theme.of(dialogContext).textTheme.bodyMedium,
-                  )
-                : Scrollbar(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: names.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (_, index) {
-                        return ListTile(
-                          dense: true,
-                          leading: const Icon(
-                            Icons.extension_rounded,
-                            size: 18,
-                          ),
-                          title: SelectableText(
-                            names[index],
-                            style: const TextStyle(fontFamily: 'monospace'),
+        var displayNames = names;
+        return StatefulBuilder(
+          builder: (statefulContext, setStateDialog) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Expanded(child: Text(l10n.snackToolSearchLoadedDialogTitle)),
+                  if (onClear != null && displayNames.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () {
+                        onClear();
+                        setStateDialog(() => displayNames = const <String>[]);
+                        ScaffoldMessenger.maybeOf(statefulContext)?.showSnackBar(
+                          SnackBar(
+                            content: Text(l10n.snackToolSearchLoadedClearedToast),
+                            behavior: SnackBarBehavior.floating,
                           ),
                         );
                       },
+                      icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+                      label: Text(l10n.snackToolSearchLoadedClearAction),
                     ),
-                  ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(l10n.snackToolSearchLoadedDialogClose),
-            ),
-          ],
+                ],
+              ),
+              content: SizedBox(
+                width: 460,
+                child: displayNames.isEmpty
+                    ? Text(
+                        '—',
+                        style: Theme.of(dialogContext).textTheme.bodyMedium,
+                      )
+                    : Scrollbar(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: displayNames.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (_, index) {
+                            final name = displayNames[index];
+                            return ListTile(
+                              dense: true,
+                              leading: const Icon(
+                                Icons.extension_rounded,
+                                size: 18,
+                              ),
+                              title: SelectableText(
+                                name,
+                                style: const TextStyle(fontFamily: 'monospace'),
+                              ),
+                              trailing: IconButton(
+                                tooltip:
+                                    '${l10n.snackToolSearchLoadedCopyAction}$name',
+                                icon: const Icon(Icons.copy_rounded, size: 18),
+                                onPressed: () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(text: 'select:$name'),
+                                  );
+                                  if (!statefulContext.mounted) return;
+                                  ScaffoldMessenger.maybeOf(
+                                    statefulContext,
+                                  )?.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        l10n.snackToolSearchLoadedCopiedToast,
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(l10n.snackToolSearchLoadedDialogClose),
+                ),
+              ],
+            );
+          },
         );
       },
     );

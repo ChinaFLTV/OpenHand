@@ -2582,6 +2582,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get snackToolSearchLoadedDialogClose => 'Schließen';
 
   @override
+  String get snackToolSearchLoadedCopyAction => 'select: kopieren';
+
+  @override
+  String get snackToolSearchLoadedCopiedToast => 'Kopiert';
+
+  @override
+  String get snackToolSearchLoadedClearAction => 'Geladene Liste leeren';
+
+  @override
+  String get snackToolSearchLoadedClearedToast => 'Geladene Liste geleert';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '$completed/$total Schritte abgeschlossen';
   }

@@ -38,6 +38,7 @@ import 'service/ai_prompt_builder.dart';
 import 'service/ai_prompt_template_repository.dart';
 import 'service/ai_protocol_adapter.dart';
 import 'service/ai_tool_runtime_service.dart';
+import 'service/mcp_loaded_tools_tracker.dart';
 import 'tools/ai_memory_tool.dart' show MemoryControllerProvider;
 import 'tools/ai_skill_manager_tool.dart';
 import 'tools/ai_tool_search_tool.dart';
@@ -220,26 +221,6 @@ class AiRuntimeToolPreview {
   final bool isAuthoritative;
 
   int get toolCount => toolNames.length;
-}
-
-/// 描述一次成功的 `ToolSearch` 加载，用于触发 transcript 顶部的 SnackBar 提示。
-@immutable
-class AiToolSearchLoadedEvent {
-  const AiToolSearchLoadedEvent({
-    required this.sessionId,
-    required this.loadedNames,
-    required this.totalDeferred,
-    required this.query,
-    required this.revision,
-  });
-
-  final String sessionId;
-  final List<String> loadedNames;
-  final int totalDeferred;
-  final String query;
-  final int revision;
-
-  int get loadedCount => loadedNames.length;
 }
 
 class AiSessionController extends ChangeNotifier {
@@ -436,27 +417,23 @@ class AiSessionController extends ChangeNotifier {
 
   /// 2026-05-04 — MCP 工具懒加载状态。键为 sessionId，值为该会话已通过
   /// `ToolSearch` 主动加载并允许直接调用的 MCP 工具完整名（含 `mcp__`
-  /// 前缀）。会话被 dispose 时清理。
-  final Map<String, Set<String>> _loadedMcpToolsBySession =
-      <String, Set<String>>{};
+  /// 前缀）跟踪器；同时承载向 UI 广播加载事件的 [ValueListenable]。
+  /// 会话被 dispose 时清理。
+  final McpLoadedToolsTracker _loadedMcpToolsTracker = McpLoadedToolsTracker();
+
+  ValueListenable<AiToolSearchLoadedEvent?> get toolSearchLoadedSignal =>
+      _loadedMcpToolsTracker.signal;
 
   /// 返回指定会话已通过 `ToolSearch` 加载的 MCP 工具完整名（按字母升序）。
   /// 供 UI 在 SnackBar action 中查询展示。
-  List<String> loadedMcpToolNamesForSession(String sessionId) {
-    final names = _loadedMcpToolsBySession[sessionId];
-    if (names == null || names.isEmpty) return const <String>[];
-    final sorted = names.toList()..sort();
-    return List<String>.unmodifiable(sorted);
-  }
+  List<String> loadedMcpToolNamesForSession(String sessionId) =>
+      _loadedMcpToolsTracker.namesForSession(sessionId);
 
-  /// `ToolSearch` 成功加载 MCP 工具后向 UI 广播的一次性事件。
-  /// `OpenHandHomePage` 监听此 Listenable，匹配当前会话后弹出 SnackBar。
-  /// `revision` 自增确保即使连续两次加载相同名集合也能触发新通知。
-  final ValueNotifier<AiToolSearchLoadedEvent?> _toolSearchLoadedSignal =
-      ValueNotifier<AiToolSearchLoadedEvent?>(null);
-  ValueListenable<AiToolSearchLoadedEvent?> get toolSearchLoadedSignal =>
-      _toolSearchLoadedSignal;
-  int _toolSearchSignalRevision = 0;
+  /// 清空指定会话的 ToolSearch 已加载缓存：下一轮 `_applyMcpLazyLoading`
+  /// 将再次把这些工具从 catalog 中剔除，模型若需要必须重新调用 ToolSearch。
+  /// 返回被清除的工具数量。
+  int clearLoadedMcpToolsForSession(String sessionId) =>
+      _loadedMcpToolsTracker.clearSession(sessionId);
 
   /// 2026-04-29 — Group A 设置项缓存。每当方法接收到 [runtimeContext] 时
   /// 写入本字段；helper 在自身没有 runtimeContext 入参的场景下从中读取
@@ -2298,7 +2275,7 @@ class AiSessionController extends ChangeNotifier {
     }
     _toolRuntimeService.dispose();
     _chatClient.dispose();
-    _toolSearchLoadedSignal.dispose();
+    _loadedMcpToolsTracker.dispose();
     super.dispose();
   }
 
@@ -2338,7 +2315,7 @@ class AiSessionController extends ChangeNotifier {
       runtimeContext: runtimeContext,
       toolRuntimeService: _toolRuntimeService,
       alreadyLoadedNames:
-          _loadedMcpToolsBySession[session.id] ?? const <String>{},
+          _loadedMcpToolsTracker.rawSetForSession(session.id),
     );
     var workingSession = session;
     var activeLatestUserMessageId = latestUserMessageId;
@@ -3827,36 +3804,11 @@ class AiSessionController extends ChangeNotifier {
     required String sessionId,
     required AiToolExecutionResult result,
   }) {
-    final raw = result.metadata['tool_search_loaded_names'];
-    if (raw is! List || raw.isEmpty) return;
-    final loaded = _loadedMcpToolsBySession.putIfAbsent(
-      sessionId,
-      () => <String>{},
-    );
-    final addedNames = <String>[];
-    for (final entry in raw) {
-      if (entry is String && entry.isNotEmpty) {
-        if (loaded.add(entry)) {
-          addedNames.add(entry);
-        } else {
-          // Even if the tool is already in the loaded set, surface it in the
-          // event so the SnackBar reflects what the model just queried for.
-          addedNames.add(entry);
-        }
-      }
-    }
-    if (addedNames.isEmpty) return;
-    final totalDeferred = result.metadata['tool_search_total_deferred'];
-    final query = result.metadata['tool_search_query'];
-    _toolSearchSignalRevision += 1;
-    _toolSearchLoadedSignal.value = AiToolSearchLoadedEvent(
+    _loadedMcpToolsTracker.absorb(
       sessionId: sessionId,
-      loadedNames: List<String>.unmodifiable(addedNames),
-      totalDeferred: totalDeferred is int
-          ? totalDeferred
-          : (totalDeferred is num ? totalDeferred.toInt() : addedNames.length),
-      query: query is String ? query : '',
-      revision: _toolSearchSignalRevision,
+      loadedNamesRaw: result.metadata['tool_search_loaded_names'],
+      totalDeferredRaw: result.metadata['tool_search_total_deferred'],
+      queryRaw: result.metadata['tool_search_query'],
     );
   }
 
@@ -4507,8 +4459,8 @@ class AiSessionController extends ChangeNotifier {
   /// 2026-05-04 — MCP-tool lazy-loading is delegated to
   /// [McpLazyLoadingApplier.apply]. Three modes (disabled/enabled/auto)
   /// are documented on that helper. AiSessionController only needs to
-  /// supply `_loadedMcpToolsBySession[session.id]` so already-pulled tools
-  /// stay live across turns.
+  /// supply `_loadedMcpToolsTracker.rawSetForSession(session.id)` so
+  /// already-pulled tools stay live across turns.
 
   AiResolvedToolCatalog _toolCatalogForRound({
     required AiSession session,

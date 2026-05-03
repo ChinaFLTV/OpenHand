@@ -2553,6 +2553,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackToolSearchLoadedDialogClose => 'Close';
 
   @override
+  String get snackToolSearchLoadedCopyAction => 'Copy select:';
+
+  @override
+  String get snackToolSearchLoadedCopiedToast => 'Copied';
+
+  @override
+  String get snackToolSearchLoadedClearAction => 'Clear loaded list';
+
+  @override
+  String get snackToolSearchLoadedClearedToast => 'Loaded list cleared';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '$completed/$total steps completed';
   }

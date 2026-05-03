@@ -1068,6 +1068,10 @@
   "snackToolSearchLoadedAction": "Liste anzeigen",
   "snackToolSearchLoadedDialogTitle": "Von ToolSearch geladene MCP-Tools",
   "snackToolSearchLoadedDialogClose": "Schließen",
+  "snackToolSearchLoadedCopyAction": "select: kopieren",
+  "snackToolSearchLoadedCopiedToast": "Kopiert",
+  "snackToolSearchLoadedClearAction": "Geladene Liste leeren",
+  "snackToolSearchLoadedClearedToast": "Geladene Liste geleert",
   "toolbarRuntimeNotices": "{count} Laufzeit-Hinweise",
   "@toolbarRuntimeNotices": {
     "placeholders": {

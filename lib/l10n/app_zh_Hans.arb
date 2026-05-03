@@ -1128,6 +1128,10 @@
   "snackToolSearchLoadedAction": "查看列表",
   "snackToolSearchLoadedDialogTitle": "ToolSearch 已加载的 MCP 工具",
   "snackToolSearchLoadedDialogClose": "关闭",
+  "snackToolSearchLoadedCopyAction": "复制 select:",
+  "snackToolSearchLoadedCopiedToast": "已复制",
+  "snackToolSearchLoadedClearAction": "清空已加载列表",
+  "snackToolSearchLoadedClearedToast": "已清空已加载列表",
   "@toolbarRuntimeNotices": {
     "placeholders": {
       "count": {

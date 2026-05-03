@@ -4678,6 +4678,30 @@ abstract class AppLocalizations {
   /// **'关闭'**
   String get snackToolSearchLoadedDialogClose;
 
+  /// No description provided for @snackToolSearchLoadedCopyAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 select:'**
+  String get snackToolSearchLoadedCopyAction;
+
+  /// No description provided for @snackToolSearchLoadedCopiedToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制'**
+  String get snackToolSearchLoadedCopiedToast;
+
+  /// No description provided for @snackToolSearchLoadedClearAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空已加载列表'**
+  String get snackToolSearchLoadedClearAction;
+
+  /// No description provided for @snackToolSearchLoadedClearedToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已清空已加载列表'**
+  String get snackToolSearchLoadedClearedToast;
+
   /// No description provided for @toolbarPlanStepsCompleted.
   ///
   /// In zh_Hans, this message translates to:

@@ -1068,6 +1068,10 @@
   "snackToolSearchLoadedAction": "Voir la liste",
   "snackToolSearchLoadedDialogTitle": "Outils MCP chargés par ToolSearch",
   "snackToolSearchLoadedDialogClose": "Fermer",
+  "snackToolSearchLoadedCopyAction": "Copier select:",
+  "snackToolSearchLoadedCopiedToast": "Copié",
+  "snackToolSearchLoadedClearAction": "Vider la liste chargée",
+  "snackToolSearchLoadedClearedToast": "Liste chargée vidée",
   "toolbarRuntimeNotices": "{count} notices runtime",
   "@toolbarRuntimeNotices": {
     "placeholders": {
