@@ -2505,55 +2505,63 @@ class _RoundFileMutationSummaryCardState
   }
 
   Future<List<_RoundSummaryRow>> _load(BuildContext ctx) async {
-    final ctrl = ctx.read<AiSessionController>();
-    final sessionId = ctrl.currentSession?.id ?? '';
-    if (sessionId.isEmpty) return const <_RoundSummaryRow>[];
-    final ledger = ctrl.toolRuntimeService.mutationLedger;
-    // 反向索引 toolCallId → 对应 toolCall message.id（用于跳转）。
-    final session = ctrl.currentSession;
-    final toolCallMessageIdByCallId = <String, String>{};
-    if (session != null) {
-      for (final m in session.messages) {
-        if (m.kind != AiSessionMessageKind.toolCall) continue;
-        final id = '${m.metadata['tool_call_id'] ?? ''}'.trim();
-        if (id.isNotEmpty) toolCallMessageIdByCallId[id] = m.id;
+    developer.Timeline.startSync(
+      'openhand.round_summary.load',
+      arguments: <String, Object?>{'tool_calls': _toolCallIds.length},
+    );
+    try {
+      final ctrl = ctx.read<AiSessionController>();
+      final sessionId = ctrl.currentSession?.id ?? '';
+      if (sessionId.isEmpty) return const <_RoundSummaryRow>[];
+      final ledger = ctrl.toolRuntimeService.mutationLedger;
+      // 反向索引 toolCallId → 对应 toolCall message.id（用于跳转）。
+      final session = ctrl.currentSession;
+      final toolCallMessageIdByCallId = <String, String>{};
+      if (session != null) {
+        for (final m in session.messages) {
+          if (m.kind != AiSessionMessageKind.toolCall) continue;
+          final id = '${m.metadata['tool_call_id'] ?? ''}'.trim();
+          if (id.isNotEmpty) toolCallMessageIdByCallId[id] = m.id;
+        }
       }
-    }
-    final ids = _toolCallIds;
-    final rows = <_RoundSummaryRow>[];
-    final seen = <String>{}; // (filePath|toolCallId) dedup
-    for (final tcId in ids) {
-      List<FileMutationView> views;
-      try {
-        views = await ledger.viewsForToolCall(
-          sessionId: sessionId,
-          toolCallId: tcId,
-        );
-      } catch (error, stack) {
-        silentLog('round_summary_card', 'viewsForToolCall', error, stack);
-        continue;
-      }
-      // 同 toolCall + 同文件 多次 ⇒ 取最后一条（最终态）。
-      final byPath = <String, FileMutationView>{};
-      for (final v in views) {
-        byPath[v.record.filePath] = v;
-      }
-      for (final entry in byPath.entries) {
-        final key = '${entry.key}|$tcId';
-        if (!seen.add(key)) continue;
-        rows.add(
-          _RoundSummaryRow(
-            view: entry.value,
+      final ids = _toolCallIds;
+      final rows = <_RoundSummaryRow>[];
+      final seen = <String>{}; // (filePath|toolCallId) dedup
+      for (final tcId in ids) {
+        List<FileMutationView> views;
+        try {
+          views = await ledger.viewsForToolCall(
+            sessionId: sessionId,
             toolCallId: tcId,
-            sourceMessageId: toolCallMessageIdByCallId[tcId],
-          ),
-        );
+          );
+        } catch (error, stack) {
+          silentLog('round_summary_card', 'viewsForToolCall', error, stack);
+          continue;
+        }
+        // 同 toolCall + 同文件 多次 ⇒ 取最后一条（最终态）。
+        final byPath = <String, FileMutationView>{};
+        for (final v in views) {
+          byPath[v.record.filePath] = v;
+        }
+        for (final entry in byPath.entries) {
+          final key = '${entry.key}|$tcId';
+          if (!seen.add(key)) continue;
+          rows.add(
+            _RoundSummaryRow(
+              view: entry.value,
+              toolCallId: tcId,
+              sourceMessageId: toolCallMessageIdByCallId[tcId],
+            ),
+          );
+        }
       }
+      // 时间升序排列：早→晚，符合执行轨迹直觉。
+      rows.sort((a, b) =>
+          a.view.record.createdAt.compareTo(b.view.record.createdAt));
+      return rows;
+    } finally {
+      developer.Timeline.finishSync();
     }
-    // 时间升序排列：早→晚，符合执行轨迹直觉。
-    rows.sort((a, b) =>
-        a.view.record.createdAt.compareTo(b.view.record.createdAt));
-    return rows;
   }
 
   void _ensureFutureBound() {
@@ -3376,22 +3384,24 @@ class _RoundSummaryRowTile extends StatelessWidget {
         ],
       ),
     );
-    final wrapped = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        tile,
-        AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          child: isDiffExpanded
-              ? _DiffPreviewBox(
-                  key: ValueKey('diff-${row.view.record.recordId}'),
-                  record: row.view.record,
-                )
-              : const SizedBox(width: double.infinity, height: 0),
-        ),
-      ],
+    final wrapped = RepaintBoundary(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          tile,
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: isDiffExpanded
+                ? _DiffPreviewBox(
+                    key: ValueKey('diff-${row.view.record.recordId}'),
+                    record: row.view.record,
+                  )
+                : const SizedBox(width: double.infinity, height: 0),
+          ),
+        ],
+      ),
     );
     if (entranceDelay == Duration.zero) return wrapped;
     return _DelayedAppear(delay: entranceDelay, child: wrapped);
