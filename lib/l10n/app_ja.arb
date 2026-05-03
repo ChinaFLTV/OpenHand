@@ -1834,6 +1834,8 @@
   "settingsDefaultsToCtrlSForToggling": "既定は Ctrl + S で、自動追従をトグルします。",
   "settingsDefaultsToCtrlUpAndWraps": "既定は Ctrl + 上で、セッションリストの末尾へラップアラウンドします。",
   "settingsDefaultsToCtrlDownAndWraps": "既定は Ctrl + 下で、セッションリストの先頭へラップアラウンドします。",
+  "settingsUndoLastFileMutation": "最近のファイル変更を元に戻す",
+  "settingsDefaultsToCtrlShiftZForUndo": "既定は Ctrl + Shift + Z。現在セッションの ledger で最新の元に戻せるファイル変更を取り消します。",
   "auditDeleteMessage": "メッセージを削除",
   "auditDeleteThisMessageThisCannotBe": "このメッセージを削除しますか？元に戻せません。",
   "auditCancel": "キャンセル",

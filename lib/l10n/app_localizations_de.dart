@@ -4675,6 +4675,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'Standard: Strg + Runter; wickelt sich zum Anfang der Sitzungsliste.';
 
   @override
+  String get settingsUndoLastFileMutation => 'Letzte Dateimutation rückgängig';
+
+  @override
+  String get settingsDefaultsToCtrlShiftZForUndo =>
+      'Standard: Strg + Umschalt + Z. Macht die neueste Dateimutation der aktuellen Sitzung rückgängig.';
+
+  @override
   String get auditDeleteMessage => 'Nachricht löschen';
 
   @override

@@ -1834,6 +1834,8 @@
   "settingsDefaultsToCtrlSForToggling": "Defaults to Ctrl + S for toggling auto follow.",
   "settingsDefaultsToCtrlUpAndWraps": "Defaults to Ctrl + Up and wraps to the end of the session list.",
   "settingsDefaultsToCtrlDownAndWraps": "Defaults to Ctrl + Down and wraps to the start of the session list.",
+  "settingsUndoLastFileMutation": "Undo last file mutation",
+  "settingsDefaultsToCtrlShiftZForUndo": "Defaults to Ctrl + Shift + Z; reverts the most recent file mutation in the current session.",
   "auditDeleteMessage": "Delete Message",
   "auditDeleteThisMessageThisCannotBe": "Delete this message? This cannot be undone.",
   "auditCancel": "Cancel",

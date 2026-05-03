@@ -4379,6 +4379,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDefaultsToCtrlDownAndWraps => '默认 Ctrl + ↓，切换到下一个会话并支持绕圈。';
 
   @override
+  String get settingsUndoLastFileMutation => '撤销最近一次文件变动';
+
+  @override
+  String get settingsDefaultsToCtrlShiftZForUndo =>
+      '默认 Ctrl + Shift + Z，撤销当前会话 ledger 中最新一条可撤销的文件变动。';
+
+  @override
   String get auditDeleteMessage => '删除消息';
 
   @override
@@ -9095,6 +9102,13 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsDefaultsToCtrlDownAndWraps => '默认 Ctrl + ↓，切换到下一个会话并支持绕圈。';
 
   @override
+  String get settingsUndoLastFileMutation => '撤销最近一次文件变动';
+
+  @override
+  String get settingsDefaultsToCtrlShiftZForUndo =>
+      '默认 Ctrl + Shift + Z，撤销当前会话 ledger 中最新一条可撤销的文件变动。';
+
+  @override
   String get auditDeleteMessage => '删除消息';
 
   @override
@@ -13808,6 +13822,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsDefaultsToCtrlDownAndWraps => '默认 Ctrl + ↓，切换到下一个会话并支持绕圈。';
+
+  @override
+  String get settingsUndoLastFileMutation => '復原最近一次檔案變動';
+
+  @override
+  String get settingsDefaultsToCtrlShiftZForUndo =>
+      '默認 Ctrl + Shift + Z，復原當前會話 ledger 中最新一條可復原的檔案變動。';
 
   @override
   String get auditDeleteMessage => '删除消息';

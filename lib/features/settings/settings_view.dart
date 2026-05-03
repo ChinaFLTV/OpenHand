@@ -4482,6 +4482,9 @@ class _SettingsViewState extends State<SettingsView> {
       OpenHandShortcutAction.selectNextSession => AppLocalizations.of(
         context,
       )!.settingsNextSession,
+      OpenHandShortcutAction.undoLastFileMutation => AppLocalizations.of(
+        context,
+      )!.settingsUndoLastFileMutation,
     };
   }
 
@@ -4562,6 +4565,9 @@ class _SettingsViewState extends State<SettingsView> {
       OpenHandShortcutAction.selectNextSession => AppLocalizations.of(
         context,
       )!.settingsDefaultsToCtrlDownAndWraps,
+      OpenHandShortcutAction.undoLastFileMutation => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToCtrlShiftZForUndo,
     };
   }
 

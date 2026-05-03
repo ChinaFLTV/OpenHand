@@ -4701,6 +4701,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Par défaut Ctrl + Bas et boucle au début de la liste de sessions.';
 
   @override
+  String get settingsUndoLastFileMutation =>
+      'Annuler la dernière modification de fichier';
+
+  @override
+  String get settingsDefaultsToCtrlShiftZForUndo =>
+      'Par défaut Ctrl + Maj + Z. Annule la modification de fichier la plus récente du journal de la session courante.';
+
+  @override
   String get auditDeleteMessage => 'Supprimer le message';
 
   @override

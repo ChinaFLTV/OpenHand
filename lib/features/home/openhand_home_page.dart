@@ -2320,6 +2320,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         case OpenHandShortcutAction.selectPreviousModel:
         case OpenHandShortcutAction.selectNextModel:
           return;
+        case OpenHandShortcutAction.undoLastFileMutation:
+          await _undoLastFileMutationInCurrentSession();
+          return;
       }
     }
 
@@ -2352,6 +2355,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       case OpenHandShortcutAction.selectNextSession:
         await _cycleSessionSelection(1);
+        return;
+      case OpenHandShortcutAction.undoLastFileMutation:
+        await _undoLastFileMutationInCurrentSession();
         return;
     }
   }
@@ -2397,6 +2403,40 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final baseIndex = currentIndex >= 0 ? currentIndex : 0;
     final nextIndex = (baseIndex + delta + sessions.length) % sessions.length;
     await _activateSession(sessions[nextIndex].id);
+  }
+
+  /// 全局快捷键 [OpenHandShortcutAction.undoLastFileMutation] 的实现：取
+  /// 当前会话 ledger 里 createdAt 最新且仍可撤销的记录调用 undoRecord，
+  /// 并以 SnackBar 提示文件路径。无可撤销目标时静默忽略。
+  Future<void> _undoLastFileMutationInCurrentSession() async {
+    final sessionController = context.read<AiSessionController>();
+    final sessionId = sessionController.currentSessionId;
+    if (sessionId == null || sessionId.isEmpty) return;
+    final ledger = sessionController.toolRuntimeService.mutationLedger;
+    final records = await ledger.recordsForSession(sessionId);
+    if (records.isEmpty) return;
+    // recordsForSession 按追加顺序返回，尾部即最新；从尾向前找第一条 ledger
+    // 接受 undo 的记录（undoRecord 自身会处理"已撤销"幂等返回 success=false）。
+    for (var i = records.length - 1; i >= 0; i--) {
+      final r = records[i];
+      final outcome = await ledger.undoRecord(
+        sessionId: sessionId,
+        recordId: r.recordId,
+      );
+      if (!mounted) return;
+      if (outcome.success) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              '${AppLocalizations.of(context)!.fileMutationUndone}: '
+              '${r.filePath}',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+    }
   }
 
   Future<void> _activateSession(String sessionId) async {

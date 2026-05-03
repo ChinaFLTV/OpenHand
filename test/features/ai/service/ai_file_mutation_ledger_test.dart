@@ -163,7 +163,7 @@ void main() {
 
   // ─── 阶段⑥a 配置 + 自动修剪 ───
   test('LedgerConfig fromJson/toJson 双向 + clamp 越界值', () {
-    final raw = LedgerConfig(maxVersionsPerFile: 999, autoCleanupDays: -5)
+    final raw = const LedgerConfig(maxVersionsPerFile: 999, autoCleanupDays: -5)
         .toJson();
     final restored = LedgerConfig.fromJson(raw);
     expect(restored.maxVersionsPerFile,

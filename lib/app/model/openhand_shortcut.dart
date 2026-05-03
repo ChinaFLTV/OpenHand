@@ -8,6 +8,7 @@ enum OpenHandShortcutAction {
   toggleAutoFollow,
   selectPreviousSession,
   selectNextSession,
+  undoLastFileMutation,
 }
 
 const int openHandShortcutMaxKeyCount = 4;
@@ -42,6 +43,11 @@ Map<OpenHandShortcutAction, List<int>> defaultOpenHandShortcutBindings() {
       LogicalKeyboardKey.control.keyId,
       LogicalKeyboardKey.arrowDown.keyId,
     ]),
+    OpenHandShortcutAction.undoLastFileMutation: normalizeShortcutKeyIds(<int>[
+      LogicalKeyboardKey.control.keyId,
+      LogicalKeyboardKey.shift.keyId,
+      LogicalKeyboardKey.keyZ.keyId,
+    ]),
   };
 }
 
@@ -54,6 +60,7 @@ String openHandShortcutActionStorageKey(OpenHandShortcutAction action) {
     OpenHandShortcutAction.toggleAutoFollow => 'toggle_auto_follow',
     OpenHandShortcutAction.selectPreviousSession => 'select_previous_session',
     OpenHandShortcutAction.selectNextSession => 'select_next_session',
+    OpenHandShortcutAction.undoLastFileMutation => 'undo_last_file_mutation',
   };
 }
 
@@ -66,6 +73,7 @@ OpenHandShortcutAction? openHandShortcutActionFromStorageKey(String rawValue) {
     'toggle_auto_follow' => OpenHandShortcutAction.toggleAutoFollow,
     'select_previous_session' => OpenHandShortcutAction.selectPreviousSession,
     'select_next_session' => OpenHandShortcutAction.selectNextSession,
+    'undo_last_file_mutation' => OpenHandShortcutAction.undoLastFileMutation,
     _ => null,
   };
 }

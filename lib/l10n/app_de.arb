@@ -1834,6 +1834,8 @@
   "settingsDefaultsToCtrlSForToggling": "Standard: Strg + S zum Umschalten von Auto-Folgen.",
   "settingsDefaultsToCtrlUpAndWraps": "Standard: Strg + Hoch; wickelt sich bis zum Ende der Sitzungsliste.",
   "settingsDefaultsToCtrlDownAndWraps": "Standard: Strg + Runter; wickelt sich zum Anfang der Sitzungsliste.",
+  "settingsUndoLastFileMutation": "Letzte Dateimutation rückgängig",
+  "settingsDefaultsToCtrlShiftZForUndo": "Standard: Strg + Umschalt + Z. Macht die neueste Dateimutation der aktuellen Sitzung rückgängig.",
   "auditDeleteMessage": "Nachricht löschen",
   "auditDeleteThisMessageThisCannotBe": "Diese Nachricht löschen? Dies kann nicht rückgängig gemacht werden.",
   "auditCancel": "Abbrechen",

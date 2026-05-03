@@ -4460,6 +4460,13 @@ class AppLocalizationsJa extends AppLocalizations {
       '既定は Ctrl + 下で、セッションリストの先頭へラップアラウンドします。';
 
   @override
+  String get settingsUndoLastFileMutation => '最近のファイル変更を元に戻す';
+
+  @override
+  String get settingsDefaultsToCtrlShiftZForUndo =>
+      '既定は Ctrl + Shift + Z。現在セッションの ledger で最新の元に戻せるファイル変更を取り消します。';
+
+  @override
   String get auditDeleteMessage => 'メッセージを削除';
 
   @override

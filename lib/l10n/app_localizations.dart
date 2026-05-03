@@ -8338,6 +8338,18 @@ abstract class AppLocalizations {
   /// **'默认 Ctrl + ↓，切换到下一个会话并支持绕圈。'**
   String get settingsDefaultsToCtrlDownAndWraps;
 
+  /// No description provided for @settingsUndoLastFileMutation.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'撤销最近一次文件变动'**
+  String get settingsUndoLastFileMutation;
+
+  /// No description provided for @settingsDefaultsToCtrlShiftZForUndo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 Ctrl + Shift + Z，撤销当前会话 ledger 中最新一条可撤销的文件变动。'**
+  String get settingsDefaultsToCtrlShiftZForUndo;
+
   /// No description provided for @auditDeleteMessage.
   ///
   /// In zh_Hans, this message translates to:

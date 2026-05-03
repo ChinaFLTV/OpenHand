@@ -4628,6 +4628,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Defaults to Ctrl + Down and wraps to the start of the session list.';
 
   @override
+  String get settingsUndoLastFileMutation => 'Undo last file mutation';
+
+  @override
+  String get settingsDefaultsToCtrlShiftZForUndo =>
+      'Defaults to Ctrl + Shift + Z; reverts the most recent file mutation in the current session.';
+
+  @override
   String get auditDeleteMessage => 'Delete Message';
 
   @override

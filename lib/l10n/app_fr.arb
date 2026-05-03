@@ -1834,6 +1834,8 @@
   "settingsDefaultsToCtrlSForToggling": "Par défaut Ctrl + S pour basculer le suivi automatique.",
   "settingsDefaultsToCtrlUpAndWraps": "Par défaut Ctrl + Haut et boucle à la fin de la liste de sessions.",
   "settingsDefaultsToCtrlDownAndWraps": "Par défaut Ctrl + Bas et boucle au début de la liste de sessions.",
+  "settingsUndoLastFileMutation": "Annuler la dernière modification de fichier",
+  "settingsDefaultsToCtrlShiftZForUndo": "Par défaut Ctrl + Maj + Z. Annule la modification de fichier la plus récente du journal de la session courante.",
   "auditDeleteMessage": "Supprimer le message",
   "auditDeleteThisMessageThisCannotBe": "Supprimer ce message ? Cette action est irréversible.",
   "auditCancel": "Annuler",

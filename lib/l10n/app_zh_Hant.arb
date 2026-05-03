@@ -1834,6 +1834,8 @@
   "settingsDefaultsToCtrlSForToggling": "默认 Ctrl + S，开关自动滚动模式。",
   "settingsDefaultsToCtrlUpAndWraps": "默认 Ctrl + ↑，切换到上一个会话并支持绕圈。",
   "settingsDefaultsToCtrlDownAndWraps": "默认 Ctrl + ↓，切换到下一个会话并支持绕圈。",
+  "settingsUndoLastFileMutation": "復原最近一次檔案變動",
+  "settingsDefaultsToCtrlShiftZForUndo": "默認 Ctrl + Shift + Z，復原當前會話 ledger 中最新一條可復原的檔案變動。",
   "auditDeleteMessage": "删除消息",
   "auditDeleteThisMessageThisCannotBe": "确认删除该消息？此操作不可撤销。",
   "auditCancel": "取消",

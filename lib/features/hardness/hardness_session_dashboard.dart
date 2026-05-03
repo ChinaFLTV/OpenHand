@@ -1305,6 +1305,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
       case OpenHandShortcutAction.selectNextModel:
       case OpenHandShortcutAction.selectPreviousSession:
       case OpenHandShortcutAction.selectNextSession:
+      case OpenHandShortcutAction.undoLastFileMutation:
         return false;
     }
   }
