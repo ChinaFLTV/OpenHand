@@ -78,12 +78,11 @@ class AiToolSearchTool extends AiTool {
       deferred: deferred,
     );
     final functions = _renderFunctionsBlock(matches);
-    final lines = <String>[
-      'matches: ${matches.length} (of ${deferred.length} deferred)',
-      'query: $query',
-    ];
+    final lines = <String>[];
     if (matches.isEmpty) {
       lines
+        ..add('⚠ ToolSearch matched 0 of ${deferred.length} deferred MCP tool(s).')
+        ..add('query: $query')
         ..add('')
         ..add(
           'No deferred MCP tool matched. Try different keywords (server name, '
@@ -91,6 +90,11 @@ class AiToolSearchTool extends AiTool {
         );
     } else {
       lines
+        ..add(
+          '✅ ToolSearch loaded ${matches.length} of ${deferred.length} '
+          'deferred MCP tool(s).',
+        )
+        ..add('query: $query')
         ..add('loaded: ${matches.join(', ')}')
         ..add('')
         ..add(
