@@ -211,4 +211,31 @@ void main() {
     expect(remaining.length, 3,
         reason: '只应保留最近 3 条同文件记录');
   });
+
+  // ─── 阶段⑦f unifiedDiffLineSummary 单测（FileMutationCard 复制按钮所用）───
+  test('unifiedDiffLineSummary 完全相同 → 全部 ` ` 行', () {
+    final out = unifiedDiffLineSummary('a\nb\nc', 'a\nb\nc');
+    expect(out.split('\n'), [' a', ' b', ' c']);
+  });
+
+  test('unifiedDiffLineSummary 中间一行修改 → -/+ 配对', () {
+    final out = unifiedDiffLineSummary('a\nb\nc', 'a\nB\nc');
+    expect(out.split('\n'), [' a', '-b', '+B', ' c']);
+  });
+
+  test('unifiedDiffLineSummary 仅新增 → 末尾全 +', () {
+    final out = unifiedDiffLineSummary('a', 'a\nb\nc');
+    expect(out.split('\n'), [' a', '+b', '+c']);
+  });
+
+  test('unifiedDiffLineSummary 仅删除 → 末尾全 -', () {
+    final out = unifiedDiffLineSummary('a\nb\nc', 'a');
+    expect(out.split('\n'), [' a', '-b', '-c']);
+  });
+
+  test('unifiedDiffLineSummary 空 before → 全部 +; 空 after → 全部 -', () {
+    expect(unifiedDiffLineSummary('', 'x\ny').split('\n'), ['-', '+x', '+y']);
+    // 注意：'' split('\n') → ['']，所以会产出一个 ` ` 空行配对
+    expect(unifiedDiffLineSummary('x\ny', '').split('\n'), ['-x', '+', '-y']);
+  });
 }

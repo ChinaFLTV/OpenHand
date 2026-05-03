@@ -1381,6 +1381,8 @@
   "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
   "fileMutationUndoAll": "すべて元に戻す",
   "fileMutationRefresh": "更新",
+  "fileMutationCopyAllDiff": "すべての diff をコピー",
+  "fileMutationCopyAllDiffDone": "すべての diff をクリップボードにコピーしました",
   "fileMutationUndone": "元に戻し済み",
   "fileMutationCascadeUndone": "連動して無効化",
   "fileMutationUndoThis": "この変更を元に戻す",

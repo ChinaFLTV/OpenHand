@@ -1381,6 +1381,8 @@
   "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
   "fileMutationUndoAll": "全部復原",
   "fileMutationRefresh": "重新整理",
+  "fileMutationCopyAllDiff": "複製全部 diff",
+  "fileMutationCopyAllDiffDone": "全部 diff 已複製到剪貼簿",
   "fileMutationUndone": "已復原",
   "fileMutationCascadeUndone": "連動失效",
   "fileMutationUndoThis": "復原此次修改",

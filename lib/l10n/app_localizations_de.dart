@@ -3156,6 +3156,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get fileMutationRefresh => 'Aktualisieren';
 
   @override
+  String get fileMutationCopyAllDiff => 'Alle Diffs kopieren';
+
+  @override
+  String get fileMutationCopyAllDiffDone =>
+      'Alle Diffs in die Zwischenablage kopiert';
+
+  @override
   String get fileMutationUndone => 'Rückgängig';
 
   @override

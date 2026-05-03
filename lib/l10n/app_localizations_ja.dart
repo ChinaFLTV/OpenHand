@@ -2998,6 +2998,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fileMutationRefresh => '更新';
 
   @override
+  String get fileMutationCopyAllDiff => 'すべての diff をコピー';
+
+  @override
+  String get fileMutationCopyAllDiffDone => 'すべての diff をクリップボードにコピーしました';
+
+  @override
   String get fileMutationUndone => '元に戻し済み';
 
   @override

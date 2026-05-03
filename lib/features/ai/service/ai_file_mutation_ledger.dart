@@ -188,6 +188,27 @@ class LedgerConfig {
   }
 }
 
+/// 阶段 ⑦c/⑦f：极简 unified diff 行级摘要。共同行标 ` `，删除行 `-`，
+/// 新增行 `+`。不做 LCS 最优——目标是粘到 PR/聊天里能一眼看出改了
+/// 哪几行；提取成顶层函数便于单测。
+String unifiedDiffLineSummary(String before, String after) {
+  final a = before.split('\n');
+  final b = after.split('\n');
+  final out = StringBuffer();
+  final maxLen = a.length > b.length ? a.length : b.length;
+  for (var i = 0; i < maxLen; i++) {
+    final lhs = i < a.length ? a[i] : null;
+    final rhs = i < b.length ? b[i] : null;
+    if (lhs == rhs) {
+      out.writeln(' ${lhs ?? ''}');
+    } else {
+      if (lhs != null) out.writeln('-$lhs');
+      if (rhs != null) out.writeln('+$rhs');
+    }
+  }
+  return out.toString().trimRight();
+}
+
 class AiFileMutationLedger {
   AiFileMutationLedger({String? rootDirectoryOverride})
     : _rootOverride = rootDirectoryOverride;

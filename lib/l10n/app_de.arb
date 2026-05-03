@@ -1381,6 +1381,8 @@
   "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
   "fileMutationUndoAll": "Alle rückgängig",
   "fileMutationRefresh": "Aktualisieren",
+  "fileMutationCopyAllDiff": "Alle Diffs kopieren",
+  "fileMutationCopyAllDiffDone": "Alle Diffs in die Zwischenablage kopiert",
   "fileMutationUndone": "Rückgängig",
   "fileMutationCascadeUndone": "Kaskadiert rückgängig",
   "fileMutationUndoThis": "Diese Änderung rückgängig machen",

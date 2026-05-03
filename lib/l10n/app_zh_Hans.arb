@@ -1440,6 +1440,8 @@
   "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
   "fileMutationUndoAll": "撤销全部",
   "fileMutationRefresh": "刷新状态",
+  "fileMutationCopyAllDiff": "复制全部 diff",
+  "fileMutationCopyAllDiffDone": "全部 diff 已复制到剪贴板",
   "fileMutationUndone": "已撤销",
   "fileMutationCascadeUndone": "级联失效",
   "fileMutationUndoThis": "撤销此次修改",

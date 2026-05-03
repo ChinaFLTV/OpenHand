@@ -3121,6 +3121,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fileMutationRefresh => 'Refresh';
 
   @override
+  String get fileMutationCopyAllDiff => 'Copy all diffs';
+
+  @override
+  String get fileMutationCopyAllDiffDone => 'All diffs copied to clipboard';
+
+  @override
   String get fileMutationUndone => 'Undone';
 
   @override

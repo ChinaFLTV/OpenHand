@@ -1199,9 +1199,16 @@ class _FileMutationCard extends StatefulWidget {
 class _FileMutationCardState extends State<_FileMutationCard> {
   final Set<String> _expandedRecordIds = <String>{};
   final Set<String> _busyRecordIds = <String>{};
+  final ValueNotifier<int> _pulseSignal = ValueNotifier<int>(0);
   Future<List<FileMutationView>>? _viewsFuture;
   String? _lastSessionId;
   String? _lastToolCallId;
+
+  @override
+  void dispose() {
+    _pulseSignal.dispose();
+    super.dispose();
+  }
 
   String get _toolCallId =>
       '${widget.message.metadata['tool_call_id'] ?? ''}'.trim();
@@ -1257,6 +1264,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
               ? r.errorMessage
               : AppLocalizations.of(context)!.fileMutationUndoFailed)),
         );
+      } else {
+        _pulseSignal.value += 1;
       }
     } finally {
       if (mounted) {
@@ -1282,6 +1291,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
               ? r.errorMessage
               : AppLocalizations.of(context)!.fileMutationRedoFailed)),
         );
+      } else {
+        _pulseSignal.value += 1;
       }
     } finally {
       if (mounted) {
@@ -1296,6 +1307,39 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       if (!v.canUndo) continue;
       await _undo(v);
     }
+  }
+
+  /// 阶段 ⑦c：聚合当前 toolCall 涉及的所有 view 的 before/after 内容，
+  /// 拼成 `# <path>\n```diff\n<unified diff>\n```` 的合并 markdown 写入剪贴板。
+  /// 任意 blob 读取失败的条目以 `<missing>` 占位，保持其它项可用。
+  Future<void> _copyAllDiff(List<FileMutationView> views) async {
+    if (views.isEmpty) return;
+    final ledger = _ctrl(context).toolRuntimeService.mutationLedger;
+    final buf = StringBuffer();
+    for (final v in views) {
+      final r = v.record;
+      buf.writeln('# ${r.filePath}');
+      final before = r.beforeSha == null
+          ? ''
+          : (await ledger.readBlob(r.beforeSha!) ?? '<missing>');
+      final after = r.afterSha == null
+          ? ''
+          : (await ledger.readBlob(r.afterSha!) ?? '<missing>');
+      buf.writeln('```diff');
+      buf.writeln(unifiedDiffLineSummary(before, after));
+      buf.writeln('```');
+      buf.writeln();
+    }
+    await Clipboard.setData(ClipboardData(text: buf.toString()));
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(
+          AppLocalizations.of(context)!.fileMutationCopyAllDiffDone,
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _toggleExpand(String recordId) {
@@ -1410,7 +1454,10 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
     final anyUndoable = views.any((v) => v.canUndo);
     final anyRedoable = views.any((v) => v.canRedo);
-    return Container(
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow.withValues(alpha: 0.85),
         borderRadius: const BorderRadius.all(Radius.circular(16)),
@@ -1471,6 +1518,12 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                     tooltip: AppLocalizations.of(context)!.fileMutationRefresh,
                     onTap: _refresh,
                   ),
+                _IconActionButton(
+                  icon: Icons.copy_all_rounded,
+                  tooltip:
+                      AppLocalizations.of(context)!.fileMutationCopyAllDiff,
+                  onTap: () => _copyAllDiff(views),
+                ),
               ],
             ),
           ),
@@ -1494,6 +1547,16 @@ class _FileMutationCardState extends State<_FileMutationCard> {
             ),
         ],
       ),
+    ),
+        // 阶段 ⑦e：每次 undo/redo 成功在卡顶发一次温和的 highlight pulse；
+        // HighlightPulse 自带 reduceMotion 守门，不需要我们再 gate。
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
+        ),
+      ],
     );
   }
 

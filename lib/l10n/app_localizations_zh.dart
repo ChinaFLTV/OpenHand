@@ -2957,6 +2957,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fileMutationRefresh => '刷新状态';
 
   @override
+  String get fileMutationCopyAllDiff => '复制全部 diff';
+
+  @override
+  String get fileMutationCopyAllDiffDone => '全部 diff 已复制到剪贴板';
+
+  @override
   String get fileMutationUndone => '已撤销';
 
   @override
@@ -7680,6 +7686,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get fileMutationRefresh => '刷新状态';
 
   @override
+  String get fileMutationCopyAllDiff => '复制全部 diff';
+
+  @override
+  String get fileMutationCopyAllDiffDone => '全部 diff 已复制到剪贴板';
+
+  @override
   String get fileMutationUndone => '已撤销';
 
   @override
@@ -12400,6 +12412,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get fileMutationRefresh => '重新整理';
+
+  @override
+  String get fileMutationCopyAllDiff => '複製全部 diff';
+
+  @override
+  String get fileMutationCopyAllDiffDone => '全部 diff 已複製到剪貼簿';
 
   @override
   String get fileMutationUndone => '已復原';

@@ -1381,6 +1381,8 @@
   "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
   "fileMutationUndoAll": "Undo all",
   "fileMutationRefresh": "Refresh",
+  "fileMutationCopyAllDiff": "Copy all diffs",
+  "fileMutationCopyAllDiffDone": "All diffs copied to clipboard",
   "fileMutationUndone": "Undone",
   "fileMutationCascadeUndone": "Cascade undone",
   "fileMutationUndoThis": "Undo this change",

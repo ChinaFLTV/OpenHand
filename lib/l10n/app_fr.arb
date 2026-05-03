@@ -1381,6 +1381,8 @@
   "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
   "fileMutationUndoAll": "Tout annuler",
   "fileMutationRefresh": "Actualiser",
+  "fileMutationCopyAllDiff": "Copier tous les diffs",
+  "fileMutationCopyAllDiffDone": "Tous les diffs copiés dans le presse-papiers",
   "fileMutationUndone": "Annulé",
   "fileMutationCascadeUndone": "Annulation en cascade",
   "fileMutationUndoThis": "Annuler cette modification",

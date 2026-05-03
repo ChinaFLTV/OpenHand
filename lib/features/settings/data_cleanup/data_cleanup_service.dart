@@ -144,10 +144,21 @@ class DataCleanupService {
   }
 
   /// 2026-05-03 文件变动 ledger 体积（`~/.openhand/file_history/`）。
-  Future<DataCleanupSizeReport> measureMutationLedger() {
-    return compute(
-      _isolateMeasureDirectory,
-      p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history'),
+  /// 阶段 ⑦a：itemCount 用 ledger 自带的 statsSnapshot 报回 record 行数，
+  /// 让 UI 主卡片 subtitle 直接显示 N 项，且与高级控制头部数字一致。
+  Future<DataCleanupSizeReport> measureMutationLedger() async {
+    final results = await Future.wait([
+      compute(
+        _isolateMeasureDirectory,
+        p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history'),
+      ),
+      AiFileMutationLedger().statsSnapshot(),
+    ]);
+    final dirReport = results[0] as DataCleanupSizeReport;
+    final stats = results[1] as LedgerStatsSnapshot;
+    return DataCleanupSizeReport(
+      bytes: dirReport.bytes,
+      itemCount: stats.recordCount,
     );
   }
 

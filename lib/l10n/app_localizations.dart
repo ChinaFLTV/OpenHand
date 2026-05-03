@@ -5638,6 +5638,18 @@ abstract class AppLocalizations {
   /// **'刷新状态'**
   String get fileMutationRefresh;
 
+  /// No description provided for @fileMutationCopyAllDiff.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制全部 diff'**
+  String get fileMutationCopyAllDiff;
+
+  /// No description provided for @fileMutationCopyAllDiffDone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部 diff 已复制到剪贴板'**
+  String get fileMutationCopyAllDiffDone;
+
   /// No description provided for @fileMutationUndone.
   ///
   /// In zh_Hans, this message translates to:

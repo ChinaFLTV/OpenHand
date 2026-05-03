@@ -48,6 +48,7 @@ import '../../shared/widgets/choice_input_dialog.dart';
 import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/export_config_dialog.dart';
 import '../../shared/widgets/export_progress_dialog.dart';
+import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
 import '../../shared/widgets/micro_press_feedback.dart';
 import '../../shared/widgets/model_search_selector.dart';
@@ -2425,13 +2426,33 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       if (!mounted) return;
       if (outcome.success) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        messenger?.showSnackBar(
           SnackBar(
             content: Text(
               '${AppLocalizations.of(context)!.fileMutationUndone}: '
               '${r.filePath}',
             ),
-            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: AppLocalizations.of(context)!.fileMutationRedo,
+              onPressed: () async {
+                final redoResult = await ledger.redoRecord(
+                  sessionId: sessionId,
+                  recordId: r.recordId,
+                );
+                if (!mounted) return;
+                final msg = redoResult.success
+                    ? '${AppLocalizations.of(context)!.fileMutationRedo}: '
+                          '${r.filePath}'
+                    : AppLocalizations.of(context)!.fileMutationRedoFailed;
+                ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                  SnackBar(
+                    content: Text(msg),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
           ),
         );
         return;

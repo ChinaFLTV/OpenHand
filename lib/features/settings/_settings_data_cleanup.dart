@@ -739,6 +739,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   LedgerConfig? _config;
   LedgerStatsSnapshot? _stats;
   Timer? _saveDebounce;
+  bool _pruneNowBusy = false;
 
   @override
   void initState() {
@@ -754,6 +755,25 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     final stats = await _ledger.statsSnapshot();
     if (!mounted) return;
     setState(() => _stats = stats);
+  }
+
+  /// 阶段 ⑦d：手动触发一次 ledger 维护——按当前 days/maxVersions 立刻
+  /// 跑一遍 prune，刷新统计。期间禁用按钮 + 显示进度。
+  Future<void> _pruneNow() async {
+    final cfg = _config;
+    if (cfg == null) return;
+    setState(() => _pruneNowBusy = true);
+    try {
+      if (cfg.autoCleanupDays > 0) {
+        await _ledger.pruneOlderThan(Duration(days: cfg.autoCleanupDays));
+      }
+      if (cfg.maxVersionsPerFile > 0) {
+        await _ledger.pruneToMaxVersionsPerFile(cfg.maxVersionsPerFile);
+      }
+      await _refreshStats();
+    } finally {
+      if (mounted) setState(() => _pruneNowBusy = false);
+    }
   }
 
   @override
@@ -855,6 +875,24 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
             divisions: LedgerConfig.maxAutoCleanupDays,
             onChanged: (v) => _scheduleSave(
                 config.copyWith(autoCleanupDays: v.round())),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _pruneNowBusy ? null : _pruneNow,
+              icon: _pruneNowBusy
+                  ? SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: cs.primary),
+                    )
+                  : Icon(Icons.cleaning_services_rounded,
+                      size: 16, color: cs.primary),
+              label: Text(_localizedText(context,
+                  zh: '立即清理超期', en: 'Prune now')),
+            ),
           ),
         ],
       ),
