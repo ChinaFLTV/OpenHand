@@ -3577,12 +3577,33 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
     final after = r.afterSha == null
         ? ''
         : (await ledger.readBlob(r.afterSha!) ?? '');
-    return unifiedDiffLineSummary(
-      before,
-      after,
-      beforeSha: r.beforeSha,
-      afterSha: r.afterSha,
-      miniDiffMaxBytes: config.miniDiffMaxBytes,
+    // 阶段⑲a：大文件（before+after > 24 KiB）走 isolate 计算 diff，避免
+    // 主线程长卡顿；小文件继续同步直跑（避免 spawn 开销）。
+    final totalBytes = before.length + after.length;
+    if (totalBytes > 24 * 1024) {
+      return developer.Timeline.timeSync<Future<String>>(
+        'openhand.diff.compute(isolate, ${totalBytes}c)',
+        () => compute<_DiffComputeArgs, String>(
+          _runDiffSummaryInIsolate,
+          _DiffComputeArgs(
+            before: before,
+            after: after,
+            beforeSha: r.beforeSha,
+            afterSha: r.afterSha,
+            miniDiffMaxBytes: config.miniDiffMaxBytes,
+          ),
+        ),
+      );
+    }
+    return developer.Timeline.timeSync<String>(
+      'openhand.diff.compute(sync, ${totalBytes}c)',
+      () => unifiedDiffLineSummary(
+        before,
+        after,
+        beforeSha: r.beforeSha,
+        afterSha: r.afterSha,
+        miniDiffMaxBytes: config.miniDiffMaxBytes,
+      ),
     );
   }
 
@@ -3670,14 +3691,20 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
   }
 
   Widget _diffLine(ThemeData theme, ColorScheme cs, String line) {
+    // 阶段⑲b：暗色模式下用更亮的前景 + 更柔和的底色，避免对比度暴涨。
+    final isDark = theme.brightness == Brightness.dark;
     Color? bg;
     Color fg = cs.onSurface;
     if (line.startsWith('+')) {
-      bg = const Color(0xFF2E7D32).withValues(alpha: 0.10);
-      fg = const Color(0xFF1B5E20);
+      bg = isDark
+          ? const Color(0xFF66BB6A).withValues(alpha: 0.16)
+          : const Color(0xFF2E7D32).withValues(alpha: 0.10);
+      fg = isDark
+          ? const Color(0xFFA5D6A7)
+          : const Color(0xFF1B5E20);
     } else if (line.startsWith('-')) {
-      bg = cs.error.withValues(alpha: 0.10);
-      fg = cs.error;
+      bg = cs.error.withValues(alpha: isDark ? 0.18 : 0.10);
+      fg = isDark ? cs.error.withValues(alpha: 0.95) : cs.error;
     } else {
       fg = cs.onSurfaceVariant;
     }
@@ -3697,5 +3724,32 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
       ),
     );
   }
+}
+
+/// 阶段⑲a：isolate 计算 diff 摘要的入参快照（必须可序列化跨 isolate）。
+class _DiffComputeArgs {
+  const _DiffComputeArgs({
+    required this.before,
+    required this.after,
+    required this.beforeSha,
+    required this.afterSha,
+    required this.miniDiffMaxBytes,
+  });
+  final String before;
+  final String after;
+  final String? beforeSha;
+  final String? afterSha;
+  final int miniDiffMaxBytes;
+}
+
+/// `compute` 入口必须是顶层函数。委托到纯函数 [unifiedDiffLineSummary]。
+String _runDiffSummaryInIsolate(_DiffComputeArgs args) {
+  return unifiedDiffLineSummary(
+    args.before,
+    args.after,
+    beforeSha: args.beforeSha,
+    afterSha: args.afterSha,
+    miniDiffMaxBytes: args.miniDiffMaxBytes,
+  );
 }
 

@@ -1265,19 +1265,27 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     final maxWidth = media.size.width * 0.72;
     final maxHeight = media.size.height * 0.72;
     return Dialog(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: maxWidth.clamp(420, 920),
-          maxHeight: maxHeight.clamp(420, 720),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          // 阶段⑲c：Esc 关闭搜索弹窗。
+          const SingleActivator(LogicalKeyboardKey.escape):
+              () => Navigator.of(context).maybePop(),
+        },
+        child: Focus(
+          autofocus: true,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: maxWidth.clamp(420, 920),
+              maxHeight: maxHeight.clamp(420, 720),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Row(
+                    children: [
                   Icon(Icons.search_rounded, color: cs.primary, size: 18),
                   const SizedBox(width: 8),
                   Text(
@@ -1478,6 +1486,8 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
               ),
             ],
           ),
+        ),
+      ),
         ),
       ),
     );

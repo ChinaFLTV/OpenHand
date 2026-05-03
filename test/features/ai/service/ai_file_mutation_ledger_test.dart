@@ -522,6 +522,87 @@ void main() {
     expect(zoomed.length, 2);
     expect(zoomed.every((v) => v.record.filePath == f1.path), isTrue);
   });
+
+  test('exportRecordsAsBundleJson 仅打包传入子集 + 关联 blob', () async {
+    final f1 = await stagingFile('a.txt', 'A');
+    final f2 = await stagingFile('b.txt', 'B');
+    final r1 = await ledger.recordMutation(
+      sessionId: 's1',
+      toolCallId: 'tc1',
+      toolName: 'Edit',
+      filePath: f1.path,
+      kind: FileMutationKind.modify,
+      beforeContent: 'A',
+      afterContent: 'A2',
+    );
+    final r2 = await ledger.recordMutation(
+      sessionId: 's1',
+      toolCallId: 'tc2',
+      toolName: 'Write',
+      filePath: f2.path,
+      kind: FileMutationKind.modify,
+      beforeContent: 'B',
+      afterContent: 'B2',
+    );
+    expect(r1, isNotNull);
+    expect(r2, isNotNull);
+
+    // 只导出 r1（子集），bundle 应不包含 r2 任何痕迹。
+    final bundle = await ledger.exportRecordsAsBundleJson([r1!]);
+    expect(bundle.contains('"openhand.file_mutation_ledger.bundle"'), isTrue);
+    expect(bundle.contains(r1.recordId), isTrue);
+    expect(bundle.contains(r2!.recordId), isFalse,
+        reason: '子集导出不应泄露未选中的 record');
+
+    // sha 引用的 blob 应内联进 blobs_b64。
+    if (r1.beforeSha != null) {
+      expect(bundle.contains(r1.beforeSha!), isTrue);
+    }
+    if (r1.afterSha != null) {
+      expect(bundle.contains(r1.afterSha!), isTrue);
+    }
+  });
+
+  test('exportRecordsAsBundleJson 跨 session 子集按 sessionId 正确分桶', () async {
+    final f = await stagingFile('cross.txt', 'X');
+    final ra = await ledger.recordMutation(
+      sessionId: 'sA',
+      toolCallId: 'tc',
+      toolName: 'Edit',
+      filePath: f.path,
+      kind: FileMutationKind.modify,
+      beforeContent: 'X',
+      afterContent: 'X2',
+    );
+    final rb = await ledger.recordMutation(
+      sessionId: 'sB',
+      toolCallId: 'tc',
+      toolName: 'Edit',
+      filePath: f.path,
+      kind: FileMutationKind.modify,
+      beforeContent: 'X2',
+      afterContent: 'X3',
+    );
+    final bundle = await ledger.exportRecordsAsBundleJson([ra!, rb!]);
+    expect(bundle.contains('"sA"'), isTrue);
+    expect(bundle.contains('"sB"'), isTrue);
+
+    // 通过 import 回到一个空 ledger 验证子集 round-trip 正确。
+    final tmp2 = await Directory.systemTemp.createTemp('openhand_ledger_rt_');
+    try {
+      final fresh = AiFileMutationLedger(rootDirectoryOverride: tmp2.path);
+      final imported = await fresh.importBundleJson(bundle);
+      expect(imported, 2);
+      final viewsA = await fresh.recordsForSession('sA');
+      final viewsB = await fresh.recordsForSession('sB');
+      expect(viewsA.length, 1);
+      expect(viewsB.length, 1);
+      expect(viewsA.first.recordId, ra.recordId);
+      expect(viewsB.first.recordId, rb.recordId);
+    } finally {
+      if (await tmp2.exists()) await tmp2.delete(recursive: true);
+    }
+  });
 }
 
 /// `touch -t` 期望的 stamp 格式：CCYYMMDDhhmm.SS
