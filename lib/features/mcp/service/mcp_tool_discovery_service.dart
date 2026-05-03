@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
@@ -1785,9 +1787,52 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   return _ResolvedStdioLaunch(
     executable: executable,
     args: args,
-    environment: <String, String>{'PATH': mergedPath},
+    environment: <String, String>{
+      'PATH': mergedPath,
+      // 把 npm / pnpm / yarn / bun / uv / pip 的缓存目录隔离到 ~/.openhand/mcp/package-cache，
+      // 避开用户 ~/.npm 因历史 sudo install 留下的 root 属主文件 (典型症状：
+      // EACCES rename / EEXIST / ENOTEMPTY)。所有目录懒创建，存在则复用。
+      ..._isolatedPackageCacheEnv(),
+    },
     augmentedPath: mergedPath,
   );
+}
+
+Map<String, String> _isolatedPackageCacheEnv() {
+  try {
+    final root = p.join(OpenHandPaths.defaultMcpDirectoryPath(), 'package-cache');
+    Directory(root).createSync(recursive: true);
+    final npmCache = p.join(root, 'npm');
+    final npmPrefix = p.join(root, 'npm-prefix');
+    final uvCache = p.join(root, 'uv');
+    final pipCache = p.join(root, 'pip');
+    final bunInstall = p.join(root, 'bun');
+    final denoDir = p.join(root, 'deno');
+    final pnpmStore = p.join(root, 'pnpm-store');
+    final yarnCache = p.join(root, 'yarn');
+    Directory(npmCache).createSync(recursive: true);
+    Directory(npmPrefix).createSync(recursive: true);
+    return <String, String>{
+      // npm / npx 系列
+      'npm_config_cache': npmCache,
+      'npm_config_prefix': npmPrefix,
+      // pnpm
+      'PNPM_HOME': pnpmStore,
+      // yarn classic
+      'YARN_CACHE_FOLDER': yarnCache,
+      // bun
+      'BUN_INSTALL': bunInstall,
+      // deno
+      'DENO_DIR': denoDir,
+      // uv / uvx
+      'UV_CACHE_DIR': uvCache,
+      // pip / pipx
+      'PIP_CACHE_DIR': pipCache,
+    };
+  } catch (error, stack) {
+    silentLog('mcp.stdio', 'isolatedPackageCacheEnv', error, stack);
+    return const <String, String>{};
+  }
 }
 
 String _pickShell() {
