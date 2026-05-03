@@ -48,12 +48,17 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
   static const Duration _scanTimeout = Duration(seconds: 8);
   // stdio 首次冷启动通常要跑 npx / uvx 拉远端包；chrome-devtools-mcp 这类
-  // 还要顺带装 puppeteer + Chrome Beta（≈250MB），普通家宽 3~5 分钟很常见。
-  // 给 stdio 单独大幅放宽到 6 分钟（扫描）/ 4 分钟（健康检查），命中缓存后
-  // 下次会瞬间返回，不影响热路径。
+  // 还要顺带装 puppeteer + Chrome Beta（≈50MB 中间产品，最终 250MB），
+  // 家宽 3~5 分钟很常见。三层超时应遵守「内小外大」：
+  //   外层 _stdioScanTimeout / _stdioHealthCheckTimeout ＝ 6 分钟
+  //   中层 _stdioInitializeTimeout              ＝ 5 分钟【覆盖 sendRequest 默认 6s】
+  //   内层 _requestTimeout (sendRequest 默认)  ＝ 6 秒
+  // 另外 _initializeStdioSession 中 initialize RPC 必须显式传 _stdioInitializeTimeout
+  // 覆盖默认 6 秒 —— 否则外层再大也在 6 秒后就被内层 timeout 杚死。
   static const Duration _stdioScanTimeout = Duration(minutes: 6);
   static const Duration _healthCheckTimeout = Duration(seconds: 6);
-  static const Duration _stdioHealthCheckTimeout = Duration(minutes: 4);
+  static const Duration _stdioHealthCheckTimeout = Duration(minutes: 6);
+  static const Duration _stdioInitializeTimeout = Duration(minutes: 5);
   static const Duration _requestTimeout = Duration(seconds: 6);
   static const Duration _toolCallTimeout = Duration(seconds: 30);
   static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
@@ -467,6 +472,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             id: _nextId(),
             protocolVersion: _streamableHttpProtocolVersion,
           ),
+          // initialize 是 stdio MCP 冷启动唯一会被 npx/uvx 拉包 / Chrome Beta
+          // 下载阻塞的 RPC。默认 _requestTimeout = 6s 完全不够 ——
+          // 以前表面上看到的「健康检查 4 分钟超时」其实是少补了这个 timeout
+          // 参数后在 6s 就仆了、但被外层 4min envelope 接中后复述成了 4min。
+          // 这里明确赋 5min（外层 6min envelope 就能火上火块包住）。
+          timeout: _stdioInitializeTimeout,
         ),
       );
       session.instructions = _readText(initializeResult['instructions']);
