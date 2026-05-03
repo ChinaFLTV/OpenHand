@@ -924,6 +924,7 @@ class AiToolRuntimeService {
       server: server,
       toolName: mcpTool.id,
       arguments: decodedArguments,
+      toolCallId: toolCall.id,
     );
     final outputText = result.outputText.trim().isEmpty
         ? 'The MCP tool returned no output.'

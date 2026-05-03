@@ -471,6 +471,7 @@ class AiBashToolService {
         onUpdate: onUpdate,
         cancelSignal: cancelSignal,
         timeoutMs: timeoutMs,
+        toolCallId: toolCallId,
       );
       // If the persistent session died unexpectedly, retry with a one-shot
       // subprocess so the user doesn't see a bare "bad state" error.
@@ -684,6 +685,7 @@ class AiBashToolService {
     void Function(BashToolExecutionUpdate update)? onUpdate,
     Future<void>? cancelSignal,
     required int timeoutMs,
+    String? toolCallId,
   }) async {
     final fallbackWorkingDirectory = requestedWorkingDirectory.isEmpty
         ? OpenHandPaths.applicationDirectoryPath()
@@ -738,6 +740,20 @@ class AiBashToolService {
     final progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
     });
+
+    // 持久 session 路径接入登记中心：kill 时关闭整个 shell；下次同 sessionId 的
+    // 调用会经 _ensurePersistentSession 自动重建，不影响后续执行。
+    final registeredToolCallId = toolCallId;
+    if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
+      AiToolExecutionRegistry.instance.attachPid(
+        registeredToolCallId,
+        session.process.pid,
+      );
+      AiToolExecutionRegistry.instance.attachKiller(
+        registeredToolCallId,
+        () async => _closePersistentSession(sessionId),
+      );
+    }
 
     try {
       session.process.stdin.write(

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
+import '../../ai/service/ai_tool_execution_registry.dart';
 import '../../ai/service/ai_transport_diagnostic_messages.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
@@ -19,6 +20,7 @@ abstract class McpToolDiscoveryService {
     required McpServer server,
     required String toolName,
     Map<String, Object?> arguments = const <String, Object?>{},
+    String? toolCallId,
   });
 
   void dispose();
@@ -139,6 +141,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     required McpServer server,
     required String toolName,
     Map<String, Object?> arguments = const <String, Object?>{},
+    String? toolCallId,
   }) async {
     late final Map<String, Object?> result;
     try {
@@ -153,7 +156,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           toolName,
           arguments,
         ),
-        McpServerType.stdio => _callToolOverStdio(server, toolName, arguments),
+        McpServerType.stdio => _callToolOverStdio(
+          server,
+          toolName,
+          arguments,
+          toolCallId: toolCallId,
+        ),
       }.timeout(_toolCallTimeout);
     } on TimeoutException {
       throw const McpToolDiscoveryException(
@@ -292,9 +300,24 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<Map<String, Object?>> _callToolOverStdio(
     McpServer server,
     String toolName,
-    Map<String, Object?> arguments,
-  ) async {
+    Map<String, Object?> arguments, {
+    String? toolCallId,
+  }) async {
     final session = await _initializeStdioSession(server);
+    // 将 stdio MCP server 进程接入执行登记中心：kill 时关闭 session
+    // （内部会 stdin.close 后超时调 _process.kill）。本调用返回后 finally
+    // 会再调 close 一次，重复调用是幂等的。
+    final registeredToolCallId = toolCallId;
+    if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
+      AiToolExecutionRegistry.instance.attachPid(
+        registeredToolCallId,
+        session.process.pid,
+      );
+      AiToolExecutionRegistry.instance.attachKiller(
+        registeredToolCallId,
+        () async => session.close(),
+      );
+    }
     try {
       return _extractResult(
         await session.sendRequest(
@@ -1542,6 +1565,7 @@ class _StdioSession {
   }
 
   final Process _process;
+  Process get process => _process;
   final Duration _requestTimeout;
   final List<int> _stdoutBuffer = <int>[];
   final StringBuffer _stderrBuffer = StringBuffer();
