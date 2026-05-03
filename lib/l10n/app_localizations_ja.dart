@@ -300,6 +300,29 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpOpenDirectory => 'ディレクトリを開く';
 
   @override
+  String get mcpStdioCacheResetAction => 'stdio パッケージキャッシュをリセット';
+
+  @override
+  String get mcpStdioCacheResetConfirmTitle => 'stdio の隔離パッケージキャッシュをリセットしますか？';
+
+  @override
+  String get mcpStdioCacheResetConfirmBody =>
+      '~/.openhand/mcp/package-cache 下の npm / uv / pip キャッシュを削除します。次回 stdio MCP 起動時に依存関係が再ダウンロードされます。グローバルの ~/.npm には影響しません。';
+
+  @override
+  String get mcpStdioCacheResetConfirm => 'リセット';
+
+  @override
+  String get mcpStdioCacheResetCancel => 'キャンセル';
+
+  @override
+  String get mcpStdioCacheResetDone => '隔離キャッシュをクリアしました。';
+
+  @override
+  String get mcpStdioCacheResetFailed =>
+      'リセットに失敗しました。~/.openhand/mcp/package-cache を手動で削除してください。';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCPツールの遅延読み込み';
 
   @override

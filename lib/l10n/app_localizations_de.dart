@@ -310,6 +310,30 @@ class AppLocalizationsDe extends AppLocalizations {
   String get mcpOpenDirectory => 'Verzeichnis öffnen';
 
   @override
+  String get mcpStdioCacheResetAction => 'stdio-Paketcache zurücksetzen';
+
+  @override
+  String get mcpStdioCacheResetConfirmTitle =>
+      'Isolierten stdio-Paketcache zurücksetzen?';
+
+  @override
+  String get mcpStdioCacheResetConfirmBody =>
+      'Dies löscht die npm-/uv-/pip-Caches unter ~/.openhand/mcp/package-cache. Beim nächsten Start eines stdio-MCP-Servers werden Abhängigkeiten erneut geladen. Das globale ~/.npm bleibt unberührt.';
+
+  @override
+  String get mcpStdioCacheResetConfirm => 'Zurücksetzen';
+
+  @override
+  String get mcpStdioCacheResetCancel => 'Abbrechen';
+
+  @override
+  String get mcpStdioCacheResetDone => 'Isolierter Cache wurde geleert.';
+
+  @override
+  String get mcpStdioCacheResetFailed =>
+      'Zurücksetzen fehlgeschlagen. Bitte ~/.openhand/mcp/package-cache manuell löschen.';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP-Tool Lazy Loading';
 
   @override

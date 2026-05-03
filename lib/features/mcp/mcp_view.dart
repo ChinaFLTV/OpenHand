@@ -1226,39 +1226,55 @@ class _McpServerCard extends StatelessWidget {
                         label: _healthStatusSummary(context, healthStatus),
                       ),
                     if (toolCatalog.isLoading)
-                      Tooltip(
-                        message: server.type == McpServerType.stdio
-                            ? _localizedText(
-                                context,
-                                zh: '首次启动通常较慢：npx / uvx 需要在线拉取 npm / PyPI 包并安装。\n'
-                                    '本应用给 stdio MCP 留 90 秒的发现窗口。',
-                                en:
-                                    'First launch is usually slow: npx / uvx '
-                                    'pulls npm / PyPI packages on demand. '
-                                    'OpenHand grants stdio MCP servers a 90 s '
-                                    'discovery window.',
-                              )
-                            : _localizedText(
-                                context,
-                                zh: '正在扫描该 MCP 服务暴露的 Tool 列表。',
-                                en:
-                                    'Scanning the tool list exposed by this '
-                                    'MCP server.',
-                              ),
-                        child: _McpStatusChip(
-                          icon: Icons.radar_rounded,
-                          label: server.type == McpServerType.stdio
+                      AnimatedBuilder(
+                        animation: mcpStdioBootstrapStatus,
+                        builder: (context, _) {
+                          final liveLine = server.type == McpServerType.stdio
+                              ? mcpStdioBootstrapStatus.statusOf(server.name)
+                              : null;
+                          final tooltipBase = server.type == McpServerType.stdio
                               ? _localizedText(
                                   context,
-                                  zh: '首启准备中…',
-                                  en: 'Bootstrapping…',
+                                  zh: '首次启动通常较慢：npx / uvx 需要在线拉取 npm / PyPI 包并安装。\n'
+                                      '本应用给 stdio MCP 留最长 6 分钟的发现窗口。',
+                                  en:
+                                      'First launch is usually slow: npx / uvx '
+                                      'pulls npm / PyPI packages on demand. '
+                                      'OpenHand grants stdio MCP servers up to '
+                                      '6 minutes for discovery.',
                                 )
+                              : _localizedText(
+                                  context,
+                                  zh: '正在扫描该 MCP 服务暴露的 Tool 列表。',
+                                  en:
+                                      'Scanning the tool list exposed by this '
+                                      'MCP server.',
+                                );
+                          final tooltipMsg = liveLine != null && liveLine.isNotEmpty
+                              ? '$tooltipBase\n\n$liveLine'
+                              : tooltipBase;
+                          // 标签：拿到 stderr 行后切到「首启 · 实时进度」，否则保持初始文案。
+                          final label = server.type == McpServerType.stdio
+                              ? (liveLine != null && liveLine.isNotEmpty
+                                  ? _truncateMiddle(liveLine)
+                                  : _localizedText(
+                                      context,
+                                      zh: '首启准备中…',
+                                      en: 'Bootstrapping…',
+                                    ))
                               : _localizedText(
                                   context,
                                   zh: '扫描 Tool 中',
                                   en: 'Scanning Tools',
-                                ),
-                        ),
+                                );
+                          return Tooltip(
+                            message: tooltipMsg,
+                            child: _McpStatusChip(
+                              icon: Icons.radar_rounded,
+                              label: label,
+                            ),
+                          );
+                        },
                       )
                     else if (toolCatalog.lastScannedAt != null)
                       _McpStatusChip(
@@ -3068,6 +3084,16 @@ String _executionSummary(BuildContext context, McpTool tool) {
     return _localizedText(context, zh: '默认', en: 'Default');
   }
   return taskSupport;
+}
+
+/// 把过长的进度行折成「头…尾」形式，避免 chip label 撑爆容器；
+/// 阈值 max 是字符上限（含省略号），优先保留前缀。
+String _truncateMiddle(String input, {int max = 36}) {
+  if (input.length <= max) return input;
+  final keepHead = (max * 0.6).round();
+  final keepTail = max - keepHead - 1;
+  if (keepTail <= 0) return '${input.substring(0, max - 1)}…';
+  return '${input.substring(0, keepHead)}…${input.substring(input.length - keepTail)}';
 }
 
 String _formatStatusTime(BuildContext context, DateTime timestamp) {

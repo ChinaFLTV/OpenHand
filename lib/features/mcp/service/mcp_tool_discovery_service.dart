@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
@@ -451,6 +452,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         runInShell: Platform.isWindows,
       ),
       requestTimeout: _requestTimeout,
+      onStderrLine: (line) {
+        // 把 npm/uvx 首启时的下载进度行实时透出给 UI 「正在 bootstrap」chip。
+        // 行已经在 _StdioSession 里 trim 过，这里做长度截断防爆 Tooltip。
+        final clean = line.length > 200 ? '${line.substring(0, 200)}…' : line;
+        mcpStdioBootstrapStatus.update(server.name, clean);
+      },
     );
     try {
       final initializeResult = _extractResult(
@@ -465,8 +472,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       await session.sendNotification(
         _jsonRpcNotification('notifications/initialized'),
       );
+      // initialize 已成功，bootstrap 阶段结束，清掉进度行避免 UI 残留。
+      mcpStdioBootstrapStatus.clear(server.name);
       return session;
     } catch (_) {
+      mcpStdioBootstrapStatus.clear(server.name);
       await session.close();
       rethrow;
     }
@@ -1802,7 +1812,7 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
 
 Map<String, String> _isolatedPackageCacheEnv() {
   try {
-    final root = p.join(OpenHandPaths.defaultMcpDirectoryPath(), 'package-cache');
+    final root = mcpStdioIsolatedCacheRoot();
     Directory(root).createSync(recursive: true);
     final npmCache = p.join(root, 'npm');
     final npmPrefix = p.join(root, 'npm-prefix');
@@ -1814,7 +1824,7 @@ Map<String, String> _isolatedPackageCacheEnv() {
     final yarnCache = p.join(root, 'yarn');
     Directory(npmCache).createSync(recursive: true);
     Directory(npmPrefix).createSync(recursive: true);
-    return <String, String>{
+    final env = <String, String>{
       // npm / npx 系列
       'npm_config_cache': npmCache,
       'npm_config_prefix': npmPrefix,
@@ -1831,9 +1841,83 @@ Map<String, String> _isolatedPackageCacheEnv() {
       // pip / pipx
       'PIP_CACHE_DIR': pipCache,
     };
+    if (_shouldInjectChinaMirror()) {
+      // npm/pnpm/yarn 都识别 npm_config_registry；uv 用 UV_DEFAULT_INDEX；
+      // pip / pipx 用 PIP_INDEX_URL。这些变量对不识别的工具是 no-op，
+      // 所以无副作用、可以一次性全注入。npmmirror.com / 清华 PyPI 都是
+      // 国内最稳的镜像之一。
+      env['npm_config_registry'] = 'https://registry.npmmirror.com';
+      env['UV_DEFAULT_INDEX'] = 'https://pypi.tuna.tsinghua.edu.cn/simple';
+      env['PIP_INDEX_URL'] = 'https://pypi.tuna.tsinghua.edu.cn/simple';
+    }
+    return env;
   } catch (error, stack) {
     silentLog('mcp.stdio', 'isolatedPackageCacheEnv', error, stack);
     return const <String, String>{};
+  }
+}
+
+/// 是否给 stdio MCP 注入中国镜像源。
+/// 决策表（自上而下，命中即返回）：
+///   1. `OPENHAND_MCP_MIRROR=on`  → true
+///   2. `OPENHAND_MCP_MIRROR=off` → false
+///   3. `OPENHAND_MCP_MIRROR=auto` 或未设置 → 看系统 locale 是否 zh*
+/// 让中国大陆用户开箱即用，又给海外/已配企业镜像的用户留后门。
+bool _shouldInjectChinaMirror() {
+  final override = (Platform.environment['OPENHAND_MCP_MIRROR'] ?? '')
+      .trim()
+      .toLowerCase();
+  if (override == 'on' || override == '1' || override == 'true') {
+    return true;
+  }
+  if (override == 'off' || override == '0' || override == 'false') {
+    return false;
+  }
+  // auto / 空值
+  final locale = Platform.localeName.toLowerCase();
+  return locale.startsWith('zh');
+}
+
+/// stdio MCP 隔离包缓存根目录：~/.openhand/mcp/package-cache。
+/// 公开给设置页「一键重置」按钮、诊断文案、内部 env 注入三方共用。
+String mcpStdioIsolatedCacheRoot() =>
+    p.join(OpenHandPaths.defaultMcpDirectoryPath(), 'package-cache');
+
+/// 同步删除整个隔离缓存目录；目录不存在视为成功。
+/// 失败抛 [FileSystemException]，调用方负责 toast。
+Future<void> resetMcpStdioIsolatedCache() async {
+  final dir = Directory(mcpStdioIsolatedCacheRoot());
+  if (!dir.existsSync()) return;
+  await dir.delete(recursive: true);
+}
+
+/// 全局可监听：每个 stdio MCP server 当前 bootstrap 进度行（通常是 npm /
+/// uv 的下载进度），UI 用它在「Bootstrapping…」chip / Tooltip 里实时刷新。
+/// init 成功或失败后会自动清空对应 server 的状态。
+final McpStdioBootstrapStatus mcpStdioBootstrapStatus =
+    McpStdioBootstrapStatus._();
+
+class McpStdioBootstrapStatus extends ChangeNotifier {
+  McpStdioBootstrapStatus._();
+
+  final Map<String, String> _byServer = <String, String>{};
+
+  /// 取某个 server 的最新进度行；不存在返回 null。
+  String? statusOf(String serverId) => _byServer[serverId];
+
+  /// 是否处于 bootstrap 中（有任意进度行残留）。
+  bool isBootstrapping(String serverId) => _byServer.containsKey(serverId);
+
+  void update(String serverId, String line) {
+    if (_byServer[serverId] == line) return;
+    _byServer[serverId] = line;
+    notifyListeners();
+  }
+
+  void clear(String serverId) {
+    if (_byServer.remove(serverId) != null) {
+      notifyListeners();
+    }
   }
 }
 
@@ -1954,9 +2038,12 @@ List<String> _tokenizeShellCommand(String input) {
 }
 
 class _StdioSession {
-  _StdioSession({required Process process, required Duration requestTimeout})
-    : _process = process,
-      _requestTimeout = requestTimeout {
+  _StdioSession({
+    required Process process,
+    required Duration requestTimeout,
+    this.onStderrLine,
+  }) : _process = process,
+       _requestTimeout = requestTimeout {
     _stdoutSubscription = _process.stdout.listen(
       _handleStdoutData,
       onError: (Object error, StackTrace stackTrace) {
@@ -1973,10 +2060,40 @@ class _StdioSession {
     _stderrSubscription = _process.stderr.transform(utf8.decoder).listen((
       chunk,
     ) {
-      if (_stderrBuffer.length >= 4096) {
-        return;
+      if (_stderrBuffer.length < 4096) {
+        _stderrBuffer.write(chunk);
       }
-      _stderrBuffer.write(chunk);
+      // 行级解析：按 \r 或 \n 切分（npm/yarn 进度条爱用 \r 原地刷新），
+      // 把最新一行透出给 UI 做「正在下载 puppeteer 32%」类实时提示。
+      final cb = onStderrLine;
+      if (cb != null) {
+        _stderrLineBuffer.write(chunk);
+        var buffer = _stderrLineBuffer.toString();
+        var splitIndex = buffer.lastIndexOf(RegExp(r'[\r\n]'));
+        if (splitIndex < 0) {
+          if (buffer.length > 4096) {
+            // 防御：单行超长（无换行）时也切，避免无限堆积。
+            _stderrLineBuffer
+              ..clear()
+              ..write(buffer.substring(buffer.length ~/ 2));
+          }
+          return;
+        }
+        final completed = buffer.substring(0, splitIndex);
+        final tail = buffer.substring(splitIndex + 1);
+        _stderrLineBuffer
+          ..clear()
+          ..write(tail);
+        for (final raw in completed.split(RegExp(r'[\r\n]+'))) {
+          final line = raw.trim();
+          if (line.isEmpty) continue;
+          try {
+            cb(line);
+          } catch (error, stack) {
+            silentLog('mcp.stdio', 'onStderrLine', error, stack);
+          }
+        }
+      }
     });
     unawaited(
       _process.exitCode.then((code) {
@@ -1990,7 +2107,9 @@ class _StdioSession {
   final Duration _requestTimeout;
   final List<int> _stdoutBuffer = <int>[];
   final StringBuffer _stderrBuffer = StringBuffer();
+  final StringBuffer _stderrLineBuffer = StringBuffer();
   final StringBuffer _traceBuffer = StringBuffer();
+  final void Function(String line)? onStderrLine;
   final Map<String, Completer<Map<String, Object?>?>> _pendingResponses =
       <String, Completer<Map<String, Object?>?>>{};
   final Map<String, Map<String, Object?>> _bufferedResponses =

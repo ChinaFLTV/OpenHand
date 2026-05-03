@@ -310,6 +310,30 @@ class AppLocalizationsFr extends AppLocalizations {
   String get mcpOpenDirectory => 'Ouvrir le dossier';
 
   @override
+  String get mcpStdioCacheResetAction => 'Réinitialiser le cache stdio';
+
+  @override
+  String get mcpStdioCacheResetConfirmTitle =>
+      'Réinitialiser le cache stdio isolé ?';
+
+  @override
+  String get mcpStdioCacheResetConfirmBody =>
+      'Cela supprimera les caches npm/uv/pip sous ~/.openhand/mcp/package-cache. Le prochain lancement d’un MCP stdio retréchargera ses dépendances. Votre ~/.npm global n’est pas affecté.';
+
+  @override
+  String get mcpStdioCacheResetConfirm => 'Réinitialiser';
+
+  @override
+  String get mcpStdioCacheResetCancel => 'Annuler';
+
+  @override
+  String get mcpStdioCacheResetDone => 'Cache isolé vidé.';
+
+  @override
+  String get mcpStdioCacheResetFailed =>
+      'Échec de la réinitialisation. Supprimez ~/.openhand/mcp/package-cache manuellement.';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'Chargement différé des outils MCP';
 
   @override

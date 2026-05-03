@@ -676,6 +676,48 @@ abstract class AppLocalizations {
   /// **'打开目录'**
   String get mcpOpenDirectory;
 
+  /// No description provided for @mcpStdioCacheResetAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置 stdio 包缓存'**
+  String get mcpStdioCacheResetAction;
+
+  /// No description provided for @mcpStdioCacheResetConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置 stdio 隔离包缓存？'**
+  String get mcpStdioCacheResetConfirmTitle;
+
+  /// No description provided for @mcpStdioCacheResetConfirmBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将删除 ~/.openhand/mcp/package-cache 下的 npm/uv/pip 等隔离缓存。下次启动 stdio MCP 服务会重新下载依赖。不影响全局 ~/.npm 。'**
+  String get mcpStdioCacheResetConfirmBody;
+
+  /// No description provided for @mcpStdioCacheResetConfirm.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置'**
+  String get mcpStdioCacheResetConfirm;
+
+  /// No description provided for @mcpStdioCacheResetCancel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get mcpStdioCacheResetCancel;
+
+  /// No description provided for @mcpStdioCacheResetDone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'隔离缓存已重置。'**
+  String get mcpStdioCacheResetDone;
+
+  /// No description provided for @mcpStdioCacheResetFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置失败，请手动删除 ~/.openhand/mcp/package-cache。'**
+  String get mcpStdioCacheResetFailed;
+
   /// No description provided for @mcpLazyLoadingModeLabel.
   ///
   /// In zh_Hans, this message translates to:

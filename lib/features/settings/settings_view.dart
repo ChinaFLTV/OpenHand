@@ -59,6 +59,8 @@ import '../crons/crons_controller.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/model/mcp_lazy_loading_mode.dart';
+import '../mcp/service/mcp_tool_discovery_service.dart'
+    show resetMcpStdioIsolatedCache;
 import '../mcp/service/tool_search_history_export_prefs.dart';
 import '../mcp/service/tool_search_replay_dispatcher.dart';
 import '../mcp/widgets/tool_search_loaded_dialog.dart';
@@ -2770,6 +2772,11 @@ class _SettingsViewState extends State<SettingsView> {
               icon: const Icon(Icons.folder_open_rounded),
               label: Text(l10n.mcpOpenDirectory),
             ),
+            OutlinedButton.icon(
+              onPressed: () => _resetStdioPackageCache(context),
+              icon: const Icon(Icons.cleaning_services_outlined),
+              label: Text(l10n.mcpStdioCacheResetAction),
+            ),
           ],
         ),
         const SizedBox(height: 18),
@@ -4223,6 +4230,49 @@ class _SettingsViewState extends State<SettingsView> {
       context,
       l10n.mcpToolSearchExportLastDirResetToast,
     );
+  }
+
+  /// 一键重置 stdio MCP 隔离包缓存（~/.openhand/mcp/package-cache）。
+  /// 弹确认对话框 → 删整个目录 → toast 反馈。失败时落 silentLog 并提示用户手删。
+  Future<void> _resetStdioPackageCache(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(l10n.mcpStdioCacheResetConfirmTitle),
+          content: Text(l10n.mcpStdioCacheResetConfirmBody),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l10n.mcpStdioCacheResetCancel),
+            ),
+            FilledButton.tonal(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(l10n.mcpStdioCacheResetConfirm),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    try {
+      await resetMcpStdioIsolatedCache();
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        l10n.mcpStdioCacheResetDone,
+        kind: _SettingsSnackKind.success,
+      );
+    } catch (error, stack) {
+      silentLog('settings.mcp', 'resetStdioPackageCache', error, stack);
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        l10n.mcpStdioCacheResetFailed,
+        kind: _SettingsSnackKind.error,
+      );
+    }
   }
 
   /// 调试快捷：重发上次被「3 秒反悔窗口」取消的 ToolSearch 重放。

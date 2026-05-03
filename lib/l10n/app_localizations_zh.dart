@@ -299,6 +299,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpOpenDirectory => '打开目录';
 
   @override
+  String get mcpStdioCacheResetAction => '重置 stdio 包缓存';
+
+  @override
+  String get mcpStdioCacheResetConfirmTitle => '重置 stdio 隔离包缓存？';
+
+  @override
+  String get mcpStdioCacheResetConfirmBody =>
+      '将删除 ~/.openhand/mcp/package-cache 下的 npm/uv/pip 等隔离缓存。下次启动 stdio MCP 服务会重新下载依赖。不影响全局 ~/.npm 。';
+
+  @override
+  String get mcpStdioCacheResetConfirm => '重置';
+
+  @override
+  String get mcpStdioCacheResetCancel => '取消';
+
+  @override
+  String get mcpStdioCacheResetDone => '隔离缓存已重置。';
+
+  @override
+  String get mcpStdioCacheResetFailed =>
+      '重置失败，请手动删除 ~/.openhand/mcp/package-cache。';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -5063,6 +5086,29 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpOpenDirectory => '打开目录';
 
   @override
+  String get mcpStdioCacheResetAction => '重置 stdio 包缓存';
+
+  @override
+  String get mcpStdioCacheResetConfirmTitle => '重置 stdio 隔离包缓存？';
+
+  @override
+  String get mcpStdioCacheResetConfirmBody =>
+      '将删除 ~/.openhand/mcp/package-cache 下的 npm/uv/pip 等隔离缓存。下次启动 stdio MCP 服务会重新下载依赖。不影响全局 ~/.npm 。';
+
+  @override
+  String get mcpStdioCacheResetConfirm => '重置';
+
+  @override
+  String get mcpStdioCacheResetCancel => '取消';
+
+  @override
+  String get mcpStdioCacheResetDone => '隔离缓存已重置。';
+
+  @override
+  String get mcpStdioCacheResetFailed =>
+      '重置失败，请手动删除 ~/.openhand/mcp/package-cache。';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -9824,6 +9870,29 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpOpenDirectory => '打開目錄';
+
+  @override
+  String get mcpStdioCacheResetAction => '重置 stdio 包緩存';
+
+  @override
+  String get mcpStdioCacheResetConfirmTitle => '重置 stdio 雔離包緩存？';
+
+  @override
+  String get mcpStdioCacheResetConfirmBody =>
+      '將刪除 ~/.openhand/mcp/package-cache 下的 npm/uv/pip 等雔離緩存。下次啟動 stdio MCP 服務會重新下載依賴。不影響全局 ~/.npm 。';
+
+  @override
+  String get mcpStdioCacheResetConfirm => '重置';
+
+  @override
+  String get mcpStdioCacheResetCancel => '取消';
+
+  @override
+  String get mcpStdioCacheResetDone => '雔離緩存已重置。';
+
+  @override
+  String get mcpStdioCacheResetFailed =>
+      '重置失敗，請手動刪除 ~/.openhand/mcp/package-cache。';
 
   @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懶載入';
