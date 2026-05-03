@@ -28,6 +28,8 @@ import 'features/hooks/hooks_controller.dart';
 import 'features/hooks/hooks_executor.dart';
 import 'features/instructions/instructions_controller.dart';
 import 'features/mcp/mcp_controller.dart';
+import 'features/mcp/service/mcp_tool_discovery_service.dart'
+    show mcpStdioMirrorModeOverride;
 import 'features/memory/memory_controller.dart';
 import 'features/skills/skills_controller.dart';
 import 'shared/data/database_service.dart';
@@ -161,6 +163,13 @@ Future<void> _bootstrap() async {
     SystemProxyResolver.instance.applyConfig(
       settingsController.proxySettings,
     );
+  });
+  // 2026-05-04 — stdio MCP 镜像源模式（auto / forceOn / forceOff）。
+  // 用一个简单 top-level 变量同步给 mcp_tool_discovery_service，
+  // 避免给已稳定的 service 强行喂 SettingsController 依赖。
+  mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
+  settingsController.addListener(() {
+    mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
   });
   // 2026-04-25 Hermes Talker — expose a late-bound MemoryController handle to
   // AiSessionController so the Memory builtin tool (self-learning sub-agent)

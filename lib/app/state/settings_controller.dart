@@ -11,6 +11,7 @@ import '../../features/ai/model/ai_lsp_backend_catalog.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
+import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
@@ -39,6 +40,7 @@ class SettingsController extends ChangeNotifier {
        _mcpEnabled = snapshot.mcpEnabled,
        _mcpServersFilePath = snapshot.mcpServersFilePath,
        _mcpLazyLoadingMode = snapshot.mcpLazyLoadingMode,
+       _mcpStdioMirrorMode = snapshot.mcpStdioMirrorMode,
        _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens,
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
@@ -172,6 +174,7 @@ class SettingsController extends ChangeNotifier {
   bool _mcpEnabled;
   String _mcpServersFilePath;
   McpLazyLoadingMode _mcpLazyLoadingMode;
+  McpStdioMirrorMode _mcpStdioMirrorMode;
   int _mcpLazyLoadingThresholdTokens;
   bool _memoryEnabled;
   String _userMemoryFilePath;
@@ -279,6 +282,7 @@ class SettingsController extends ChangeNotifier {
   bool get mcpEnabled => _mcpEnabled;
   String get mcpServersFilePath => _mcpServersFilePath;
   McpLazyLoadingMode get mcpLazyLoadingMode => _mcpLazyLoadingMode;
+  McpStdioMirrorMode get mcpStdioMirrorMode => _mcpStdioMirrorMode;
   int get mcpLazyLoadingThresholdTokens => _mcpLazyLoadingThresholdTokens;
   String get displayMcpServersFilePath =>
       OpenHandPaths.shortenHomePath(_mcpServersFilePath);
@@ -561,6 +565,16 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _mcpLazyLoadingMode = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateMcpStdioMirrorMode(McpStdioMirrorMode value) async {
+    return _commitMutation(() {
+      if (_mcpStdioMirrorMode == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _mcpStdioMirrorMode = value;
       return _MutationDisposition.apply;
     });
   }
@@ -2065,6 +2079,7 @@ class SettingsController extends ChangeNotifier {
       mcpEnabled: _mcpEnabled,
       mcpServersFilePath: _mcpServersFilePath,
       mcpLazyLoadingMode: _mcpLazyLoadingMode,
+      mcpStdioMirrorMode: _mcpStdioMirrorMode,
       mcpLazyLoadingThresholdTokens: _mcpLazyLoadingThresholdTokens,
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
@@ -2164,6 +2179,7 @@ class SettingsController extends ChangeNotifier {
     _skillsStoragePath = snapshot.skillsStoragePath;
     _mcpEnabled = snapshot.mcpEnabled;
     _mcpLazyLoadingMode = snapshot.mcpLazyLoadingMode;
+    _mcpStdioMirrorMode = snapshot.mcpStdioMirrorMode;
     _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens;
     _mcpServersFilePath = snapshot.mcpServersFilePath;
     _memoryEnabled = snapshot.memoryEnabled;

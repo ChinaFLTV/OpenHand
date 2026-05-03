@@ -15,6 +15,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
+import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/data/database_service.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
@@ -144,6 +145,7 @@ class SettingsStore {
       'mcp_enabled': snapshot.mcpEnabled,
       'mcp_servers_file_path': snapshot.mcpServersFilePath,
       'mcp_lazy_loading_mode': snapshot.mcpLazyLoadingMode.storageValue,
+      'mcp_stdio_mirror_mode': snapshot.mcpStdioMirrorMode.storageValue,
       'mcp_lazy_loading_threshold_tokens':
           snapshot.mcpLazyLoadingThresholdTokens,
       'memory_enabled': snapshot.memoryEnabled,
@@ -294,6 +296,9 @@ class SettingsStore {
     );
     final mcpLazyLoadingMode = McpLazyLoadingMode.fromStorage(
       '${json['mcp_lazy_loading_mode'] ?? ''}',
+    );
+    final mcpStdioMirrorMode = McpStdioMirrorMode.fromStorage(
+      '${json['mcp_stdio_mirror_mode'] ?? ''}',
     );
     final mcpLazyLoadingThresholdTokens =
         json['mcp_lazy_loading_threshold_tokens'] is int &&
@@ -1062,6 +1067,7 @@ class SettingsStore {
       mcpServersFilePath: mcpServersFilePath,
       mcpLazyLoadingMode: mcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens: mcpLazyLoadingThresholdTokens,
+      mcpStdioMirrorMode: mcpStdioMirrorMode,
       memoryEnabled: memoryEnabled,
       userMemoryFilePath: userMemoryFilePath,
       editorWordWrap: editorWordWrap,

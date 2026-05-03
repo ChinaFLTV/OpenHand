@@ -334,6 +334,22 @@ class AppLocalizationsFr extends AppLocalizations {
       'Échec de la réinitialisation. Supprimez ~/.openhand/mcp/package-cache manuellement.';
 
   @override
+  String get mcpStdioMirrorModeLabel => 'Mode du miroir registre';
+
+  @override
+  String get mcpStdioMirrorModeBody =>
+      'Au démarrage à froid d’un MCP stdio, injecter les miroirs chinois (npmmirror / Tsinghua PyPI) ? auto = selon la langue. Forcer activé / désactivé = ignorer le locale. OPENHAND_MCP_MIRROR=on/off remplace à chaud.';
+
+  @override
+  String get mcpStdioMirrorModeAuto => 'Selon la langue';
+
+  @override
+  String get mcpStdioMirrorModeForceOn => 'Forcer activé';
+
+  @override
+  String get mcpStdioMirrorModeForceOff => 'Forcer désactivé';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'Chargement différé des outils MCP';
 
   @override

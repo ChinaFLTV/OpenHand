@@ -14,6 +14,7 @@ import '../../ai/service/ai_tool_execution_registry.dart';
 import '../../ai/service/ai_transport_diagnostic_messages.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
+import '../model/mcp_stdio_mirror_mode.dart';
 import '../model/mcp_tool.dart';
 
 abstract class McpToolDiscoveryService {
@@ -1857,12 +1858,16 @@ Map<String, String> _isolatedPackageCacheEnv() {
   }
 }
 
+/// 设置页「stdio 镜像源模式」实时同步过来的运行时变量。
+/// `null` 表示未注入（首次启动 boot 阶段或未启用 MCP），按 auto 走 locale。
+McpStdioMirrorMode? mcpStdioMirrorModeOverride;
+
 /// 是否给 stdio MCP 注入中国镜像源。
 /// 决策表（自上而下，命中即返回）：
-///   1. `OPENHAND_MCP_MIRROR=on`  → true
-///   2. `OPENHAND_MCP_MIRROR=off` → false
-///   3. `OPENHAND_MCP_MIRROR=auto` 或未设置 → 看系统 locale 是否 zh*
-/// 让中国大陆用户开箱即用，又给海外/已配企业镜像的用户留后门。
+///   1. `OPENHAND_MCP_MIRROR=on/off` 环境变量 → 最高优先级，便于临时调试
+///   2. 设置页的 `mcpStdioMirrorModeOverride`（forceOn / forceOff）
+///   3. auto / 未设置 → 看系统 locale 是否 zh*
+/// 让中国大陆用户开箱即用，又给海外/已配企业镜像/手动覆盖三种诉求都留口子。
 bool _shouldInjectChinaMirror() {
   final override = (Platform.environment['OPENHAND_MCP_MIRROR'] ?? '')
       .trim()
@@ -1873,9 +1878,17 @@ bool _shouldInjectChinaMirror() {
   if (override == 'off' || override == '0' || override == 'false') {
     return false;
   }
-  // auto / 空值
-  final locale = Platform.localeName.toLowerCase();
-  return locale.startsWith('zh');
+  switch (mcpStdioMirrorModeOverride) {
+    case McpStdioMirrorMode.forceOn:
+      return true;
+    case McpStdioMirrorMode.forceOff:
+      return false;
+    case McpStdioMirrorMode.auto:
+    case null:
+      // auto / 空值
+      final locale = Platform.localeName.toLowerCase();
+      return locale.startsWith('zh');
+  }
 }
 
 /// stdio MCP 隔离包缓存根目录：~/.openhand/mcp/package-cache。

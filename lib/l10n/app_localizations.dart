@@ -718,6 +718,36 @@ abstract class AppLocalizations {
   /// **'重置失败，请手动删除 ~/.openhand/mcp/package-cache。'**
   String get mcpStdioCacheResetFailed;
 
+  /// No description provided for @mcpStdioMirrorModeLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'镜像源模式'**
+  String get mcpStdioMirrorModeLabel;
+
+  /// No description provided for @mcpStdioMirrorModeBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'stdio MCP 服务首启时，是否注入国内镜像源（npmmirror / 清华 PyPI）。auto = 按系统语言自判；强制开启 / 关闭 = 无视 locale。环变 OPENHAND_MCP_MIRROR=on/off 能运行时再覆盖一次。'**
+  String get mcpStdioMirrorModeBody;
+
+  /// No description provided for @mcpStdioMirrorModeAuto.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跟随语言'**
+  String get mcpStdioMirrorModeAuto;
+
+  /// No description provided for @mcpStdioMirrorModeForceOn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'强制开启'**
+  String get mcpStdioMirrorModeForceOn;
+
+  /// No description provided for @mcpStdioMirrorModeForceOff.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'强制关闭'**
+  String get mcpStdioMirrorModeForceOff;
+
   /// No description provided for @mcpLazyLoadingModeLabel.
   ///
   /// In zh_Hans, this message translates to:

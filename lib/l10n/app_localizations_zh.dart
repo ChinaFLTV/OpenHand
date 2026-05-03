@@ -322,6 +322,22 @@ class AppLocalizationsZh extends AppLocalizations {
       '重置失败，请手动删除 ~/.openhand/mcp/package-cache。';
 
   @override
+  String get mcpStdioMirrorModeLabel => '镜像源模式';
+
+  @override
+  String get mcpStdioMirrorModeBody =>
+      'stdio MCP 服务首启时，是否注入国内镜像源（npmmirror / 清华 PyPI）。auto = 按系统语言自判；强制开启 / 关闭 = 无视 locale。环变 OPENHAND_MCP_MIRROR=on/off 能运行时再覆盖一次。';
+
+  @override
+  String get mcpStdioMirrorModeAuto => '跟随语言';
+
+  @override
+  String get mcpStdioMirrorModeForceOn => '强制开启';
+
+  @override
+  String get mcpStdioMirrorModeForceOff => '强制关闭';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -5109,6 +5125,22 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       '重置失败，请手动删除 ~/.openhand/mcp/package-cache。';
 
   @override
+  String get mcpStdioMirrorModeLabel => '镜像源模式';
+
+  @override
+  String get mcpStdioMirrorModeBody =>
+      'stdio MCP 服务首启时，是否注入国内镜像源（npmmirror / 清华 PyPI）。auto = 按系统语言自判；强制开启 / 关闭 = 无视 locale。环变 OPENHAND_MCP_MIRROR=on/off 能运行时再覆盖一次。';
+
+  @override
+  String get mcpStdioMirrorModeAuto => '跟随语言';
+
+  @override
+  String get mcpStdioMirrorModeForceOn => '强制开启';
+
+  @override
+  String get mcpStdioMirrorModeForceOff => '强制关闭';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -9893,6 +9925,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get mcpStdioCacheResetFailed =>
       '重置失敗，請手動刪除 ~/.openhand/mcp/package-cache。';
+
+  @override
+  String get mcpStdioMirrorModeLabel => '鏡像源模式';
+
+  @override
+  String get mcpStdioMirrorModeBody =>
+      'stdio MCP 服務首次啟動時，是否注入國內鏡像源（npmmirror / 清華 PyPI）。auto = 依系統語言自判；強制開啟 / 關閉 = 無視 locale。環變 OPENHAND_MCP_MIRROR=on/off 可在運行時再覆蓋一次。';
+
+  @override
+  String get mcpStdioMirrorModeAuto => '跟隨語言';
+
+  @override
+  String get mcpStdioMirrorModeForceOn => '強制開啟';
+
+  @override
+  String get mcpStdioMirrorModeForceOff => '強制關閉';
 
   @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懶載入';

@@ -323,6 +323,22 @@ class AppLocalizationsJa extends AppLocalizations {
       'リセットに失敗しました。~/.openhand/mcp/package-cache を手動で削除してください。';
 
   @override
+  String get mcpStdioMirrorModeLabel => 'ミラーレジストリモード';
+
+  @override
+  String get mcpStdioMirrorModeBody =>
+      'stdio MCP コールドスタート時、中国ミラー (npmmirror / Tsinghua PyPI) を注入するか。auto = システム言語に従う。強制 ON / OFF = locale を無視。OPENHAND_MCP_MIRROR=on/off 环境変数はいつでも上書きします。';
+
+  @override
+  String get mcpStdioMirrorModeAuto => '言語に従う';
+
+  @override
+  String get mcpStdioMirrorModeForceOn => '強制 ON';
+
+  @override
+  String get mcpStdioMirrorModeForceOff => '強制 OFF';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCPツールの遅延読み込み';
 
   @override

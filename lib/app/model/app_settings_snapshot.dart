@@ -14,6 +14,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
+import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/dialog_animation_settings.dart';
@@ -35,6 +36,7 @@ class AppSettingsSnapshot {
       mcpServersFilePath: OpenHandPaths.defaultMcpServersFilePath(),
       mcpLazyLoadingMode: defaultMcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens: defaultMcpLazyLoadingThresholdTokens,
+      mcpStdioMirrorMode: defaultMcpStdioMirrorMode,
       memoryEnabled: true,
       userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
       editorWordWrap: true,
@@ -151,6 +153,7 @@ class AppSettingsSnapshot {
     required this.mcpServersFilePath,
     required this.mcpLazyLoadingMode,
     required this.mcpLazyLoadingThresholdTokens,
+    required this.mcpStdioMirrorMode,
     required this.memoryEnabled,
     required this.userMemoryFilePath,
     required this.editorWordWrap,
@@ -527,6 +530,8 @@ class AppSettingsSnapshot {
   static const int defaultMcpLazyLoadingThresholdTokens = 80000;
   static const int minMcpLazyLoadingThresholdTokens = 1000;
   static const int maxMcpLazyLoadingThresholdTokens = 1000000;
+  static const McpStdioMirrorMode defaultMcpStdioMirrorMode =
+      McpStdioMirrorMode.auto;
 
   final ThemeMode themeMode;
   final OpenHandThemePreset themePreset;
@@ -543,6 +548,10 @@ class AppSettingsSnapshot {
   /// = auto 时生效：当所有 MCP 工具描述合计 token 数（按字符 / 估算系数）超过
   /// 此阈值时，自动启用懒加载。
   final int mcpLazyLoadingThresholdTokens;
+
+  /// 2026-05-04 — stdio MCP 包管理器镜像源模式。
+  /// 决策顺序：`OPENHAND_MCP_MIRROR` 环变 > 该设置 > Platform.localeName。
+  final McpStdioMirrorMode mcpStdioMirrorMode;
   final bool memoryEnabled;
   final String userMemoryFilePath;
   final bool editorWordWrap;
@@ -726,6 +735,7 @@ class AppSettingsSnapshot {
     String? mcpServersFilePath,
     McpLazyLoadingMode? mcpLazyLoadingMode,
     int? mcpLazyLoadingThresholdTokens,
+    McpStdioMirrorMode? mcpStdioMirrorMode,
     bool? memoryEnabled,
     String? userMemoryFilePath,
     bool? editorWordWrap,
@@ -819,6 +829,7 @@ class AppSettingsSnapshot {
       mcpLazyLoadingMode: mcpLazyLoadingMode ?? this.mcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens:
           mcpLazyLoadingThresholdTokens ?? this.mcpLazyLoadingThresholdTokens,
+      mcpStdioMirrorMode: mcpStdioMirrorMode ?? this.mcpStdioMirrorMode,
       memoryEnabled: memoryEnabled ?? this.memoryEnabled,
       userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
       editorWordWrap: editorWordWrap ?? this.editorWordWrap,

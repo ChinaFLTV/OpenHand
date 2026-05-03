@@ -59,6 +59,7 @@ import '../crons/crons_controller.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/model/mcp_lazy_loading_mode.dart';
+import '../mcp/model/mcp_stdio_mirror_mode.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart'
     show resetMcpStdioIsolatedCache;
 import '../mcp/service/tool_search_history_export_prefs.dart';
@@ -2778,6 +2779,44 @@ class _SettingsViewState extends State<SettingsView> {
               label: Text(l10n.mcpStdioCacheResetAction),
             ),
           ],
+        ),
+        const SizedBox(height: 14),
+        _ResponsiveSettingRow(
+          title: l10n.mcpStdioMirrorModeLabel,
+          subtitle: l10n.mcpStdioMirrorModeBody,
+          controlMaxWidth: 460,
+          control: SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<McpStdioMirrorMode>(
+              segments: <ButtonSegment<McpStdioMirrorMode>>[
+                ButtonSegment<McpStdioMirrorMode>(
+                  value: McpStdioMirrorMode.auto,
+                  icon: const Icon(Icons.auto_awesome_outlined),
+                  label: Text(l10n.mcpStdioMirrorModeAuto, softWrap: false),
+                ),
+                ButtonSegment<McpStdioMirrorMode>(
+                  value: McpStdioMirrorMode.forceOn,
+                  icon: const Icon(Icons.cloud_done_outlined),
+                  label: Text(l10n.mcpStdioMirrorModeForceOn, softWrap: false),
+                ),
+                ButtonSegment<McpStdioMirrorMode>(
+                  value: McpStdioMirrorMode.forceOff,
+                  icon: const Icon(Icons.cloud_off_outlined),
+                  label: Text(l10n.mcpStdioMirrorModeForceOff, softWrap: false),
+                ),
+              ],
+              selected: <McpStdioMirrorMode>{
+                settingsController.mcpStdioMirrorMode,
+              },
+              onSelectionChanged: (selection) async {
+                if (selection.isEmpty) return;
+                final saved = await settingsController
+                    .updateMcpStdioMirrorMode(selection.first);
+                if (!context.mounted || saved) return;
+                _showPersistenceFailureSnackBar(context);
+              },
+            ),
+          ),
         ),
         const SizedBox(height: 18),
         _McpLazyLoadingHelpBanner(text: l10n.mcpLazyLoadingHowItWorks),

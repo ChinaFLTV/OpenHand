@@ -333,6 +333,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Reset failed. Please remove ~/.openhand/mcp/package-cache manually.';
 
   @override
+  String get mcpStdioMirrorModeLabel => 'Mirror registry mode';
+
+  @override
+  String get mcpStdioMirrorModeBody =>
+      'On stdio MCP cold start, whether to inject China mirrors (npmmirror / Tsinghua PyPI). auto = follow system locale; force on / off = ignore locale. The OPENHAND_MCP_MIRROR=on/off env var still wins at runtime.';
+
+  @override
+  String get mcpStdioMirrorModeAuto => 'Follow locale';
+
+  @override
+  String get mcpStdioMirrorModeForceOn => 'Force on';
+
+  @override
+  String get mcpStdioMirrorModeForceOff => 'Force off';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP tool lazy loading';
 
   @override
