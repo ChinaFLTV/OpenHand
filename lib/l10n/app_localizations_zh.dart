@@ -338,6 +338,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpStdioMirrorModeForceOff => '强制关闭';
 
   @override
+  String get mcpStdioMirrorModeStatusInjected => '当前生效：将注入 npmmirror / 清华 PyPI';
+
+  @override
+  String get mcpStdioMirrorModeStatusBypassed => '当前生效：不注入镜像源，走官方 registry';
+
+  @override
+  String mcpStdioMirrorModeStatusReason(Object reason) {
+    return '依据：$reason';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReasonEnv => '环变 OPENHAND_MCP_MIRROR';
+
+  @override
+  String get mcpStdioMirrorModeReasonSetting => '设置项强制';
+
+  @override
+  String mcpStdioMirrorModeReasonLocale(Object locale) {
+    return '跟随语言 ($locale)';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReconnectAction => '按新设置重拉已启用的 server';
+
+  @override
+  String get mcpStdioMirrorModeReconnectDone => '已触发重拉，下一次调用会用新镜像源重新启动进程。';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -5141,6 +5169,34 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpStdioMirrorModeForceOff => '强制关闭';
 
   @override
+  String get mcpStdioMirrorModeStatusInjected => '当前生效：将注入 npmmirror / 清华 PyPI';
+
+  @override
+  String get mcpStdioMirrorModeStatusBypassed => '当前生效：不注入镜像源，走官方 registry';
+
+  @override
+  String mcpStdioMirrorModeStatusReason(Object reason) {
+    return '依据：$reason';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReasonEnv => '环变 OPENHAND_MCP_MIRROR';
+
+  @override
+  String get mcpStdioMirrorModeReasonSetting => '设置项强制';
+
+  @override
+  String mcpStdioMirrorModeReasonLocale(Object locale) {
+    return '跟随语言 ($locale)';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReconnectAction => '按新设置重拉已启用的 server';
+
+  @override
+  String get mcpStdioMirrorModeReconnectDone => '已触发重拉，下一次调用会用新镜像源重新启动进程。';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -9941,6 +9997,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpStdioMirrorModeForceOff => '強制關閉';
+
+  @override
+  String get mcpStdioMirrorModeStatusInjected => '當前生效：將注入 npmmirror / 清華 PyPI';
+
+  @override
+  String get mcpStdioMirrorModeStatusBypassed => '當前生效：不注入鏡像源，走官方 registry';
+
+  @override
+  String mcpStdioMirrorModeStatusReason(Object reason) {
+    return '依據：$reason';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReasonEnv => '環變 OPENHAND_MCP_MIRROR';
+
+  @override
+  String get mcpStdioMirrorModeReasonSetting => '設定項強制';
+
+  @override
+  String mcpStdioMirrorModeReasonLocale(Object locale) {
+    return '跟隨語言 ($locale)';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReconnectAction => '按新設定重拉已啟用的 server';
+
+  @override
+  String get mcpStdioMirrorModeReconnectDone => '已觸發重拉，下次呼叫會用新鏡像源重新啟動進程。';
 
   @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懶載入';

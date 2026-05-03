@@ -748,6 +748,54 @@ abstract class AppLocalizations {
   /// **'强制关闭'**
   String get mcpStdioMirrorModeForceOff;
 
+  /// No description provided for @mcpStdioMirrorModeStatusInjected.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前生效：将注入 npmmirror / 清华 PyPI'**
+  String get mcpStdioMirrorModeStatusInjected;
+
+  /// No description provided for @mcpStdioMirrorModeStatusBypassed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前生效：不注入镜像源，走官方 registry'**
+  String get mcpStdioMirrorModeStatusBypassed;
+
+  /// No description provided for @mcpStdioMirrorModeStatusReason.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'依据：{reason}'**
+  String mcpStdioMirrorModeStatusReason(Object reason);
+
+  /// No description provided for @mcpStdioMirrorModeReasonEnv.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'环变 OPENHAND_MCP_MIRROR'**
+  String get mcpStdioMirrorModeReasonEnv;
+
+  /// No description provided for @mcpStdioMirrorModeReasonSetting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置项强制'**
+  String get mcpStdioMirrorModeReasonSetting;
+
+  /// No description provided for @mcpStdioMirrorModeReasonLocale.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跟随语言 ({locale})'**
+  String mcpStdioMirrorModeReasonLocale(Object locale);
+
+  /// No description provided for @mcpStdioMirrorModeReconnectAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按新设置重拉已启用的 server'**
+  String get mcpStdioMirrorModeReconnectAction;
+
+  /// No description provided for @mcpStdioMirrorModeReconnectDone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已触发重拉，下一次调用会用新镜像源重新启动进程。'**
+  String get mcpStdioMirrorModeReconnectDone;
+
   /// No description provided for @mcpLazyLoadingModeLabel.
   ///
   /// In zh_Hans, this message translates to:

@@ -339,6 +339,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpStdioMirrorModeForceOff => '強制 OFF';
 
   @override
+  String get mcpStdioMirrorModeStatusInjected =>
+      '現在有効：npmmirror / Tsinghua PyPI を注入';
+
+  @override
+  String get mcpStdioMirrorModeStatusBypassed => '現在有効：ミラー未注入、公式 registry を使用';
+
+  @override
+  String mcpStdioMirrorModeStatusReason(Object reason) {
+    return '根拠：$reason';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReasonEnv => 'OPENHAND_MCP_MIRROR 環境変数';
+
+  @override
+  String get mcpStdioMirrorModeReasonSetting => '設定で強制';
+
+  @override
+  String mcpStdioMirrorModeReasonLocale(Object locale) {
+    return 'システム言語 ($locale)';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReconnectAction => '新しい設定で有効 server を再接続';
+
+  @override
+  String get mcpStdioMirrorModeReconnectDone =>
+      '再接続をトリガーしました。次回呼び出し時に新しいミラーでプロセスを再起動します。';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCPツールの遅延読み込み';
 
   @override

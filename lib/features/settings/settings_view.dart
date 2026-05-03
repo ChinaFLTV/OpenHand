@@ -61,7 +61,10 @@ import '../mcp/mcp_controller.dart';
 import '../mcp/model/mcp_lazy_loading_mode.dart';
 import '../mcp/model/mcp_stdio_mirror_mode.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart'
-    show resetMcpStdioIsolatedCache;
+    show
+        McpMirrorEffectiveSource,
+        resetMcpStdioIsolatedCache,
+        resolveMcpMirrorEffectiveSource;
 import '../mcp/service/tool_search_history_export_prefs.dart';
 import '../mcp/service/tool_search_replay_dispatcher.dart';
 import '../mcp/widgets/tool_search_loaded_dialog.dart';
@@ -2785,37 +2788,10 @@ class _SettingsViewState extends State<SettingsView> {
           title: l10n.mcpStdioMirrorModeLabel,
           subtitle: l10n.mcpStdioMirrorModeBody,
           controlMaxWidth: 460,
-          control: SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<McpStdioMirrorMode>(
-              segments: <ButtonSegment<McpStdioMirrorMode>>[
-                ButtonSegment<McpStdioMirrorMode>(
-                  value: McpStdioMirrorMode.auto,
-                  icon: const Icon(Icons.auto_awesome_outlined),
-                  label: Text(l10n.mcpStdioMirrorModeAuto, softWrap: false),
-                ),
-                ButtonSegment<McpStdioMirrorMode>(
-                  value: McpStdioMirrorMode.forceOn,
-                  icon: const Icon(Icons.cloud_done_outlined),
-                  label: Text(l10n.mcpStdioMirrorModeForceOn, softWrap: false),
-                ),
-                ButtonSegment<McpStdioMirrorMode>(
-                  value: McpStdioMirrorMode.forceOff,
-                  icon: const Icon(Icons.cloud_off_outlined),
-                  label: Text(l10n.mcpStdioMirrorModeForceOff, softWrap: false),
-                ),
-              ],
-              selected: <McpStdioMirrorMode>{
-                settingsController.mcpStdioMirrorMode,
-              },
-              onSelectionChanged: (selection) async {
-                if (selection.isEmpty) return;
-                final saved = await settingsController
-                    .updateMcpStdioMirrorMode(selection.first);
-                if (!context.mounted || saved) return;
-                _showPersistenceFailureSnackBar(context);
-              },
-            ),
+          control: _McpStdioMirrorModeControl(
+            settingsController: settingsController,
+            onPersistenceFailure: () => _showPersistenceFailureSnackBar(context),
+            onReconnect: () => _reconnectMcpServersForMirrorChange(context),
           ),
         ),
         const SizedBox(height: 18),
@@ -4273,6 +4249,20 @@ class _SettingsViewState extends State<SettingsView> {
 
   /// 一键重置 stdio MCP 隔离包缓存（~/.openhand/mcp/package-cache）。
   /// 弹确认对话框 → 删整个目录 → toast 反馈。失败时落 silentLog 并提示用户手删。
+  Future<void> _reconnectMcpServersForMirrorChange(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final mcp = context.read<McpController>();
+    // refresh() 会重新加载 servers 并对每个 enabled server 触发 force=true 的
+    // 工具重拉，这会用新的 env（含 mirror override）重新 spawn 子进程，
+    // 刚好覆盖「立刻按新设置重启」的诉求。
+    unawaited(mcp.refresh());
+    _showSnackBar(
+      context,
+      l10n.mcpStdioMirrorModeReconnectDone,
+      kind: _SettingsSnackKind.success,
+    );
+  }
+
   Future<void> _resetStdioPackageCache(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
@@ -4758,6 +4748,136 @@ List<Widget> _intersperse(List<Widget> items, Widget separator) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Dialog animation settings section
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _McpStdioMirrorModeControl extends StatelessWidget {
+  const _McpStdioMirrorModeControl({
+    required this.settingsController,
+    required this.onPersistenceFailure,
+    required this.onReconnect,
+  });
+
+  final SettingsController settingsController;
+  final VoidCallback onPersistenceFailure;
+  final VoidCallback onReconnect;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final selected = settingsController.mcpStdioMirrorMode;
+    final source = resolveMcpMirrorEffectiveSource();
+    final injects = source.injects;
+    final reasonText = switch (source) {
+      McpMirrorEffectiveSource.envOn ||
+      McpMirrorEffectiveSource.envOff =>
+        l10n.mcpStdioMirrorModeReasonEnv,
+      McpMirrorEffectiveSource.settingForceOn ||
+      McpMirrorEffectiveSource.settingForceOff =>
+        l10n.mcpStdioMirrorModeReasonSetting,
+      McpMirrorEffectiveSource.autoLocaleZh ||
+      McpMirrorEffectiveSource.autoLocaleOther =>
+        l10n.mcpStdioMirrorModeReasonLocale(Platform.localeName),
+    };
+    final statusBg = injects
+        ? colorScheme.primaryContainer.withValues(alpha: 0.45)
+        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
+    final statusFg =
+        injects ? colorScheme.onPrimaryContainer : colorScheme.onSurface;
+    final statusBorder = injects
+        ? colorScheme.primary.withValues(alpha: 0.30)
+        : colorScheme.outlineVariant;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedButton<McpStdioMirrorMode>(
+          segments: <ButtonSegment<McpStdioMirrorMode>>[
+            ButtonSegment<McpStdioMirrorMode>(
+              value: McpStdioMirrorMode.auto,
+              icon: const Icon(Icons.auto_awesome_outlined),
+              label: Text(l10n.mcpStdioMirrorModeAuto, softWrap: false),
+            ),
+            ButtonSegment<McpStdioMirrorMode>(
+              value: McpStdioMirrorMode.forceOn,
+              icon: const Icon(Icons.cloud_done_outlined),
+              label: Text(l10n.mcpStdioMirrorModeForceOn, softWrap: false),
+            ),
+            ButtonSegment<McpStdioMirrorMode>(
+              value: McpStdioMirrorMode.forceOff,
+              icon: const Icon(Icons.cloud_off_outlined),
+              label: Text(l10n.mcpStdioMirrorModeForceOff, softWrap: false),
+            ),
+          ],
+          selected: <McpStdioMirrorMode>{selected},
+          onSelectionChanged: (selection) async {
+            if (selection.isEmpty) return;
+            final saved = await settingsController
+                .updateMcpStdioMirrorMode(selection.first);
+            if (!context.mounted || saved) return;
+            onPersistenceFailure();
+          },
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(
+            color: statusBg,
+            borderRadius: const BorderRadius.all(Radius.circular(10)),
+            border: Border.all(color: statusBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    injects
+                        ? Icons.cloud_done_outlined
+                        : Icons.public_outlined,
+                    size: 18,
+                    color: statusFg,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      injects
+                          ? l10n.mcpStdioMirrorModeStatusInjected
+                          : l10n.mcpStdioMirrorModeStatusBypassed,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: statusFg,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 26),
+                child: Text(
+                  l10n.mcpStdioMirrorModeStatusReason(reasonText),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: statusFg.withValues(alpha: 0.78),
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            onPressed: onReconnect,
+            icon: const Icon(Icons.restart_alt_rounded, size: 18),
+            label: Text(l10n.mcpStdioMirrorModeReconnectAction),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _McpLazyLoadingHelpBanner extends StatelessWidget {
   const _McpLazyLoadingHelpBanner({required this.text});

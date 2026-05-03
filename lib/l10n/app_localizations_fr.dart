@@ -350,6 +350,38 @@ class AppLocalizationsFr extends AppLocalizations {
   String get mcpStdioMirrorModeForceOff => 'Forcer désactivé';
 
   @override
+  String get mcpStdioMirrorModeStatusInjected =>
+      'Actif : injection de npmmirror / Tsinghua PyPI';
+
+  @override
+  String get mcpStdioMirrorModeStatusBypassed =>
+      'Actif : registre officiel, sans miroir';
+
+  @override
+  String mcpStdioMirrorModeStatusReason(Object reason) {
+    return 'Source : $reason';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReasonEnv => 'Variable OPENHAND_MCP_MIRROR';
+
+  @override
+  String get mcpStdioMirrorModeReasonSetting => 'Forcé par les préférences';
+
+  @override
+  String mcpStdioMirrorModeReasonLocale(Object locale) {
+    return 'Langue système ($locale)';
+  }
+
+  @override
+  String get mcpStdioMirrorModeReconnectAction =>
+      'Reconnecter les serveurs activés avec le nouveau réglage';
+
+  @override
+  String get mcpStdioMirrorModeReconnectDone =>
+      'Reconnexion déclenchée. Le prochain appel relancera le processus avec le nouveau miroir.';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'Chargement différé des outils MCP';
 
   @override

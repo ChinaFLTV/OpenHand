@@ -1862,6 +1862,58 @@ Map<String, String> _isolatedPackageCacheEnv() {
 /// `null` 表示未注入（首次启动 boot 阶段或未启用 MCP），按 auto 走 locale。
 McpStdioMirrorMode? mcpStdioMirrorModeOverride;
 
+/// 镜像源决策最终命中的来源。UI 用它渲染「当前生效」状态行；
+/// `_shouldInjectChinaMirror` 内部也会用它打 debugPrint 让 cold-start 失败时一眼能看出走了哪条路。
+enum McpMirrorEffectiveSource {
+  /// 环境变量 OPENHAND_MCP_MIRROR=on/1/true
+  envOn,
+
+  /// 环境变量 OPENHAND_MCP_MIRROR=off/0/false
+  envOff,
+
+  /// 设置项 = 强制开启
+  settingForceOn,
+
+  /// 设置项 = 强制关闭
+  settingForceOff,
+
+  /// 设置项 = auto，且 locale 是 zh*（注入）
+  autoLocaleZh,
+
+  /// 设置项 = auto，且 locale 不是 zh*（不注入）
+  autoLocaleOther;
+
+  bool get injects =>
+      this == envOn ||
+      this == settingForceOn ||
+      this == autoLocaleZh;
+}
+
+/// 计算镜像源决策最终命中的来源。供 UI、日志、测试三方共用。
+McpMirrorEffectiveSource resolveMcpMirrorEffectiveSource() {
+  final override = (Platform.environment['OPENHAND_MCP_MIRROR'] ?? '')
+      .trim()
+      .toLowerCase();
+  if (override == 'on' || override == '1' || override == 'true') {
+    return McpMirrorEffectiveSource.envOn;
+  }
+  if (override == 'off' || override == '0' || override == 'false') {
+    return McpMirrorEffectiveSource.envOff;
+  }
+  switch (mcpStdioMirrorModeOverride) {
+    case McpStdioMirrorMode.forceOn:
+      return McpMirrorEffectiveSource.settingForceOn;
+    case McpStdioMirrorMode.forceOff:
+      return McpMirrorEffectiveSource.settingForceOff;
+    case McpStdioMirrorMode.auto:
+    case null:
+      final locale = Platform.localeName.toLowerCase();
+      return locale.startsWith('zh')
+          ? McpMirrorEffectiveSource.autoLocaleZh
+          : McpMirrorEffectiveSource.autoLocaleOther;
+  }
+}
+
 /// 是否给 stdio MCP 注入中国镜像源。
 /// 决策表（自上而下，命中即返回）：
 ///   1. `OPENHAND_MCP_MIRROR=on/off` 环境变量 → 最高优先级，便于临时调试
@@ -1869,26 +1921,17 @@ McpStdioMirrorMode? mcpStdioMirrorModeOverride;
 ///   3. auto / 未设置 → 看系统 locale 是否 zh*
 /// 让中国大陆用户开箱即用，又给海外/已配企业镜像/手动覆盖三种诉求都留口子。
 bool _shouldInjectChinaMirror() {
-  final override = (Platform.environment['OPENHAND_MCP_MIRROR'] ?? '')
-      .trim()
-      .toLowerCase();
-  if (override == 'on' || override == '1' || override == 'true') {
-    return true;
-  }
-  if (override == 'off' || override == '0' || override == 'false') {
-    return false;
-  }
-  switch (mcpStdioMirrorModeOverride) {
-    case McpStdioMirrorMode.forceOn:
-      return true;
-    case McpStdioMirrorMode.forceOff:
-      return false;
-    case McpStdioMirrorMode.auto:
-    case null:
-      // auto / 空值
-      final locale = Platform.localeName.toLowerCase();
-      return locale.startsWith('zh');
-  }
+  final source = resolveMcpMirrorEffectiveSource();
+  // cold-start 失败排查时，能在 stderr 里直接看到走了哪条决策路径 +
+  // locale 是什么。release 构建里 debugPrint 自动 no-op。
+  debugPrint(
+    '[mcp.mirror] decision=${source.name} '
+    'inject=${source.injects} '
+    'env=${Platform.environment['OPENHAND_MCP_MIRROR'] ?? ''} '
+    'setting=${mcpStdioMirrorModeOverride?.storageValue ?? 'null'} '
+    'locale=${Platform.localeName}',
+  );
+  return source.injects;
 }
 
 /// stdio MCP 隔离包缓存根目录：~/.openhand/mcp/package-cache。
