@@ -46,6 +46,7 @@ class BashToolExecutionUpdate {
     required this.stderr,
     required this.durationMs,
     this.exitCode,
+    this.stallWarning,
   });
 
   final BashToolExecutionPhase phase;
@@ -55,6 +56,10 @@ class BashToolExecutionUpdate {
   final String stderr;
   final int durationMs;
   final int? exitCode;
+
+  /// 命令长时间没有新增输出时附带的停滞提示。null 表示一切正常。
+  /// 形如 `'45s 内无新输出，疑似在等待交互式输入：(y/n)'`。
+  final String? stallWarning;
 }
 
 class BashToolExecutionResult {
@@ -170,7 +175,77 @@ class _PersistentBashExecution {
   bool _awaitingPwdLine = false;
   int _lastRunningEmitMs = -1;
 
+  /// 最近一次接收到 stdout/stderr 的时间戳（ms，相对 stopwatch）。
+  /// 用于停滞检测：若 45s 内没有新增输出，且尾部内容匹配交互式 prompt
+  /// 启发式正则，则向 onUpdate 发送一次 stallWarning。
+  int _lastOutputAtMs = 0;
+  bool _stallWarningEmitted = false;
+  Timer? _stallTimer;
+
+  /// 启发式：常见交互式提示词正则。匹配末尾 1024 字符的尾段。
+  static final RegExp _interactivePromptHeuristic = RegExp(
+    r'(\(y/[nN]\)|\(yes/no\)|Continue\??|password\s*:|Press [a-z ]+ to continue|>>> |\? .*$|\bare you sure\b|\bproceed\b\??)',
+    caseSensitive: false,
+    multiLine: true,
+  );
+
+  void startStallWatcher({
+    Duration interval = const Duration(seconds: 5),
+    Duration threshold = const Duration(seconds: 45),
+  }) {
+    _lastOutputAtMs = stopwatch.elapsedMilliseconds;
+    _stallTimer?.cancel();
+    _stallTimer = Timer.periodic(interval, (_) {
+      if (outcome.isCompleted) {
+        _stallTimer?.cancel();
+        _stallTimer = null;
+        return;
+      }
+      final now = stopwatch.elapsedMilliseconds;
+      if (now - _lastOutputAtMs < threshold.inMilliseconds) return;
+      if (_stallWarningEmitted) return;
+      // 取尾部 1024 字符做 prompt 启发式匹配，避免大输出全量正则。
+      final stdoutTail = _tailString(stdoutBuffer.toString(), 1024);
+      final stderrTail = _tailString(stderrBuffer.toString(), 1024);
+      final match =
+          _interactivePromptHeuristic.firstMatch(stdoutTail)?.group(0) ??
+          _interactivePromptHeuristic.firstMatch(stderrTail)?.group(0);
+      final warning = match != null
+          ? '已 ${(now - _lastOutputAtMs) ~/ 1000}s 无新输出，疑似在等待交互式输入：${match.trim()}'
+          : '已 ${(now - _lastOutputAtMs) ~/ 1000}s 无新输出，命令可能已停滞';
+      _stallWarningEmitted = true;
+      final callback = onUpdate;
+      if (callback != null) {
+        callback(
+          BashToolExecutionUpdate(
+            phase: BashToolExecutionPhase.running,
+            command: command,
+            workingDirectory: workingDirectory,
+            stdout: stdoutBuffer.toString(),
+            stderr: stderrBuffer.toString(),
+            durationMs: now,
+            stallWarning: warning,
+          ),
+        );
+      }
+    });
+  }
+
+  void cancelStallWatcher() {
+    _stallTimer?.cancel();
+    _stallTimer = null;
+  }
+
+  static String _tailString(String text, int maxChars) {
+    if (text.length <= maxChars) return text;
+    return text.substring(text.length - maxChars);
+  }
+
   void appendStdoutChunk(String chunk, int maxCapturedCharacters) {
+    if (chunk.isNotEmpty) {
+      _lastOutputAtMs = stopwatch.elapsedMilliseconds;
+      _stallWarningEmitted = false;
+    }
     final normalized = chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     _stdoutLineBuffer += normalized;
     while (true) {
@@ -193,6 +268,10 @@ class _PersistentBashExecution {
   }
 
   void appendStderrChunk(String chunk, int maxCapturedCharacters) {
+    if (chunk.isNotEmpty) {
+      _lastOutputAtMs = stopwatch.elapsedMilliseconds;
+      _stallWarningEmitted = false;
+    }
     _appendChunk(stderrBuffer, chunk, maxCapturedCharacters);
     emitUpdate(phase: BashToolExecutionPhase.running);
   }
@@ -524,11 +603,14 @@ class AiBashToolService {
     final stdoutBuffer = StringBuffer();
     final stderrBuffer = StringBuffer();
     var lastRunningEmitMs = -1;
+    var lastOutputAtMs = 0;
+    var stallWarningEmitted = false;
 
     void emitUpdate({
       required BashToolExecutionPhase phase,
       bool force = false,
       int? exitCode,
+      String? stallWarning,
     }) {
       if (onUpdate == null) {
         return;
@@ -536,11 +618,12 @@ class AiBashToolService {
       final durationMs = stopwatch.elapsedMilliseconds;
       if (phase == BashToolExecutionPhase.running &&
           !force &&
+          stallWarning == null &&
           lastRunningEmitMs != -1 &&
           durationMs - lastRunningEmitMs < 160) {
         return;
       }
-      if (phase == BashToolExecutionPhase.running) {
+      if (phase == BashToolExecutionPhase.running && stallWarning == null) {
         lastRunningEmitMs = durationMs;
       }
       onUpdate(
@@ -552,6 +635,7 @@ class AiBashToolService {
           stderr: stderrBuffer.toString(),
           durationMs: durationMs,
           exitCode: exitCode,
+          stallWarning: stallWarning,
         ),
       );
     }
@@ -560,15 +644,52 @@ class AiBashToolService {
     final progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       emitUpdate(phase: BashToolExecutionPhase.running, force: true);
     });
+    final stallTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      final now = stopwatch.elapsedMilliseconds;
+      if (now - lastOutputAtMs < 45 * 1000) return;
+      if (stallWarningEmitted) return;
+      final stdoutTail = _PersistentBashExecution._tailString(
+        stdoutBuffer.toString(),
+        1024,
+      );
+      final stderrTail = _PersistentBashExecution._tailString(
+        stderrBuffer.toString(),
+        1024,
+      );
+      final match =
+          _PersistentBashExecution._interactivePromptHeuristic
+              .firstMatch(stdoutTail)
+              ?.group(0) ??
+          _PersistentBashExecution._interactivePromptHeuristic
+              .firstMatch(stderrTail)
+              ?.group(0);
+      final warning = match != null
+          ? '已 ${(now - lastOutputAtMs) ~/ 1000}s 无新输出，疑似在等待交互式输入：${match.trim()}'
+          : '已 ${(now - lastOutputAtMs) ~/ 1000}s 无新输出，命令可能已停滞';
+      stallWarningEmitted = true;
+      emitUpdate(
+        phase: BashToolExecutionPhase.running,
+        force: true,
+        stallWarning: warning,
+      );
+    });
     final stdoutSubscription = process.stdout
         .transform(_shellOutputDecoder)
         .listen((chunk) {
+          if (chunk.isNotEmpty) {
+            lastOutputAtMs = stopwatch.elapsedMilliseconds;
+            stallWarningEmitted = false;
+          }
           _appendChunk(stdoutBuffer, chunk);
           emitUpdate(phase: BashToolExecutionPhase.running);
         });
     final stderrSubscription = process.stderr
         .transform(_shellOutputDecoder)
         .listen((chunk) {
+          if (chunk.isNotEmpty) {
+            lastOutputAtMs = stopwatch.elapsedMilliseconds;
+            stallWarningEmitted = false;
+          }
           _appendChunk(stderrBuffer, chunk);
           emitUpdate(phase: BashToolExecutionPhase.running);
         });
@@ -609,6 +730,7 @@ class AiBashToolService {
       }
     } finally {
       progressTimer.cancel();
+      stallTimer.cancel();
       await stdoutSubscription.cancel();
       await stderrSubscription.cancel();
       stopwatch.stop();
@@ -737,6 +859,7 @@ class AiBashToolService {
     );
     session.activeExecution = execution;
     execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
+    execution.startStallWatcher();
     final progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
     });
@@ -869,6 +992,7 @@ class AiBashToolService {
       );
     } finally {
       progressTimer.cancel();
+      execution.cancelStallWatcher();
       if (identical(session.activeExecution, execution)) {
         session.activeExecution = null;
       }

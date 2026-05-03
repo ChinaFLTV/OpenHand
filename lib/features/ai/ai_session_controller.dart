@@ -3539,6 +3539,11 @@ class AiSessionController extends ChangeNotifier {
             stdout: update.stdout,
             stderr: update.stderr,
             elapsedMs: update.durationMs,
+            additionalMetadata: update.stallWarning == null
+                ? const <String, Object?>{}
+                : <String, Object?>{
+                    'tool_execution_stall_warning': update.stallWarning,
+                  },
           );
           _previewSession(workingSession);
         },
@@ -3719,6 +3724,11 @@ class AiSessionController extends ChangeNotifier {
               stdout: update.stdout,
               stderr: update.stderr,
               elapsedMs: update.durationMs,
+              additionalMetadata: update.stallWarning == null
+                  ? const <String, Object?>{}
+                  : <String, Object?>{
+                      'tool_execution_stall_warning': update.stallWarning,
+                    },
             );
             _previewSession(workingSession);
           },

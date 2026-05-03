@@ -250,6 +250,21 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                 label:
                     '${AppLocalizations.of(context)!.tlCallExit}: ${toolCall.exitCode}',
               ),
+            // 停滞 chip：runtime 通过 metadata 上报 stall warning 时显现，
+            // 命令重新有输出后会被清空（仅在 running 状态保留）。
+            if (message.metadata['tool_execution_stall_warning'] is String &&
+                (message.metadata['tool_execution_stall_warning'] as String)
+                    .trim()
+                    .isNotEmpty &&
+                toolCall.status == 'running')
+              Tooltip(
+                message:
+                    message.metadata['tool_execution_stall_warning'] as String,
+                child: const _ToolExecutionChip(
+                  icon: Icons.warning_amber_outlined,
+                  label: '可能停滞',
+                ),
+              ),
             // 当工具调用仍登记在执行中心时，提供独立 Stop 按钮：
             // 单击只杀本调用（区别于全局"停止响应"，不影响并行的兄弟工具）。
             _ToolCancelButton(
