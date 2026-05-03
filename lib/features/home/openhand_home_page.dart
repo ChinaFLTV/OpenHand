@@ -6107,7 +6107,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.crons => const CronsView(),
       AppSection.instructions => const InstructionsView(),
       AppSection.messageGateway => const MessageGatewayView(),
-      AppSection.settings => const SettingsView(),
+      AppSection.settings => Provider<ToolSearchReplayDispatcher>.value(
+        value: _toolSearchReplayDispatcher,
+        child: const SettingsView(),
+      ),
       AppSection.hardnessSession =>
         _activeHardnessOrchestrator != null && _activeHardnessConfig != null
             ? HardnessSessionPane(

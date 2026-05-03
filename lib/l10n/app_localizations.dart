@@ -4924,6 +4924,60 @@ abstract class AppLocalizations {
   /// **'保存为 JSON…'**
   String get snackToolSearchLoadedHistoryExportSaveJson;
 
+  /// Tooltip on Copy/Save CSV menu items in the ToolSearch history dialog.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'适合表格软件；一条 query 一行。'**
+  String get snackToolSearchLoadedHistoryExportCsvHint;
+
+  /// Tooltip on Copy/Save Markdown menu items.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'GitHub 风格表格；贴 Issue / 文档好看。'**
+  String get snackToolSearchLoadedHistoryExportMarkdownHint;
+
+  /// Tooltip on Copy/Save JSON menu items.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'结构化数据；可被 OpenHand 重新导入。'**
+  String get snackToolSearchLoadedHistoryExportJsonHint;
+
+  /// Tooltip for the IconButton that opens a JSON file produced by ToolSearch history export and previews its entries.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导入 JSON 转储'**
+  String get toolSearchLoadedHistoryImportTooltip;
+
+  /// Title of the preview dialog shown after a successful JSON import.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'ToolSearch 历史导入预览'**
+  String get toolSearchLoadedHistoryImportDialogTitle;
+
+  /// Snackbar/error text when JSON cannot be parsed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JSON 解析失败：{error}'**
+  String toolSearchLoadedHistoryImportDialogParseFailed(String error);
+
+  /// Pluralized count summary shown above the preview list.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count, plural, =0{无条目} other{{count} 条记录}}'**
+  String toolSearchLoadedHistoryImportDialogCount(int count);
+
+  /// Body text when imported file has zero entries.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文件中未发现任何条目。'**
+  String get toolSearchLoadedHistoryImportDialogEmpty;
+
+  /// Close button label on the import preview dialog.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get toolSearchLoadedHistoryImportDialogClose;
+
   /// No description provided for @snackToolSearchLoadedHistoryExportSavedToast.
   ///
   /// In zh_Hans, this message translates to:
@@ -8581,6 +8635,24 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'开启后，自研动画与 Flutter 内建动画的时长全部归零。与系统层「减少动画」辅助功能并联生效。'**
   String get settingsReduceMotionBody;
+
+  /// Settings/MCP debug button: replays the last ToolSearch load that was cancelled in the 3-second undo window.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重放上次取消'**
+  String get mcpToolSearchReplayLastCancelAction;
+
+  /// Toast: the last cancelled ToolSearch load has been re-fired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已重发上次取消的载入'**
+  String get mcpToolSearchReplayLastCancelToastFired;
+
+  /// Toast: dispatcher has nothing to replay.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前没有可重放的取消'**
+  String get mcpToolSearchReplayLastCancelToastEmpty;
 }
 
 class _AppLocalizationsDelegate

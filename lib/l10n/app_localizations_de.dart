@@ -2733,6 +2733,49 @@ class AppLocalizationsDe extends AppLocalizations {
       'Als JSON speichern…';
 
   @override
+  String get snackToolSearchLoadedHistoryExportCsvHint =>
+      'Tabellenkalkulationsfreundlich; eine Zeile pro Anfrage.';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdownHint =>
+      'GitHub-Stil-Tabelle; gut für Issues und Docs.';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportJsonHint =>
+      'Strukturierte Daten; kann wieder in OpenHand importiert werden.';
+
+  @override
+  String get toolSearchLoadedHistoryImportTooltip => 'JSON-Dump importieren';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogTitle =>
+      'ToolSearch-Verlaufsimport-Vorschau';
+
+  @override
+  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
+    return 'JSON-Parsing fehlgeschlagen: $error';
+  }
+
+  @override
+  String toolSearchLoadedHistoryImportDialogCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Einträge',
+      one: '1 Eintrag',
+      zero: 'keine Einträge',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogEmpty =>
+      'Keine Einträge in der Datei gefunden.';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogClose => 'Schließen';
+
+  @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
     return '$count Einträge in $path gespeichert';
   }
@@ -4861,4 +4904,15 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       'Wenn aktiviert, werden eigene und in Flutter eingebaute Animationen übersprungen (Dauer auf null). Wirkt zusammen mit der systemweiten Bedienungshilfe „Bewegung reduzieren“.';
+
+  @override
+  String get mcpToolSearchReplayLastCancelAction =>
+      'Letzten Abbruch wiederholen';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastFired =>
+      'Letzte abgebrochene Ladung wiederholt';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastEmpty => 'Nichts zu wiederholen';
 }

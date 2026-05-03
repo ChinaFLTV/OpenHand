@@ -2750,6 +2750,49 @@ class AppLocalizationsFr extends AppLocalizations {
       'Enregistrer en JSON…';
 
   @override
+  String get snackToolSearchLoadedHistoryExportCsvHint =>
+      'Idéal pour les tableurs : une ligne par requête.';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdownHint =>
+      'Tableau GitHub : parfait pour les issues et la doc.';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportJsonHint =>
+      'Charge utile structurée : ré-importable dans OpenHand.';
+
+  @override
+  String get toolSearchLoadedHistoryImportTooltip => 'Importer un export JSON';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogTitle =>
+      'Aperçu de l’import d’historique ToolSearch';
+
+  @override
+  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
+    return 'Échec de l’analyse JSON : $error';
+  }
+
+  @override
+  String toolSearchLoadedHistoryImportDialogCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entrées',
+      one: '1 entrée',
+      zero: 'aucune entrée',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogEmpty =>
+      'Aucune entrée trouvée dans le fichier.';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogClose => 'Fermer';
+
+  @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
     return '$count entrées enregistrées dans $path';
   }
@@ -4887,4 +4930,15 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       'Lorsque cette option est activée, les animations personnalisées et intégrées sont ignorées (durées ramenées à zéro). Se combine avec le réglage d’accessibilité « Réduire les animations » du système.';
+
+  @override
+  String get mcpToolSearchReplayLastCancelAction =>
+      'Rejouer dernière annulation';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastFired =>
+      'Dernier chargement annulé rejoué';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastEmpty => 'Rien à rejouer';
 }

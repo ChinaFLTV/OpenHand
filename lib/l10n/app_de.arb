@@ -1175,6 +1175,52 @@
   "snackToolSearchLoadedHistoryExportSaveCsv": "Als CSV speichern…",
   "snackToolSearchLoadedHistoryExportSaveMarkdown": "Als Markdown speichern…",
   "snackToolSearchLoadedHistoryExportSaveJson": "Als JSON speichern…",
+  "snackToolSearchLoadedHistoryExportCsvHint": "Tabellenkalkulationsfreundlich; eine Zeile pro Anfrage.",
+  "@snackToolSearchLoadedHistoryExportCsvHint": {
+    "description": "Tooltip on Copy/Save CSV menu items in the ToolSearch history dialog."
+  },
+  "snackToolSearchLoadedHistoryExportMarkdownHint": "GitHub-Stil-Tabelle; gut für Issues und Docs.",
+  "@snackToolSearchLoadedHistoryExportMarkdownHint": {
+    "description": "Tooltip on Copy/Save Markdown menu items."
+  },
+  "snackToolSearchLoadedHistoryExportJsonHint": "Strukturierte Daten; kann wieder in OpenHand importiert werden.",
+  "toolSearchLoadedHistoryImportTooltip": "JSON-Dump importieren",
+  "@toolSearchLoadedHistoryImportTooltip": {
+    "description": "Tooltip for the IconButton that opens a JSON file produced by ToolSearch history export and previews its entries."
+  },
+  "toolSearchLoadedHistoryImportDialogTitle": "ToolSearch-Verlaufsimport-Vorschau",
+  "@toolSearchLoadedHistoryImportDialogTitle": {
+    "description": "Title of the preview dialog shown after a successful JSON import."
+  },
+  "toolSearchLoadedHistoryImportDialogParseFailed": "JSON-Parsing fehlgeschlagen: {error}",
+  "@toolSearchLoadedHistoryImportDialogParseFailed": {
+    "description": "Snackbar/error text when JSON cannot be parsed.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "toolSearchLoadedHistoryImportDialogCount": "{count, plural, =0{keine Einträge} =1{1 Eintrag} other{{count} Einträge}}",
+  "@toolSearchLoadedHistoryImportDialogCount": {
+    "description": "Pluralized count summary shown above the preview list.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolSearchLoadedHistoryImportDialogEmpty": "Keine Einträge in der Datei gefunden.",
+  "@toolSearchLoadedHistoryImportDialogEmpty": {
+    "description": "Body text when imported file has zero entries."
+  },
+  "toolSearchLoadedHistoryImportDialogClose": "Schließen",
+  "@toolSearchLoadedHistoryImportDialogClose": {
+    "description": "Close button label on the import preview dialog."
+  },
+  "@snackToolSearchLoadedHistoryExportJsonHint": {
+    "description": "Tooltip on Copy/Save JSON menu items."
+  },
   "snackToolSearchLoadedHistoryExportSavedToast": "{count} Einträge in {path} gespeichert",
   "@snackToolSearchLoadedHistoryExportSavedToast": {
     "placeholders": {
@@ -2195,5 +2241,17 @@
   "settingsReduceMotionBody": "Wenn aktiviert, werden eigene und in Flutter eingebaute Animationen übersprungen (Dauer auf null). Wirkt zusammen mit der systemweiten Bedienungshilfe „Bewegung reduzieren“.",
   "@settingsReduceMotionBody": {
     "description": "Settings → General: subtitle for the reduce-motion switch."
+  },
+  "mcpToolSearchReplayLastCancelAction": "Letzten Abbruch wiederholen",
+  "@mcpToolSearchReplayLastCancelAction": {
+    "description": "Settings/MCP debug button: replays the last ToolSearch load that was cancelled in the 3-second undo window."
+  },
+  "mcpToolSearchReplayLastCancelToastFired": "Letzte abgebrochene Ladung wiederholt",
+  "@mcpToolSearchReplayLastCancelToastFired": {
+    "description": "Toast: the last cancelled ToolSearch load has been re-fired."
+  },
+  "mcpToolSearchReplayLastCancelToastEmpty": "Nichts zu wiederholen",
+  "@mcpToolSearchReplayLastCancelToastEmpty": {
+    "description": "Toast: dispatcher has nothing to replay."
   }
 }

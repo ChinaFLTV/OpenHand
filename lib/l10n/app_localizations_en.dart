@@ -2702,6 +2702,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackToolSearchLoadedHistoryExportSaveJson => 'Save as JSON…';
 
   @override
+  String get snackToolSearchLoadedHistoryExportCsvHint =>
+      'Spreadsheet-friendly; one row per query.';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdownHint =>
+      'GitHub-flavored table; great for issues / docs.';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportJsonHint =>
+      'Structured payload; can be imported back into OpenHand.';
+
+  @override
+  String get toolSearchLoadedHistoryImportTooltip => 'Import a JSON dump';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogTitle =>
+      'Imported ToolSearch history';
+
+  @override
+  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
+    return 'Failed to parse JSON: $error';
+  }
+
+  @override
+  String toolSearchLoadedHistoryImportDialogCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+      zero: 'no entries',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogEmpty =>
+      'No entries found in the file.';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogClose => 'Close';
+
+  @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
     return 'Saved $count entries to $path';
   }
@@ -4816,4 +4859,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       'When enabled, custom and built-in animations are skipped (durations collapse to zero). Pairs with the system Reduce Motion accessibility setting.';
+
+  @override
+  String get mcpToolSearchReplayLastCancelAction => 'Replay last cancel';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastFired =>
+      'Replayed last cancelled load';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastEmpty => 'Nothing to replay';
 }

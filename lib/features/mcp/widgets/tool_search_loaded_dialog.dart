@@ -372,6 +372,71 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     }
   }
 
+  /// 让用户挑一个由 [ToolSearchHistorySerializer.toJson] 生成的 JSON 文件，
+  /// 解析失败时 SnackBar 提示，成功时弹一个只读 preview dialog 列出条目。
+  Future<void> _handleImportHistoryFromJson() async {
+    final l10n = AppLocalizations.of(context)!;
+    XFile? picked;
+    try {
+      picked = await openFile(
+        acceptedTypeGroups: const <XTypeGroup>[
+          XTypeGroup(label: 'JSON', extensions: <String>['json']),
+        ],
+        initialDirectory: await ToolSearchHistoryExportPrefs.readLastDir(),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'tool_search_loaded_dialog',
+        '_handleImportHistoryFromJson.openFile',
+        error,
+        stack,
+      );
+      return;
+    }
+    if (picked == null || !mounted) return;
+    String raw;
+    try {
+      raw = await File(picked.path).readAsString();
+    } catch (error, stack) {
+      silentLog(
+        'tool_search_loaded_dialog',
+        '_handleImportHistoryFromJson.readAsString',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    List<AiToolSearchLoadHistoryEntry> entries;
+    try {
+      entries = ToolSearchHistorySerializer.fromJson(raw);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => _ToolSearchHistoryImportPreviewDialog(entries: entries),
+    );
+  }
+
   /// 把 [_groupByServer] 的结果按 [_filterQuery] 做大小写不敏感子串过滤，
   /// 仅保留至少有一项命中的分组；分组内只保留命中条目。
   List<_ToolGroup> _filterGroups(List<_ToolGroup> groups) {
@@ -556,35 +621,64 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               itemBuilder: (context) => <PopupMenuEntry<_HistoryExportAction>>[
                 PopupMenuItem<_HistoryExportAction>(
                   value: _HistoryExportAction.copyCsv,
-                  child: Text(l10n.snackToolSearchLoadedHistoryExportCsv),
+                  child: Tooltip(
+                    message: l10n.snackToolSearchLoadedHistoryExportCsvHint,
+                    child: Text(l10n.snackToolSearchLoadedHistoryExportCsv),
+                  ),
                 ),
                 PopupMenuItem<_HistoryExportAction>(
                   value: _HistoryExportAction.copyMarkdown,
-                  child:
-                      Text(l10n.snackToolSearchLoadedHistoryExportMarkdown),
+                  child: Tooltip(
+                    message:
+                        l10n.snackToolSearchLoadedHistoryExportMarkdownHint,
+                    child:
+                        Text(l10n.snackToolSearchLoadedHistoryExportMarkdown),
+                  ),
                 ),
                 PopupMenuItem<_HistoryExportAction>(
                   value: _HistoryExportAction.copyJson,
-                  child: Text(l10n.snackToolSearchLoadedHistoryExportJson),
+                  child: Tooltip(
+                    message: l10n.snackToolSearchLoadedHistoryExportJsonHint,
+                    child: Text(l10n.snackToolSearchLoadedHistoryExportJson),
+                  ),
                 ),
                 const PopupMenuDivider(),
                 PopupMenuItem<_HistoryExportAction>(
                   value: _HistoryExportAction.saveCsv,
-                  child: Text(l10n.snackToolSearchLoadedHistoryExportSaveCsv),
+                  child: Tooltip(
+                    message: l10n.snackToolSearchLoadedHistoryExportCsvHint,
+                    child:
+                        Text(l10n.snackToolSearchLoadedHistoryExportSaveCsv),
+                  ),
                 ),
                 PopupMenuItem<_HistoryExportAction>(
                   value: _HistoryExportAction.saveMarkdown,
-                  child: Text(
-                    l10n.snackToolSearchLoadedHistoryExportSaveMarkdown,
+                  child: Tooltip(
+                    message:
+                        l10n.snackToolSearchLoadedHistoryExportMarkdownHint,
+                    child: Text(
+                      l10n.snackToolSearchLoadedHistoryExportSaveMarkdown,
+                    ),
                   ),
                 ),
                 PopupMenuItem<_HistoryExportAction>(
                   value: _HistoryExportAction.saveJson,
-                  child: Text(
-                    l10n.snackToolSearchLoadedHistoryExportSaveJson,
+                  child: Tooltip(
+                    message: l10n.snackToolSearchLoadedHistoryExportJsonHint,
+                    child: Text(
+                      l10n.snackToolSearchLoadedHistoryExportSaveJson,
+                    ),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: l10n.toolSearchLoadedHistoryImportTooltip,
+              icon: const Icon(Icons.file_open_rounded, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: _handleImportHistoryFromJson,
             ),
             const SizedBox(width: 4),
             TextButton.icon(
@@ -930,4 +1024,76 @@ enum _HistoryExportAction {
   const _HistoryExportAction(this.format, this.destination);
   final _HistoryExportFormat format;
   final _HistoryExportDestination destination;
+}
+
+/// 只读 preview dialog：把 [ToolSearchHistorySerializer.fromJson] 反解出的
+/// 一组 entry 以列表形式展示，方便用户检查 JSON 转储是否符合预期。
+/// 不写回任何 tracker；纯检视用途。
+class _ToolSearchHistoryImportPreviewDialog extends StatelessWidget {
+  const _ToolSearchHistoryImportPreviewDialog({required this.entries});
+
+  final List<AiToolSearchLoadHistoryEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: Text(l10n.toolSearchLoadedHistoryImportDialogTitle),
+      content: SizedBox(
+        width: 520,
+        height: 420,
+        child: entries.isEmpty
+            ? Center(
+                child: Text(l10n.toolSearchLoadedHistoryImportDialogEmpty),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      l10n.toolSearchLoadedHistoryImportDialogCount(
+                        entries.length,
+                      ),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: entries.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final e = entries[i];
+                        return ListTile(
+                          dense: true,
+                          title: Text(
+                            e.query.isEmpty ? '(no query)' : e.query,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${e.timestamp.toIso8601String()} · '
+                            '${e.source.name} · +${e.addedCount} / '
+                            '${e.totalDeferred}',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.toolSearchLoadedHistoryImportDialogClose),
+        ),
+      ],
+    );
+  }
 }

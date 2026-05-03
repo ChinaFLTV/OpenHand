@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/mcp/service/tool_search_replay_dispatcher.dart';
 
 void main() {
+  _replayLastCancelledTests();
   test('onFire fires after window when not cancelled', () {
     fakeAsync((async) {
       final dispatcher =
@@ -209,6 +210,71 @@ void main() {
       dispatcher.cancel();
       async.flushMicrotasks();
       expect(dispatcher.pendingDeadlineListenable.value, isNull);
+    });
+  });
+}
+
+// ignore_for_file: lines_longer_than_80_chars
+
+void _replayLastCancelledTests() {
+  group('replayLastCancelled', () {
+    test('refires the onFire that was just cancel()-ed and clears memory', () {
+      fakeAsync((async) {
+        final dispatcher = ToolSearchReplayDispatcher();
+        var fired = 0;
+        dispatcher.schedule(
+          onFire: () async => fired++,
+          onCancel: () {},
+        );
+        dispatcher.cancel();
+        async.flushMicrotasks();
+        expect(dispatcher.hasReplayable, isTrue);
+        expect(dispatcher.replayableListenable.value, isTrue);
+
+        // Drive the async replay through fakeAsync so we can assert on `fired`.
+        var result = false;
+        dispatcher.replayLastCancelled().then((v) => result = v);
+        async.flushMicrotasks();
+        expect(result, isTrue);
+        expect(fired, 1);
+        expect(dispatcher.hasReplayable, isFalse);
+        expect(dispatcher.replayableListenable.value, isFalse);
+      });
+    });
+
+    test('returns false when nothing has been cancelled yet', () {
+      fakeAsync((async) {
+        final dispatcher = ToolSearchReplayDispatcher();
+        var result = true;
+        dispatcher.replayLastCancelled().then((v) => result = v);
+        async.flushMicrotasks();
+        expect(result, isFalse);
+      });
+    });
+
+    test('successful fire does NOT leave a replayable memory', () {
+      fakeAsync((async) {
+        final dispatcher =
+            ToolSearchReplayDispatcher(defaultWindow: const Duration(seconds: 1));
+        dispatcher.schedule(onFire: () async {}, onCancel: () {});
+        async.elapse(const Duration(seconds: 2));
+        expect(dispatcher.hasReplayable, isFalse,
+            reason: 'fire path must clear replayable, only cancel persists it');
+      });
+    });
+
+    test('a fresh schedule discards prior cancelled-replay memory', () {
+      fakeAsync((async) {
+        final dispatcher = ToolSearchReplayDispatcher();
+        dispatcher.schedule(onFire: () async {}, onCancel: () {});
+        dispatcher.cancel();
+        async.flushMicrotasks();
+        expect(dispatcher.hasReplayable, isTrue);
+
+        dispatcher.schedule(onFire: () async {}, onCancel: () {});
+        expect(dispatcher.hasReplayable, isFalse,
+            reason: 'new schedule must wipe stale cancelled-replay memory');
+      });
     });
   });
 }

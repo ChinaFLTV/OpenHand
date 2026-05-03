@@ -1175,6 +1175,52 @@
   "snackToolSearchLoadedHistoryExportSaveCsv": "Save as CSV…",
   "snackToolSearchLoadedHistoryExportSaveMarkdown": "Save as Markdown…",
   "snackToolSearchLoadedHistoryExportSaveJson": "Save as JSON…",
+  "snackToolSearchLoadedHistoryExportCsvHint": "Spreadsheet-friendly; one row per query.",
+  "@snackToolSearchLoadedHistoryExportCsvHint": {
+    "description": "Tooltip on Copy/Save CSV menu items in the ToolSearch history dialog."
+  },
+  "snackToolSearchLoadedHistoryExportMarkdownHint": "GitHub-flavored table; great for issues / docs.",
+  "@snackToolSearchLoadedHistoryExportMarkdownHint": {
+    "description": "Tooltip on Copy/Save Markdown menu items."
+  },
+  "snackToolSearchLoadedHistoryExportJsonHint": "Structured payload; can be imported back into OpenHand.",
+  "toolSearchLoadedHistoryImportTooltip": "Import a JSON dump",
+  "@toolSearchLoadedHistoryImportTooltip": {
+    "description": "Tooltip for the IconButton that opens a JSON file produced by ToolSearch history export and previews its entries."
+  },
+  "toolSearchLoadedHistoryImportDialogTitle": "Imported ToolSearch history",
+  "@toolSearchLoadedHistoryImportDialogTitle": {
+    "description": "Title of the preview dialog shown after a successful JSON import."
+  },
+  "toolSearchLoadedHistoryImportDialogParseFailed": "Failed to parse JSON: {error}",
+  "@toolSearchLoadedHistoryImportDialogParseFailed": {
+    "description": "Snackbar/error text when JSON cannot be parsed.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "toolSearchLoadedHistoryImportDialogCount": "{count, plural, =0{no entries} =1{1 entry} other{{count} entries}}",
+  "@toolSearchLoadedHistoryImportDialogCount": {
+    "description": "Pluralized count summary shown above the preview list.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolSearchLoadedHistoryImportDialogEmpty": "No entries found in the file.",
+  "@toolSearchLoadedHistoryImportDialogEmpty": {
+    "description": "Body text when imported file has zero entries."
+  },
+  "toolSearchLoadedHistoryImportDialogClose": "Close",
+  "@toolSearchLoadedHistoryImportDialogClose": {
+    "description": "Close button label on the import preview dialog."
+  },
+  "@snackToolSearchLoadedHistoryExportJsonHint": {
+    "description": "Tooltip on Copy/Save JSON menu items."
+  },
   "snackToolSearchLoadedHistoryExportSavedToast": "Saved {count} entries to {path}",
   "@snackToolSearchLoadedHistoryExportSavedToast": {
     "placeholders": {
@@ -2195,5 +2241,17 @@
   "settingsReduceMotionBody": "When enabled, custom and built-in animations are skipped (durations collapse to zero). Pairs with the system Reduce Motion accessibility setting.",
   "@settingsReduceMotionBody": {
     "description": "Settings → General: subtitle for the reduce-motion switch."
+  },
+  "mcpToolSearchReplayLastCancelAction": "Replay last cancel",
+  "@mcpToolSearchReplayLastCancelAction": {
+    "description": "Settings/MCP debug button: replays the last ToolSearch load that was cancelled in the 3-second undo window."
+  },
+  "mcpToolSearchReplayLastCancelToastFired": "Replayed last cancelled load",
+  "@mcpToolSearchReplayLastCancelToastFired": {
+    "description": "Toast: the last cancelled ToolSearch load has been re-fired."
+  },
+  "mcpToolSearchReplayLastCancelToastEmpty": "Nothing to replay",
+  "@mcpToolSearchReplayLastCancelToastEmpty": {
+    "description": "Toast: dispatcher has nothing to replay."
   }
 }

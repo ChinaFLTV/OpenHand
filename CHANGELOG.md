@@ -6,6 +6,29 @@ All notable changes to OpenHand will be documented in this file.
 
 ### Added
 
+- **ToolSearch loaded-tools dialog** polish (Phases 9–17):
+  - History export popup now shows tooltips per item (CSV / Markdown / JSON
+    hints) explaining whether the action targets the clipboard or a file.
+  - "Import from JSON" entry next to Clear: pick a JSON dump produced by
+    `ToolSearchHistorySerializer.toJson` and preview its entries (timestamp,
+    source, query, +added / total) in a read-only dialog. Parse failures
+    surface the FormatException via SnackBar instead of crashing.
+  - Reusable `OhPill` shared widget in `lib/shared/widgets/oh_pill.dart`
+    with widget tests covering icon / label / InkWell wiring and overflow
+    behaviour.
+  - `ToolSearchHistoryExportPrefs` (sqflite-backed KV) for "last save
+    directory" memory; covered by 7 unit tests (round-trip, overwrite,
+    whitespace trim, empty-string-clear, no-collision with main settings
+    row).
+  - Settings → MCP debug: **Replay last cancel** action that re-fires the
+    most recently undone ToolSearch replay via the new
+    `ToolSearchReplayDispatcher.replayLastCancelled()`. Disabled when
+    nothing is replayable; toast distinguishes fired vs no-op.
+  - `HardnessPendingReplayBadge` extracted as a public widget with
+    injectable `tickInterval` / `nowProvider` for deterministic testing.
+
+### Added
+
 - **Hermes Talker thread template** with end-to-end self-learning:
   - New `memory` builtin tool (list / append / upsert_profile / update / delete),
     template-scoped to `hermes_talker` only (alongside `skill_manager`).

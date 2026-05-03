@@ -57,6 +57,7 @@ import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/model/mcp_lazy_loading_mode.dart';
 import '../mcp/service/tool_search_history_export_prefs.dart';
+import '../mcp/service/tool_search_replay_dispatcher.dart';
 import '../mcp/widgets/tool_search_loaded_dialog.dart';
 import '../memory/memory_controller.dart';
 import '../skills/skills_controller.dart';
@@ -2778,6 +2779,26 @@ class _SettingsViewState extends State<SettingsView> {
             label: Text(l10n.mcpToolSearchExportLastDirResetAction),
           ),
         ),
+        // 调试入口：当 ToolSearch 重放在「3 秒反悔」窗口里被用户取消后，
+        // dispatcher 会记下那次的 onFire；此处一键重发，方便快速验证。
+        // 没有可重放项时按钮置灰；按下后 dispatcher 清空记忆。
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: context
+                .read<ToolSearchReplayDispatcher>()
+                .replayableListenable,
+            builder: (ctx, hasReplayable, _) {
+              return TextButton.icon(
+                onPressed: hasReplayable
+                    ? () => _replayLastCancelledToolSearch(ctx)
+                    : null,
+                icon: const Icon(Icons.replay_rounded, size: 18),
+                label: Text(l10n.mcpToolSearchReplayLastCancelAction),
+              );
+            },
+          ),
+        ),
         const SizedBox(height: 12),
         _ResponsiveSettingRow(
           title: l10n.mcpLazyLoadingModeLabel,
@@ -4188,6 +4209,21 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.mcpToolSearchExportLastDirResetToast,
+    );
+  }
+
+  /// 调试快捷：重发上次被「3 秒反悔窗口」取消的 ToolSearch 重放。
+  /// 没有可重放记忆时 toast「已无可重放」，否则 toast「已重发」。
+  Future<void> _replayLastCancelledToolSearch(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final dispatcher = context.read<ToolSearchReplayDispatcher>();
+    final fired = await dispatcher.replayLastCancelled();
+    if (!context.mounted) return;
+    _showSnackBar(
+      context,
+      fired
+          ? l10n.mcpToolSearchReplayLastCancelToastFired
+          : l10n.mcpToolSearchReplayLastCancelToastEmpty,
     );
   }
 

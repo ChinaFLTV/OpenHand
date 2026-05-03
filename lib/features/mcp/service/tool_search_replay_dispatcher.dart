@@ -80,20 +80,56 @@ class ToolSearchReplayDispatcher {
     if (_disposed) return;
     _timer?.cancel();
     _settled = false;
+    // 新一轮 schedule 会丢弃先前记忆的 lastCancelledFire，避免
+    // 「重发一个已被覆盖的旧调度」这种诡异语义。
+    _lastCancelledFire = null;
+    _replayableNotifier.value = false;
     final effectiveWindow = window ?? defaultWindow;
     _timer = Timer(effectiveWindow, () async {
       if (_disposed || _settled) return;
       _settled = true;
       _timer = null;
       _setPending(false);
+      // 成功 fire 后不再保留 onFire—「已发出」不应该被「重发」。
+      _lastCancelledFire = null;
+      _replayableNotifier.value = false;
       await onFire();
     });
     _pendingCancel = onCancel;
+    _pendingFire = onFire;
     _deadlineNotifier.value = DateTime.now().add(effectiveWindow);
     _setPending(true);
   }
 
+  FutureOr<void> Function()? _pendingFire;
+
   void Function()? _pendingCancel;
+
+  /// 上次被 [cancel] 取消的 `onFire` 回调副本。`replayLastCancelled` 用
+  /// 它来「再发一次」（快速调试入口）。每次新 [schedule] 会清空它（避免
+  /// 重发已被覆盖的旧调度）；每次 [cancel] 会写入；首次成功 `fire` 时
+  /// 也清空（避免误以为还能再放一次）。
+  FutureOr<void> Function()? _lastCancelledFire;
+  final ValueNotifier<bool> _replayableNotifier = ValueNotifier<bool>(false);
+
+  /// 是否记忆了一次「可重放的」上次取消。Settings/调试入口订阅这个
+  /// listenable 决定按钮置灰 / 高亮。
+  ValueListenable<bool> get replayableListenable => _replayableNotifier;
+
+  /// 是否有「上次被取消的 onFire」可以重发。
+  bool get hasReplayable => _lastCancelledFire != null && !_disposed;
+
+  /// 重发上次被 [cancel] 掉的 `onFire`；没有时 no-op。仅供调试 / 快速测试。
+  /// 不影响当前 pending 的调度。
+  Future<bool> replayLastCancelled() async {
+    if (_disposed) return false;
+    final cb = _lastCancelledFire;
+    if (cb == null) return false;
+    _lastCancelledFire = null;
+    _replayableNotifier.value = false;
+    await cb();
+    return true;
+  }
 
   /// 在窗口内取消调度。已 fire 或已 cancel 的调度调用此方法是 no-op。
   void cancel() {
@@ -103,6 +139,10 @@ class ToolSearchReplayDispatcher {
     _settled = true;
     final cb = _pendingCancel;
     _pendingCancel = null;
+    // 记忆本次被取消的 onFire，给「Replay last cancel」快捷用。
+    _lastCancelledFire = _pendingFire;
+    _pendingFire = null;
+    _replayableNotifier.value = _lastCancelledFire != null;
     _setPending(false);
     cb?.call();
   }
@@ -113,9 +153,12 @@ class ToolSearchReplayDispatcher {
     _timer?.cancel();
     _timer = null;
     _pendingCancel = null;
+    _pendingFire = null;
+    _lastCancelledFire = null;
     _setPending(false);
     _pendingNotifier.dispose();
     _deadlineNotifier.dispose();
+    _replayableNotifier.dispose();
   }
 
   void _setPending(bool value) {

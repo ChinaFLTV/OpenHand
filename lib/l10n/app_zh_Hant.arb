@@ -1176,6 +1176,52 @@
   "snackToolSearchLoadedHistoryExportSaveCsv": "另存為 CSV…",
   "snackToolSearchLoadedHistoryExportSaveMarkdown": "另存為 Markdown…",
   "snackToolSearchLoadedHistoryExportSaveJson": "存檔為 JSON…",
+  "snackToolSearchLoadedHistoryExportCsvHint": "適合表格軟體；一條 query 一行。",
+  "@snackToolSearchLoadedHistoryExportCsvHint": {
+    "description": "Tooltip on Copy/Save CSV menu items in the ToolSearch history dialog."
+  },
+  "snackToolSearchLoadedHistoryExportMarkdownHint": "GitHub 風格表格；貼 Issue / 文件好看。",
+  "@snackToolSearchLoadedHistoryExportMarkdownHint": {
+    "description": "Tooltip on Copy/Save Markdown menu items."
+  },
+  "snackToolSearchLoadedHistoryExportJsonHint": "結構化資料；可被 OpenHand 重新匯入。",
+  "toolSearchLoadedHistoryImportTooltip": "匯入 JSON 轉存",
+  "@toolSearchLoadedHistoryImportTooltip": {
+    "description": "Tooltip for the IconButton that opens a JSON file produced by ToolSearch history export and previews its entries."
+  },
+  "toolSearchLoadedHistoryImportDialogTitle": "ToolSearch 歷史匯入預覽",
+  "@toolSearchLoadedHistoryImportDialogTitle": {
+    "description": "Title of the preview dialog shown after a successful JSON import."
+  },
+  "toolSearchLoadedHistoryImportDialogParseFailed": "JSON 解析失敗：{error}",
+  "@toolSearchLoadedHistoryImportDialogParseFailed": {
+    "description": "Snackbar/error text when JSON cannot be parsed.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "toolSearchLoadedHistoryImportDialogCount": "{count, plural, =0{無條目} other{{count} 條記錄}}",
+  "@toolSearchLoadedHistoryImportDialogCount": {
+    "description": "Pluralized count summary shown above the preview list.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolSearchLoadedHistoryImportDialogEmpty": "檔案中未發現任何條目。",
+  "@toolSearchLoadedHistoryImportDialogEmpty": {
+    "description": "Body text when imported file has zero entries."
+  },
+  "toolSearchLoadedHistoryImportDialogClose": "關閉",
+  "@toolSearchLoadedHistoryImportDialogClose": {
+    "description": "Close button label on the import preview dialog."
+  },
+  "@snackToolSearchLoadedHistoryExportJsonHint": {
+    "description": "Tooltip on Copy/Save JSON menu items."
+  },
   "snackToolSearchLoadedHistoryExportSavedToast": "已存檔 {count} 條至 {path}",
   "@snackToolSearchLoadedHistoryExportSavedToast": {
     "placeholders": {
@@ -2195,5 +2241,17 @@
   "settingsReduceMotionBody": "開啟後，自研動畫與 Flutter 內建動畫的時長全部歸零。與系統層「減少動畫」輔助功能並聯生效。",
   "@settingsReduceMotionBody": {
     "description": "Settings → General: subtitle for the reduce-motion switch."
+  },
+  "mcpToolSearchReplayLastCancelAction": "重播上次取消",
+  "@mcpToolSearchReplayLastCancelAction": {
+    "description": "Settings/MCP debug button: replays the last ToolSearch load that was cancelled in the 3-second undo window."
+  },
+  "mcpToolSearchReplayLastCancelToastFired": "已重發上次取消的載入",
+  "@mcpToolSearchReplayLastCancelToastFired": {
+    "description": "Toast: the last cancelled ToolSearch load has been re-fired."
+  },
+  "mcpToolSearchReplayLastCancelToastEmpty": "目前沒有可重播的取消",
+  "@mcpToolSearchReplayLastCancelToastEmpty": {
+    "description": "Toast: dispatcher has nothing to replay."
   }
 }

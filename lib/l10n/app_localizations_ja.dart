@@ -2591,6 +2591,48 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedHistoryExportSaveJson => 'JSON として保存…';
 
   @override
+  String get snackToolSearchLoadedHistoryExportCsvHint =>
+      '表計算ソフト向け。クエリ1件ごとに1行。';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdownHint =>
+      'GitHub 風のテーブル。Issue やドキュメントに最適。';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportJsonHint =>
+      '構造化データ。OpenHand に再インポート可能。';
+
+  @override
+  String get toolSearchLoadedHistoryImportTooltip => 'JSON ダンプをインポート';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogTitle =>
+      'ToolSearch 履歴インポートプレビュー';
+
+  @override
+  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
+    return 'JSON 解析に失敗しました: $error';
+  }
+
+  @override
+  String toolSearchLoadedHistoryImportDialogCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 件',
+      zero: 'エントリなし',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogEmpty =>
+      'ファイルにエントリは見つかりませんでした。';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogClose => '閉じる';
+
+  @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
     return '$count 件を $path に保存しました';
   }
@@ -4650,4 +4692,14 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       '有効にすると、自社カスタムおよび Flutter 組み込みアニメーションの時間がゼロになります。OS の「視差効果を減らす」と併用できます。';
+
+  @override
+  String get mcpToolSearchReplayLastCancelAction => '直前のキャンセルを再実行';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastFired =>
+      '直前のキャンセル済み読み込みを再実行しました';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastEmpty => '再実行できる項目はありません';
 }

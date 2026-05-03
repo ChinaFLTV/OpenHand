@@ -2559,6 +2559,45 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedHistoryExportSaveJson => '保存为 JSON…';
 
   @override
+  String get snackToolSearchLoadedHistoryExportCsvHint => '适合表格软件；一条 query 一行。';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdownHint =>
+      'GitHub 风格表格；贴 Issue / 文档好看。';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportJsonHint =>
+      '结构化数据；可被 OpenHand 重新导入。';
+
+  @override
+  String get toolSearchLoadedHistoryImportTooltip => '导入 JSON 转储';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogTitle => 'ToolSearch 历史导入预览';
+
+  @override
+  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
+    return 'JSON 解析失败：$error';
+  }
+
+  @override
+  String toolSearchLoadedHistoryImportDialogCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 条记录',
+      zero: '无条目',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogEmpty => '文件中未发现任何条目。';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogClose => '关闭';
+
+  @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
     return '已保存 $count 条到 $path';
   }
@@ -4573,6 +4612,15 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       '开启后，自研动画与 Flutter 内建动画的时长全部归零。与系统层「减少动画」辅助功能并联生效。';
+
+  @override
+  String get mcpToolSearchReplayLastCancelAction => '重放上次取消';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastFired => '已重发上次取消的载入';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastEmpty => '当前没有可重放的取消';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -7130,6 +7178,45 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedHistoryExportSaveJson => '保存为 JSON…';
 
   @override
+  String get snackToolSearchLoadedHistoryExportCsvHint => '适合表格软件；一条 query 一行。';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdownHint =>
+      'GitHub 风格表格；贴 Issue / 文档好看。';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportJsonHint =>
+      '结构化数据；可被 OpenHand 重新导入。';
+
+  @override
+  String get toolSearchLoadedHistoryImportTooltip => '导入 JSON 转储';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogTitle => 'ToolSearch 历史导入预览';
+
+  @override
+  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
+    return 'JSON 解析失败：$error';
+  }
+
+  @override
+  String toolSearchLoadedHistoryImportDialogCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 条记录',
+      zero: '无条目',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogEmpty => '文件中未发现任何条目。';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogClose => '关闭';
+
+  @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
     return '已保存 $count 条到 $path';
   }
@@ -9144,6 +9231,15 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   @override
   String get settingsReduceMotionBody =>
       '开启后，自研动画与 Flutter 内建动画的时长全部归零。与系统层「减少动画」辅助功能并联生效。';
+
+  @override
+  String get mcpToolSearchReplayLastCancelAction => '重放上次取消';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastFired => '已重发上次取消的载入';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastEmpty => '当前没有可重放的取消';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -11700,6 +11796,45 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get snackToolSearchLoadedHistoryExportSaveJson => '存檔為 JSON…';
 
   @override
+  String get snackToolSearchLoadedHistoryExportCsvHint => '適合表格軟體；一條 query 一行。';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdownHint =>
+      'GitHub 風格表格；貼 Issue / 文件好看。';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportJsonHint =>
+      '結構化資料；可被 OpenHand 重新匯入。';
+
+  @override
+  String get toolSearchLoadedHistoryImportTooltip => '匯入 JSON 轉存';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogTitle => 'ToolSearch 歷史匯入預覽';
+
+  @override
+  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
+    return 'JSON 解析失敗：$error';
+  }
+
+  @override
+  String toolSearchLoadedHistoryImportDialogCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 條記錄',
+      zero: '無條目',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogEmpty => '檔案中未發現任何條目。';
+
+  @override
+  String get toolSearchLoadedHistoryImportDialogClose => '關閉';
+
+  @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
     return '已存檔 $count 條至 $path';
   }
@@ -13714,4 +13849,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get settingsReduceMotionBody =>
       '開啟後，自研動畫與 Flutter 內建動畫的時長全部歸零。與系統層「減少動畫」輔助功能並聯生效。';
+
+  @override
+  String get mcpToolSearchReplayLastCancelAction => '重播上次取消';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastFired => '已重發上次取消的載入';
+
+  @override
+  String get mcpToolSearchReplayLastCancelToastEmpty => '目前沒有可重播的取消';
 }
