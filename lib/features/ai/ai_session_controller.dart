@@ -3706,9 +3706,14 @@ class AiSessionController extends ChangeNotifier {
       return null;
     }
     final readFilePaths = _readFileHistory(workingSession);
-    final results = await Future.wait(
-      runningStates.map(
-        (state) => _executeSingleToolCall(
+    final concurrencyLimit =
+        (_latestRuntimeContext?.maxConcurrentTools ?? 8).clamp(1, 64);
+    final results = await _runWithConcurrencyLimit<AiToolExecutionResult>(
+      runningStates.length,
+      concurrencyLimit,
+      (index) {
+        final state = runningStates[index];
+        return _executeSingleToolCall(
           sessionId: workingSession.id,
           executionSessionId: state.executionSessionId,
           toolCall: state.toolCall,
@@ -3740,8 +3745,8 @@ class AiSessionController extends ChangeNotifier {
             );
             _previewSession(workingSession);
           },
-        ),
-      ),
+        );
+      },
     );
     for (var index = 0; index < runningStates.length; index++) {
       final state = runningStates[index];
@@ -3933,6 +3938,35 @@ class AiSessionController extends ChangeNotifier {
         toolCall: toolCall,
       ),
     );
+  }
+
+  /// 工具加固 v3：按 `maxConcurrentTools` 限制并发派发的工具调用数。
+  /// 每个 slot 取下一个未启动的 index 串行 await，整体仍保持顺序数组返回。
+  Future<List<T>> _runWithConcurrencyLimit<T>(
+    int total,
+    int limit,
+    Future<T> Function(int index) task,
+  ) async {
+    if (total == 0) {
+      return <T>[];
+    }
+    final effectiveLimit = limit < 1 ? 1 : limit;
+    final results = List<T?>.filled(total, null);
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (true) {
+        final index = nextIndex++;
+        if (index >= total) {
+          return;
+        }
+        results[index] = await task(index);
+      }
+    }
+    final workerCount = effectiveLimit < total ? effectiveLimit : total;
+    await Future.wait(
+      List<Future<void>>.generate(workerCount, (_) => worker()),
+    );
+    return results.cast<T>();
   }
 
   bool _isParallelizableToolCall({
