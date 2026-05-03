@@ -2928,6 +2928,63 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tlCallChangedFile => '文件变动';
 
   @override
+  String get fileMutationSection => '文件变动';
+
+  @override
+  String fileMutationFilesChanged(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个文件已更改',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String fileMutationFilesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个文件',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fileMutationUndoAll => '撤销全部';
+
+  @override
+  String get fileMutationRefresh => '刷新状态';
+
+  @override
+  String get fileMutationUndone => '已撤销';
+
+  @override
+  String get fileMutationCascadeUndone => '级联失效';
+
+  @override
+  String get fileMutationUndoThis => '撤销此次修改';
+
+  @override
+  String get fileMutationRedo => '重做';
+
+  @override
+  String get fileMutationUndoFailed => '撤销失败';
+
+  @override
+  String get fileMutationRedoFailed => '重做失败';
+
+  @override
+  String get fileMutationSnapshotUnavailable => '内容快照不可用';
+
+  @override
+  String get dataCleanupFileMutationLedgerTitle => '文件变动历史';
+
+  @override
+  String get dataCleanupFileMutationLedgerSubtitle =>
+      '~/.openhand/file_history/ 下的文件变动 ledger（before/after 快照 + jsonl 记录）。清理后历史卡片可能不再展示可撤销状态。';
+
+  @override
   String get tlCallTool => '工具';
 
   @override
@@ -7587,6 +7644,63 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tlCallChangedFile => '文件变动';
 
   @override
+  String get fileMutationSection => '文件变动';
+
+  @override
+  String fileMutationFilesChanged(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个文件已更改',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String fileMutationFilesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个文件',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fileMutationUndoAll => '撤销全部';
+
+  @override
+  String get fileMutationRefresh => '刷新状态';
+
+  @override
+  String get fileMutationUndone => '已撤销';
+
+  @override
+  String get fileMutationCascadeUndone => '级联失效';
+
+  @override
+  String get fileMutationUndoThis => '撤销此次修改';
+
+  @override
+  String get fileMutationRedo => '重做';
+
+  @override
+  String get fileMutationUndoFailed => '撤销失败';
+
+  @override
+  String get fileMutationRedoFailed => '重做失败';
+
+  @override
+  String get fileMutationSnapshotUnavailable => '内容快照不可用';
+
+  @override
+  String get dataCleanupFileMutationLedgerTitle => '文件变动历史';
+
+  @override
+  String get dataCleanupFileMutationLedgerSubtitle =>
+      '~/.openhand/file_history/ 下的文件变动 ledger（before/after 快照 + jsonl 记录）。清理后历史卡片可能不再展示可撤销状态。';
+
+  @override
   String get tlCallTool => '工具';
 
   @override
@@ -12243,6 +12357,63 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tlCallChangedFile => '文件变动';
+
+  @override
+  String get fileMutationSection => '檔案變動';
+
+  @override
+  String fileMutationFilesChanged(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已更改 $count 個檔案',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String fileMutationFilesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 個檔案',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fileMutationUndoAll => '全部復原';
+
+  @override
+  String get fileMutationRefresh => '重新整理';
+
+  @override
+  String get fileMutationUndone => '已復原';
+
+  @override
+  String get fileMutationCascadeUndone => '連動失效';
+
+  @override
+  String get fileMutationUndoThis => '復原此次修改';
+
+  @override
+  String get fileMutationRedo => '重做';
+
+  @override
+  String get fileMutationUndoFailed => '復原失敗';
+
+  @override
+  String get fileMutationRedoFailed => '重做失敗';
+
+  @override
+  String get fileMutationSnapshotUnavailable => '內容快照不可用';
+
+  @override
+  String get dataCleanupFileMutationLedgerTitle => '檔案變動歷史';
+
+  @override
+  String get dataCleanupFileMutationLedgerSubtitle =>
+      '~/.openhand/file_history/ 下的檔案變動 ledger（before/after 快照 + jsonl 紀錄）。清理後歷史卡片可能不再顯示可復原狀態。';
 
   @override
   String get tlCallTool => '工具';

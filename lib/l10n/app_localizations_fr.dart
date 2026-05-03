@@ -3143,6 +3143,67 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tlCallChangedFile => 'Fichier modifié';
 
   @override
+  String get fileMutationSection => 'Modifications de fichiers';
+
+  @override
+  String fileMutationFilesChanged(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fichiers modifiés',
+      one: '1 fichier modifié',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String fileMutationFilesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fichiers',
+      one: '1 fichier',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fileMutationUndoAll => 'Tout annuler';
+
+  @override
+  String get fileMutationRefresh => 'Actualiser';
+
+  @override
+  String get fileMutationUndone => 'Annulé';
+
+  @override
+  String get fileMutationCascadeUndone => 'Annulation en cascade';
+
+  @override
+  String get fileMutationUndoThis => 'Annuler cette modification';
+
+  @override
+  String get fileMutationRedo => 'Rétablir';
+
+  @override
+  String get fileMutationUndoFailed => 'Échec de l\'annulation';
+
+  @override
+  String get fileMutationRedoFailed => 'Échec du rétablissement';
+
+  @override
+  String get fileMutationSnapshotUnavailable =>
+      'Instantané du contenu indisponible';
+
+  @override
+  String get dataCleanupFileMutationLedgerTitle =>
+      'Journal des modifications de fichiers';
+
+  @override
+  String get dataCleanupFileMutationLedgerSubtitle =>
+      'Journal des modifications de fichiers sous ~/.openhand/file_history/ (blobs avant/après + jsonl). Après le nettoyage, les cartes historiques peuvent ne plus exposer les contrôles d\'annulation.';
+
+  @override
   String get tlCallTool => 'Outil';
 
   @override

@@ -3090,6 +3090,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tlCallChangedFile => 'Changed File';
 
   @override
+  String get fileMutationSection => 'File changes';
+
+  @override
+  String fileMutationFilesChanged(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files changed',
+      one: '1 file changed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String fileMutationFilesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fileMutationUndoAll => 'Undo all';
+
+  @override
+  String get fileMutationRefresh => 'Refresh';
+
+  @override
+  String get fileMutationUndone => 'Undone';
+
+  @override
+  String get fileMutationCascadeUndone => 'Cascade undone';
+
+  @override
+  String get fileMutationUndoThis => 'Undo this change';
+
+  @override
+  String get fileMutationRedo => 'Redo';
+
+  @override
+  String get fileMutationUndoFailed => 'Undo failed';
+
+  @override
+  String get fileMutationRedoFailed => 'Redo failed';
+
+  @override
+  String get fileMutationSnapshotUnavailable => 'Content snapshot unavailable';
+
+  @override
+  String get dataCleanupFileMutationLedgerTitle => 'File Mutation Ledger';
+
+  @override
+  String get dataCleanupFileMutationLedgerSubtitle =>
+      'File mutation ledger under ~/.openhand/file_history/ (before/after blobs + jsonl). After cleanup, historical cards may no longer expose undo controls.';
+
+  @override
   String get tlCallTool => 'Tool';
 
   @override

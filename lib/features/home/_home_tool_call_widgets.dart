@@ -1255,7 +1255,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(content: Text(r.errorMessage.isNotEmpty
               ? r.errorMessage
-              : _t(context, '撤销失败', 'Undo failed'))),
+              : AppLocalizations.of(context)!.fileMutationUndoFailed)),
         );
       }
     } finally {
@@ -1280,7 +1280,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(content: Text(r.errorMessage.isNotEmpty
               ? r.errorMessage
-              : _t(context, '重做失败', 'Redo failed'))),
+              : AppLocalizations.of(context)!.fileMutationRedoFailed)),
         );
       }
     } finally {
@@ -1349,9 +1349,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                   size: 14, color: cs.onSurfaceVariant),
               const SizedBox(width: 6),
               Text(
-                _t(context,
-                    '${paths.length} 个文件已更改',
-                    '${paths.length} file${paths.length > 1 ? 's' : ''} changed'),
+                AppLocalizations.of(context)!
+                    .fileMutationFilesChanged(paths.length),
                 style: theme.textTheme.labelLarge
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
@@ -1432,15 +1431,14 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                     size: 16, color: cs.primary),
                 const SizedBox(width: 8),
                 Text(
-                  _t(context, '文件变动', 'File changes'),
+                  AppLocalizations.of(context)!.fileMutationSection,
                   style: theme.textTheme.labelLarge
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(width: 8),
                 _StatPill(
-                  label: _t(context,
-                      '${views.length} 个文件',
-                      '${views.length} file${views.length > 1 ? 's' : ''}'),
+                  label: AppLocalizations.of(context)!
+                      .fileMutationFilesCount(views.length),
                   color: cs.onSurfaceVariant,
                   bg: cs.surfaceContainerHighest.withValues(alpha: 0.65),
                 ),
@@ -1464,13 +1462,13 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                 if (anyUndoable)
                   _IconActionButton(
                     icon: Icons.undo_rounded,
-                    tooltip: _t(context, '撤销全部', 'Undo all'),
+                    tooltip: AppLocalizations.of(context)!.fileMutationUndoAll,
                     onTap: () => _undoAll(views),
                   ),
                 if (anyRedoable)
                   _IconActionButton(
                     icon: Icons.refresh_rounded,
-                    tooltip: _t(context, '刷新状态', 'Refresh'),
+                    tooltip: AppLocalizations.of(context)!.fileMutationRefresh,
                     onTap: _refresh,
                   ),
               ],
@@ -1656,7 +1654,7 @@ class _FileMutationCardRow extends StatelessWidget {
                     if (view.directlyUndone && !view.cascadeUndone) ...[
                       const SizedBox(width: 6),
                       _StatPill(
-                        label: _t(context, '已撤销', 'Undone'),
+                        label: AppLocalizations.of(context)!.fileMutationUndone,
                         color: cs.onSurfaceVariant,
                         bg: cs.surfaceContainerHighest.withValues(alpha: 0.6),
                       ),
@@ -1664,7 +1662,8 @@ class _FileMutationCardRow extends StatelessWidget {
                     if (view.cascadeUndone) ...[
                       const SizedBox(width: 6),
                       _StatPill(
-                        label: _t(context, '级联失效', 'Cascade undone'),
+                        label: AppLocalizations.of(context)!
+                            .fileMutationCascadeUndone,
                         color: cs.tertiary,
                         bg: cs.tertiaryContainer.withValues(alpha: 0.55),
                       ),
@@ -1679,13 +1678,14 @@ class _FileMutationCardRow extends StatelessWidget {
                     else if (view.canUndo)
                       _IconActionButton(
                         icon: Icons.undo_rounded,
-                        tooltip: _t(context, '撤销此次修改', 'Undo this change'),
+                        tooltip:
+                            AppLocalizations.of(context)!.fileMutationUndoThis,
                         onTap: onUndo,
                       )
                     else if (view.canRedo)
                       _IconActionButton(
                         icon: Icons.redo_rounded,
-                        tooltip: _t(context, '重做', 'Redo'),
+                        tooltip: AppLocalizations.of(context)!.fileMutationRedo,
                         onTap: onRedo,
                       ),
                   ],
@@ -1753,7 +1753,7 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
           final after = snap.data!.after ?? '';
           if (before.isEmpty && after.isEmpty) {
             return Text(
-              _t(context, '内容快照不可用', 'Content snapshot unavailable'),
+              AppLocalizations.of(context)!.fileMutationSnapshotUnavailable,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant),
             );
@@ -1878,11 +1878,6 @@ List<String> _lcs(List<String> a, List<String> b) {
   }
   return lcs;
 }
-
-/// Stage 5 will lift these to ARB. Inline tuple keeps the patch minimal
-/// without blocking Stage 3 review.
-String _t(BuildContext ctx, String zh, String en) =>
-    Localizations.localeOf(ctx).languageCode == 'zh' ? zh : en;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // _FileDiffDialog — displays file content diff when file change card is tapped

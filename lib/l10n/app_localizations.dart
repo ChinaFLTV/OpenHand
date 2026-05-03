@@ -5608,6 +5608,90 @@ abstract class AppLocalizations {
   /// **'文件变动'**
   String get tlCallChangedFile;
 
+  /// No description provided for @fileMutationSection.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文件变动'**
+  String get fileMutationSection;
+
+  /// No description provided for @fileMutationFilesChanged.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count, plural, other{{count} 个文件已更改}}'**
+  String fileMutationFilesChanged(int count);
+
+  /// No description provided for @fileMutationFilesCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count, plural, other{{count} 个文件}}'**
+  String fileMutationFilesCount(int count);
+
+  /// No description provided for @fileMutationUndoAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'撤销全部'**
+  String get fileMutationUndoAll;
+
+  /// No description provided for @fileMutationRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新状态'**
+  String get fileMutationRefresh;
+
+  /// No description provided for @fileMutationUndone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已撤销'**
+  String get fileMutationUndone;
+
+  /// No description provided for @fileMutationCascadeUndone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'级联失效'**
+  String get fileMutationCascadeUndone;
+
+  /// No description provided for @fileMutationUndoThis.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'撤销此次修改'**
+  String get fileMutationUndoThis;
+
+  /// No description provided for @fileMutationRedo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重做'**
+  String get fileMutationRedo;
+
+  /// No description provided for @fileMutationUndoFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'撤销失败'**
+  String get fileMutationUndoFailed;
+
+  /// No description provided for @fileMutationRedoFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重做失败'**
+  String get fileMutationRedoFailed;
+
+  /// No description provided for @fileMutationSnapshotUnavailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'内容快照不可用'**
+  String get fileMutationSnapshotUnavailable;
+
+  /// No description provided for @dataCleanupFileMutationLedgerTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文件变动历史'**
+  String get dataCleanupFileMutationLedgerTitle;
+
+  /// No description provided for @dataCleanupFileMutationLedgerSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'~/.openhand/file_history/ 下的文件变动 ledger（before/after 快照 + jsonl 记录）。清理后历史卡片可能不再展示可撤销状态。'**
+  String get dataCleanupFileMutationLedgerSubtitle;
+
   /// No description provided for @tlCallTool.
   ///
   /// In zh_Hans, this message translates to:

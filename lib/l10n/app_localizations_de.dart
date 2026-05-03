@@ -3125,6 +3125,66 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tlCallChangedFile => 'Geänderte Datei';
 
   @override
+  String get fileMutationSection => 'Dateiänderungen';
+
+  @override
+  String fileMutationFilesChanged(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Dateien geändert',
+      one: '1 Datei geändert',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String fileMutationFilesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Dateien',
+      one: '1 Datei',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fileMutationUndoAll => 'Alle rückgängig';
+
+  @override
+  String get fileMutationRefresh => 'Aktualisieren';
+
+  @override
+  String get fileMutationUndone => 'Rückgängig';
+
+  @override
+  String get fileMutationCascadeUndone => 'Kaskadiert rückgängig';
+
+  @override
+  String get fileMutationUndoThis => 'Diese Änderung rückgängig machen';
+
+  @override
+  String get fileMutationRedo => 'Wiederherstellen';
+
+  @override
+  String get fileMutationUndoFailed => 'Rückgängig fehlgeschlagen';
+
+  @override
+  String get fileMutationRedoFailed => 'Wiederherstellen fehlgeschlagen';
+
+  @override
+  String get fileMutationSnapshotUnavailable =>
+      'Inhalts-Snapshot nicht verfügbar';
+
+  @override
+  String get dataCleanupFileMutationLedgerTitle => 'Datei-Mutations-Ledger';
+
+  @override
+  String get dataCleanupFileMutationLedgerSubtitle =>
+      'Datei-Mutations-Ledger unter ~/.openhand/file_history/ (Vorher/Nachher-Blobs + jsonl). Nach der Bereinigung zeigen historische Karten möglicherweise keine Rückgängig-Steuerelemente mehr.';
+
+  @override
   String get tlCallTool => 'Werkzeug';
 
   @override

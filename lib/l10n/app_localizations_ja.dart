@@ -2969,6 +2969,63 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tlCallChangedFile => '変更されたファイル';
 
   @override
+  String get fileMutationSection => 'ファイル変更';
+
+  @override
+  String fileMutationFilesChanged(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 件のファイルを変更しました',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String fileMutationFilesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 件のファイル',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fileMutationUndoAll => 'すべて元に戻す';
+
+  @override
+  String get fileMutationRefresh => '更新';
+
+  @override
+  String get fileMutationUndone => '元に戻し済み';
+
+  @override
+  String get fileMutationCascadeUndone => '連動して無効化';
+
+  @override
+  String get fileMutationUndoThis => 'この変更を元に戻す';
+
+  @override
+  String get fileMutationRedo => 'やり直し';
+
+  @override
+  String get fileMutationUndoFailed => '元に戻すのに失敗';
+
+  @override
+  String get fileMutationRedoFailed => 'やり直しに失敗';
+
+  @override
+  String get fileMutationSnapshotUnavailable => 'コンテンツのスナップショットがありません';
+
+  @override
+  String get dataCleanupFileMutationLedgerTitle => 'ファイル変更履歴';
+
+  @override
+  String get dataCleanupFileMutationLedgerSubtitle =>
+      '~/.openhand/file_history/ 配下のファイル変更 ledger（before/after スナップショット + jsonl）。クリア後、過去のカードは元に戻すコントロールを表示しなくなる場合があります。';
+
+  @override
   String get tlCallTool => 'ツール';
 
   @override
