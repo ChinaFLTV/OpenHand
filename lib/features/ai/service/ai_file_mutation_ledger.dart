@@ -1114,6 +1114,45 @@ class AiFileMutationLedger {
     });
   }
 
+  /// 阶段⑱b：把任意 records 集合打成 bundle JSON（携带其引用的 blob）。
+  /// 用于"导出过滤后的搜索结果"等场景。records 按 sessionId 分组写入。
+  Future<String> exportRecordsAsBundleJson(
+    Iterable<FileMutationRecord> records,
+  ) async {
+    final bySession = <String, List<FileMutationRecord>>{};
+    final referenced = <String>{};
+    for (final r in records) {
+      bySession.putIfAbsent(r.sessionId, () => <FileMutationRecord>[]).add(r);
+      if (r.beforeSha != null) referenced.add(r.beforeSha!);
+      if (r.afterSha != null) referenced.add(r.afterSha!);
+    }
+    final sessions = <Map<String, Object?>>[];
+    for (final entry in bySession.entries) {
+      final undone = await _loadUndoneSet(entry.key);
+      final ids = entry.value.map((r) => r.recordId).toSet();
+      sessions.add({
+        'session_id': entry.key,
+        'records': entry.value.map((r) => r.toJson()).toList(),
+        // 仅保留与本子集相关的 undone id（避免泄露未导出的 record）。
+        'undone': undone.where(ids.contains).toList(),
+      });
+    }
+    final blobMap = <String, String>{};
+    for (final sha in referenced) {
+      final content = await _readBlob(sha);
+      if (content != null) {
+        blobMap[sha] = base64Encode(utf8.encode(content));
+      }
+    }
+    return const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+      'kind': 'openhand.file_mutation_ledger.bundle',
+      'version': 1,
+      'exported_at': DateTime.now().toUtc().toIso8601String(),
+      'sessions': sessions,
+      'blobs_b64': blobMap,
+    });
+  }
+
   /// 还原导出 bundle。返回写入的 record 数（去重统计）。失败仅日志，按
   /// session 粒度容错继续。
   Future<int> importBundleJson(String json) async {

@@ -1157,6 +1157,8 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   final TextEditingController _pathCtrl = TextEditingController();
   final TextEditingController _toolCtrl = TextEditingController();
   final Set<FileMutationKind> _selectedKinds = <FileMutationKind>{};
+  // 阶段⑱b：时间范围预设。null = 全量；其余按 since 计算。
+  _LedgerTimeRange _timeRange = _LedgerTimeRange.all;
   bool _busy = false;
   List<FileMutationView> _results = const <FileMutationView>[];
   Timer? _searchDebounce;
@@ -1196,6 +1198,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
         pathContains: _pathCtrl.text.trim(),
         toolNames: tools.isEmpty ? null : tools,
         kinds: _selectedKinds.isEmpty ? null : _selectedKinds,
+        since: _timeRange.computeSince(),
         limit: 300,
       );
       if (!mounted || token != _runToken) return;
@@ -1219,6 +1222,39 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
           zh: '已复制 ${_results.length} 条结果到剪贴板',
           en: 'Copied ${_results.length} record(s) to clipboard')),
     ));
+  }
+
+  /// 阶段⑱b：把当前过滤结果（含 blob）打成 bundle JSON 复制到剪贴板。
+  Future<void> _exportFilteredAsBundle() async {
+    if (_results.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final bundle = await widget.ledger
+          .exportRecordsAsBundleJson(_results.map((v) => v.record));
+      await Clipboard.setData(ClipboardData(text: bundle));
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+        duration: const Duration(seconds: 2),
+        content: Text(_localizedText(context,
+            zh: '已导出 ${_results.length} 条筛选结果（含 blob）到剪贴板',
+            en: 'Exported ${_results.length} filtered record(s) (with blobs)')),
+      ));
+    } catch (error, stack) {
+      silentLog(
+        '_LedgerSearchDialog',
+        'exportFilteredAsBundle',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+        backgroundColor: Theme.of(context).colorScheme.errorContainer,
+        content: Text(_localizedText(context,
+            zh: '导出失败：$error', en: 'Export failed: $error')),
+      ));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -1306,6 +1342,24 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                     ),
                 ],
               ),
+              const SizedBox(height: 4),
+              // 阶段⑱b：时间范围预设。
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  for (final r in _LedgerTimeRange.values)
+                    ChoiceChip(
+                      label: Text(r.label(context)),
+                      selected: _timeRange == r,
+                      onSelected: (sel) {
+                        if (!sel) return;
+                        setState(() => _timeRange = r);
+                        _scheduleSearch();
+                      },
+                    ),
+                ],
+              ),
               const Divider(height: 18),
               Expanded(
                 child: _busy
@@ -1366,19 +1420,18 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      child: Text(
-                                        r.filePath,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          fontFamily: 'monospace',
-                                          color: greyed
-                                              ? cs.onSurfaceVariant.withValues(alpha: 0.6)
-                                              : cs.onSurface,
-                                          decoration: greyed
-                                              ? TextDecoration.lineThrough
-                                              : null,
-                                        ),
+                                      child: _PathHighlightText(
+                                        path: r.filePath,
+                                        query: _pathCtrl.text.trim(),
+                                        baseColor: greyed
+                                            ? cs.onSurfaceVariant.withValues(alpha: 0.6)
+                                            : cs.onSurface,
+                                        decoration: greyed
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        highlightBg: cs.primary.withValues(alpha: 0.18),
+                                        highlightFg: cs.primary,
+                                        textStyle: theme.textTheme.bodySmall,
                                       ),
                                     ),
                                     const SizedBox(width: 6),
@@ -1408,6 +1461,14 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                   ),
                   const Spacer(),
                   TextButton.icon(
+                    onPressed: _results.isEmpty || _busy ? null : _exportFilteredAsBundle,
+                    icon: const Icon(Icons.archive_outlined, size: 16),
+                    label: Text(_localizedText(context,
+                        zh: '导出筛选结果（含 blob）',
+                        en: 'Export filtered (with blobs)')),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton.icon(
                     onPressed: _results.isEmpty ? null : _copyResults,
                     icon: const Icon(Icons.copy_all_rounded, size: 16),
                     label: Text(_localizedText(context,
@@ -1420,6 +1481,103 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
         ),
       ),
     );
+  }
+}
+
+/// 阶段⑱b：路径高亮文字 — 当 `query` 非空时把命中片段着色 + 微底高亮。
+class _PathHighlightText extends StatelessWidget {
+  const _PathHighlightText({
+    required this.path,
+    required this.query,
+    required this.baseColor,
+    required this.decoration,
+    required this.highlightBg,
+    required this.highlightFg,
+    required this.textStyle,
+  });
+
+  final String path;
+  final String query;
+  final Color baseColor;
+  final TextDecoration? decoration;
+  final Color highlightBg;
+  final Color highlightFg;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = (textStyle ?? const TextStyle()).copyWith(
+      fontFamily: 'monospace',
+      color: baseColor,
+      decoration: decoration,
+    );
+    if (query.isEmpty) {
+      return Text(path,
+          maxLines: 1, overflow: TextOverflow.ellipsis, style: base);
+    }
+    final lcPath = path.toLowerCase();
+    final lcQuery = query.toLowerCase();
+    final spans = <TextSpan>[];
+    var cursor = 0;
+    while (cursor < path.length) {
+      final hit = lcPath.indexOf(lcQuery, cursor);
+      if (hit < 0) {
+        spans.add(TextSpan(text: path.substring(cursor), style: base));
+        break;
+      }
+      if (hit > cursor) {
+        spans.add(TextSpan(text: path.substring(cursor, hit), style: base));
+      }
+      spans.add(TextSpan(
+        text: path.substring(hit, hit + lcQuery.length),
+        style: base.copyWith(
+          color: highlightFg,
+          fontWeight: FontWeight.w700,
+          backgroundColor: highlightBg,
+        ),
+      ));
+      cursor = hit + lcQuery.length;
+    }
+    return RichText(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(children: spans),
+    );
+  }
+}
+
+/// 阶段⑱b：搜索时间范围预设。
+enum _LedgerTimeRange {
+  all,
+  today,
+  last7d,
+  last30d;
+
+  String label(BuildContext context) {
+    switch (this) {
+      case _LedgerTimeRange.all:
+        return _localizedText(context, zh: '全部', en: 'All time');
+      case _LedgerTimeRange.today:
+        return _localizedText(context, zh: '今日', en: 'Today');
+      case _LedgerTimeRange.last7d:
+        return _localizedText(context, zh: '近 7 天', en: 'Last 7 days');
+      case _LedgerTimeRange.last30d:
+        return _localizedText(context, zh: '近 30 天', en: 'Last 30 days');
+    }
+  }
+
+  DateTime? computeSince() {
+    final now = DateTime.now();
+    switch (this) {
+      case _LedgerTimeRange.all:
+        return null;
+      case _LedgerTimeRange.today:
+        return DateTime(now.year, now.month, now.day);
+      case _LedgerTimeRange.last7d:
+        return now.subtract(const Duration(days: 7));
+      case _LedgerTimeRange.last30d:
+        return now.subtract(const Duration(days: 30));
+    }
   }
 }
 

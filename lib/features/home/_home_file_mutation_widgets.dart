@@ -2470,9 +2470,25 @@ class _RoundFileMutationSummaryCardState
   // key = '${messageId}::${toolName}'，进程级缓存即可，无需持久化到磁盘。
   static final Set<String> _collapsedGroups = <String>{};
   static final Set<String> _expandedDiffRows = <String>{};
+  // 阶段⑱a：按路径前缀的二级分组折叠记忆。key = `${msgId}::${toolName}::${dir}`。
+  static final Set<String> _collapsedPathGroups = <String>{};
+  // 阶段⑱a：超过 _virtualRowCap 时仅展示前 N 行；记忆"已展开"消息。
+  static final Set<String> _expandedFullList = <String>{};
+  static const int _virtualRowCap = 30;
+  static const int _pathSubgroupThreshold = 8;
 
   String _groupKey(String toolName) => '${widget.message.id}::$toolName';
   String _diffKey(String recordId) => '${widget.message.id}#$recordId';
+  String _pathGroupKey(String toolName, String dir) =>
+      '${widget.message.id}::$toolName::$dir';
+
+  /// 取 path 的目录前缀（去掉最后一段文件名）。空目录返回 `<root>`。
+  static String _topDir(String filePath) {
+    final p = filePath.replaceAll(r'\\', '/');
+    final idx = p.lastIndexOf('/');
+    if (idx <= 0) return '<root>';
+    return p.substring(0, idx);
+  }
 
   @override
   void dispose() {
@@ -2940,6 +2956,8 @@ class _RoundFileMutationSummaryCardState
   }
 
   /// 阶段⑰d：按 `record.toolName` 分组渲染；每组一个可折叠 header。
+  /// 阶段⑱a：组内行数超过 [_pathSubgroupThreshold] 时再按目录前缀做二级分组；
+  /// 整体可视行数超过 [_virtualRowCap] 时显示"展开全部 N 行"按钮。
   Widget _buildGroupedBody(
     ThemeData theme,
     ColorScheme cs,
@@ -2954,64 +2972,144 @@ class _RoundFileMutationSummaryCardState
           : r.view.record.toolName;
       groups.putIfAbsent(key, () => <_RoundSummaryRow>[]).add(r);
     }
-    // 单组就别套 header 了，沿用扁平形态。
-    if (groups.length <= 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < rows.length; i++)
-            _RoundSummaryRowTile(
-              row: rows[i],
-              entranceDelay: (!reduceMotion && rows.length >= 6)
-                  ? Duration(
-                      milliseconds: (i * 55).clamp(0, 660).toInt())
-                  : Duration.zero,
-              onJump: () => _jumpToSourceMessage(rows[i].sourceMessageId),
-              isDiffExpanded:
-                  _expandedDiffRows.contains(_diffKey(rows[i].view.record.recordId)),
-              onToggleDiff: () => _toggleDiffExpanded(rows[i]),
-            ),
-        ],
-      );
-    }
+    final msgKey = widget.message.id;
+    final showAll = _expandedFullList.contains(msgKey);
     final children = <Widget>[];
     var globalIndex = 0;
-    for (final entry in groups.entries) {
-      final groupKey = _groupKey(entry.key);
-      final collapsed = _collapsedGroups.contains(groupKey);
-      children.add(_GroupHeader(
-        toolName: entry.key,
-        count: entry.value.length,
-        collapsed: collapsed,
-        onToggle: () {
-          setState(() {
-            if (collapsed) {
-              _collapsedGroups.remove(groupKey);
-            } else {
-              _collapsedGroups.add(groupKey);
-            }
-          });
+    var rendered = 0;
+    var truncated = false;
+
+    Widget buildTile(_RoundSummaryRow r, int idx) {
+      return _RoundSummaryRowTile(
+        row: r,
+        entranceDelay: (!reduceMotion && rows.length >= 6)
+            ? Duration(milliseconds: (idx * 55).clamp(0, 660).toInt())
+            : Duration.zero,
+        onJump: () => _jumpToSourceMessage(r.sourceMessageId),
+        isDiffExpanded:
+            _expandedDiffRows.contains(_diffKey(r.view.record.recordId)),
+        onToggleDiff: () => _toggleDiffExpanded(r),
+      );
+    }
+
+    bool capReached() => !showAll && rendered >= _virtualRowCap;
+
+    // 单组：扁平输出（仍受路径子分组与 cap 影响）。
+    if (groups.length <= 1) {
+      final only = groups.values.isEmpty ? const <_RoundSummaryRow>[] : groups.values.first;
+      final toolName = groups.keys.isEmpty ? '_' : groups.keys.first;
+      _emitRowsWithOptionalPathSubgroups(
+        theme: theme,
+        cs: cs,
+        toolName: toolName,
+        groupRows: only,
+        showAll: showAll,
+        reduceMotion: reduceMotion,
+        children: children,
+        globalIndex: () => globalIndex,
+        bumpIndex: () => globalIndex += 1,
+        renderedAdd: (n) {
+          rendered += n;
+          if (capReached()) truncated = true;
         },
-      ));
-      if (!collapsed) {
-        for (final r in entry.value) {
-          children.add(_RoundSummaryRowTile(
-            row: r,
-            entranceDelay: (!reduceMotion && rows.length >= 6)
-                ? Duration(
-                    milliseconds: (globalIndex * 55).clamp(0, 660).toInt())
-                : Duration.zero,
-            onJump: () => _jumpToSourceMessage(r.sourceMessageId),
-            isDiffExpanded:
-                _expandedDiffRows.contains(_diffKey(r.view.record.recordId)),
-            onToggleDiff: () => _toggleDiffExpanded(r),
-          ));
-          globalIndex += 1;
+        capReached: capReached,
+        buildTile: buildTile,
+      );
+    } else {
+      for (final entry in groups.entries) {
+        if (capReached()) {
+          truncated = true;
+          break;
         }
-      } else {
-        globalIndex += entry.value.length;
+        final groupKey = _groupKey(entry.key);
+        final collapsed = _collapsedGroups.contains(groupKey);
+        children.add(_GroupHeader(
+          toolName: entry.key,
+          count: entry.value.length,
+          collapsed: collapsed,
+          onToggle: () {
+            setState(() {
+              if (collapsed) {
+                _collapsedGroups.remove(groupKey);
+              } else {
+                _collapsedGroups.add(groupKey);
+              }
+            });
+          },
+        ));
+        if (collapsed) {
+          globalIndex += entry.value.length;
+          continue;
+        }
+        _emitRowsWithOptionalPathSubgroups(
+          theme: theme,
+          cs: cs,
+          toolName: entry.key,
+          groupRows: entry.value,
+          showAll: showAll,
+          reduceMotion: reduceMotion,
+          children: children,
+          globalIndex: () => globalIndex,
+          bumpIndex: () => globalIndex += 1,
+          renderedAdd: (n) {
+            rendered += n;
+            if (capReached()) truncated = true;
+          },
+          capReached: capReached,
+          buildTile: buildTile,
+        );
       }
     }
+
+    if (truncated) {
+      final remaining = rows.length - rendered;
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              foregroundColor: cs.primary,
+              visualDensity: VisualDensity.compact,
+            ),
+            icon: const Icon(Icons.unfold_more_rounded, size: 16),
+            label: Text(
+              _localizedTextStatic(context,
+                  zh: '展开剩余 $remaining 行',
+                  en: 'Show $remaining more'),
+              style: theme.textTheme.labelMedium,
+            ),
+            onPressed: () {
+              setState(() => _expandedFullList.add(msgKey));
+            },
+          ),
+        ),
+      ));
+    } else if (showAll && rows.length > _virtualRowCap) {
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              foregroundColor: cs.onSurfaceVariant,
+              visualDensity: VisualDensity.compact,
+            ),
+            icon: const Icon(Icons.unfold_less_rounded, size: 16),
+            label: Text(
+              _localizedTextStatic(context, zh: '收起', en: 'Collapse'),
+              style: theme.textTheme.labelMedium,
+            ),
+            onPressed: () {
+              setState(() => _expandedFullList.remove(msgKey));
+            },
+          ),
+        ),
+      ));
+    }
+
     return AnimatedSize(
       duration:
           reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
@@ -3022,6 +3120,73 @@ class _RoundFileMutationSummaryCardState
         children: children,
       ),
     );
+  }
+
+  /// 阶段⑱a：组内若超阈值 → 按 `_topDir` 二级分桶；否则平铺。
+  void _emitRowsWithOptionalPathSubgroups({
+    required ThemeData theme,
+    required ColorScheme cs,
+    required String toolName,
+    required List<_RoundSummaryRow> groupRows,
+    required bool showAll,
+    required bool reduceMotion,
+    required List<Widget> children,
+    required int Function() globalIndex,
+    required VoidCallback bumpIndex,
+    required void Function(int n) renderedAdd,
+    required bool Function() capReached,
+    required Widget Function(_RoundSummaryRow, int) buildTile,
+  }) {
+    if (groupRows.length < _pathSubgroupThreshold) {
+      for (final r in groupRows) {
+        if (capReached()) return;
+        children.add(buildTile(r, globalIndex()));
+        bumpIndex();
+        renderedAdd(1);
+      }
+      return;
+    }
+    final dirBuckets = <String, List<_RoundSummaryRow>>{};
+    for (final r in groupRows) {
+      final dir = _topDir(r.view.record.filePath);
+      dirBuckets.putIfAbsent(dir, () => <_RoundSummaryRow>[]).add(r);
+    }
+    // 单一目录就别套二级 header。
+    if (dirBuckets.length <= 1) {
+      for (final r in groupRows) {
+        if (capReached()) return;
+        children.add(buildTile(r, globalIndex()));
+        bumpIndex();
+        renderedAdd(1);
+      }
+      return;
+    }
+    for (final entry in dirBuckets.entries) {
+      if (capReached()) return;
+      final pathKey = _pathGroupKey(toolName, entry.key);
+      final pathCollapsed = _collapsedPathGroups.contains(pathKey);
+      children.add(_PathSubGroupHeader(
+        dir: entry.key,
+        count: entry.value.length,
+        collapsed: pathCollapsed,
+        onToggle: () {
+          setState(() {
+            if (pathCollapsed) {
+              _collapsedPathGroups.remove(pathKey);
+            } else {
+              _collapsedPathGroups.add(pathKey);
+            }
+          });
+        },
+      ));
+      if (pathCollapsed) continue;
+      for (final r in entry.value) {
+        if (capReached()) return;
+        children.add(buildTile(r, globalIndex()));
+        bumpIndex();
+        renderedAdd(1);
+      }
+    }
   }
 
   void _toggleDiffExpanded(_RoundSummaryRow row) {
@@ -3290,6 +3455,75 @@ class _GroupHeader extends StatelessWidget {
                     fontFeatures: const [FontFeature.tabularFigures()],
                     fontWeight: FontWeight.w600,
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 阶段⑱a：路径子分组 header — 比 [_GroupHeader] 更轻盈、左侧缩进。
+class _PathSubGroupHeader extends StatelessWidget {
+  const _PathSubGroupHeader({
+    required this.dir,
+    required this.count,
+    required this.collapsed,
+    required this.onToggle,
+  });
+
+  final String dir;
+  final int count;
+  final bool collapsed;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return MicroPressFeedback(
+      child: InkWell(
+        onTap: onToggle,
+        borderRadius: const BorderRadius.all(Radius.circular(8)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 6, 2),
+          child: Row(
+            children: [
+              AnimatedRotation(
+                turns: collapsed ? -0.25 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 14,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.folder_rounded,
+                size: 12,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  dir,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '($count)',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ],
