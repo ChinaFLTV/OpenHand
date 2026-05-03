@@ -61,6 +61,8 @@ class AiPromptBuilder {
   static const int _postCompactRestoreMaxMcpChars = 12000;
   static const int _postCompactRestoreMaxMcpInstructionChars = 4000;
   static const int _postCompactRestoreMaxMcpTools = 40;
+  static const int _postCompactRestoreMaxSessionStartHooks = 5;
+  static const int _postCompactRestoreMaxSessionStartHookChars = 8000;
   static const int _compressionUserManifestMaxChars = 12000;
   static const int _compressionUserManifestMaxCharsPerMessage = 1200;
   static const int _compressionResourceManifestMaxItems = 40;
@@ -289,6 +291,11 @@ class AiPromptBuilder {
       mcpServerInstructionsByName: mcpServerInstructionsByName,
       latestCompressionPoint: latestCompressionPoint,
     );
+    final restoredSessionStartHookContext =
+        _renderPostCompactRestoredSessionStartHookContext(
+          historyMessages: historyMessages,
+          latestCompressionPoint: latestCompressionPoint,
+        );
 
     final messages = <AiChatTurn>[
       AiChatTurn(
@@ -390,6 +397,12 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content: '# [5.9] Restored MCP Context\n\n$restoredMcpContext',
+        ),
+      if (restoredSessionStartHookContext.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content:
+              '# [5.10] Restored SessionStart Hook Context\n\n$restoredSessionStartHookContext',
         ),
       ...latestUserTurns,
     ];
@@ -588,6 +601,10 @@ class AiPromptBuilder {
     );
     final recentReadFiles = _recentReadFileAnchors(historyMessages);
     final recentInvokedSkills = _recentInvokedSkillAnchors(historyMessages);
+    final recentSessionStartHooks = _recentSessionStartHookAnchors(
+      historyMessages: historyMessages,
+      latestCompressionPoint: latestCompressionPoint,
+    );
     final restoredChannels = <String>[
       'system_instructions',
       'developer_instructions',
@@ -615,6 +632,7 @@ class AiPromptBuilder {
       if (mcpServerInstructionNames.isNotEmpty) 'mcp_instructions',
       if (recentReadFiles.isNotEmpty) 'recent_read_files',
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills',
+      if (recentSessionStartHooks.isNotEmpty) 'session_start_hooks',
     ];
     return <String, Object?>{
       'active': latestCompressionPoint != null,
@@ -646,6 +664,7 @@ class AiPromptBuilder {
       'pending_plan_present': session.pendingPlan?.trim().isNotEmpty == true,
       'repository_snapshot_present': repositorySnapshot != null,
       'recent_read_file_count': recentReadFiles.length,
+      'session_start_hook_count': recentSessionStartHooks.length,
       if (recentReadFiles.isNotEmpty) 'recent_read_files': recentReadFiles,
       'invoked_skill_count': recentInvokedSkills.length,
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills': recentInvokedSkills,
@@ -2446,6 +2465,48 @@ $content
     return anchors.reversed.toList(growable: false);
   }
 
+  List<AiSessionMessage> _recentSessionStartHookAnchors({
+    required List<AiSessionMessage> historyMessages,
+    required AiSessionMessage? latestCompressionPoint,
+    int maxHooks = _postCompactRestoreMaxSessionStartHooks,
+  }) {
+    if (latestCompressionPoint == null || maxHooks <= 0) {
+      return const <AiSessionMessage>[];
+    }
+    final checkpointIndex = historyMessages.indexWhere(
+      (message) => message.id == latestCompressionPoint.id,
+    );
+    final searchEnd = checkpointIndex == -1
+        ? historyMessages.length
+        : checkpointIndex;
+    final hooks = <AiSessionMessage>[];
+    for (var i = searchEnd - 1; i >= 0 && hooks.length < maxHooks; i--) {
+      final message = historyMessages[i];
+      if (_isSessionStartHookMessage(message)) {
+        hooks.add(message);
+      }
+    }
+    return hooks.reversed.toList(growable: false);
+  }
+
+  bool _isSessionStartHookMessage(AiSessionMessage message) {
+    if (message.kind != AiSessionMessageKind.hook) {
+      return false;
+    }
+    final eventName =
+        <Object?>[
+              message.metadata['hook_event'],
+              message.metadata['hook_event_name'],
+              message.metadata['hookEventName'],
+              message.metadata['tool_name'],
+            ]
+            .map((value) => '$value'.trim().toLowerCase())
+            .where((value) => value.isNotEmpty && value != 'null')
+            .join(' ');
+    return eventName.contains('session_start') ||
+        eventName.contains('sessionstart');
+  }
+
   bool _hasRestorablePlanContext(AiSession session) {
     return session.pendingPlan?.trim().isNotEmpty == true ||
         session.planHistory.isNotEmpty ||
@@ -2540,6 +2601,55 @@ $content
       lines.add('- [$status] $content');
     }
     return lines.join('\n');
+  }
+
+  String _renderPostCompactRestoredSessionStartHookContext({
+    required List<AiSessionMessage> historyMessages,
+    required AiSessionMessage? latestCompressionPoint,
+  }) {
+    final hooks = _recentSessionStartHookAnchors(
+      historyMessages: historyMessages,
+      latestCompressionPoint: latestCompressionPoint,
+    );
+    if (hooks.isEmpty) {
+      return '';
+    }
+    final buffer = StringBuffer()
+      ..writeln(
+        'SessionStart hook context restored after compaction. Treat these hook outputs as supplemental runtime context emitted by startup/resume/compact hooks.',
+      );
+    for (final hook in hooks) {
+      final label = '${hook.metadata['hook_name'] ?? 'SessionStart'}'.trim();
+      final source = '${hook.metadata['hook_session_start_source'] ?? ''}'
+          .trim();
+      final status = '${hook.metadata['tool_execution_status'] ?? ''}'.trim();
+      final content = _truncateRestoredContextContent(
+        hook.content.trim(),
+        _postCompactRestoreMaxSessionStartHookChars,
+        'session_start_hook_truncated',
+      );
+      buffer
+        ..writeln()
+        ..writeln('## ${label.isEmpty ? 'SessionStart' : label}')
+        ..writeln('- message_id: ${hook.id}')
+        ..writeln('- created_at: ${hook.createdAt.toUtc().toIso8601String()}');
+      if (source.isNotEmpty) {
+        buffer.writeln('- source: $source');
+      }
+      if (status.isNotEmpty) {
+        buffer.writeln('- status: $status');
+      }
+      if (content.isNotEmpty) {
+        buffer
+          ..writeln()
+          ..writeln(content);
+      }
+    }
+    return _truncateRestoredContextContent(
+      buffer.toString().trimRight(),
+      _postCompactRestoreMaxSessionStartHookChars,
+      'restored_session_start_hooks_truncated',
+    );
   }
 
   String _renderPostCompactRestoredMcpContext({

@@ -752,6 +752,72 @@ void main() {
     expect(rehydration['restored_channels'], contains('mcp_context'));
     expect(rehydration['restored_channels'], contains('mcp_instructions'));
   });
+
+  test('restores session start hook context after compact', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final hook = AiSessionMessage.hookResult(
+      id: 'hook-session-start',
+      content: 'Loaded workspace policy from SessionStart hook.',
+      createdAt: now,
+      metadata: const <String, Object?>{
+        'tool_source': 'hook',
+        'tool_name': 'hook__session_start',
+        'hook_name': 'SessionStart',
+        'hook_event': 'session_start',
+        'hook_session_start_source': 'startup',
+        'tool_execution_status': 'success',
+      },
+    );
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: 'cp-hook-restore',
+      content: 'summary',
+      createdAt: now.add(const Duration(minutes: 1)),
+      metadata: const <String, Object?>{},
+    );
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: '继续执行',
+      createdAt: now.add(const Duration(minutes: 2)),
+    );
+    final messages = <AiSessionMessage>[hook, checkpoint, latest];
+    final session = _session(template: template, now: now, messages: messages);
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(),
+      runtimeContext: _runtimeContext(),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: messages,
+      latestUserMessageId: latest.id,
+    );
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
+    final rehydration = Map<String, Object?>.from(
+      result.metadata['post_compact_rehydration']! as Map,
+    );
+
+    expect(promptText, contains('# [5.10] Restored SessionStart Hook Context'));
+    expect(
+      promptText,
+      contains('Loaded workspace policy from SessionStart hook.'),
+    );
+    expect(rehydration['session_start_hook_count'], 1);
+    expect(rehydration['restored_channels'], contains('session_start_hooks'));
+  });
 }
 
 AiSessionMessage _toolCall(String id, String callId, DateTime now) {

@@ -5296,8 +5296,14 @@ class AiSessionController extends ChangeNotifier {
             'prompt_too_long_retry_count': promptTooLongRetryCount,
           },
         );
+        await _emitSessionStartHook(
+          session: compressedSession,
+          source: 'compact',
+        );
       }
-      return committed ? compressedSession : session;
+      return committed
+          ? _sessionById(session.id) ?? compressedSession
+          : session;
     } catch (error) {
       final nextFailureCount =
           (_compressionFailureCountsBySession[session.id] ?? 0) + 1;
@@ -5998,7 +6004,7 @@ $trimmedSummary''';
     required AiSession session,
     required String source,
   }) async {
-    await _safeRunHook(
+    final hookResult = await _safeRunHook(
       eventName: 'SessionStart',
       matcherValue: source,
       payload: <String, Object?>{
@@ -6007,6 +6013,11 @@ $trimmedSummary''';
         'template_id': session.templateId,
       },
       sessionId: session.id,
+    );
+    await _appendClaudeStyleSessionStartHookContext(
+      sessionId: session.id,
+      source: source,
+      result: hookResult,
     );
     await _safeRunUserHook(
       event: HookEvent.sessionStart,
@@ -6166,14 +6177,14 @@ $trimmedSummary''';
     }
   }
 
-  Future<void> _safeRunHook({
+  Future<AiClaudeHookInvocationResult> _safeRunHook({
     required String eventName,
     required String sessionId,
     Map<String, Object?> payload = const <String, Object?>{},
     String? matcherValue,
   }) async {
     try {
-      await _hookService.runHooks(
+      return await _hookService.runHooks(
         eventName: eventName,
         sessionId: sessionId,
         matcherValue: matcherValue,
@@ -6187,8 +6198,59 @@ $trimmedSummary''';
         error,
         stack,
       );
+      return const AiClaudeHookInvocationResult();
+    }
+  }
+
+  Future<void> _appendClaudeStyleSessionStartHookContext({
+    required String sessionId,
+    required String source,
+    required AiClaudeHookInvocationResult result,
+  }) async {
+    final reminders = _readStringList(result.systemReminders);
+    final blockReason = result.blockReason?.trim() ?? '';
+    if (reminders.isEmpty && blockReason.isEmpty) {
       return;
     }
+    final currentSession = _sessionById(sessionId);
+    if (currentSession == null) {
+      return;
+    }
+    final content = <String>[
+      if (blockReason.isNotEmpty) 'Blocked by SessionStart hook: $blockReason',
+      ...reminders,
+    ].join('\n\n');
+    final createdAt = _clock().toUtc();
+    final message = AiSessionMessage.hookResult(
+      id: _idGenerator(),
+      content: content,
+      createdAt: createdAt,
+      metadata: <String, Object?>{
+        'tool_source': 'hook',
+        'hook_source': 'claude_config',
+        'tool_name': 'hook__session_start',
+        'hook_name': 'SessionStart',
+        'hook_event': HookEvent.sessionStart.storageValue,
+        'hook_event_name': 'SessionStart',
+        'hook_session_start_source': source,
+        'tool_execution_status': result.blocked ? 'blocked' : 'success',
+        'tool_execution_stdout': content,
+        'tool_execution_stderr': '',
+        if (result.executedCommands.isNotEmpty)
+          'tool_arguments': result.executedCommands
+              .map((command) => '\$ ${command.trim()}')
+              .join('\n'),
+        'executed_hook_count': result.executedHookCount,
+        if (result.loadedConfigPaths.isNotEmpty)
+          'loaded_config_paths': result.loadedConfigPaths,
+        if (reminders.isNotEmpty) aiHookSystemRemindersMetadataKey: reminders,
+      },
+    );
+    final updatedSession = currentSession.copyWith(
+      updatedAt: createdAt,
+      messages: <AiSessionMessage>[...currentSession.messages, message],
+    );
+    await _commitSessionLocked(updatedSession);
   }
 
   /// Executes user-configured hooks for the given lifecycle event and

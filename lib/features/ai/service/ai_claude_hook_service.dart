@@ -419,6 +419,7 @@ class AiClaudeHookService {
 
   String? _extractReminderText(Map<String, Object?> jsonPayload) {
     final reminder = _firstNonEmptyString(<Object?>[
+      jsonPayload['additionalContext'],
       jsonPayload['message'],
       jsonPayload['reason'],
     ]);
@@ -431,6 +432,7 @@ class AiClaudeHookService {
     }
     final outputMap = Map<String, Object?>.from(hookSpecificOutput);
     return _firstNonEmptyString(<Object?>[
+      outputMap['additionalContext'],
       outputMap['message'],
       outputMap['reason'],
       outputMap['permissionDecisionReason'],
