@@ -1612,7 +1612,13 @@ class _FileMutationCardRow extends StatelessWidget {
             ? cs.surfaceContainerHighest.withValues(alpha: 0.32)
             : Colors.transparent,
       ),
-      child: Column(
+      child: AnimatedSlide(
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 320),
+        curve: Curves.easeOutBack,
+        offset: Offset(view.cascadeUndone ? 0.025 : 0.0, 0.0),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
@@ -1704,6 +1710,7 @@ class _FileMutationCardRow extends StatelessWidget {
                 : const SizedBox.shrink(),
           ),
         ],
+      ),
       ),
     );
   }
