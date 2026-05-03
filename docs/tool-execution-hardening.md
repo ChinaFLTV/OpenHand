@@ -1,0 +1,152 @@
+# 工具执行加固指南（Tool Execution Hardening）
+
+> 2026-05-09 起逐步落地：参考 [Claude Code](https://github.com/anthropics/claude-code) 子进程沙盒、可观测性、可中断性的工程实践，结合 OpenHand 桌面版 Flutter 架构特点，对**工具调用 / MCP 调用 / 技能执行**等所有最终落到子进程派生与外部 IO 的链路做安全加固与可观测性增强。本文是阶段性总览与操作指南。
+
+---
+
+## 一、问题域
+
+OpenHand 的"工具调用"链路长、入口多：
+
+```
+模型流式输出 → DSML / OpenAI 协议解析 → AiSessionController._executeSingleToolCall
+              → AiToolRuntimeService.execute（builtin / mcp / skill 三路）
+                ├─ Builtin Bash → AiBashToolService.execute → Process.start
+                ├─ Builtin ReadLints / Git → AiReadLintsTool / AiGitTool → Process.start
+                ├─ MCP stdio → McpToolDiscoveryService → Process.start (per call)
+                └─ Skill → 纯文本读取（v1）/ 脚本执行（roadmap）
+```
+
+历史问题：
+
+1. **不可观测** — 同时跑多个工具调用时无法看到"现在有谁在跑、哪个 pid、运行多久了"。
+2. **不可独立中断** — `_sessionCancelHandlers[sessionId]` 是 per-session 粒度，并发的工具调用要么都被取消、要么都被保留，无法只杀其中一个。
+3. **后台进程残留** — `Process.run(...).timeout(...)` 只解开 Dart Future、不杀子进程；`runProcessWithTimeout` 已经修过这一类问题（hard SIGKILL on timeout），但**没有覆盖运行时取消路径**：用户点 stop，cancel 信号到达 Bash 工具内部后才发 SIGTERM，外面看起来"按了立刻停"，实际可能让 awk/python 子孙进程多活几百毫秒。
+4. **设置缺失** — 用户无法自定义"输出截断阈值 / SIGKILL 升级宽限期 / 工具最大并发"等系统级安全参数。
+
+---
+
+## 二、与 Claude Code 的对照
+
+| 维度 | Claude Code 做法 | OpenHand 现状 / 目标 |
+|------|------------------|---------------------|
+| 子进程派生 | `child_process.spawn` + `tree-kill` | `Process.start`（已有）+ 进程组 kill（roadmap） |
+| 任务注册表 | `AppState.tasks` + `LocalShellTaskState` | ✅ `AiToolExecutionRegistry` 单例（v1 已上线） |
+| Kill 接口 | `killTask(taskId)` → `treeKill(pid, SIGKILL)` | ✅ `cancelToolCall(id)` / `cancelSession(id)` |
+| 升级语义 | 任务前台 SIGTERM→可选后台化；后台超 768MB → SIGKILL | Bash: SIGTERM→500ms→SIGKILL（已有） |
+| 命令准入 | 黑名单 regex + tree-sitter AST 白名单 | 已有 `AiDenyCommandRule` 黑名单；AST 白名单（roadmap） |
+| 大输出 | `TaskOutput` 文件溢出 + 5MB 阈值 | 已有 `_appendChunk` 截断 + `maxToolOutputChars` budget |
+| 停滞检测 | 5s 轮询 + 45s 无增长 + interactive prompt 启发式 | （roadmap） |
+| MCP 连接 | SDK 长连接 + 401 自动刷新 | 当前 per-call fork（roadmap：连接池） |
+
+> v1 落地的是**"注册中心 + 级联终止"**这一对最高 ROI 的能力，其余项按使用反馈分批跟进。
+
+---
+
+## 三、v1 已落地的核心能力
+
+### 3.1 `AiToolExecutionRegistry`（[lib/features/ai/service/ai_tool_execution_registry.dart](../lib/features/ai/service/ai_tool_execution_registry.dart)）
+
+应用单例、`ChangeNotifier`，提供：
+
+```dart
+register({toolCallId, sessionId, kind, displayName, killer?})
+attachPid(toolCallId, int pid)
+attachKiller(toolCallId, Future<void> Function() killer)
+unregister(toolCallId)
+cancelToolCall(toolCallId)
+cancelSession(sessionId)
+get activeRecords -> List<AiToolExecutionRecord>  // 不可变快照
+get lifetimeCount -> int
+```
+
+`AiToolExecutionRecord` 字段：`toolCallId / sessionId / kind / displayName / startedAt / pid?`，附 `Duration get elapsed`。
+
+### 3.2 `AiToolRuntimeService.execute` 自动登记 / 反注销
+
+- 在 hook 之后、`dispatchOnce` 之前 register；
+- 整段 dispatch + postHook 包在 `try / finally` 中，无论成功 / 失败 / 异常都会反注销，避免幽灵记录；
+- 任何 `source`（builtin / mcp / skill）都登记，便于 UI 一致展示。
+
+### 3.3 `AiBashToolService` 一次性派生路径回填 pid + killer
+
+- `execute(...)` 新增 `String? toolCallId` 入参；
+- `Process.start` 成功后立即 `attachPid` + `attachKiller(() => _killProcess(process))`；
+- killer 直接复用 Bash 工具内部已经验证过的 SIGTERM→500ms→SIGKILL 升级逻辑，不重复造轮子。
+
+### 3.4 `AiSessionController.stopResponding` 级联终止
+
+- 用户点击"停止响应"时，除了原有的 stop signal + per-session cancel handler，**额外** `unawaited(registry.cancelSession(sessionId))`；
+- 即使 stream 还没解开 cancel Future、即使 Bash 工具的 `cancelSignal.then` 还没触发，子进程也会立即收到 OS 级信号；
+- 这一步是"根治后台残留"的关键。
+
+---
+
+## 四、运行时观察
+
+代码侧消费示例（UI 后续可接入）：
+
+```dart
+final reg = AiToolExecutionRegistry.instance;
+reg.addListener(() {
+  for (final rec in reg.activeRecords) {
+    print('[${rec.kind.name}] ${rec.displayName} '
+          'pid=${rec.pid} elapsed=${rec.elapsed.inSeconds}s');
+  }
+});
+
+// 用户从工具卡片右上角点 X：
+await reg.cancelToolCall(card.toolCallId);
+```
+
+---
+
+## 五、下一阶段路线图
+
+| 阶段 | 工作项 | 核心改动 |
+|------|--------|----------|
+| **v2 — UI 集成** | 工具卡片右上角"独立 Stop"按钮、设置页"运行中工具调用"列表 | Listen `registry`，在 `_ToolCallBody` 里加按钮调用 `cancelToolCall` |
+| **v2 — Persistent Bash 接管** | 持久 shell 路径也支持 attachKiller | 让 `_executeWithPersistentSession` 把 `_killProcess(session.process)` 注册为 killer，命中即 close session |
+| **v2 — Lints / Git / safe_subprocess** | 所有内置 Process.start 路径都接入 registry | 让 `runProcessWithTimeout` 接受 `toolCallId` 可选参数，自动 attach |
+| **v3 — 进程组 kill** | POSIX 上派生时入新会话（`setsid` 包装） | `_startProcess` 在 macOS / Linux 上用 `setsid -f bash -lc ...`；kill 时 `Process.killPid(-pid, ...)` 杀整个组 |
+| **v3 — MCP 连接池** | stdio MCP server 长连接 + 401 自愈 | `_StdioConnectionPool` 替代 per-call fork |
+| **v3 — 设置项** | `subprocessGracefulShutdownMs` / `bashOutputMaxBytes` / `maxConcurrentTools` | 沿袭 9 步参数化流程：snapshot → store → controller → runtime context → home → consumer → propagation → l10n × 7 → settings_view |
+| **v4 — AST 命令准入** | bash AST 白名单解析 | 自实现轻量 AST 或迁 `bash_parser` 包；fail-closed |
+| **v4 — 停滞检测** | 5s 轮询 + 45s 无新输出 + interactive prompt 启发式 | 套在 `_BashExecution` 顶层，触发后通过 `onUpdate` 推 stall warning |
+
+---
+
+## 六、提示词侧约束（保持 Claude-style 高效结构）
+
+任何后续给模型的工具相关提示文本必须遵守：
+
+```
+# {ToolName}
+Description: <一句话>
+Hard rules:
+- <一行约束>
+- <一行约束>
+Inputs: <参数表，每行 ≤ 80 列>
+Outputs: <语义>
+Failure modes: <列表>
+```
+
+**禁止**长段落散文、禁止"This tool can be used to ..." 罗嗦开头、禁止重复说明同一约束。
+
+---
+
+## 七、变更点速查
+
+| 文件 | 改动类型 |
+|------|---------|
+| [lib/features/ai/service/ai_tool_execution_registry.dart](../lib/features/ai/service/ai_tool_execution_registry.dart) | 新增 |
+| [lib/features/ai/service/ai_tool_runtime_service.dart](../lib/features/ai/service/ai_tool_runtime_service.dart) | register/unregister + try/finally |
+| [lib/features/ai/service/ai_bash_tool_service.dart](../lib/features/ai/service/ai_bash_tool_service.dart) | `toolCallId` 入参 + attachPid/attachKiller |
+| [lib/features/ai/tools/ai_bash_tool.dart](../lib/features/ai/tools/ai_bash_tool.dart) | 把 `context.toolCall.id` 透传给 service |
+| [lib/features/ai/ai_session_controller.dart](../lib/features/ai/ai_session_controller.dart) | `stopResponding` 级联调用 `cancelSession` |
+
+---
+
+## 八、本文档维护责任
+
+每完成一个 roadmap 项后追加一节"vX 落地说明"，**不要**改写已交付章节。
