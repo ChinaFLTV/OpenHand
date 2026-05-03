@@ -1007,6 +1007,203 @@ class AiFileMutationLedger {
     final trimmed = raw.trim();
     return trimmed.replaceAll(RegExp(r'[^a-zA-Z0-9_\-.]'), '_');
   }
+
+  // ─────────────────────────── 阶段⑱：跨会话查询 / 导出导入 ────────────────────
+  /// 列出磁盘上所有可见的 sessionId。失败仅日志，返回空列表。
+  Future<List<String>> listSessionIds() async {
+    await _ensureInitialized();
+    final out = <String>[];
+    try {
+      final sessions = _sessionsDir();
+      if (!await sessions.exists()) return out;
+      await for (final entity in sessions.list()) {
+        if (entity is Directory) {
+          out.add(p.basename(entity.path));
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'listSessionIds', error, stack);
+    }
+    out.sort();
+    return out;
+  }
+
+  /// 跨会话搜索 — 尽量在内存中过滤；UI 应控制 limit。
+  Future<List<FileMutationView>> searchRecords({
+    Iterable<String>? sessionIds,
+    Iterable<FileMutationKind>? kinds,
+    Iterable<String>? toolNames,
+    String? pathContains,
+    DateTime? since,
+    DateTime? until,
+    int limit = 200,
+  }) async {
+    final ids = sessionIds == null
+        ? await listSessionIds()
+        : sessionIds.toList();
+    final kindSet = kinds?.toSet();
+    final toolSet = toolNames
+        ?.map((s) => s.toLowerCase())
+        .toSet();
+    final pathNeedle = pathContains?.trim().toLowerCase();
+    final out = <FileMutationView>[];
+    for (final sid in ids) {
+      if (out.length >= limit) break;
+      final all = await recordsForSession(sid);
+      if (all.isEmpty) continue;
+      final undone = await _loadUndoneSet(sid);
+      for (final r in all) {
+        if (out.length >= limit) break;
+        if (kindSet != null && !kindSet.contains(r.kind)) continue;
+        if (toolSet != null &&
+            toolSet.isNotEmpty &&
+            !toolSet.contains(r.toolName.toLowerCase())) {
+          continue;
+        }
+        if (pathNeedle != null &&
+            pathNeedle.isNotEmpty &&
+            !r.filePath.toLowerCase().contains(pathNeedle)) {
+          continue;
+        }
+        if (since != null && r.createdAt.isBefore(since)) continue;
+        if (until != null && r.createdAt.isAfter(until)) continue;
+        out.add(_buildView(r, all, undone));
+      }
+    }
+    // 最近优先。
+    out.sort((a, b) => b.record.createdAt.compareTo(a.record.createdAt));
+    return out;
+  }
+
+  /// 导出指定会话（默认全部）的 ledger 为 JSON bundle，包含所有引用过的
+  /// blob（base64 编码）。可被 [importBundleJson] 还原。
+  Future<String> exportBundleJson({
+    Iterable<String>? sessionIds,
+  }) async {
+    final ids = sessionIds == null
+        ? await listSessionIds()
+        : sessionIds.toList();
+    final sessions = <Map<String, Object?>>[];
+    final referenced = <String>{};
+    for (final sid in ids) {
+      final records = await recordsForSession(sid);
+      final undone = await _loadUndoneSet(sid);
+      sessions.add({
+        'session_id': sid,
+        'records': records.map((r) => r.toJson()).toList(),
+        'undone': undone.toList(),
+      });
+      for (final r in records) {
+        if (r.beforeSha != null) referenced.add(r.beforeSha!);
+        if (r.afterSha != null) referenced.add(r.afterSha!);
+      }
+    }
+    final blobMap = <String, String>{};
+    for (final sha in referenced) {
+      final content = await _readBlob(sha);
+      if (content != null) {
+        blobMap[sha] = base64Encode(utf8.encode(content));
+      }
+    }
+    return const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+      'kind': 'openhand.file_mutation_ledger.bundle',
+      'version': 1,
+      'exported_at': DateTime.now().toUtc().toIso8601String(),
+      'sessions': sessions,
+      'blobs_b64': blobMap,
+    });
+  }
+
+  /// 还原导出 bundle。返回写入的 record 数（去重统计）。失败仅日志，按
+  /// session 粒度容错继续。
+  Future<int> importBundleJson(String json) async {
+    await _ensureInitialized();
+    var imported = 0;
+    Map<String, Object?> parsed;
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is! Map<String, Object?>) return 0;
+      parsed = decoded;
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'importBundle parse', error, stack);
+      return 0;
+    }
+    if ('${parsed['kind'] ?? ''}' !=
+        'openhand.file_mutation_ledger.bundle') {
+      return 0;
+    }
+    // 1) 先恢复 blob — 之后的 record 才有指向。
+    final blobMap = parsed['blobs_b64'];
+    if (blobMap is Map) {
+      for (final entry in blobMap.entries) {
+        final sha = '${entry.key}';
+        final raw = '${entry.value}';
+        if (sha.isEmpty || raw.isEmpty) continue;
+        try {
+          final content = utf8.decode(base64Decode(raw));
+          // sha 一致性轻校验：不强制（容许导出方使用不同算法/截断）。
+          await _writeBlobIfMissing(sha, content);
+        } catch (error, stack) {
+          silentLog(
+            'ai_file_mutation_ledger',
+            'importBundle blob $sha',
+            error,
+            stack,
+          );
+        }
+      }
+    }
+    // 2) 再合并各 session 的 ledger.jsonl（追加去重 by recordId）。
+    final sessions = parsed['sessions'];
+    if (sessions is! List) return imported;
+    for (final sessionEntry in sessions) {
+      if (sessionEntry is! Map<String, Object?>) continue;
+      final sid = '${sessionEntry['session_id'] ?? ''}'.trim();
+      if (sid.isEmpty) continue;
+      final records = sessionEntry['records'];
+      if (records is! List) continue;
+      try {
+        final dir = _sessionDir(sid);
+        if (!await dir.exists()) await dir.create(recursive: true);
+        final ledger = _ledgerFile(sid);
+        final existing = await recordsForSession(sid);
+        final existingIds = existing.map((r) => r.recordId).toSet();
+        final buffer = StringBuffer();
+        if (await ledger.exists()) {
+          buffer.write(await ledger.readAsString());
+          if (!buffer.toString().endsWith('\n') && buffer.isNotEmpty) {
+            buffer.writeln();
+          }
+        }
+        for (final raw in records) {
+          if (raw is! Map<String, Object?>) continue;
+          final id = '${raw['id'] ?? ''}'.trim();
+          if (id.isEmpty || existingIds.contains(id)) continue;
+          buffer.writeln(jsonEncode(raw));
+          existingIds.add(id);
+          imported += 1;
+        }
+        await writeFileAtomically(ledger, buffer.toString());
+        // 还原 undone 集合：合并存在的 undone 列表。
+        final undoneList = sessionEntry['undone'];
+        if (undoneList is List) {
+          final cur = await _loadUndoneSet(sid);
+          for (final item in undoneList) {
+            cur.add('$item');
+          }
+          await _saveUndoneSet(sid, cur);
+        }
+      } catch (error, stack) {
+        silentLog(
+          'ai_file_mutation_ledger',
+          'importBundle session $sid',
+          error,
+          stack,
+        );
+      }
+    }
+    return imported;
+  }
 }
 
 
