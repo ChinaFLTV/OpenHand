@@ -331,6 +331,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpLazyLoadingThresholdInvalid => '请填写 1000 ~ 1000000 之间的整数。';
 
   @override
+  String get settingsHardnessToolSearchHistoryCapLabel =>
+      'Hardness ToolSearch 历史保留上限';
+
+  @override
+  String get settingsHardnessToolSearchHistoryCapBody =>
+      'ToolSearch 已加载列表对话框保留的 Hardness phase 最大个数，超出后以 LRU 淘汰。';
+
+  @override
+  String settingsHardnessToolSearchHistoryCapValue(int cap) {
+    return '当前保留最近 $cap 个 phase';
+  }
+
+  @override
+  String settingsHardnessToolSearchHistoryCapRange(int min, int max) {
+    return '范围：$min–$max（默认 8）';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       '懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。';
 
@@ -2464,6 +2482,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedReplayedToast => '已重新发起 ToolSearch';
 
   @override
+  String get snackToolSearchLoadedReplayPendingToast => '即将发起，3 秒内可点击「撤销」';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelAction => '撤销';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelledToast => '已撤销 — composer 已清空';
+
+  @override
   String get snackToolSearchLoadedSourceFilterAll => '全部';
 
   @override
@@ -2471,6 +2498,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedSourceFilterHardness => '仅 Hardness';
+
+  @override
+  String snackToolSearchLoadedSummary(int queries, int tools) {
+    return '本会话已从 $queries 个查询中加载 $tools 个 MCP 工具';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryReplayAction => '把本次复制为 select:…';
@@ -4795,6 +4827,24 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpLazyLoadingThresholdInvalid => '请填写 1000 ~ 1000000 之间的整数。';
 
   @override
+  String get settingsHardnessToolSearchHistoryCapLabel =>
+      'Hardness ToolSearch 历史保留上限';
+
+  @override
+  String get settingsHardnessToolSearchHistoryCapBody =>
+      'ToolSearch 已加载列表对话框保留的 Hardness phase 最大个数，超出后以 LRU 淘汰。';
+
+  @override
+  String settingsHardnessToolSearchHistoryCapValue(int cap) {
+    return '当前保留最近 $cap 个 phase';
+  }
+
+  @override
+  String settingsHardnessToolSearchHistoryCapRange(int min, int max) {
+    return '范围：$min–$max（默认 8）';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       '懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。';
 
@@ -6928,6 +6978,15 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedReplayedToast => '已重新发起 ToolSearch';
 
   @override
+  String get snackToolSearchLoadedReplayPendingToast => '即将发起，3 秒内可点击「撤销」';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelAction => '撤销';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelledToast => '已撤销 — composer 已清空';
+
+  @override
   String get snackToolSearchLoadedSourceFilterAll => '全部';
 
   @override
@@ -6935,6 +6994,11 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedSourceFilterHardness => '仅 Hardness';
+
+  @override
+  String snackToolSearchLoadedSummary(int queries, int tools) {
+    return '本会话已从 $queries 个查询中加载 $tools 个 MCP 工具';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryReplayAction => '把本次复制为 select:…';
@@ -9258,6 +9322,24 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get mcpLazyLoadingThresholdInvalid => '請填寫 1000 ~ 1000000 之間的整數。';
 
   @override
+  String get settingsHardnessToolSearchHistoryCapLabel =>
+      'Hardness ToolSearch 歷史保留上限';
+
+  @override
+  String get settingsHardnessToolSearchHistoryCapBody =>
+      'ToolSearch 已載入清單對話框保留的 Hardness phase 最大個數，超出後以 LRU 淘汰。';
+
+  @override
+  String settingsHardnessToolSearchHistoryCapValue(int cap) {
+    return '當前保留最近 $cap 個 phase';
+  }
+
+  @override
+  String settingsHardnessToolSearchHistoryCapRange(int min, int max) {
+    return '範圍：$min–$max（預設 8）';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       '懶載入啟用時：MCP 工具描述被折疊為名稱索引，模型透過內建 ToolSearch 工具按需取回完整 JSON Schema。支援三種查詢：\n• select:NAME（直接選取，可空格分隔多個）\n• 關鍵字（按 name/description 評分配對）\n• +KEYWORD（必含詞，用於過濾雜訊）\n命中工具會寫入目前會話已載入清單，下一輪即可直接呼叫，無需再次查詢。';
 
@@ -11391,6 +11473,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get snackToolSearchLoadedReplayedToast => '已重新發起 ToolSearch';
 
   @override
+  String get snackToolSearchLoadedReplayPendingToast => '即將發起，3 秒內可點擊「撤銷」';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelAction => '撤銷';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelledToast => '已撤銷 — composer 已清空';
+
+  @override
   String get snackToolSearchLoadedSourceFilterAll => '全部';
 
   @override
@@ -11398,6 +11489,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedSourceFilterHardness => '僅 Hardness';
+
+  @override
+  String snackToolSearchLoadedSummary(int queries, int tools) {
+    return '本對話已從 $queries 個查詢中載入 $tools 個 MCP 工具';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryReplayAction => '把本次複製為 select:…';

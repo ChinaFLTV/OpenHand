@@ -2848,7 +2848,54 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
+        const SizedBox(height: 18),
+        _buildHardnessToolSearchHistoryRow(context, settingsController, l10n),
       ],
+    );
+  }
+
+  /// Hardness ToolSearch 历史 LRU 桶上限滑块，1..64，默认 8。
+  /// 与 cron retention 同款 Slider，无需 TextEditingController。
+  Widget _buildHardnessToolSearchHistoryRow(
+    BuildContext context,
+    SettingsController settingsController,
+    AppLocalizations l10n,
+  ) {
+    final cap = settingsController.hardnessToolSearchHistoryMaxPhases;
+    const minCap = AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases;
+    const maxCap = AppSettingsSnapshot.maxHardnessToolSearchHistoryMaxPhases;
+    return _ResponsiveSettingRow(
+      title: l10n.settingsHardnessToolSearchHistoryCapLabel,
+      subtitle: l10n.settingsHardnessToolSearchHistoryCapBody,
+      controlMaxWidth: 360,
+      control: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.settingsHardnessToolSearchHistoryCapValue(cap),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          Slider(
+            min: minCap.toDouble(),
+            max: maxCap.toDouble(),
+            divisions: maxCap - minCap,
+            value: cap.clamp(minCap, maxCap).toDouble(),
+            label: '$cap',
+            onChanged: (value) async {
+              final saved = await settingsController
+                  .updateHardnessToolSearchHistoryMaxPhases(value.round());
+              if (!context.mounted || saved) return;
+              _showPersistenceFailureSnackBar(context);
+            },
+          ),
+          Text(
+            l10n.settingsHardnessToolSearchHistoryCapRange(minCap, maxCap),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

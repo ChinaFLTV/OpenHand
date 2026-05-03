@@ -1145,6 +1145,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   @override
   void dispose() {
+    _pendingToolSearchReplayTimer?.cancel();
+    _pendingToolSearchReplayTimer = null;
     _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
     _activeHardnessOrchestrator?.cancel();
     _activeHardnessOrchestrator?.dispose();
@@ -1294,9 +1296,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 一份按 phase-session 分桶的历史时间线，供 dialog 展示。
   /// 用 [LinkedHashMap] 的插入序天然实现 LRU：每次写入都先 remove 再 put，
   /// 让最近活跃的 phase 落在 Map 末尾；新增时若超过
-  /// [_kHardnessToolSearchHistoryMaxPhases]，淘汰最早的 phase 桶，防止
-  /// 长会话内存膨胀（即使 onPhaseEnded 因异常路径漏调也兜底）。
-  static const int _kHardnessToolSearchHistoryMaxPhases = 8;
+  /// [SettingsController.hardnessToolSearchHistoryMaxPhases]，淘汰最早的
+  /// phase 桶，防止长会话内存膨胀（即使 onPhaseEnded 因异常路径漏调也兜底）。
+  /// 默认值由 [AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases]
+  /// 给出，运行时读自 SettingsController。
+
+  /// 用户点击 ToolSearch 历史「重放」按钮后，给的反悔窗口。在此期间
+  /// 撤销将清空 composer 并不发送；超时则正常派发。
+  static const Duration kToolSearchReplayCancelWindow = Duration(seconds: 3);
+  Timer? _pendingToolSearchReplayTimer;
   final Map<String, List<AiToolSearchLoadHistoryEntry>>
   _hardnessToolSearchHistory = <String, List<AiToolSearchLoadHistoryEntry>>{};
 
@@ -1307,8 +1315,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final existing = _hardnessToolSearchHistory.remove(phaseSessionId);
     final bucket = existing ?? <AiToolSearchLoadHistoryEntry>[];
     _hardnessToolSearchHistory[phaseSessionId] = bucket;
-    while (_hardnessToolSearchHistory.length >
-        _kHardnessToolSearchHistoryMaxPhases) {
+    final cap = context.read<SettingsController>().hardnessToolSearchHistoryMaxPhases;
+    while (_hardnessToolSearchHistory.length > cap) {
       _hardnessToolSearchHistory.remove(_hardnessToolSearchHistory.keys.first);
     }
     return bucket;
@@ -1357,10 +1365,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   const <AiToolSearchLoadHistoryEntry>[],
             ),
             // Hardness phase 自身的 tool loop 是自治的，无法直接重放；
-            // 但用户的意图通常是「我想再加载这一批」——在主 composer
-            // 里发起一次 AI session 维度的 ToolSearch 调用即可，
-            // 与 AI 路径行为完全一致。
-            onReplayBatch: _replayToolSearchSelectQuery,
+            // 用户的意图通常是「我想再加载这一批」——为了不污染当前
+            // hardness 活跃会话的上下文，专门走「先建独立 AI session
+            // 再在新 session 里发 select:」的路径。
+            onReplayBatch: _replayToolSearchInFreshSession,
           ),
         ),
       ),
@@ -1394,8 +1402,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   /// 把一组 MCP 工具名打包成 `select:N1, select:N2, …`，写进 composer
-  /// 并立即提交，等价于用户手动复制粘贴后回车，但省掉中间环节。
-  /// 由 [_showToolSearchLoadedDialog] 历史条目点击触发。
+  /// 并在 [kToolSearchReplayCancelWindow] 之后才提交，期间用户可以
+  /// 通过 SnackBarAction 撤销。等价于用户手动复制粘贴后回车，但多了
+  /// 一个 3s 反悔窗口。由 [_showToolSearchLoadedDialog] 历史条目点击触发。
   Future<void> _replayToolSearchSelectQuery(List<String> names) async {
     if (!mounted || names.isEmpty) return;
     final query = names.map((n) => 'select:$n').join(', ');
@@ -1403,19 +1412,102 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       text: query,
       selection: TextSelection.collapsed(offset: query.length),
     );
-    await _sendMessage();
-    if (!mounted) return;
+    // 任何先前还没触发的 replay 都先取消，避免叠加多个 timer。
+    _pendingToolSearchReplayTimer?.cancel();
+    _pendingToolSearchReplayTimer = null;
+
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
+    final completer = Completer<void>();
+    var cancelled = false;
+
+    void doCancel() {
+      if (cancelled) return;
+      cancelled = true;
+      _pendingToolSearchReplayTimer?.cancel();
+      _pendingToolSearchReplayTimer = null;
+      // 仅在 composer 仍然展示我们刚塞进去的内容时清空，避免误删
+      // 用户在 3 秒窗口内手动续写的文字。
+      if (_composerController.text == query) {
+        _composerController.clear();
+      }
+      if (mounted && l10n != null && messenger != null) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(l10n.snackToolSearchLoadedReplayCancelledToast),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      }
+      if (!completer.isCompleted) completer.complete();
+    }
+
     if (l10n != null && messenger != null) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(l10n.snackToolSearchLoadedReplayedToast),
+          content: Text(l10n.snackToolSearchLoadedReplayPendingToast),
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
+          duration: kToolSearchReplayCancelWindow,
+          action: SnackBarAction(
+            label: l10n.snackToolSearchLoadedReplayCancelAction,
+            onPressed: doCancel,
+          ),
         ),
       );
     }
+
+    _pendingToolSearchReplayTimer = Timer(
+      kToolSearchReplayCancelWindow,
+      () async {
+        _pendingToolSearchReplayTimer = null;
+        if (!mounted || cancelled) {
+          if (!completer.isCompleted) completer.complete();
+          return;
+        }
+        await _sendMessage();
+        if (!mounted) {
+          if (!completer.isCompleted) completer.complete();
+          return;
+        }
+        final l10nNow = AppLocalizations.of(context);
+        final messengerNow = ScaffoldMessenger.maybeOf(context);
+        if (l10nNow != null && messengerNow != null) {
+          messengerNow.showSnackBar(
+            SnackBar(
+              content: Text(l10nNow.snackToolSearchLoadedReplayedToast),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        if (!completer.isCompleted) completer.complete();
+      },
+    );
+
+    return completer.future;
+  }
+
+  /// Hardness 路径专用：先创建一个全新 AI session，再在新 session 里
+  /// 发起 select: 查询，避免污染当前 hardness 活跃会话的上下文。
+  /// 模板沿用当前 AI session 的 templateId（若有），否则 fallback
+  /// 到模板仓库的第一个模板。
+  Future<void> _replayToolSearchInFreshSession(List<String> names) async {
+    if (!mounted || names.isEmpty) return;
+    final sessionController = context.read<AiSessionController>();
+    final fallbackTemplateId =
+        sessionController.currentSession?.templateId ??
+        sessionController.templateRepository.templates.first.id;
+    final created = await _createSession(
+      templateId: fallbackTemplateId,
+      initialMode: AiSessionMode.fromStorage(
+        context.read<SettingsController>().aiDefaultSessionMode,
+      ),
+    );
+    if (!created || !mounted) return;
+    await _replayToolSearchSelectQuery(names);
   }
 
   void _scheduleSessionControllerUiSync() {

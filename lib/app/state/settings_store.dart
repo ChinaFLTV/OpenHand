@@ -261,6 +261,8 @@ class SettingsStore {
       'show_self_learning_messages': snapshot.showSelfLearningMessages,
       'cron_auto_cleanup_enabled': snapshot.cronAutoCleanupEnabled,
       'cron_auto_cleanup_retention_days': snapshot.cronAutoCleanupRetentionDays,
+      'hardness_tool_search_history_max_phases':
+          snapshot.hardnessToolSearchHistoryMaxPhases,
       'reduce_motion': snapshot.reduceMotion,
       'proxy': snapshot.proxySettings.toJson(),
       'ai_models': snapshot.aiModels
@@ -1000,6 +1002,16 @@ class SettingsStore {
           )
         : AppSettingsSnapshot.defaultCronAutoCleanupRetentionDays;
 
+    final rawHardnessHistoryCap =
+        json['hardness_tool_search_history_max_phases'];
+    final hardnessToolSearchHistoryMaxPhases =
+        (rawHardnessHistoryCap is int && rawHardnessHistoryCap > 0)
+        ? rawHardnessHistoryCap.clamp(
+            AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases,
+            AppSettingsSnapshot.maxHardnessToolSearchHistoryMaxPhases,
+          )
+        : AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases;
+
     final reduceMotion = json['reduce_motion'] is bool
         ? json['reduce_motion'] as bool
         : false;
@@ -1091,6 +1103,7 @@ class SettingsStore {
       showSelfLearningMessages: showSelfLearningMessages,
       cronAutoCleanupEnabled: cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: cronAutoCleanupRetentionDays,
+      hardnessToolSearchHistoryMaxPhases: hardnessToolSearchHistoryMaxPhases,
       reduceMotion: reduceMotion,
       proxySettings: proxySettings,
     );

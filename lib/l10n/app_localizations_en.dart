@@ -343,6 +343,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please enter an integer between 1000 and 1000000.';
 
   @override
+  String get settingsHardnessToolSearchHistoryCapLabel =>
+      'Hardness ToolSearch history cap';
+
+  @override
+  String get settingsHardnessToolSearchHistoryCapBody =>
+      'Maximum number of recent Hardness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).';
+
+  @override
+  String settingsHardnessToolSearchHistoryCapValue(int cap) {
+    return 'Currently keeping the last $cap phase(s)';
+  }
+
+  @override
+  String settingsHardnessToolSearchHistoryCapRange(int min, int max) {
+    return 'Range: $min–$max (default 8)';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       'When lazy loading is active, MCP tool descriptions are folded into a name index. The built-in ToolSearch tool fetches full JSON Schema on demand via three query forms:\n• select:NAME (direct, space-separated for multi-select)\n• keyword (scored against name/description)\n• +KEYWORD (required term to filter noise)\nResolved tools are added to the per-session loaded set so the next turn calls them directly with no extra search.';
 
@@ -2602,6 +2620,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Re-issued ToolSearch with previous selection';
 
   @override
+  String get snackToolSearchLoadedReplayPendingToast =>
+      'About to dispatch — tap Cancel to abort';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelAction => 'Cancel';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelledToast =>
+      'Dispatch cancelled — composer cleared';
+
+  @override
   String get snackToolSearchLoadedSourceFilterAll => 'All';
 
   @override
@@ -2609,6 +2638,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedSourceFilterHardness => 'Hardness only';
+
+  @override
+  String snackToolSearchLoadedSummary(int queries, int tools) {
+    return 'Loaded $tools MCP tool(s) from $queries query(ies) in this session';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryReplayAction =>

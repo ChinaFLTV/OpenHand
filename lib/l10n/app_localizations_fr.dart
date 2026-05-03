@@ -345,6 +345,24 @@ class AppLocalizationsFr extends AppLocalizations {
       'Veuillez saisir un entier entre 1000 et 1000000.';
 
   @override
+  String get settingsHardnessToolSearchHistoryCapLabel =>
+      'Limite d\'historique ToolSearch Hardness';
+
+  @override
+  String get settingsHardnessToolSearchHistoryCapBody =>
+      'Nombre maximum de phases Hardness récentes pour lesquelles la boîte de dialogue de l\'historique ToolSearch conserve les entrées. Les anciennes phases sont supprimées (LRU).';
+
+  @override
+  String settingsHardnessToolSearchHistoryCapValue(int cap) {
+    return 'Conserve actuellement les $cap dernière(s) phase(s)';
+  }
+
+  @override
+  String settingsHardnessToolSearchHistoryCapRange(int min, int max) {
+    return 'Plage : $min–$max (par défaut 8)';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       'Lorsque le chargement différé est actif, les descriptions des outils MCP sont repliées en un index de noms. L\'outil intégré ToolSearch récupère le schéma JSON complet à la demande via trois formes :\n• select:NAME (sélection directe, multi-sélection séparée par espaces)\n• mot-clé (scoré sur name/description)\n• +MOTCLE (terme requis pour filtrer le bruit)\nLes outils résolus sont ajoutés à l\'ensemble chargé de la session afin que le tour suivant les appelle directement.';
 
@@ -2648,6 +2666,17 @@ class AppLocalizationsFr extends AppLocalizations {
       'ToolSearch relancé avec la sélection précédente';
 
   @override
+  String get snackToolSearchLoadedReplayPendingToast =>
+      'Envoi imminent — appuyez sur Annuler pour interrompre';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelAction => 'Annuler';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelledToast =>
+      'Envoi annulé — composer vidé';
+
+  @override
   String get snackToolSearchLoadedSourceFilterAll => 'Tous';
 
   @override
@@ -2655,6 +2684,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedSourceFilterHardness => 'Hardness uniquement';
+
+  @override
+  String snackToolSearchLoadedSummary(int queries, int tools) {
+    return '$tools outil(s) MCP chargé(s) depuis $queries requête(s) dans cette session';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryReplayAction =>

@@ -252,10 +252,11 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       ),
       content: SizedBox(
         width: 480,
-        height: 420,
+        height: 480,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            _buildSummaryStrip(context, l10n),
             TabBar(
               controller: _tabController,
               tabs: [
@@ -635,6 +636,49 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// 弹窗顶部 sticky 概要：当前 dialog 内可见的 MCP 工具数 + 历史里
+  /// 累计的查询条数，让用户在不切到 history tab 的情况下即可掌握总量。
+  Widget _buildSummaryStrip(BuildContext context, AppLocalizations l10n) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.25),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.summarize_rounded,
+              size: 16,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                l10n.snackToolSearchLoadedSummary(
+                  _history.length,
+                  _names.length,
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

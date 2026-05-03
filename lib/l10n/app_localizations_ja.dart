@@ -332,6 +332,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpLazyLoadingThresholdInvalid => '1000～1000000の整数を入力してください。';
 
   @override
+  String get settingsHardnessToolSearchHistoryCapLabel =>
+      'Hardness ToolSearch 履歴の保持上限';
+
+  @override
+  String get settingsHardnessToolSearchHistoryCapBody =>
+      'ToolSearch 読み込み済みダイアログが保持する Hardness phase の最大件数。超えた分は LRU で逆出されます。';
+
+  @override
+  String settingsHardnessToolSearchHistoryCapValue(int cap) {
+    return '現在 $cap 件の phase を保持中';
+  }
+
+  @override
+  String settingsHardnessToolSearchHistoryCapRange(int min, int max) {
+    return '範囲: $min–$max（デフォルト 8）';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       '遅延読み込みが有効な間、MCP ツールの説明は名前インデックスに折りたたまれ、組み込みの ToolSearch ツールが必要に応じて完全な JSON Schema を取得します。3 つのクエリ形式に対応：\n• select:NAME（直接選択、空白区切りで複数指定可）\n• キーワード（name/description にスコアリング）\n• +KEYWORD（ノイズ除去のための必須語）\n解決済みツールはセッションのロード済みセットに追加され、次ターンでは追加検索なしで直接呼び出せます。';
 
@@ -2493,6 +2511,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedReplayedToast => '以前の選択で ToolSearch を再実行しました';
 
   @override
+  String get snackToolSearchLoadedReplayPendingToast => '送信予定です — キャンセルをタップで中止';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelAction => 'キャンセル';
+
+  @override
+  String get snackToolSearchLoadedReplayCancelledToast =>
+      '送信をキャンセル — composer をクリア';
+
+  @override
   String get snackToolSearchLoadedSourceFilterAll => '全て';
 
   @override
@@ -2500,6 +2528,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedSourceFilterHardness => 'Hardness のみ';
+
+  @override
+  String snackToolSearchLoadedSummary(int queries, int tools) {
+    return 'このセッションで $queries 個のクエリから $tools 個の MCP ツールをロード';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryReplayAction =>

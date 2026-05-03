@@ -45,6 +45,24 @@ Future<void> _pump(
 }
 
 void main() {
+  // 2026-05-09 — dialog 因增加 sticky 概要 + SegmentedButton 来源筛选后
+  // 高度从 420 涨到 480；默认 800x600 viewport 会让 ListView 虚拟化
+  // 把第二个 history entry 推到屏幕外。手动放大 view 让所有条目保留。
+  setUp(() {
+    final view = TestWidgetsFlutterBinding.ensureInitialized()
+        .platformDispatcher
+        .implicitView!;
+    view.physicalSize = const Size(1200, 1600);
+    view.devicePixelRatio = 1.0;
+  });
+  tearDown(() {
+    final view = TestWidgetsFlutterBinding.ensureInitialized()
+        .platformDispatcher
+        .implicitView!;
+    view.resetPhysicalSize();
+    view.resetDevicePixelRatio();
+  });
+
   test('AiToolSearchLoadHistoryEntry defaults source to AI session', () {
     final entry = AiToolSearchLoadHistoryEntry(
       timestamp: DateTime.utc(2026, 5, 4),

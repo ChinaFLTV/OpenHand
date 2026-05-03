@@ -223,6 +223,8 @@ class AppSettingsSnapshot {
     this.showSelfLearningMessages = true,
     this.cronAutoCleanupEnabled = true,
     this.cronAutoCleanupRetentionDays = defaultCronAutoCleanupRetentionDays,
+    this.hardnessToolSearchHistoryMaxPhases =
+        defaultHardnessToolSearchHistoryMaxPhases,
     this.reduceMotion = false,
     AppProxySettings? proxySettings,
   }) : proxySettings =
@@ -257,6 +259,13 @@ class AppSettingsSnapshot {
   static const int defaultCronAutoCleanupRetentionDays = 7;
   static const int minCronAutoCleanupRetentionDays = 1;
   static const int maxCronAutoCleanupRetentionDays = 365;
+
+  /// Hardness ToolSearch 历史按 phase-session 分桶存储，同时保留
+  /// 的最近 phase 个数（LRU 淘汰）。默认 8，允许 1..64，避免
+  /// 长会话内存膨胀。
+  static const int defaultHardnessToolSearchHistoryMaxPhases = 8;
+  static const int minHardnessToolSearchHistoryMaxPhases = 1;
+  static const int maxHardnessToolSearchHistoryMaxPhases = 64;
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
   static const int minAiMessageCompressionThresholdChars = 2000;
@@ -648,6 +657,10 @@ class AppSettingsSnapshot {
   /// [maxCronAutoCleanupRetentionDays] 是输入安全护栏。
   final int cronAutoCleanupRetentionDays;
 
+  /// Hardness ToolSearch 加载历史 LRU 桶上限，但到该上限后会从
+  /// 「全会话」维度淘汰最早的 phase 桶。默认 8。
+  final int hardnessToolSearchHistoryMaxPhases;
+
   /// 2026-05 — 用户层减少动画总开关。true 时所有自定义动画
   /// 时长压到 0；built-in 动画（路由/弹窗/HeroAnimation）通过
   /// MediaQuery.disableAnimations 同步禁用。`AppearOnce`、
@@ -744,6 +757,7 @@ class AppSettingsSnapshot {
     bool? showSelfLearningMessages,
     bool? cronAutoCleanupEnabled,
     int? cronAutoCleanupRetentionDays,
+    int? hardnessToolSearchHistoryMaxPhases,
     bool? reduceMotion,
     AppProxySettings? proxySettings,
     bool clearSelectedAiModelId = false,
@@ -902,6 +916,9 @@ class AppSettingsSnapshot {
           cronAutoCleanupEnabled ?? this.cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays:
           cronAutoCleanupRetentionDays ?? this.cronAutoCleanupRetentionDays,
+      hardnessToolSearchHistoryMaxPhases:
+          hardnessToolSearchHistoryMaxPhases ??
+          this.hardnessToolSearchHistoryMaxPhases,
       reduceMotion: reduceMotion ?? this.reduceMotion,
       proxySettings: proxySettings ?? this.proxySettings,
     );

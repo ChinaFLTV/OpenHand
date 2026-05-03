@@ -48,6 +48,20 @@ Future<void> _pumpDialog(
 }
 
 void main() {
+  // Dialog is 480x480 with summary strip + tabs + segmented filter — enlarge
+  // the test window so the entire dialog and its scrollable lists fit
+  // without ListView/Column virtualization dropping items off-screen.
+  setUp(() {
+    final tester = TestWidgetsFlutterBinding.ensureInitialized();
+    tester.platformDispatcher.implicitView!.physicalSize =
+        const Size(1200, 1600);
+    tester.platformDispatcher.implicitView!.devicePixelRatio = 1.0;
+  });
+  tearDown(() {
+    final tester = TestWidgetsFlutterBinding.ensureInitialized();
+    tester.platformDispatcher.implicitView!.resetPhysicalSize();
+    tester.platformDispatcher.implicitView!.resetDevicePixelRatio();
+  });
   testWidgets('renders the loaded MCP tool names', (tester) async {
     await _pumpDialog(
       tester,
@@ -443,5 +457,89 @@ void main() {
 
     expect(find.text('AI session'), findsOneWidget);
     expect(find.text('Hardness phase'), findsOneWidget);
+  });
+
+  testWidgets(
+      'source SegmentedButton narrows history to selected source',
+      (tester) async {
+    final history = <AiToolSearchLoadHistoryEntry>[
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 10),
+        query: 'kubernetes',
+        addedNames: const ['mcp__k8s__pods'],
+        totalDeferred: 3,
+      ),
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 11),
+        query: 'github',
+        addedNames: const ['mcp__github__issue_list'],
+        totalDeferred: 4,
+        source: AiToolSearchLoadSource.hardnessPhase,
+      ),
+    ];
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__k8s__pods', 'mcp__github__issue_list'],
+      history: history,
+    );
+
+    await tester.tap(find.text('Load history (2)'));
+    await tester.pumpAndSettle();
+
+    // Default = All: both visible.
+    expect(find.text('mcp__k8s__pods'), findsOneWidget);
+    expect(find.text('mcp__github__issue_list'), findsOneWidget);
+
+    // Pick "AI only" → only AI entry stays.
+    await tester.tap(find.text('AI only'));
+    await tester.pumpAndSettle();
+    expect(find.text('mcp__k8s__pods'), findsOneWidget);
+    expect(find.text('mcp__github__issue_list'), findsNothing);
+
+    // Pick "Hardness only" → only Hardness entry stays.
+    await tester.tap(find.text('Hardness only'));
+    await tester.pumpAndSettle();
+    expect(find.text('mcp__k8s__pods'), findsNothing);
+    expect(find.text('mcp__github__issue_list'), findsOneWidget);
+
+    // Combined with text filter — name filter on top of source filter.
+    await tester.enterText(find.byType(TextField).last, 'k8s');
+    await tester.pumpAndSettle();
+    // Hardness only AND query=k8s → no entries match (k8s entry is AI source).
+    expect(find.text('mcp__github__issue_list'), findsNothing);
+    expect(find.text('mcp__k8s__pods'), findsNothing);
+
+    // Back to All: k8s reappears (AI entry, name matches).
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+    expect(find.text('mcp__k8s__pods'), findsOneWidget);
+    expect(find.text('mcp__github__issue_list'), findsNothing);
+  });
+
+  testWidgets('summary strip renders queries-and-tools count',
+      (tester) async {
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__a__b', 'mcp__c__d'],
+      history: <AiToolSearchLoadHistoryEntry>[
+        AiToolSearchLoadHistoryEntry(
+          timestamp: DateTime.utc(2026, 5, 4),
+          query: 'q1',
+          addedNames: const ['mcp__a__b'],
+          totalDeferred: 5,
+        ),
+        AiToolSearchLoadHistoryEntry(
+          timestamp: DateTime.utc(2026, 5, 4, 1),
+          query: 'q2',
+          addedNames: const ['mcp__c__d'],
+          totalDeferred: 5,
+        ),
+      ],
+    );
+
+    expect(
+      find.textContaining('2 MCP tool(s) from 2 query(ies)'),
+      findsOneWidget,
+    );
   });
 }

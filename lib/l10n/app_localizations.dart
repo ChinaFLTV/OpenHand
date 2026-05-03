@@ -736,6 +736,30 @@ abstract class AppLocalizations {
   /// **'请填写 1000 ~ 1000000 之间的整数。'**
   String get mcpLazyLoadingThresholdInvalid;
 
+  /// No description provided for @settingsHardnessToolSearchHistoryCapLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hardness ToolSearch 历史保留上限'**
+  String get settingsHardnessToolSearchHistoryCapLabel;
+
+  /// No description provided for @settingsHardnessToolSearchHistoryCapBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'ToolSearch 已加载列表对话框保留的 Hardness phase 最大个数，超出后以 LRU 淘汰。'**
+  String get settingsHardnessToolSearchHistoryCapBody;
+
+  /// No description provided for @settingsHardnessToolSearchHistoryCapValue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前保留最近 {cap} 个 phase'**
+  String settingsHardnessToolSearchHistoryCapValue(int cap);
+
+  /// No description provided for @settingsHardnessToolSearchHistoryCapRange.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'范围：{min}–{max}（默认 8）'**
+  String settingsHardnessToolSearchHistoryCapRange(int min, int max);
+
   /// No description provided for @mcpLazyLoadingHowItWorks.
   ///
   /// In zh_Hans, this message translates to:
@@ -4768,6 +4792,24 @@ abstract class AppLocalizations {
   /// **'已重新发起 ToolSearch'**
   String get snackToolSearchLoadedReplayedToast;
 
+  /// No description provided for @snackToolSearchLoadedReplayPendingToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'即将发起，3 秒内可点击「撤销」'**
+  String get snackToolSearchLoadedReplayPendingToast;
+
+  /// No description provided for @snackToolSearchLoadedReplayCancelAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'撤销'**
+  String get snackToolSearchLoadedReplayCancelAction;
+
+  /// No description provided for @snackToolSearchLoadedReplayCancelledToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已撤销 — composer 已清空'**
+  String get snackToolSearchLoadedReplayCancelledToast;
+
   /// No description provided for @snackToolSearchLoadedSourceFilterAll.
   ///
   /// In zh_Hans, this message translates to:
@@ -4785,6 +4827,12 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'仅 Hardness'**
   String get snackToolSearchLoadedSourceFilterHardness;
+
+  /// No description provided for @snackToolSearchLoadedSummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本会话已从 {queries} 个查询中加载 {tools} 个 MCP 工具'**
+  String snackToolSearchLoadedSummary(int queries, int tools);
 
   /// No description provided for @snackToolSearchLoadedHistoryReplayAction.
   ///

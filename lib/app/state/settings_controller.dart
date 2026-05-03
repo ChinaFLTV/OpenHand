@@ -140,6 +140,8 @@ class SettingsController extends ChangeNotifier {
        _showSelfLearningMessages = snapshot.showSelfLearningMessages,
        _cronAutoCleanupEnabled = snapshot.cronAutoCleanupEnabled,
        _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays,
+       _hardnessToolSearchHistoryMaxPhases =
+           snapshot.hardnessToolSearchHistoryMaxPhases,
        _reduceMotion = snapshot.reduceMotion,
        _proxySettings = snapshot.proxySettings,
        _persistenceIssue = persistenceIssue;
@@ -240,6 +242,7 @@ class SettingsController extends ChangeNotifier {
   bool _showSelfLearningMessages;
   bool _cronAutoCleanupEnabled;
   int _cronAutoCleanupRetentionDays;
+  int _hardnessToolSearchHistoryMaxPhases;
   bool _reduceMotion;
   AppProxySettings _proxySettings;
   SettingsPersistenceIssue? _persistenceIssue;
@@ -425,6 +428,11 @@ class SettingsController extends ChangeNotifier {
   /// 2026-04-25 — cron 执行历史保留天数；超过该天数的记录会被异步 worker
   /// 清理。
   int get cronAutoCleanupRetentionDays => _cronAutoCleanupRetentionDays;
+
+  /// Hardness ToolSearch 加载历史按 phase-session 分桶保留的上限
+  /// （LRU 阐出最早者）。默认 8，范围 [1, 64]。
+  int get hardnessToolSearchHistoryMaxPhases =>
+      _hardnessToolSearchHistoryMaxPhases;
 
   /// 2026-05 — 用户层减少动画总开关。true 时自研动画时长归 0，
   /// 同时通过 MediaQuery.disableAnimations 同步禁用 Flutter 内置动画
@@ -1816,6 +1824,22 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  /// 调整 Hardness ToolSearch 历史 LRU 桶上限。超出 [1, 64] 会被
+  /// clamp；快递中快递重复写入只会走 successNoChange 路径。
+  Future<bool> updateHardnessToolSearchHistoryMaxPhases(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases,
+      AppSettingsSnapshot.maxHardnessToolSearchHistoryMaxPhases,
+    );
+    return _commitMutation(() {
+      if (_hardnessToolSearchHistoryMaxPhases == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _hardnessToolSearchHistoryMaxPhases = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
   // 2026-05 — 减少动画总开关。
   Future<bool> updateReduceMotion(bool value) async {
     return _commitMutation(() {
@@ -2039,6 +2063,7 @@ class SettingsController extends ChangeNotifier {
       showSelfLearningMessages: _showSelfLearningMessages,
       cronAutoCleanupEnabled: _cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: _cronAutoCleanupRetentionDays,
+      hardnessToolSearchHistoryMaxPhases: _hardnessToolSearchHistoryMaxPhases,
       reduceMotion: _reduceMotion,
       proxySettings: _proxySettings,
     );
@@ -2149,6 +2174,8 @@ class SettingsController extends ChangeNotifier {
     _selfLearningStreamFlushIntervalMs =
         snapshot.selfLearningStreamFlushIntervalMs;
     _showSelfLearningMessages = snapshot.showSelfLearningMessages;
+    _hardnessToolSearchHistoryMaxPhases =
+        snapshot.hardnessToolSearchHistoryMaxPhases;
     _reduceMotion = snapshot.reduceMotion;
     _proxySettings = snapshot.proxySettings;
   }
