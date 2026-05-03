@@ -328,8 +328,29 @@ String _canonicalizeDsmlMarkup(String value) {
             ? '</DSML:parameter>'
             : '<DSML:parameter$attrs>';
       });
+  // 2026-05-04: sweep up stray pipe characters (`|` / `｜`) that some
+  // weak fine-tunes leave between the last attribute (or element name)
+  // and the closing `>` of *any* DSML tag — observed pattern is the
+  // model wrapping every node in `<|DSML|name|>...</|DSML|name|>`. The
+  // leading prefix already gets converted by `_dsmlTagPrefixPattern`,
+  // but the trailing `|>` survives because the regex only consumes the
+  // opener side. Without this sweep, `<DSML:parameter name="todos"|>`
+  // / `</DSML:parameter|>` look malformed to the partial-stream scanner
+  // (which expects `>` not `|>`), and tool-call cards stall in
+  // "参数构造中" forever even after stream end.
+  normalized = normalized.replaceAllMapped(_strayTrailingPipePattern, (m) {
+    return '${m.group(1)}>';
+  });
   return normalized;
 }
+
+// Match any DSML tag (open or close) that has one or more stray pipe
+// characters immediately before the closing `>`. Capture everything up
+// to (but excluding) the run of pipes so we can rewrite it as `…>`.
+final RegExp _strayTrailingPipePattern = RegExp(
+  r'(<\s*/?\s*DSML:[A-Za-z_][\w:.\-]*[^>|｜]*?)\s*[|｜]+\s*>',
+  caseSensitive: false,
+);
 
 // Raw function_calls/invoke/parameter tags (without any namespace prefix).
 // Only match standalone XML element names — not already canonicalized DSML: forms.
