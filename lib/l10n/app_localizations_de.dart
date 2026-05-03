@@ -2614,6 +2614,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get snackToolSearchLoadedHistoryQueryPrefix => 'Anfrage: ';
 
   @override
+  String get snackToolSearchLoadedFilterHint => 'Nach Name filtern…';
+
+  @override
+  String get snackToolSearchLoadedHistoryReplayAction =>
+      'Diese Charge als select:… kopieren';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearAction => 'Verlauf leeren';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearedToast => 'Ladeverlauf geleert';
+
+  @override
   String get mcpLazyLoadingViewLoadedAction =>
       'Geladene Liste der aktuellen Sitzung anzeigen';
 

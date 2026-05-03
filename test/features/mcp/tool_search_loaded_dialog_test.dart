@@ -170,6 +170,13 @@ void main() {
       );
     });
 
+    // Use a tall viewport so all three groups + their copy buttons fit
+    // inside the 420 px dialog without ListView.builder dropping them.
+    tester.view.physicalSize = const Size(1200, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await _pumpDialog(
       tester,
       names: const <String>[
@@ -194,7 +201,7 @@ void main() {
     // Group-level "copy all" button should write joined select: payload.
     final groupCopy = find.byIcon(Icons.copy_all_rounded);
     expect(groupCopy, findsNWidgets(3));
-    await tester.tap(groupCopy.first); // alpha group (sorted first)
+    await tester.tap(groupCopy.first); // alpha sorted first
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
@@ -237,5 +244,88 @@ void main() {
     expect(find.text('+2 / 12'), findsOneWidget);
     expect(find.text('mcp__k8s__pods'), findsOneWidget);
     expect(find.text('mcp__k8s__logs'), findsOneWidget);
+  });
+
+  testWidgets('loaded tab filter narrows visible groups by name', (tester) async {
+    await _pumpDialog(tester, names: const <String>[
+      'mcp__alpha__one',
+      'mcp__alpha__two',
+      'mcp__beta__three',
+    ]);
+
+    expect(find.text('mcp__alpha__one'), findsOneWidget);
+    expect(find.text('mcp__beta__three'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'beta');
+    await tester.pumpAndSettle();
+
+    expect(find.text('mcp__alpha__one'), findsNothing);
+    expect(find.text('mcp__beta__three'), findsOneWidget);
+  });
+
+  testWidgets('clear-history button empties history list and toasts',
+      (tester) async {
+    final history = <AiToolSearchLoadHistoryEntry>[
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 10),
+        query: 'k8s',
+        addedNames: const ['mcp__k8s__pods'],
+        totalDeferred: 5,
+      ),
+    ];
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__k8s__pods'],
+      history: history,
+    );
+
+    await tester.tap(find.text('Load history (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Clear history'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('No ToolSearch loads in this session yet'),
+      findsOneWidget,
+    );
+    expect(find.text('Load history cleared'), findsOneWidget);
+  });
+
+  testWidgets(
+      'tapping a history entry copies select: payload for the whole batch',
+      (tester) async {
+    String? capture;
+    tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        final args = call.arguments as Map<Object?, Object?>;
+        capture = args['text']! as String;
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    final history = <AiToolSearchLoadHistoryEntry>[
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 10),
+        query: 'k8s',
+        addedNames: const ['mcp__k8s__pods', 'mcp__k8s__logs'],
+        totalDeferred: 5,
+      ),
+    ];
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__k8s__pods', 'mcp__k8s__logs'],
+      history: history,
+    );
+
+    await tester.tap(find.text('Load history (1)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('+2 / 5'));
+    await tester.pumpAndSettle();
+
+    expect(capture, 'select:mcp__k8s__pods, select:mcp__k8s__logs');
   });
 }

@@ -2449,6 +2449,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedHistoryQueryPrefix => '加载查询：';
 
   @override
+  String get snackToolSearchLoadedFilterHint => '按名字过滤…';
+
+  @override
+  String get snackToolSearchLoadedHistoryReplayAction => '把本次复制为 select:…';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearAction => '清空历史';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearedToast => '加载历史已清空';
+
+  @override
   String get mcpLazyLoadingViewLoadedAction => '查看本会话已加载列表';
 
   @override
@@ -6880,6 +6892,18 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedHistoryQueryPrefix => '加载查询：';
 
   @override
+  String get snackToolSearchLoadedFilterHint => '按名字过滤…';
+
+  @override
+  String get snackToolSearchLoadedHistoryReplayAction => '把本次复制为 select:…';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearAction => '清空历史';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearedToast => '加载历史已清空';
+
+  @override
   String get mcpLazyLoadingViewLoadedAction => '查看本会话已加载列表';
 
   @override
@@ -11308,6 +11332,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedHistoryQueryPrefix => '載入查詢：';
+
+  @override
+  String get snackToolSearchLoadedFilterHint => '依名稱過濾…';
+
+  @override
+  String get snackToolSearchLoadedHistoryReplayAction => '把本次複製為 select:…';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearAction => '清空歷史';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearedToast => '載入歷史已清空';
 
   @override
   String get mcpLazyLoadingViewLoadedAction => '檢視本會話已載入清單';

@@ -1079,8 +1079,10 @@
   "snackToolSearchLoadedTabHistory": "載入歷史",
   "snackToolSearchLoadedHistoryEmpty": "本會話尚無 ToolSearch 載入紀錄",
   "snackToolSearchLoadedHistoryQueryPrefix": "載入查詢：",
-  "snackToolSearchLoadedGroupOther": "其他（未識別 server）",
-  "snackToolSearchLoadedCopyGroupAction": "複製本組全部 select:",
+  "snackToolSearchLoadedFilterHint": "依名稱過濾…",
+  "snackToolSearchLoadedHistoryReplayAction": "把本次複製為 select:…",
+  "snackToolSearchLoadedHistoryClearAction": "清空歷史",
+  "snackToolSearchLoadedHistoryClearedToast": "載入歷史已清空",
   "mcpLazyLoadingViewLoadedAction": "檢視本會話已載入清單",
   "mcpLazyLoadingNoActiveSession": "目前沒有進行中的會話",
   "@toolbarRuntimeNotices": {

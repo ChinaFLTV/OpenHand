@@ -1289,6 +1289,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   /// HardnessApiPhaseRunner 在 ToolSearch 成功加载 MCP 工具后回调本方法，
   /// 以与 AI session 一致的样式提示用户。
+  /// 与 AiSessionController 不同，硬度阶段没有共享的 tracker，因此本地维护
+  /// 一份按 phase-session 分桶的历史时间线，供 dialog 展示。
+  final Map<String, List<AiToolSearchLoadHistoryEntry>>
+  _hardnessToolSearchHistory = <String, List<AiToolSearchLoadHistoryEntry>>{};
+
   void _handleHardnessToolSearchLoaded({
     required String phaseSessionId,
     required List<String> loadedNames,
@@ -1301,6 +1306,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (l10n == null) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
+    final entry = AiToolSearchLoadHistoryEntry(
+      timestamp: DateTime.now().toUtc(),
+      query: query,
+      addedNames: loadedNames,
+      totalDeferred: totalDeferred,
+    );
+    (_hardnessToolSearchHistory[phaseSessionId] ??=
+            <AiToolSearchLoadHistoryEntry>[])
+        .add(entry);
     messenger.showSnackBar(
       SnackBar(
         content: Row(
@@ -1319,6 +1333,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           label: l10n.snackToolSearchLoadedAction,
           onPressed: () => _showToolSearchLoadedDialog(
             names: List<String>.from(loadedNames)..sort(),
+            history: List<AiToolSearchLoadHistoryEntry>.unmodifiable(
+              _hardnessToolSearchHistory[phaseSessionId] ??
+                  const <AiToolSearchLoadHistoryEntry>[],
+            ),
           ),
         ),
       ),

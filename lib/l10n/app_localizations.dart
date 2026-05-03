@@ -4738,6 +4738,30 @@ abstract class AppLocalizations {
   /// **'加载查询：'**
   String get snackToolSearchLoadedHistoryQueryPrefix;
 
+  /// No description provided for @snackToolSearchLoadedFilterHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按名字过滤…'**
+  String get snackToolSearchLoadedFilterHint;
+
+  /// No description provided for @snackToolSearchLoadedHistoryReplayAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'把本次复制为 select:…'**
+  String get snackToolSearchLoadedHistoryReplayAction;
+
+  /// No description provided for @snackToolSearchLoadedHistoryClearAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空历史'**
+  String get snackToolSearchLoadedHistoryClearAction;
+
+  /// No description provided for @snackToolSearchLoadedHistoryClearedToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载历史已清空'**
+  String get snackToolSearchLoadedHistoryClearedToast;
+
   /// No description provided for @mcpLazyLoadingViewLoadedAction.
   ///
   /// In zh_Hans, this message translates to:

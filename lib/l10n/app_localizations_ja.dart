@@ -2478,6 +2478,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedHistoryQueryPrefix => 'クエリ: ';
 
   @override
+  String get snackToolSearchLoadedFilterHint => '名前でフィルタ…';
+
+  @override
+  String get snackToolSearchLoadedHistoryReplayAction =>
+      'このバッチを select:… としてコピー';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearAction => '履歴をクリア';
+
+  @override
+  String get snackToolSearchLoadedHistoryClearedToast => 'ロード履歴をクリアしました';
+
+  @override
   String get mcpLazyLoadingViewLoadedAction => '現在のセッションのロード済み一覧を表示';
 
   @override

@@ -52,7 +52,14 @@ class _ToolGroup {
 
   final String? server;
   final List<String> names;
+
+  String get persistKey => server ?? '_misc';
 }
+
+/// 进程级缓存，记录用户对每个分组的折叠/展开偏好。
+/// 跨次打开 dialog 保留；进程重启后回到默认展开。
+@visibleForTesting
+final Map<String, bool> debugMcpGroupExpansionCache = <String, bool>{};
 
 /// 将完整工具名拆出 `SERVER` 段。
 /// 形如 `mcp__SERVER__tool_name` 返回 `SERVER`；其它返回 `null`。
@@ -93,15 +100,18 @@ List<_ToolGroup> _groupByServer(List<String> names) {
 class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     with SingleTickerProviderStateMixin {
   late List<String> _names = List<String>.unmodifiable(widget.initialNames);
-  late final List<AiToolSearchLoadHistoryEntry> _history =
+  late List<AiToolSearchLoadHistoryEntry> _history =
       List<AiToolSearchLoadHistoryEntry>.unmodifiable(widget.initialHistory);
   late final TabController _tabController = TabController(
     length: 2,
     vsync: this,
   );
+  final TextEditingController _filterController = TextEditingController();
+  String _filterQuery = '';
 
   @override
   void dispose() {
+    _filterController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -149,6 +159,55 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<void> _handleReplayHistoryEntry(
+    AiToolSearchLoadHistoryEntry entry,
+  ) async {
+    if (entry.addedNames.isEmpty) return;
+    final payload = entry.addedNames.map((n) => 'select:$n').join(', ');
+    await Clipboard.setData(ClipboardData(text: payload));
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(l10n.snackToolSearchLoadedCopiedToast),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _handleClearHistory() {
+    if (_history.isEmpty) return;
+    setState(() {
+      _history = const <AiToolSearchLoadHistoryEntry>[];
+    });
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(l10n.snackToolSearchLoadedHistoryClearedToast),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// 把 [_groupByServer] 的结果按 [_filterQuery] 做大小写不敏感子串过滤，
+  /// 仅保留至少有一项命中的分组；分组内只保留命中条目。
+  List<_ToolGroup> _filterGroups(List<_ToolGroup> groups) {
+    final q = _filterQuery.trim().toLowerCase();
+    if (q.isEmpty) return groups;
+    final filtered = <_ToolGroup>[];
+    for (final g in groups) {
+      final hit = g.names.where((n) => n.toLowerCase().contains(q)).toList();
+      if (hit.isEmpty) continue;
+      filtered.add(_ToolGroup(
+        server: g.server,
+        names: List<String>.unmodifiable(hit),
+      ));
+    }
+    return filtered;
   }
 
   @override
@@ -221,12 +280,50 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         child: Text('—', style: Theme.of(context).textTheme.bodyMedium),
       );
     }
-    return Scrollbar(
-      child: ListView.builder(
-        shrinkWrap: true,
-        itemCount: groups.length,
-        itemBuilder: (_, index) => _buildGroup(context, groups[index], l10n),
-      ),
+    final filtered = _filterGroups(groups);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _filterController,
+          decoration: InputDecoration(
+            isDense: true,
+            prefixIcon: const Icon(Icons.search_rounded, size: 18),
+            hintText: l10n.snackToolSearchLoadedFilterHint,
+            suffixIcon: _filterQuery.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () {
+                      _filterController.clear();
+                      setState(() => _filterQuery = '');
+                    },
+                  ),
+            border: const OutlineInputBorder(),
+          ),
+          onChanged: (v) => setState(() => _filterQuery = v),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: filtered.isEmpty
+              ? Align(
+                  alignment: Alignment.topLeft,
+                  child: Text(
+                    '—',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                )
+              : Scrollbar(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: filtered.length,
+                    itemBuilder: (_, index) =>
+                        _buildGroup(context, filtered[index], l10n),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -242,14 +339,29 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     }
     // Show newest first.
     final reversed = _history.reversed.toList(growable: false);
-    return Scrollbar(
-      child: ListView.separated(
-        shrinkWrap: true,
-        itemCount: reversed.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (_, index) =>
-            _buildHistoryEntry(context, l10n, reversed[index]),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: _handleClearHistory,
+            icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+            label: Text(l10n.snackToolSearchLoadedHistoryClearAction),
+          ),
+        ),
+        Expanded(
+          child: Scrollbar(
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: reversed.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (_, index) =>
+                  _buildHistoryEntry(context, l10n, reversed[index]),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -267,71 +379,85 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     final dd = localTime.day.toString().padLeft(2, '0');
     final timestampLabel = '${localTime.year}-$mo-$dd $hh:$mm:$ss';
     final queryLabel = entry.query.isEmpty ? '—' : entry.query;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.bolt_rounded,
-                size: 16,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                timestampLabel,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '+${entry.addedCount} / ${entry.totalDeferred}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+    return InkWell(
+      onTap: entry.addedNames.isEmpty
+          ? null
+          : () => _handleReplayHistoryEntry(entry),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.bolt_rounded,
+                  size: 16,
                   color: theme.colorScheme.primary,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          SelectableText.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: l10n.snackToolSearchLoadedHistoryQueryPrefix,
-                  style: theme.textTheme.bodySmall,
-                ),
-                TextSpan(
-                  text: queryLabel,
+                const SizedBox(width: 6),
+                Text(
+                  timestampLabel,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '+${entry.addedCount} / ${entry.totalDeferred}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: l10n.snackToolSearchLoadedHistoryReplayAction,
+                  icon: const Icon(Icons.copy_all_rounded, size: 16),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: entry.addedNames.isEmpty
+                      ? null
+                      : () => _handleReplayHistoryEntry(entry),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              for (final name in entry.addedNames)
-                Chip(
-                  visualDensity: VisualDensity.compact,
-                  label: Text(
-                    name,
-                    style: const TextStyle(
+            const SizedBox(height: 4),
+            SelectableText.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: l10n.snackToolSearchLoadedHistoryQueryPrefix,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  TextSpan(
+                    text: queryLabel,
+                    style: theme.textTheme.bodySmall?.copyWith(
                       fontFamily: 'monospace',
-                      fontSize: 11,
                     ),
                   ),
-                ),
-            ],
-          ),
-        ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                for (final name in entry.addedNames)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(
+                      name,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -350,8 +476,12 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       // 隐藏 ExpansionTile 默认上下分割线，让组与组之间更紧凑。
       data: theme.copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
-        key: PageStorageKey<String>('mcpToolGroup:${group.server ?? '_misc'}'),
-        initiallyExpanded: true,
+        key: PageStorageKey<String>('mcpToolGroup:${group.persistKey}'),
+        initiallyExpanded:
+            debugMcpGroupExpansionCache[group.persistKey] ?? true,
+        onExpansionChanged: (expanded) {
+          debugMcpGroupExpansionCache[group.persistKey] = expanded;
+        },
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.only(left: 8, bottom: 4),
         leading: Icon(
