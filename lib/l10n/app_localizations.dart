@@ -736,6 +736,12 @@ abstract class AppLocalizations {
   /// **'请填写 1000 ~ 1000000 之间的整数。'**
   String get mcpLazyLoadingThresholdInvalid;
 
+  /// No description provided for @mcpLazyLoadingHowItWorks.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。'**
+  String get mcpLazyLoadingHowItWorks;
+
   /// No description provided for @settingsGeneralTitle.
   ///
   /// In zh_Hans, this message translates to:
@@ -4641,6 +4647,12 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'{count} 项运行时 Notice'**
   String toolbarRuntimeNotices(int count);
+
+  /// No description provided for @toolbarMcpLazyLoading.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 已载 {loaded}/{total}'**
+  String toolbarMcpLazyLoading(int loaded, int total);
 
   /// No description provided for @toolbarPlanStepsCompleted.
   ///

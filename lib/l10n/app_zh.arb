@@ -113,6 +113,7 @@
   "mcpLazyLoadingThresholdSave": "保存阈值",
   "mcpLazyLoadingThresholdSaved": "MCP 工具懒加载阈值已保存。",
   "mcpLazyLoadingThresholdInvalid": "请填写 1000 ~ 1000000 之间的整数。",
+  "mcpLazyLoadingHowItWorks": "懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。",
   "settingsGeneralTitle": "常规",
   "settingsGeneralSubtitle": "管理主题、语言与应用基础信息。",
   "settingsAiSubtitle": "管理聊天模型、鉴权方式与协议适配。",
@@ -1051,6 +1052,13 @@
   "toolbarRuntimeModePlanDrafting": "计划规划中",
   "toolbarRuntimeModePlanDraftCompact": "计划规划中",
   "toolbarRuntimeNotices": "{count} 项运行时 Notice",
+  "toolbarMcpLazyLoading": "MCP 已载 {loaded}/{total}",
+  "@toolbarMcpLazyLoading": {
+    "placeholders": {
+      "loaded": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "@toolbarRuntimeNotices": {
     "placeholders": {
       "count": {

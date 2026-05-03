@@ -2755,6 +2755,8 @@ class _SettingsViewState extends State<SettingsView> {
           ],
         ),
         const SizedBox(height: 18),
+        _McpLazyLoadingHelpBanner(text: l10n.mcpLazyLoadingHowItWorks),
+        const SizedBox(height: 12),
         _ResponsiveSettingRow(
           title: l10n.mcpLazyLoadingModeLabel,
           subtitle: l10n.mcpLazyLoadingModeBody,
@@ -4377,3 +4379,45 @@ List<Widget> _intersperse(List<Widget> items, Widget separator) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Dialog animation settings section
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _McpLazyLoadingHelpBanner extends StatelessWidget {
+  const _McpLazyLoadingHelpBanner({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

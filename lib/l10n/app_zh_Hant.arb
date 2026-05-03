@@ -113,6 +113,7 @@
   "mcpLazyLoadingThresholdSave": "儲存閾值",
   "mcpLazyLoadingThresholdSaved": "MCP 工具懶載入閾值已儲存。",
   "mcpLazyLoadingThresholdInvalid": "請填寫 1000 ~ 1000000 之間的整數。",
+  "mcpLazyLoadingHowItWorks": "懶載入啟用時：MCP 工具描述被折疊為名稱索引，模型透過內建 ToolSearch 工具按需取回完整 JSON Schema。支援三種查詢：\n• select:NAME（直接選取，可空格分隔多個）\n• 關鍵字（按 name/description 評分配對）\n• +KEYWORD（必含詞，用於過濾雜訊）\n命中工具會寫入目前會話已載入清單，下一輪即可直接呼叫，無需再次查詢。",
   "settingsGeneralTitle": "常規",
   "settingsGeneralSubtitle": "管理主題、語言與應用基礎資訊。",
   "settingsAiSubtitle": "管理聊天模型、驗證方式與協議適配。",
@@ -1051,6 +1052,13 @@
   "toolbarRuntimeModePlanDrafting": "計劃規劃中",
   "toolbarRuntimeModePlanDraftCompact": "計劃規劃中",
   "toolbarRuntimeNotices": "{count} 項運行時 Notice",
+  "toolbarMcpLazyLoading": "MCP 已載 {loaded}/{total}",
+  "@toolbarMcpLazyLoading": {
+    "placeholders": {
+      "loaded": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "@toolbarRuntimeNotices": {
     "placeholders": {
       "count": {

@@ -331,6 +331,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpLazyLoadingThresholdInvalid => '请填写 1000 ~ 1000000 之间的整数。';
 
   @override
+  String get mcpLazyLoadingHowItWorks =>
+      '懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。';
+
+  @override
   String get settingsGeneralTitle => '常规';
 
   @override
@@ -2393,6 +2397,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String toolbarRuntimeNotices(int count) {
     return '$count 项运行时 Notice';
+  }
+
+  @override
+  String toolbarMcpLazyLoading(int loaded, int total) {
+    return 'MCP 已载 $loaded/$total';
   }
 
   @override
@@ -4703,6 +4712,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpLazyLoadingThresholdInvalid => '请填写 1000 ~ 1000000 之间的整数。';
 
   @override
+  String get mcpLazyLoadingHowItWorks =>
+      '懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。';
+
+  @override
   String get settingsGeneralTitle => '常规';
 
   @override
@@ -6765,6 +6778,11 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   @override
   String toolbarRuntimeNotices(int count) {
     return '$count 项运行时 Notice';
+  }
+
+  @override
+  String toolbarMcpLazyLoading(int loaded, int total) {
+    return 'MCP 已载 $loaded/$total';
   }
 
   @override
@@ -9074,6 +9092,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get mcpLazyLoadingThresholdInvalid => '請填寫 1000 ~ 1000000 之間的整數。';
 
   @override
+  String get mcpLazyLoadingHowItWorks =>
+      '懶載入啟用時：MCP 工具描述被折疊為名稱索引，模型透過內建 ToolSearch 工具按需取回完整 JSON Schema。支援三種查詢：\n• select:NAME（直接選取，可空格分隔多個）\n• 關鍵字（按 name/description 評分配對）\n• +KEYWORD（必含詞，用於過濾雜訊）\n命中工具會寫入目前會話已載入清單，下一輪即可直接呼叫，無需再次查詢。';
+
+  @override
   String get settingsGeneralTitle => '常規';
 
   @override
@@ -11136,6 +11158,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String toolbarRuntimeNotices(int count) {
     return '$count 項運行時 Notice';
+  }
+
+  @override
+  String toolbarMcpLazyLoading(int loaded, int total) {
+    return 'MCP 已載 $loaded/$total';
   }
 
   @override

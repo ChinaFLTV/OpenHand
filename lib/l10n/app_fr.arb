@@ -112,6 +112,7 @@
   "mcpLazyLoadingThresholdBody": "En mode Auto, le chargement différé s'active lorsque le total estimé de jetons des descriptions d'outils MCP dépasse cette valeur.",
   "mcpLazyLoadingThresholdSave": "Enregistrer le seuil",
   "mcpLazyLoadingThresholdSaved": "Seuil de chargement différé MCP enregistré.",
+  "mcpLazyLoadingHowItWorks": "Lorsque le chargement différé est actif, les descriptions des outils MCP sont repliées en un index de noms. L'outil intégré ToolSearch récupère le schéma JSON complet à la demande via trois formes :\n• select:NAME (sélection directe, multi-sélection séparée par espaces)\n• mot-clé (scoré sur name/description)\n• +MOTCLE (terme requis pour filtrer le bruit)\nLes outils résolus sont ajoutés à l'ensemble chargé de la session afin que le tour suivant les appelle directement.",
   "mcpLazyLoadingThresholdInvalid": "Veuillez saisir un entier entre 1000 et 1000000.",
   "settingsGeneralTitle": "Général",
   "settingsGeneralSubtitle": "Gérez le thème, la langue et les informations principales de l'application.",
@@ -1050,6 +1051,13 @@
   "toolbarRuntimeModePlanExecutionCompact": "Exécuter",
   "toolbarRuntimeModePlanDrafting": "Plan en préparation",
   "toolbarRuntimeModePlanDraftCompact": "Brouillon",
+  "toolbarMcpLazyLoading": "MCP {loaded}/{total} chargés",
+  "@toolbarMcpLazyLoading": {
+    "placeholders": {
+      "loaded": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "toolbarRuntimeNotices": "{count} notices runtime",
   "@toolbarRuntimeNotices": {
     "placeholders": {

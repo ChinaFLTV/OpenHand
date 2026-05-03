@@ -343,6 +343,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please enter an integer between 1000 and 1000000.';
 
   @override
+  String get mcpLazyLoadingHowItWorks =>
+      'When lazy loading is active, MCP tool descriptions are folded into a name index. The built-in ToolSearch tool fetches full JSON Schema on demand via three query forms:\n• select:NAME (direct, space-separated for multi-select)\n• keyword (scored against name/description)\n• +KEYWORD (required term to filter noise)\nResolved tools are added to the per-session loaded set so the next turn calls them directly with no extra search.';
+
+  @override
   String get settingsGeneralTitle => 'General';
 
   @override
@@ -2526,6 +2530,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String toolbarRuntimeNotices(int count) {
     return '$count runtime notices';
+  }
+
+  @override
+  String toolbarMcpLazyLoading(int loaded, int total) {
+    return 'MCP $loaded/$total loaded';
   }
 
   @override

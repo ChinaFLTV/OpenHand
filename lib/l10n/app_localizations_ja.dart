@@ -332,6 +332,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpLazyLoadingThresholdInvalid => '1000～1000000の整数を入力してください。';
 
   @override
+  String get mcpLazyLoadingHowItWorks =>
+      '遅延読み込みが有効な間、MCP ツールの説明は名前インデックスに折りたたまれ、組み込みの ToolSearch ツールが必要に応じて完全な JSON Schema を取得します。3 つのクエリ形式に対応：\n• select:NAME（直接選択、空白区切りで複数指定可）\n• キーワード（name/description にスコアリング）\n• +KEYWORD（ノイズ除去のための必須語）\n解決済みツールはセッションのロード済みセットに追加され、次ターンでは追加検索なしで直接呼び出せます。';
+
+  @override
   String get settingsGeneralTitle => '一般';
 
   @override
@@ -2421,6 +2425,11 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String toolbarRuntimeNotices(int count) {
     return '$count 件のランタイム通知';
+  }
+
+  @override
+  String toolbarMcpLazyLoading(int loaded, int total) {
+    return 'MCP $loaded/$total ロード済';
   }
 
   @override

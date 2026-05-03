@@ -83,6 +83,10 @@ class _SessionToolbar extends StatelessWidget {
                               ),
                             ),
                             if (runtimeStatus.notices.isNotEmpty) ...[
+                              ..._buildMcpLazyLoadingPills(
+                                context,
+                                runtimeStatus.notices,
+                              ),
                               const SizedBox(width: 8),
                               _ToolbarPill(
                                 icon: Icons.info_outline_rounded,
@@ -1710,4 +1714,39 @@ bool _isInputCacheLocked(BuildContext context, AiSession session) {
   final settings = context.watch<SettingsController>();
   if (!settings.aiInputCacheEnabled) return false;
   return session.statistics.assistantMessageCount > 0;
+}
+
+/// Parses the MCP lazy-loading notice (format produced by
+/// `McpLazyLoadingApplier`) and renders a compact pill showing how many MCP
+/// tools are currently loaded vs total. Returns an empty list when the
+/// notice is absent (i.e. lazy loading is disabled or no MCP tools exist).
+final RegExp _mcpLazyLoadingNoticePattern = RegExp(
+  r'MCP tool lazy loading active.*?(\d+)\s+of\s+(\d+)\s+MCP tool',
+);
+
+List<Widget> _buildMcpLazyLoadingPills(
+  BuildContext context,
+  List<String> notices,
+) {
+  for (final notice in notices) {
+    final match = _mcpLazyLoadingNoticePattern.firstMatch(notice);
+    if (match == null) continue;
+    final deferred = int.tryParse(match.group(1) ?? '');
+    final total = int.tryParse(match.group(2) ?? '');
+    if (deferred == null || total == null || total <= 0) continue;
+    final loaded = (total - deferred).clamp(0, total);
+    return <Widget>[
+      const SizedBox(width: 8),
+      Tooltip(
+        message: notice,
+        child: _ToolbarPill(
+          icon: Icons.search_rounded,
+          label: AppLocalizations.of(
+            context,
+          )!.toolbarMcpLazyLoading(loaded, total),
+        ),
+      ),
+    ];
+  }
+  return const <Widget>[];
 }

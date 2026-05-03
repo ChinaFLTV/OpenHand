@@ -112,6 +112,7 @@
   "mcpLazyLoadingThresholdBody": "In Auto mode, lazy loading kicks in when the estimated total tokens of MCP tool descriptions exceeds this value.",
   "mcpLazyLoadingThresholdSave": "Save threshold",
   "mcpLazyLoadingThresholdSaved": "MCP lazy-loading threshold saved.",
+  "mcpLazyLoadingHowItWorks": "When lazy loading is active, MCP tool descriptions are folded into a name index. The built-in ToolSearch tool fetches full JSON Schema on demand via three query forms:\n• select:NAME (direct, space-separated for multi-select)\n• keyword (scored against name/description)\n• +KEYWORD (required term to filter noise)\nResolved tools are added to the per-session loaded set so the next turn calls them directly with no extra search.",
   "mcpLazyLoadingThresholdInvalid": "Please enter an integer between 1000 and 1000000.",
   "settingsGeneralTitle": "General",
   "settingsGeneralSubtitle": "Manage theme, language, and core application information.",
@@ -1050,6 +1051,13 @@
   "toolbarRuntimeModePlanExecutionCompact": "Plan Execute",
   "toolbarRuntimeModePlanDrafting": "Plan Drafting",
   "toolbarRuntimeModePlanDraftCompact": "Plan Draft",
+  "toolbarMcpLazyLoading": "MCP {loaded}/{total} loaded",
+  "@toolbarMcpLazyLoading": {
+    "placeholders": {
+      "loaded": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "toolbarRuntimeNotices": "{count} runtime notices",
   "@toolbarRuntimeNotices": {
     "placeholders": {

@@ -345,6 +345,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Veuillez saisir un entier entre 1000 et 1000000.';
 
   @override
+  String get mcpLazyLoadingHowItWorks =>
+      'Lorsque le chargement différé est actif, les descriptions des outils MCP sont repliées en un index de noms. L\'outil intégré ToolSearch récupère le schéma JSON complet à la demande via trois formes :\n• select:NAME (sélection directe, multi-sélection séparée par espaces)\n• mot-clé (scoré sur name/description)\n• +MOTCLE (terme requis pour filtrer le bruit)\nLes outils résolus sont ajoutés à l\'ensemble chargé de la session afin que le tour suivant les appelle directement.';
+
+  @override
   String get settingsGeneralTitle => 'Général';
 
   @override
@@ -2572,6 +2576,11 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String toolbarRuntimeNotices(int count) {
     return '$count notices runtime';
+  }
+
+  @override
+  String toolbarMcpLazyLoading(int loaded, int total) {
+    return 'MCP $loaded/$total chargés';
   }
 
   @override
