@@ -737,6 +737,7 @@ class _LedgerAdvancedControls extends StatefulWidget {
 class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   final AiFileMutationLedger _ledger = AiFileMutationLedger();
   LedgerConfig? _config;
+  LedgerStatsSnapshot? _stats;
   Timer? _saveDebounce;
 
   @override
@@ -746,6 +747,13 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       if (!mounted) return;
       setState(() => _config = c);
     });
+    _refreshStats();
+  }
+
+  Future<void> _refreshStats() async {
+    final stats = await _ledger.statsSnapshot();
+    if (!mounted) return;
+    setState(() => _stats = stats);
   }
 
   @override
@@ -757,8 +765,11 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   void _scheduleSave(LedgerConfig next) {
     setState(() => _config = next);
     _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 350), () {
-      _ledger.saveConfig(next);
+    _saveDebounce = Timer(const Duration(milliseconds: 350), () async {
+      await _ledger.saveConfig(next);
+      if (!mounted) return;
+      // 配置变更可能触发后续清理；顺手刷新一次统计。
+      await _refreshStats();
     });
   }
 
@@ -799,6 +810,19 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                 style: theme.textTheme.labelLarge
                     ?.copyWith(fontWeight: FontWeight.w600),
               ),
+              const Spacer(),
+              if (_stats != null)
+                Text(
+                  _localizedText(context,
+                      zh: '${_stats!.sessionCount} 会话 · '
+                          '${_stats!.recordCount} 条 · '
+                          '${_stats!.blobCount} blobs',
+                      en: '${_stats!.sessionCount} sessions · '
+                          '${_stats!.recordCount} records · '
+                          '${_stats!.blobCount} blobs'),
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: cs.onSurfaceVariant),
+                ),
             ],
           ),
           const SizedBox(height: 6),

@@ -130,6 +130,19 @@ class FileMutationOutcome {
   final String errorMessage;
 }
 
+/// 阶段 ⑥e：ledger 体积统计的轻量值对象。
+class LedgerStatsSnapshot {
+  const LedgerStatsSnapshot({
+    required this.sessionCount,
+    required this.recordCount,
+    required this.blobCount,
+  });
+
+  final int sessionCount;
+  final int recordCount;
+  final int blobCount;
+}
+
 /// 用户可配置的 ledger 行为。持久化到 `<root>/config.json`。
 class LedgerConfig {
   const LedgerConfig({
@@ -556,6 +569,47 @@ class AiFileMutationLedger {
   Future<String?> readBlob(String sha) => _readBlob(sha);
 
   // ─────────────────────── 维护 / 数据清理 ───────────────────────
+
+  /// 阶段 ⑥e：数据清理卡片用的轻量统计快照。统计 sessions / 记录条数 /
+  /// blob 文件数（不含目录）。失败一律 silentLog 并以 0 返回部分项。
+  Future<LedgerStatsSnapshot> statsSnapshot() async {
+    await _ensureInitialized();
+    var sessionCount = 0;
+    var recordCount = 0;
+    var blobCount = 0;
+    try {
+      final sessionsRoot = Directory(p.join(_root, 'sessions'));
+      if (await sessionsRoot.exists()) {
+        await for (final entity in sessionsRoot.list(followLinks: false)) {
+          if (entity is! Directory) continue;
+          sessionCount += 1;
+          try {
+            final ledgerFile = File(p.join(entity.path, 'ledger.jsonl'));
+            if (!await ledgerFile.exists()) continue;
+            final lines = await ledgerFile.readAsLines();
+            recordCount += lines.where((l) => l.trim().isNotEmpty).length;
+          } catch (error, stack) {
+            silentLog('ai_file_mutation_ledger', 'statsSnapshot.session',
+                error, stack);
+          }
+        }
+      }
+      final blobsRoot = Directory(p.join(_root, 'blobs'));
+      if (await blobsRoot.exists()) {
+        await for (final entity
+            in blobsRoot.list(recursive: true, followLinks: false)) {
+          if (entity is File) blobCount += 1;
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'statsSnapshot', error, stack);
+    }
+    return LedgerStatsSnapshot(
+      sessionCount: sessionCount,
+      recordCount: recordCount,
+      blobCount: blobCount,
+    );
+  }
 
   Future<int> totalSizeBytes() async {
     await _ensureInitialized();
