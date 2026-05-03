@@ -2547,10 +2547,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedHistoryExportMarkdown => '复制为 Markdown';
 
   @override
+  String get snackToolSearchLoadedHistoryExportJson => '复制为 JSON';
+
+  @override
   String get snackToolSearchLoadedHistoryExportSaveCsv => '保存为 CSV…';
 
   @override
   String get snackToolSearchLoadedHistoryExportSaveMarkdown => '保存为 Markdown…';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveJson => '保存为 JSON…';
 
   @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
@@ -2561,6 +2567,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String snackToolSearchLoadedHistoryExportSaveFailedToast(String error) {
     return '保存失败：$error';
   }
+
+  @override
+  String get snackToolSearchLoadedHistoryExportRevealAction => '在访谈器中显示';
 
   @override
   String get snackToolSearchLoadedHistoryExportEmptyToast => '过滤后历史为空，无可导出。';
@@ -7103,10 +7112,16 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedHistoryExportMarkdown => '复制为 Markdown';
 
   @override
+  String get snackToolSearchLoadedHistoryExportJson => '复制为 JSON';
+
+  @override
   String get snackToolSearchLoadedHistoryExportSaveCsv => '保存为 CSV…';
 
   @override
   String get snackToolSearchLoadedHistoryExportSaveMarkdown => '保存为 Markdown…';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveJson => '保存为 JSON…';
 
   @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
@@ -7117,6 +7132,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String snackToolSearchLoadedHistoryExportSaveFailedToast(String error) {
     return '保存失败：$error';
   }
+
+  @override
+  String get snackToolSearchLoadedHistoryExportRevealAction => '在访谈器中显示';
 
   @override
   String get snackToolSearchLoadedHistoryExportEmptyToast => '过滤后历史为空，无可导出。';
@@ -11658,10 +11676,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get snackToolSearchLoadedHistoryExportMarkdown => '複製為 Markdown';
 
   @override
+  String get snackToolSearchLoadedHistoryExportJson => '複製為 JSON';
+
+  @override
   String get snackToolSearchLoadedHistoryExportSaveCsv => '另存為 CSV…';
 
   @override
   String get snackToolSearchLoadedHistoryExportSaveMarkdown => '另存為 Markdown…';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveJson => '存檔為 JSON…';
 
   @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
@@ -11672,6 +11696,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String snackToolSearchLoadedHistoryExportSaveFailedToast(String error) {
     return '存檔失敗：$error';
   }
+
+  @override
+  String get snackToolSearchLoadedHistoryExportRevealAction => '在訪談器中顯示';
 
   @override
   String get snackToolSearchLoadedHistoryExportEmptyToast => '篩選後歷史為空，無可匯出。';

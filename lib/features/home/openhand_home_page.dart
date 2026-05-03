@@ -6149,6 +6149,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   setState(() => _selectedSection = AppSection.hardnessSession);
                   _activeHardnessOrchestrator?.startOrResume();
                 },
+                replayPendingDeadlineListenable:
+                    _toolSearchReplayDispatcher.pendingDeadlineListenable,
               )
             : SectionPlaceholder(
                 icon: Icons.construction_rounded,

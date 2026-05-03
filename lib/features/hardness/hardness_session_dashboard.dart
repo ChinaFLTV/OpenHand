@@ -848,6 +848,7 @@ class HardnessSessionPane extends StatefulWidget {
     this.createdAtLabel,
     this.controller,
     this.filePathRoots = const [],
+    this.replayPendingDeadlineListenable,
   });
 
   final HardnessSessionConfig config;
@@ -882,6 +883,11 @@ class HardnessSessionPane extends StatefulWidget {
 
   /// Root directories for file path resolution in message content.
   final List<String> filePathRoots;
+
+  /// 可选的 ToolSearch 重放反悔窗口 deadline。传入后，会在会话
+  /// header 右侧出现一个「撤销 Ns」倒计时 chip。顶层从
+  /// `ToolSearchReplayDispatcher.pendingDeadlineListenable` 取。
+  final ValueListenable<DateTime?>? replayPendingDeadlineListenable;
 
   @override
   State<HardnessSessionPane> createState() => _HardnessSessionPaneState();
@@ -1646,6 +1652,8 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
           onRestart: widget.onRestart,
           fullAccessPermission: widget.fullAccessPermission,
           onToggleFullAccess: widget.onToggleFullAccessPermission,
+          replayPendingDeadlineListenable:
+              widget.replayPendingDeadlineListenable,
         ),
         const SizedBox(height: 12),
         Expanded(child: _buildFeed(context)),

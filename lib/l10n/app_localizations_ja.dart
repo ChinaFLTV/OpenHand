@@ -2578,11 +2578,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedHistoryExportMarkdown => 'Markdown としてコピー';
 
   @override
+  String get snackToolSearchLoadedHistoryExportJson => 'JSON としてコピー';
+
+  @override
   String get snackToolSearchLoadedHistoryExportSaveCsv => 'CSV として保存…';
 
   @override
   String get snackToolSearchLoadedHistoryExportSaveMarkdown =>
       'Markdown として保存…';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveJson => 'JSON として保存…';
 
   @override
   String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
@@ -2593,6 +2599,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String snackToolSearchLoadedHistoryExportSaveFailedToast(String error) {
     return '保存に失敗しました：$error';
   }
+
+  @override
+  String get snackToolSearchLoadedHistoryExportRevealAction => 'Finder で表示';
 
   @override
   String get snackToolSearchLoadedHistoryExportEmptyToast =>

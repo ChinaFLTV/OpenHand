@@ -31,7 +31,9 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/error_snackbar.dart';
+import '../../shared/widgets/first_frame_pulse_box.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/key_tweakable_slider.dart';
 import '../../shared/widgets/micro_press_feedback.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
@@ -2849,7 +2851,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
         const SizedBox(height: 18),
-        _FirstFramePulseBox(
+        FirstFramePulseBox(
           child: _buildHardnessToolSearchHistoryRow(
             context,
             settingsController,
@@ -2857,7 +2859,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
         const SizedBox(height: 18),
-        _FirstFramePulseBox(
+        FirstFramePulseBox(
           child: _buildToolSearchReplayCancelWindowRow(
             context,
             settingsController,
@@ -2914,7 +2916,7 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ],
           ),
-          _KeyTweakableSlider(
+          KeyTweakableSlider(
             value: cap,
             min: minCap,
             max: maxCap,
@@ -2995,7 +2997,7 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ],
           ),
-          _KeyTweakableSlider(
+          KeyTweakableSlider(
             value: seconds,
             min: minSec,
             max: maxSec,

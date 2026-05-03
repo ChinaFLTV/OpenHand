@@ -4900,6 +4900,12 @@ abstract class AppLocalizations {
   /// **'复制为 Markdown'**
   String get snackToolSearchLoadedHistoryExportMarkdown;
 
+  /// No description provided for @snackToolSearchLoadedHistoryExportJson.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制为 JSON'**
+  String get snackToolSearchLoadedHistoryExportJson;
+
   /// No description provided for @snackToolSearchLoadedHistoryExportSaveCsv.
   ///
   /// In zh_Hans, this message translates to:
@@ -4912,6 +4918,12 @@ abstract class AppLocalizations {
   /// **'保存为 Markdown…'**
   String get snackToolSearchLoadedHistoryExportSaveMarkdown;
 
+  /// No description provided for @snackToolSearchLoadedHistoryExportSaveJson.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存为 JSON…'**
+  String get snackToolSearchLoadedHistoryExportSaveJson;
+
   /// No description provided for @snackToolSearchLoadedHistoryExportSavedToast.
   ///
   /// In zh_Hans, this message translates to:
@@ -4923,6 +4935,12 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'保存失败：{error}'**
   String snackToolSearchLoadedHistoryExportSaveFailedToast(String error);
+
+  /// No description provided for @snackToolSearchLoadedHistoryExportRevealAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在访谈器中显示'**
+  String get snackToolSearchLoadedHistoryExportRevealAction;
 
   /// No description provided for @snackToolSearchLoadedHistoryExportEmptyToast.
   ///

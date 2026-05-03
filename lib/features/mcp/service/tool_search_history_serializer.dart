@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../ai/service/mcp_loaded_tools_tracker.dart';
 
 /// 把 [AiToolSearchLoadHistoryEntry] 序列化为 CSV / Markdown 的纯函数集合。
@@ -72,4 +74,29 @@ class ToolSearchHistorySerializer {
 
   static String _mdEscape(String raw) =>
       raw.replaceAll('|', r'\|').replaceAll('\n', ' ');
+
+  /// 把历史序列化为 indent-2 的 JSON 字符串：根对象包含 `version`/`exportedAt`
+  /// 元数据 + `entries` 数组。便于后续调试 / 回放 / diff 工具二次解析。
+  ///
+  /// 单条 entry 字段保持稳定 key（snake_case 与 CSV header 对齐）：
+  /// `timestamp` (ISO8601), `source` (`ai`/`hardness` 等), `query`,
+  /// `added_count`, `total_deferred`, `added_names` (`List&lt;String&gt;`).
+  static String toJson(List<AiToolSearchLoadHistoryEntry> entries) {
+    final root = <String, Object?>{
+      'version': 1,
+      'exported_at': DateTime.now().toUtc().toIso8601String(),
+      'entries': [
+        for (final e in entries)
+          <String, Object?>{
+            'timestamp': e.timestamp.toIso8601String(),
+            'source': e.source.name,
+            'query': e.query,
+            'added_count': e.addedCount,
+            'total_deferred': e.totalDeferred,
+            'added_names': e.addedNames,
+          },
+      ],
+    };
+    return const JsonEncoder.withIndent('  ').convert(root);
+  }
 }

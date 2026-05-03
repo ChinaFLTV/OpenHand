@@ -179,4 +179,36 @@ void main() {
       expect(transitions, [true, false]);
     });
   });
+
+  test('pendingDeadlineListenable mirrors pending bool with a real DateTime',
+      () {
+    fakeAsync((async) {
+      final dispatcher = ToolSearchReplayDispatcher(
+        defaultWindow: const Duration(milliseconds: 500),
+      );
+      expect(dispatcher.pendingDeadlineListenable.value, isNull);
+
+      dispatcher.schedule(onFire: () async {}, onCancel: () {});
+      final dl = dispatcher.pendingDeadlineListenable.value;
+      expect(dl, isNotNull,
+          reason: 'schedule should set deadline = now + window');
+
+      async.elapse(const Duration(milliseconds: 600));
+      expect(dispatcher.pendingDeadlineListenable.value, isNull,
+          reason: 'after fire, deadline should clear back to null');
+    });
+  });
+
+  test('pendingDeadlineListenable clears on cancel', () {
+    fakeAsync((async) {
+      final dispatcher = ToolSearchReplayDispatcher(
+        defaultWindow: const Duration(seconds: 10),
+      );
+      dispatcher.schedule(onFire: () async {}, onCancel: () {});
+      expect(dispatcher.pendingDeadlineListenable.value, isNotNull);
+      dispatcher.cancel();
+      async.flushMicrotasks();
+      expect(dispatcher.pendingDeadlineListenable.value, isNull);
+    });
+  });
 }

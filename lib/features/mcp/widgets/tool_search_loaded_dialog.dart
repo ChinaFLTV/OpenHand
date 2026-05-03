@@ -4,6 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../ai/service/mcp_loaded_tools_tracker.dart';
@@ -241,9 +242,12 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       return;
     }
     final isCsv = action.format == _HistoryExportFormat.csv;
+    final isJson = action.format == _HistoryExportFormat.json;
     final payload = isCsv
         ? ToolSearchHistorySerializer.toCsv(entries)
-        : ToolSearchHistorySerializer.toMarkdown(entries);
+        : isJson
+            ? ToolSearchHistorySerializer.toJson(entries)
+            : ToolSearchHistorySerializer.toMarkdown(entries);
     if (action.destination == _HistoryExportDestination.clipboard) {
       await Clipboard.setData(ClipboardData(text: payload));
       if (!mounted) return;
@@ -258,14 +262,14 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       return;
     }
     // Save-to-file branch.
-    final ext = isCsv ? 'csv' : 'md';
+    final ext = isCsv ? 'csv' : (isJson ? 'json' : 'md');
     final stamp = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
         .replaceAll('.', '-');
     final suggested = 'tool_search_history_$stamp.$ext';
     final typeGroup = XTypeGroup(
-      label: isCsv ? 'CSV' : 'Markdown',
+      label: isCsv ? 'CSV' : (isJson ? 'JSON' : 'Markdown'),
       extensions: <String>[ext],
     );
     FileSaveLocation? location;
@@ -314,17 +318,50 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       return;
     }
     if (!mounted) return;
+    final savedPath = location.path;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
         content: Text(
           l10n.snackToolSearchLoadedHistoryExportSavedToast(
             entries.length,
-            location.path,
+            savedPath,
           ),
         ),
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: l10n.snackToolSearchLoadedHistoryExportRevealAction,
+          onPressed: () => _revealInFileManager(savedPath),
+        ),
       ),
     );
+  }
+
+  /// 在系统文件管理器里高亮显示刚保存的文件：macOS 用 `open -R`，
+  /// Windows 用 `explorer.exe /select,`，Linux 退化到打开父目录。失败静默 log。
+  Future<void> _revealInFileManager(String filePath) async {
+    try {
+      if (Platform.isMacOS) {
+        await runProcessWithTimeout('open', <String>['-R', filePath],
+            tag: 'tool_search_loaded_dialog.reveal');
+      } else if (Platform.isWindows) {
+        await runProcessWithTimeout(
+            'explorer.exe', <String>['/select,$filePath'],
+            tag: 'tool_search_loaded_dialog.reveal');
+      } else {
+        // Linux / others — open the containing directory.
+        final dir = File(filePath).parent.path;
+        await runProcessWithTimeout('xdg-open', <String>[dir],
+            tag: 'tool_search_loaded_dialog.reveal');
+      }
+    } catch (error, stack) {
+      silentLog(
+        'tool_search_loaded_dialog',
+        '_revealInFileManager',
+        error,
+        stack,
+      );
+    }
   }
 
   /// 把 [_groupByServer] 的结果按 [_filterQuery] 做大小写不敏感子串过滤，
@@ -518,6 +555,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   child:
                       Text(l10n.snackToolSearchLoadedHistoryExportMarkdown),
                 ),
+                PopupMenuItem<_HistoryExportAction>(
+                  value: _HistoryExportAction.copyJson,
+                  child: Text(l10n.snackToolSearchLoadedHistoryExportJson),
+                ),
                 const PopupMenuDivider(),
                 PopupMenuItem<_HistoryExportAction>(
                   value: _HistoryExportAction.saveCsv,
@@ -527,6 +568,12 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   value: _HistoryExportAction.saveMarkdown,
                   child: Text(
                     l10n.snackToolSearchLoadedHistoryExportSaveMarkdown,
+                  ),
+                ),
+                PopupMenuItem<_HistoryExportAction>(
+                  value: _HistoryExportAction.saveJson,
+                  child: Text(
+                    l10n.snackToolSearchLoadedHistoryExportSaveJson,
                   ),
                 ),
               ],
@@ -855,7 +902,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
 }
 
 /// 历史导出格式：CSV（电子表格）或 Markdown 表（README/issue 粘贴）。
-enum _HistoryExportFormat { csv, markdown }
+enum _HistoryExportFormat { csv, markdown, json }
 
 /// 历史导出目的地：剪贴板（快速）或文件（持久化）。
 enum _HistoryExportDestination { clipboard, file }
@@ -867,8 +914,10 @@ enum _HistoryExportAction {
     _HistoryExportFormat.markdown,
     _HistoryExportDestination.clipboard,
   ),
+  copyJson(_HistoryExportFormat.json, _HistoryExportDestination.clipboard),
   saveCsv(_HistoryExportFormat.csv, _HistoryExportDestination.file),
-  saveMarkdown(_HistoryExportFormat.markdown, _HistoryExportDestination.file);
+  saveMarkdown(_HistoryExportFormat.markdown, _HistoryExportDestination.file),
+  saveJson(_HistoryExportFormat.json, _HistoryExportDestination.file);
 
   const _HistoryExportAction(this.format, this.destination);
   final _HistoryExportFormat format;

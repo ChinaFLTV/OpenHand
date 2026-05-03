@@ -15,6 +15,7 @@ class _HePaneHeader extends StatelessWidget {
     required this.onRestart,
     required this.fullAccessPermission,
     required this.onToggleFullAccess,
+    this.replayPendingDeadlineListenable,
   });
 
   final HardnessSessionConfig config;
@@ -30,6 +31,10 @@ class _HePaneHeader extends StatelessWidget {
   final VoidCallback onRestart;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccess;
+
+  /// 传入后，从 [ToolSearchReplayDispatcher.pendingDeadlineListenable] 领取
+  /// 反悔窗口 deadline；window 内按秒起动倒计时 chip。
+  final ValueListenable<DateTime?>? replayPendingDeadlineListenable;
 
   String get _effectiveTitle => (sessionTitle?.trim().isNotEmpty == true)
       ? sessionTitle!
@@ -194,6 +199,14 @@ class _HePaneHeader extends StatelessWidget {
                           label: _phaseProgressLabel(),
                           foregroundColor: _phaseProgressColor(colorScheme),
                         ),
+                        if (replayPendingDeadlineListenable != null) ...[
+                          const SizedBox(width: 8),
+                          _HePendingReplayBadge(
+                            isZh: isZh,
+                            deadlineListenable:
+                                replayPendingDeadlineListenable!,
+                          ),
+                        ],
                         if (reviewRetries > 0) ...[
                           const SizedBox(width: 8),
                           // ── Review retry counter ──
@@ -688,3 +701,87 @@ class _HeMetadataEntryRow extends StatelessWidget {
 // settles back — giving that characteristic "Q弹丝滑" spring feel.
 // =============================================================================
 
+
+/// Hardness header 内的 ToolSearch 重放反悔 chip：监听
+/// [ToolSearchReplayDispatcher.pendingDeadlineListenable]，window 内每秒
+/// 重建一次显示剩余秒数（向上取整），idle 时折叠不显示。
+class _HePendingReplayBadge extends StatefulWidget {
+  const _HePendingReplayBadge({
+    required this.isZh,
+    required this.deadlineListenable,
+  });
+
+  final bool isZh;
+  final ValueListenable<DateTime?> deadlineListenable;
+
+  @override
+  State<_HePendingReplayBadge> createState() => _HePendingReplayBadgeState();
+}
+
+class _HePendingReplayBadgeState extends State<_HePendingReplayBadge> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.deadlineListenable.addListener(_onDeadlineChanged);
+    _onDeadlineChanged();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HePendingReplayBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deadlineListenable != widget.deadlineListenable) {
+      oldWidget.deadlineListenable.removeListener(_onDeadlineChanged);
+      widget.deadlineListenable.addListener(_onDeadlineChanged);
+      _onDeadlineChanged();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.deadlineListenable.removeListener(_onDeadlineChanged);
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _onDeadlineChanged() {
+    final dl = widget.deadlineListenable.value;
+    if (dl == null) {
+      _ticker?.cancel();
+      _ticker = null;
+    } else {
+      _ticker?.cancel();
+      // 1Hz refresh — countdown only needs second-level precision.
+      _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) {
+        if (!mounted) return;
+        if (widget.deadlineListenable.value == null) {
+          _ticker?.cancel();
+          _ticker = null;
+        }
+        setState(() {});
+      });
+    }
+    if (mounted) setState(() {});
+  }
+
+  int? _remainingSeconds() {
+    final dl = widget.deadlineListenable.value;
+    if (dl == null) return null;
+    final ms = dl.difference(DateTime.now()).inMilliseconds;
+    if (ms <= 0) return 0;
+    return (ms / 1000).ceil();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final secs = _remainingSeconds();
+    if (secs == null) return const SizedBox.shrink();
+    final label = widget.isZh ? '撤销 ${secs}s' : 'Cancel ${secs}s';
+    return _HePill(
+      icon: Icons.history_toggle_off_rounded,
+      label: label,
+      foregroundColor: const Color(0xFFF57F17), // amber
+    );
+  }
+}

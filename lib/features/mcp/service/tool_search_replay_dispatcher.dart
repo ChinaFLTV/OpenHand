@@ -59,6 +59,13 @@ class ToolSearchReplayDispatcher {
   ValueListenable<bool> get pendingListenable => _pendingNotifier;
   final ValueNotifier<bool> _pendingNotifier = ValueNotifier<bool>(false);
 
+  /// 广播本次反悔窗口的截止时刻。订阅者可以基于 `deadline.difference(now)`
+  /// 渲染倒计时（hardness phase header、托盘指示器等）。idle 时为 null。
+  /// 始终与 [pendingListenable] 同步：true ⇒ deadline != null，false ⇒ null。
+  ValueListenable<DateTime?> get pendingDeadlineListenable => _deadlineNotifier;
+  final ValueNotifier<DateTime?> _deadlineNotifier =
+      ValueNotifier<DateTime?>(null);
+
   /// 是否还有 pending 的 timer 等待触发。
   bool get hasPending => _timer != null && !_settled;
 
@@ -73,7 +80,8 @@ class ToolSearchReplayDispatcher {
     if (_disposed) return;
     _timer?.cancel();
     _settled = false;
-    _timer = Timer(window ?? defaultWindow, () async {
+    final effectiveWindow = window ?? defaultWindow;
+    _timer = Timer(effectiveWindow, () async {
       if (_disposed || _settled) return;
       _settled = true;
       _timer = null;
@@ -81,6 +89,7 @@ class ToolSearchReplayDispatcher {
       await onFire();
     });
     _pendingCancel = onCancel;
+    _deadlineNotifier.value = DateTime.now().add(effectiveWindow);
     _setPending(true);
   }
 
@@ -106,10 +115,14 @@ class ToolSearchReplayDispatcher {
     _pendingCancel = null;
     _setPending(false);
     _pendingNotifier.dispose();
+    _deadlineNotifier.dispose();
   }
 
   void _setPending(bool value) {
     if (_pendingNotifier.value == value) return;
     _pendingNotifier.value = value;
+    if (!value && _deadlineNotifier.value != null) {
+      _deadlineNotifier.value = null;
+    }
   }
 }

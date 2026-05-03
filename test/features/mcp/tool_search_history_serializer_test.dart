@@ -105,4 +105,61 @@ void main() {
       expect(md, contains('+3 / 9'));
     });
   });
+
+  group('ToolSearchHistorySerializer.toJson', () {
+    test('empty entries emits version + empty entries array', () {
+      final json = ToolSearchHistorySerializer.toJson(
+        const <AiToolSearchLoadHistoryEntry>[],
+      );
+      expect(json, contains('"version": 1'));
+      expect(json, contains('"entries": []'));
+      expect(json, contains('"exported_at"'));
+    });
+
+    test('serializes a row with stable snake_case keys', () {
+      final json = ToolSearchHistorySerializer.toJson(
+        <AiToolSearchLoadHistoryEntry>[
+          AiToolSearchLoadHistoryEntry(
+            timestamp: DateTime.utc(2026, 5, 4, 1, 2, 3),
+            query: 'has,comma "and quote"\nnl',
+            addedNames: const ['mcp__a__b', 'mcp__c__d'],
+            totalDeferred: 7,
+          ),
+        ],
+      );
+      // JSON is indent-2; check stable keys + that JSON-special chars survive.
+      expect(json, contains('"timestamp": "2026-05-04T01:02:03.000Z"'));
+      expect(json, contains('"query": "has,comma \\"and quote\\"\\nnl"'));
+      expect(json, contains('"added_count": 2'));
+      expect(json, contains('"total_deferred": 7'));
+      expect(json, contains('"mcp__a__b"'));
+      expect(json, contains('"mcp__c__d"'));
+      expect(json, contains('"source": "aiSession"'));
+    });
+
+    test('preserves multi-source rows in original order', () {
+      final json = ToolSearchHistorySerializer.toJson(
+        <AiToolSearchLoadHistoryEntry>[
+          AiToolSearchLoadHistoryEntry(
+            timestamp: DateTime.utc(2026, 5, 4),
+            query: 'q1',
+            addedNames: const ['x'],
+            totalDeferred: 3,
+          ),
+          AiToolSearchLoadHistoryEntry(
+            timestamp: DateTime.utc(2026, 5, 5),
+            query: 'q2',
+            addedNames: const ['y'],
+            totalDeferred: 4,
+            source: AiToolSearchLoadSource.hardnessPhase,
+          ),
+        ],
+      );
+      // Source values appear in the same order as input entries.
+      final firstAi = json.indexOf('"source": "aiSession"');
+      final firstHardness = json.indexOf('"source": "hardnessPhase"');
+      expect(firstAi >= 0 && firstHardness >= 0, isTrue);
+      expect(firstAi, lessThan(firstHardness));
+    });
+  });
 }
