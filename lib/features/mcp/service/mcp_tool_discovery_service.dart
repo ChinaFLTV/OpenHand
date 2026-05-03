@@ -425,7 +425,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_StdioSession> _initializeStdioSession(McpServer server) async {
-    final resolved = _resolveStdioLaunch(server);
+    final resolved = await _resolveStdioLaunch(server);
     final session = _StdioSession(
       process: await Process.start(
         resolved.executable,
@@ -1542,9 +1542,18 @@ class _LegacySseSession {
 /// 背景：从 Finder / Xcode / VS Code 启动的 macOS Flutter 应用，子进程继承到的
 /// `PATH` 通常只剩 `/usr/bin:/bin:/usr/sbin:/sbin`，缺少 Homebrew (`/opt/homebrew/bin`、
 /// `/usr/local/bin`)、`npm -g`、`pipx`、`uv`、`bun`、`deno`、`cargo`、`volta`、
-/// `fnm` 等开发工具的 bin 目录。结果就是用户写 `npx chrome-devtools-mcp@latest`
-/// 这类配置时被 `errno=2 (No such file or directory)` 拒绝。这里在实际 `Process.start`
-/// 之前显式补全候选目录，并把命令名解析成绝对路径，避免命中 OS 默认 PATH。
+/// `fnm`、`nvm` 等开发工具的 bin 目录。即便 PATH 里直接看到 nvm 的 `node/<v>/bin`，
+/// 这些路径在 GUI 上下文里仍不可信 —— nvm/fnm/volta 等工具的真实 shim 是在 `.zshrc`
+/// 里通过函数 / `$NVM_DIR` 注入的，不走静态目录。结果就是用户写
+/// `npx chrome-devtools-mcp@latest` 这类配置时被 `errno=2 (No such file or directory)` 拒绝。
+///
+/// 解决方案分两层：
+///   1. **登录 shell PATH 探测**（macOS / Linux）：首启时用 `/bin/zsh -ilc 'echo PATH=...'`
+///      取得用户登录 shell 的 PATH（已 source 过 `.zshrc` / `.zprofile` / nvm.sh），
+///      合并到环境里。
+///   2. **bare 命令包裹登录 shell 执行**（macOS / Linux）：command 不含路径分隔符时，
+///      改用 `/bin/zsh -lc 'exec <cmd> "$@"' _ <args...>`，由登录 shell 完成 PATH 查找。
+///      这样 nvm 用 `node` 的 shell 函数也能正常工作。
 class _ResolvedStdioLaunch {
   const _ResolvedStdioLaunch({
     required this.executable,
@@ -1559,7 +1568,77 @@ class _ResolvedStdioLaunch {
   final String augmentedPath;
 }
 
-_ResolvedStdioLaunch _resolveStdioLaunch(McpServer server) {
+/// 登录 shell PATH 探测结果缓存。第一次调用阻塞（最多 [_loginShellProbeTimeout]），
+/// 之后命中缓存。失败缓存为空字符串，避免反复花时间。
+String? _cachedLoginShellPath;
+Completer<String>? _loginShellPathProbe;
+const Duration _loginShellProbeTimeout = Duration(seconds: 3);
+
+Future<String> _probeLoginShellPath() {
+  if (_cachedLoginShellPath != null) {
+    return Future.value(_cachedLoginShellPath!);
+  }
+  if (_loginShellPathProbe != null) return _loginShellPathProbe!.future;
+  final completer = Completer<String>();
+  _loginShellPathProbe = completer;
+
+  () async {
+    String result = '';
+    try {
+      // `-i` 让 zsh 当成交互式 (会读 .zshrc)，`-l` 当成登录 shell (读 .zprofile)。
+      // 加 `-i` 并不会真的等待终端输入，因为我们重定向到 stdout / stdin 的管道。
+      final shell = Platform.environment['SHELL']?.trim();
+      final fallbackShells = <String>[
+        if (shell != null && shell.isNotEmpty) shell,
+        '/bin/zsh',
+        '/bin/bash',
+      ];
+      for (final candidate in fallbackShells) {
+        if (!File(candidate).existsSync()) continue;
+        try {
+          final proc = await Process.start(
+            candidate,
+            const ['-ilc', 'printf %s "\$PATH"'],
+          );
+          // 关闭 stdin 防止 shell 等待输入。
+          await proc.stdin.close();
+          final stdoutFuture = proc.stdout
+              .transform(utf8.decoder)
+              .join()
+              .timeout(_loginShellProbeTimeout, onTimeout: () => '');
+          // 直接 drop stderr，避免 .zshrc noisy print 把超时撑爆。
+          final stderrSink = proc.stderr.drain<void>();
+          final exitCodeFuture = proc.exitCode.timeout(
+            _loginShellProbeTimeout,
+            onTimeout: () {
+              proc.kill(ProcessSignal.sigkill);
+              return -1;
+            },
+          );
+          final out = await stdoutFuture;
+          await exitCodeFuture;
+          await stderrSink.timeout(
+            const Duration(milliseconds: 200),
+            onTimeout: () {},
+          );
+          if (out.trim().isNotEmpty) {
+            result = out.trim();
+            break;
+          }
+        } catch (error, stack) {
+          silentLog('mcp.stdio', 'probeLoginShellPath/$candidate', error, stack);
+        }
+      }
+    } catch (error, stack) {
+      silentLog('mcp.stdio', 'probeLoginShellPath', error, stack);
+    }
+    _cachedLoginShellPath = result;
+    completer.complete(result);
+  }();
+  return completer.future;
+}
+
+Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   final separator = Platform.isWindows ? ';' : ':';
   final originalPath = Platform.environment['PATH'] ?? '';
   final originalSegments = originalPath
@@ -1606,9 +1685,23 @@ _ResolvedStdioLaunch _resolveStdioLaunch(McpServer server) {
     }
   }
 
+  // 登录 shell 探测得到的 PATH 在 macOS / Linux 上通常包含 nvm / fnm / volta 实
+  // 际激活的 node bin，质量比启发式列表更可靠 —— 优先放最前面。
+  if (!Platform.isWindows) {
+    final shellPath = await _probeLoginShellPath();
+    if (shellPath.isNotEmpty) {
+      final shellSegments = shellPath
+          .split(separator)
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty);
+      extraSegments.insertAll(0, shellSegments);
+    }
+  }
+
   final mergedSegments = <String>[];
   final seen = <String>{};
-  for (final segment in [...originalSegments, ...extraSegments]) {
+  // 登录 shell PATH > 进程 PATH > 启发式扩展 PATH。
+  for (final segment in [...extraSegments, ...originalSegments]) {
     if (seen.add(segment)) {
       mergedSegments.add(segment);
     }
@@ -1617,9 +1710,12 @@ _ResolvedStdioLaunch _resolveStdioLaunch(McpServer server) {
 
   final rawCommand = server.command.trim();
   String executable = rawCommand;
+  List<String> args = server.args;
   final containsSeparator = rawCommand.contains('/') ||
       (Platform.isWindows && rawCommand.contains('\\'));
+
   if (rawCommand.isNotEmpty && !containsSeparator) {
+    // 1) 先在合并 PATH 里直接 stat 文件，命中就用绝对路径直接 exec —— 最快、最干净。
     final candidates = <String>[rawCommand];
     if (Platform.isWindows) {
       final lower = rawCommand.toLowerCase();
@@ -1630,32 +1726,62 @@ _ResolvedStdioLaunch _resolveStdioLaunch(McpServer server) {
         }
       }
     }
+    String? hit;
     for (final dir in mergedSegments) {
-      var hit = false;
       for (final candidate in candidates) {
         final full = dir.endsWith(Platform.pathSeparator)
             ? '$dir$candidate'
             : '$dir${Platform.pathSeparator}$candidate';
         try {
-          if (File(full).existsSync()) {
-            executable = full;
-            hit = true;
+          // 同时接受普通文件和指向文件的 symlink (nvm 的 npx 是 symlink → JS)。
+          final type = FileSystemEntity.typeSync(full);
+          if (type == FileSystemEntityType.file) {
+            hit = full;
             break;
           }
         } catch (_) {
-          // 沙盒 / 权限问题：忽略此目录继续。
+          // 权限 / 其他系统错误：跳过该候选。
         }
       }
-      if (hit) break;
+      if (hit != null) break;
+    }
+    if (hit != null) {
+      executable = hit;
+    } else if (!Platform.isWindows) {
+      // 2) 没在静态目录命中：通过登录 shell 间接执行。这样 nvm 的 `npx` 函数
+      //    （而非真实文件）也能被找到。`exec` 让 shell 替换为目标进程，避免
+      //    多套一层 wait。args 用 `"$@"` 透传，避免引号 / 空格灾难。
+      final shellArgs = <String>[
+        '-lc',
+        'exec ${_shellSingleQuote(rawCommand)} "\$@"',
+        '_', // $0 占位，保证 args 从 $1 开始。
+        ...server.args,
+      ];
+      executable = _pickShell();
+      args = shellArgs;
     }
   }
 
   return _ResolvedStdioLaunch(
     executable: executable,
-    args: server.args,
+    args: args,
     environment: <String, String>{'PATH': mergedPath},
     augmentedPath: mergedPath,
   );
+}
+
+String _pickShell() {
+  final preferred = Platform.environment['SHELL']?.trim();
+  if (preferred != null && preferred.isNotEmpty && File(preferred).existsSync()) {
+    return preferred;
+  }
+  if (File('/bin/zsh').existsSync()) return '/bin/zsh';
+  return '/bin/bash';
+}
+
+String _shellSingleQuote(String s) {
+  // POSIX-safe 单引号转义：'foo' → "'foo'"，包含单引号则改成 'foo'\''bar'
+  return "'${s.replaceAll("'", "'\\''")}'";
 }
 
 class _StdioSession {
@@ -2056,13 +2182,15 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
     return AiTransportDiagnosticMessages.httpClient(error, contextLabel: label);
   }
   if (error is ProcessException) {
+    final processPath = Platform.environment['PATH'] ?? '';
+    final shellPath = _cachedLoginShellPath ?? '';
     String pathHint;
-    try {
-      pathHint = _resolveStdioLaunch(server).augmentedPath;
-    } catch (_) {
-      pathHint = Platform.environment['PATH'] ?? '';
+    if (shellPath.isNotEmpty) {
+      pathHint = '登录 shell 探测: $shellPath\n  · 进程 PATH: '
+          '${processPath.isEmpty ? '(空)' : processPath}';
+    } else {
+      pathHint = processPath.isEmpty ? '(空)' : processPath;
     }
-    if (pathHint.isEmpty) pathHint = '(空)';
     return AiTransportDiagnosticMessages.format(
       title: 'MCP stdio launch failed · MCP 进程启动失败 [${server.name}]',
       reason:
