@@ -217,7 +217,7 @@ Failure modes: <列表>
 * 插在 `_SettingsSection.activeToolCalls`（AI 模型与内建工具之间），便于调试和"全局停止"后验证所有项是否都被迫中止。
 * 7 份 ARB 同步新增 `settingsActiveToolCallsTitle/Body/Empty/Cancel`。
 
-### 10.5 设置项参数化（v3，**待后续接力**）
-`subprocessGracefulShutdownMs` / `bashOutputMaxBytes` / `maxConcurrentTools` 三个设置仍是硬编码（500ms / 当前 `maxCapturedCharacters` / 8）。9 步流程（snapshot defaults+ctor+field+copyWith → settings_store read clamp+write → settings_controller field/getter/updateAiX → ai_session_runtime_context → openhand_home_page 两个 ctor 站点 + cache key list → 消费方 `static const` 改公有可变实例 → AiSessionController._captureLatestRuntimeContext 传播 → 7 份 ARB Label/Body/Save/Saved/Invalid + gen-l10n → settings_view UI controller/focus/init/dispose/sync/control/_save\*）需要单独成一次提交。
+### 10.5 设置项参数化（v3，已落地）
+`subprocessGracefulShutdownMs`（100-5000ms，默认 500）、`bashOutputMaxBytes`（16000-4000000，默认 200000）、`maxConcurrentTools`（1-64，默认 8）三个参数已走完 9 步参数化流程：snapshot defaults+ctor+field+copyWith → settings_store read clamp+write → settings_controller 字段/getter/`updateXxx`/_snapshot/_applySnapshot → ai_session_runtime_context 字段+toJson → openhand_home_page 两个 ctor 站点 + reactive cache key list → 消费方接通：`AiBashToolService.maxCapturedCharacters` 由 static const 转为公有可变实例字段；`safe_subprocess.dart` 新增顶层 `safeSubprocessDefaultGracefulShutdownMs` 全局变量，所有不显式传 `gracefulShutdownMs` 的 `runProcessWithTimeout` 调用方自动跟随 → `AiSessionController._captureLatestRuntimeContext` 把两值分别下放到上述两处；`maxConcurrentTools` 当前留作 schema，后续在批量调度层接入 → 7 份 ARB Label/Body/Invalid + `flutter gen-l10n` → `_settings_active_tool_calls.dart::_ToolHardeningParamsPanel`：3 行 TextField + Save 按钮 + 范围错误提示，叠在观测面板下方；保存反馈复用全局 `saveSuccessSignal` HighlightPulse。
 
 
