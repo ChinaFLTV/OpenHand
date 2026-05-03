@@ -24,7 +24,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
   String value, {
   String toolCallIdPrefix = 'dsml-tool-call',
 }) {
-  final canonical = _canonicalizeDsmlMarkup(value);
+  final canonical = canonicalizeDsmlMarkup(value);
   if (!canonical.contains('<DSML:')) {
     // No tool-call markup at all — fast path, but still strip any leaked
     // ##TOOL_CALL## opening fragment that lacks a closing marker. Operate
@@ -109,7 +109,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
 }
 
 String sanitizeVisibleDsmlContent(String value) {
-  final canonical = _canonicalizeDsmlMarkup(value);
+  final canonical = canonicalizeDsmlMarkup(value);
   if (!canonical.contains('<DSML:')) {
     return _stripDanglingHashTagToolCallMarker(
       _convertHashTagToolCalls(value),
@@ -213,6 +213,17 @@ final RegExp _dsmlAttributePattern = RegExp(
   // a bareword fallback that stops at whitespace / `>`.
   r"""([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))""",
 );
+
+/// Public so streaming code paths (e.g.
+/// `ai_dsml_partial_stream_scanner.dart`) can apply the same normalization
+/// before scanning a still-growing buffer. All variants the post-stream
+/// extractor handles — fullwidth pipes (`<｜DSML｜...>`), ASCII pipes
+/// (`<|DSML|...>`), bracket wrappers (`<<DSML>>`, `<【DSML】>`),
+/// namespaced (`<functions.invoke …>`, `<invoke …>`) and the
+/// `##TOOL_CALL## … ##END_CALL##` envelope — are all canonicalized to
+/// `<DSML:invoke …>` / `<DSML:parameter …>` / `<DSML:function_calls>`.
+String canonicalizeDsmlMarkup(String value) =>
+    _canonicalizeDsmlMarkup(value);
 
 String _canonicalizeDsmlMarkup(String value) {
   // 2026-04-26: Some weaker models (notably ones that pretend to follow a

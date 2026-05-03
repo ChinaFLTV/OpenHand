@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'ai_dsml_tool_call_parser.dart' show canonicalizeDsmlMarkup;
+
 /// Partial DSML invoke parsed from a still-streaming text buffer.
 class PartialDsmlInvoke {
   const PartialDsmlInvoke({
@@ -64,22 +66,32 @@ Map<String, String> _parseAttributes(String raw) {
 /// Scan [buffer] for DSML invoke blocks, including a possibly-partial
 /// trailing one. Cheap enough to call on every text delta.
 ///
-/// The scanner only needs to detect `<DSML:invoke ...>` opens and parse the
-/// `name=` attribute + any complete `<DSML:parameter ...>...</DSML:parameter>`
-/// bodies seen so far. It does NOT do full canonicalization (no full-width
-/// bracket variants, no `##TOOL_CALL##` envelope conversion); those edge
-/// cases keep falling through to the post-stream extractor and will surface
-/// as a brand-new card at stream end.
+/// 2026-05-03: now applies the same canonicalization the post-stream
+/// extractor uses (`canonicalizeDsmlMarkup`) BEFORE scanning, so weak
+/// fine-tunes that emit ASCII-pipe (`<|DSML|invoke …>`), fullwidth-pipe
+/// (`<｜DSML｜invoke …>`), bracket-wrapped (`<<DSML>>`, `<【DSML】>`),
+/// namespaced (`<functions.invoke …>`), antml-prefixed
+/// (`<invoke …>`), or raw (`<invoke …>` / `<function_calls>`)
+/// variants all surface as a partial preview card during streaming
+/// instead of waiting for stream-end. The cheap `buffer.contains('DSML')`
+/// (or raw `<invoke`) early-out keeps the hot path nearly free for
+/// pure-text deltas.
 List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
-  if (!buffer.contains('<DSML:invoke')) {
+  // Cheap pre-filter: if the buffer cannot possibly contain a tool-call
+  // marker we know about, skip canonicalization entirely.
+  if (!_mayContainToolCallMarker(buffer)) {
+    return const <PartialDsmlInvoke>[];
+  }
+  final canonical = canonicalizeDsmlMarkup(buffer);
+  if (!canonical.contains('<DSML:invoke')) {
     return const <PartialDsmlInvoke>[];
   }
   final invokes = <PartialDsmlInvoke>[];
   var cursor = 0;
   var ordinal = 0;
-  while (cursor < buffer.length) {
+  while (cursor < canonical.length) {
     final openMatch = _invokeOpenPattern.firstMatch(
-      buffer.substring(cursor),
+      canonical.substring(cursor),
     );
     if (openMatch == null) {
       break;
@@ -89,11 +101,11 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
     final attributes = _parseAttributes(openMatch.group(1) ?? '');
     final name = (attributes['name'] ?? '').trim();
     final closeMatch = _invokeClosePattern.firstMatch(
-      buffer.substring(absoluteOpenEnd),
+      canonical.substring(absoluteOpenEnd),
     );
     final body = closeMatch == null
-        ? buffer.substring(absoluteOpenEnd)
-        : buffer.substring(
+        ? canonical.substring(absoluteOpenEnd)
+        : canonical.substring(
             absoluteOpenEnd,
             absoluteOpenEnd + closeMatch.start,
           );
@@ -128,7 +140,7 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
   // partial invoke was already emitted for it (name still empty), emit a
   // sentinel preparing entry so the UI can show a generic card before
   // the tool name lands.
-  final tail = buffer.substring(cursor);
+  final tail = canonical.substring(cursor);
   if (_unclosedInvokeOpenerPattern.hasMatch(tail) &&
       (invokes.isEmpty || invokes.last.isComplete)) {
     final pendingOrdinal = ordinal + 1;
@@ -144,6 +156,44 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
     );
   }
   return invokes;
+}
+
+/// Cheap pre-filter to skip canonicalization on pure-text deltas.
+///
+/// Returns true if [buffer] *might* contain something the full
+/// canonicalizer would normalize into a DSML invoke. Conservative:
+/// false-positives are fine (we just pay one regex pass), but
+/// false-negatives would silently drop the partial preview.
+bool _mayContainToolCallMarker(String buffer) {
+  // Already-canonical form.
+  if (buffer.contains('<DSML:invoke')) return true;
+  // Bracket-pipe wrappers (ASCII + fullwidth + doubled).
+  if (buffer.contains('<|DSML') ||
+      buffer.contains('<｜DSML') ||
+      buffer.contains('<｜｜DSML') ||
+      buffer.contains('<||DSML')) {
+    return true;
+  }
+  // Bracket-style wrappers used by some weak fine-tunes.
+  if (buffer.contains('<<DSML') ||
+      buffer.contains('<【DSML') ||
+      buffer.contains('<《DSML') ||
+      buffer.contains('<[DSML') ||
+      buffer.contains('<「DSML') ||
+      buffer.contains('<『DSML')) {
+    return true;
+  }
+  // Raw or namespaced invoke / function_calls openers.
+  if (buffer.contains('<invoke') ||
+      buffer.contains('<function_calls') ||
+      buffer.contains('<tool_calls') ||
+      buffer.contains('.invoke') ||
+      buffer.contains(':invoke')) {
+    return true;
+  }
+  // ##TOOL_CALL##{...}##END_CALL## envelope.
+  if (buffer.contains('##TOOL_CALL##')) return true;
+  return false;
 }
 
 /// Matches an opening `<DSML:invoke` whose `>` has not yet arrived. Used
