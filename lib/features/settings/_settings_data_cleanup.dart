@@ -882,6 +882,29 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
             onChanged: (v) => _scheduleSave(
                 config.copyWith(autoCleanupDays: v.round())),
           ),
+          // 阶段 ⑬c：mini-diff 阈值（KiB）。在 (阈值, 256 KiB] 区间，
+          // unifiedDiffLineSummary 仅保留 +/- 行。
+          _SliderRow(
+            label: _localizedText(context,
+                zh: 'Mini-diff 阈值（超过则仅保留 +/- 行）',
+                en: 'Mini-diff threshold (drop context above)'),
+            valueText: config.miniDiffMaxBytes == 0
+                ? _localizedText(context, zh: '禁用', en: 'Disabled')
+                : '${(config.miniDiffMaxBytes / 1024).round()} KiB',
+            value: config.miniDiffMaxBytes.toDouble(),
+            min: LedgerConfig.minMiniDiffMaxBytes.toDouble(),
+            max: LedgerConfig.maxMiniDiffMaxBytes.toDouble(),
+            divisions: 32,
+            onChanged: (v) {
+              // 对齐到 8 KiB step
+              const step = 8 * 1024;
+              final snapped = ((v / step).round() * step)
+                  .clamp(LedgerConfig.minMiniDiffMaxBytes,
+                      LedgerConfig.maxMiniDiffMaxBytes);
+              _scheduleSave(
+                  config.copyWith(miniDiffMaxBytes: snapped));
+            },
+          ),
           const SizedBox(height: 6),
           Align(
             alignment: Alignment.centerRight,

@@ -148,6 +148,7 @@ class LedgerConfig {
   const LedgerConfig({
     this.maxVersionsPerFile = defaultMaxVersionsPerFile,
     this.autoCleanupDays = defaultAutoCleanupDays,
+    this.miniDiffMaxBytes = defaultMiniDiffMaxBytes,
   });
 
   /// 每个会话内同一文件保留的最近 N 条变动。<=0 表示不限制。
@@ -156,22 +157,37 @@ class LedgerConfig {
   /// 自动清理 N 天前的全部变动（启动时触发一次）。<=0 表示禁用。
   final int autoCleanupDays;
 
+  /// 阶段 ⑬c：mini-diff 切换阈值（KiB）。任一侧 > 此值（且 ≤ maxBytes）
+  /// 时 unifiedDiffLineSummary 仅保留 +/- 行；超过 maxBytes 仍走 sha 占
+  /// 位摘要。<=0 时退化为永远全量 diff（直到 maxBytes）。
+  final int miniDiffMaxBytes;
+
   static const int defaultMaxVersionsPerFile = 10;
   static const int minMaxVersionsPerFile = 0;
   static const int maxMaxVersionsPerFile = 200;
   static const int defaultAutoCleanupDays = 30;
   static const int minAutoCleanupDays = 0;
   static const int maxAutoCleanupDays = 365;
+  static const int defaultMiniDiffMaxBytes =
+      unifiedDiffLineSummaryDefaultMiniDiffBytes;
+  static const int minMiniDiffMaxBytes = 0;
+  static const int maxMiniDiffMaxBytes = 256 * 1024;
 
-  LedgerConfig copyWith({int? maxVersionsPerFile, int? autoCleanupDays}) =>
+  LedgerConfig copyWith({
+    int? maxVersionsPerFile,
+    int? autoCleanupDays,
+    int? miniDiffMaxBytes,
+  }) =>
       LedgerConfig(
         maxVersionsPerFile: maxVersionsPerFile ?? this.maxVersionsPerFile,
         autoCleanupDays: autoCleanupDays ?? this.autoCleanupDays,
+        miniDiffMaxBytes: miniDiffMaxBytes ?? this.miniDiffMaxBytes,
       );
 
   Map<String, Object?> toJson() => <String, Object?>{
     'max_versions_per_file': maxVersionsPerFile,
     'auto_cleanup_days': autoCleanupDays,
+    'mini_diff_max_bytes': miniDiffMaxBytes,
   };
 
   static LedgerConfig fromJson(Map<String, Object?> json) {
@@ -179,11 +195,15 @@ class LedgerConfig {
         defaultMaxVersionsPerFile;
     final days = (json['auto_cleanup_days'] as num?)?.toInt() ??
         defaultAutoCleanupDays;
+    final mini = (json['mini_diff_max_bytes'] as num?)?.toInt() ??
+        defaultMiniDiffMaxBytes;
     return LedgerConfig(
       maxVersionsPerFile:
           maxV.clamp(minMaxVersionsPerFile, maxMaxVersionsPerFile).toInt(),
       autoCleanupDays:
           days.clamp(minAutoCleanupDays, maxAutoCleanupDays).toInt(),
+      miniDiffMaxBytes:
+          mini.clamp(minMiniDiffMaxBytes, maxMiniDiffMaxBytes).toInt(),
     );
   }
 }

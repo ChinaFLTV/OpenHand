@@ -261,6 +261,10 @@ class _FileMutationCardState extends State<_FileMutationCard> {
   Future<void> _copyAllDiff(List<FileMutationView> views) async {
     if (views.isEmpty) return;
     final ledger = _ctrl(context).toolRuntimeService.mutationLedger;
+    // 阶段 ⑬c：尊重 LedgerConfig.miniDiffMaxBytes——超过阈值时
+    // 复制出去的合并 diff 也走 mini-diff（仅 +/- 行），避免大文件
+    // 把剪贴板/聊天上下文撑爆。
+    final config = await ledger.loadConfig();
     final buf = StringBuffer();
     for (final v in views) {
       final r = v.record;
@@ -278,6 +282,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
           after,
           beforeSha: r.beforeSha,
           afterSha: r.afterSha,
+          miniDiffMaxBytes: config.miniDiffMaxBytes,
         ),
       );
       buf.writeln('```');
@@ -588,6 +593,9 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                 views[i].record.filePath,
                 _fileMutationKind(widget.message),
               ),
+              onRevealLedger: _revealLedgerFile,
+              onCopyDiff: () => _copyAllDiff([views[i]]),
+              onOpenInspector: _openHistoryInspector,
             ),
           if (views.length > _revealedCount)
             _RevealMoreRow(
@@ -609,6 +617,28 @@ class _FileMutationCardState extends State<_FileMutationCard> {
           left: 0,
           right: 0,
           child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
+        ),
+        // 阶段 ⑬b：批量 undo 进行中——卡片整体覆 BackdropFilter blur 6px
+        // + primary 色 tinted glow，进度环居中。AnimatedSwitcher 220ms 淡入
+        // 淡出，reduceMotion 时退化为 0ms。
+        Positioned.fill(
+          child: IgnorePointer(
+            ignoring: !_bulkUndoBusy,
+            child: AnimatedSwitcher(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 220),
+              child: _bulkUndoBusy
+                  ? _BulkUndoOverlay(
+                      key: const ValueKey('bulk-undo-overlay'),
+                      done: _bulkUndoDone,
+                      total: _bulkUndoTotal,
+                    )
+                  : const SizedBox.shrink(
+                      key: ValueKey('bulk-undo-overlay-hidden'),
+                    ),
+            ),
+          ),
         ),
       ],
     );
@@ -681,6 +711,9 @@ class _FileMutationCardRow extends StatelessWidget {
     required this.onUndo,
     required this.onRedo,
     required this.onOpenLegacyDialog,
+    required this.onRevealLedger,
+    required this.onCopyDiff,
+    required this.onOpenInspector,
   });
 
   final FileMutationView view;
@@ -690,6 +723,9 @@ class _FileMutationCardRow extends StatelessWidget {
   final VoidCallback onUndo;
   final VoidCallback onRedo;
   final VoidCallback onOpenLegacyDialog;
+  final VoidCallback onRevealLedger;
+  final VoidCallback onCopyDiff;
+  final VoidCallback onOpenInspector;
 
   IconData get _kindIcon {
     switch (view.record.kind) {
@@ -710,6 +746,89 @@ class _FileMutationCardRow extends StatelessWidget {
         return cs.primary;
       case FileMutationKind.delete:
         return cs.error;
+    }
+  }
+
+  /// 阶段 ⑬d：长按 / 右键弹出 ContextMenu，便利动作集中暴露：
+  /// reveal in OS / copy path / copy diff / open inspector / jump-to-toolcall。
+  Future<void> _showRowContextMenu(
+    BuildContext context, {
+    Offset? position,
+  }) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = position ??
+        (box?.localToGlobal(box.size.center(Offset.zero)) ?? Offset.zero);
+    final l10n = AppLocalizations.of(context)!;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(origin.dx, origin.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'reveal',
+          child: Row(children: [
+            const Icon(Icons.folder_open_outlined, size: 16),
+            const SizedBox(width: 8),
+            Text(l10n.fileMutationRevealLedger),
+          ]),
+        ),
+        PopupMenuItem<String>(
+          value: 'copyPath',
+          child: Row(children: [
+            const Icon(Icons.content_copy_rounded, size: 16),
+            const SizedBox(width: 8),
+            Text(l10n.fileMutationCopyPath),
+          ]),
+        ),
+        PopupMenuItem<String>(
+          value: 'copyDiff',
+          child: Row(children: [
+            const Icon(Icons.difference_rounded, size: 16),
+            const SizedBox(width: 8),
+            Text(l10n.fileMutationCopyAllDiff),
+          ]),
+        ),
+        PopupMenuItem<String>(
+          value: 'inspector',
+          child: Row(children: [
+            const Icon(Icons.history_rounded, size: 16),
+            const SizedBox(width: 8),
+            Text(l10n.fileMutationHistoryInspector),
+          ]),
+        ),
+        PopupMenuItem<String>(
+          value: 'diff',
+          child: Row(children: [
+            const Icon(Icons.open_in_new_rounded, size: 16),
+            const SizedBox(width: 8),
+            Text(_localizedTextStatic(context,
+                zh: '打开 diff 对话框', en: 'Open diff dialog')),
+          ]),
+        ),
+      ],
+    );
+    if (selected == null) return;
+    switch (selected) {
+      case 'reveal':
+        onRevealLedger();
+        break;
+      case 'copyPath':
+        if (context.mounted) {
+          _copyPathToClipboard(context, view.record.filePath);
+        }
+        break;
+      case 'copyDiff':
+        onCopyDiff();
+        break;
+      case 'inspector':
+        onOpenInspector();
+        break;
+      case 'diff':
+        onOpenLegacyDialog();
+        break;
     }
   }
 
@@ -773,6 +892,9 @@ class _FileMutationCardRow extends StatelessWidget {
             child: InkWell(
               onTap: onToggleExpand,
               onDoubleTap: onOpenLegacyDialog,
+              onLongPress: () => _showRowContextMenu(context),
+              onSecondaryTapDown: (d) =>
+                  _showRowContextMenu(context, position: d.globalPosition),
               // 阶段 ⑩c：row hover 背景轻微高亮，让指针落点更清晰。
               hoverColor: cs.primary.withValues(alpha: 0.05),
               splashColor: cs.primary.withValues(alpha: 0.10),
@@ -1665,6 +1787,10 @@ class _FileMutationHistoryInspectorDialogState
                         .add(v);
                   }
                   final paths = groups.keys.toList()..sort();
+                  // 阶段 ⑬a：分组 staggered AppearOnce——
+                  // 80ms/张，封顶 1.2s（reduceMotion 跳过）。
+                  final reduceMotion =
+                      MediaQuery.disableAnimationsOf(context);
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: paths.length,
@@ -1675,13 +1801,19 @@ class _FileMutationHistoryInspectorDialogState
                           (a, b) =>
                               b.record.createdAt.compareTo(a.record.createdAt),
                         );
-                      return _HistoryInspectorGroup(
+                      final group = _HistoryInspectorGroup(
                         filePath: path,
                         entries: entries,
                         zoomed: _zoomedPath == path,
                         onZoomToggle: () => setState(() {
                           _zoomedPath = _zoomedPath == path ? null : path;
                         }),
+                      );
+                      if (reduceMotion) return group;
+                      final delayMs = (i * 80).clamp(0, 1200);
+                      return _DelayedAppear(
+                        delay: Duration(milliseconds: delayMs),
+                        child: group,
                       );
                     },
                   );
@@ -1788,6 +1920,67 @@ class _HistoryInspectorGroup extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
+                    // 阶段 ⑬e：聚合 +X / -Y 字节增减徽章。
+                    () {
+                      var added = 0;
+                      var removed = 0;
+                      for (final v in entries) {
+                        final d = v.record.afterSize - v.record.beforeSize;
+                        if (d > 0) added += d;
+                        if (d < 0) removed += -d;
+                      }
+                      final pieces = <Widget>[];
+                      if (added > 0) {
+                        pieces.add(Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2E7D32)
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '+${_compactBytes(added)}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: const Color(0xFF2E7D32),
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                        ));
+                      }
+                      if (removed > 0) {
+                        if (pieces.isNotEmpty) {
+                          pieces.add(const SizedBox(width: 4));
+                        }
+                        pieces.add(Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: cs.error.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '-${_compactBytes(removed)}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: cs.error,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                        ));
+                      }
+                      if (pieces.isEmpty) return const SizedBox.shrink();
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ...pieces,
+                          const SizedBox(width: 6),
+                        ],
+                      );
+                    }(),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
@@ -1914,4 +2107,122 @@ class _RecordKindBadge extends StatelessWidget {
 /// 阶段 ⑫a：FileMutationCard row 键盘 Enter 触发的 Intent。
 class _OpenLegacyDialogIntent extends Intent {
   const _OpenLegacyDialogIntent();
+}
+
+/// 阶段 ⑬a：在 [delay] 之前显示透明占位（保持高度通过 child build），
+/// 之后再用 AppearOnce 包裹 child 实现 staggered fade-in。这里通过
+/// FutureBuilder + KeyedSubtree 让每个分组卡的 enter 动画错峰。
+class _DelayedAppear extends StatefulWidget {
+  const _DelayedAppear({required this.delay, required this.child});
+  final Duration delay;
+  final Widget child;
+
+  @override
+  State<_DelayedAppear> createState() => _DelayedAppearState();
+}
+
+class _DelayedAppearState extends State<_DelayedAppear> {
+  bool _show = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.delay <= Duration.zero) {
+      _show = true;
+    } else {
+      Future<void>.delayed(widget.delay, () {
+        if (!mounted) return;
+        setState(() => _show = true);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_show) return Opacity(opacity: 0, child: widget.child);
+    return AppearOnce(child: widget.child);
+  }
+}
+
+/// 阶段 ⑬b：批量 undo overlay。BackdropFilter blur 6px + primary 色
+/// tinted glow 渐变背景 + 圆形进度环 + 「N/M」百分比文案。淡入淡出由
+/// 外层 AnimatedSwitcher 控制。
+class _BulkUndoOverlay extends StatelessWidget {
+  const _BulkUndoOverlay({
+    super.key,
+    required this.done,
+    required this.total,
+  });
+  final int done;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final ratio = total == 0 ? null : done / total;
+    return ClipRRect(
+      borderRadius: const BorderRadius.all(Radius.circular(16)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cs.primary.withValues(alpha: 0.10),
+                cs.primary.withValues(alpha: 0.04),
+              ],
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  value: ratio,
+                  color: cs.primary,
+                  backgroundColor:
+                      cs.primary.withValues(alpha: 0.15),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$done/$total',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 阶段 ⑬d：part 文件内简易 zh/en 文案选择器（避免给 5 个 ⑬d 文案
+/// 单独跑一轮 ARB → gen_l10n）。
+String _localizedTextStatic(BuildContext context,
+    {required String zh, required String en}) {
+  final lang = Localizations.localeOf(context).languageCode;
+  return lang == 'zh' ? zh : en;
+}
+
+/// 阶段 ⑬e：徽章用紧凑字节格式（B / KiB / MiB），保持单字符精度。
+String _compactBytes(int bytes) {
+  if (bytes < 1024) return '${bytes}B';
+  if (bytes < 1024 * 1024) {
+    final kb = bytes / 1024;
+    return kb >= 100 ? '${kb.round()}KiB' : '${kb.toStringAsFixed(1)}KiB';
+  }
+  final mb = bytes / (1024 * 1024);
+  return '${mb.toStringAsFixed(1)}MiB';
 }
