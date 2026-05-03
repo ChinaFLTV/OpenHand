@@ -22,10 +22,21 @@ Future<ProcessResult?> runProcessWithTimeout(
   List<String> arguments, {
   Duration timeout = const Duration(seconds: 4),
   String tag = 'safe_subprocess',
+  String? workingDirectory,
+  Map<String, String>? environment,
+  bool runInShell = false,
+  bool includeParentEnvironment = true,
 }) async {
   Process? process;
   try {
-    process = await Process.start(executable, arguments);
+    process = await Process.start(
+      executable,
+      arguments,
+      workingDirectory: workingDirectory,
+      environment: environment,
+      runInShell: runInShell,
+      includeParentEnvironment: includeParentEnvironment,
+    );
     final stdoutFuture = process.stdout.transform(utf8.decoder).join();
     final stderrFuture = process.stderr.transform(utf8.decoder).join();
     String stdoutText = '';

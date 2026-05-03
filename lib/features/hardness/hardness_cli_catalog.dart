@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 
 enum HardnessCliAuthProbeMode { commandExitCode, localStateFile }
@@ -590,11 +591,15 @@ Future<bool?> probeCliAuth(CliScanEntry entry) async {
   try {
     ProcessResult r;
     if (Platform.isWindows) {
-      r = await Process.run(
+      final result = await runProcessWithTimeout(
         executable,
         args,
+        timeout: const Duration(seconds: 8),
         runInShell: true,
-      ).timeout(const Duration(seconds: 8));
+        tag: 'hardness_cli_catalog',
+      );
+      if (result == null) return null;
+      r = result;
     } else {
       final cmd = [executable, ...args].map(_q).join(' ');
       r = await runHardnessCliShellCommand(
@@ -754,11 +759,17 @@ Future<({bool success, String message})> _performCommandLogout(
   try {
     ProcessResult r;
     if (Platform.isWindows) {
-      r = await Process.run(
+      final result = await runProcessWithTimeout(
         executable,
         args,
+        timeout: const Duration(seconds: 10),
         runInShell: true,
-      ).timeout(const Duration(seconds: 10));
+        tag: 'hardness_cli_catalog',
+      );
+      if (result == null) {
+        return (success: false, message: 'Logout command timed out.');
+      }
+      r = result;
     } else {
       final cmd = [executable, ...args].map(_q).join(' ');
       r = await runHardnessCliShellCommand(
@@ -803,11 +814,24 @@ List<String> buildHardnessCliShellArgs(
 Future<ProcessResult> runHardnessCliShellCommand(
   String command, {
   Duration timeout = const Duration(seconds: 7),
-}) {
-  return Process.run(
+}) async {
+  // Route through the safe wrapper so a hung CLI tool gets SIGKILL'd instead
+  // of leaking as an orphaned login-shell.  Null return (timeout / spawn
+  // failure) is surfaced as TimeoutException to preserve the original
+  // contract callers rely on.
+  final result = await runProcessWithTimeout(
     resolveHardnessCliShellExecutable(),
     buildHardnessCliShellArgs(command),
-  ).timeout(timeout);
+    timeout: timeout,
+    tag: 'hardness_cli_catalog',
+  );
+  if (result == null) {
+    throw TimeoutException(
+      'Hardness CLI shell command timed out or failed to start.',
+      timeout,
+    );
+  }
+  return result;
 }
 
 Future<List<String>> collectHardnessCliFailureDiagnostics(
@@ -924,16 +948,15 @@ String stripHardnessCliTerminalSequences(String text) {
 Future<String?> _tryLoginShellWhich(String executable) async {
   if (Platform.isWindows) {
     // Windows: plain `where`
-    try {
-      final r = await Process.run('where', [
-        executable,
-      ]).timeout(const Duration(seconds: 5));
-      if (r.exitCode == 0) {
-        final p = (r.stdout as String).trim().split('\n').first.trim();
-        return p.isNotEmpty ? p : null;
-      }
-    } catch (error, stack) {
-      silentLog('hardness_cli_catalog', 'where probe (Windows)', error, stack);
+    final r = await runProcessWithTimeout(
+      'where',
+      <String>[executable],
+      timeout: const Duration(seconds: 5),
+      tag: 'hardness_cli_catalog',
+    );
+    if (r != null && r.exitCode == 0) {
+      final p = (r.stdout as String).trim().split('\n').first.trim();
+      return p.isNotEmpty ? p : null;
     }
     return null;
   }
@@ -956,14 +979,14 @@ Future<String?> _tryLoginShellWhich(String executable) async {
 
 Future<String?> _tryLoginShellExec(String executable) async {
   if (Platform.isWindows) {
-    try {
-      final r = await Process.run(executable, [
-        '--version',
-      ], runInShell: true).timeout(const Duration(seconds: 5));
-      if (r.exitCode == 0) return executable;
-    } catch (error, stack) {
-      silentLog('hardness_cli_catalog', '$executable --version probe (Windows)', error, stack);
-    }
+    final r = await runProcessWithTimeout(
+      executable,
+      const <String>['--version'],
+      timeout: const Duration(seconds: 5),
+      runInShell: true,
+      tag: 'hardness_cli_catalog',
+    );
+    if (r != null && r.exitCode == 0) return executable;
     return null;
   }
   try {

@@ -120,12 +120,34 @@ class SkillMarketClient {
 
     final response = await _client.send(request).timeout(_requestTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      // Drain the body before throwing so the underlying connection can be
+      // returned to the pool / closed cleanly instead of leaking.
+      try {
+        await response.stream.drain<void>();
+      } catch (error, stack) {
+        silentLog(
+          'skill_market_client',
+          'drain stream after non-2xx download',
+          error,
+          stack,
+        );
+      }
       throw SkillMarketException(
         'HTTP ${response.statusCode} while downloading skill.',
       );
     }
     final contentLength = response.contentLength;
     if (contentLength != null && contentLength > _maxDownloadBytes) {
+      try {
+        await response.stream.drain<void>();
+      } catch (error, stack) {
+        silentLog(
+          'skill_market_client',
+          'drain oversized download stream',
+          error,
+          stack,
+        );
+      }
       throw const SkillMarketException('Skill archive is too large.');
     }
 

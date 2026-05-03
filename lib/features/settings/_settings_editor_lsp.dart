@@ -1019,11 +1019,15 @@ Future<_DetectedSdkVersion?> _detectCommandSdkVersion({
     return null;
   }
   try {
-    final result = await Process.run(
+    final result = await runProcessWithTimeout(
       executablePath,
       arguments,
-    ).timeout(const Duration(seconds: 4));
-    final output = '${result.stdout ?? ''}\n${result.stderr ?? ''}'.trim();
+      tag: 'settings_editor_lsp',
+    );
+    if (result == null) {
+      return null;
+    }
+    final output = '${result.stdout}\n${result.stderr}'.trim();
     if (output.isEmpty) {
       return null;
     }
@@ -1052,21 +1056,24 @@ Future<_DetectedSdkVersion?> _detectDartSdkVersion(String sdkPath) async {
   ]);
   if (flutterExecutable != null) {
     try {
-      final result = await Process.run(flutterExecutable, const <String>[
-        '--version',
-        '--machine',
-      ]).timeout(const Duration(seconds: 4));
-      final rawOutput = '${result.stdout ?? ''}${result.stderr ?? ''}'.trim();
-      if (result.exitCode == 0 && rawOutput.isNotEmpty) {
-        final decoded = jsonDecode(rawOutput);
-        if (decoded is Map<String, Object?>) {
-          final frameworkVersion = '${decoded['frameworkVersion'] ?? ''}'
-              .trim();
-          if (frameworkVersion.isNotEmpty) {
-            return _DetectedSdkVersion(
-              version: frameworkVersion,
-              display: 'Flutter $frameworkVersion',
-            );
+      final result = await runProcessWithTimeout(
+        flutterExecutable,
+        const <String>['--version', '--machine'],
+        tag: 'settings_editor_lsp',
+      );
+      if (result != null) {
+        final rawOutput = '${result.stdout}${result.stderr}'.trim();
+        if (result.exitCode == 0 && rawOutput.isNotEmpty) {
+          final decoded = jsonDecode(rawOutput);
+          if (decoded is Map<String, Object?>) {
+            final frameworkVersion = '${decoded['frameworkVersion'] ?? ''}'
+                .trim();
+            if (frameworkVersion.isNotEmpty) {
+              return _DetectedSdkVersion(
+                version: frameworkVersion,
+                display: 'Flutter $frameworkVersion',
+              );
+            }
           }
         }
       }
