@@ -2344,6 +2344,7 @@ class AiSessionController extends ChangeNotifier {
         sessionMessages: workingSession.activeConversationMessagesForPrompt,
         latestUserMessageId: activeLatestUserMessageId,
         availableTools: toolsForRound,
+        resolvedToolsByName: toolCatalogForRound.toolsByName,
         mcpServerInstructionsByName:
             toolCatalogForRound.mcpServerInstructionsByName,
         useDsmlToolCalls: !supportsNativeToolCalls,

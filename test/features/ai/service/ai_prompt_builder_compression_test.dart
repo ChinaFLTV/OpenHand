@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:openhand/features/ai/model/ai_attachment.dart';
+import 'package:openhand/features/ai/model/ai_builtin_tool_config.dart'
+    show AiBuiltinToolConfig, AiBuiltinToolLoadStrategy;
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
@@ -12,6 +14,7 @@ import 'package:openhand/features/ai/model/ai_token_usage.dart';
 import 'package:openhand/features/ai/service/ai_prompt_builder.dart';
 import 'package:openhand/features/ai/service/ai_prompt_template_repository.dart';
 import 'package:openhand/features/ai/service/ai_protocol_adapter.dart';
+import 'package:openhand/features/ai/service/ai_tool_runtime_service.dart';
 import 'package:openhand/features/mcp/model/mcp_server.dart';
 import 'package:openhand/features/memory/model/user_memory_entry.dart';
 import 'package:openhand/features/skills/model/local_skill.dart';
@@ -817,6 +820,97 @@ void main() {
     );
     expect(rehydration['session_start_hook_count'], 1);
     expect(rehydration['restored_channels'], contains('session_start_hooks'));
+  });
+
+  test('restores deferred tool and task agent listing after compact', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: 'cp-tool-agent-restore',
+      content: 'summary',
+      createdAt: now,
+      metadata: const <String, Object?>{},
+    );
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: '继续使用工具',
+      createdAt: now.add(const Duration(minutes: 1)),
+    );
+    final messages = <AiSessionMessage>[checkpoint, latest];
+    final session = _session(template: template, now: now, messages: messages);
+    const taskDefinition = AiToolDefinition(
+      name: 'Task',
+      description: 'Launch a focused background sub-agent.',
+      parameters: <String, Object?>{'type': 'object'},
+    );
+    const webFetchDefinition = AiToolDefinition(
+      name: 'WebFetch',
+      description: 'Fetch and summarize web content.',
+      parameters: <String, Object?>{'type': 'object'},
+    );
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(),
+      runtimeContext: _runtimeContext(),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: messages,
+      latestUserMessageId: latest.id,
+      availableTools: const <AiToolDefinition>[
+        taskDefinition,
+        webFetchDefinition,
+      ],
+      resolvedToolsByName: const <String, AiResolvedTool>{
+        'Task': AiResolvedTool(
+          name: 'Task',
+          definition: taskDefinition,
+          source: AiRuntimeToolSource.builtin,
+          builtinKind: AiBuiltinToolKind.task,
+          builtinConfig: AiBuiltinToolConfig(kind: AiBuiltinToolKind.task),
+        ),
+        'WebFetch': AiResolvedTool(
+          name: 'WebFetch',
+          definition: webFetchDefinition,
+          source: AiRuntimeToolSource.builtin,
+          builtinKind: AiBuiltinToolKind.webFetch,
+          builtinConfig: AiBuiltinToolConfig(
+            kind: AiBuiltinToolKind.webFetch,
+            loadStrategy: AiBuiltinToolLoadStrategy.deferred,
+          ),
+        ),
+      },
+    );
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
+    final rehydration = Map<String, Object?>.from(
+      result.metadata['post_compact_rehydration']! as Map,
+    );
+
+    expect(promptText, contains('# [5.11] Restored Tool and Agent Listing'));
+    expect(promptText, contains('WebFetch (kind=webFetch'));
+    expect(promptText, contains('load_strategy=deferred'));
+    expect(promptText, contains('## Task Subagents'));
+    expect(promptText, contains('research: Read-only exploration agent.'));
+    expect(rehydration['deferred_builtin_tool_count'], 1);
+    expect(rehydration['agent_type_count'], 5);
+    expect(
+      rehydration['restored_channels'],
+      contains('deferred_builtin_tools'),
+    );
+    expect(rehydration['restored_channels'], contains('agent_listing'));
   });
 }
 

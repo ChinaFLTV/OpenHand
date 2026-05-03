@@ -9,16 +9,19 @@ import '../../instructions/model/user_instruction_entry.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../../skills/model/local_skill.dart';
 import '../model/ai_attachment.dart';
+import '../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
 import '../model/ai_model_config.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
 import '../model/ai_session_runtime_context.dart';
 import '../model/ai_thread_template.dart';
+import '../tools/ai_task_tool.dart';
 import 'ai_bash_tool_service.dart';
 import 'ai_claude_hook_service.dart';
 import 'ai_plan_approval_detector.dart';
 import 'ai_prompt_template_repository.dart';
 import 'ai_protocol_adapter.dart';
+import 'ai_tool_runtime_service.dart';
 
 class AiPromptBuildResult {
   const AiPromptBuildResult({
@@ -63,6 +66,8 @@ class AiPromptBuilder {
   static const int _postCompactRestoreMaxMcpTools = 40;
   static const int _postCompactRestoreMaxSessionStartHooks = 5;
   static const int _postCompactRestoreMaxSessionStartHookChars = 8000;
+  static const int _postCompactRestoreMaxToolAgentChars = 8000;
+  static const int _postCompactRestoreMaxDeferredTools = 40;
   static const int _compressionUserManifestMaxChars = 12000;
   static const int _compressionUserManifestMaxCharsPerMessage = 1200;
   static const int _compressionResourceManifestMaxItems = 40;
@@ -76,6 +81,8 @@ class AiPromptBuilder {
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage latestUserMessage,
     List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
+    Map<String, AiResolvedTool> resolvedToolsByName =
+        const <String, AiResolvedTool>{},
     Map<String, String> mcpServerInstructionsByName = const <String, String>{},
     bool useDsmlToolCalls = false,
   }) {
@@ -92,6 +99,7 @@ class AiPromptBuilder {
       sessionMessages: sessionMessages,
       latestUserMessageId: latestUserMessage.id,
       availableTools: availableTools,
+      resolvedToolsByName: resolvedToolsByName,
       mcpServerInstructionsByName: mcpServerInstructionsByName,
       useDsmlToolCalls: useDsmlToolCalls,
     );
@@ -106,6 +114,8 @@ class AiPromptBuilder {
     required List<AiSessionMessage> sessionMessages,
     String? latestUserMessageId,
     List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
+    Map<String, AiResolvedTool> resolvedToolsByName =
+        const <String, AiResolvedTool>{},
     Map<String, String> mcpServerInstructionsByName = const <String, String>{},
     bool useDsmlToolCalls = false,
   }) {
@@ -176,6 +186,7 @@ class AiPromptBuilder {
       memoryEntries: memoryEntries,
       repositorySnapshot: repositorySnapshot,
       availableToolNames: availableToolNames,
+      resolvedToolsByName: resolvedToolsByName,
       mcpServerInstructionsByName: mcpServerInstructionsByName,
       latestCompressionPoint: latestCompressionPoint,
     );
@@ -296,6 +307,11 @@ class AiPromptBuilder {
           historyMessages: historyMessages,
           latestCompressionPoint: latestCompressionPoint,
         );
+    final restoredToolAgentContext = _renderPostCompactRestoredToolAgentContext(
+      availableTools: availableTools,
+      resolvedToolsByName: resolvedToolsByName,
+      latestCompressionPoint: latestCompressionPoint,
+    );
 
     final messages = <AiChatTurn>[
       AiChatTurn(
@@ -403,6 +419,12 @@ class AiPromptBuilder {
           role: AiChatRole.system,
           content:
               '# [5.10] Restored SessionStart Hook Context\n\n$restoredSessionStartHookContext',
+        ),
+      if (restoredToolAgentContext.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content:
+              '# [5.11] Restored Tool and Agent Listing\n\n$restoredToolAgentContext',
         ),
       ...latestUserTurns,
     ];
@@ -577,6 +599,7 @@ class AiPromptBuilder {
     required List<UserMemoryEntry> memoryEntries,
     required AiRepositorySnapshot? repositorySnapshot,
     required List<String> availableToolNames,
+    required Map<String, AiResolvedTool> resolvedToolsByName,
     required Map<String, String> mcpServerInstructionsByName,
     required AiSessionMessage? latestCompressionPoint,
   }) {
@@ -604,6 +627,11 @@ class AiPromptBuilder {
     final recentSessionStartHooks = _recentSessionStartHookAnchors(
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
+    );
+    final deferredTools = _postCompactDeferredBuiltinTools(resolvedToolsByName);
+    final taskAgentTypes = _postCompactTaskAgentTypes(
+      availableToolNames: availableToolNames,
+      resolvedToolsByName: resolvedToolsByName,
     );
     final restoredChannels = <String>[
       'system_instructions',
@@ -633,6 +661,8 @@ class AiPromptBuilder {
       if (recentReadFiles.isNotEmpty) 'recent_read_files',
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills',
       if (recentSessionStartHooks.isNotEmpty) 'session_start_hooks',
+      if (deferredTools.isNotEmpty) 'deferred_builtin_tools',
+      if (taskAgentTypes.isNotEmpty) 'agent_listing',
     ];
     return <String, Object?>{
       'active': latestCompressionPoint != null,
@@ -665,6 +695,13 @@ class AiPromptBuilder {
       'repository_snapshot_present': repositorySnapshot != null,
       'recent_read_file_count': recentReadFiles.length,
       'session_start_hook_count': recentSessionStartHooks.length,
+      'deferred_builtin_tool_count': deferredTools.length,
+      if (deferredTools.isNotEmpty)
+        'deferred_builtin_tool_names': deferredTools
+            .map((tool) => tool.name)
+            .toList(growable: false),
+      'agent_type_count': taskAgentTypes.length,
+      if (taskAgentTypes.isNotEmpty) 'agent_types': taskAgentTypes,
       if (recentReadFiles.isNotEmpty) 'recent_read_files': recentReadFiles,
       'invoked_skill_count': recentInvokedSkills.length,
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills': recentInvokedSkills,
@@ -2601,6 +2638,142 @@ $content
       lines.add('- [$status] $content');
     }
     return lines.join('\n');
+  }
+
+  String _renderPostCompactRestoredToolAgentContext({
+    required List<AiToolDefinition> availableTools,
+    required Map<String, AiResolvedTool> resolvedToolsByName,
+    required AiSessionMessage? latestCompressionPoint,
+  }) {
+    if (latestCompressionPoint == null) {
+      return '';
+    }
+    final availableToolNames = availableTools
+        .map((tool) => tool.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    final deferredTools = _postCompactDeferredBuiltinTools(resolvedToolsByName);
+    final taskAgentTypes = _postCompactTaskAgentTypes(
+      availableToolNames: availableToolNames,
+      resolvedToolsByName: resolvedToolsByName,
+    );
+    if (deferredTools.isEmpty && taskAgentTypes.isEmpty) {
+      return '';
+    }
+
+    final buffer = StringBuffer()
+      ..writeln(
+        'Tool and agent listing restored after compaction. The runtime tool catalog remains authoritative; this section re-announces deferred/lazy built-in tools and Task subagent choices that may have been summarized away.',
+      );
+
+    if (deferredTools.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## Deferred or Lazy Built-in Tools');
+      final renderedTools = deferredTools
+          .take(_postCompactRestoreMaxDeferredTools)
+          .toList(growable: false);
+      for (final tool in renderedTools) {
+        final config = tool.builtinConfig;
+        final kind = tool.builtinKind?.name ?? 'builtin';
+        final strategy = config?.loadStrategy.name ?? 'unknown';
+        final description = _firstNonEmptyLine(
+          tool.definition.description,
+          240,
+        );
+        buffer.writeln(
+          '- ${tool.name} (kind=$kind, load_strategy=$strategy)${description.isEmpty ? '' : ': $description'}',
+        );
+      }
+      final omitted = deferredTools.length - renderedTools.length;
+      if (omitted > 0) {
+        buffer.writeln('- [deferred_tools_truncated: omitted $omitted tools]');
+      }
+    }
+
+    if (taskAgentTypes.isNotEmpty) {
+      final taskToolName = _postCompactTaskToolName(
+        availableToolNames: availableToolNames,
+        resolvedToolsByName: resolvedToolsByName,
+      );
+      buffer
+        ..writeln()
+        ..writeln('## Task Subagents');
+      if (taskToolName.isNotEmpty) {
+        buffer.writeln('- Task tool: $taskToolName');
+      }
+      for (final type in taskAgentTypes) {
+        final description = AiTaskTool.subagentDescriptions[type]?.trim() ?? '';
+        buffer.writeln('- $type${description.isEmpty ? '' : ': $description'}');
+      }
+    }
+
+    return _truncateRestoredContextContent(
+      buffer.toString().trimRight(),
+      _postCompactRestoreMaxToolAgentChars,
+      'restored_tool_agent_listing_truncated',
+    );
+  }
+
+  List<AiResolvedTool> _postCompactDeferredBuiltinTools(
+    Map<String, AiResolvedTool> resolvedToolsByName,
+  ) {
+    final tools = resolvedToolsByName.values
+        .where(
+          (tool) =>
+              tool.source == AiRuntimeToolSource.builtin &&
+              tool.name.trim().isNotEmpty &&
+              tool.builtinConfig?.loadStrategy != null &&
+              tool.builtinConfig!.loadStrategy !=
+                  AiBuiltinToolLoadStrategy.eager,
+        )
+        .toList(growable: false);
+    tools.sort((left, right) {
+      final leftConfig = left.builtinConfig;
+      final rightConfig = right.builtinConfig;
+      final sortOrderCompare = (leftConfig?.sortOrder ?? 0).compareTo(
+        rightConfig?.sortOrder ?? 0,
+      );
+      if (sortOrderCompare != 0) return sortOrderCompare;
+      final priorityCompare = (leftConfig?.priority ?? 100).compareTo(
+        rightConfig?.priority ?? 100,
+      );
+      if (priorityCompare != 0) return priorityCompare;
+      return left.name.compareTo(right.name);
+    });
+    return tools;
+  }
+
+  List<String> _postCompactTaskAgentTypes({
+    required List<String> availableToolNames,
+    required Map<String, AiResolvedTool> resolvedToolsByName,
+  }) {
+    if (_postCompactTaskToolName(
+      availableToolNames: availableToolNames,
+      resolvedToolsByName: resolvedToolsByName,
+    ).isEmpty) {
+      return const <String>[];
+    }
+    return AiTaskTool.subagentDescriptions.keys.toList(growable: false);
+  }
+
+  String _postCompactTaskToolName({
+    required List<String> availableToolNames,
+    required Map<String, AiResolvedTool> resolvedToolsByName,
+  }) {
+    for (final tool in resolvedToolsByName.values) {
+      if (tool.source == AiRuntimeToolSource.builtin &&
+          tool.builtinKind == AiBuiltinToolKind.task &&
+          tool.name.trim().isNotEmpty) {
+        return tool.name.trim();
+      }
+    }
+    for (final name in availableToolNames) {
+      if (name == 'Task') {
+        return name;
+      }
+    }
+    return '';
   }
 
   String _renderPostCompactRestoredSessionStartHookContext({

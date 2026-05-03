@@ -21,7 +21,7 @@ class AiTaskTool extends AiTool {
   final AiChatClient _backgroundChatClient;
   final AiClaudeHookService _hookService;
 
-  static const Map<String, String> _subagentDescriptions = <String, String>{
+  static const Map<String, String> subagentDescriptions = <String, String>{
     'general-purpose':
         'General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks.',
     'research':
@@ -54,11 +54,11 @@ class AiTaskTool extends AiTool {
     if (canonicalSubagentType == null) {
       return AiToolUtils.invalidResult(
         'Task',
-        'Unsupported subagent_type "$subagentType". Available types: ${_subagentDescriptions.keys.join(', ')}',
+        'Unsupported subagent_type "$subagentType". Available types: ${subagentDescriptions.keys.join(', ')}',
       );
     }
     final subagentProfile =
-        _subagentDescriptions[canonicalSubagentType] ??
+        subagentDescriptions[canonicalSubagentType] ??
         'Focused background agent.';
     final subagentToolEntries = context.catalog.toolsByName.entries
         .where(
@@ -284,7 +284,7 @@ class AiTaskTool extends AiTool {
   String? _canonical(String rawType) {
     final normalized = rawType.trim().toLowerCase();
     if (normalized.isEmpty) return null;
-    return _subagentDescriptions.containsKey(normalized) ? normalized : null;
+    return subagentDescriptions.containsKey(normalized) ? normalized : null;
   }
 
   Map<String, Object?> _decodeArguments(String rawArguments) {
