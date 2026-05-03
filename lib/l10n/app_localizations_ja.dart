@@ -2578,6 +2578,23 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedHistoryExportMarkdown => 'Markdown としてコピー';
 
   @override
+  String get snackToolSearchLoadedHistoryExportSaveCsv => 'CSV として保存…';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveMarkdown =>
+      'Markdown として保存…';
+
+  @override
+  String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
+    return '$count 件を $path に保存しました';
+  }
+
+  @override
+  String snackToolSearchLoadedHistoryExportSaveFailedToast(String error) {
+    return '保存に失敗しました：$error';
+  }
+
+  @override
   String get snackToolSearchLoadedHistoryExportEmptyToast =>
       'フィルター適用後の履歴が空です。エクスポートできません。';
 

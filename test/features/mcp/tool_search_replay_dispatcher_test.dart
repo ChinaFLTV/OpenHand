@@ -147,4 +147,36 @@ void main() {
       expect(fired, 1, reason: 'override should fire well before defaultWindow');
     });
   });
+
+  test('pendingListenable broadcasts true on schedule, false on fire', () {
+    fakeAsync((async) {
+      final dispatcher = ToolSearchReplayDispatcher(
+        defaultWindow: const Duration(milliseconds: 100),
+      );
+      final transitions = <bool>[];
+      dispatcher.pendingListenable
+          .addListener(() => transitions.add(dispatcher.pendingListenable.value));
+
+      dispatcher.schedule(onFire: () async {}, onCancel: () {});
+      async.elapse(const Duration(milliseconds: 150));
+      expect(transitions, [true, false]);
+    });
+  });
+
+  test('pendingListenable broadcasts true on schedule, false on cancel', () {
+    fakeAsync((async) {
+      final dispatcher = ToolSearchReplayDispatcher(
+        defaultWindow: const Duration(seconds: 10),
+      );
+      final transitions = <bool>[];
+      dispatcher.pendingListenable
+          .addListener(() => transitions.add(dispatcher.pendingListenable.value));
+
+      dispatcher.schedule(onFire: () async {}, onCancel: () {});
+      dispatcher.cancel();
+      // Drain microtasks so the cancel branch's setter notifies.
+      async.flushMicrotasks();
+      expect(transitions, [true, false]);
+    });
+  });
 }

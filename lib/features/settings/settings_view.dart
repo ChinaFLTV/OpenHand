@@ -2849,12 +2849,20 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
         const SizedBox(height: 18),
-        _buildHardnessToolSearchHistoryRow(context, settingsController, l10n),
+        _FirstFramePulseBox(
+          child: _buildHardnessToolSearchHistoryRow(
+            context,
+            settingsController,
+            l10n,
+          ),
+        ),
         const SizedBox(height: 18),
-        _buildToolSearchReplayCancelWindowRow(
-          context,
-          settingsController,
-          l10n,
+        _FirstFramePulseBox(
+          child: _buildToolSearchReplayCancelWindowRow(
+            context,
+            settingsController,
+            l10n,
+          ),
         ),
       ],
     );
@@ -2906,18 +2914,29 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ],
           ),
-          Slider(
-            min: minCap.toDouble(),
-            max: maxCap.toDouble(),
-            divisions: maxCap - minCap,
-            value: cap.clamp(minCap, maxCap).toDouble(),
-            label: '$cap',
-            onChanged: (value) async {
+          _KeyTweakableSlider(
+            value: cap,
+            min: minCap,
+            max: maxCap,
+            onChanged: (next) async {
               final saved = await settingsController
-                  .updateHardnessToolSearchHistoryMaxPhases(value.round());
+                  .updateHardnessToolSearchHistoryMaxPhases(next);
               if (!context.mounted || saved) return;
               _showPersistenceFailureSnackBar(context);
             },
+            buildSlider: (context, value) => Slider(
+              min: minCap.toDouble(),
+              max: maxCap.toDouble(),
+              divisions: maxCap - minCap,
+              value: value.clamp(minCap, maxCap).toDouble(),
+              label: '$value',
+              onChanged: (v) async {
+                final saved = await settingsController
+                    .updateHardnessToolSearchHistoryMaxPhases(v.round());
+                if (!context.mounted || saved) return;
+                _showPersistenceFailureSnackBar(context);
+              },
+            ),
           ),
           Text(
             l10n.settingsHardnessToolSearchHistoryCapRange(minCap, maxCap),
@@ -2976,18 +2995,29 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ],
           ),
-          Slider(
-            min: minSec.toDouble(),
-            max: maxSec.toDouble(),
-            divisions: maxSec - minSec,
-            value: seconds.clamp(minSec, maxSec).toDouble(),
-            label: '${seconds}s',
-            onChanged: (value) async {
+          _KeyTweakableSlider(
+            value: seconds,
+            min: minSec,
+            max: maxSec,
+            onChanged: (next) async {
               final saved = await settingsController
-                  .updateToolSearchReplayCancelWindowSeconds(value.round());
+                  .updateToolSearchReplayCancelWindowSeconds(next);
               if (!context.mounted || saved) return;
               _showPersistenceFailureSnackBar(context);
             },
+            buildSlider: (context, value) => Slider(
+              min: minSec.toDouble(),
+              max: maxSec.toDouble(),
+              divisions: maxSec - minSec,
+              value: value.clamp(minSec, maxSec).toDouble(),
+              label: '${value}s',
+              onChanged: (v) async {
+                final saved = await settingsController
+                    .updateToolSearchReplayCancelWindowSeconds(v.round());
+                if (!context.mounted || saved) return;
+                _showPersistenceFailureSnackBar(context);
+              },
+            ),
           ),
           Text(
             l10n.settingsToolSearchReplayCancelWindowRange(minSec, maxSec),

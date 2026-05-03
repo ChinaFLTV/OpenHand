@@ -1,8 +1,13 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../ai/service/mcp_loaded_tools_tracker.dart';
+import '../service/tool_search_history_serializer.dart';
 
 /// 弹出 [ToolSearchLoadedDialog] 的便捷入口。
 /// 复用方：[OpenHandHomePage] 的 SnackBar action、MCP 设置页快捷入口、
@@ -218,8 +223,11 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   }
 
   /// 把当前 [_history]（应用 [_historyFilterQuery]、[_historyFilterSource] 之后）
-  /// 序列化为 CSV 或 Markdown 表，写入剪贴板。
-  Future<void> _handleExportHistory(_HistoryExportFormat format) async {
+  /// 序列化为 CSV 或 Markdown，并按 [action] 选择目的地：
+  ///   - copy: 写入系统剪贴板，Toast 行数；
+  ///   - save: 调 file_selector 让用户挑文件，写盘后 Toast 路径。
+  /// 任一步骤失败均仅吐 SnackBar，不抛出。
+  Future<void> _handleExportHistory(_HistoryExportAction action) async {
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
     final entries = _filterHistory(_history);
@@ -232,75 +240,92 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       );
       return;
     }
-    final payload = format == _HistoryExportFormat.csv
-        ? _serializeHistoryAsCsv(entries)
-        : _serializeHistoryAsMarkdown(entries);
-    await Clipboard.setData(ClipboardData(text: payload));
+    final isCsv = action.format == _HistoryExportFormat.csv;
+    final payload = isCsv
+        ? ToolSearchHistorySerializer.toCsv(entries)
+        : ToolSearchHistorySerializer.toMarkdown(entries);
+    if (action.destination == _HistoryExportDestination.clipboard) {
+      await Clipboard.setData(ClipboardData(text: payload));
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.snackToolSearchLoadedHistoryExportedToast(entries.length),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    // Save-to-file branch.
+    final ext = isCsv ? 'csv' : 'md';
+    final stamp = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    final suggested = 'tool_search_history_$stamp.$ext';
+    final typeGroup = XTypeGroup(
+      label: isCsv ? 'CSV' : 'Markdown',
+      extensions: <String>[ext],
+    );
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: suggested,
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+      );
+    } catch (error, stack) {
+      silentLog(
+        'tool_search_loaded_dialog',
+        '_handleExportHistory.getSaveLocation',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (location == null) return;
+    try {
+      await File(location.path).writeAsString(payload, flush: true);
+    } catch (error, stack) {
+      silentLog(
+        'tool_search_loaded_dialog',
+        '_handleExportHistory.writeAsString',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
         content: Text(
-          l10n.snackToolSearchLoadedHistoryExportedToast(entries.length),
+          l10n.snackToolSearchLoadedHistoryExportSavedToast(
+            entries.length,
+            location.path,
+          ),
         ),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
-
-  String _serializeHistoryAsCsv(List<AiToolSearchLoadHistoryEntry> entries) {
-    final buf = StringBuffer()
-      ..writeln('timestamp,source,query,added_count,total_deferred,added_names');
-    for (final e in entries) {
-      buf
-        ..write(_csvEscape(e.timestamp.toIso8601String()))
-        ..write(',')
-        ..write(_csvEscape(e.source.name))
-        ..write(',')
-        ..write(_csvEscape(e.query))
-        ..write(',')
-        ..write(e.addedCount)
-        ..write(',')
-        ..write(e.totalDeferred)
-        ..write(',')
-        ..writeln(_csvEscape(e.addedNames.join(';')));
-    }
-    return buf.toString();
-  }
-
-  String _csvEscape(String raw) {
-    if (raw.isEmpty) return '';
-    final needsQuote = raw.contains(',') ||
-        raw.contains('"') ||
-        raw.contains('\n') ||
-        raw.contains('\r');
-    if (!needsQuote) return raw;
-    return '"${raw.replaceAll('"', '""')}"';
-  }
-
-  String _serializeHistoryAsMarkdown(
-    List<AiToolSearchLoadHistoryEntry> entries,
-  ) {
-    final buf = StringBuffer()
-      ..writeln('| Timestamp | Source | Query | +Added / Deferred | Names |')
-      ..writeln('| --- | --- | --- | --- | --- |');
-    for (final e in entries) {
-      buf
-        ..write('| `')
-        ..write(e.timestamp.toIso8601String())
-        ..write('` | ')
-        ..write(e.source.name)
-        ..write(' | ')
-        ..write(_mdEscape(e.query))
-        ..write(' | ')
-        ..write('+${e.addedCount} / ${e.totalDeferred}')
-        ..write(' | ')
-        ..writeln('${_mdEscape(e.addedNames.join(', '))} |');
-    }
-    return buf.toString();
-  }
-
-  String _mdEscape(String raw) =>
-      raw.replaceAll('|', r'\|').replaceAll('\n', ' ');
 
   /// 把 [_groupByServer] 的结果按 [_filterQuery] 做大小写不敏感子串过滤，
   /// 仅保留至少有一项命中的分组；分组内只保留命中条目。
@@ -478,20 +503,31 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               ),
             ),
             const SizedBox(width: 8),
-            PopupMenuButton<_HistoryExportFormat>(
+            PopupMenuButton<_HistoryExportAction>(
               tooltip: l10n.snackToolSearchLoadedHistoryExportTooltip,
               icon: const Icon(Icons.ios_share_rounded, size: 18),
               padding: EdgeInsets.zero,
               onSelected: _handleExportHistory,
-              itemBuilder: (context) => <PopupMenuEntry<_HistoryExportFormat>>[
-                PopupMenuItem<_HistoryExportFormat>(
-                  value: _HistoryExportFormat.csv,
+              itemBuilder: (context) => <PopupMenuEntry<_HistoryExportAction>>[
+                PopupMenuItem<_HistoryExportAction>(
+                  value: _HistoryExportAction.copyCsv,
                   child: Text(l10n.snackToolSearchLoadedHistoryExportCsv),
                 ),
-                PopupMenuItem<_HistoryExportFormat>(
-                  value: _HistoryExportFormat.markdown,
+                PopupMenuItem<_HistoryExportAction>(
+                  value: _HistoryExportAction.copyMarkdown,
                   child:
                       Text(l10n.snackToolSearchLoadedHistoryExportMarkdown),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem<_HistoryExportAction>(
+                  value: _HistoryExportAction.saveCsv,
+                  child: Text(l10n.snackToolSearchLoadedHistoryExportSaveCsv),
+                ),
+                PopupMenuItem<_HistoryExportAction>(
+                  value: _HistoryExportAction.saveMarkdown,
+                  child: Text(
+                    l10n.snackToolSearchLoadedHistoryExportSaveMarkdown,
+                  ),
                 ),
               ],
             ),
@@ -820,3 +856,21 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
 
 /// 历史导出格式：CSV（电子表格）或 Markdown 表（README/issue 粘贴）。
 enum _HistoryExportFormat { csv, markdown }
+
+/// 历史导出目的地：剪贴板（快速）或文件（持久化）。
+enum _HistoryExportDestination { clipboard, file }
+
+/// PopupMenu 单项一对一对应「目的地 × 格式」组合。
+enum _HistoryExportAction {
+  copyCsv(_HistoryExportFormat.csv, _HistoryExportDestination.clipboard),
+  copyMarkdown(
+    _HistoryExportFormat.markdown,
+    _HistoryExportDestination.clipboard,
+  ),
+  saveCsv(_HistoryExportFormat.csv, _HistoryExportDestination.file),
+  saveMarkdown(_HistoryExportFormat.markdown, _HistoryExportDestination.file);
+
+  const _HistoryExportAction(this.format, this.destination);
+  final _HistoryExportFormat format;
+  final _HistoryExportDestination destination;
+}

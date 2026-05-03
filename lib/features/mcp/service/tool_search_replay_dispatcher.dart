@@ -14,6 +14,8 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 /// 在「新建一个独立 AI session 后再重放 select: 查询」这个两步流程中，
 /// 把 createSession / replay 的回调编排抽到一个纯函数里，方便单元测试
 /// 验证「session 一定先于 replay 创建」这条契约。
@@ -48,6 +50,15 @@ class ToolSearchReplayDispatcher {
   bool _settled = false;
   bool _disposed = false;
 
+  /// 广播「当前是否有 pending 的反悔窗口在跑」。订阅者（例如 hardness phase
+  /// header、托盘指示器）只读地监听此 [ValueListenable]：
+  ///   - true：用户刚点过「重放」，正在 [defaultWindow] 内可以撤销
+  ///   - false：要么从未调度过，要么已 fire / 已 cancel / 已 dispose
+  /// 注意：这只是 hasPending 的镜像，不发任何业务负载（names/query 等）；
+  /// 调用方若需要业务数据，请用 schedule 的回调闭包自行传递。
+  ValueListenable<bool> get pendingListenable => _pendingNotifier;
+  final ValueNotifier<bool> _pendingNotifier = ValueNotifier<bool>(false);
+
   /// 是否还有 pending 的 timer 等待触发。
   bool get hasPending => _timer != null && !_settled;
 
@@ -66,9 +77,11 @@ class ToolSearchReplayDispatcher {
       if (_disposed || _settled) return;
       _settled = true;
       _timer = null;
+      _setPending(false);
       await onFire();
     });
     _pendingCancel = onCancel;
+    _setPending(true);
   }
 
   void Function()? _pendingCancel;
@@ -81,6 +94,7 @@ class ToolSearchReplayDispatcher {
     _settled = true;
     final cb = _pendingCancel;
     _pendingCancel = null;
+    _setPending(false);
     cb?.call();
   }
 
@@ -90,5 +104,12 @@ class ToolSearchReplayDispatcher {
     _timer?.cancel();
     _timer = null;
     _pendingCancel = null;
+    _setPending(false);
+    _pendingNotifier.dispose();
+  }
+
+  void _setPending(bool value) {
+    if (_pendingNotifier.value == value) return;
+    _pendingNotifier.value = value;
   }
 }

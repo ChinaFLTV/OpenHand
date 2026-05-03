@@ -4900,6 +4900,30 @@ abstract class AppLocalizations {
   /// **'复制为 Markdown'**
   String get snackToolSearchLoadedHistoryExportMarkdown;
 
+  /// No description provided for @snackToolSearchLoadedHistoryExportSaveCsv.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存为 CSV…'**
+  String get snackToolSearchLoadedHistoryExportSaveCsv;
+
+  /// No description provided for @snackToolSearchLoadedHistoryExportSaveMarkdown.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存为 Markdown…'**
+  String get snackToolSearchLoadedHistoryExportSaveMarkdown;
+
+  /// No description provided for @snackToolSearchLoadedHistoryExportSavedToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已保存 {count} 条到 {path}'**
+  String snackToolSearchLoadedHistoryExportSavedToast(int count, String path);
+
+  /// No description provided for @snackToolSearchLoadedHistoryExportSaveFailedToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存失败：{error}'**
+  String snackToolSearchLoadedHistoryExportSaveFailedToast(String error);
+
   /// No description provided for @snackToolSearchLoadedHistoryExportEmptyToast.
   ///
   /// In zh_Hans, this message translates to:

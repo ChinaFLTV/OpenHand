@@ -2547,6 +2547,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedHistoryExportMarkdown => '复制为 Markdown';
 
   @override
+  String get snackToolSearchLoadedHistoryExportSaveCsv => '保存为 CSV…';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveMarkdown => '保存为 Markdown…';
+
+  @override
+  String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
+    return '已保存 $count 条到 $path';
+  }
+
+  @override
+  String snackToolSearchLoadedHistoryExportSaveFailedToast(String error) {
+    return '保存失败：$error';
+  }
+
+  @override
   String get snackToolSearchLoadedHistoryExportEmptyToast => '过滤后历史为空，无可导出。';
 
   @override
@@ -7087,6 +7103,22 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedHistoryExportMarkdown => '复制为 Markdown';
 
   @override
+  String get snackToolSearchLoadedHistoryExportSaveCsv => '保存为 CSV…';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveMarkdown => '保存为 Markdown…';
+
+  @override
+  String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
+    return '已保存 $count 条到 $path';
+  }
+
+  @override
+  String snackToolSearchLoadedHistoryExportSaveFailedToast(String error) {
+    return '保存失败：$error';
+  }
+
+  @override
   String get snackToolSearchLoadedHistoryExportEmptyToast => '过滤后历史为空，无可导出。';
 
   @override
@@ -11624,6 +11656,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedHistoryExportMarkdown => '複製為 Markdown';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveCsv => '另存為 CSV…';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveMarkdown => '另存為 Markdown…';
+
+  @override
+  String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
+    return '已存檔 $count 條至 $path';
+  }
+
+  @override
+  String snackToolSearchLoadedHistoryExportSaveFailedToast(String error) {
+    return '存檔失敗：$error';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryExportEmptyToast => '篩選後歷史為空，無可匯出。';

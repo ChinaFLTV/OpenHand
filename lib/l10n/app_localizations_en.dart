@@ -2689,6 +2689,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackToolSearchLoadedHistoryExportMarkdown => 'Copy as Markdown';
 
   @override
+  String get snackToolSearchLoadedHistoryExportSaveCsv => 'Save as CSV…';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportSaveMarkdown =>
+      'Save as Markdown…';
+
+  @override
+  String snackToolSearchLoadedHistoryExportSavedToast(int count, String path) {
+    return 'Saved $count entries to $path';
+  }
+
+  @override
+  String snackToolSearchLoadedHistoryExportSaveFailedToast(String error) {
+    return 'Failed to save: $error';
+  }
+
+  @override
   String get snackToolSearchLoadedHistoryExportEmptyToast =>
       'History is empty (after filter); nothing to export.';
 
