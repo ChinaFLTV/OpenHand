@@ -20,6 +20,16 @@ class AiToolSearchLoadedEvent {
   int get loadedCount => loadedNames.length;
 }
 
+/// 单次 `ToolSearch` 加载在历史时间线中的来源类别，用于在 dialog 上贴
+/// 一个区分标签（普通 AI session vs Hardness phase）。
+enum AiToolSearchLoadSource {
+  /// 普通 AI 会话内部的 ToolSearch 调用。
+  aiSession,
+
+  /// 硬度工程 phase（HardnessApiPhaseRunner）内部的 ToolSearch 调用。
+  hardnessPhase,
+}
+
 /// 单次 `ToolSearch` 加载在历史时间线中的一条记录。
 @immutable
 class AiToolSearchLoadHistoryEntry {
@@ -28,6 +38,7 @@ class AiToolSearchLoadHistoryEntry {
     required this.query,
     required this.addedNames,
     required this.totalDeferred,
+    this.source = AiToolSearchLoadSource.aiSession,
   });
 
   /// 触发时间（UTC）。
@@ -41,6 +52,9 @@ class AiToolSearchLoadHistoryEntry {
 
   /// 本轮 catalog 中处于 deferred 状态的总数（来自工具元数据回填）。
   final int totalDeferred;
+
+  /// 触发来源（普通 AI session / 硬度 phase），用于 UI 上贴一个识别标签。
+  final AiToolSearchLoadSource source;
 
   int get addedCount => addedNames.length;
 }

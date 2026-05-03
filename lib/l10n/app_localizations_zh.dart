@@ -2452,6 +2452,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedFilterHint => '按名字过滤…';
 
   @override
+  String get snackToolSearchLoadedHistoryFilterHint => '按名字或查询过滤…';
+
+  @override
+  String get snackToolSearchLoadedSourceAi => 'AI 会话';
+
+  @override
+  String get snackToolSearchLoadedSourceHardness => 'Hardness 阶段';
+
+  @override
   String get snackToolSearchLoadedHistoryReplayAction => '把本次复制为 select:…';
 
   @override
@@ -6895,6 +6904,15 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedFilterHint => '按名字过滤…';
 
   @override
+  String get snackToolSearchLoadedHistoryFilterHint => '按名字或查询过滤…';
+
+  @override
+  String get snackToolSearchLoadedSourceAi => 'AI 会话';
+
+  @override
+  String get snackToolSearchLoadedSourceHardness => 'Hardness 阶段';
+
+  @override
   String get snackToolSearchLoadedHistoryReplayAction => '把本次复制为 select:…';
 
   @override
@@ -11335,6 +11353,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedFilterHint => '依名稱過濾…';
+
+  @override
+  String get snackToolSearchLoadedHistoryFilterHint => '依名稱或查詢過濾…';
+
+  @override
+  String get snackToolSearchLoadedSourceAi => 'AI 對話';
+
+  @override
+  String get snackToolSearchLoadedSourceHardness => 'Hardness 階段';
 
   @override
   String get snackToolSearchLoadedHistoryReplayAction => '把本次複製為 select:…';

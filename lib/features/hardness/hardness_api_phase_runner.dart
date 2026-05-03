@@ -146,6 +146,7 @@ class HardnessApiPhaseRunner {
     required AiPromptTemplateRepository templateRepository,
     this.confirmWriteCommand,
     this.onToolSearchLoaded,
+    this.onPhaseEnded,
   }) : _chatClient = chatClient,
        _toolRuntimeService = toolRuntimeService,
        _templateRepository = templateRepository;
@@ -168,6 +169,11 @@ class HardnessApiPhaseRunner {
     required String query,
   })?
   onToolSearchLoaded;
+
+  /// 当一个 phase 真正结束（无论 success/failure/cancel）时被回调一次。
+  /// 调用方可借此清理与 `phaseSessionId` 相关的 UI 累计缓存（例如
+  /// ToolSearch 加载历史时间线），避免长会话累积。
+  final void Function({required String phaseSessionId})? onPhaseEnded;
 
   /// Per-phase-session record of MCP tools that ToolSearch already pulled in,
   /// keyed by `phaseSessionId`. Mirrors `AiSessionController._loadedMcpToolsBySession`.
@@ -195,6 +201,10 @@ class HardnessApiPhaseRunner {
   /// [persistenceDirectory] is the session persistence root for handoff docs.
   /// [onLine] streams output lines for real-time display.
   /// [cancelSignal] can be used to abort the execution.
+  /// 公开入口。在调用真正的 phase 执行体前，先把 `phaseSessionId` 计算
+  /// 出来，并以 try/finally 形式保证 `onPhaseEnded` 总会被回调一次（不论
+  /// 成功 / 失败 / 异常 / 取消）。调用方可借此清理与该 phase 相关的 UI
+  /// 累计缓存（如 ToolSearch 加载历史时间线）。
   Future<HardnessApiPhaseResult> runPhase({
     required AiModelConfig model,
     required HardnessPhase phase,
@@ -204,6 +214,37 @@ class HardnessApiPhaseRunner {
     required void Function(String line) onLine,
     required bool requireWriteCommandConfirmation,
     Future<void>? cancelSignal,
+  }) async {
+    final phaseSessionId = phase == HardnessPhase.reviewing
+        ? 'hardness-reviewer-isolated-${DateTime.now().millisecondsSinceEpoch}'
+        : 'hardness-phase-${phase.storageValue}';
+    try {
+      return await _runPhaseInner(
+        model: model,
+        phase: phase,
+        phasePrompt: phasePrompt,
+        runtimeContext: runtimeContext,
+        persistenceDirectory: persistenceDirectory,
+        onLine: onLine,
+        requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+        cancelSignal: cancelSignal,
+        phaseSessionId: phaseSessionId,
+      );
+    } finally {
+      onPhaseEnded?.call(phaseSessionId: phaseSessionId);
+    }
+  }
+
+  Future<HardnessApiPhaseResult> _runPhaseInner({
+    required AiModelConfig model,
+    required HardnessPhase phase,
+    required String phasePrompt,
+    required AiSessionRuntimeContext runtimeContext,
+    required String persistenceDirectory,
+    required void Function(String line) onLine,
+    required bool requireWriteCommandConfirmation,
+    Future<void>? cancelSignal,
+    required String phaseSessionId,
   }) async {
     _handoffSessionCounter = 0;
     final outputLines = <String>[];
@@ -215,13 +256,8 @@ class HardnessApiPhaseRunner {
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     final supportsTools = adapter.supportsToolCalls;
 
-    // Use a unique session ID for each phase execution. For the reviewing
-    // phase, append a random suffix to guarantee full isolation from any
-    // prior implementing phase — preventing implicit state leakage that
-    // could lead to self-evaluation bias.
-    final phaseSessionId = phase == HardnessPhase.reviewing
-        ? 'hardness-reviewer-isolated-${DateTime.now().millisecondsSinceEpoch}'
-        : 'hardness-phase-${phase.storageValue}';
+    // phaseSessionId is computed by the public `runPhase` wrapper and passed
+    // in, so the same id flows to both the inner body and `onPhaseEnded`.
 
     // Resolve tool catalog (builtin + MCP + skills) — same as default thread.
     final rawToolCatalog = supportsTools

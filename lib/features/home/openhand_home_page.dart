@@ -1280,6 +1280,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               onClear: controller == null
                   ? null
                   : () => controller.clearLoadedMcpToolsForSession(sessionId),
+              onReplayBatch: _replayToolSearchSelectQuery,
             );
           },
         ),
@@ -1311,6 +1312,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       query: query,
       addedNames: loadedNames,
       totalDeferred: totalDeferred,
+      source: AiToolSearchLoadSource.hardnessPhase,
     );
     (_hardnessToolSearchHistory[phaseSessionId] ??=
             <AiToolSearchLoadHistoryEntry>[])
@@ -1343,11 +1345,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  /// HardnessApiPhaseRunner.runPhase 在结束（成功/失败/取消/异常）时回调
+  /// 本方法。借机清理 [_hardnessToolSearchHistory] 中与该 phase 关联的
+  /// 加载历史，避免长期累积。
+  void _handleHardnessPhaseEnded({required String phaseSessionId}) {
+    _hardnessToolSearchHistory.remove(phaseSessionId);
+  }
+
   void _showToolSearchLoadedDialog({
     required List<String> names,
     void Function()? onClear,
     List<AiToolSearchLoadHistoryEntry> history =
         const <AiToolSearchLoadHistoryEntry>[],
+    Future<void> Function(List<String> names)? onReplayBatch,
   }) {
     if (!mounted) return;
     unawaited(
@@ -1356,8 +1366,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         names: names,
         onClear: onClear,
         history: history,
+        onReplayBatch: onReplayBatch,
       ),
     );
+  }
+
+  /// 把一组 MCP 工具名打包成 `select:N1, select:N2, …`，写进 composer
+  /// 并立即提交，等价于用户手动复制粘贴后回车，但省掉中间环节。
+  /// 由 [_showToolSearchLoadedDialog] 历史条目点击触发。
+  Future<void> _replayToolSearchSelectQuery(List<String> names) async {
+    if (!mounted || names.isEmpty) return;
+    final query = names.map((n) => 'select:$n').join(', ');
+    _composerController.value = TextEditingValue(
+      text: query,
+      selection: TextSelection.collapsed(offset: query.length),
+    );
+    await _sendMessage();
   }
 
   void _scheduleSessionControllerUiSync() {
@@ -2680,6 +2704,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       templateRepository: aiCtrl.templateRepository,
       confirmWriteCommand: _confirmHardnessApiWriteCommand,
       onToolSearchLoaded: _handleHardnessToolSearchLoaded,
+      onPhaseEnded: _handleHardnessPhaseEnded,
     );
     orchestrator.resolveAiModelConfig = (String configId) {
       final settingsCtrl = context.read<SettingsController>();

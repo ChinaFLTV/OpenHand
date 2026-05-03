@@ -4744,6 +4744,24 @@ abstract class AppLocalizations {
   /// **'按名字过滤…'**
   String get snackToolSearchLoadedFilterHint;
 
+  /// No description provided for @snackToolSearchLoadedHistoryFilterHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按名字或查询过滤…'**
+  String get snackToolSearchLoadedHistoryFilterHint;
+
+  /// No description provided for @snackToolSearchLoadedSourceAi.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'AI 会话'**
+  String get snackToolSearchLoadedSourceAi;
+
+  /// No description provided for @snackToolSearchLoadedSourceHardness.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hardness 阶段'**
+  String get snackToolSearchLoadedSourceHardness;
+
   /// No description provided for @snackToolSearchLoadedHistoryReplayAction.
   ///
   /// In zh_Hans, this message translates to:

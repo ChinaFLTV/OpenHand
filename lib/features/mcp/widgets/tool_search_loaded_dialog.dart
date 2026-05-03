@@ -13,6 +13,7 @@ Future<void> showToolSearchLoadedDialog(
   void Function()? onClear,
   List<AiToolSearchLoadHistoryEntry> history =
       const <AiToolSearchLoadHistoryEntry>[],
+  Future<void> Function(List<String> names)? onReplayBatch,
 }) {
   return showDialog<void>(
     context: context,
@@ -20,6 +21,7 @@ Future<void> showToolSearchLoadedDialog(
       initialNames: names,
       onClear: onClear,
       initialHistory: history,
+      onReplayBatch: onReplayBatch,
     ),
   );
 }
@@ -34,11 +36,18 @@ class ToolSearchLoadedDialog extends StatefulWidget {
     required this.initialNames,
     this.onClear,
     this.initialHistory = const <AiToolSearchLoadHistoryEntry>[],
+    this.onReplayBatch,
   });
 
   final List<String> initialNames;
   final void Function()? onClear;
   final List<AiToolSearchLoadHistoryEntry> initialHistory;
+
+  /// 当用户点击「加载历史」中的某一条目时被调用：调用方应直接重新发起
+  /// 一次 `select:N1, select:N2,...` 的 ToolSearch 调用（一般做法是把
+  /// 文本填入 composer 然后立刻 submit），从而省去用户手动复制粘贴。
+  /// 为 `null` 时退化为复制到剪贴板的旧行为。
+  final Future<void> Function(List<String> names)? onReplayBatch;
 
   @override
   State<ToolSearchLoadedDialog> createState() => _ToolSearchLoadedDialogState();
@@ -108,10 +117,14 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   );
   final TextEditingController _filterController = TextEditingController();
   String _filterQuery = '';
+  final TextEditingController _historyFilterController =
+      TextEditingController();
+  String _historyFilterQuery = '';
 
   @override
   void dispose() {
     _filterController.dispose();
+    _historyFilterController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -165,6 +178,15 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     AiToolSearchLoadHistoryEntry entry,
   ) async {
     if (entry.addedNames.isEmpty) return;
+    final cb = widget.onReplayBatch;
+    if (cb != null) {
+      // 直接重新调用 ToolSearch：先关闭 dialog 再交给上游执行（一般是
+      // 把 select: 文本填入 composer 并触发 submit）。
+      Navigator.of(context).pop();
+      await cb(entry.addedNames);
+      return;
+    }
+    // 退化路径：未提供 onReplayBatch 时，回退为复制到剪贴板。
     final payload = entry.addedNames.map((n) => 'select:$n').join(', ');
     await Clipboard.setData(ClipboardData(text: payload));
     if (!mounted) return;
@@ -339,30 +361,80 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     }
     // Show newest first.
     final reversed = _history.reversed.toList(growable: false);
+    final filtered = _filterHistory(reversed);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: _handleClearHistory,
-            icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-            label: Text(l10n.snackToolSearchLoadedHistoryClearAction),
-          ),
-        ),
-        Expanded(
-          child: Scrollbar(
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: reversed.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (_, index) =>
-                  _buildHistoryEntry(context, l10n, reversed[index]),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _historyFilterController,
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                  hintText: l10n.snackToolSearchLoadedHistoryFilterHint,
+                  suffixIcon: _historyFilterQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 16),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            _historyFilterController.clear();
+                            setState(() => _historyFilterQuery = '');
+                          },
+                        ),
+                  border: const OutlineInputBorder(),
+                ),
+                onChanged: (v) => setState(() => _historyFilterQuery = v),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: _handleClearHistory,
+              icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+              label: Text(l10n.snackToolSearchLoadedHistoryClearAction),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: filtered.isEmpty
+              ? Align(
+                  alignment: Alignment.topLeft,
+                  child: Text(
+                    l10n.snackToolSearchLoadedHistoryEmpty,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                )
+              : Scrollbar(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, index) =>
+                        _buildHistoryEntry(context, l10n, filtered[index]),
+                  ),
+                ),
         ),
       ],
     );
+  }
+
+  /// 按 [_historyFilterQuery] 同时匹配 entry.query 与 entry.addedNames，
+  /// 大小写不敏感子串匹配；空查询返回原列表。
+  List<AiToolSearchLoadHistoryEntry> _filterHistory(
+    List<AiToolSearchLoadHistoryEntry> entries,
+  ) {
+    final q = _historyFilterQuery.trim().toLowerCase();
+    if (q.isEmpty) return entries;
+    return entries
+        .where(
+          (e) =>
+              e.query.toLowerCase().contains(q) ||
+              e.addedNames.any((n) => n.toLowerCase().contains(q)),
+        )
+        .toList(growable: false);
   }
 
   Widget _buildHistoryEntry(
@@ -410,6 +482,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                     color: theme.colorScheme.primary,
                   ),
                 ),
+                const SizedBox(width: 8),
+                _buildSourceChip(theme, l10n, entry.source),
                 const Spacer(),
                 IconButton(
                   tooltip: l10n.snackToolSearchLoadedHistoryReplayAction,
@@ -527,6 +601,37 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// 渲染来源标签 Chip：区分 AI 会话 / Hardness 阶段，方便用户快速辨识
+  /// 同一历史时间线中的来源。
+  Widget _buildSourceChip(
+    ThemeData theme,
+    AppLocalizations l10n,
+    AiToolSearchLoadSource source,
+  ) {
+    final isHardness = source == AiToolSearchLoadSource.hardnessPhase;
+    final label = isHardness
+        ? l10n.snackToolSearchLoadedSourceHardness
+        : l10n.snackToolSearchLoadedSourceAi;
+    final color = isHardness
+        ? theme.colorScheme.tertiary
+        : theme.colorScheme.secondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

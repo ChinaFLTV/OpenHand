@@ -2634,6 +2634,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get snackToolSearchLoadedFilterHint => 'Filtrer par nom…';
 
   @override
+  String get snackToolSearchLoadedHistoryFilterHint =>
+      'Filtrer par nom ou requête…';
+
+  @override
+  String get snackToolSearchLoadedSourceAi => 'Session IA';
+
+  @override
+  String get snackToolSearchLoadedSourceHardness => 'Phase Hardness';
+
+  @override
   String get snackToolSearchLoadedHistoryReplayAction =>
       'Copier ce lot en tant que select:…';
 

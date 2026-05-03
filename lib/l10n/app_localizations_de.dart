@@ -2617,6 +2617,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get snackToolSearchLoadedFilterHint => 'Nach Name filtern…';
 
   @override
+  String get snackToolSearchLoadedHistoryFilterHint =>
+      'Nach Name oder Anfrage filtern…';
+
+  @override
+  String get snackToolSearchLoadedSourceAi => 'KI-Sitzung';
+
+  @override
+  String get snackToolSearchLoadedSourceHardness => 'Hardness-Phase';
+
+  @override
   String get snackToolSearchLoadedHistoryReplayAction =>
       'Diese Charge als select:… kopieren';
 

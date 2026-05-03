@@ -2481,6 +2481,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedFilterHint => '名前でフィルタ…';
 
   @override
+  String get snackToolSearchLoadedHistoryFilterHint => '名前またはクエリでフィルタ…';
+
+  @override
+  String get snackToolSearchLoadedSourceAi => 'AI セッション';
+
+  @override
+  String get snackToolSearchLoadedSourceHardness => 'Hardness フェーズ';
+
+  @override
   String get snackToolSearchLoadedHistoryReplayAction =>
       'このバッチを select:… としてコピー';
 

@@ -15,6 +15,7 @@ Future<void> _pumpDialog(
   void Function()? onClear,
   List<AiToolSearchLoadHistoryEntry> history =
       const <AiToolSearchLoadHistoryEntry>[],
+  Future<void> Function(List<String> names)? onReplayBatch,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -31,6 +32,7 @@ Future<void> _pumpDialog(
                   names: names,
                   onClear: onClear,
                   history: history,
+                  onReplayBatch: onReplayBatch,
                 ),
                 child: const Text('open'),
               ),
@@ -327,5 +329,119 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(capture, 'select:mcp__k8s__pods, select:mcp__k8s__logs');
+  });
+
+  testWidgets(
+      'history filter narrows entries by name OR query (case-insensitive)',
+      (tester) async {
+    final history = <AiToolSearchLoadHistoryEntry>[
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 10),
+        query: 'kubernetes pods',
+        addedNames: const ['mcp__k8s__pods'],
+        totalDeferred: 5,
+      ),
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 11),
+        query: 'github issues',
+        addedNames: const ['mcp__github__issue_list'],
+        totalDeferred: 8,
+      ),
+    ];
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__k8s__pods', 'mcp__github__issue_list'],
+      history: history,
+    );
+
+    await tester.tap(find.text('Load history (2)'));
+    await tester.pumpAndSettle();
+
+    // Both visible initially.
+    expect(find.text('mcp__k8s__pods'), findsOneWidget);
+    expect(find.text('mcp__github__issue_list'), findsOneWidget);
+
+    // Filter by query text — only the kubernetes entry stays.
+    await tester.enterText(find.byType(TextField).last, 'KUBERN');
+    await tester.pumpAndSettle();
+    expect(find.text('mcp__k8s__pods'), findsOneWidget);
+    expect(find.text('mcp__github__issue_list'), findsNothing);
+
+    // Filter by tool name — only the github entry stays.
+    await tester.enterText(find.byType(TextField).last, 'issue_list');
+    await tester.pumpAndSettle();
+    expect(find.text('mcp__k8s__pods'), findsNothing);
+    expect(find.text('mcp__github__issue_list'), findsOneWidget);
+  });
+
+  testWidgets(
+      'tapping history entry invokes onReplayBatch instead of clipboard',
+      (tester) async {
+    bool clipboardTouched = false;
+    tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') clipboardTouched = true;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    final captured = <List<String>>[];
+    final history = <AiToolSearchLoadHistoryEntry>[
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 10),
+        query: 'k8s',
+        addedNames: const ['mcp__k8s__pods', 'mcp__k8s__logs'],
+        totalDeferred: 5,
+      ),
+    ];
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__k8s__pods', 'mcp__k8s__logs'],
+      history: history,
+      onReplayBatch: (names) async => captured.add(List<String>.from(names)),
+    );
+
+    await tester.tap(find.text('Load history (1)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.copy_all_rounded));
+    await tester.pumpAndSettle();
+
+    expect(captured, hasLength(1));
+    expect(captured.single, ['mcp__k8s__pods', 'mcp__k8s__logs']);
+    expect(clipboardTouched, isFalse);
+    // Dialog should be dismissed by replay path.
+    expect(find.text('Close'), findsNothing);
+  });
+
+  testWidgets(
+      'history entries render distinct AI / Hardness source labels',
+      (tester) async {
+    final history = <AiToolSearchLoadHistoryEntry>[
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 10),
+        query: 'a',
+        addedNames: const ['mcp__x__y'],
+        totalDeferred: 3,
+      ),
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 11),
+        query: 'b',
+        addedNames: const ['mcp__p__q'],
+        totalDeferred: 4,
+        source: AiToolSearchLoadSource.hardnessPhase,
+      ),
+    ];
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__x__y', 'mcp__p__q'],
+      history: history,
+    );
+
+    await tester.tap(find.text('Load history (2)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('AI session'), findsOneWidget);
+    expect(find.text('Hardness phase'), findsOneWidget);
   });
 }
