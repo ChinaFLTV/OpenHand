@@ -191,7 +191,31 @@ class LedgerConfig {
 /// 阶段 ⑦c/⑦f：极简 unified diff 行级摘要。共同行标 ` `，删除行 `-`，
 /// 新增行 `+`。不做 LCS 最优——目标是粘到 PR/聊天里能一眼看出改了
 /// 哪几行；提取成顶层函数便于单测。
-String unifiedDiffLineSummary(String before, String after) {
+///
+/// 阶段 ⑨d：当任一侧大于 [maxBytes]（默认 256 KiB）时不再做完整逐行
+/// 展开，避免在 UI 线程上炸成几万行。返回一行式占位摘要，包含双侧
+/// 字节数 + sha256 前 12 位（若提供 [beforeSha]/[afterSha]），便于
+/// 之后从 ledger blobs 拉原文核对。
+const int unifiedDiffLineSummaryDefaultMaxBytes = 256 * 1024;
+
+String unifiedDiffLineSummary(
+  String before,
+  String after, {
+  int maxBytes = unifiedDiffLineSummaryDefaultMaxBytes,
+  String? beforeSha,
+  String? afterSha,
+}) {
+  if (before.length > maxBytes || after.length > maxBytes) {
+    String tag(String? sha) {
+      if (sha == null || sha.isEmpty) return '';
+      final short = sha.length >= 12 ? sha.substring(0, 12) : sha;
+      return ' sha=$short';
+    }
+
+    return '<file too large for inline diff; '
+        'before=${before.length}B${tag(beforeSha)}, '
+        'after=${after.length}B${tag(afterSha)}>';
+  }
   final a = before.split('\n');
   final b = after.split('\n');
   final out = StringBuffer();

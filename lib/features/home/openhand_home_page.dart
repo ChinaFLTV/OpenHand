@@ -126,6 +126,7 @@ part '_home_message_bubble.dart';
 part '_home_audit_dialog.dart';
 part '_home_message_content.dart';
 part '_home_tool_call_widgets.dart';
+part '_home_file_mutation_widgets.dart';
 part '_home_composer.dart';
 part '_home_sidebar_tiles.dart';
 part '_home_message_meta_rows.dart';

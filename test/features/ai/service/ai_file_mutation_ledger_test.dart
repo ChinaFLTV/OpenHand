@@ -238,4 +238,33 @@ void main() {
     // 注意：'' split('\n') → ['']，所以会产出一个 ` ` 空行配对
     expect(unifiedDiffLineSummary('x\ny', '').split('\n'), ['-x', '+', '-y']);
   });
+
+  // ─── 阶段⑨d unifiedDiffLineSummary 大文本限压 ───
+  test('unifiedDiffLineSummary 任一侧超过 maxBytes → 占位摘要 + 字节数', () {
+    final huge = 'a' * 600;
+    final out = unifiedDiffLineSummary(huge, 'b', maxBytes: 256);
+    expect(out, contains('<file too large for inline diff'));
+    expect(out, contains('before=600B'));
+    expect(out, contains('after=1B'));
+    // 不应出现完整逐行 + / - 列表
+    expect(out.contains('\n'), isFalse);
+  });
+
+  test('unifiedDiffLineSummary 占位摘要带 sha 短前缀', () {
+    final huge = 'x' * 1024;
+    final out = unifiedDiffLineSummary(
+      huge,
+      '${huge}y',
+      maxBytes: 512,
+      beforeSha: 'abcdef0123456789aabbcc',
+      afterSha: 'ffeeddccbbaa9988776655',
+    );
+    expect(out, contains('sha=abcdef012345'));
+    expect(out, contains('sha=ffeeddccbbaa'));
+  });
+
+  test('unifiedDiffLineSummary 双侧均小 → 仍走完整逐行模式', () {
+    final out = unifiedDiffLineSummary('a\nb', 'a\nB', maxBytes: 1024);
+    expect(out.split('\n'), [' a', '-b', '+B']);
+  });
 }

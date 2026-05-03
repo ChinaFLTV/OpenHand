@@ -30,6 +30,7 @@
 - [🧩 线程模板（Thread Templates）](#-线程模板thread-templates)
 - [🔌 MCP / 技能 / 钩子 / 定时任务](#-mcp--技能--钩子--定时任务)
 - [⌨️ 常用快捷键](#️-常用快捷键)
+- [📜 文件变动历史（File Mutation Ledger）](#-文件变动历史file-mutation-ledger)
 - [🏗 系统架构](#-系统架构)
 - [📦 下载与运行](#-下载与运行)
 - [🛠 开发者指引](#-开发者指引)
@@ -180,6 +181,27 @@
 | `Esc` | 取消当前对话框 / 中止流式输出 |
 
 > macOS 上 `Ctrl` 等同 `⌃`（不是 `⌘`），避免与系统编辑快捷键冲突。
+
+---
+
+## 📜 文件变动历史（File Mutation Ledger）
+
+OpenHand 内置 Codex-parity 的「文件变动账本」：每当 `Write` / `Edit` /
+`MultiEdit` / `DeleteFile` 等工具修改本地文件时，会自动登记一条 ledger
+记录（before/after 的 SHA-256 内容寻址 blob + 元信息）。
+
+- **存储位置**：`~/.openhand/file_history/`
+  - `blobs/` — 内容寻址快照（去重）
+  - `sessions/<session-id>/ledger.jsonl` — 时序记录
+  - `config.json` — 自动清理策略
+- **多文件卡片**：助手回合内每个工具调用都会渲染一个聚合卡片，列出本次涉及的全部文件、行级 diff、单文件撤销 / 重做按钮。
+- **级联撤销**：撤销同一文件历史中的 X 时，依赖它的后续修改 (Y / Z) 会自动级联失效，避免出现破洞。
+- **复制全部 diff**：卡片右上角「📋 全部 diff」按钮一键拷贝整个工具调用范围的合并 markdown，便于贴到 PR 描述。
+- **快捷键**：`Ctrl + Shift + Z` 撤销当前会话最近一条 ledger 记录（macOS 上同样是 `⌃ ⇧ Z`）。撤销提示 SnackBar 自带「重做」按钮可一次性回滚。
+- **数据清理**：设置 → 数据清理 提供独立的 ledger 卡片，展示「N 会话 · M 条 · K blobs」实时统计；可滑杆调节保留天数 + 单文件版本上限，并通过「立即清理超期」按钮按当前阈值即时 prune。
+- **大文本保护**：超过 256 KB 的 diff 不再做完整逐行展开，自动降级为「文件过大」提示 + SHA 摘要，避免卡 UI。
+
+> 卡片与设置项均完整本地化（en / zh / zh-Hans / zh-Hant / ja / de / fr）。
 
 ---
 

@@ -30,6 +30,7 @@ Orchestrate 20+ model protocols, programmable tools, skills, MCP servers, hooks 
 - [🧩 Thread Templates](#-thread-templates)
 - [🔌 MCP / Skills / Hooks / Crons](#-mcp--skills--hooks--crons)
 - [⌨️ Keyboard Shortcuts](#️-keyboard-shortcuts)
+- [📜 File Mutation Ledger](#-file-mutation-ledger)
 - [🏗 Architecture](#-architecture)
 - [📦 Download & Run](#-download--run)
 - [🛠 Developer Guide](#-developer-guide)
@@ -183,6 +184,38 @@ For each protocol OpenHand bundles:
 | `Esc` | Cancel dialog / abort streaming |
 
 > On macOS `Ctrl` maps to `⌃` (not `⌘`) to avoid conflicting with system text-editing shortcuts.
+
+---
+
+## 📜 File Mutation Ledger
+
+OpenHand ships with a Codex-parity ledger that records every file written by
+the `Write` / `Edit` / `MultiEdit` / `DeleteFile` tools. Each entry stores
+content-addressed (SHA-256) before/after blobs plus metadata.
+
+- **Storage**: `~/.openhand/file_history/`
+  - `blobs/` — content-addressed snapshots (de-duplicated)
+  - `sessions/<session-id>/ledger.jsonl` — append-only timeline
+  - `config.json` — retention policy
+- **Multi-file card**: every assistant tool-call renders an aggregated card
+  listing the touched files, per-line inline diff, and per-file undo / redo.
+- **Cascade undo**: undoing record X for file F automatically invalidates the
+  later records (Y / Z) on F so you never end up with a hole.
+- **Copy all diff**: the toolbar 📋 button copies a unified markdown bundle of
+  every file in the current tool-call — paste straight into a PR description.
+- **Shortcut**: `Ctrl + Shift + Z` undoes the latest ledger record in the
+  current session (same on macOS via `⌃ ⇧ Z`). The confirmation SnackBar
+  carries a one-tap **Redo** action.
+- **Data cleanup**: Settings → Data cleanup exposes a dedicated ledger card
+  with live `N sessions · M records · K blobs` stats, sliders for retention
+  days + per-file version cap, and a **Prune now** button that applies the
+  current thresholds immediately.
+- **Large-text guard**: diffs over 256 KB skip the full line-by-line render
+  and degrade to a `<file too large; sha=…>` placeholder to keep the UI
+  responsive.
+
+> Card and settings UI are fully localised (en / zh / zh-Hans / zh-Hant / ja /
+> de / fr).
 
 ---
 
