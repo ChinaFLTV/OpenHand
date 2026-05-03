@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:openhand/features/ai/service/mcp_loaded_tools_tracker.dart';
 import 'package:openhand/features/mcp/widgets/tool_search_loaded_dialog.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 
@@ -12,6 +13,8 @@ Future<void> _pumpDialog(
   WidgetTester tester, {
   required List<String> names,
   void Function()? onClear,
+  List<AiToolSearchLoadHistoryEntry> history =
+      const <AiToolSearchLoadHistoryEntry>[],
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -27,6 +30,7 @@ Future<void> _pumpDialog(
                   context,
                   names: names,
                   onClear: onClear,
+                  history: history,
                 ),
                 child: const Text('open'),
               ),
@@ -143,5 +147,95 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ToolSearchLoadedDialog), findsNothing);
+  });
+
+  testWidgets('groups names by mcp__SERVER__ prefix and lists Other group',
+      (tester) async {
+    String? clipboardCapture;
+    final binding = TestDefaultBinaryMessengerBinding.instance;
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboardCapture =
+              (call.arguments as Map<dynamic, dynamic>)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await _pumpDialog(
+      tester,
+      names: const <String>[
+        'mcp__alpha__one',
+        'mcp__alpha__two',
+        'mcp__beta__only',
+        'WebFetch',
+      ],
+    );
+
+    // Group headers + counts.
+    expect(find.text('alpha (2)'), findsOneWidget);
+    expect(find.text('beta (1)'), findsOneWidget);
+    expect(find.text('Other (no server prefix) (1)'), findsOneWidget);
+
+    // Each individual full name still rendered (groups initially expanded).
+    expect(find.text('mcp__alpha__one'), findsOneWidget);
+    expect(find.text('mcp__alpha__two'), findsOneWidget);
+    expect(find.text('mcp__beta__only'), findsOneWidget);
+    expect(find.text('WebFetch'), findsOneWidget);
+
+    // Group-level "copy all" button should write joined select: payload.
+    final groupCopy = find.byIcon(Icons.copy_all_rounded);
+    expect(groupCopy, findsNWidgets(3));
+    await tester.tap(groupCopy.first); // alpha group (sorted first)
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(clipboardCapture, 'select:mcp__alpha__one, select:mcp__alpha__two');
+  });
+
+  testWidgets('history tab shows empty placeholder when no history',
+      (tester) async {
+    await _pumpDialog(tester, names: const <String>['mcp__svr__alpha']);
+
+    await tester.tap(find.text('Load history (0)'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('No ToolSearch loads in this session yet'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('history tab renders timeline entries with query and chips',
+      (tester) async {
+    final history = <AiToolSearchLoadHistoryEntry>[
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 5, 4, 10),
+        query: 'k8s pod logs',
+        addedNames: const ['mcp__k8s__pods', 'mcp__k8s__logs'],
+        totalDeferred: 12,
+      ),
+    ];
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__k8s__pods', 'mcp__k8s__logs'],
+      history: history,
+    );
+
+    await tester.tap(find.text('Load history (1)'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('k8s pod logs'), findsOneWidget);
+    expect(find.text('+2 / 12'), findsOneWidget);
+    expect(find.text('mcp__k8s__pods'), findsOneWidget);
+    expect(find.text('mcp__k8s__logs'), findsOneWidget);
   });
 }

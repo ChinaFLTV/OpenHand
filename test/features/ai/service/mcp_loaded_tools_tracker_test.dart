@@ -127,5 +127,50 @@ void main() {
       expect(tracker.signal.value!.totalDeferred, 2);
       expect(tracker.signal.value!.query, '');
     });
+
+    test('history captures every absorb call in chronological order', () {
+      final tracker = McpLoadedToolsTracker();
+      addTearDown(tracker.dispose);
+
+      tracker.absorb(
+        sessionId: 'sess',
+        loadedNamesRaw: <String>['mcp__alpha__one'],
+        queryRaw: 'alpha',
+        totalDeferredRaw: 10,
+      );
+      tracker.absorb(
+        sessionId: 'sess',
+        loadedNamesRaw: <String>['mcp__beta__two', 'mcp__beta__three'],
+        queryRaw: 'beta',
+        totalDeferredRaw: 9,
+      );
+
+      final history = tracker.historyForSession('sess');
+      expect(history, hasLength(2));
+      expect(history[0].query, 'alpha');
+      expect(history[0].addedNames, ['mcp__alpha__one']);
+      expect(history[0].totalDeferred, 10);
+      expect(history[1].query, 'beta');
+      expect(history[1].addedNames, ['mcp__beta__three', 'mcp__beta__two']);
+      expect(history[1].totalDeferred, 9);
+      // Returned list should be unmodifiable.
+      expect(
+        () => history.add(history.first),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('clearSession also wipes the history timeline', () {
+      final tracker = McpLoadedToolsTracker();
+      addTearDown(tracker.dispose);
+      tracker.absorb(
+        sessionId: 's',
+        loadedNamesRaw: <String>['mcp__a'],
+      );
+      expect(tracker.historyForSession('s'), hasLength(1));
+
+      tracker.clearSession('s');
+      expect(tracker.historyForSession('s'), isEmpty);
+    });
   });
 }

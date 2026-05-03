@@ -2565,6 +2565,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackToolSearchLoadedClearedToast => 'Loaded list cleared';
 
   @override
+  String get snackToolSearchLoadedGroupOther => 'Other (no server prefix)';
+
+  @override
+  String get snackToolSearchLoadedCopyGroupAction =>
+      'Copy entire group as select:…';
+
+  @override
+  String get snackToolSearchLoadedTabLoaded => 'Loaded';
+
+  @override
+  String get snackToolSearchLoadedTabHistory => 'Load history';
+
+  @override
+  String get snackToolSearchLoadedHistoryEmpty =>
+      'No ToolSearch loads in this session yet';
+
+  @override
+  String get snackToolSearchLoadedHistoryQueryPrefix => 'Query: ';
+
+  @override
   String get mcpLazyLoadingViewLoadedAction =>
       'View loaded list (current session)';
 

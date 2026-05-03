@@ -76,6 +76,7 @@ import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_session_jsonl_exporter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
 import '../ai/service/lsp_client_service.dart';
+import '../ai/service/mcp_loaded_tools_tracker.dart';
 import '../ai/tools/ai_ask_user_choice_tool.dart';
 import '../crons/crons_controller.dart';
 import '../crons/crons_view.dart';
@@ -1270,8 +1271,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             final names = controller == null
                 ? const <String>[]
                 : controller.loadedMcpToolNamesForSession(sessionId);
+            final history = controller == null
+                ? const <AiToolSearchLoadHistoryEntry>[]
+                : controller.loadedMcpToolHistoryForSession(sessionId);
             _showToolSearchLoadedDialog(
               names: names,
+              history: history,
               onClear: controller == null
                   ? null
                   : () => controller.clearLoadedMcpToolsForSession(sessionId),
@@ -1323,10 +1328,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _showToolSearchLoadedDialog({
     required List<String> names,
     void Function()? onClear,
+    List<AiToolSearchLoadHistoryEntry> history =
+        const <AiToolSearchLoadHistoryEntry>[],
   }) {
     if (!mounted) return;
     unawaited(
-      showToolSearchLoadedDialog(context, names: names, onClear: onClear),
+      showToolSearchLoadedDialog(
+        context,
+        names: names,
+        onClear: onClear,
+        history: history,
+      ),
     );
   }
 

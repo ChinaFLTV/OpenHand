@@ -2431,6 +2431,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedClearedToast => '已清空已加载列表';
 
   @override
+  String get snackToolSearchLoadedGroupOther => '其他（未识别 server）';
+
+  @override
+  String get snackToolSearchLoadedCopyGroupAction => '复制本组全部 select:';
+
+  @override
+  String get snackToolSearchLoadedTabLoaded => '已加载';
+
+  @override
+  String get snackToolSearchLoadedTabHistory => '加载历史';
+
+  @override
+  String get snackToolSearchLoadedHistoryEmpty => '本会话还没有 ToolSearch 加载记录';
+
+  @override
+  String get snackToolSearchLoadedHistoryQueryPrefix => '加载查询：';
+
+  @override
   String get mcpLazyLoadingViewLoadedAction => '查看本会话已加载列表';
 
   @override
@@ -6844,6 +6862,24 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedClearedToast => '已清空已加载列表';
 
   @override
+  String get snackToolSearchLoadedGroupOther => '其他（未识别 server）';
+
+  @override
+  String get snackToolSearchLoadedCopyGroupAction => '复制本组全部 select:';
+
+  @override
+  String get snackToolSearchLoadedTabLoaded => '已加载';
+
+  @override
+  String get snackToolSearchLoadedTabHistory => '加载历史';
+
+  @override
+  String get snackToolSearchLoadedHistoryEmpty => '本会话还没有 ToolSearch 加载记录';
+
+  @override
+  String get snackToolSearchLoadedHistoryQueryPrefix => '加载查询：';
+
+  @override
   String get mcpLazyLoadingViewLoadedAction => '查看本会话已加载列表';
 
   @override
@@ -11254,6 +11290,24 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedClearedToast => '已清空已載入清單';
+
+  @override
+  String get snackToolSearchLoadedGroupOther => '其他（未識別 server）';
+
+  @override
+  String get snackToolSearchLoadedCopyGroupAction => '複製本組全部 select:';
+
+  @override
+  String get snackToolSearchLoadedTabLoaded => '已載入';
+
+  @override
+  String get snackToolSearchLoadedTabHistory => '載入歷史';
+
+  @override
+  String get snackToolSearchLoadedHistoryEmpty => '本會話尚無 ToolSearch 載入紀錄';
+
+  @override
+  String get snackToolSearchLoadedHistoryQueryPrefix => '載入查詢：';
 
   @override
   String get mcpLazyLoadingViewLoadedAction => '檢視本會話已載入清單';

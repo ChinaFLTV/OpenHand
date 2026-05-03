@@ -2459,6 +2459,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedClearedToast => 'ロード済み一覧をクリアしました';
 
   @override
+  String get snackToolSearchLoadedGroupOther => 'その他（server 不明）';
+
+  @override
+  String get snackToolSearchLoadedCopyGroupAction => 'グループ全体を select: でコピー';
+
+  @override
+  String get snackToolSearchLoadedTabLoaded => 'ロード済み';
+
+  @override
+  String get snackToolSearchLoadedTabHistory => '履歴';
+
+  @override
+  String get snackToolSearchLoadedHistoryEmpty =>
+      'このセッションにはまだ ToolSearch の履歴がありません';
+
+  @override
+  String get snackToolSearchLoadedHistoryQueryPrefix => 'クエリ: ';
+
+  @override
   String get mcpLazyLoadingViewLoadedAction => '現在のセッションのロード済み一覧を表示';
 
   @override

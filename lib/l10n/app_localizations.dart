@@ -4702,6 +4702,42 @@ abstract class AppLocalizations {
   /// **'已清空已加载列表'**
   String get snackToolSearchLoadedClearedToast;
 
+  /// No description provided for @snackToolSearchLoadedGroupOther.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'其他（未识别 server）'**
+  String get snackToolSearchLoadedGroupOther;
+
+  /// No description provided for @snackToolSearchLoadedCopyGroupAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制本组全部 select:'**
+  String get snackToolSearchLoadedCopyGroupAction;
+
+  /// No description provided for @snackToolSearchLoadedTabLoaded.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已加载'**
+  String get snackToolSearchLoadedTabLoaded;
+
+  /// No description provided for @snackToolSearchLoadedTabHistory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载历史'**
+  String get snackToolSearchLoadedTabHistory;
+
+  /// No description provided for @snackToolSearchLoadedHistoryEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本会话还没有 ToolSearch 加载记录'**
+  String get snackToolSearchLoadedHistoryEmpty;
+
+  /// No description provided for @snackToolSearchLoadedHistoryQueryPrefix.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载查询：'**
+  String get snackToolSearchLoadedHistoryQueryPrefix;
+
   /// No description provided for @mcpLazyLoadingViewLoadedAction.
   ///
   /// In zh_Hans, this message translates to:

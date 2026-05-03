@@ -3980,9 +3980,11 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     final names = aiCtrl.loadedMcpToolNamesForSession(sessionId);
+    final history = aiCtrl.loadedMcpToolHistoryForSession(sessionId);
     showToolSearchLoadedDialog(
       context,
       names: names,
+      history: history,
       onClear: () => aiCtrl.clearLoadedMcpToolsForSession(sessionId),
     );
   }

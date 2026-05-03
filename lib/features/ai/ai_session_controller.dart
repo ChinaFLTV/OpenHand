@@ -429,6 +429,12 @@ class AiSessionController extends ChangeNotifier {
   List<String> loadedMcpToolNamesForSession(String sessionId) =>
       _loadedMcpToolsTracker.namesForSession(sessionId);
 
+  /// 返回指定会话的 ToolSearch 加载历史时间线（旧→新）。
+  /// 供「查看本会话已加载列表」对话框的「加载历史」标签页消费。
+  List<AiToolSearchLoadHistoryEntry> loadedMcpToolHistoryForSession(
+    String sessionId,
+  ) => _loadedMcpToolsTracker.historyForSession(sessionId);
+
   /// 清空指定会话的 ToolSearch 已加载缓存：下一轮 `_applyMcpLazyLoading`
   /// 将再次把这些工具从 catalog 中剔除，模型若需要必须重新调用 ToolSearch。
   /// 返回被清除的工具数量。
