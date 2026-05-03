@@ -2466,6 +2466,13 @@ class _RoundFileMutationSummaryCardState
   int _bulkUndoDone = 0;
   bool get _bulkUndoBusy => _bulkUndoTotal > 0;
   final ValueNotifier<int> _pulseSignal = ValueNotifier<int>(0);
+  // 阶段⑰d：折叠记忆 — 跨重建保留每张卡的「哪些组被收起 / 哪些 Diff 被展开」。
+  // key = '${messageId}::${toolName}'，进程级缓存即可，无需持久化到磁盘。
+  static final Set<String> _collapsedGroups = <String>{};
+  static final Set<String> _expandedDiffRows = <String>{};
+
+  String _groupKey(String toolName) => '${widget.message.id}::$toolName';
+  String _diffKey(String recordId) => '${widget.message.id}#$recordId';
 
   @override
   void dispose() {
@@ -2741,23 +2748,7 @@ class _RoundFileMutationSummaryCardState
                 else
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var i = 0; i < rows.length; i++)
-                          _RoundSummaryRowTile(
-                            row: rows[i],
-                            // 6 行以上才启动 drip-in；reduceMotion 直接退化。
-                            entranceDelay: (!reduceMotion && rows.length >= 6)
-                                ? Duration(
-                                    milliseconds:
-                                        (i * 55).clamp(0, 660).toInt())
-                                : Duration.zero,
-                            onJump: () =>
-                                _jumpToSourceMessage(rows[i].sourceMessageId),
-                          ),
-                      ],
-                    ),
+                    child: _buildGroupedBody(theme, cs, rows, reduceMotion),
                   ),
               ],
             );
@@ -2947,6 +2938,102 @@ class _RoundFileMutationSummaryCardState
       ),
     );
   }
+
+  /// 阶段⑰d：按 `record.toolName` 分组渲染；每组一个可折叠 header。
+  Widget _buildGroupedBody(
+    ThemeData theme,
+    ColorScheme cs,
+    List<_RoundSummaryRow> rows,
+    bool reduceMotion,
+  ) {
+    // 保留首次出现顺序 — LinkedHashMap 默认行为。
+    final groups = <String, List<_RoundSummaryRow>>{};
+    for (final r in rows) {
+      final key = r.view.record.toolName.isEmpty
+          ? '_'
+          : r.view.record.toolName;
+      groups.putIfAbsent(key, () => <_RoundSummaryRow>[]).add(r);
+    }
+    // 单组就别套 header 了，沿用扁平形态。
+    if (groups.length <= 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < rows.length; i++)
+            _RoundSummaryRowTile(
+              row: rows[i],
+              entranceDelay: (!reduceMotion && rows.length >= 6)
+                  ? Duration(
+                      milliseconds: (i * 55).clamp(0, 660).toInt())
+                  : Duration.zero,
+              onJump: () => _jumpToSourceMessage(rows[i].sourceMessageId),
+              isDiffExpanded:
+                  _expandedDiffRows.contains(_diffKey(rows[i].view.record.recordId)),
+              onToggleDiff: () => _toggleDiffExpanded(rows[i]),
+            ),
+        ],
+      );
+    }
+    final children = <Widget>[];
+    var globalIndex = 0;
+    for (final entry in groups.entries) {
+      final groupKey = _groupKey(entry.key);
+      final collapsed = _collapsedGroups.contains(groupKey);
+      children.add(_GroupHeader(
+        toolName: entry.key,
+        count: entry.value.length,
+        collapsed: collapsed,
+        onToggle: () {
+          setState(() {
+            if (collapsed) {
+              _collapsedGroups.remove(groupKey);
+            } else {
+              _collapsedGroups.add(groupKey);
+            }
+          });
+        },
+      ));
+      if (!collapsed) {
+        for (final r in entry.value) {
+          children.add(_RoundSummaryRowTile(
+            row: r,
+            entranceDelay: (!reduceMotion && rows.length >= 6)
+                ? Duration(
+                    milliseconds: (globalIndex * 55).clamp(0, 660).toInt())
+                : Duration.zero,
+            onJump: () => _jumpToSourceMessage(r.sourceMessageId),
+            isDiffExpanded:
+                _expandedDiffRows.contains(_diffKey(r.view.record.recordId)),
+            onToggleDiff: () => _toggleDiffExpanded(r),
+          ));
+          globalIndex += 1;
+        }
+      } else {
+        globalIndex += entry.value.length;
+      }
+    }
+    return AnimatedSize(
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    );
+  }
+
+  void _toggleDiffExpanded(_RoundSummaryRow row) {
+    final key = _diffKey(row.view.record.recordId);
+    setState(() {
+      if (_expandedDiffRows.contains(key)) {
+        _expandedDiffRows.remove(key);
+      } else {
+        _expandedDiffRows.add(key);
+      }
+    });
+  }
 }
 
 class _RoundSummaryRow {
@@ -2965,11 +3052,15 @@ class _RoundSummaryRowTile extends StatelessWidget {
     required this.row,
     required this.entranceDelay,
     required this.onJump,
+    required this.isDiffExpanded,
+    required this.onToggleDiff,
   });
 
   final _RoundSummaryRow row;
   final Duration entranceDelay;
   final VoidCallback onJump;
+  final bool isDiffExpanded;
+  final VoidCallback onToggleDiff;
 
   IconData _kindIcon() {
     switch (row.view.record.kind) {
@@ -3086,11 +3177,281 @@ class _RoundSummaryRowTile extends StatelessWidget {
                 ),
               ),
             ),
+          // 阶段⑰d：modify 类记录支持 inline Diff 预览（前后均有 blob 才显示）。
+          if (row.view.record.kind == FileMutationKind.modify &&
+              row.view.record.beforeSha != null &&
+              row.view.record.afterSha != null) ...[
+            const SizedBox(width: 4),
+            Tooltip(
+              message: _localizedTextStatic(context,
+                  zh: '展开 / 收起 Diff 预览',
+                  en: 'Expand / collapse diff preview'),
+              child: MicroPressFeedback(
+                child: InkWell(
+                  onTap: onToggleDiff,
+                  borderRadius:
+                      const BorderRadius.all(Radius.circular(999)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 2),
+                    child: AnimatedRotation(
+                      turns: isDiffExpanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.expand_more_rounded,
+                        size: 16,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
-    if (entranceDelay == Duration.zero) return tile;
-    return _DelayedAppear(delay: entranceDelay, child: tile);
+    final wrapped = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        tile,
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: isDiffExpanded
+              ? _DiffPreviewBox(
+                  key: ValueKey('diff-${row.view.record.recordId}'),
+                  record: row.view.record,
+                )
+              : const SizedBox(width: double.infinity, height: 0),
+        ),
+      ],
+    );
+    if (entranceDelay == Duration.zero) return wrapped;
+    return _DelayedAppear(delay: entranceDelay, child: wrapped);
+  }
+}
+
+/// 阶段⑰d：分组 header — 显示工具名 + 计数 + 折叠箭头。
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({
+    required this.toolName,
+    required this.count,
+    required this.collapsed,
+    required this.onToggle,
+  });
+
+  final String toolName;
+  final int count;
+  final bool collapsed;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return MicroPressFeedback(
+      child: InkWell(
+        onTap: onToggle,
+        borderRadius: const BorderRadius.all(Radius.circular(10)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
+          child: Row(
+            children: [
+              AnimatedRotation(
+                turns: collapsed ? -0.25 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  Icons.expand_more_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                toolName.isEmpty ? '·' : toolName,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.10),
+                  borderRadius: const BorderRadius.all(Radius.circular(999)),
+                ),
+                child: Text(
+                  '$count',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.primary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 阶段⑰d：行内 Diff 预览 — lazy 加载 before/after blob，渲染压缩的统一
+/// diff 视图（≤ 10 行，超过截断 + 省略提示）。
+class _DiffPreviewBox extends StatefulWidget {
+  const _DiffPreviewBox({super.key, required this.record});
+
+  final FileMutationRecord record;
+
+  @override
+  State<_DiffPreviewBox> createState() => _DiffPreviewBoxState();
+}
+
+class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
+  Future<String>? _diffFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _diffFuture = _loadDiff();
+  }
+
+  Future<String> _loadDiff() async {
+    final ledger = context
+        .read<AiSessionController>()
+        .toolRuntimeService
+        .mutationLedger;
+    final config = await ledger.loadConfig();
+    final r = widget.record;
+    final before = r.beforeSha == null
+        ? ''
+        : (await ledger.readBlob(r.beforeSha!) ?? '');
+    final after = r.afterSha == null
+        ? ''
+        : (await ledger.readBlob(r.afterSha!) ?? '');
+    return unifiedDiffLineSummary(
+      before,
+      after,
+      beforeSha: r.beforeSha,
+      afterSha: r.afterSha,
+      miniDiffMaxBytes: config.miniDiffMaxBytes,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 2, 8, 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh.withValues(alpha: 0.45),
+          borderRadius: const BorderRadius.all(Radius.circular(10)),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: 0.35),
+            width: 0.5,
+          ),
+        ),
+        child: FutureBuilder<String>(
+          future: _diffFuture,
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return Row(
+                children: [
+                  SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.4,
+                      color: cs.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _localizedTextStatic(context,
+                        zh: '加载 Diff…', en: 'Loading diff…'),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              );
+            }
+            final raw = (snap.data ?? '').trim();
+            if (raw.isEmpty) {
+              return Text(
+                _localizedTextStatic(context,
+                    zh: '内容相同或不可对比。',
+                    en: 'No textual diff available.'),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              );
+            }
+            final lines = raw.split('\n');
+            const maxLines = 10;
+            final shown = lines.length > maxLines
+                ? lines.take(maxLines).toList()
+                : lines;
+            final clipped = lines.length > maxLines;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final line in shown) _diffLine(theme, cs, line),
+                if (clipped)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      _localizedTextStatic(context,
+                          zh: '… 还有 ${lines.length - maxLines} 行，复制全部 Diff 查看完整内容。',
+                          en: '… ${lines.length - maxLines} more lines; copy full diff to inspect.'),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _diffLine(ThemeData theme, ColorScheme cs, String line) {
+    Color? bg;
+    Color fg = cs.onSurface;
+    if (line.startsWith('+')) {
+      bg = const Color(0xFF2E7D32).withValues(alpha: 0.10);
+      fg = const Color(0xFF1B5E20);
+    } else if (line.startsWith('-')) {
+      bg = cs.error.withValues(alpha: 0.10);
+      fg = cs.error;
+    } else {
+      fg = cs.onSurfaceVariant;
+    }
+    return Container(
+      color: bg,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      child: Text(
+        line.isEmpty ? ' ' : line,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: fg,
+          fontFamily: 'monospace',
+          fontFeatures: const [FontFeature.tabularFigures()],
+          height: 1.3,
+        ),
+      ),
+    );
   }
 }
 
