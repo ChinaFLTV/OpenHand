@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/silent_log.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_file_history_service.dart';
+import '../service/ai_file_mutation_ledger.dart';
 import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 
@@ -409,6 +410,55 @@ class AiToolUtils {
   }) async {
     if (fileTracker == null) return;
     await fileTracker.updateAfterWrite(filePath);
+  }
+
+  /// 2026-05-03 — 把一次工具产生的文件级变动写入新的 [AiFileMutationLedger]，
+  /// 同时落 before/after 两份内容，供 UI 层 diff/undo/redo 使用。
+  ///
+  /// 调用契约（任一字段缺失都会优雅降级）：
+  ///   • [beforeContent] = 修改前磁盘内容；新建文件传 null。
+  ///   • [afterContent] = 修改后磁盘内容；删除文件传 null。
+  ///
+  /// 返回写入成功的 recordId，便于在工具的 result metadata 上回填，UI 据
+  /// 此把卡片关联到 ledger 记录。
+  static Future<String?> recordFileMutationToLedger({
+    required AiFileMutationLedger? ledger,
+    required String sessionId,
+    required String toolCallId,
+    required String toolName,
+    required String filePath,
+    required FileMutationKind kind,
+    required String? beforeContent,
+    required String? afterContent,
+  }) async {
+    if (ledger == null) return null;
+    final record = await ledger.recordMutation(
+      sessionId: sessionId,
+      toolCallId: toolCallId,
+      toolName: toolName,
+      filePath: filePath,
+      kind: kind,
+      beforeContent: beforeContent,
+      afterContent: afterContent,
+    );
+    return record?.recordId;
+  }
+
+  /// 安全读取 UTF-8 文本内容；不存在或不可读时返回 null。用于工具在写入
+  /// 前后捕获 before/after 快照。失败仅 silentLog，不抛出。
+  static Future<String?> readFileContentForLedger(String filePath) async {
+    try {
+      final f = File(filePath);
+      if (!await f.exists()) return null;
+      final stat = await f.stat();
+      if (stat.type != FileSystemEntityType.file) return null;
+      // 限制单文件 16 MB，超过则放弃捕获（避免 OOM）。
+      if (stat.size > 16 * 1024 * 1024) return null;
+      return await f.readAsString();
+    } catch (error, stack) {
+      silentLog('ai_tool_utils', 'readFileContentForLedger', error, stack);
+      return null;
+    }
   }
 
   static Future<void> writeTextFileSafely(File file, String content) async {

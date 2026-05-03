@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../service/ai_file_history_service.dart';
+import '../service/ai_file_mutation_ledger.dart';
 import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -56,6 +57,8 @@ class AiApplyFileDiffsTool extends AiTool {
         context.metadata['file_tracker'] as AiFileTrackerService?;
     final fileHistory =
         context.metadata['file_history'] as AiFileHistoryService?;
+    final mutationLedger =
+        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
 
     // ── 阶段 1：解析 + 内存中应用所有 hunk，发现不匹配立即整体失败 ──
     final plans = <_FileDiffPlan>[];
@@ -169,6 +172,7 @@ class AiApplyFileDiffsTool extends AiTool {
       if (confirmation != null) return confirmation;
 
       String? versionId;
+      String? beforeContentForLedger;
       if (plan.existed) {
         versionId = await AiToolUtils.saveFileVersionBeforeMutation(
           filePath: plan.filePath,
@@ -176,6 +180,8 @@ class AiApplyFileDiffsTool extends AiTool {
           toolCallId: context.toolCall.id,
           fileHistory: fileHistory,
         );
+        beforeContentForLedger =
+            await AiToolUtils.readFileContentForLedger(plan.filePath);
       }
       await AiToolUtils.writeTextFileSafely(plan.file, plan.newContent);
       await AiToolUtils.updateTrackerAfterMutation(
@@ -199,11 +205,25 @@ class AiApplyFileDiffsTool extends AiTool {
           'Verification mismatch after write for ${plan.filePath}.',
         );
       }
+      // 2026-05-03: 每文件独立写入 ledger（before 已捕获、after 取写后内容）
+      final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
+        ledger: mutationLedger,
+        sessionId: context.sessionId,
+        toolCallId: context.toolCall.id,
+        toolName: 'ApplyFileDiffs',
+        filePath: plan.filePath,
+        kind: plan.existed
+            ? FileMutationKind.modify
+            : FileMutationKind.create,
+        beforeContent: beforeContentForLedger,
+        afterContent: verify,
+      );
       results.add(
         _FileDiffResult(
           filePath: plan.filePath,
           hunkCount: plan.hunkCount,
           versionId: versionId,
+          ledgerRecordId: ledgerRecordId,
         ),
       );
     }
@@ -233,6 +253,9 @@ class AiApplyFileDiffsTool extends AiTool {
         'file_mutation_version_ids': <String, String?>{
           for (final r in results) r.filePath: r.versionId,
         },
+        'file_mutation_ledger_record_ids': <String, String?>{
+          for (final r in results) r.filePath: r.ledgerRecordId,
+        },
       },
     );
   }
@@ -258,8 +281,10 @@ class _FileDiffResult {
     required this.filePath,
     required this.hunkCount,
     required this.versionId,
+    required this.ledgerRecordId,
   });
   final String filePath;
   final int hunkCount;
   final String? versionId;
+  final String? ledgerRecordId;
 }

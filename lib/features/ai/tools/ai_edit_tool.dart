@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../service/ai_file_history_service.dart';
+import '../service/ai_file_mutation_ledger.dart';
 import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -79,6 +80,12 @@ class AiEditTool extends AiTool {
       fileHistory: fileHistory,
     );
 
+    // 2026-05-03: 新型 ledger — 双快照捕获 before 内容
+    final mutationLedger =
+        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
+    final beforeContentForLedger =
+        await AiToolUtils.readFileContentForLedger(filePath);
+
     final String content;
     try {
       content = await file.readAsString();
@@ -147,6 +154,18 @@ class AiEditTool extends AiTool {
         ? 'Updated $filePath (replaced $replacementCount occurrence${replacementCount > 1 ? 's' : ''}, verified)'
         : 'Updated $filePath (verified)';
 
+    // 2026-05-03: ledger 记录双快照
+    final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
+      ledger: mutationLedger,
+      sessionId: context.sessionId,
+      toolCallId: context.toolCall.id,
+      toolName: 'Edit',
+      filePath: filePath,
+      kind: FileMutationKind.modify,
+      beforeContent: beforeContentForLedger,
+      afterContent: verificationContent,
+    );
+
     return AiToolUtils.simpleSuccessResult(
       command: 'Edit $filePath',
       output: outputMessage,
@@ -163,6 +182,8 @@ class AiEditTool extends AiTool {
         'file_mutation_replacement_count': replacementCount,
         'file_mutation_verified': verificationPassed,
         if (versionId != null) 'file_mutation_history_version_id': versionId,
+        if (ledgerRecordId != null)
+          'file_mutation_ledger_record_id': ledgerRecordId,
       },
     );
   }

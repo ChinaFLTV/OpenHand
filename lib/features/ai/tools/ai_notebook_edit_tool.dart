@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../service/ai_file_history_service.dart';
+import '../service/ai_file_mutation_ledger.dart';
 import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -87,6 +88,12 @@ class AiNotebookEditTool extends AiTool {
       fileHistory: fileHistory,
     );
 
+    // 2026-05-03: 双快照中的 before 捕获
+    final mutationLedger =
+        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
+    final beforeContentForLedger =
+        await AiToolUtils.readFileContentForLedger(notebookPath);
+
     late final Object? decoded;
     try {
       decoded = jsonDecode(await file.readAsString());
@@ -167,6 +174,20 @@ class AiNotebookEditTool extends AiTool {
       fileTracker: fileTracker,
     );
 
+    // 2026-05-03: ledger 记录双快照
+    final afterContentForLedger =
+        await AiToolUtils.readFileContentForLedger(notebookPath);
+    final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
+      ledger: mutationLedger,
+      sessionId: context.sessionId,
+      toolCallId: context.toolCall.id,
+      toolName: 'NotebookEdit',
+      filePath: notebookPath,
+      kind: FileMutationKind.modify,
+      beforeContent: beforeContentForLedger,
+      afterContent: afterContentForLedger,
+    );
+
     return AiToolUtils.simpleSuccessResult(
       command: 'NotebookEdit $notebookPath',
       output: 'Updated notebook $notebookPath',
@@ -182,6 +203,8 @@ class AiNotebookEditTool extends AiTool {
         if (cellId.isNotEmpty) 'file_mutation_cell_id': cellId,
         if (cellType.isNotEmpty) 'file_mutation_cell_type': cellType,
         if (versionId != null) 'file_mutation_history_version_id': versionId,
+        if (ledgerRecordId != null)
+          'file_mutation_ledger_record_id': ledgerRecordId,
       },
     );
   }

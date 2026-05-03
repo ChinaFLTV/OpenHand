@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../service/ai_file_history_service.dart';
+import '../service/ai_file_mutation_ledger.dart';
 import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -67,6 +68,7 @@ class AiMultiEditTool extends AiTool {
 
     // 2026-04-12: 保存历史版本（仅对已存在的文件）
     String? versionId;
+    String? beforeContentForLedger;
     if (fileExists) {
       versionId = await AiToolUtils.saveFileVersionBeforeMutation(
         filePath: filePath,
@@ -74,6 +76,8 @@ class AiMultiEditTool extends AiTool {
         toolCallId: context.toolCall.id,
         fileHistory: fileHistory,
       );
+      beforeContentForLedger =
+          await AiToolUtils.readFileContentForLedger(filePath);
     }
 
     final String initialContent;
@@ -145,6 +149,20 @@ class AiMultiEditTool extends AiTool {
       );
     }
 
+    // 2026-05-03: ledger 记录双快照
+    final mutationLedger =
+        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
+    final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
+      ledger: mutationLedger,
+      sessionId: context.sessionId,
+      toolCallId: context.toolCall.id,
+      toolName: 'MultiEdit',
+      filePath: filePath,
+      kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
+      beforeContent: beforeContentForLedger,
+      afterContent: verificationContent,
+    );
+
     return AiToolUtils.simpleSuccessResult(
       command: 'MultiEdit $filePath',
       output:
@@ -159,6 +177,8 @@ class AiMultiEditTool extends AiTool {
         'file_mutation_edit_count': edits.length,
         'file_mutation_verified': verificationPassed,
         if (versionId != null) 'file_mutation_history_version_id': versionId,
+        if (ledgerRecordId != null)
+          'file_mutation_ledger_record_id': ledgerRecordId,
       },
     );
   }

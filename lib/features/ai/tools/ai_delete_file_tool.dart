@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../service/ai_bash_tool_service.dart';
+import '../service/ai_file_mutation_ledger.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
@@ -83,7 +84,22 @@ class AiDeleteFileTool extends AiTool {
     }
 
     try {
+      // 2026-05-03: 在删除前抓取 before 内容入 ledger
+      final mutationLedger =
+          context.metadata['mutation_ledger'] as AiFileMutationLedger?;
+      final beforeContentForLedger =
+          await AiToolUtils.readFileContentForLedger(filePath);
       await file.delete();
+      final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
+        ledger: mutationLedger,
+        sessionId: context.sessionId,
+        toolCallId: context.toolCall.id,
+        toolName: 'DeleteFile',
+        filePath: filePath,
+        kind: FileMutationKind.delete,
+        beforeContent: beforeContentForLedger,
+        afterContent: null,
+      );
       return AiToolUtils.simpleSuccessResult(
         command: 'DeleteFile $filePath',
         output: 'Deleted: $filePath',
@@ -94,6 +110,8 @@ class AiDeleteFileTool extends AiTool {
           'tool_source': 'builtin',
           'file_mutation_kind': 'delete',
           'file_mutation_path': filePath,
+          if (ledgerRecordId != null)
+            'file_mutation_ledger_record_id': ledgerRecordId,
         },
       );
     } catch (error) {

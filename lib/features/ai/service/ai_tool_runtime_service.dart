@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 
 import '../../mcp/model/mcp_server.dart';
@@ -626,7 +627,7 @@ class AiToolRuntimeService {
         displayName: resolvedTool.name,
       );
     }
-    late final AiToolExecutionResult rawResult;
+    late AiToolExecutionResult rawResult;
     // 2026-04-29 — 用户层 timeout / retry 策略包裹真正的 dispatch。
     // 仅当工具来自 builtin 且携带 [builtinConfig] 时启用：
     //   • timeout: Duration(seconds: cfg.effectiveTimeoutSeconds) 包裹 future；
@@ -762,6 +763,15 @@ class AiToolRuntimeService {
         }
       }
       rawResult = attemptResult;
+      // 2026-05-03: \u540e\u63d2\u5165 ledger \u6355\u83b7\u2014\u2014\u4e3b\u8981\u5851\u80a1 MCP / Skill / \u672a\u8bb0\u5f55\u5230
+      // ledger \u7684 builtin\uff08\u5982\u4ec5\u5728 metadata \u91cc\u4e22\u4e2a `file_mutation_path` \u4f46\u672a
+      // \u8c03 ledger\uff09\u3002\u8868\u73b0\u4e3a\u9000\u5316\u7248\u672c\uff1abefore=null\uff0cafter=\u5f53\u524d\u78c1\u76d8\u5185\u5bb9\u3002
+      rawResult = await _capturePostHocLedgerRecord(
+        sessionId: sessionId,
+        toolName: hookToolName,
+        toolCallId: toolCall.id,
+        result: rawResult,
+      );
       final postHookResult = await _hookService.runHooks(
         eventName: rawResult.status == BashToolExecutionStatus.success
             ? 'PostToolUse'
@@ -862,6 +872,100 @@ class AiToolRuntimeService {
     );
   }
 
+  /// 2026-05-03 \u9000\u5316\u7248 ledger \u8bb0\u5f55\uff1a\u5f53\u4e0a\u6e38\u5de5\u5177\uff08\u5c24\u5176 MCP/Skill\uff09
+  /// \u53ea\u53d1\u51fa `file_mutation_path` / `file_mutation_paths` \u4f46\u672a\u7eb3\u5165 ledger
+  /// \uff08\u672a\u643a\u5e26 `file_mutation_ledger_record_id(s)`\uff09\u65f6\uff0c\u8bfb\u53d6\u78c1\u76d8\u5f53\u524d
+  /// \u5185\u5bb9 \u4f5c\u4e3a after-content \u8865\u4e0a ledger\u3002before \u672a\u77e5\uff0c\u8bb0\u4e3a null\uff0c
+  /// \u8868\u73b0\u4e3a\u201c\u4e0d\u53ef\u9006\u8f6c\u201d\u7684 modify \u8bb0\u5f55\u3002
+  Future<AiToolExecutionResult> _capturePostHocLedgerRecord({
+    required String sessionId,
+    required String toolName,
+    required String toolCallId,
+    required AiToolExecutionResult result,
+  }) async {
+    if (result.status != BashToolExecutionStatus.success) return result;
+    final meta = result.metadata;
+    // \u5df2\u7ecf\u88ab\u5185\u7f6e\u5de5\u5177\u8bb0\u5165 ledger \u7684\uff1a\u8df3\u8fc7\u3002
+    if (meta.containsKey('file_mutation_ledger_record_id') ||
+        meta.containsKey('file_mutation_ledger_record_ids')) {
+      return result;
+    }
+    final paths = <String>[];
+    final singlePath = meta['file_mutation_path'];
+    if (singlePath is String && singlePath.trim().isNotEmpty) {
+      paths.add(singlePath.trim());
+    }
+    final multiPaths = meta['file_mutation_paths'];
+    if (multiPaths is List) {
+      for (final p in multiPaths) {
+        if (p is String && p.trim().isNotEmpty) paths.add(p.trim());
+      }
+    }
+    if (paths.isEmpty) return result;
+    final recorded = <String, String?>{};
+    for (final path in paths) {
+      try {
+        final file = File(path);
+        if (!await file.exists()) {
+          recorded[path] = null;
+          continue;
+        }
+        String? after;
+        try {
+          after = await file.readAsString();
+          if (after.length > 16 * 1024 * 1024) after = null;
+        } catch (error, stack) {
+          silentLog(
+            'AiToolRuntimeService',
+            '_capturePostHocLedgerRecord.read',
+            error,
+            stack,
+          );
+          after = null;
+        }
+        final id = await AiToolUtils.recordFileMutationToLedger(
+          ledger: _mutationLedger,
+          sessionId: sessionId,
+          toolCallId: toolCallId,
+          toolName: toolName,
+          filePath: path,
+          kind: FileMutationKind.modify,
+          beforeContent: null,
+          afterContent: after,
+        );
+        recorded[path] = id;
+      } catch (error, stack) {
+        silentLog(
+          'AiToolRuntimeService',
+          '_capturePostHocLedgerRecord',
+          error,
+          stack,
+        );
+        recorded[path] = null;
+      }
+    }
+    if (recorded.isEmpty) return result;
+    return AiToolExecutionResult(
+      status: result.status,
+      command: result.command,
+      workingDirectory: result.workingDirectory,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      durationMs: result.durationMs,
+      resultText: result.resultText,
+      exitCode: result.exitCode,
+      matchedRuleId: result.matchedRuleId,
+      matchedRulePattern: result.matchedRulePattern,
+      isWriteCommand: result.isWriteCommand,
+      writeAnalysisReason: result.writeAnalysisReason,
+      metadata: <String, Object?>{
+        ...meta,
+        'file_mutation_ledger_record_ids': recorded,
+        'file_mutation_ledger_capture_mode': 'after_only',
+      },
+    );
+  }
+
   Future<AiToolExecutionResult> _executeBuiltinTool({
     required String sessionId,
     required AiResolvedToolCatalog catalog,
@@ -901,6 +1005,7 @@ class AiToolRuntimeService {
       metadata: <String, Object?>{
         'file_tracker': _fileTracker,
         'file_history': _fileHistory,
+        'mutation_ledger': _mutationLedger,
         'write_confirmation_timeout_ms':
             _bashToolService.writeConfirmationTimeoutMs,
       },

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../service/ai_file_history_service.dart';
+import '../service/ai_file_mutation_ledger.dart';
 import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -78,6 +79,7 @@ class AiWriteTool extends AiTool {
 
     // 2026-04-12: 保存历史版本（仅对已存在的文件）
     String? versionId;
+    String? beforeContentForLedger;
     if (fileExists) {
       versionId = await AiToolUtils.saveFileVersionBeforeMutation(
         filePath: filePath,
@@ -85,6 +87,8 @@ class AiWriteTool extends AiTool {
         toolCallId: context.toolCall.id,
         fileHistory: fileHistory,
       );
+      beforeContentForLedger =
+          await AiToolUtils.readFileContentForLedger(filePath);
     }
 
     await AiToolUtils.writeTextFileSafely(file, content);
@@ -116,6 +120,20 @@ class AiWriteTool extends AiTool {
       );
     }
 
+    // 2026-05-03: 新型 ledger 记录双快照
+    final mutationLedger =
+        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
+    final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
+      ledger: mutationLedger,
+      sessionId: context.sessionId,
+      toolCallId: context.toolCall.id,
+      toolName: 'Write',
+      filePath: filePath,
+      kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
+      beforeContent: beforeContentForLedger,
+      afterContent: content,
+    );
+
     return AiToolUtils.simpleSuccessResult(
       command: 'Write $filePath',
       output: 'Wrote ${content.length} characters to $filePath (verified)',
@@ -129,6 +147,8 @@ class AiWriteTool extends AiTool {
         'file_mutation_content_char_count': content.length,
         'file_mutation_verified': verificationPassed,
         if (versionId != null) 'file_mutation_history_version_id': versionId,
+        if (ledgerRecordId != null)
+          'file_mutation_ledger_record_id': ledgerRecordId,
       },
     );
   }
