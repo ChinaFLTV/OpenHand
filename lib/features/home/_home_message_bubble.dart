@@ -104,6 +104,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
         message.kind == AiSessionMessageKind.skill;
     final isStatus = message.kind == AiSessionMessageKind.status;
     final isSelfLearning = message.kind == AiSessionMessageKind.selfLearning;
+    // 阶段⑰：「本轮文件变动汇总」状态卡走专属 Widget，跳过通用 bubble 流。
+    if (isStatus && message.metadata['round_file_mutation_summary'] == true) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: _RoundFileMutationSummaryCard(message: message),
+      );
+    }
     final attachments = AiMessageAttachment.listFromMetadata(
       message.metadata[aiSessionMessageAttachmentsMetadataKey],
     );

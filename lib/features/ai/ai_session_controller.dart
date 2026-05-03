@@ -2343,6 +2343,11 @@ class AiSessionController extends ChangeNotifier {
     );
     var workingSession = session;
     var activeLatestUserMessageId = latestUserMessageId;
+    // 2026-05-04 阶段⑰：累积本轮（=单次助手对话直至产出最终自然回复）
+    // 内全部工具调用 id，用于回合结束时统一向 ledger 反查文件变动并
+    // 合成「本轮文件变动汇总」状态卡。保留插入顺序便于呈现执行轨迹。
+    final roundToolCallIds = <String>[];
+    final roundToolCallSeen = <String>{};
     var planModeRecoveryInspectionRequired =
         _shouldRequirePlanModeRecoveryInspection(
           session: workingSession,
@@ -3317,6 +3322,20 @@ class AiSessionController extends ChangeNotifier {
               : 'completed',
           awaitingUserInput: true,
         );
+        // 阶段⑰：助手刚产出最终自然回复且本轮存在工具调用 → 反查 ledger
+        // 合成单卡「本轮文件变动汇总」状态消息。仅在 plan-approval 等待
+        // 之外的真正完成态发射，避免每次 plan 中转都重复刷卡。
+        if (!workingSession.awaitingPlanApproval &&
+            roundToolCallIds.isNotEmpty) {
+          final summarySession = await _maybeEmitRoundFileMutationSummary(
+            session: workingSession,
+            roundToolCallIds: roundToolCallIds,
+            anchorUserMessageId: latestUserMessageId,
+          );
+          if (summarySession != null) {
+            workingSession = summarySession;
+          }
+        }
         return true;
       }
       // Model produced tool calls — reset the truncation counter since
@@ -3413,6 +3432,14 @@ class AiSessionController extends ChangeNotifier {
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
       );
+      // 阶段⑰：记录本轮全部工具调用 id（按出现顺序去重），供回合
+      // 结束时回查 ledger 合成文件变动汇总卡。
+      for (final tc in result.toolCalls) {
+        final id = tc.id.trim();
+        if (id.isNotEmpty && roundToolCallSeen.add(id)) {
+          roundToolCallIds.add(id);
+        }
+      }
       if (executedSession == null) {
         final executionError =
             lastErrorMessageForSession(workingSession.id) ??
@@ -4784,6 +4811,66 @@ class AiSessionController extends ChangeNotifier {
       awaitingPlanApproval: false,
       clearPendingPlan: true,
     );
+  }
+
+  /// 阶段⑰：单轮对话完成（assistant 产出最终自然回复）后，回查 ledger
+  /// 收集本轮全部工具调用产生的文件变动，去重后合成单张「本轮文件变动
+  /// 汇总」status 卡，元数据携带 tool_call_id 列表与锚定用户消息 id，
+  /// 供 UI 反查 ledger 与跳转。无变动则不发卡，避免噪音。
+  Future<AiSession?> _maybeEmitRoundFileMutationSummary({
+    required AiSession session,
+    required List<String> roundToolCallIds,
+    required String? anchorUserMessageId,
+  }) async {
+    if (roundToolCallIds.isEmpty) return null;
+    final ledger = _toolRuntimeService.mutationLedger;
+    final affectedToolCallIds = <String>[];
+    var totalRecords = 0;
+    for (final toolCallId in roundToolCallIds) {
+      try {
+        final views = await ledger.viewsForToolCall(
+          sessionId: session.id,
+          toolCallId: toolCallId,
+        );
+        if (views.isNotEmpty) {
+          affectedToolCallIds.add(toolCallId);
+          totalRecords += views.length;
+        }
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          '_maybeEmitRoundFileMutationSummary',
+          error,
+          stack,
+        );
+      }
+    }
+    if (affectedToolCallIds.isEmpty) return null;
+    final createdAt = _clock().toUtc();
+    final summary = AiSessionMessage.status(
+      id: _idGenerator(),
+      content: '',
+      createdAt: createdAt,
+      metadata: <String, Object?>{
+        'round_file_mutation_summary': true,
+        'round_summary_tool_call_ids': List<String>.unmodifiable(
+          affectedToolCallIds,
+        ),
+        if (anchorUserMessageId != null && anchorUserMessageId.isNotEmpty)
+          'round_summary_anchor_user_id': anchorUserMessageId,
+        'round_summary_record_count': totalRecords,
+      },
+    );
+    final next = _rebuildSession(
+      session.copyWith(
+        updatedAt: createdAt,
+        messages: <AiSessionMessage>[...session.messages, summary],
+      ),
+    );
+    final committed = await _commitSessionLocked(next);
+    if (!committed) return null;
+    notifyListeners();
+    return next;
   }
 
   AiSession _archiveCompletedPlanStateIfNeeded(AiSession session) {

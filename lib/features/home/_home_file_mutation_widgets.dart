@@ -2427,3 +2427,489 @@ String _compactBytes(int bytes) {
   final mb = bytes / (1024 * 1024);
   return '${mb.toStringAsFixed(1)}MiB';
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 阶段⑰ —— 本轮文件变动汇总卡（_RoundFileMutationSummaryCard）
+//
+// 当 AssistantTurn 末尾 (`result.toolCalls.isEmpty`) 触发时，controller 已
+// 写入一条 metadata 含 `round_file_mutation_summary == true` 的 status
+// 消息。这里把该消息渲染为一张「Codex 风总览卡」：
+//
+// - 仅展示本轮真正产生 ledger 记录的 toolCallId（controller 已预筛）。
+// - 行级 dedup 单元 = (filePath × toolCallId)；同一文件被多次 Edit/Write
+//   会出现多行，每行带独立「跳转到来源消息」按钮，跳转通过
+//   `_MessageBubbleObjectKey(messageId).currentContext` + `Scrollable
+//   .ensureVisible(alignment:0.18, duration:520ms, easeOutCubic)` 实现 Q
+//   弹丝滑滚动；目标在大会话里被 ListView 释放时回退到滚轨估算。
+// - reduceMotion 下所有过渡退化为瞬时；Drip-in 入场不超过 6 行的延迟。
+// - 不支持 undo/redo（信息聚合卡，避免与每个工具调用卡的 ledger 操作
+//   重复 / 并发竞态）。
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RoundFileMutationSummaryCard extends StatefulWidget {
+  const _RoundFileMutationSummaryCard({required this.message});
+
+  final AiSessionMessage message;
+
+  @override
+  State<_RoundFileMutationSummaryCard> createState() =>
+      _RoundFileMutationSummaryCardState();
+}
+
+class _RoundFileMutationSummaryCardState
+    extends State<_RoundFileMutationSummaryCard> {
+  Future<List<_RoundSummaryRow>>? _rowsFuture;
+  String? _lastSessionId;
+  String? _lastMessageId;
+
+  List<String> get _toolCallIds {
+    final raw = widget.message.metadata['round_summary_tool_call_ids'];
+    if (raw is List) {
+      return raw.whereType<String>().where((e) => e.isNotEmpty).toList();
+    }
+    return const <String>[];
+  }
+
+  Future<List<_RoundSummaryRow>> _load(BuildContext ctx) async {
+    final ctrl = ctx.read<AiSessionController>();
+    final sessionId = ctrl.currentSession?.id ?? '';
+    if (sessionId.isEmpty) return const <_RoundSummaryRow>[];
+    final ledger = ctrl.toolRuntimeService.mutationLedger;
+    // 反向索引 toolCallId → 对应 toolCall message.id（用于跳转）。
+    final session = ctrl.currentSession;
+    final toolCallMessageIdByCallId = <String, String>{};
+    if (session != null) {
+      for (final m in session.messages) {
+        if (m.kind != AiSessionMessageKind.toolCall) continue;
+        final id = '${m.metadata['tool_call_id'] ?? ''}'.trim();
+        if (id.isNotEmpty) toolCallMessageIdByCallId[id] = m.id;
+      }
+    }
+    final ids = _toolCallIds;
+    final rows = <_RoundSummaryRow>[];
+    final seen = <String>{}; // (filePath|toolCallId) dedup
+    for (final tcId in ids) {
+      List<FileMutationView> views;
+      try {
+        views = await ledger.viewsForToolCall(
+          sessionId: sessionId,
+          toolCallId: tcId,
+        );
+      } catch (error, stack) {
+        silentLog('round_summary_card', 'viewsForToolCall', error, stack);
+        continue;
+      }
+      // 同 toolCall + 同文件 多次 ⇒ 取最后一条（最终态）。
+      final byPath = <String, FileMutationView>{};
+      for (final v in views) {
+        byPath[v.record.filePath] = v;
+      }
+      for (final entry in byPath.entries) {
+        final key = '${entry.key}|$tcId';
+        if (!seen.add(key)) continue;
+        rows.add(
+          _RoundSummaryRow(
+            view: entry.value,
+            toolCallId: tcId,
+            sourceMessageId: toolCallMessageIdByCallId[tcId],
+          ),
+        );
+      }
+    }
+    // 时间升序排列：早→晚，符合执行轨迹直觉。
+    rows.sort((a, b) =>
+        a.view.record.createdAt.compareTo(b.view.record.createdAt));
+    return rows;
+  }
+
+  void _ensureFutureBound() {
+    final ctrl = context.read<AiSessionController>();
+    final sessionId = ctrl.currentSession?.id ?? '';
+    final messageId = widget.message.id;
+    if (_rowsFuture == null ||
+        sessionId != _lastSessionId ||
+        messageId != _lastMessageId) {
+      _lastSessionId = sessionId;
+      _lastMessageId = messageId;
+      _rowsFuture = _load(context);
+    }
+  }
+
+  Future<void> _jumpToSourceMessage(String? messageId) async {
+    if (messageId == null || messageId.isEmpty) return;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final key = _MessageBubbleObjectKey(messageId);
+    final ctx = key.currentContext;
+    if (ctx != null) {
+      // 已物化在视窗或 cacheExtent 内 → 直接 ensureVisible，
+      // alignment 0.18 让目标稍微偏上、留出上下文呼吸感。
+      await Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.18,
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+      );
+      return;
+    }
+    // Fallback：目标尚未构造 (ListView.builder 已释放或未到达)。
+    // 通知用户并触发一次「展开更早消息」入口提示——保持温和、
+    // 不打断；具体策略后续按需扩展。
+    if (mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          duration: const Duration(milliseconds: 2200),
+          content: Text(
+            _localizedTextStatic(context,
+                zh: '目标消息已离开当前视窗，请滚动到该位置后重试。',
+                en:
+                    'Source message is outside the current window; scroll up first.'),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _ensureFutureBound();
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer.withValues(alpha: 0.92),
+        borderRadius: const BorderRadius.all(Radius.circular(18)),
+        border: Border.all(
+          color: cs.primary.withValues(alpha: 0.28),
+          width: 0.8,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(18)),
+        child: FutureBuilder<List<_RoundSummaryRow>>(
+          future: _rowsFuture,
+          builder: (context, snap) {
+            final rows = snap.data ?? const <_RoundSummaryRow>[];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(theme, cs, rows),
+                if (rows.isEmpty && snap.connectionState != ConnectionState.done)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.6,
+                            color: cs.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _localizedTextStatic(context,
+                              zh: '正在汇总本轮文件变动…',
+                              en: 'Aggregating round mutations…'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (rows.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                    child: Text(
+                      _localizedTextStatic(context,
+                          zh: '本轮无文件变动。',
+                          en: 'No file mutations this round.'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < rows.length; i++)
+                          _RoundSummaryRowTile(
+                            row: rows[i],
+                            // 6 行以上才启动 drip-in；reduceMotion 直接退化。
+                            entranceDelay: (!reduceMotion && rows.length >= 6)
+                                ? Duration(
+                                    milliseconds:
+                                        (i * 55).clamp(0, 660).toInt())
+                                : Duration.zero,
+                            onJump: () =>
+                                _jumpToSourceMessage(rows[i].sourceMessageId),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    ThemeData theme,
+    ColorScheme cs,
+    List<_RoundSummaryRow> rows,
+  ) {
+    int created = 0, modified = 0, deleted = 0;
+    int totalAdded = 0, totalRemoved = 0;
+    for (final r in rows) {
+      switch (r.view.record.kind) {
+        case FileMutationKind.create:
+          created += 1;
+          break;
+        case FileMutationKind.modify:
+          modified += 1;
+          break;
+        case FileMutationKind.delete:
+          deleted += 1;
+          break;
+      }
+      final delta = r.view.record.afterSize - r.view.record.beforeSize;
+      if (delta > 0) {
+        totalAdded += delta;
+      } else if (delta < 0) {
+        totalRemoved += -delta;
+      }
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.primary.withValues(alpha: 0.14),
+            cs.primary.withValues(alpha: 0.04),
+          ],
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome_motion_rounded,
+              size: 18, color: cs.primary),
+          const SizedBox(width: 8),
+          Text(
+            _localizedTextStatic(context,
+                zh: '本轮文件变动汇总',
+                en: 'Round File Mutations'),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (rows.isNotEmpty)
+            _StatPill(
+              label: AppLocalizations.of(context)!
+                  .fileMutationFilesCount(rows.length),
+              color: cs.onSurfaceVariant,
+              bg: cs.surfaceContainerHighest.withValues(alpha: 0.65),
+            ),
+          if (created > 0) ...[
+            const SizedBox(width: 6),
+            _StatPill(
+              label: 'C $created',
+              color: const Color(0xFF2E7D32),
+              bg: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+            ),
+          ],
+          if (modified > 0) ...[
+            const SizedBox(width: 6),
+            _StatPill(
+              label: 'M $modified',
+              color: cs.primary,
+              bg: cs.primary.withValues(alpha: 0.12),
+            ),
+          ],
+          if (deleted > 0) ...[
+            const SizedBox(width: 6),
+            _StatPill(
+              label: 'D $deleted',
+              color: cs.error,
+              bg: cs.errorContainer.withValues(alpha: 0.55),
+            ),
+          ],
+          const Spacer(),
+          if (totalAdded > 0 || totalRemoved > 0)
+            Tooltip(
+              message: _localizedTextStatic(context,
+                  zh: '字节增减估算（基于文件大小）',
+                  en: 'Byte delta (file-size estimate)'),
+              child: Text(
+                '${totalAdded > 0 ? '+${_compactBytes(totalAdded)}' : ''}'
+                '${totalAdded > 0 && totalRemoved > 0 ? ' ' : ''}'
+                '${totalRemoved > 0 ? '-${_compactBytes(totalRemoved)}' : ''}',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundSummaryRow {
+  const _RoundSummaryRow({
+    required this.view,
+    required this.toolCallId,
+    required this.sourceMessageId,
+  });
+  final FileMutationView view;
+  final String toolCallId;
+  final String? sourceMessageId;
+}
+
+class _RoundSummaryRowTile extends StatelessWidget {
+  const _RoundSummaryRowTile({
+    required this.row,
+    required this.entranceDelay,
+    required this.onJump,
+  });
+
+  final _RoundSummaryRow row;
+  final Duration entranceDelay;
+  final VoidCallback onJump;
+
+  IconData _kindIcon() {
+    switch (row.view.record.kind) {
+      case FileMutationKind.create:
+        return Icons.add_circle_outline_rounded;
+      case FileMutationKind.modify:
+        return Icons.edit_outlined;
+      case FileMutationKind.delete:
+        return Icons.delete_outline_rounded;
+    }
+  }
+
+  Color _kindColor(ColorScheme cs) {
+    switch (row.view.record.kind) {
+      case FileMutationKind.create:
+        return const Color(0xFF2E7D32);
+      case FileMutationKind.modify:
+        return cs.primary;
+      case FileMutationKind.delete:
+        return cs.error;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final greyOut = row.view.isEffectivelyUndone;
+    final delta = row.view.record.afterSize - row.view.record.beforeSize;
+    final tile = Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: greyOut
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.32)
+            : cs.surface.withValues(alpha: 0.55),
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.45),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(_kindIcon(), size: 15, color: _kindColor(cs)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Tooltip(
+              message: row.view.record.filePath,
+              waitDuration: const Duration(milliseconds: 600),
+              child: Text(
+                _FileMutationCard._shortenFilePath(row.view.record.filePath),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: greyOut
+                      ? cs.onSurfaceVariant.withValues(alpha: 0.6)
+                      : cs.onSurface,
+                  decoration: greyOut ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ),
+          ),
+          if (delta != 0) ...[
+            const SizedBox(width: 8),
+            Text(
+              delta > 0
+                  ? '+${_compactBytes(delta)}'
+                  : '-${_compactBytes(-delta)}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: delta > 0 ? const Color(0xFF2E7D32) : cs.error,
+                fontFeatures: const [FontFeature.tabularFigures()],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(width: 6),
+          if (row.sourceMessageId != null)
+            Tooltip(
+              message: _localizedTextStatic(context,
+                  zh: '跳转到产生该变动的工具调用',
+                  en: 'Jump to source tool-call message'),
+              child: MicroPressFeedback(
+                child: InkWell(
+                  onTap: onJump,
+                  borderRadius:
+                      const BorderRadius.all(Radius.circular(999)),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      borderRadius:
+                          const BorderRadius.all(Radius.circular(999)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.my_location_rounded,
+                            size: 12, color: cs.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          _localizedTextStatic(context,
+                              zh: '跳转', en: 'Jump'),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (entranceDelay == Duration.zero) return tile;
+    return _DelayedAppear(delay: entranceDelay, child: tile);
+  }
+}
+

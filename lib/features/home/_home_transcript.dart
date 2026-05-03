@@ -1,5 +1,13 @@
 part of 'openhand_home_page.dart';
 
+/// 阶段⑰：以消息 id 索引的 GlobalObjectKey，让「本轮文件变动汇总」
+/// 卡（或任意外部跳转入口）能在 ListView.builder 已经构造目标气泡时
+/// 直接通过 `currentContext` 调用 `Scrollable.ensureVisible` 平滑滚动。
+/// `==`/`hashCode` 只比较包装值，多帧重建得到同一个 key。
+class _MessageBubbleObjectKey extends GlobalObjectKey {
+  const _MessageBubbleObjectKey(String super.messageId);
+}
+
 class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
   const _SessionTranscriptLoadingPlaceholder({
     super.key,
@@ -907,7 +915,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   child: IgnorePointer(
                     ignoring: entry.exiting,
                     child: RepaintBoundary(
-                      child: _MessageBubble(
+                      child: KeyedSubtree(
+                        key: _MessageBubbleObjectKey(message.id),
+                        child: _MessageBubble(
                         key: ValueKey<String>(message.id),
                         message: message,
                         sessionTitle: session.title,
@@ -973,6 +983,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 );
                               }
                             : null,
+                      ),
                       ),
                     ),
                   ),
