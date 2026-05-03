@@ -43,7 +43,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     : _client = client ?? SystemProxyResolver.instance.createHttpClient();
 
   static const Duration _scanTimeout = Duration(seconds: 8);
+  // stdio 首次冷启动通常要跑 npx / uvx 拉远端包（chrome-devtools-mcp 这类
+  // 还要顺带装 puppeteer 浏览器二进制），8 秒经常不够。给 stdio 单独放宽。
+  static const Duration _stdioScanTimeout = Duration(seconds: 90);
   static const Duration _healthCheckTimeout = Duration(seconds: 6);
+  static const Duration _stdioHealthCheckTimeout = Duration(seconds: 60);
   static const Duration _requestTimeout = Duration(seconds: 6);
   static const Duration _toolCallTimeout = Duration(seconds: 30);
   static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
@@ -60,12 +64,15 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   @override
   Future<McpToolCatalog> discoverTools(McpServer server) async {
     final scannedAt = DateTime.now().toUtc();
+    final scanTimeout = server.type == McpServerType.stdio
+        ? _stdioScanTimeout
+        : _scanTimeout;
     try {
       final discovered = await switch (server.type) {
         McpServerType.streamableHttp => _discoverOverStreamableHttp(server),
         McpServerType.sse => _discoverOverLegacySseWithFallback(server),
         McpServerType.stdio => _discoverOverStdio(server),
-      }.timeout(_scanTimeout);
+      }.timeout(scanTimeout);
       return McpToolCatalog(
         status: McpToolCatalogStatus.ready,
         tools: discovered.tools,
@@ -79,7 +86,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         errorMessage: _friendlyTimeoutMessage(
           server,
           stage: 'discover',
-          limit: _scanTimeout,
+          limit: scanTimeout,
         ),
         lastScannedAt: scannedAt,
       );
@@ -101,12 +108,15 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   @override
   Future<McpServerHealth> checkHealth(McpServer server) async {
     final checkedAt = DateTime.now().toUtc();
+    final healthTimeout = server.type == McpServerType.stdio
+        ? _stdioHealthCheckTimeout
+        : _healthCheckTimeout;
     try {
       await switch (server.type) {
         McpServerType.streamableHttp => _checkStreamableHttpHealth(server),
         McpServerType.sse => _checkLegacySseHealthWithFallback(server),
         McpServerType.stdio => _checkStdioHealth(server),
-      }.timeout(_healthCheckTimeout);
+      }.timeout(healthTimeout);
       return McpServerHealth(
         status: McpServerHealthStatus.healthy,
         lastCheckedAt: checkedAt,
@@ -117,7 +127,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         errorMessage: _friendlyTimeoutMessage(
           server,
           stage: 'health',
-          limit: _healthCheckTimeout,
+          limit: healthTimeout,
         ),
         lastCheckedAt: checkedAt,
       );
@@ -1794,6 +1804,56 @@ String _shellSingleQuote(String s) {
   return "'${s.replaceAll("'", "'\\''")}'";
 }
 
+/// 把 stdio MCP server stderr 关键词翻译成「现象 / 原因 / 建议」式中文提示。
+/// 无法识别返回空串。设计原则：宁缺勿滥，匹配高置信度的用户环境配置错误。
+String _diagnoseStdioStderr(String stderr) {
+  final text = stderr;
+  final lower = text.toLowerCase();
+  // npm 缓存损坏 / 权限错乱（最常见：曾经 sudo npm install 留下 root 权限的
+  // ~/.npm，现在普通用户身份的 GUI 应用写不进去）。EACCES + EEXIST + ENOTEMPTY
+  // 任意命中 npm 路径都给同一个建议。
+  final hitsEacces = lower.contains('eacces') || lower.contains('permission denied');
+  final hitsEexist = lower.contains('eexist');
+  final hitsEnotempty = lower.contains('enotempty');
+  final hitsNpmCache = lower.contains('/.npm/') ||
+      lower.contains(r'\.npm\') ||
+      lower.contains('_cacache') ||
+      lower.contains('_npx');
+  if ((hitsEacces || hitsEexist || hitsEnotempty) && hitsNpmCache) {
+    return '【诊断 / Diagnosis】 npm 缓存目录权限或文件状态异常 —— 可能曾经用 '
+        '`sudo npm` 安装过包，留下属主为 root 的缓存文件。\n'
+        '【建议 / Try】\n'
+        '  · 一次性修复属主：`sudo chown -R \$(whoami) ~/.npm`\n'
+        '  · 或者直接清空缓存：`rm -rf ~/.npm/_cacache ~/.npm/_npx` 后重试\n'
+        '  · 若仍报 EEXIST：`npm cache clean --force` 然后再次启动';
+  }
+  // node 未安装 / 版本不兼容
+  if (lower.contains('engine') &&
+      lower.contains('node') &&
+      (lower.contains('unsupported') || lower.contains('incompatible'))) {
+    return '【诊断 / Diagnosis】 该 MCP 服务对 Node 版本有要求，但当前 Node 版本不满足。\n'
+        '【建议 / Try】 升级 Node (建议 LTS)，nvm/volta 用户记得切到符合要求的版本。';
+  }
+  // 网络层：取包失败 / 代理拦截
+  if (lower.contains('etimedout') ||
+      lower.contains('econnrefused') ||
+      lower.contains('enotfound') ||
+      (lower.contains('npm error') && lower.contains('network'))) {
+    return '【诊断 / Diagnosis】 npm 取包阶段被网络层拦截或目标服务器不可达。\n'
+        '【建议 / Try】\n'
+        '  · 检查代理 / VPN 配置（npm 默认不走系统代理）\n'
+        '  · 切换 registry：`npm config set registry https://registry.npmmirror.com`\n'
+        '  · 等几秒后重试';
+  }
+  // python uv / pipx 缺包
+  if (lower.contains('no module named') || lower.contains('modulenotfounderror')) {
+    return '【诊断 / Diagnosis】 Python 依赖未安装。\n'
+        '【建议 / Try】 在该 MCP 服务对应 venv 里 `pip install` 缺失模块；'
+        '若用 uvx，可尝试 `uv tool install <pkg>` 后再启动。';
+  }
+  return '';
+}
+
 /// 极简 POSIX 风格命令行拆词。支持 `'...'` / `"..."` 引号包裹（不展开变量），
 /// 以及反斜杠转义下一个字符。**仅** 用于解析 stdio MCP "启动命令" 字段里
 /// 用户误粘的整条命令行（如 `"npx chrome-devtools-mcp@latest"`）。空白
@@ -2039,7 +2099,9 @@ class _StdioSession {
     if (stderr.isEmpty) {
       return 'Tool scan failed because the stdio MCP server closed unexpectedly.$traceSuffix';
     }
-    return 'Tool scan failed because the stdio MCP server closed unexpectedly: $stderr$traceSuffix';
+    final hint = _diagnoseStdioStderr(stderr);
+    final hintSuffix = hint.isEmpty ? '' : '\n\n$hint';
+    return 'Tool scan failed because the stdio MCP server closed unexpectedly: $stderr$traceSuffix$hintSuffix';
   }
 
   void _enforceStdoutBufferLimit() {
