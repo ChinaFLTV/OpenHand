@@ -120,6 +120,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   final TextEditingController _historyFilterController =
       TextEditingController();
   String _historyFilterQuery = '';
+  // null = 全部；其余值代表只看该来源。
+  AiToolSearchLoadSource? _historySourceFilter;
 
   @override
   void dispose() {
@@ -397,6 +399,35 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
             ),
           ],
         ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SegmentedButton<AiToolSearchLoadSource?>(
+            showSelectedIcon: false,
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            segments: <ButtonSegment<AiToolSearchLoadSource?>>[
+              ButtonSegment(
+                value: null,
+                label: Text(l10n.snackToolSearchLoadedSourceFilterAll),
+              ),
+              ButtonSegment(
+                value: AiToolSearchLoadSource.aiSession,
+                label: Text(l10n.snackToolSearchLoadedSourceFilterAi),
+              ),
+              ButtonSegment(
+                value: AiToolSearchLoadSource.hardnessPhase,
+                label: Text(l10n.snackToolSearchLoadedSourceFilterHardness),
+              ),
+            ],
+            selected: <AiToolSearchLoadSource?>{_historySourceFilter},
+            onSelectionChanged: (selection) {
+              setState(() => _historySourceFilter = selection.first);
+            },
+          ),
+        ),
         const SizedBox(height: 8),
         Expanded(
           child: filtered.isEmpty
@@ -422,17 +453,20 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   }
 
   /// 按 [_historyFilterQuery] 同时匹配 entry.query 与 entry.addedNames，
-  /// 大小写不敏感子串匹配；空查询返回原列表。
+  /// 大小写不敏感子串匹配；空查询返回原列表。再按 [_historySourceFilter]
+  /// 进行来源筛选（null 表示「全部」）。
   List<AiToolSearchLoadHistoryEntry> _filterHistory(
     List<AiToolSearchLoadHistoryEntry> entries,
   ) {
     final q = _historyFilterQuery.trim().toLowerCase();
-    if (q.isEmpty) return entries;
+    final source = _historySourceFilter;
     return entries
         .where(
           (e) =>
-              e.query.toLowerCase().contains(q) ||
-              e.addedNames.any((n) => n.toLowerCase().contains(q)),
+              (q.isEmpty ||
+                  e.query.toLowerCase().contains(q) ||
+                  e.addedNames.any((n) => n.toLowerCase().contains(q))) &&
+              (source == null || e.source == source),
         )
         .toList(growable: false);
   }

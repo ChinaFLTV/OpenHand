@@ -1292,8 +1292,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 以与 AI session 一致的样式提示用户。
   /// 与 AiSessionController 不同，硬度阶段没有共享的 tracker，因此本地维护
   /// 一份按 phase-session 分桶的历史时间线，供 dialog 展示。
+  /// 用 [LinkedHashMap] 的插入序天然实现 LRU：每次写入都先 remove 再 put，
+  /// 让最近活跃的 phase 落在 Map 末尾；新增时若超过
+  /// [_kHardnessToolSearchHistoryMaxPhases]，淘汰最早的 phase 桶，防止
+  /// 长会话内存膨胀（即使 onPhaseEnded 因异常路径漏调也兜底）。
+  static const int _kHardnessToolSearchHistoryMaxPhases = 8;
   final Map<String, List<AiToolSearchLoadHistoryEntry>>
   _hardnessToolSearchHistory = <String, List<AiToolSearchLoadHistoryEntry>>{};
+
+  /// 获取（或创建）指定 phase 的历史桶，并将其在 LRU Map 中提升为最近使用。
+  List<AiToolSearchLoadHistoryEntry> _touchHardnessHistoryBucket(
+    String phaseSessionId,
+  ) {
+    final existing = _hardnessToolSearchHistory.remove(phaseSessionId);
+    final bucket = existing ?? <AiToolSearchLoadHistoryEntry>[];
+    _hardnessToolSearchHistory[phaseSessionId] = bucket;
+    while (_hardnessToolSearchHistory.length >
+        _kHardnessToolSearchHistoryMaxPhases) {
+      _hardnessToolSearchHistory.remove(_hardnessToolSearchHistory.keys.first);
+    }
+    return bucket;
+  }
 
   void _handleHardnessToolSearchLoaded({
     required String phaseSessionId,
@@ -1314,9 +1333,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       totalDeferred: totalDeferred,
       source: AiToolSearchLoadSource.hardnessPhase,
     );
-    (_hardnessToolSearchHistory[phaseSessionId] ??=
-            <AiToolSearchLoadHistoryEntry>[])
-        .add(entry);
+    _touchHardnessHistoryBucket(phaseSessionId).add(entry);
     messenger.showSnackBar(
       SnackBar(
         content: Row(
@@ -1339,6 +1356,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               _hardnessToolSearchHistory[phaseSessionId] ??
                   const <AiToolSearchLoadHistoryEntry>[],
             ),
+            // Hardness phase 自身的 tool loop 是自治的，无法直接重放；
+            // 但用户的意图通常是「我想再加载这一批」——在主 composer
+            // 里发起一次 AI session 维度的 ToolSearch 调用即可，
+            // 与 AI 路径行为完全一致。
+            onReplayBatch: _replayToolSearchSelectQuery,
           ),
         ),
       ),
@@ -1382,6 +1404,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       selection: TextSelection.collapsed(offset: query.length),
     );
     await _sendMessage();
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (l10n != null && messenger != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.snackToolSearchLoadedReplayedToast),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _scheduleSessionControllerUiSync() {

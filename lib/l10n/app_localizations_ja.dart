@@ -2490,6 +2490,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedSourceHardness => 'Hardness フェーズ';
 
   @override
+  String get snackToolSearchLoadedReplayedToast => '以前の選択で ToolSearch を再実行しました';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterAll => '全て';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterAi => 'AI のみ';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterHardness => 'Hardness のみ';
+
+  @override
   String get snackToolSearchLoadedHistoryReplayAction =>
       'このバッチを select:… としてコピー';
 

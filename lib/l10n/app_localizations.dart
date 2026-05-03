@@ -4762,6 +4762,30 @@ abstract class AppLocalizations {
   /// **'Hardness 阶段'**
   String get snackToolSearchLoadedSourceHardness;
 
+  /// No description provided for @snackToolSearchLoadedReplayedToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已重新发起 ToolSearch'**
+  String get snackToolSearchLoadedReplayedToast;
+
+  /// No description provided for @snackToolSearchLoadedSourceFilterAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部'**
+  String get snackToolSearchLoadedSourceFilterAll;
+
+  /// No description provided for @snackToolSearchLoadedSourceFilterAi.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'仅 AI'**
+  String get snackToolSearchLoadedSourceFilterAi;
+
+  /// No description provided for @snackToolSearchLoadedSourceFilterHardness.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'仅 Hardness'**
+  String get snackToolSearchLoadedSourceFilterHardness;
+
   /// No description provided for @snackToolSearchLoadedHistoryReplayAction.
   ///
   /// In zh_Hans, this message translates to:

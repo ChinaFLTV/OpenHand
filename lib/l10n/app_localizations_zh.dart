@@ -2461,6 +2461,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedSourceHardness => 'Hardness 阶段';
 
   @override
+  String get snackToolSearchLoadedReplayedToast => '已重新发起 ToolSearch';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterAll => '全部';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterAi => '仅 AI';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterHardness => '仅 Hardness';
+
+  @override
   String get snackToolSearchLoadedHistoryReplayAction => '把本次复制为 select:…';
 
   @override
@@ -6913,6 +6925,18 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedSourceHardness => 'Hardness 阶段';
 
   @override
+  String get snackToolSearchLoadedReplayedToast => '已重新发起 ToolSearch';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterAll => '全部';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterAi => '仅 AI';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterHardness => '仅 Hardness';
+
+  @override
   String get snackToolSearchLoadedHistoryReplayAction => '把本次复制为 select:…';
 
   @override
@@ -11362,6 +11386,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedSourceHardness => 'Hardness 階段';
+
+  @override
+  String get snackToolSearchLoadedReplayedToast => '已重新發起 ToolSearch';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterAll => '全部';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterAi => '僅 AI';
+
+  @override
+  String get snackToolSearchLoadedSourceFilterHardness => '僅 Hardness';
 
   @override
   String get snackToolSearchLoadedHistoryReplayAction => '把本次複製為 select:…';
