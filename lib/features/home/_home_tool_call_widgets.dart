@@ -18,7 +18,9 @@ class _ToolCallBodyState extends State<_ToolCallBody>
   int? _cachedViewDataSignature;
 
   late final AnimationController _completionGlowCtrl;
+  late final AnimationController _settleBounceCtrl;
   String? _lastTerminalStatus; // success / error / failure once it lands
+  bool? _wasPreExecution;
 
   @override
   void initState() {
@@ -26,6 +28,14 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     _completionGlowCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 620),
+    );
+    // 工具加固 v4.5：从「参数构造中」过渡到正式卡片时的 Q 弹回弹动画。
+    // 480ms easeOutBack 让边框/背景/尺寸的同步收束带 ~6% 过冲，避免直
+    // 接生硬切换。受 reduceMotion / disableAnimationsOf 控制。
+    _settleBounceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 480),
+      value: 1.0,
     );
     final initialStatus = _toolExecutionStatus(widget.message);
     if (_isTerminalStatus(initialStatus)) {
@@ -39,6 +49,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
   @override
   void dispose() {
     _completionGlowCtrl.dispose();
+    _settleBounceCtrl.dispose();
     super.dispose();
   }
 
@@ -108,6 +119,24 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     final isConstructing = isAwaitingExecutor && isStreamingArgs;
     final isSubmitting = isAwaitingExecutor && !isStreamingArgs;
     final isPreExecution = isConstructing || isSubmitting;
+    // Detect the pre-execution → executed transition once per state change
+    // and schedule the Q-bounce settle. Idempotent: only fires when the
+    // boolean flips from true → false, never on internal pre-exec churn.
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (_wasPreExecution == true && !isPreExecution) {
+      if (reduceMotion) {
+        _settleBounceCtrl.value = 1.0;
+      } else {
+        _settleBounceCtrl.forward(from: 0.0);
+      }
+    } else if (_wasPreExecution == null && !isPreExecution) {
+      // First mount on an already-executed message — skip ceremony.
+      _settleBounceCtrl.value = 1.0;
+    } else if (isPreExecution) {
+      // Hold the bounce reset so the next exit replays cleanly.
+      _settleBounceCtrl.value = 1.0;
+    }
+    _wasPreExecution = isPreExecution;
     // Schedule a one-shot completion glow when status first lands on a
     // terminal value. Idempotent — relies on _lastTerminalStatus.
     _maybeKickCompletionGlow(toolCall.status);
@@ -125,13 +154,16 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     return SettingsAwareAppearOnce(
       child: ClipRect(
         child: AnimatedSize(
-          duration: MediaQuery.disableAnimationsOf(context)
+          duration: reduceMotion
               ? Duration.zero
-              : const Duration(milliseconds: 220),
+              : const Duration(milliseconds: 360),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topLeft,
           child: AnimatedBuilder(
-            animation: _completionGlowCtrl,
+            animation: Listenable.merge(<Listenable>[
+              _completionGlowCtrl,
+              _settleBounceCtrl,
+            ]),
             builder: (context, child) {
               // Compose completion glow on top of the steady-state tint.
               // Curve: ease-out from 1 → 0 (alpha decays). The glow fully
@@ -154,20 +186,42 @@ class _ToolCallBodyState extends State<_ToolCallBody>
               }
               final composedFill = glowActive ? glowFill : tintColor;
               final composedBorder = glowActive ? glowBorder : borderColor;
-              return AnimatedContainer(
-                duration: MediaQuery.disableAnimationsOf(context)
+              // Q 弹回弹：settle 进度走 easeOutBack 曲线（~6% 过冲），
+              // 用同一进度同时驱动 radius 由 14→10、scale 由 0.97→1.0
+              // 与一次轻微的 padding 保留过渡，让颜色/形状/尺寸同步收
+              // 束为正式卡片。pre-execution 阶段保持稳定 radius=14。
+              final settleRaw = _settleBounceCtrl.value;
+              final settleEased = reduceMotion
+                  ? 1.0
+                  : Curves.easeOutBack.transform(settleRaw);
+              final radius = isPreExecution
+                  ? 14.0
+                  : 14.0 + (10.0 - 14.0) * settleEased.clamp(0.0, 1.0);
+              final settleScale = isPreExecution
+                  ? 1.0
+                  : (0.97 + 0.03 * settleEased).clamp(0.96, 1.04);
+              final container = AnimatedContainer(
+                duration: reduceMotion
                     ? Duration.zero
-                    : const Duration(milliseconds: 320),
+                    : const Duration(milliseconds: 360),
                 curve: Curves.easeOutCubic,
                 padding: isPreExecution || glowActive
                     ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
                     : EdgeInsets.zero,
                 decoration: BoxDecoration(
                   color: composedFill,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(radius),
                   border: Border.all(color: composedBorder),
                 ),
                 child: child,
+              );
+              if (reduceMotion || isPreExecution || settleRaw >= 1.0) {
+                return container;
+              }
+              return Transform.scale(
+                scale: settleScale,
+                alignment: Alignment.topLeft,
+                child: container,
               );
             },
             child: Column(
