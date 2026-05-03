@@ -418,6 +418,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsActiveToolCallsCancel => 'Stop';
 
   @override
+  String get settingsSubprocessGracefulShutdownLabel =>
+      'Subprocess graceful shutdown (ms)';
+
+  @override
+  String get settingsSubprocessGracefulShutdownBody =>
+      'How long to wait between SIGTERM and SIGKILL when cancelling a tool. Larger values are gentler but make Stop feel slower. Range 100–5000.';
+
+  @override
+  String get settingsBashOutputMaxBytesLabel => 'Bash capture limit (chars)';
+
+  @override
+  String get settingsBashOutputMaxBytesBody =>
+      'Per-call cap for combined stdout+stderr captured by the bash tool. Output beyond is mid-truncated, keeping head and tail. Range 16000–4000000.';
+
+  @override
+  String get settingsMaxConcurrentToolsLabel => 'Concurrent tool calls';
+
+  @override
+  String get settingsMaxConcurrentToolsBody =>
+      'Maximum tool calls dispatched in parallel within a session. Range 1–64.';
+
+  @override
+  String get settingsToolHardeningInvalid =>
+      'Please enter an integer within range';
+
+  @override
   String get settingsSkillsTitle => 'Skills';
 
   @override

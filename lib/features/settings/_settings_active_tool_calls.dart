@@ -182,3 +182,175 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
     );
   }
 }
+
+/// 三项工具加固参数：subprocessGracefulShutdownMs / bashOutputMaxBytes /
+/// maxConcurrentTools。每个独立行用 TextField + Save 按钮提交，输入超出
+/// 范围时显示红色提示文案，保存成功靠 SettingsController.saveSuccessSignal
+/// 的全局 HighlightPulse 反馈。
+class _ToolHardeningParamsPanel extends StatefulWidget {
+  const _ToolHardeningParamsPanel();
+
+  @override
+  State<_ToolHardeningParamsPanel> createState() =>
+      _ToolHardeningParamsPanelState();
+}
+
+class _ToolHardeningParamsPanelState extends State<_ToolHardeningParamsPanel> {
+  late final TextEditingController _gracefulCtrl;
+  late final TextEditingController _bashOutCtrl;
+  late final TextEditingController _maxConcurCtrl;
+  final FocusNode _gracefulFocus = FocusNode();
+  final FocusNode _bashOutFocus = FocusNode();
+  final FocusNode _maxConcurFocus = FocusNode();
+  String? _gracefulError;
+  String? _bashOutError;
+  String? _maxConcurError;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = context.read<SettingsController>();
+    _gracefulCtrl = TextEditingController(
+      text: '${settings.subprocessGracefulShutdownMs}',
+    );
+    _bashOutCtrl = TextEditingController(
+      text: '${settings.bashOutputMaxBytes}',
+    );
+    _maxConcurCtrl = TextEditingController(
+      text: '${settings.maxConcurrentTools}',
+    );
+  }
+
+  @override
+  void dispose() {
+    _gracefulCtrl.dispose();
+    _bashOutCtrl.dispose();
+    _maxConcurCtrl.dispose();
+    _gracefulFocus.dispose();
+    _bashOutFocus.dispose();
+    _maxConcurFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save({
+    required TextEditingController controller,
+    required int min,
+    required int max,
+    required Future<bool> Function(int) update,
+    required void Function(String?) setError,
+  }) async {
+    final l10n = AppLocalizations.of(context)!;
+    final raw = int.tryParse(controller.text.trim());
+    if (raw == null || raw < min || raw > max) {
+      setState(() => setError(l10n.settingsToolHardeningInvalid));
+      return;
+    }
+    setState(() => setError(null));
+    await update(raw);
+  }
+
+  Widget _row({
+    required String title,
+    required String subtitle,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String? errorText,
+    required VoidCallback onSave,
+  }) {
+    return _ResponsiveSettingRow(
+      title: title,
+      subtitle: subtitle,
+      controlMaxWidth: 360,
+      control: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                isDense: true,
+                errorText: errorText,
+                border: const OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => onSave(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.tonal(
+            onPressed: onSave,
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final settings = context.watch<SettingsController>();
+    // 当外部（如重置）改了快照、或其它路径触发更新时，把控制器同步到最新值，
+    // 但不抢用户正在编辑的字段焦点。
+    if (!_gracefulFocus.hasFocus &&
+        _gracefulCtrl.text != '${settings.subprocessGracefulShutdownMs}') {
+      _gracefulCtrl.text = '${settings.subprocessGracefulShutdownMs}';
+    }
+    if (!_bashOutFocus.hasFocus &&
+        _bashOutCtrl.text != '${settings.bashOutputMaxBytes}') {
+      _bashOutCtrl.text = '${settings.bashOutputMaxBytes}';
+    }
+    if (!_maxConcurFocus.hasFocus &&
+        _maxConcurCtrl.text != '${settings.maxConcurrentTools}') {
+      _maxConcurCtrl.text = '${settings.maxConcurrentTools}';
+    }
+    return _SettingsGroupCard(
+      title: '工具加固参数',
+      description: '子进程 graceful shutdown 时长、bash 输出上限、并发工具调用上限。',
+      children: [
+        _row(
+          title: l10n.settingsSubprocessGracefulShutdownLabel,
+          subtitle: l10n.settingsSubprocessGracefulShutdownBody,
+          controller: _gracefulCtrl,
+          focusNode: _gracefulFocus,
+          errorText: _gracefulError,
+          onSave: () => _save(
+            controller: _gracefulCtrl,
+            min: AppSettingsSnapshot.minSubprocessGracefulShutdownMs,
+            max: AppSettingsSnapshot.maxSubprocessGracefulShutdownMs,
+            update: settings.updateSubprocessGracefulShutdownMs,
+            setError: (e) => _gracefulError = e,
+          ),
+        ),
+        _row(
+          title: l10n.settingsBashOutputMaxBytesLabel,
+          subtitle: l10n.settingsBashOutputMaxBytesBody,
+          controller: _bashOutCtrl,
+          focusNode: _bashOutFocus,
+          errorText: _bashOutError,
+          onSave: () => _save(
+            controller: _bashOutCtrl,
+            min: AppSettingsSnapshot.minBashOutputMaxBytes,
+            max: AppSettingsSnapshot.maxBashOutputMaxBytes,
+            update: settings.updateBashOutputMaxBytes,
+            setError: (e) => _bashOutError = e,
+          ),
+        ),
+        _row(
+          title: l10n.settingsMaxConcurrentToolsLabel,
+          subtitle: l10n.settingsMaxConcurrentToolsBody,
+          controller: _maxConcurCtrl,
+          focusNode: _maxConcurFocus,
+          errorText: _maxConcurError,
+          onSave: () => _save(
+            controller: _maxConcurCtrl,
+            min: AppSettingsSnapshot.minMaxConcurrentTools,
+            max: AppSettingsSnapshot.maxMaxConcurrentTools,
+            update: settings.updateMaxConcurrentTools,
+            setError: (e) => _maxConcurError = e,
+          ),
+        ),
+      ],
+    );
+  }
+}

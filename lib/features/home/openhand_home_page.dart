@@ -3169,6 +3169,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       fastPathWriteAnalysisThreshold:
           settingsController.aiFastPathWriteAnalysisThreshold,
       maxHookTextCharacters: settingsController.aiMaxHookTextCharacters,
+      subprocessGracefulShutdownMs:
+          settingsController.subprocessGracefulShutdownMs,
+      bashOutputMaxBytes: settingsController.bashOutputMaxBytes,
+      maxConcurrentTools: settingsController.maxConcurrentTools,
       webFetchMaxResponseBytes: settingsController.aiWebFetchMaxResponseBytes,
       webFetchMaxRedirects: settingsController.aiWebFetchMaxRedirects,
       webFetchMaxCacheEntries: settingsController.aiWebFetchMaxCacheEntries,
@@ -3296,6 +3300,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController.aiWriteConfirmationTimeoutMs,
       settingsController.aiFastPathWriteAnalysisThreshold,
       settingsController.aiMaxHookTextCharacters,
+      settingsController.subprocessGracefulShutdownMs,
+      settingsController.bashOutputMaxBytes,
+      settingsController.maxConcurrentTools,
       settingsController.aiWebFetchMaxResponseBytes,
       settingsController.aiWebFetchMaxRedirects,
       settingsController.aiWebFetchMaxCacheEntries,
@@ -3415,6 +3422,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       fastPathWriteAnalysisThreshold:
           settingsController.aiFastPathWriteAnalysisThreshold,
       maxHookTextCharacters: settingsController.aiMaxHookTextCharacters,
+      subprocessGracefulShutdownMs:
+          settingsController.subprocessGracefulShutdownMs,
+      bashOutputMaxBytes: settingsController.bashOutputMaxBytes,
+      maxConcurrentTools: settingsController.maxConcurrentTools,
       webFetchMaxResponseBytes: settingsController.aiWebFetchMaxResponseBytes,
       webFetchMaxRedirects: settingsController.aiWebFetchMaxRedirects,
       webFetchMaxCacheEntries: settingsController.aiWebFetchMaxCacheEntries,

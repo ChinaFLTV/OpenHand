@@ -146,6 +146,9 @@ class SettingsController extends ChangeNotifier {
            snapshot.toolSearchReplayCancelWindowSeconds,
        _reduceMotion = snapshot.reduceMotion,
        _proxySettings = snapshot.proxySettings,
+       _subprocessGracefulShutdownMs = snapshot.subprocessGracefulShutdownMs,
+       _bashOutputMaxBytes = snapshot.bashOutputMaxBytes,
+       _maxConcurrentTools = snapshot.maxConcurrentTools,
        _persistenceIssue = persistenceIssue;
 
   static const int _maxRecentModelSelections = 10;
@@ -248,6 +251,9 @@ class SettingsController extends ChangeNotifier {
   int _toolSearchReplayCancelWindowSeconds;
   bool _reduceMotion;
   AppProxySettings _proxySettings;
+  int _subprocessGracefulShutdownMs;
+  int _bashOutputMaxBytes;
+  int _maxConcurrentTools;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -450,6 +456,15 @@ class SettingsController extends ChangeNotifier {
 
   /// 系统级代理配置（模式、协议、主机、端口、鉴权与例外名单）。
   AppProxySettings get proxySettings => _proxySettings;
+
+  /// 子进程 graceful shutdown 等待窗口（毫秒）。
+  int get subprocessGracefulShutdownMs => _subprocessGracefulShutdownMs;
+
+  /// 单次 bash 工具调用合并捕获 stdout+stderr 上限（字符）。
+  int get bashOutputMaxBytes => _bashOutputMaxBytes;
+
+  /// 同会话内并发派发工具调用的上限。
+  int get maxConcurrentTools => _maxConcurrentTools;
 
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
@@ -1874,6 +1889,51 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  /// 子进程 graceful shutdown 等待窗口（毫秒）。
+  Future<bool> updateSubprocessGracefulShutdownMs(int value) async {
+    return _commitMutation(() {
+      final clamped = value.clamp(
+        AppSettingsSnapshot.minSubprocessGracefulShutdownMs,
+        AppSettingsSnapshot.maxSubprocessGracefulShutdownMs,
+      );
+      if (_subprocessGracefulShutdownMs == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _subprocessGracefulShutdownMs = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  /// 单次 bash 工具调用合并捕获 stdout+stderr 上限（字符）。
+  Future<bool> updateBashOutputMaxBytes(int value) async {
+    return _commitMutation(() {
+      final clamped = value.clamp(
+        AppSettingsSnapshot.minBashOutputMaxBytes,
+        AppSettingsSnapshot.maxBashOutputMaxBytes,
+      );
+      if (_bashOutputMaxBytes == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _bashOutputMaxBytes = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  /// 同会话内并发派发工具调用的上限。
+  Future<bool> updateMaxConcurrentTools(int value) async {
+    return _commitMutation(() {
+      final clamped = value.clamp(
+        AppSettingsSnapshot.minMaxConcurrentTools,
+        AppSettingsSnapshot.maxMaxConcurrentTools,
+      );
+      if (_maxConcurrentTools == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _maxConcurrentTools = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
   /// 更新系统代理配置。允许部分字段更新（任何 `null` 表示保持原值）。
   /// 所有字段会经过 `AppProxySettings.copyWith` 合并，再做必需的归一化
   /// （如 host trim、port 钳位、protocols 去空集合 fallback）。
@@ -2091,6 +2151,9 @@ class SettingsController extends ChangeNotifier {
           _toolSearchReplayCancelWindowSeconds,
       reduceMotion: _reduceMotion,
       proxySettings: _proxySettings,
+      subprocessGracefulShutdownMs: _subprocessGracefulShutdownMs,
+      bashOutputMaxBytes: _bashOutputMaxBytes,
+      maxConcurrentTools: _maxConcurrentTools,
     );
   }
 
@@ -2205,6 +2268,9 @@ class SettingsController extends ChangeNotifier {
         snapshot.toolSearchReplayCancelWindowSeconds;
     _reduceMotion = snapshot.reduceMotion;
     _proxySettings = snapshot.proxySettings;
+    _subprocessGracefulShutdownMs = snapshot.subprocessGracefulShutdownMs;
+    _bashOutputMaxBytes = snapshot.bashOutputMaxBytes;
+    _maxConcurrentTools = snapshot.maxConcurrentTools;
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {

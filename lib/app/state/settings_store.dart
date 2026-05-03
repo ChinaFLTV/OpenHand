@@ -267,6 +267,9 @@ class SettingsStore {
           snapshot.toolSearchReplayCancelWindowSeconds,
       'reduce_motion': snapshot.reduceMotion,
       'proxy': snapshot.proxySettings.toJson(),
+      'subprocess_graceful_shutdown_ms': snapshot.subprocessGracefulShutdownMs,
+      'bash_output_max_bytes': snapshot.bashOutputMaxBytes,
+      'max_concurrent_tools': snapshot.maxConcurrentTools,
       'ai_models': snapshot.aiModels
           .map((model) => model.toJson())
           .toList(growable: false),
@@ -1030,6 +1033,26 @@ class SettingsStore {
 
     final proxySettings = AppProxySettings.fromJson(json['proxy']);
 
+    final subprocessGracefulShutdownMs =
+        json['subprocess_graceful_shutdown_ms'] is num
+        ? (json['subprocess_graceful_shutdown_ms'] as num).round().clamp(
+            AppSettingsSnapshot.minSubprocessGracefulShutdownMs,
+            AppSettingsSnapshot.maxSubprocessGracefulShutdownMs,
+          )
+        : AppSettingsSnapshot.defaultSubprocessGracefulShutdownMs;
+    final bashOutputMaxBytes = json['bash_output_max_bytes'] is num
+        ? (json['bash_output_max_bytes'] as num).round().clamp(
+            AppSettingsSnapshot.minBashOutputMaxBytes,
+            AppSettingsSnapshot.maxBashOutputMaxBytes,
+          )
+        : AppSettingsSnapshot.defaultBashOutputMaxBytes;
+    final maxConcurrentTools = json['max_concurrent_tools'] is num
+        ? (json['max_concurrent_tools'] as num).round().clamp(
+            AppSettingsSnapshot.minMaxConcurrentTools,
+            AppSettingsSnapshot.maxMaxConcurrentTools,
+          )
+        : AppSettingsSnapshot.defaultMaxConcurrentTools;
+
     return AppSettingsSnapshot(
       themeMode: themeMode,
       themePreset: themePreset,
@@ -1120,6 +1143,9 @@ class SettingsStore {
           toolSearchReplayCancelWindowSeconds,
       reduceMotion: reduceMotion,
       proxySettings: proxySettings,
+      subprocessGracefulShutdownMs: subprocessGracefulShutdownMs,
+      bashOutputMaxBytes: bashOutputMaxBytes,
+      maxConcurrentTools: maxConcurrentTools,
     );
   }
 }

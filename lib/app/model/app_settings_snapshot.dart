@@ -137,6 +137,9 @@ class AppSettingsSnapshot {
       telemetryCaptureEnvironment: false,
       telemetryMaxPayloadChars: defaultTelemetryMaxPayloadChars,
       proxySettings: AppProxySettings.defaults(),
+      subprocessGracefulShutdownMs: defaultSubprocessGracefulShutdownMs,
+      bashOutputMaxBytes: defaultBashOutputMaxBytes,
+      maxConcurrentTools: defaultMaxConcurrentTools,
     );
   }
   const AppSettingsSnapshot({
@@ -228,6 +231,9 @@ class AppSettingsSnapshot {
     this.toolSearchReplayCancelWindowSeconds =
         defaultToolSearchReplayCancelWindowSeconds,
     this.reduceMotion = false,
+    this.subprocessGracefulShutdownMs = defaultSubprocessGracefulShutdownMs,
+    this.bashOutputMaxBytes = defaultBashOutputMaxBytes,
+    this.maxConcurrentTools = defaultMaxConcurrentTools,
     AppProxySettings? proxySettings,
   }) : proxySettings =
            proxySettings ??
@@ -491,6 +497,25 @@ class AppSettingsSnapshot {
   static const int minAiStreamIdleTimeoutSeconds = 10;
   static const int maxAiStreamIdleTimeoutSeconds = 600;
 
+  /// 子进程 graceful shutdown 等待窗口（毫秒）。在 SIGTERM 之后等待
+  /// 该时长，若进程仍未退出则升级到 SIGKILL。值越大越仁慈，但 UI
+  /// 取消反馈延迟也越大。
+  static const int defaultSubprocessGracefulShutdownMs = 500;
+  static const int minSubprocessGracefulShutdownMs = 100;
+  static const int maxSubprocessGracefulShutdownMs = 5000;
+
+  /// 单次 bash 工具调用 stdout/stderr 合并捕获上限（字节，UTF-16 chars 近似）。
+  /// 超过会从中段截断并保留头尾，避免巨型日志撑爆消息序列化。
+  static const int defaultBashOutputMaxBytes = 200000;
+  static const int minBashOutputMaxBytes = 16000;
+  static const int maxBashOutputMaxBytes = 4000000;
+
+  /// 同会话内并发派发的工具调用上限。超过会进入排队，避免一次 plan
+  /// 100 个写命令瞬间打爆系统资源（也降低被 OS 限速触发的概率）。
+  static const int defaultMaxConcurrentTools = 8;
+  static const int minMaxConcurrentTools = 1;
+  static const int maxMaxConcurrentTools = 64;
+
   /// Default session mode string: 'chat' or 'plan'.
   static const String defaultAiDefaultSessionMode = 'chat';
 
@@ -683,6 +708,15 @@ class AppSettingsSnapshot {
   /// 主机/端口/鉴权/例外名单。
   final AppProxySettings proxySettings;
 
+  /// 子进程 SIGTERM → SIGKILL 之间的宽限期（毫秒）。
+  final int subprocessGracefulShutdownMs;
+
+  /// 单次 bash 工具调用合并捕获 stdout+stderr 上限（字符）。
+  final int bashOutputMaxBytes;
+
+  /// 同会话内并发派发工具调用的上限。
+  final int maxConcurrentTools;
+
   AppSettingsSnapshot copyWith({
     ThemeMode? themeMode,
     OpenHandThemePreset? themePreset,
@@ -770,6 +804,9 @@ class AppSettingsSnapshot {
     int? toolSearchReplayCancelWindowSeconds,
     bool? reduceMotion,
     AppProxySettings? proxySettings,
+    int? subprocessGracefulShutdownMs,
+    int? bashOutputMaxBytes,
+    int? maxConcurrentTools,
     bool clearSelectedAiModelId = false,
   }) {
     return AppSettingsSnapshot(
@@ -934,6 +971,10 @@ class AppSettingsSnapshot {
           this.toolSearchReplayCancelWindowSeconds,
       reduceMotion: reduceMotion ?? this.reduceMotion,
       proxySettings: proxySettings ?? this.proxySettings,
+      subprocessGracefulShutdownMs:
+          subprocessGracefulShutdownMs ?? this.subprocessGracefulShutdownMs,
+      bashOutputMaxBytes: bashOutputMaxBytes ?? this.bashOutputMaxBytes,
+      maxConcurrentTools: maxConcurrentTools ?? this.maxConcurrentTools,
     );
   }
 }

@@ -5,6 +5,11 @@ import 'dart:io';
 import '../../features/ai/service/ai_tool_execution_registry.dart';
 import 'silent_log.dart';
 
+/// 全局默认的子进程 graceful shutdown 等待窗口（毫秒）。AiSessionController
+/// 在 `_captureLatestRuntimeContext` 中按用户设置项更新此值，所有不显式
+/// 传 `gracefulShutdownMs` 的调用方自动跟随。默认 500ms 与既有行为一致。
+int safeSubprocessDefaultGracefulShutdownMs = 500;
+
 /// Runs an external command with a hard wall-clock timeout that **kills**
 /// the child process on expiry.
 ///
@@ -35,7 +40,10 @@ Future<ProcessResult?> runProcessWithTimeout(
   bool runInShell = false,
   bool includeParentEnvironment = true,
   String? toolCallId,
+  int? gracefulShutdownMs,
 }) async {
+  final effectiveGracefulMs =
+      gracefulShutdownMs ?? safeSubprocessDefaultGracefulShutdownMs;
   Process? process;
   final shouldRegisterKiller =
       toolCallId != null && toolCallId.isNotEmpty;
@@ -53,7 +61,7 @@ Future<ProcessResult?> runProcessWithTimeout(
       AiToolExecutionRegistry.instance.attachPid(toolCallId, spawned.pid);
       AiToolExecutionRegistry.instance.attachKiller(toolCallId, () async {
         spawned.kill();
-        await Future<void>.delayed(const Duration(milliseconds: 500));
+        await Future<void>.delayed(Duration(milliseconds: effectiveGracefulMs));
         spawned.kill(ProcessSignal.sigkill);
       });
     }

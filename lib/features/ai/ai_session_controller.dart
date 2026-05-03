@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import '../../app/model/app_settings_snapshot.dart';
 import '../../app/model/hook_config.dart';
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../hooks/hooks_executor.dart';
 import '../mcp/model/mcp_tool.dart';
@@ -455,6 +456,13 @@ class AiSessionController extends ChangeNotifier {
         runtimeContext.writeConfirmationTimeoutMs;
     _bashToolService.fastPathWriteAnalysisThreshold =
         runtimeContext.fastPathWriteAnalysisThreshold;
+    _bashToolService.maxCapturedCharacters = runtimeContext.bashOutputMaxBytes;
+    // 工具加固：把 graceful shutdown 时长写入 safe_subprocess 模块默认值，
+    // 全局 runProcessWithTimeout 调用即时跟随；UI 上的 Stop 反馈与子进程
+    // 实际终止之间的间隔由此控制。maxConcurrentTools 当前留作 schema，
+    // 后续在调度层接入。
+    safeSubprocessDefaultGracefulShutdownMs =
+        runtimeContext.subprocessGracefulShutdownMs;
     _hookService.maxHookTextCharacters = runtimeContext.maxHookTextCharacters;
     // Group C: 网络与附件类参数。
     _attachmentService.maxInlineImageDimension =

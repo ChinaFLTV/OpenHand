@@ -402,6 +402,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsActiveToolCallsCancel => 'Stop';
 
   @override
+  String get settingsSubprocessGracefulShutdownLabel =>
+      '子进程 graceful shutdown（毫秒）';
+
+  @override
+  String get settingsSubprocessGracefulShutdownBody =>
+      'SIGTERM 之后等多久才升级到 SIGKILL。越大越仁慈，但 UI 取消反馈也越慢。范围 100–5000。';
+
+  @override
+  String get settingsBashOutputMaxBytesLabel => 'Bash 捕获上限（字符）';
+
+  @override
+  String get settingsBashOutputMaxBytesBody =>
+      '单次 bash 调用合并捕获 stdout+stderr 的上限。超过会从中段截断保留头尾。范围 16000–4000000。';
+
+  @override
+  String get settingsMaxConcurrentToolsLabel => '并发工具调用上限';
+
+  @override
+  String get settingsMaxConcurrentToolsBody => '同会话内同时派发的工具调用最大数量。范围 1–64。';
+
+  @override
+  String get settingsToolHardeningInvalid => '请输入范围内的整数';
+
+  @override
   String get settingsSkillsTitle => '技能';
 
   @override
@@ -5037,6 +5061,30 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsActiveToolCallsCancel => 'Stop';
 
   @override
+  String get settingsSubprocessGracefulShutdownLabel =>
+      '子进程 graceful shutdown（毫秒）';
+
+  @override
+  String get settingsSubprocessGracefulShutdownBody =>
+      'SIGTERM 之后等多久才升级到 SIGKILL。越大越仁慈，但 UI 取消反馈也越慢。范围 100–5000。';
+
+  @override
+  String get settingsBashOutputMaxBytesLabel => 'Bash 捕获上限（字符）';
+
+  @override
+  String get settingsBashOutputMaxBytesBody =>
+      '单次 bash 调用合并捕获 stdout+stderr 的上限。超过会从中段截断保留头尾。范围 16000–4000000。';
+
+  @override
+  String get settingsMaxConcurrentToolsLabel => '并发工具调用上限';
+
+  @override
+  String get settingsMaxConcurrentToolsBody => '同会话内同时派发的工具调用最大数量。范围 1–64。';
+
+  @override
+  String get settingsToolHardeningInvalid => '请输入范围内的整数';
+
+  @override
   String get settingsSkillsTitle => '技能';
 
   @override
@@ -9669,6 +9717,30 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsActiveToolCallsCancel => 'Stop';
+
+  @override
+  String get settingsSubprocessGracefulShutdownLabel =>
+      '子進程 graceful shutdown（毫秒）';
+
+  @override
+  String get settingsSubprocessGracefulShutdownBody =>
+      'SIGTERM 之後等多久再升級到 SIGKILL。越大越仁慈，但 UI 取消回應也會變慢。範圍 100–5000。';
+
+  @override
+  String get settingsBashOutputMaxBytesLabel => 'Bash 擷取上限（字元）';
+
+  @override
+  String get settingsBashOutputMaxBytesBody =>
+      '單次 bash 呼叫合併擷取 stdout+stderr 上限。超過從中段截斷保留頭尾。範圍 16000–4000000。';
+
+  @override
+  String get settingsMaxConcurrentToolsLabel => '並發工具呼叫上限';
+
+  @override
+  String get settingsMaxConcurrentToolsBody => '同會話內同時派發的工具呼叫最大數量。範圍 1–64。';
+
+  @override
+  String get settingsToolHardeningInvalid => '請輸入範圍內的整數';
 
   @override
   String get settingsSkillsTitle => '技能';

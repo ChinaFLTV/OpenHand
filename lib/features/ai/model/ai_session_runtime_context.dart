@@ -113,6 +113,9 @@ class AiSessionRuntimeContext {
     this.writeConfirmationTimeoutMs = 300000,
     this.fastPathWriteAnalysisThreshold = 512,
     this.maxHookTextCharacters = 4000,
+    this.subprocessGracefulShutdownMs = 500,
+    this.bashOutputMaxBytes = 200000,
+    this.maxConcurrentTools = 8,
     this.webFetchMaxResponseBytes = 1024 * 1024,
     this.webFetchMaxRedirects = 5,
     this.webFetchMaxCacheEntries = 64,
@@ -227,6 +230,15 @@ class AiSessionRuntimeContext {
 
   /// Group B — Hook 文本输出字符上限。
   final int maxHookTextCharacters;
+
+  /// 2026-05 — 工具加固：子进程 graceful shutdown 等待窗口（毫秒）。
+  final int subprocessGracefulShutdownMs;
+
+  /// 2026-05 — 工具加固：单次 bash 调用 stdout+stderr 合并捕获上限。
+  final int bashOutputMaxBytes;
+
+  /// 2026-05 — 工具加固：同会话并发派发工具调用上限。
+  final int maxConcurrentTools;
 
   /// Group C — WebFetch 单次响应字节上限。
   final int webFetchMaxResponseBytes;
@@ -364,6 +376,9 @@ class AiSessionRuntimeContext {
       'write_confirmation_timeout_ms': writeConfirmationTimeoutMs,
       'fast_path_write_analysis_threshold': fastPathWriteAnalysisThreshold,
       'max_hook_text_characters': maxHookTextCharacters,
+      'subprocess_graceful_shutdown_ms': subprocessGracefulShutdownMs,
+      'bash_output_max_bytes': bashOutputMaxBytes,
+      'max_concurrent_tools': maxConcurrentTools,
       'web_fetch_max_response_bytes': webFetchMaxResponseBytes,
       'web_fetch_max_redirects': webFetchMaxRedirects,
       'web_fetch_max_cache_entries': webFetchMaxCacheEntries,

@@ -403,6 +403,31 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsActiveToolCallsCancel => 'Stop';
 
   @override
+  String get settingsSubprocessGracefulShutdownLabel =>
+      'サブプロセス graceful shutdown（ミリ秒）';
+
+  @override
+  String get settingsSubprocessGracefulShutdownBody =>
+      'SIGTERM と SIGKILL の間の待機時間。大きいほど丁寧だが、Stop の反応が遅くなります。範囲 100–5000。';
+
+  @override
+  String get settingsBashOutputMaxBytesLabel => 'Bash キャプチャ上限（文字）';
+
+  @override
+  String get settingsBashOutputMaxBytesBody =>
+      '1 回の bash 呼び出しで取得する stdout+stderr の合計上限。超えると中央を切り詰め、頭と末尾を保持します。範囲 16000–4000000。';
+
+  @override
+  String get settingsMaxConcurrentToolsLabel => '並行ツール呼び出し上限';
+
+  @override
+  String get settingsMaxConcurrentToolsBody =>
+      '同一セッションで並行してディスパッチされるツール呼び出しの最大数。範囲 1–64。';
+
+  @override
+  String get settingsToolHardeningInvalid => '範囲内の整数を入力してください';
+
+  @override
   String get settingsSkillsTitle => 'スキル';
 
   @override

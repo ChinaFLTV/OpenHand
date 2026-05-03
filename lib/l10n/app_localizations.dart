@@ -844,6 +844,48 @@ abstract class AppLocalizations {
   /// **'Stop'**
   String get settingsActiveToolCallsCancel;
 
+  /// No description provided for @settingsSubprocessGracefulShutdownLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'子进程 graceful shutdown（毫秒）'**
+  String get settingsSubprocessGracefulShutdownLabel;
+
+  /// No description provided for @settingsSubprocessGracefulShutdownBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'SIGTERM 之后等多久才升级到 SIGKILL。越大越仁慈，但 UI 取消反馈也越慢。范围 100–5000。'**
+  String get settingsSubprocessGracefulShutdownBody;
+
+  /// No description provided for @settingsBashOutputMaxBytesLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Bash 捕获上限（字符）'**
+  String get settingsBashOutputMaxBytesLabel;
+
+  /// No description provided for @settingsBashOutputMaxBytesBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'单次 bash 调用合并捕获 stdout+stderr 的上限。超过会从中段截断保留头尾。范围 16000–4000000。'**
+  String get settingsBashOutputMaxBytesBody;
+
+  /// No description provided for @settingsMaxConcurrentToolsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'并发工具调用上限'**
+  String get settingsMaxConcurrentToolsLabel;
+
+  /// No description provided for @settingsMaxConcurrentToolsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'同会话内同时派发的工具调用最大数量。范围 1–64。'**
+  String get settingsMaxConcurrentToolsBody;
+
+  /// No description provided for @settingsToolHardeningInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入范围内的整数'**
+  String get settingsToolHardeningInvalid;
+
   /// No description provided for @settingsSkillsTitle.
   ///
   /// In zh_Hans, this message translates to:

@@ -678,7 +678,13 @@ class _SettingsViewState extends State<SettingsView> {
         description: l10n.settingsAiSubtitle,
         children: [_buildAiModelsSection(context, settingsController)],
       ),
-      _SettingsSection.activeToolCalls => const _ActiveToolCallsPanel(),
+      _SettingsSection.activeToolCalls => const Column(
+        children: [
+          _ActiveToolCallsPanel(),
+          SizedBox(height: 18),
+          _ToolHardeningParamsPanel(),
+        ],
+      ),
       _SettingsSection.builtinTools => _SettingsGroupCard(
         title: AppLocalizations.of(context)!.settingsBuiltInTools,
         description: AppLocalizations.of(

@@ -398,7 +398,9 @@ class _CancelledPersistentBashExecution implements Exception {
 
 class AiBashToolService {
   static const int defaultTimeoutMs = 120000;
-  static const int maxCapturedCharacters = 32000;
+  // 2026-05 — `bashOutputMaxBytes` 设置项：从 SettingsController 注入。
+  // 旧默认 32000；放宽到 200_000，与 snapshot.defaultBashOutputMaxBytes 对齐。
+  int maxCapturedCharacters = 200000;
   int writeConfirmationTimeoutMs = 300000;
   int fastPathWriteAnalysisThreshold = 512;
   final Map<String, _PersistentBashSession> _persistentSessions =

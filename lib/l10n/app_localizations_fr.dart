@@ -420,6 +420,32 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsActiveToolCallsCancel => 'Stop';
 
   @override
+  String get settingsSubprocessGracefulShutdownLabel =>
+      'Arrêt propre du sous-processus (ms)';
+
+  @override
+  String get settingsSubprocessGracefulShutdownBody =>
+      'Temps d’attente entre SIGTERM et SIGKILL lors d’une annulation. Plus grand = plus indulgent, mais Stop semble plus lent. Plage 100–5000.';
+
+  @override
+  String get settingsBashOutputMaxBytesLabel => 'Limite de capture Bash (car.)';
+
+  @override
+  String get settingsBashOutputMaxBytesBody =>
+      'Plafond stdout+stderr capturés par appel bash. Au-delà, troncature au milieu en gardant tête et queue. Plage 16000–4000000.';
+
+  @override
+  String get settingsMaxConcurrentToolsLabel => 'Appels d’outils concurrents';
+
+  @override
+  String get settingsMaxConcurrentToolsBody =>
+      'Nombre maximal d’appels d’outils exécutés en parallèle dans une session. Plage 1–64.';
+
+  @override
+  String get settingsToolHardeningInvalid =>
+      'Veuillez saisir un entier dans l’intervalle';
+
+  @override
   String get settingsSkillsTitle => 'Compétences';
 
   @override
