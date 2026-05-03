@@ -463,7 +463,42 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
     final anyUndoable = views.any((v) => v.canUndo);
     final anyRedoable = views.any((v) => v.canRedo);
-    return Stack(
+    // 阶段 ⑮c：卡内 Cmd/Ctrl+Z 撤销最近一条、Shift+Cmd/Ctrl+Z 重做。
+    // 仅当卡片或其子节点持有焦点时生效，避免与全局快捷键冲突。
+    FileMutationView? lastUndoable;
+    FileMutationView? lastRedoable;
+    for (final v in views) {
+      if (v.canUndo) lastUndoable = v;
+      if (v.canRedo) lastRedoable = v;
+    }
+    return FocusableActionDetector(
+      shortcuts: <ShortcutActivator, Intent>{
+        const SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
+            const _UndoLastIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+            const _UndoLastIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyZ,
+            meta: true, shift: true): const _RedoLastIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyZ,
+            control: true, shift: true): const _RedoLastIntent(),
+      },
+      actions: <Type, Action<Intent>>{
+        _UndoLastIntent: CallbackAction<_UndoLastIntent>(
+          onInvoke: (_) {
+            final v = lastUndoable;
+            if (v != null) _undo(v);
+            return null;
+          },
+        ),
+        _RedoLastIntent: CallbackAction<_RedoLastIntent>(
+          onInvoke: (_) {
+            final v = lastRedoable;
+            if (v != null) _redo(v);
+            return null;
+          },
+        ),
+      },
+      child: Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
@@ -580,23 +615,35 @@ class _FileMutationCardState extends State<_FileMutationCard> {
           ),
           // 阶段 ⑪e：渐进式展开。views 多时只构造前 _revealedCount 条，
           // 余下用一行「展开剩余 N 条」按钮兜底，按需 +30 / 全展开。
+          // 阶段 ⑮b：≥6 行时给主卡首批行加一次 60ms 步进的 drip-in
+          // 入场，与 inspector 同源 _DelayedAppear；reduceMotion 下退化。
           for (int i = 0; i < views.length && i < _revealedCount; i++)
-            _FileMutationCardRow(
-              view: views[i],
-              expanded:
-                  _expandedRecordIds.contains(views[i].record.recordId),
-              busy: _busyRecordIds.contains(views[i].record.recordId),
-              onToggleExpand: () => _toggleExpand(views[i].record.recordId),
-              onUndo: () => _undo(views[i]),
-              onRedo: () => _redo(views[i]),
-              onOpenLegacyDialog: () => _showLegacyDiff(
-                views[i].record.filePath,
-                _fileMutationKind(widget.message),
-              ),
-              onRevealLedger: _revealLedgerFile,
-              onCopyDiff: () => _copyAllDiff([views[i]]),
-              onOpenInspector: _openHistoryInspector,
-            ),
+            Builder(builder: (rowCtx) {
+              final reduceMotion =
+                  MediaQuery.maybeDisableAnimationsOf(rowCtx) ?? false;
+              final shouldDrip = !reduceMotion && views.length >= 6;
+              final row = _FileMutationCardRow(
+                view: views[i],
+                expanded:
+                    _expandedRecordIds.contains(views[i].record.recordId),
+                busy: _busyRecordIds.contains(views[i].record.recordId),
+                onToggleExpand: () => _toggleExpand(views[i].record.recordId),
+                onUndo: () => _undo(views[i]),
+                onRedo: () => _redo(views[i]),
+                onOpenLegacyDialog: () => _showLegacyDiff(
+                  views[i].record.filePath,
+                  _fileMutationKind(widget.message),
+                ),
+                onRevealLedger: _revealLedgerFile,
+                onCopyDiff: () => _copyAllDiff([views[i]]),
+                onOpenInspector: _openHistoryInspector,
+              );
+              if (!shouldDrip) return row;
+              return _DelayedAppear(
+                delay: Duration(milliseconds: (i * 60).clamp(0, 720)),
+                child: row,
+              );
+            }),
           if (views.length > _revealedCount)
             _RevealMoreRow(
               remaining: views.length - _revealedCount,
@@ -641,6 +688,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
           ),
         ),
       ],
+    ),
     );
   }
 
@@ -1860,15 +1908,12 @@ class _HistoryInspectorGroup extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.45),
-            width: 0.5,
-          ),
-        ),
+      child: _HoverElevateBox(
+        radius: 12,
+        baseColor: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+        baseBorder: cs.outlineVariant.withValues(alpha: 0.45),
+        hoverBorder: cs.primary.withValues(alpha: 0.45),
+        hoverShadow: cs.primary.withValues(alpha: 0.15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -2003,43 +2048,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
               color: cs.outlineVariant.withValues(alpha: 0.35),
             ),
             for (final v in entries)
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: Row(
-                  children: [
-                    _RecordKindBadge(kind: v.record.kind),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        v.record.toolName,
-                        style: theme.textTheme.bodySmall,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      _formatTimestamp(v.record.createdAt),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (v.directlyUndone)
-                      Tooltip(
-                        message: l10n.fileMutationUndone,
-                        child: Icon(Icons.undo_rounded,
-                            size: 14, color: cs.onSurfaceVariant),
-                      )
-                    else if (v.cascadeUndone)
-                      Tooltip(
-                        message: l10n.fileMutationCascadeUndone,
-                        child: Icon(Icons.link_off_rounded,
-                            size: 14, color: cs.onSurfaceVariant),
-                      ),
-                  ],
-                ),
-              ),
+              _InspectorEntryRow(view: v),
           ],
         ),
       ),
@@ -2051,6 +2060,126 @@ class _HistoryInspectorGroup extends StatelessWidget {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${l.year}-${two(l.month)}-${two(l.day)} '
         '${two(l.hour)}:${two(l.minute)}:${two(l.second)}';
+  }
+}
+
+/// 阶段 ⑮d：inspector 单条记录行——长按 / 右键弹「复制 record JSON」。
+class _InspectorEntryRow extends StatelessWidget {
+  const _InspectorEntryRow({required this.view});
+  final FileMutationView view;
+
+  Future<void> _showRecordMenu(BuildContext context, Offset globalPos) async {
+    final overlay =
+        Overlay.of(context, rootOverlay: true).context.findRenderObject()
+            as RenderBox?;
+    if (overlay == null) return;
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(globalPos.dx, globalPos.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        PopupMenuItem<String>(
+          value: 'copy_json',
+          child: Row(
+            children: [
+              const Icon(Icons.data_object_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '复制此条记录 JSON' : 'Copy record JSON'),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'copy_id',
+          child: Row(
+            children: [
+              const Icon(Icons.tag_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '复制 record ID' : 'Copy record ID'),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (!context.mounted) return;
+    if (selected == 'copy_json') {
+      final json = jsonEncode(view.record.toJson());
+      await Clipboard.setData(ClipboardData(text: json));
+      if (context.mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 2),
+            content: Text(isZh ? '已复制 record JSON' : 'Copied record JSON'),
+          ),
+        );
+      }
+    } else if (selected == 'copy_id') {
+      await Clipboard.setData(
+        ClipboardData(text: view.record.recordId),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 2),
+            content: Text(isZh ? '已复制 record ID' : 'Copied record ID'),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return InkWell(
+      onLongPress: () {
+        final box = context.findRenderObject() as RenderBox?;
+        final pos = box?.localToGlobal(Offset.zero) ?? Offset.zero;
+        _showRecordMenu(context, pos + const Offset(20, 20));
+      },
+      onSecondaryTapDown: (d) =>
+          _showRecordMenu(context, d.globalPosition),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            _RecordKindBadge(kind: view.record.kind),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                view.record.toolName,
+                style: theme.textTheme.bodySmall,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              _HistoryInspectorGroup._formatTimestamp(view.record.createdAt),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (view.directlyUndone)
+              Tooltip(
+                message: l10n.fileMutationUndone,
+                child: Icon(Icons.undo_rounded,
+                    size: 14, color: cs.onSurfaceVariant),
+              )
+            else if (view.cascadeUndone)
+              Tooltip(
+                message: l10n.fileMutationCascadeUndone,
+                child: Icon(Icons.link_off_rounded,
+                    size: 14, color: cs.onSurfaceVariant),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -2107,6 +2236,78 @@ class _RecordKindBadge extends StatelessWidget {
 /// 阶段 ⑫a：FileMutationCard row 键盘 Enter 触发的 Intent。
 class _OpenLegacyDialogIntent extends Intent {
   const _OpenLegacyDialogIntent();
+}
+
+/// 阶段 ⑮c：卡内 Cmd/Ctrl+Z 撤销最近一条记录。
+class _UndoLastIntent extends Intent {
+  const _UndoLastIntent();
+}
+
+/// 阶段 ⑮c：卡内 Shift+Cmd/Ctrl+Z 重做最近一条记录。
+class _RedoLastIntent extends Intent {
+  const _RedoLastIntent();
+}
+
+/// 阶段 ⑮e：inspector 分组卡 hover 微抬升——
+/// 200ms easeOutCubic 边框 / 阴影 fade，reduceMotion 下退化为零时长。
+class _HoverElevateBox extends StatefulWidget {
+  const _HoverElevateBox({
+    required this.child,
+    required this.radius,
+    required this.baseColor,
+    required this.baseBorder,
+    required this.hoverBorder,
+    required this.hoverShadow,
+  });
+  final Widget child;
+  final double radius;
+  final Color baseColor;
+  final Color baseBorder;
+  final Color hoverBorder;
+  final Color hoverShadow;
+
+  @override
+  State<_HoverElevateBox> createState() => _HoverElevateBoxState();
+}
+
+class _HoverElevateBoxState extends State<_HoverElevateBox> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final dur = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 200);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      cursor: SystemMouseCursors.basic,
+      child: AnimatedContainer(
+        duration: dur,
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: widget.baseColor,
+          borderRadius: BorderRadius.circular(widget.radius),
+          border: Border.all(
+            color: _hover ? widget.hoverBorder : widget.baseBorder,
+            width: _hover ? 0.8 : 0.5,
+          ),
+          boxShadow: _hover
+              ? [
+                  BoxShadow(
+                    color: widget.hoverShadow,
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : const [],
+        ),
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 /// 阶段 ⑬a：在 [delay] 之前显示透明占位（保持高度通过 child build），

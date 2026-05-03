@@ -741,6 +741,8 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   Timer? _saveDebounce;
   bool _pruneNowBusy = false;
   ({int removed, int bytesFreed})? _lastGcStats;
+  // 阶段 ⑮a：pulse 信号——成功完成 prune 时 +1 触发 HighlightPulse。
+  final ValueNotifier<int> _cleanupPulse = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -775,6 +777,18 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       final gc = await _ledger.gcUnreferencedBlobs();
       if (mounted) {
         setState(() => _lastGcStats = gc);
+        _cleanupPulse.value += 1;
+        // SnackBar 反馈与 undo/redo 节奏一致：2s。
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 2),
+            content: Text(_localizedText(context,
+                zh: '已清理 · 释放 ${gc.removed} 个 blob · '
+                    '${formatHumanBytes(gc.bytesFreed)}',
+                en: 'Cleaned · ${gc.removed} blob(s) · '
+                    '${formatHumanBytes(gc.bytesFreed)} freed')),
+          ),
+        );
       }
       await _refreshStats();
     } finally {
@@ -785,6 +799,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   @override
   void dispose() {
     _saveDebounce?.cancel();
+    _cleanupPulse.dispose();
     super.dispose();
   }
 
@@ -816,7 +831,9 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         ),
       );
     }
-    return Container(
+    return Stack(
+      children: [
+        Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
@@ -941,6 +958,15 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
           ],
         ],
       ),
+    ),
+        // 阶段 ⑮a：成功 prune 后顶部发一次 highlight pulse。
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(child: HighlightPulse(signal: _cleanupPulse)),
+        ),
+      ],
     );
   }
 }
