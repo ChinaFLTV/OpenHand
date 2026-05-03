@@ -883,10 +883,75 @@ class AiBashToolService {
       ], workingDirectory: workingDirectory);
     }
     final shellExecutable = _resolveShellExecutable();
-    return Process.start(shellExecutable, <String>[
-      '-lc',
-      command,
-    ], workingDirectory: workingDirectory);
+    return _spawnPosixShell(
+      shellExecutable: shellExecutable,
+      shellArgs: <String>['-lc', command],
+      workingDirectory: workingDirectory,
+    );
+  }
+
+  /// 在 POSIX 平台上若发现 `setsid` 可用，则用其包裹 shell，进而把整个命令树
+  /// 放进**新的进程组**。对该 pid 调用 [_killProcess] 时会顺带 `kill -KILL -pid`，
+  /// 即按进程组发送信号，能彻底回收 shell 派生出的子孙进程（例如长跑的
+  /// `flutter run`、`tail -f`、`ssh` 等），避免出现"按 Stop 后子孙仍在运行"的
+  /// 僵尸场景。当 setsid 不可用（少数老版本 macOS / 自定义环境）时安静回退到
+  /// 直接派生，行为与之前一致。
+  Future<Process> _spawnPosixShell({
+    required String shellExecutable,
+    required List<String> shellArgs,
+    required String workingDirectory,
+  }) async {
+    final setsidPath = await _resolveSetsidPath();
+    if (setsidPath != null) {
+      final process = await Process.start(
+        setsidPath,
+        <String>[shellExecutable, ...shellArgs],
+        workingDirectory: workingDirectory,
+      );
+      _processGroupLeaders.add(process.pid);
+      // 进程退出后及时清理标记，避免长会话下集合无界增长。
+      process.exitCode
+          .whenComplete(() => _processGroupLeaders.remove(process.pid))
+          .ignore();
+      return process;
+    }
+    return Process.start(
+      shellExecutable,
+      shellArgs,
+      workingDirectory: workingDirectory,
+    );
+  }
+
+  /// 缓存 setsid 路径解析结果（一次进程内只探测一次）。
+  static Future<String?>? _setsidProbe;
+  static final Set<int> _processGroupLeaders = <int>{};
+
+  static Future<String?> _resolveSetsidPath() {
+    if (_setsidProbe != null) return _setsidProbe!;
+    _setsidProbe = () async {
+      if (Platform.isWindows) return null;
+      // /usr/bin/setsid 在 GNU/Linux 与较新 macOS 都常见；自定义环境可能在
+      // /usr/local/bin 或 /opt/homebrew/bin。逐一探测，找不到就返回 null。
+      const candidates = <String>[
+        '/usr/bin/setsid',
+        '/usr/local/bin/setsid',
+        '/opt/homebrew/bin/setsid',
+      ];
+      for (final candidate in candidates) {
+        if (File(candidate).existsSync()) return candidate;
+      }
+      // 最后兜底：通过 `command -v setsid` 在 PATH 里找。
+      try {
+        final result = await Process.run('/bin/sh', <String>[
+          '-lc',
+          'command -v setsid 2>/dev/null',
+        ]).timeout(const Duration(seconds: 2));
+        final stdout = (result.stdout as String).trim();
+        if (stdout.isNotEmpty && File(stdout).existsSync()) return stdout;
+      } catch (_) {}
+      return null;
+    }();
+    return _setsidProbe!;
   }
 
   Future<_PersistentBashSession> _ensurePersistentSession({
@@ -903,11 +968,17 @@ class AiBashToolService {
     final shellArgs = Platform.isWindows
         ? const <String>['/Q']
         : const <String>[];
-    final process = await Process.start(
-      shellExecutable,
-      shellArgs,
-      workingDirectory: initialWorkingDirectory,
-    );
+    final process = Platform.isWindows
+        ? await Process.start(
+            shellExecutable,
+            shellArgs,
+            workingDirectory: initialWorkingDirectory,
+          )
+        : await _spawnPosixShell(
+            shellExecutable: shellExecutable,
+            shellArgs: shellArgs,
+            workingDirectory: initialWorkingDirectory,
+          );
     final session = _PersistentBashSession(
       process: process,
       currentWorkingDirectory: initialWorkingDirectory,
@@ -1240,6 +1311,8 @@ class AiBashToolService {
       }
       return;
     }
+    final pid = process.pid;
+    final isGroupLeader = _processGroupLeaders.contains(pid);
     var graceful = false;
     try {
       // Default signal is SIGTERM on POSIX; spelt out via the default to keep
@@ -1248,11 +1321,19 @@ class AiBashToolService {
     } catch (_) {
       graceful = false;
     }
+    // 对进程组 leader 同步发一次 `kill -TERM -pid`，把 shell 派生出来的子孙
+    // 进程一并通知到，避免子孙残留。
+    if (isGroupLeader) {
+      _sendSignalToProcessGroup(pid, 'TERM');
+    }
     if (!graceful) {
       try {
         process.kill(ProcessSignal.sigkill);
       } catch (_) {
         // Process already exited.
+      }
+      if (isGroupLeader) {
+        _sendSignalToProcessGroup(pid, 'KILL');
       }
       return;
     }
@@ -1263,9 +1344,29 @@ class AiBashToolService {
       } catch (_) {
         // Process already exited cleanly after SIGTERM.
       }
+      if (isGroupLeader) {
+        _sendSignalToProcessGroup(pid, 'KILL');
+      }
     });
     // Cancel the escalation if the child exits cleanly first.
     process.exitCode.then((_) => escalation.cancel()).ignore();
+  }
+
+  /// 通过 `/bin/kill -SIG -PGID` 向进程组发送信号；本身不阻塞，失败静默。
+  static void _sendSignalToProcessGroup(int pid, String signal) {
+    if (Platform.isWindows) return;
+    unawaited(() async {
+      try {
+        await Process.run('/bin/kill', <String>['-$signal', '-$pid']);
+      } catch (error, stack) {
+        silentLog(
+          'ai_bash_tool_service',
+          'kill -$signal -$pid',
+          error,
+          stack,
+        );
+      }
+    }());
   }
 }
 

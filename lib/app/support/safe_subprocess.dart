@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../features/ai/service/ai_tool_execution_registry.dart';
 import 'silent_log.dart';
 
 /// Runs an external command with a hard wall-clock timeout that **kills**
@@ -17,6 +18,13 @@ import 'silent_log.dart';
 ///
 /// Returns null when the command times out, fails to start, or exits with
 /// a non-zero status.  All errors are logged via [silentLog] (debug-only).
+///
+/// **Tool-execution registry integration**: when [toolCallId] is provided
+/// and non-empty, the spawned process registers its pid + a SIGTERM→SIGKILL
+/// killer with [AiToolExecutionRegistry], enabling the per-call Stop UX.
+/// The registration is automatically cleaned up on return (success / timeout
+/// / exception). Pass null when the call site has no AiToolExecutionContext
+/// in scope (e.g. boot-time CLI probes).
 Future<ProcessResult?> runProcessWithTimeout(
   String executable,
   List<String> arguments, {
@@ -26,8 +34,11 @@ Future<ProcessResult?> runProcessWithTimeout(
   Map<String, String>? environment,
   bool runInShell = false,
   bool includeParentEnvironment = true,
+  String? toolCallId,
 }) async {
   Process? process;
+  final shouldRegisterKiller =
+      toolCallId != null && toolCallId.isNotEmpty;
   try {
     process = await Process.start(
       executable,
@@ -37,6 +48,15 @@ Future<ProcessResult?> runProcessWithTimeout(
       runInShell: runInShell,
       includeParentEnvironment: includeParentEnvironment,
     );
+    if (shouldRegisterKiller) {
+      final spawned = process;
+      AiToolExecutionRegistry.instance.attachPid(toolCallId, spawned.pid);
+      AiToolExecutionRegistry.instance.attachKiller(toolCallId, () async {
+        spawned.kill();
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        spawned.kill(ProcessSignal.sigkill);
+      });
+    }
     final stdoutFuture = process.stdout.transform(utf8.decoder).join();
     final stderrFuture = process.stderr.transform(utf8.decoder).join();
     String stdoutText = '';

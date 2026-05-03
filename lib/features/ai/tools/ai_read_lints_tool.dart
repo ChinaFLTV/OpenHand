@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
 import '../service/ai_bash_tool_service.dart';
+import '../service/ai_tool_execution_registry.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
@@ -37,7 +38,11 @@ class AiReadLintsTool extends AiTool {
     );
 
     try {
-      final output = await _runAnalyze(workingDirectory, paths);
+      final output = await _runAnalyze(
+        workingDirectory,
+        paths,
+        toolCallId: context.toolCall.id,
+      );
       return AiToolUtils.simpleSuccessResult(
         command: 'ReadLints',
         output: output,
@@ -72,8 +77,9 @@ class AiReadLintsTool extends AiTool {
 
   Future<String> _runAnalyze(
     String workingDirectory,
-    List<String> paths,
-  ) async {
+    List<String> paths, {
+    String? toolCallId,
+  }) async {
     // Determine whether to use flutter analyze or dart analyze
     final usesFlutter =
         File(p.join(workingDirectory, 'pubspec.yaml')).existsSync() &&
@@ -105,6 +111,23 @@ class AiReadLintsTool extends AiTool {
       silentLog('ai_read_lints_tool', 'spawn $executable', error, stack);
       throw FormatException(
         'Failed to launch "$executable analyze": ${error.message}',
+      );
+    }
+    // —— 接入执行登记中心：让 UI 能中止运行中的 analyze。
+    final registeredToolCallId = toolCallId;
+    if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
+      final spawned = process;
+      AiToolExecutionRegistry.instance.attachPid(
+        registeredToolCallId,
+        spawned.pid,
+      );
+      AiToolExecutionRegistry.instance.attachKiller(
+        registeredToolCallId,
+        () async {
+          spawned.kill();
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+          spawned.kill(ProcessSignal.sigkill);
+        },
       );
     }
 

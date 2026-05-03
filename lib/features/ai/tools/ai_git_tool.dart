@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import '../../../app/support/safe_subprocess.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -37,6 +36,7 @@ class AiGitTool extends AiTool {
         operation,
         args,
         workingDirectory,
+        toolCallId: context.toolCall.id,
       );
       return AiToolUtils.simpleSuccessResult(
         command: 'Git $operation',
@@ -61,8 +61,9 @@ class AiGitTool extends AiTool {
   Future<String> _executeGitOperation(
     String operation,
     Map<String, Object?> args,
-    String workingDirectory,
-  ) async {
+    String workingDirectory, {
+    String? toolCallId,
+  }) async {
     switch (operation) {
       case 'status':
         return _run(workingDirectory, <String>[
@@ -70,7 +71,7 @@ class AiGitTool extends AiTool {
           '--porcelain=v2',
           '--branch',
           '--show-stash',
-        ]);
+        ], toolCallId: toolCallId);
 
       case 'diff':
         final target = '${args['target'] ?? ''}'.trim();
@@ -86,7 +87,7 @@ class AiGitTool extends AiTool {
           gitArgs.add('--');
           gitArgs.add(filePath);
         }
-        return _run(workingDirectory, gitArgs);
+        return _run(workingDirectory, gitArgs, toolCallId: toolCallId);
 
       case 'log':
         final count = AiToolUtils.readInt(args['count']) ?? 10;
@@ -111,7 +112,7 @@ class AiGitTool extends AiTool {
           gitArgs.add('--');
           gitArgs.add(filePath);
         }
-        return _run(workingDirectory, gitArgs);
+        return _run(workingDirectory, gitArgs, toolCallId: toolCallId);
 
       case 'blame':
         final filePath = '${args['file_path'] ?? ''}'.trim();
@@ -127,7 +128,7 @@ class AiGitTool extends AiTool {
         }
         gitArgs.add('--');
         gitArgs.add(filePath);
-        return _run(workingDirectory, gitArgs);
+        return _run(workingDirectory, gitArgs, toolCallId: toolCallId);
 
       case 'show':
         final ref = '${args['ref'] ?? 'HEAD'}'.trim();
@@ -141,25 +142,42 @@ class AiGitTool extends AiTool {
           '-p',
           '--',
           ref,
-        ]);
+        ], toolCallId: toolCallId);
 
       case 'branch':
-        return _run(workingDirectory, <String>['branch', '-vv', '--list']);
+        return _run(workingDirectory, <String>[
+          'branch',
+          '-vv',
+          '--list',
+        ], toolCallId: toolCallId);
 
       case 'stash_list':
-        return _run(workingDirectory, <String>['stash', 'list']);
+        return _run(workingDirectory, <String>[
+          'stash',
+          'list',
+        ], toolCallId: toolCallId);
 
       default:
         return 'Unknown Git operation: $operation. Supported: status, diff, log, blame, show, branch, stash_list.';
     }
   }
 
-  Future<String> _run(String workingDirectory, List<String> args) async {
-    final result = await Process.run(
+  Future<String> _run(
+    String workingDirectory,
+    List<String> args, {
+    String? toolCallId,
+  }) async {
+    final result = await runProcessWithTimeout(
       'git',
       args,
       workingDirectory: workingDirectory,
+      timeout: const Duration(minutes: 2),
+      tag: 'ai_git_tool',
+      toolCallId: toolCallId,
     );
+    if (result == null) {
+      throw Exception('git ${args.join(' ')} timed out or failed to spawn');
+    }
     final stdout = (result.stdout as String).trimRight();
     final stderr = (result.stderr as String).trimRight();
     if (result.exitCode != 0) {
