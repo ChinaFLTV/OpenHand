@@ -1035,6 +1035,40 @@ class AiPromptBuilder {
         _renderToolEntry(buffer, tool, compact: compact);
       }
     }
+    // MCP lazy loading banner: when ToolSearch carries a "## Deferred MCP
+    // tools (N)" subsection in its description, surface a one-line notice so
+    // the model knows MCP descriptions are intentionally folded.
+    final toolSearch = builtinTools.firstWhere(
+      (tool) => tool.name == 'ToolSearch',
+      orElse: () => const AiToolDefinition(
+        name: '',
+        description: '',
+        parameters: <String, Object?>{},
+      ),
+    );
+    final deferredMatch = toolSearch.name.isEmpty
+        ? null
+        : RegExp(r'## Deferred MCP tools \((\d+)\)')
+              .firstMatch(toolSearch.description);
+    if (deferredMatch != null) {
+      buffer
+        ..writeln()
+        ..writeln(
+          compact
+              ? '## MCP (lazy)'
+              : '## MCP Tools (lazy-loaded — descriptions deferred)',
+        )
+        ..writeln(
+          'MCP tool descriptions for ${deferredMatch.group(1)} tool(s) are '
+          'folded to save context. Names + one-line summaries live inside the '
+          '`ToolSearch` tool description below. To use any deferred MCP tool, '
+          'first call `ToolSearch` with `select:<exact_name>` (multi-select '
+          'supported, e.g. `select:mcp__a__b mcp__c__d`) or with a keyword '
+          'query — the runtime will inject full JSONSchema and the tool '
+          'becomes callable from the next turn onward. Do NOT invent MCP '
+          'tool names; pick from the deferred list.',
+        );
+    }
     if (mcpTools.isNotEmpty) {
       buffer
         ..writeln()

@@ -14,6 +14,7 @@ import '../ai/service/ai_chat_service.dart';
 import '../ai/service/ai_prompt_template_repository.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_tool_runtime_service.dart';
+import '../mcp/service/mcp_lazy_loading_applier.dart';
 import 'hardness_orchestrator.dart';
 import 'hardness_prompt_builder.dart';
 import 'model/hardness_phase.dart';
@@ -154,6 +155,11 @@ class HardnessApiPhaseRunner {
   final Future<bool> Function(BashCommandApprovalRequest request)?
   confirmWriteCommand;
 
+  /// Per-phase-session record of MCP tools that ToolSearch already pulled in,
+  /// keyed by `phaseSessionId`. Mirrors `AiSessionController._loadedMcpToolsBySession`.
+  final Map<String, Set<String>> _loadedMcpToolsBySession =
+      <String, Set<String>>{};
+
   /// Rough characters-per-token estimate for context size tracking.
   static const int _estimatedCharsPerToken = 4;
 
@@ -195,8 +201,16 @@ class HardnessApiPhaseRunner {
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     final supportsTools = adapter.supportsToolCalls;
 
+    // Use a unique session ID for each phase execution. For the reviewing
+    // phase, append a random suffix to guarantee full isolation from any
+    // prior implementing phase — preventing implicit state leakage that
+    // could lead to self-evaluation bias.
+    final phaseSessionId = phase == HardnessPhase.reviewing
+        ? 'hardness-reviewer-isolated-${DateTime.now().millisecondsSinceEpoch}'
+        : 'hardness-phase-${phase.storageValue}';
+
     // Resolve tool catalog (builtin + MCP + skills) — same as default thread.
-    final toolCatalog = supportsTools
+    final rawToolCatalog = supportsTools
         ? await _toolRuntimeService.resolveCatalog(
             runtimeContext: runtimeContext,
           )
@@ -204,6 +218,20 @@ class HardnessApiPhaseRunner {
             definitions: <AiToolDefinition>[],
             toolsByName: <String, AiResolvedTool>{},
           );
+
+    // Apply MCP lazy-loading policy before phase-affinity filtering, so the
+    // deferred list reflects the full server inventory and any subsequent
+    // ToolSearch hit becomes immediately callable in this phase.
+    final toolCatalog = supportsTools
+        ? McpLazyLoadingApplier.apply(
+            catalog: rawToolCatalog,
+            runtimeContext: runtimeContext,
+            toolRuntimeService: _toolRuntimeService,
+            alreadyLoadedNames:
+                _loadedMcpToolsBySession[phaseSessionId] ??
+                const <String>{},
+          )
+        : rawToolCatalog;
 
     // Filter tools based on phase constraints using HE-specific affinity.
     final phaseToolCatalog = hardnessPromptBuilder.filterToolsForPhase(
@@ -321,13 +349,6 @@ class HardnessApiPhaseRunner {
     final previouslyReadFiles = <String>{};
     // Phase-specific deny rules: read-only phases should not allow file writes.
     final denyRules = _denyRulesForPhase(phase);
-    // Use a unique session ID for each phase execution. For the reviewing
-    // phase, append a random suffix to guarantee full isolation from any
-    // prior implementing phase — preventing implicit state leakage that
-    // could lead to self-evaluation bias.
-    final phaseSessionId = phase == HardnessPhase.reviewing
-        ? 'hardness-reviewer-isolated-${DateTime.now().millisecondsSinceEpoch}'
-        : 'hardness-phase-${phase.storageValue}';
 
     try {
       while (true) {
@@ -500,6 +521,22 @@ class HardnessApiPhaseRunner {
             final filePath = args['file_path'] ?? args['path'];
             if (filePath is String && filePath.isNotEmpty) {
               previouslyReadFiles.add(filePath);
+            }
+          }
+
+          // Absorb tool_search_loaded_names so subsequent rounds in this
+          // phase see the just-pulled MCP tools as live (not deferred).
+          final loadedNames =
+              result.metadata['tool_search_loaded_names'];
+          if (loadedNames is List && loadedNames.isNotEmpty) {
+            final bucket = _loadedMcpToolsBySession.putIfAbsent(
+              phaseSessionId,
+              () => <String>{},
+            );
+            for (final name in loadedNames) {
+              if (name is String && name.isNotEmpty) {
+                bucket.add(name);
+              }
             }
           }
 

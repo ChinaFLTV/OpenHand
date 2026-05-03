@@ -2203,6 +2203,11 @@ _ToolCallPresentation _toolCallPresentation(
       displayName: 'AskUserChoice',
       icon: Icons.quiz_outlined,
     ),
+    'toolsearch' => const _ToolCallPresentation(
+      categoryLabel: 'ToolSearch',
+      displayName: 'ToolSearch',
+      icon: Icons.search_rounded,
+    ),
     _ => _ToolCallPresentation(
       categoryLabel: AppLocalizations.of(context)!.tlCallTool,
       displayName: rawToolName.isEmpty
