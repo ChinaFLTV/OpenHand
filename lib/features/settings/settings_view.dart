@@ -446,7 +446,7 @@ class _SettingsViewState extends State<SettingsView> {
       child: Stack(
         children: [
           ListView.separated(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.fromLTRB(0, 2, 0, 8),
             itemCount: sections.length,
             separatorBuilder: (context, index) {
               final current = sections[index];
