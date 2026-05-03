@@ -1708,9 +1708,19 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   }
   final mergedPath = mergedSegments.join(separator);
 
-  final rawCommand = server.command.trim();
+  final rawCommandField = server.command.trim();
+  // 兼容：用户经常把整条命令行（"npx chrome-devtools-mcp@latest"）粘进
+  // "启动命令" 字段，而不是只填可执行文件名。这里 POSIX 风格拆词：第一段
+  // 当作真正的可执行名，剩下的 token 作为 args 前缀拼到用户手填的 args 前。
+  // 同时支持单 / 双引号包裹的 token，比如 `"node /path with space/x.js"`。
+  final tokens = _tokenizeShellCommand(rawCommandField);
+  final rawCommand = tokens.isNotEmpty ? tokens.first : rawCommandField;
+  final inlineArgs = tokens.length > 1
+      ? tokens.sublist(1)
+      : const <String>[];
+
   String executable = rawCommand;
-  List<String> args = server.args;
+  List<String> args = [...inlineArgs, ...server.args];
   final containsSeparator = rawCommand.contains('/') ||
       (Platform.isWindows && rawCommand.contains('\\'));
 
@@ -1755,7 +1765,7 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
         '-lc',
         'exec ${_shellSingleQuote(rawCommand)} "\$@"',
         '_', // $0 占位，保证 args 从 $1 开始。
-        ...server.args,
+        ...args,
       ];
       executable = _pickShell();
       args = shellArgs;
@@ -1782,6 +1792,58 @@ String _pickShell() {
 String _shellSingleQuote(String s) {
   // POSIX-safe 单引号转义：'foo' → "'foo'"，包含单引号则改成 'foo'\''bar'
   return "'${s.replaceAll("'", "'\\''")}'";
+}
+
+/// 极简 POSIX 风格命令行拆词。支持 `'...'` / `"..."` 引号包裹（不展开变量），
+/// 以及反斜杠转义下一个字符。**仅** 用于解析 stdio MCP "启动命令" 字段里
+/// 用户误粘的整条命令行（如 `"npx chrome-devtools-mcp@latest"`）。空白
+/// 之外保留原字符；非贪婪、出错回退为整串原样返回单 token，绝不抛出。
+List<String> _tokenizeShellCommand(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) return const <String>[];
+  if (!trimmed.contains(RegExp(r'\s'))) {
+    return <String>[trimmed];
+  }
+  final tokens = <String>[];
+  final buffer = StringBuffer();
+  bool inSingle = false;
+  bool inDouble = false;
+  bool hasContent = false;
+  for (int i = 0; i < trimmed.length; i++) {
+    final ch = trimmed[i];
+    if (!inSingle && !inDouble && ch == '\\' && i + 1 < trimmed.length) {
+      buffer.write(trimmed[i + 1]);
+      i++;
+      hasContent = true;
+      continue;
+    }
+    if (!inDouble && ch == "'") {
+      inSingle = !inSingle;
+      hasContent = true;
+      continue;
+    }
+    if (!inSingle && ch == '"') {
+      inDouble = !inDouble;
+      hasContent = true;
+      continue;
+    }
+    if (!inSingle && !inDouble && (ch == ' ' || ch == '\t' || ch == '\n')) {
+      if (hasContent) {
+        tokens.add(buffer.toString());
+        buffer.clear();
+        hasContent = false;
+      }
+      continue;
+    }
+    buffer.write(ch);
+    hasContent = true;
+  }
+  if (inSingle || inDouble) {
+    // 引号没闭合：保守起见按原样回退，避免把命令切坏。
+    return <String>[trimmed];
+  }
+  if (hasContent) tokens.add(buffer.toString());
+  return tokens.isEmpty ? <String>[trimmed] : tokens;
 }
 
 class _StdioSession {
