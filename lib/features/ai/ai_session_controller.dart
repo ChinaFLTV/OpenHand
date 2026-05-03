@@ -37,6 +37,7 @@ import 'service/ai_plan_approval_detector.dart';
 import 'service/ai_prompt_builder.dart';
 import 'service/ai_prompt_template_repository.dart';
 import 'service/ai_protocol_adapter.dart';
+import 'service/ai_tool_execution_registry.dart';
 import 'service/ai_tool_runtime_service.dart';
 import 'service/mcp_loaded_tools_tracker.dart';
 import 'tools/ai_memory_tool.dart' show MemoryControllerProvider;
@@ -1910,6 +1911,15 @@ class AiSessionController extends ChangeNotifier {
       stopSignal.complete();
     }
     _previewCancelledPendingToolCalls(sessionId);
+    // 2026-05-09: 同时级联取消该 session 名下注册中心里所有正在执行的工具调用，
+    // 让 Bash / 其他派生子进程能即刻收到 SIGTERM（500ms 后 SIGKILL）。
+    // 这是会话级 cancel Future 的"硬件级"补充——前者只解开 Dart Future 等待，
+    // 后者真正向 OS 发信号杀掉子进程，避免后台残留 awk/python 等进程。
+    unawaited(
+      AiToolExecutionRegistry.instance
+          .cancelSession(sessionId)
+          .catchError((Object _, StackTrace stackTrace) {}),
+    );
     final cancelHandler = _sessionCancelHandlers[sessionId];
     if (cancelHandler == null) {
       return;

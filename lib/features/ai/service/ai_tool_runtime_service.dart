@@ -23,6 +23,7 @@ import 'ai_claude_hook_service.dart';
 import 'ai_file_history_service.dart';
 import 'ai_file_tracker_service.dart';
 import 'ai_protocol_adapter.dart';
+import 'ai_tool_execution_registry.dart';
 
 enum AiRuntimeToolSource { builtin, mcp, skill }
 
@@ -599,6 +600,24 @@ class AiToolRuntimeService {
     }
 
     final rawExecutionStartedAt = Stopwatch()..start();
+    // 2026-05-09: 登记到全局执行中心，以支持 UI 可观测与独立中断。
+    // 取消在 finally 中反注销；Bash 子进程启动后会从
+    // ai_bash_tool_service 里重新 attachKiller / attachPid 以支持真正
+    // 发信号。不同 source 使用不同 kind；skill / mcp 默认 killer 为 no-op。
+    final registryKind = switch (resolvedTool.source) {
+      AiRuntimeToolSource.builtin => AiToolExecutionKind.builtin,
+      AiRuntimeToolSource.mcp => AiToolExecutionKind.mcp,
+      AiRuntimeToolSource.skill => AiToolExecutionKind.skill,
+    };
+    final shouldRegister = toolCall.id.isNotEmpty;
+    if (shouldRegister) {
+      AiToolExecutionRegistry.instance.register(
+        toolCallId: toolCall.id,
+        sessionId: sessionId,
+        kind: registryKind,
+        displayName: resolvedTool.name,
+      );
+    }
     late final AiToolExecutionResult rawResult;
     // 2026-04-29 — 用户层 timeout / retry 策略包裹真正的 dispatch。
     // 仅当工具来自 builtin 且携带 [builtinConfig] 时启用：
@@ -705,74 +724,80 @@ class AiToolRuntimeService {
 
     AiToolExecutionResult? attemptResult;
     var attempts = 0;
-    while (true) {
-      attempts += 1;
-      try {
-        attemptResult = await dispatchWithTimeout();
-        if (!isRetryableResult(attemptResult) || attempts > maxRetries) {
-          break;
+    try {
+      while (true) {
+        attempts += 1;
+        try {
+          attemptResult = await dispatchWithTimeout();
+          if (!isRetryableResult(attemptResult) || attempts > maxRetries) {
+            break;
+          }
+        } catch (error) {
+          if (builtinCfg == null ||
+              !builtinCfg.retryOnFailure ||
+              attempts > maxRetries) {
+            attemptResult = _toolExecutionErrorResult(
+              tool: resolvedTool,
+              fallbackWorkingDirectory: hookWorkingDirectory,
+              error: error,
+              durationMs: rawExecutionStartedAt.elapsedMilliseconds,
+            );
+            break;
+          }
         }
-      } catch (error) {
-        if (builtinCfg == null ||
-            !builtinCfg.retryOnFailure ||
-            attempts > maxRetries) {
-          attemptResult = _toolExecutionErrorResult(
-            tool: resolvedTool,
-            fallbackWorkingDirectory: hookWorkingDirectory,
-            error: error,
-            durationMs: rawExecutionStartedAt.elapsedMilliseconds,
-          );
-          break;
+        // 指数退避：仅在还要继续下一轮重试时才等待。
+        if (builtinCfg != null) {
+          final backoff = builtinCfg.retryBackoffFor(attempts);
+          if (backoff > Duration.zero) {
+            await Future<void>.delayed(backoff);
+          }
         }
       }
-      // 指数退避：仅在还要继续下一轮重试时才等待。
-      if (builtinCfg != null) {
-        final backoff = builtinCfg.retryBackoffFor(attempts);
-        if (backoff > Duration.zero) {
-          await Future<void>.delayed(backoff);
-        }
-      }
-    }
-    rawResult = attemptResult;
-    final postHookResult = await _hookService.runHooks(
-      eventName: rawResult.status == BashToolExecutionStatus.success
-          ? 'PostToolUse'
-          : 'PostToolUseFailure',
-      sessionId: sessionId,
-      matcherValue: hookToolName,
-      cwd: rawResult.workingDirectory.trim().isEmpty
-          ? hookWorkingDirectory
-          : rawResult.workingDirectory,
-      payload: _toolHookPayload(
+      rawResult = attemptResult;
+      final postHookResult = await _hookService.runHooks(
         eventName: rawResult.status == BashToolExecutionStatus.success
             ? 'PostToolUse'
             : 'PostToolUseFailure',
-        toolName: hookToolName,
-        toolSource: resolvedTool.source.name,
         sessionId: sessionId,
-        toolInput: decodedArguments,
+        matcherValue: hookToolName,
         cwd: rawResult.workingDirectory.trim().isEmpty
             ? hookWorkingDirectory
             : rawResult.workingDirectory,
-        toolOutput: <String, Object?>{
-          'status': rawResult.status.storageValue,
-          'command': rawResult.command,
-          'working_directory': rawResult.workingDirectory,
-          'stdout': rawResult.stdout,
-          'stderr': rawResult.stderr,
-          'duration_ms': rawResult.durationMs,
-          'exit_code': rawResult.exitCode,
-          ...rawResult.metadata,
-        },
-      ),
-    );
-    return _applyOutputBudget(
-      _mergeHookResultIntoToolResult(
-        rawResult: rawResult,
-        preHookResult: preHookResult,
-        postHookResult: postHookResult,
-      ),
-    );
+        payload: _toolHookPayload(
+          eventName: rawResult.status == BashToolExecutionStatus.success
+              ? 'PostToolUse'
+              : 'PostToolUseFailure',
+          toolName: hookToolName,
+          toolSource: resolvedTool.source.name,
+          sessionId: sessionId,
+          toolInput: decodedArguments,
+          cwd: rawResult.workingDirectory.trim().isEmpty
+              ? hookWorkingDirectory
+              : rawResult.workingDirectory,
+          toolOutput: <String, Object?>{
+            'status': rawResult.status.storageValue,
+            'command': rawResult.command,
+            'working_directory': rawResult.workingDirectory,
+            'stdout': rawResult.stdout,
+            'stderr': rawResult.stderr,
+            'duration_ms': rawResult.durationMs,
+            'exit_code': rawResult.exitCode,
+            ...rawResult.metadata,
+          },
+        ),
+      );
+      return _applyOutputBudget(
+        _mergeHookResultIntoToolResult(
+          rawResult: rawResult,
+          preHookResult: preHookResult,
+          postHookResult: postHookResult,
+        ),
+      );
+    } finally {
+      if (shouldRegister) {
+        AiToolExecutionRegistry.instance.unregister(toolCall.id);
+      }
+    }
   }
 
   // 2026-04-01 工具输出 budget 截断。

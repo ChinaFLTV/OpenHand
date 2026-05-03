@@ -117,6 +117,7 @@ class AiBashTool extends AiTool {
       cancelSignal: cancelSignal,
       onUpdate: onBashUpdate,
       timeoutMs: timeoutMs,
+      toolCallId: context.toolCall.id,
     );
     final bashMetadata = <String, Object?>{
       if (bashResult.isWriteCommand) 'file_mutation_kind': 'bash_write',

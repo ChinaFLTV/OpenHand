@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../model/ai_deny_command_rule.dart';
+import 'ai_tool_execution_registry.dart';
 
 const Utf8Decoder _shellOutputDecoder = Utf8Decoder(allowMalformed: true);
 
@@ -336,6 +337,7 @@ class AiBashToolService {
     void Function(BashToolExecutionUpdate update)? onUpdate,
     Future<void>? cancelSignal,
     int timeoutMs = defaultTimeoutMs,
+    String? toolCallId,
   }) async {
     final normalizedCommand = command.trim();
     final normalizedSessionId = (sessionId ?? '').trim();
@@ -500,6 +502,21 @@ class AiBashToolService {
         durationMs: stopwatch.elapsedMilliseconds,
         isWriteCommand: isWriteCommand,
         writeAnalysisReason: writeAnalysis.reason,
+      );
+    }
+
+    // 子进程派生成功后，把 pid 与 killer 回填到执行登记中心，让 UI 可以显示
+    // 真实 pid，并支持用户从工具卡片单独终止此次 Bash 调用（SIGTERM →
+    // 500ms 后 SIGKILL）。无 toolCallId 时跳过。
+    final registeredToolCallId = toolCallId;
+    if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
+      AiToolExecutionRegistry.instance.attachPid(
+        registeredToolCallId,
+        process.pid,
+      );
+      AiToolExecutionRegistry.instance.attachKiller(
+        registeredToolCallId,
+        () async => _killProcess(process),
       );
     }
 
