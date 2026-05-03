@@ -330,8 +330,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final clampedWindowStartIndex = _windowStartIndex
         .clamp(0, displayMessages.length)
         .toInt();
-    final tail = displayMessages.sublist(clampedWindowStartIndex);
+    // 阶段⑧ — 避免为了“全量访问”多一份卷复制：窗口从 0 开始
+    // 且无位限制时，直接返回底层 List 的不可变视图。
     final cap = _materializedTailLimit;
+    if (clampedWindowStartIndex == 0 &&
+        (cap == null || cap >= displayMessages.length)) {
+      return displayMessages;
+    }
+    final tail = displayMessages.sublist(clampedWindowStartIndex);
     if (cap != null && cap < tail.length) {
       return tail.sublist(0, cap);
     }

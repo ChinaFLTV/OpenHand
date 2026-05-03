@@ -10,14 +10,21 @@ const int _highlightSkipThresholdChars = 80 * 1024;
 /// microtask, painting plain text on the first frame. Tuned so that small
 /// snippets (the common case) still highlight synchronously and feel
 /// instant while heavier blocks no longer block the initial layout.
-const int _highlightDeferThresholdChars = 4 * 1024;
+///
+/// 阶段⑲ — 从 4 KiB 下调到 2 KiB：在含多 tool-result 的会话里，
+/// 大量 1–2 KiB 输出仍然会同步走 highlight，叠加起来即可拖慢首帧；
+/// 提前 defer 让首帧仅渲染纯文本，2 KiB 以上的块在 microtask 内补染色。
+const int _highlightDeferThresholdChars = 2 * 1024;
 
 /// Process-wide LRU cache for parsed code-block `TextSpan`s. The same code
 /// snippet (e.g. a tool result, a generated diff) frequently appears in
 /// many bubbles across a session; reusing the cached span avoids
 /// re-tokenising on every rebuild and on cross-session navigation.
+///
+/// 阶段⑲ — 256 → 512：含多 tool 调用的长会话很容易超过 256 条命中边
+/// 界；把 LRU 容量翻倍换内存（每条仅 ~几 KiB span）能显著提升命中率。
 final _HighlightSpanCache _highlightSpanCache = _HighlightSpanCache(
-  maxEntries: 256,
+  maxEntries: 512,
 );
 
 class _HighlightSpanCache {
@@ -427,17 +434,25 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     bool useDarkPalette,
     int signature,
   ) {
-    final highlighter = _CodeSyntaxHighlighter(
-      baseStyle: _baseStyleForCurrentTheme(useDarkPalette),
-      darkSurface: useDarkPalette,
-    );
-    final span = highlighter.build(
-      widget.content,
-      language: effectiveLanguage,
-      allowAutoDetection: widget.allowAutoDetection,
-    );
-    _highlightSpanCache.put(signature, span);
-    return span;
+    // 阶段⑲ — 给 highlight tokenizer 加 Timeline 标记，方便 devtools
+    // 性能面板按帧定位耗时来源（仅 debug/profile 模式可见，release 由
+    // dart:developer 自身 tree-shake 掉）。
+    final timelineLabel = effectiveLanguage == null || effectiveLanguage.isEmpty
+        ? 'highlight(auto, ${widget.content.length}c)'
+        : 'highlight($effectiveLanguage, ${widget.content.length}c)';
+    return developer.Timeline.timeSync<TextSpan>(timelineLabel, () {
+      final highlighter = _CodeSyntaxHighlighter(
+        baseStyle: _baseStyleForCurrentTheme(useDarkPalette),
+        darkSurface: useDarkPalette,
+      );
+      final span = highlighter.build(
+        widget.content,
+        language: effectiveLanguage,
+        allowAutoDetection: widget.allowAutoDetection,
+      );
+      _highlightSpanCache.put(signature, span);
+      return span;
+    });
   }
 
   Widget _buildHeaderPill({
