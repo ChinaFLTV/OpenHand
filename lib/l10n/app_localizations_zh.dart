@@ -2410,6 +2410,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get snackToolSearchLoadedAction => '查看列表';
+
+  @override
+  String get snackToolSearchLoadedDialogTitle => 'ToolSearch 已加载的 MCP 工具';
+
+  @override
+  String get snackToolSearchLoadedDialogClose => '关闭';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
@@ -6796,6 +6805,15 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
+  String get snackToolSearchLoadedAction => '查看列表';
+
+  @override
+  String get snackToolSearchLoadedDialogTitle => 'ToolSearch 已加载的 MCP 工具';
+
+  @override
+  String get snackToolSearchLoadedDialogClose => '关闭';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
@@ -11179,6 +11197,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String snackToolSearchLoaded(int loaded, int total) {
     return 'ToolSearch 已載入 $loaded/$total 個 MCP 工具';
   }
+
+  @override
+  String get snackToolSearchLoadedAction => '檢視列表';
+
+  @override
+  String get snackToolSearchLoadedDialogTitle => 'ToolSearch 已載入的 MCP 工具';
+
+  @override
+  String get snackToolSearchLoadedDialogClose => '關閉';
 
   @override
   String toolbarPlanStepsCompleted(int completed, int total) {

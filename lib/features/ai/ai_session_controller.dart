@@ -440,6 +440,15 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, Set<String>> _loadedMcpToolsBySession =
       <String, Set<String>>{};
 
+  /// 返回指定会话已通过 `ToolSearch` 加载的 MCP 工具完整名（按字母升序）。
+  /// 供 UI 在 SnackBar action 中查询展示。
+  List<String> loadedMcpToolNamesForSession(String sessionId) {
+    final names = _loadedMcpToolsBySession[sessionId];
+    if (names == null || names.isEmpty) return const <String>[];
+    final sorted = names.toList()..sort();
+    return List<String>.unmodifiable(sorted);
+  }
+
   /// `ToolSearch` 成功加载 MCP 工具后向 UI 广播的一次性事件。
   /// `OpenHandHomePage` 监听此 Listenable，匹配当前会话后弹出 SnackBar。
   /// `revision` 自增确保即使连续两次加载相同名集合也能触发新通知。

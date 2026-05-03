@@ -4660,6 +4660,24 @@ abstract class AppLocalizations {
   /// **'ToolSearch 已加载 {loaded}/{total} 个 MCP 工具'**
   String snackToolSearchLoaded(int loaded, int total);
 
+  /// No description provided for @snackToolSearchLoadedAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看列表'**
+  String get snackToolSearchLoadedAction;
+
+  /// No description provided for @snackToolSearchLoadedDialogTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'ToolSearch 已加载的 MCP 工具'**
+  String get snackToolSearchLoadedDialogTitle;
+
+  /// No description provided for @snackToolSearchLoadedDialogClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get snackToolSearchLoadedDialogClose;
+
   /// No description provided for @toolbarPlanStepsCompleted.
   ///
   /// In zh_Hans, this message translates to:

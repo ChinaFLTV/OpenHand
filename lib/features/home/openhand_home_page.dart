@@ -1260,9 +1260,103 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             ),
           ],
         ),
-        duration: const Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: l10n.snackToolSearchLoadedAction,
+          onPressed: () {
+            final controller = _observedSessionController;
+            final names = controller == null
+                ? const <String>[]
+                : controller.loadedMcpToolNamesForSession(event.sessionId);
+            _showToolSearchLoadedDialog(names);
+          },
+        ),
       ),
+    );
+  }
+
+  /// HardnessApiPhaseRunner 在 ToolSearch 成功加载 MCP 工具后回调本方法，
+  /// 以与 AI session 一致的样式提示用户。
+  void _handleHardnessToolSearchLoaded({
+    required String phaseSessionId,
+    required List<String> loadedNames,
+    required int totalLoadedSoFar,
+    required int totalDeferred,
+    required String query,
+  }) {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.search_rounded, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.snackToolSearchLoaded(loadedNames.length, totalDeferred),
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: l10n.snackToolSearchLoadedAction,
+          onPressed: () =>
+              _showToolSearchLoadedDialog(List<String>.from(loadedNames)..sort()),
+        ),
+      ),
+    );
+  }
+
+  void _showToolSearchLoadedDialog(List<String> names) {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(l10n.snackToolSearchLoadedDialogTitle),
+          content: SizedBox(
+            width: 420,
+            child: names.isEmpty
+                ? Text(
+                    '—',
+                    style: Theme.of(dialogContext).textTheme.bodyMedium,
+                  )
+                : Scrollbar(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: names.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (_, index) {
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(
+                            Icons.extension_rounded,
+                            size: 18,
+                          ),
+                          title: SelectableText(
+                            names[index],
+                            style: const TextStyle(fontFamily: 'monospace'),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.snackToolSearchLoadedDialogClose),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -2585,6 +2679,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       toolRuntimeService: aiCtrl.toolRuntimeService,
       templateRepository: aiCtrl.templateRepository,
       confirmWriteCommand: _confirmHardnessApiWriteCommand,
+      onToolSearchLoaded: _handleHardnessToolSearchLoaded,
     );
     orchestrator.resolveAiModelConfig = (String configId) {
       final settingsCtrl = context.read<SettingsController>();

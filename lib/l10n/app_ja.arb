@@ -1065,6 +1065,9 @@
       "total": {"type": "int"}
     }
   },
+  "snackToolSearchLoadedAction": "一覧を表示",
+  "snackToolSearchLoadedDialogTitle": "ToolSearch がロードした MCP ツール",
+  "snackToolSearchLoadedDialogClose": "閉じる",
   "toolbarRuntimeNotices": "{count} 件のランタイム通知",
   "@toolbarRuntimeNotices": {
     "placeholders": {

@@ -145,6 +145,7 @@ class HardnessApiPhaseRunner {
     required AiToolRuntimeService toolRuntimeService,
     required AiPromptTemplateRepository templateRepository,
     this.confirmWriteCommand,
+    this.onToolSearchLoaded,
   }) : _chatClient = chatClient,
        _toolRuntimeService = toolRuntimeService,
        _templateRepository = templateRepository;
@@ -154,6 +155,19 @@ class HardnessApiPhaseRunner {
   final AiPromptTemplateRepository _templateRepository;
   final Future<bool> Function(BashCommandApprovalRequest request)?
   confirmWriteCommand;
+
+  /// 当 ToolSearch 在某个 phase 内成功拉取若干 MCP 工具时被回调。
+  /// `loadedNames`：本次新加入的完整工具名（已去重，按 ToolSearch 返回顺序）。
+  /// `totalLoadedSoFar`：phase 累计已加载工具数。
+  /// `phaseSessionId`：所属 phase 会话 id，便于 UI 区分。
+  final void Function({
+    required String phaseSessionId,
+    required List<String> loadedNames,
+    required int totalLoadedSoFar,
+    required int totalDeferred,
+    required String query,
+  })?
+  onToolSearchLoaded;
 
   /// Per-phase-session record of MCP tools that ToolSearch already pulled in,
   /// keyed by `phaseSessionId`. Mirrors `AiSessionController._loadedMcpToolsBySession`.
@@ -533,10 +547,29 @@ class HardnessApiPhaseRunner {
               phaseSessionId,
               () => <String>{},
             );
+            final addedNames = <String>[];
             for (final name in loadedNames) {
               if (name is String && name.isNotEmpty) {
                 bucket.add(name);
+                addedNames.add(name);
               }
+            }
+            final cb = onToolSearchLoaded;
+            if (cb != null && addedNames.isNotEmpty) {
+              final totalDeferredRaw =
+                  result.metadata['tool_search_total_deferred'];
+              final queryRaw = result.metadata['tool_search_query'];
+              cb(
+                phaseSessionId: phaseSessionId,
+                loadedNames: List<String>.unmodifiable(addedNames),
+                totalLoadedSoFar: bucket.length,
+                totalDeferred: totalDeferredRaw is int
+                    ? totalDeferredRaw
+                    : (totalDeferredRaw is num
+                          ? totalDeferredRaw.toInt()
+                          : addedNames.length),
+                query: queryRaw is String ? queryRaw : '',
+              );
             }
           }
 

@@ -1065,6 +1065,9 @@
       "total": {"type": "int"}
     }
   },
+  "snackToolSearchLoadedAction": "Liste anzeigen",
+  "snackToolSearchLoadedDialogTitle": "Von ToolSearch geladene MCP-Tools",
+  "snackToolSearchLoadedDialogClose": "Schließen",
   "toolbarRuntimeNotices": "{count} Laufzeit-Hinweise",
   "@toolbarRuntimeNotices": {
     "placeholders": {

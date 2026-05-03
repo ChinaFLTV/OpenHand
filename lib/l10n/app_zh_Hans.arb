@@ -1125,6 +1125,9 @@
       "total": {"type": "int"}
     }
   },
+  "snackToolSearchLoadedAction": "查看列表",
+  "snackToolSearchLoadedDialogTitle": "ToolSearch 已加载的 MCP 工具",
+  "snackToolSearchLoadedDialogClose": "关闭",
   "@toolbarRuntimeNotices": {
     "placeholders": {
       "count": {
