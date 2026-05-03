@@ -406,6 +406,20 @@ class AppLocalizationsFr extends AppLocalizations {
       'Gérer les modèles de chat, l’authentification et les adaptateurs de protocole.';
 
   @override
+  String get settingsActiveToolCallsTitle => 'Appels d’outils actifs';
+
+  @override
+  String get settingsActiveToolCallsBody =>
+      'Vue en direct de chaque appel d’outil distribué : PID, type, session associée et durée écoulée. Appuyez sur Stop pour interrompre uniquement cet appel.';
+
+  @override
+  String get settingsActiveToolCallsEmpty =>
+      'Aucun appel d’outil n’est en cours d’exécution.';
+
+  @override
+  String get settingsActiveToolCallsCancel => 'Stop';
+
+  @override
   String get settingsSkillsTitle => 'Compétences';
 
   @override

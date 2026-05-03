@@ -52,6 +52,7 @@ import '../ai/service/ai_image_generation_service.dart';
 import '../ai/service/ai_lsp_managed_install_service.dart';
 import '../ai/service/ai_model_scanner.dart';
 import '../ai/service/ai_protocol_adapter.dart';
+import '../ai/service/ai_tool_execution_registry.dart';
 import '../ai/service/ai_tool_runtime_service.dart';
 import '../crons/crons_controller.dart';
 import '../hardness/hardness_cli_catalog.dart';
@@ -78,6 +79,7 @@ part '_settings_user_profile.dart';
 part '_settings_data_cleanup.dart';
 part '_settings_system_proxy.dart';
 part '_settings_proxy_test_dialog.dart';
+part '_settings_active_tool_calls.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
@@ -88,6 +90,7 @@ enum _SettingsSection {
   general,
   shortcuts,
   ai,
+  activeToolCalls,
   builtinTools,
   mcp,
   skills,
@@ -424,6 +427,7 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.general,
       _SettingsSection.shortcuts,
       _SettingsSection.ai,
+      _SettingsSection.activeToolCalls,
       _SettingsSection.builtinTools,
       _SettingsSection.mcp,
       _SettingsSection.skills,
@@ -674,6 +678,7 @@ class _SettingsViewState extends State<SettingsView> {
         description: l10n.settingsAiSubtitle,
         children: [_buildAiModelsSection(context, settingsController)],
       ),
+      _SettingsSection.activeToolCalls => const _ActiveToolCallsPanel(),
       _SettingsSection.builtinTools => _SettingsGroupCard(
         title: AppLocalizations.of(context)!.settingsBuiltInTools,
         description: AppLocalizations.of(

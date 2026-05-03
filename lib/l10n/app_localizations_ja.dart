@@ -390,6 +390,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsAiSubtitle => 'チャットモデル、認証、プロトコルアダプターを管理します。';
 
   @override
+  String get settingsActiveToolCallsTitle => '実行中のツール呼び出し';
+
+  @override
+  String get settingsActiveToolCallsBody =>
+      'ディスパッチされた全てのツール呼び出しをリアルタイム表示します。PID、種別、属するセッション、経過時間を含み、Stop でその呼び出しだけを中止できます。';
+
+  @override
+  String get settingsActiveToolCallsEmpty => '現在実行中のツール呼び出しはありません。';
+
+  @override
+  String get settingsActiveToolCallsCancel => 'Stop';
+
+  @override
   String get settingsSkillsTitle => 'スキル';
 
   @override

@@ -405,6 +405,20 @@ class AppLocalizationsDe extends AppLocalizations {
       'Chat-Modelle, Authentifizierung und Protokolladapter verwalten.';
 
   @override
+  String get settingsActiveToolCallsTitle => 'Aktive Tool-Aufrufe';
+
+  @override
+  String get settingsActiveToolCallsBody =>
+      'Live-Ansicht aller ausgeführten Tool-Aufrufe: PID, Art, zugehörige Sitzung und Laufzeit. Mit Stop nur diesen Aufruf abbrechen.';
+
+  @override
+  String get settingsActiveToolCallsEmpty =>
+      'Aktuell laufen keine Tool-Aufrufe.';
+
+  @override
+  String get settingsActiveToolCallsCancel => 'Stop';
+
+  @override
   String get settingsSkillsTitle => 'Fähigkeiten';
 
   @override

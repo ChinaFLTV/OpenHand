@@ -389,6 +389,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAiSubtitle => '管理聊天模型、鉴权方式与协议适配。';
 
   @override
+  String get settingsActiveToolCallsTitle => '运行中的工具调用';
+
+  @override
+  String get settingsActiveToolCallsBody =>
+      '实时展示当前所有派发中的工具，包括 PID、类别、所属会话与已运行时长，单击 Stop 可立即终止该调用。';
+
+  @override
+  String get settingsActiveToolCallsEmpty => '目前没有正在运行的工具调用。';
+
+  @override
+  String get settingsActiveToolCallsCancel => 'Stop';
+
+  @override
   String get settingsSkillsTitle => '技能';
 
   @override
@@ -5011,6 +5024,19 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsAiSubtitle => '管理聊天模型、鉴权方式与协议适配。';
 
   @override
+  String get settingsActiveToolCallsTitle => '运行中的工具调用';
+
+  @override
+  String get settingsActiveToolCallsBody =>
+      '实时展示当前所有派发中的工具，包括 PID、类别、所属会话与已运行时长，单击 Stop 可立即终止该调用。';
+
+  @override
+  String get settingsActiveToolCallsEmpty => '目前没有正在运行的工具调用。';
+
+  @override
+  String get settingsActiveToolCallsCancel => 'Stop';
+
+  @override
   String get settingsSkillsTitle => '技能';
 
   @override
@@ -9630,6 +9656,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsAiSubtitle => '管理聊天模型、驗證方式與協議適配。';
+
+  @override
+  String get settingsActiveToolCallsTitle => '執行中的工具呼叫';
+
+  @override
+  String get settingsActiveToolCallsBody =>
+      '即時顯示目前所有正在派發的工具，包括 PID、類別、所屬會話與已執行時長，點擊 Stop 可立即終止該呼叫。';
+
+  @override
+  String get settingsActiveToolCallsEmpty => '目前沒有正在執行的工具呼叫。';
+
+  @override
+  String get settingsActiveToolCallsCancel => 'Stop';
 
   @override
   String get settingsSkillsTitle => '技能';

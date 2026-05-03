@@ -820,6 +820,30 @@ abstract class AppLocalizations {
   /// **'管理聊天模型、鉴权方式与协议适配。'**
   String get settingsAiSubtitle;
 
+  /// No description provided for @settingsActiveToolCallsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行中的工具调用'**
+  String get settingsActiveToolCallsTitle;
+
+  /// No description provided for @settingsActiveToolCallsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'实时展示当前所有派发中的工具，包括 PID、类别、所属会话与已运行时长，单击 Stop 可立即终止该调用。'**
+  String get settingsActiveToolCallsBody;
+
+  /// No description provided for @settingsActiveToolCallsEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'目前没有正在运行的工具调用。'**
+  String get settingsActiveToolCallsEmpty;
+
+  /// No description provided for @settingsActiveToolCallsCancel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Stop'**
+  String get settingsActiveToolCallsCancel;
+
   /// No description provided for @settingsSkillsTitle.
   ///
   /// In zh_Hans, this message translates to:

@@ -404,6 +404,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Manage chat models, authentication, and protocol adapters.';
 
   @override
+  String get settingsActiveToolCallsTitle => 'Active tool calls';
+
+  @override
+  String get settingsActiveToolCallsBody =>
+      'Live view of every dispatched tool call: PID, kind, owning session, and elapsed time. Press Stop to terminate just that call.';
+
+  @override
+  String get settingsActiveToolCallsEmpty =>
+      'No tool calls are currently running.';
+
+  @override
+  String get settingsActiveToolCallsCancel => 'Stop';
+
+  @override
   String get settingsSkillsTitle => 'Skills';
 
   @override
