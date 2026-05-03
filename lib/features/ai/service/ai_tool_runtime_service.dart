@@ -121,6 +121,7 @@ enum AiBuiltinToolKind {
   readLints,
   askUserChoice,
   skillManager,
+  toolSearch,
   memory,
 }
 
@@ -1011,6 +1012,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.readLints => 'ReadLints',
       AiBuiltinToolKind.askUserChoice => 'AskUserChoice',
       AiBuiltinToolKind.skillManager => 'SkillManager',
+      AiBuiltinToolKind.toolSearch => 'ToolSearch',
       AiBuiltinToolKind.memory => 'Memory',
       null => tool.name,
     };
@@ -2122,6 +2124,49 @@ class AiToolRuntimeService {
           },
         },
         'required': <String>['action', 'name'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.toolSearch,
+      name: 'ToolSearch',
+      description:
+          'Fetches full schema definitions for **deferred MCP tools** so they '
+          'become callable. When MCP tool lazy loading is active for this '
+          'session, MCP tool descriptions are stripped from the system '
+          'prompt to save context tokens — only their bare names remain in '
+          'the deferred-tool list rendered above. Without first invoking '
+          'ToolSearch the model has only the name and CANNOT call them.\n\n'
+          'Query forms:\n'
+          '- `select:Name1,Name2` — fetch these exact tools by name (best '
+          'when you already know the tool name).\n'
+          '- `slack send` — keyword search; ranks deferred tools by '
+          'matches against their name parts and descriptions.\n'
+          '- `+github issues list` — prefix a term with `+` to make it '
+          'required; remaining terms refine the ranking.\n\n'
+          'Result: matched tools are returned inside a `<functions>` block '
+          'whose entries follow the same JSONSchema encoding as the tools '
+          'declared at the top of the prompt. Once a tool appears in that '
+          'result, you may invoke it by its exact name in this and any '
+          'subsequent turn. Issuing the same query twice with different '
+          'keywords is fine; ToolSearch is read-only and side-effect free.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'query': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Either `select:NAME[,NAME...]` for direct selection or one '
+                'or more keywords. Prefix a term with `+` to require it.',
+          },
+          'max_results': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 50,
+            'description': 'Maximum matches to return (default 5).',
+          },
+        },
+        'required': <String>['query'],
         'additionalProperties': false,
       },
     ),

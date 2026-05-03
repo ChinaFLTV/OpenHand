@@ -676,6 +676,66 @@ abstract class AppLocalizations {
   /// **'打开目录'**
   String get mcpOpenDirectory;
 
+  /// No description provided for @mcpLazyLoadingModeLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 工具懒加载'**
+  String get mcpLazyLoadingModeLabel;
+
+  /// No description provided for @mcpLazyLoadingModeBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'控制是否在系统提示中折叠 MCP 工具描述：关闭时全部展开；开启时全部折叠为 ToolSearch 可按需取回；自动模式下当总 token 估算超过阈值才折叠。'**
+  String get mcpLazyLoadingModeBody;
+
+  /// No description provided for @mcpLazyLoadingModeDisabled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get mcpLazyLoadingModeDisabled;
+
+  /// No description provided for @mcpLazyLoadingModeAuto.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动'**
+  String get mcpLazyLoadingModeAuto;
+
+  /// No description provided for @mcpLazyLoadingModeEnabled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开启'**
+  String get mcpLazyLoadingModeEnabled;
+
+  /// No description provided for @mcpLazyLoadingThresholdLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 工具压缩阈值'**
+  String get mcpLazyLoadingThresholdLabel;
+
+  /// No description provided for @mcpLazyLoadingThresholdBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动模式下 MCP 工具描述总 token 估算超过该值时启用懒加载。'**
+  String get mcpLazyLoadingThresholdBody;
+
+  /// No description provided for @mcpLazyLoadingThresholdSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存阈值'**
+  String get mcpLazyLoadingThresholdSave;
+
+  /// No description provided for @mcpLazyLoadingThresholdSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 工具懒加载阈值已保存。'**
+  String get mcpLazyLoadingThresholdSaved;
+
+  /// No description provided for @mcpLazyLoadingThresholdInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请填写 1000 ~ 1000000 之间的整数。'**
+  String get mcpLazyLoadingThresholdInvalid;
+
   /// No description provided for @settingsGeneralTitle.
   ///
   /// In zh_Hans, this message translates to:

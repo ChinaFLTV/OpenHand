@@ -13,6 +13,7 @@ import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/dialog_animation_settings.dart';
@@ -32,6 +33,8 @@ class AppSettingsSnapshot {
       skillsStoragePath: OpenHandPaths.defaultSkillsDirectoryPath(),
       mcpEnabled: true,
       mcpServersFilePath: OpenHandPaths.defaultMcpServersFilePath(),
+      mcpLazyLoadingMode: defaultMcpLazyLoadingMode,
+      mcpLazyLoadingThresholdTokens: defaultMcpLazyLoadingThresholdTokens,
       memoryEnabled: true,
       userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
       editorWordWrap: true,
@@ -143,6 +146,8 @@ class AppSettingsSnapshot {
     required this.skillsStoragePath,
     required this.mcpEnabled,
     required this.mcpServersFilePath,
+    required this.mcpLazyLoadingMode,
+    required this.mcpLazyLoadingThresholdTokens,
     required this.memoryEnabled,
     required this.userMemoryFilePath,
     required this.editorWordWrap,
@@ -475,12 +480,30 @@ class AppSettingsSnapshot {
   /// Default session mode string: 'chat' or 'plan'.
   static const String defaultAiDefaultSessionMode = 'chat';
 
+  /// 2026-05-03 — MCP 工具懒加载默认配置。
+  ///   - 默认 [McpLazyLoadingMode.auto]：仅在 MCP 工具体量超过阈值时启用。
+  ///   - 默认阈值 80 000 tokens（≈ Claude 200K 上下文窗口的 40%）。
+  static const McpLazyLoadingMode defaultMcpLazyLoadingMode =
+      McpLazyLoadingMode.auto;
+  static const int defaultMcpLazyLoadingThresholdTokens = 80000;
+  static const int minMcpLazyLoadingThresholdTokens = 1000;
+  static const int maxMcpLazyLoadingThresholdTokens = 1000000;
+
   final ThemeMode themeMode;
   final OpenHandThemePreset themePreset;
   final AppLanguage language;
   final String skillsStoragePath;
   final bool mcpEnabled;
   final String mcpServersFilePath;
+
+  /// 2026-05-03 — MCP 工具懒加载模式（关闭/自动/开启）。
+  /// 启用后会在系统提示词中剥离 MCP 工具 schema，改用 ToolSearch 内建工具按需检索。
+  final McpLazyLoadingMode mcpLazyLoadingMode;
+
+  /// 2026-05-03 — MCP 工具懒加载阈值（token 数）。仅在 [mcpLazyLoadingMode]
+  /// = auto 时生效：当所有 MCP 工具描述合计 token 数（按字符 / 估算系数）超过
+  /// 此阈值时，自动启用懒加载。
+  final int mcpLazyLoadingThresholdTokens;
   final bool memoryEnabled;
   final String userMemoryFilePath;
   final bool editorWordWrap;
@@ -645,6 +668,8 @@ class AppSettingsSnapshot {
     String? skillsStoragePath,
     bool? mcpEnabled,
     String? mcpServersFilePath,
+    McpLazyLoadingMode? mcpLazyLoadingMode,
+    int? mcpLazyLoadingThresholdTokens,
     bool? memoryEnabled,
     String? userMemoryFilePath,
     bool? editorWordWrap,
@@ -730,6 +755,9 @@ class AppSettingsSnapshot {
       skillsStoragePath: skillsStoragePath ?? this.skillsStoragePath,
       mcpEnabled: mcpEnabled ?? this.mcpEnabled,
       mcpServersFilePath: mcpServersFilePath ?? this.mcpServersFilePath,
+      mcpLazyLoadingMode: mcpLazyLoadingMode ?? this.mcpLazyLoadingMode,
+      mcpLazyLoadingThresholdTokens:
+          mcpLazyLoadingThresholdTokens ?? this.mcpLazyLoadingThresholdTokens,
       memoryEnabled: memoryEnabled ?? this.memoryEnabled,
       userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
       editorWordWrap: editorWordWrap ?? this.editorWordWrap,

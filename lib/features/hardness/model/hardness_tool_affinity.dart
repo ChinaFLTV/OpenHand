@@ -70,6 +70,9 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     // Skill manager is Hermes-Talker-specific and is not exposed to
     // Hardness Engineering sessions; treat as un-categorized.
     AiBuiltinToolKind.skillManager => null,
+    // ToolSearch is dynamically gated by lazy-loading; not bound to any
+    // phase category so it remains visible whenever the controller exposes it.
+    AiBuiltinToolKind.toolSearch => null,
     // Memory tool is Hermes-Talker-specific (self-learning sub-agent only).
     AiBuiltinToolKind.memory => null,
   };

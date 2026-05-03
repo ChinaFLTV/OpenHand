@@ -2885,6 +2885,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           settingsController.aiChatMaxStreamLineBufferBytes,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
       memoryEnabled: settingsController.memoryEnabled,
+      mcpLazyLoadingMode: settingsController.mcpLazyLoadingMode,
+      mcpLazyLoadingThresholdTokens:
+          settingsController.mcpLazyLoadingThresholdTokens,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
       connectTimeoutSeconds: settingsController.aiConnectTimeoutSeconds,
@@ -3005,6 +3008,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController.aiChatMaxStreamLineBufferBytes,
       settingsController.aiImageSizeLimitBytes,
       settingsController.memoryEnabled,
+      settingsController.mcpLazyLoadingMode,
+      settingsController.mcpLazyLoadingThresholdTokens,
       settingsController.aiWriteCommandConfirmationEnabled,
       settingsController.aiConnectTimeoutSeconds,
       settingsController.aiResponseTimeoutSeconds,
@@ -3126,6 +3131,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           settingsController.aiChatMaxStreamLineBufferBytes,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
       memoryEnabled: settingsController.memoryEnabled,
+      mcpLazyLoadingMode: settingsController.mcpLazyLoadingMode,
+      mcpLazyLoadingThresholdTokens:
+          settingsController.mcpLazyLoadingThresholdTokens,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
       connectTimeoutSeconds: settingsController.aiConnectTimeoutSeconds,

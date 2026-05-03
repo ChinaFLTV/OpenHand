@@ -299,6 +299,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpOpenDirectory => '打开目录';
 
   @override
+  String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
+
+  @override
+  String get mcpLazyLoadingModeBody =>
+      '控制是否在系统提示中折叠 MCP 工具描述：关闭时全部展开；开启时全部折叠为 ToolSearch 可按需取回；自动模式下当总 token 估算超过阈值才折叠。';
+
+  @override
+  String get mcpLazyLoadingModeDisabled => '关闭';
+
+  @override
+  String get mcpLazyLoadingModeAuto => '自动';
+
+  @override
+  String get mcpLazyLoadingModeEnabled => '开启';
+
+  @override
+  String get mcpLazyLoadingThresholdLabel => 'MCP 工具压缩阈值';
+
+  @override
+  String get mcpLazyLoadingThresholdBody =>
+      '自动模式下 MCP 工具描述总 token 估算超过该值时启用懒加载。';
+
+  @override
+  String get mcpLazyLoadingThresholdSave => '保存阈值';
+
+  @override
+  String get mcpLazyLoadingThresholdSaved => 'MCP 工具懒加载阈值已保存。';
+
+  @override
+  String get mcpLazyLoadingThresholdInvalid => '请填写 1000 ~ 1000000 之间的整数。';
+
+  @override
   String get settingsGeneralTitle => '常规';
 
   @override
@@ -4639,6 +4671,38 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpOpenDirectory => '打开目录';
 
   @override
+  String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
+
+  @override
+  String get mcpLazyLoadingModeBody =>
+      '控制是否在系统提示中折叠 MCP 工具描述：关闭时全部展开；开启时全部折叠为 ToolSearch 可按需取回；自动模式下当总 token 估算超过阈值才折叠。';
+
+  @override
+  String get mcpLazyLoadingModeDisabled => '关闭';
+
+  @override
+  String get mcpLazyLoadingModeAuto => '自动';
+
+  @override
+  String get mcpLazyLoadingModeEnabled => '开启';
+
+  @override
+  String get mcpLazyLoadingThresholdLabel => 'MCP 工具压缩阈值';
+
+  @override
+  String get mcpLazyLoadingThresholdBody =>
+      '自动模式下 MCP 工具描述总 token 估算超过该值时启用懒加载。';
+
+  @override
+  String get mcpLazyLoadingThresholdSave => '保存阈值';
+
+  @override
+  String get mcpLazyLoadingThresholdSaved => 'MCP 工具懒加载阈值已保存。';
+
+  @override
+  String get mcpLazyLoadingThresholdInvalid => '请填写 1000 ~ 1000000 之间的整数。';
+
+  @override
   String get settingsGeneralTitle => '常规';
 
   @override
@@ -8976,6 +9040,38 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpOpenDirectory => '打開目錄';
+
+  @override
+  String get mcpLazyLoadingModeLabel => 'MCP 工具懶載入';
+
+  @override
+  String get mcpLazyLoadingModeBody =>
+      '控制是否在系統提示中折疊 MCP 工具描述：關閉時全部展開；開啟時全部折疊為 ToolSearch 可按需取回；自動模式下當總 token 估算超過閾值才折疊。';
+
+  @override
+  String get mcpLazyLoadingModeDisabled => '關閉';
+
+  @override
+  String get mcpLazyLoadingModeAuto => '自動';
+
+  @override
+  String get mcpLazyLoadingModeEnabled => '開啟';
+
+  @override
+  String get mcpLazyLoadingThresholdLabel => 'MCP 工具壓縮閾值';
+
+  @override
+  String get mcpLazyLoadingThresholdBody =>
+      '自動模式下 MCP 工具描述總 token 估算超過此值時啟用懶載入。';
+
+  @override
+  String get mcpLazyLoadingThresholdSave => '儲存閾值';
+
+  @override
+  String get mcpLazyLoadingThresholdSaved => 'MCP 工具懶載入閾值已儲存。';
+
+  @override
+  String get mcpLazyLoadingThresholdInvalid => '請填寫 1000 ~ 1000000 之間的整數。';
 
   @override
   String get settingsGeneralTitle => '常規';

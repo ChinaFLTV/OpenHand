@@ -310,6 +310,40 @@ class AppLocalizationsDe extends AppLocalizations {
   String get mcpOpenDirectory => 'Verzeichnis öffnen';
 
   @override
+  String get mcpLazyLoadingModeLabel => 'MCP-Tool Lazy Loading';
+
+  @override
+  String get mcpLazyLoadingModeBody =>
+      'Legt fest, ob MCP-Tool-Beschreibungen aus dem System-Prompt ausgelagert werden: Aus = immer geladen; Ein = immer ausgelagert und bei Bedarf via ToolSearch geholt; Auto lagert nur aus, wenn die geschätzten Tokens den Schwellenwert überschreiten.';
+
+  @override
+  String get mcpLazyLoadingModeDisabled => 'Aus';
+
+  @override
+  String get mcpLazyLoadingModeAuto => 'Auto';
+
+  @override
+  String get mcpLazyLoadingModeEnabled => 'Ein';
+
+  @override
+  String get mcpLazyLoadingThresholdLabel => 'MCP-Tool-Kompressionsschwelle';
+
+  @override
+  String get mcpLazyLoadingThresholdBody =>
+      'Im Auto-Modus wird Lazy Loading aktiviert, sobald die geschätzten Gesamttokens der MCP-Tool-Beschreibungen diesen Wert überschreiten.';
+
+  @override
+  String get mcpLazyLoadingThresholdSave => 'Schwelle speichern';
+
+  @override
+  String get mcpLazyLoadingThresholdSaved =>
+      'MCP-Lazy-Loading-Schwelle gespeichert.';
+
+  @override
+  String get mcpLazyLoadingThresholdInvalid =>
+      'Bitte eine Ganzzahl zwischen 1000 und 1000000 eingeben.';
+
+  @override
   String get settingsGeneralTitle => 'Allgemein';
 
   @override

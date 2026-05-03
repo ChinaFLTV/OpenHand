@@ -300,6 +300,38 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpOpenDirectory => 'ディレクトリを開く';
 
   @override
+  String get mcpLazyLoadingModeLabel => 'MCPツールの遅延読み込み';
+
+  @override
+  String get mcpLazyLoadingModeBody =>
+      'システムプロンプト内でMCPツールの説明を折り畳むかを制御します。オフ＝常に展開、オン＝常に折り畳みToolSearchで取得、自動＝推定トークン数がしきい値を超えた場合のみ折り畳みます。';
+
+  @override
+  String get mcpLazyLoadingModeDisabled => 'オフ';
+
+  @override
+  String get mcpLazyLoadingModeAuto => '自動';
+
+  @override
+  String get mcpLazyLoadingModeEnabled => 'オン';
+
+  @override
+  String get mcpLazyLoadingThresholdLabel => 'MCPツール圧縮しきい値';
+
+  @override
+  String get mcpLazyLoadingThresholdBody =>
+      '自動モードで、MCPツール説明の推定総トークン数がこの値を超えた場合に遅延読み込みを有効化します。';
+
+  @override
+  String get mcpLazyLoadingThresholdSave => 'しきい値を保存';
+
+  @override
+  String get mcpLazyLoadingThresholdSaved => 'MCP遅延読み込みのしきい値を保存しました。';
+
+  @override
+  String get mcpLazyLoadingThresholdInvalid => '1000～1000000の整数を入力してください。';
+
+  @override
   String get settingsGeneralTitle => '一般';
 
   @override

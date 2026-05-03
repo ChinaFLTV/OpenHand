@@ -29,6 +29,7 @@ import 'ai_task_tool.dart';
 import 'ai_todo_write_tool.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
+import 'ai_tool_search_tool.dart';
 import 'ai_web_fetch_tool.dart';
 import 'ai_web_search_tool.dart';
 import 'ai_write_tool.dart';
@@ -59,6 +60,7 @@ class AiToolRegistry {
       ..register(AiGitTool())
       ..register(AiDeleteFileTool())
       ..register(AiReadLintsTool())
+      ..register(AiToolSearchTool())
       ..register(AiAskUserChoiceTool());
   }
 

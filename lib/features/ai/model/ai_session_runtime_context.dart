@@ -1,5 +1,6 @@
 import '../../../app/support/openhand_paths.dart';
 import '../../instructions/model/user_instruction_entry.dart';
+import '../../mcp/model/mcp_lazy_loading_mode.dart';
 import '../../mcp/model/mcp_server.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../../skills/model/local_skill.dart';
@@ -144,6 +145,8 @@ class AiSessionRuntimeContext {
     this.allowCommandRules = const <AiAllowCommandRule>[],
     this.availableSkills = const <LocalSkill>[],
     this.availableMcpServers = const <McpServer>[],
+    this.mcpLazyLoadingMode = McpLazyLoadingMode.auto,
+    this.mcpLazyLoadingThresholdTokens = 80000,
     this.builtinToolConfigs = const <AiBuiltinToolConfig>[],
     this.workspaceInstructionDocuments =
         const <AiWorkspaceInstructionDocument>[],
@@ -308,6 +311,13 @@ class AiSessionRuntimeContext {
   final List<AiAllowCommandRule> allowCommandRules;
   final List<LocalSkill> availableSkills;
   final List<McpServer> availableMcpServers;
+
+  /// 2026-05-03 — MCP 工具懒加载模式（disabled / auto / enabled）。
+  final McpLazyLoadingMode mcpLazyLoadingMode;
+
+  /// 2026-05-03 — auto 模式下的 token 阈值：当所有 MCP 工具描述估算 token
+  /// 总量超过此值时则启用懒加载。
+  final int mcpLazyLoadingThresholdTokens;
   final List<AiBuiltinToolConfig> builtinToolConfigs;
   final List<AiWorkspaceInstructionDocument> workspaceInstructionDocuments;
 
@@ -391,6 +401,8 @@ class AiSessionRuntimeContext {
       'available_mcp_server_names': availableMcpServers
           .map((item) => item.name)
           .toList(growable: false),
+      'mcp_lazy_loading_mode': mcpLazyLoadingMode.storageValue,
+      'mcp_lazy_loading_threshold_tokens': mcpLazyLoadingThresholdTokens,
       'workspace_instruction_document_count':
           workspaceInstructionDocuments.length,
       'workspace_instruction_documents': workspaceInstructionDocuments

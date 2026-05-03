@@ -310,6 +310,41 @@ class AppLocalizationsFr extends AppLocalizations {
   String get mcpOpenDirectory => 'Ouvrir le dossier';
 
   @override
+  String get mcpLazyLoadingModeLabel => 'Chargement différé des outils MCP';
+
+  @override
+  String get mcpLazyLoadingModeBody =>
+      'Contrôle si les descriptions des outils MCP sont compressées hors du prompt système : Désactivé = toujours développées ; Activé = toujours compressées et récupérées à la demande via ToolSearch ; Auto compresse uniquement quand le coût estimé en jetons dépasse le seuil.';
+
+  @override
+  String get mcpLazyLoadingModeDisabled => 'Désactivé';
+
+  @override
+  String get mcpLazyLoadingModeAuto => 'Auto';
+
+  @override
+  String get mcpLazyLoadingModeEnabled => 'Activé';
+
+  @override
+  String get mcpLazyLoadingThresholdLabel =>
+      'Seuil de compression des outils MCP';
+
+  @override
+  String get mcpLazyLoadingThresholdBody =>
+      'En mode Auto, le chargement différé s\'active lorsque le total estimé de jetons des descriptions d\'outils MCP dépasse cette valeur.';
+
+  @override
+  String get mcpLazyLoadingThresholdSave => 'Enregistrer le seuil';
+
+  @override
+  String get mcpLazyLoadingThresholdSaved =>
+      'Seuil de chargement différé MCP enregistré.';
+
+  @override
+  String get mcpLazyLoadingThresholdInvalid =>
+      'Veuillez saisir un entier entre 1000 et 1000000.';
+
+  @override
   String get settingsGeneralTitle => 'Général';
 
   @override

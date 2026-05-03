@@ -14,6 +14,7 @@ import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../shared/data/database_service.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
@@ -142,6 +143,9 @@ class SettingsStore {
       'skills_storage_path': snapshot.skillsStoragePath,
       'mcp_enabled': snapshot.mcpEnabled,
       'mcp_servers_file_path': snapshot.mcpServersFilePath,
+      'mcp_lazy_loading_mode': snapshot.mcpLazyLoadingMode.storageValue,
+      'mcp_lazy_loading_threshold_tokens':
+          snapshot.mcpLazyLoadingThresholdTokens,
       'memory_enabled': snapshot.memoryEnabled,
       'user_memory_file_path': snapshot.userMemoryFilePath,
       'editor_word_wrap': snapshot.editorWordWrap,
@@ -281,6 +285,18 @@ class SettingsStore {
       '${json['mcp_servers_file_path'] ?? ''}',
       defaultPath: OpenHandPaths.defaultMcpServersFilePath(),
     );
+    final mcpLazyLoadingMode = McpLazyLoadingMode.fromStorage(
+      '${json['mcp_lazy_loading_mode'] ?? ''}',
+    );
+    final mcpLazyLoadingThresholdTokens =
+        json['mcp_lazy_loading_threshold_tokens'] is int &&
+            (json['mcp_lazy_loading_threshold_tokens'] as int) >=
+                AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens
+        ? (json['mcp_lazy_loading_threshold_tokens'] as int).clamp(
+            AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens,
+            AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens,
+          )
+        : AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens;
     final memoryEnabled = json['memory_enabled'] is bool
         ? json['memory_enabled'] as bool
         : true;
@@ -997,6 +1013,8 @@ class SettingsStore {
       skillsStoragePath: skillsStoragePath,
       mcpEnabled: mcpEnabled,
       mcpServersFilePath: mcpServersFilePath,
+      mcpLazyLoadingMode: mcpLazyLoadingMode,
+      mcpLazyLoadingThresholdTokens: mcpLazyLoadingThresholdTokens,
       memoryEnabled: memoryEnabled,
       userMemoryFilePath: userMemoryFilePath,
       editorWordWrap: editorWordWrap,

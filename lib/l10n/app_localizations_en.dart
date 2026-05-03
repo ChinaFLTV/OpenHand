@@ -309,6 +309,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mcpOpenDirectory => 'Open Directory';
 
   @override
+  String get mcpLazyLoadingModeLabel => 'MCP tool lazy loading';
+
+  @override
+  String get mcpLazyLoadingModeBody =>
+      'Controls whether MCP tool descriptions are collapsed out of the system prompt: Off = always expanded; On = always collapsed and fetched on demand via ToolSearch; Auto collapses only when the estimated token cost exceeds the threshold.';
+
+  @override
+  String get mcpLazyLoadingModeDisabled => 'Off';
+
+  @override
+  String get mcpLazyLoadingModeAuto => 'Auto';
+
+  @override
+  String get mcpLazyLoadingModeEnabled => 'On';
+
+  @override
+  String get mcpLazyLoadingThresholdLabel => 'MCP tool compression threshold';
+
+  @override
+  String get mcpLazyLoadingThresholdBody =>
+      'In Auto mode, lazy loading kicks in when the estimated total tokens of MCP tool descriptions exceeds this value.';
+
+  @override
+  String get mcpLazyLoadingThresholdSave => 'Save threshold';
+
+  @override
+  String get mcpLazyLoadingThresholdSaved =>
+      'MCP lazy-loading threshold saved.';
+
+  @override
+  String get mcpLazyLoadingThresholdInvalid =>
+      'Please enter an integer between 1000 and 1000000.';
+
+  @override
   String get settingsGeneralTitle => 'General';
 
   @override

@@ -53,6 +53,7 @@ import '../ai/service/ai_tool_runtime_service.dart';
 import '../crons/crons_controller.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
+import '../mcp/model/mcp_lazy_loading_mode.dart';
 import '../memory/memory_controller.dart';
 import '../skills/skills_controller.dart';
 import 'data_cleanup/data_cleanup_models.dart';
@@ -161,6 +162,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _responseTimeoutFocusNode;
   late final TextEditingController _streamIdleTimeoutController;
   late final FocusNode _streamIdleTimeoutFocusNode;
+  late final TextEditingController _mcpLazyLoadingThresholdController;
+  late final FocusNode _mcpLazyLoadingThresholdFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
 
   @override
@@ -209,6 +212,8 @@ class _SettingsViewState extends State<SettingsView> {
     _responseTimeoutFocusNode = FocusNode();
     _streamIdleTimeoutController = TextEditingController();
     _streamIdleTimeoutFocusNode = FocusNode();
+    _mcpLazyLoadingThresholdController = TextEditingController();
+    _mcpLazyLoadingThresholdFocusNode = FocusNode();
   }
 
   @override
@@ -256,6 +261,8 @@ class _SettingsViewState extends State<SettingsView> {
     _responseTimeoutFocusNode.dispose();
     _streamIdleTimeoutController.dispose();
     _streamIdleTimeoutFocusNode.dispose();
+    _mcpLazyLoadingThresholdController.dispose();
+    _mcpLazyLoadingThresholdFocusNode.dispose();
     super.dispose();
   }
 
@@ -395,6 +402,13 @@ class _SettingsViewState extends State<SettingsView> {
     if (!_streamIdleTimeoutFocusNode.hasFocus &&
         _streamIdleTimeoutController.text != streamIdleTimeoutText) {
       _streamIdleTimeoutController.text = streamIdleTimeoutText;
+    }
+    final mcpLazyLoadingThresholdText =
+        '${settingsController.mcpLazyLoadingThresholdTokens}';
+    if (!_mcpLazyLoadingThresholdFocusNode.hasFocus &&
+        _mcpLazyLoadingThresholdController.text !=
+            mcpLazyLoadingThresholdText) {
+      _mcpLazyLoadingThresholdController.text = mcpLazyLoadingThresholdText;
     }
 
     final sections = <_SettingsSection>[
@@ -2740,6 +2754,88 @@ class _SettingsViewState extends State<SettingsView> {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        _ResponsiveSettingRow(
+          title: l10n.mcpLazyLoadingModeLabel,
+          subtitle: l10n.mcpLazyLoadingModeBody,
+          controlMaxWidth: 440,
+          control: SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<McpLazyLoadingMode>(
+              segments: <ButtonSegment<McpLazyLoadingMode>>[
+                ButtonSegment<McpLazyLoadingMode>(
+                  value: McpLazyLoadingMode.disabled,
+                  icon: const Icon(Icons.toggle_off_outlined),
+                  label: Text(l10n.mcpLazyLoadingModeDisabled, softWrap: false),
+                ),
+                ButtonSegment<McpLazyLoadingMode>(
+                  value: McpLazyLoadingMode.auto,
+                  icon: const Icon(Icons.auto_awesome_outlined),
+                  label: Text(l10n.mcpLazyLoadingModeAuto, softWrap: false),
+                ),
+                ButtonSegment<McpLazyLoadingMode>(
+                  value: McpLazyLoadingMode.enabled,
+                  icon: const Icon(Icons.toggle_on_rounded),
+                  label: Text(l10n.mcpLazyLoadingModeEnabled, softWrap: false),
+                ),
+              ],
+              selected: <McpLazyLoadingMode>{
+                settingsController.mcpLazyLoadingMode,
+              },
+              onSelectionChanged: (selection) async {
+                if (selection.isEmpty) return;
+                final saved = await settingsController
+                    .updateMcpLazyLoadingMode(selection.first);
+                if (!context.mounted || saved) return;
+                _showPersistenceFailureSnackBar(context);
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        _ResponsiveSettingRow(
+          title: l10n.mcpLazyLoadingThresholdLabel,
+          subtitle: l10n.mcpLazyLoadingThresholdBody,
+          controlMaxWidth: 360,
+          control: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                key: const ValueKey<String>(
+                  'settingsMcpLazyLoadingThresholdField',
+                ),
+                controller: _mcpLazyLoadingThresholdController,
+                focusNode: _mcpLazyLoadingThresholdFocusNode,
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: InputDecoration(
+                  labelText: l10n.mcpLazyLoadingThresholdLabel,
+                  hintText:
+                      '${AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens}',
+                ),
+                onSubmitted: (value) =>
+                    _saveMcpLazyLoadingThreshold(context, value),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  key: const ValueKey<String>(
+                    'settingsMcpLazyLoadingThresholdSaveButton',
+                  ),
+                  onPressed: () => _saveMcpLazyLoadingThreshold(
+                    context,
+                    _mcpLazyLoadingThresholdController.text,
+                  ),
+                  icon: const Icon(Icons.save_outlined),
+                  label: Text(l10n.mcpLazyLoadingThresholdSave),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -3441,6 +3537,41 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiMaxRecentErrorsSaved,
+      kind: _SettingsSnackKind.success,
+    );
+  }
+
+  Future<void> _saveMcpLazyLoadingThreshold(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsed = int.tryParse(rawValue.trim());
+    if (parsed == null ||
+        parsed < AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens ||
+        parsed > AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens) {
+      _showSnackBar(
+        context,
+        l10n.mcpLazyLoadingThresholdInvalid,
+        kind: _SettingsSnackKind.error,
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateMcpLazyLoadingThresholdTokens(parsed);
+    if (!context.mounted) return;
+    if (!saved) {
+      _mcpLazyLoadingThresholdController.text =
+          '${context.read<SettingsController>().mcpLazyLoadingThresholdTokens}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _mcpLazyLoadingThresholdController.text =
+        '${context.read<SettingsController>().mcpLazyLoadingThresholdTokens}';
+    _showSnackBar(
+      context,
+      l10n.mcpLazyLoadingThresholdSaved,
       kind: _SettingsSnackKind.success,
     );
   }

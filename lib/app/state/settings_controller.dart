@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_backend_catalog.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
@@ -37,6 +38,8 @@ class SettingsController extends ChangeNotifier {
        _skillsStoragePath = snapshot.skillsStoragePath,
        _mcpEnabled = snapshot.mcpEnabled,
        _mcpServersFilePath = snapshot.mcpServersFilePath,
+       _mcpLazyLoadingMode = snapshot.mcpLazyLoadingMode,
+       _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens,
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
        _editorWordWrap = snapshot.editorWordWrap,
@@ -161,6 +164,8 @@ class SettingsController extends ChangeNotifier {
   String _skillsStoragePath;
   bool _mcpEnabled;
   String _mcpServersFilePath;
+  McpLazyLoadingMode _mcpLazyLoadingMode;
+  int _mcpLazyLoadingThresholdTokens;
   bool _memoryEnabled;
   String _userMemoryFilePath;
   bool _editorWordWrap;
@@ -261,6 +266,8 @@ class SettingsController extends ChangeNotifier {
       OpenHandPaths.defaultSkillsDirectoryLabel;
   bool get mcpEnabled => _mcpEnabled;
   String get mcpServersFilePath => _mcpServersFilePath;
+  McpLazyLoadingMode get mcpLazyLoadingMode => _mcpLazyLoadingMode;
+  int get mcpLazyLoadingThresholdTokens => _mcpLazyLoadingThresholdTokens;
   String get displayMcpServersFilePath =>
       OpenHandPaths.shortenHomePath(_mcpServersFilePath);
   String get defaultMcpServersFilePath =>
@@ -513,6 +520,32 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _mcpEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateMcpLazyLoadingMode(McpLazyLoadingMode value) async {
+    return _commitMutation(() {
+      if (_mcpLazyLoadingMode == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _mcpLazyLoadingMode = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateMcpLazyLoadingThresholdTokens(int value) async {
+    final clamped = value < AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens
+        ? AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens
+        : value.clamp(
+            AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens,
+            AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens,
+          );
+    return _commitMutation(() {
+      if (_mcpLazyLoadingThresholdTokens == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _mcpLazyLoadingThresholdTokens = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1924,6 +1957,8 @@ class SettingsController extends ChangeNotifier {
       skillsStoragePath: _skillsStoragePath,
       mcpEnabled: _mcpEnabled,
       mcpServersFilePath: _mcpServersFilePath,
+      mcpLazyLoadingMode: _mcpLazyLoadingMode,
+      mcpLazyLoadingThresholdTokens: _mcpLazyLoadingThresholdTokens,
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
       editorWordWrap: _editorWordWrap,
@@ -2015,6 +2050,8 @@ class SettingsController extends ChangeNotifier {
     _language = snapshot.language;
     _skillsStoragePath = snapshot.skillsStoragePath;
     _mcpEnabled = snapshot.mcpEnabled;
+    _mcpLazyLoadingMode = snapshot.mcpLazyLoadingMode;
+    _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens;
     _mcpServersFilePath = snapshot.mcpServersFilePath;
     _memoryEnabled = snapshot.memoryEnabled;
     _userMemoryFilePath = snapshot.userMemoryFilePath;
