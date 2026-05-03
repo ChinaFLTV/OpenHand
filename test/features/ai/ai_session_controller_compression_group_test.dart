@@ -86,6 +86,27 @@ void main() {
       <String>['a3'],
     ]);
   });
+
+  test('normalizes compact summary XML drafting blocks', () {
+    final normalized = normalizeCompressionCheckpointSummary('''
+<analysis>
+This scratchpad should not be persisted.
+</analysis>
+
+<summary>
+## Objective
+Continue the compression work.
+
+## User Messages
+- Keep user constraints.
+</summary>
+''');
+
+    expect(normalized, isNot(contains('scratchpad')));
+    expect(normalized, isNot(contains('<summary>')));
+    expect(normalized, startsWith('## Objective'));
+    expect(normalized, contains('## User Messages'));
+  });
 }
 
 List<List<String>> _ids(List<List<AiSessionMessage>> groups) {

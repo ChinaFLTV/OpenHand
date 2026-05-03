@@ -89,6 +89,32 @@ List<List<AiSessionMessage>> retainedSessionMessageGroupsForCompression(
   ).map((group) => group.messages).toList(growable: false);
 }
 
+@visibleForTesting
+String normalizeCompressionCheckpointSummary(String summary) {
+  final raw = summary.trim();
+  if (raw.isEmpty) {
+    return '';
+  }
+  var normalized = raw.replaceAll(
+    RegExp(r'<analysis\b[^>]*>[\s\S]*?</analysis>', caseSensitive: false),
+    '',
+  );
+  final summaryMatch = RegExp(
+    r'<summary\b[^>]*>([\s\S]*?)</summary>',
+    caseSensitive: false,
+  ).firstMatch(normalized);
+  if (summaryMatch != null) {
+    normalized = (summaryMatch.group(1) ?? '').trim();
+  } else {
+    normalized = normalized.replaceAll(
+      RegExp(r'</?summary\b[^>]*>', caseSensitive: false),
+      '',
+    );
+  }
+  normalized = normalized.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+  return normalized.isEmpty ? raw : normalized;
+}
+
 List<_CompressionMessageGroup> _buildCompressionMessageGroups(
   List<AiSessionMessage> messages,
 ) {
@@ -5304,7 +5330,7 @@ class AiSessionController extends ChangeNotifier {
     required String summary,
     required List<AiSessionMessage> discardedMessages,
   }) {
-    final trimmedSummary = summary.trim();
+    final trimmedSummary = normalizeCompressionCheckpointSummary(summary);
     if (discardedMessages.isEmpty) {
       return trimmedSummary;
     }
