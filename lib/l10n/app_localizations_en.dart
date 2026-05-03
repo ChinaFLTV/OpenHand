@@ -3136,6 +3136,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fileMutationPathCopied => 'Path copied';
 
   @override
+  String fileMutationRevealMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'changes',
+      one: 'change',
+    );
+    return '$count more $_temp0 hidden — tap to reveal next batch';
+  }
+
+  @override
+  String get fileMutationRevealAll => 'Reveal all';
+
+  @override
+  String get fileMutationHistoryInspector => 'History inspector';
+
+  @override
+  String get fileMutationHistoryInspectorTitle => 'Session file history';
+
+  @override
+  String get fileMutationHistoryInspectorFilterHint => 'Filter by path...';
+
+  @override
+  String get fileMutationHistoryInspectorEmpty =>
+      'No file changes match the current filter.';
+
+  @override
   String get fileMutationUndone => 'Undone';
 
   @override

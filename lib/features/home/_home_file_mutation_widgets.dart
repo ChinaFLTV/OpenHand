@@ -69,6 +69,13 @@ class _FileMutationCardState extends State<_FileMutationCard> {
   int _bulkUndoDone = 0;
   bool get _bulkUndoBusy => _bulkUndoTotal > 0;
 
+  // 阶段 ⑪e：超过 12 条 view 时，先只展开前 _kInitialReveal 条，
+  // 后续点「展开剩余 N 条」按需渲染。避免构造 200+ 个 _FileMutationCardRow
+  // （每个含可能巨大的 _InlineDiffPanel build closure）。
+  static const int _kInitialReveal = 10;
+  static const int _kRevealStep = 30;
+  int _revealedCount = _kInitialReveal;
+
   @override
   void dispose() {
     _pulseSignal.dispose();
@@ -316,6 +323,25 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
   }
 
+  /// 阶段 ⑪a：当前会话维度的 History Inspector dialog。展示该 session
+  /// 下 ledger.jsonl 的全部记录（不局限于当前 toolCall），按 filePath 分
+  /// 组并按 createdAt 倒序展示。复用现有 row 视觉，但不带 undo/redo 按钮
+  /// （只读概览，避免误操作）。
+  Future<void> _openHistoryInspector() async {
+    final ctrl = _ctrl(context);
+    final sessionId = ctrl.currentSession?.id ?? '';
+    if (sessionId.isEmpty) return;
+    final ledger = ctrl.toolRuntimeService.mutationLedger;
+    if (!mounted) return;
+    showAnimatedDialog(
+      context: context,
+      builder: (ctx) => _FileMutationHistoryInspectorDialog(
+        sessionId: sessionId,
+        ledger: ledger,
+      ),
+    );
+  }
+
   void _toggleExpand(String recordId) {
     setState(() {
       if (!_expandedRecordIds.add(recordId)) {
@@ -530,6 +556,14 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                       AppLocalizations.of(context)!.fileMutationCopyAllDiff,
                   onTap: () => _copyAllDiff(views),
                 ),
+                // 阶段 ⑪a：把当前会话所有 ledger 记录（含其他卡未展示的）
+                // 在 dialog 里按文件分组俯瞰，便于跨 toolCall 排查。
+                _IconActionButton(
+                  icon: Icons.history_rounded,
+                  tooltip: AppLocalizations.of(context)!
+                      .fileMutationHistoryInspector,
+                  onTap: () => _openHistoryInspector(),
+                ),
               ],
             ),
           ),
@@ -539,19 +573,31 @@ class _FileMutationCardState extends State<_FileMutationCard> {
             height: 1,
             color: cs.outlineVariant.withValues(alpha: 0.45),
           ),
-          // Rows
-          for (final v in views)
+          // 阶段 ⑪e：渐进式展开。views 多时只构造前 _revealedCount 条，
+          // 余下用一行「展开剩余 N 条」按钮兜底，按需 +30 / 全展开。
+          for (int i = 0; i < views.length && i < _revealedCount; i++)
             _FileMutationCardRow(
-              view: v,
-              expanded: _expandedRecordIds.contains(v.record.recordId),
-              busy: _busyRecordIds.contains(v.record.recordId),
-              onToggleExpand: () => _toggleExpand(v.record.recordId),
-              onUndo: () => _undo(v),
-              onRedo: () => _redo(v),
+              view: views[i],
+              expanded:
+                  _expandedRecordIds.contains(views[i].record.recordId),
+              busy: _busyRecordIds.contains(views[i].record.recordId),
+              onToggleExpand: () => _toggleExpand(views[i].record.recordId),
+              onUndo: () => _undo(views[i]),
+              onRedo: () => _redo(views[i]),
               onOpenLegacyDialog: () => _showLegacyDiff(
-                v.record.filePath,
+                views[i].record.filePath,
                 _fileMutationKind(widget.message),
               ),
+            ),
+          if (views.length > _revealedCount)
+            _RevealMoreRow(
+              remaining: views.length - _revealedCount,
+              onRevealStep: () => setState(() {
+                _revealedCount = (_revealedCount + _kRevealStep)
+                    .clamp(0, views.length);
+              }),
+              onRevealAll: () =>
+                  setState(() => _revealedCount = views.length),
             ),
         ],
       ),
@@ -854,6 +900,66 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
             );
           }
           final diff = _computeUnifiedDiffLines(before, after);
+          // 阶段 ⑪b：复用 _CodeSyntaxHighlighter 给 diff 行加 token 着色。
+          // 缓存命中：相同 record（即 sha pair）在同一 brightness 下复用整段
+          // TextSpan，rebuild（hover/expand/收起）不再重新 tokenize。
+          final brightness = theme.brightness;
+          final isDark = brightness == Brightness.dark;
+          final lang = _languageFromFilePath(widget.view.record.filePath);
+          final baseStyle = theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                height: 1.5,
+                fontSize: 11.5,
+              ) ??
+              const TextStyle(fontFamily: 'monospace', fontSize: 11.5);
+          final cacheKey =
+              ('diff::${widget.view.record.recordId}::${brightness.name}::'
+                      '${widget.view.record.beforeSha ?? "_"}::${widget.view.record.afterSha ?? "_"}::'
+                      '${lang ?? "_"}')
+                  .hashCode;
+          var rootSpan = _highlightSpanCache.get(cacheKey);
+          if (rootSpan == null) {
+            final highlighter = _CodeSyntaxHighlighter(
+              baseStyle: baseStyle,
+              darkSurface: isDark,
+            );
+            final children = <InlineSpan>[];
+            for (final l in diff) {
+              Color? bg;
+              Color? fg;
+              String prefix = '';
+              String code = l;
+              if (l.startsWith('+')) {
+                bg = cs.primaryContainer.withValues(alpha: 0.32);
+                fg = cs.onPrimaryContainer;
+                prefix = '+';
+                code = l.length > 2 ? l.substring(2) : '';
+              } else if (l.startsWith('-')) {
+                bg = cs.errorContainer.withValues(alpha: 0.30);
+                fg = cs.onErrorContainer;
+                prefix = '-';
+                code = l.length > 2 ? l.substring(2) : '';
+              } else if (l.startsWith('  ')) {
+                code = l.substring(2);
+                prefix = '  ';
+              }
+              final lineStyle = TextStyle(backgroundColor: bg, color: fg);
+              final lineChildren = <InlineSpan>[
+                if (prefix.isNotEmpty)
+                  TextSpan(text: prefix.length == 1 ? '$prefix ' : prefix),
+              ];
+              if (code.isEmpty) {
+                lineChildren.add(const TextSpan(text: ''));
+              } else {
+                // tokenize 单行；文件巨大时 _CodeSyntaxHighlighter 内部已防 nullable
+                lineChildren.add(highlighter.build(code, language: lang));
+              }
+              lineChildren.add(const TextSpan(text: '\n'));
+              children.add(TextSpan(style: lineStyle, children: lineChildren));
+            }
+            rootSpan = TextSpan(style: baseStyle, children: children);
+            _highlightSpanCache.put(cacheKey, rootSpan);
+          }
           return Container(
             constraints: const BoxConstraints(maxHeight: 280),
             decoration: BoxDecoration(
@@ -867,30 +973,7 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Scrollbar(
               child: SingleChildScrollView(
-                child: SelectableText.rich(
-                  TextSpan(
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                      height: 1.5,
-                      fontSize: 11.5,
-                    ),
-                    children: diff.map((l) {
-                      Color? bg;
-                      Color? fg;
-                      if (l.startsWith('+')) {
-                        bg = cs.primaryContainer.withValues(alpha: 0.32);
-                        fg = cs.onPrimaryContainer;
-                      } else if (l.startsWith('-')) {
-                        bg = cs.errorContainer.withValues(alpha: 0.30);
-                        fg = cs.onErrorContainer;
-                      }
-                      return TextSpan(
-                        text: '$l\n',
-                        style: TextStyle(backgroundColor: bg, color: fg),
-                      );
-                    }).toList(),
-                  ),
-                ),
+                child: SelectableText.rich(rootSpan),
               ),
             ),
           );
@@ -910,6 +993,64 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
         : await ledger.readBlob(v.record.afterSha!);
     return (before: before, after: after);
   }
+}
+
+/// 阶段 ⑪b：从文件路径推断 highlight.dart 用的语言名（小写）。无后缀
+/// 或 unknown 后缀返回 null，由 `_CodeSyntaxHighlighter` 退化成纯文本。
+String? _languageFromFilePath(String path) {
+  final i = path.lastIndexOf('.');
+  if (i < 0 || i == path.length - 1) return null;
+  final ext = path.substring(i + 1).toLowerCase();
+  return switch (ext) {
+    'js' || 'mjs' || 'cjs' => 'javascript',
+    'ts' => 'typescript',
+    'tsx' => 'typescript',
+    'jsx' => 'javascript',
+    'py' || 'pyi' => 'python',
+    'rb' => 'ruby',
+    'kt' || 'kts' => 'kotlin',
+    'rs' => 'rust',
+    'go' => 'go',
+    'cpp' || 'cxx' || 'cc' || 'hpp' || 'hxx' || 'hh' => 'cpp',
+    'c' || 'h' => 'c',
+    'cs' => 'csharp',
+    'php' => 'php',
+    'swift' => 'swift',
+    'm' || 'mm' => 'objectivec',
+    'scala' => 'scala',
+    'sh' || 'bash' || 'zsh' => 'bash',
+    'ps1' => 'powershell',
+    'sql' => 'sql',
+    'yaml' || 'yml' => 'yaml',
+    'json' || 'jsonc' => 'json',
+    'xml' || 'plist' => 'xml',
+    'html' || 'htm' => 'xml',
+    'css' => 'css',
+    'scss' => 'scss',
+    'less' => 'less',
+    'md' || 'markdown' => 'markdown',
+    'toml' => 'ini',
+    'ini' || 'cfg' || 'conf' => 'ini',
+    'lua' => 'lua',
+    'dart' => 'dart',
+    'arb' => 'json',
+    'gradle' => 'groovy',
+    'groovy' => 'groovy',
+    'r' => 'r',
+    'pl' || 'pm' => 'perl',
+    'erl' => 'erlang',
+    'ex' || 'exs' => 'elixir',
+    'hs' => 'haskell',
+    'fs' || 'fsx' => 'fsharp',
+    'clj' || 'cljs' => 'clojure',
+    'jl' => 'julia',
+    'proto' => 'protobuf',
+    'graphql' || 'gql' => 'graphql',
+    'vue' => 'xml',
+    'dockerfile' => 'dockerfile',
+    'cmake' => 'cmake',
+    _ => null,
+  };
 }
 
 /// 阶段 ⑩b：把 `filePath` 写入剪贴板并 SnackBar 提示。统一从 Row 的右键
@@ -1265,5 +1406,420 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
       }
     }
     return lcs;
+  }
+}
+
+/// 阶段 ⑪e：FileMutationCard 渐进式展开尾部按钮。
+/// - 文案 / 图标走当前 ColorScheme，与 row 视觉对齐；
+/// - 提供「展开 +30」与「全部展开」两个动作；
+/// - 触发的是父 setState，无内部状态，纯展示组件。
+class _RevealMoreRow extends StatelessWidget {
+  const _RevealMoreRow({
+    required this.remaining,
+    required this.onRevealStep,
+    required this.onRevealAll,
+  });
+
+  final int remaining;
+  final VoidCallback onRevealStep;
+  final VoidCallback onRevealAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return InkWell(
+      onTap: onRevealStep,
+      hoverColor: cs.primary.withValues(alpha: 0.05),
+      splashColor: cs.primary.withValues(alpha: 0.10),
+      highlightColor: cs.primary.withValues(alpha: 0.06),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.unfold_more_rounded, size: 16, color: cs.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.fileMutationRevealMore(remaining),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: cs.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onRevealAll,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 28),
+              ),
+              child: Text(l10n.fileMutationRevealAll),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 阶段 ⑪a：File Mutation History Inspector dialog
+// 当前会话级别的全 ledger 俯瞰：跨 toolCall 聚合，按 filePath 分组，每组
+// 内按 createdAt 倒序展示。只读：仅展示 + 复用既有 _FileMutationCardRow
+// 视觉层（但不带 undo/redo callback——传 null/空 op）。
+
+class _FileMutationHistoryInspectorDialog extends StatefulWidget {
+  const _FileMutationHistoryInspectorDialog({
+    required this.sessionId,
+    required this.ledger,
+  });
+
+  final String sessionId;
+  final AiFileMutationLedger ledger;
+
+  @override
+  State<_FileMutationHistoryInspectorDialog> createState() =>
+      _FileMutationHistoryInspectorDialogState();
+}
+
+class _FileMutationHistoryInspectorDialogState
+    extends State<_FileMutationHistoryInspectorDialog> {
+  late Future<List<FileMutationView>> _future;
+  String _filter = '';
+  late final TextEditingController _filterCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _filterCtrl = TextEditingController();
+    _future = widget.ledger.viewsForSession(widget.sessionId);
+  }
+
+  @override
+  void dispose() {
+    _filterCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 640),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.history_rounded, size: 18, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.fileMutationHistoryInspectorTitle,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    tooltip: MaterialLocalizations.of(context)
+                        .closeButtonTooltip,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: TextField(
+                controller: _filterCtrl,
+                onChanged: (s) => setState(() => _filter = s.trim()),
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                  hintText: l10n.fileMutationHistoryInspectorFilterHint,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+            Divider(
+              height: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.45),
+            ),
+            Expanded(
+              child: FutureBuilder<List<FileMutationView>>(
+                future: _future,
+                builder: (ctx, snap) {
+                  if (!snap.hasData) {
+                    return const Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  }
+                  final all = snap.data!;
+                  final filtered = _filter.isEmpty
+                      ? all
+                      : all
+                          .where((v) => v.record.filePath
+                              .toLowerCase()
+                              .contains(_filter.toLowerCase()))
+                          .toList(growable: false);
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          l10n.fileMutationHistoryInspectorEmpty,
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  }
+                  // 按文件路径分组（保持原 createdAt 倒序）
+                  final groups = <String, List<FileMutationView>>{};
+                  for (final v in filtered) {
+                    groups
+                        .putIfAbsent(
+                          v.record.filePath,
+                          () => <FileMutationView>[],
+                        )
+                        .add(v);
+                  }
+                  final paths = groups.keys.toList()..sort();
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: paths.length,
+                    itemBuilder: (_, i) {
+                      final path = paths[i];
+                      final entries = groups[path]!
+                        ..sort(
+                          (a, b) =>
+                              b.record.createdAt.compareTo(a.record.createdAt),
+                        );
+                      return _HistoryInspectorGroup(
+                        filePath: path,
+                        entries: entries,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    child: Text(MaterialLocalizations.of(context)
+                        .closeButtonLabel),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryInspectorGroup extends StatelessWidget {
+  const _HistoryInspectorGroup({
+    required this.filePath,
+    required this.entries,
+  });
+
+  final String filePath;
+  final List<FileMutationView> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: 0.45),
+            width: 0.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // group header
+            InkWell(
+              onTap: () => _copyPathToClipboard(context, filePath),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.insert_drive_file_outlined,
+                        size: 14, color: cs.primary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Tooltip(
+                        message: filePath,
+                        waitDuration: const Duration(milliseconds: 500),
+                        child: Text(
+                          filePath,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        l10n.fileMutationFilesCount(entries.length),
+                        style: theme.textTheme.labelSmall
+                            ?.copyWith(color: cs.primary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Divider(
+              height: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.35),
+            ),
+            for (final v in entries)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Row(
+                  children: [
+                    _RecordKindBadge(kind: v.record.kind),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        v.record.toolName,
+                        style: theme.textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      _formatTimestamp(v.record.createdAt),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (v.directlyUndone)
+                      Tooltip(
+                        message: l10n.fileMutationUndone,
+                        child: Icon(Icons.undo_rounded,
+                            size: 14, color: cs.onSurfaceVariant),
+                      )
+                    else if (v.cascadeUndone)
+                      Tooltip(
+                        message: l10n.fileMutationCascadeUndone,
+                        child: Icon(Icons.link_off_rounded,
+                            size: 14, color: cs.onSurfaceVariant),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _formatTimestamp(DateTime dt) {
+    final l = dt.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${l.year}-${two(l.month)}-${two(l.day)} '
+        '${two(l.hour)}:${two(l.minute)}:${two(l.second)}';
+  }
+}
+
+class _RecordKindBadge extends StatelessWidget {
+  const _RecordKindBadge({required this.kind});
+  final FileMutationKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final (icon, color, label) = switch (kind) {
+      FileMutationKind.create => (
+        Icons.add_circle_outline_rounded,
+        cs.primary,
+        'create',
+      ),
+      FileMutationKind.modify => (
+        Icons.edit_outlined,
+        cs.tertiary,
+        'modify',
+      ),
+      FileMutationKind.delete => (
+        Icons.delete_outline_rounded,
+        cs.error,
+        'delete',
+      ),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

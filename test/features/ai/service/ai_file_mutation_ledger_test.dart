@@ -267,4 +267,184 @@ void main() {
     final out = unifiedDiffLineSummary('a\nb', 'a\nB', maxBytes: 1024);
     expect(out.split('\n'), [' a', '-b', '+B']);
   });
+
+  // ─── 阶段⑪d：清理 pipeline 集成测试 ───
+  // pruneOlderThan + pruneToMaxVersionsPerFile + gcUnreferencedBlobs 串
+  // 起来跑一遍：模拟跨会话 / 多文件 / 多版本，最后断言：
+  //   1. 旧 session 目录被删除；
+  //   2. 每个 (session,file) 只剩最近 N 条；
+  //   3. blobs/ 下没有任何记录引用的旧 blob 都被回收。
+  test('集成：pruneOlderThan → pruneToMaxVersionsPerFile → gcUnreferencedBlobs',
+      () async {
+    final fooA = await stagingFile('a.txt', 'A0');
+    final fooB = await stagingFile('b.txt', 'B0');
+
+    // session "old" — 5 条 a.txt 改动 + 2 条 b.txt 改动；待会儿改 mtime
+    // 让它跨过 retention cutoff。
+    for (int i = 0; i < 5; i++) {
+      final next = 'A${i + 1}';
+      await ledger.recordMutation(
+        sessionId: 'old',
+        toolCallId: 'old-a-$i',
+        toolName: 'Edit',
+        filePath: fooA.path,
+        kind: FileMutationKind.modify,
+        beforeContent: 'A$i',
+        afterContent: next,
+      );
+      await fooA.writeAsString(next);
+    }
+    for (int i = 0; i < 2; i++) {
+      final next = 'B${i + 1}';
+      await ledger.recordMutation(
+        sessionId: 'old',
+        toolCallId: 'old-b-$i',
+        toolName: 'Edit',
+        filePath: fooB.path,
+        kind: FileMutationKind.modify,
+        beforeContent: 'B$i',
+        afterContent: next,
+      );
+      await fooB.writeAsString(next);
+    }
+
+    // session "fresh" — 6 条 a.txt 改动（待会儿 prune 到 max=3）。
+    await fooA.writeAsString('Z0');
+    for (int i = 0; i < 6; i++) {
+      final next = 'Z${i + 1}';
+      await ledger.recordMutation(
+        sessionId: 'fresh',
+        toolCallId: 'fresh-a-$i',
+        toolName: 'Edit',
+        filePath: fooA.path,
+        kind: FileMutationKind.modify,
+        beforeContent: 'Z$i',
+        afterContent: next,
+      );
+      await fooA.writeAsString(next);
+    }
+
+    // 预条件：blobs 目录中 sha 集合 = old + fresh 全部条目的 before/after 并集。
+    final oldRecords = await ledger.recordsForSession('old');
+    final freshRecords = await ledger.recordsForSession('fresh');
+    expect(oldRecords.length, 7);
+    expect(freshRecords.length, 6);
+
+    // 把 old session 目录的 mtime 倒推到 30 天前。
+    final oldDir = Directory(
+      p.join(tmp.path, 'sessions', 'old'),
+    );
+    expect(await oldDir.exists(), isTrue);
+    // Dart 没有跨平台 utime API；走 shell `touch -t` 兜底。
+    final result = await Process.run('touch', [
+      '-t',
+      _mtimeStamp(DateTime.now().subtract(const Duration(days: 30))),
+      oldDir.path,
+    ]);
+    expect(result.exitCode, 0);
+
+    // ── Step 1：retention=14 天 → 删 old，留 fresh
+    final removedSessions =
+        await ledger.pruneOlderThan(const Duration(days: 14));
+    expect(removedSessions, 1);
+    expect(await oldDir.exists(), isFalse);
+    expect(
+      Directory(p.join(tmp.path, 'sessions', 'fresh')).existsSync(),
+      isTrue,
+    );
+
+    // ── Step 2：每文件每会话最多保留 3 条
+    final removedRecords = await ledger.pruneToMaxVersionsPerFile(3);
+    expect(removedRecords, 3); // fresh: 6 → 3
+    final survivors = await ledger.recordsForSession('fresh');
+    expect(survivors.length, 3);
+    // 应保留最新 3 条（按 createdAt 倒序）
+    final survivorAfters =
+        survivors.map((r) => r.afterSha).whereType<String>().toSet();
+    expect(survivorAfters, hasLength(3));
+
+    // ── Step 3：再来一轮 gc（pipeline 步骤都已隐式调过，这里显式再跑一次
+    //          确保幂等且 blobs 集合 = 现存 ledger 引用集合）。
+    await ledger.gcUnreferencedBlobs();
+
+    final blobsRoot = Directory(p.join(tmp.path, 'blobs'));
+    final remainingShas = <String>{};
+    if (await blobsRoot.exists()) {
+      await for (final shard in blobsRoot.list()) {
+        if (shard is! Directory) continue;
+        await for (final blob in shard.list()) {
+          if (blob is! File) continue;
+          remainingShas.add(p.basenameWithoutExtension(blob.path));
+        }
+      }
+    }
+    final referenced = <String>{};
+    for (final r in survivors) {
+      if (r.beforeSha != null) referenced.add(r.beforeSha!);
+      if (r.afterSha != null) referenced.add(r.afterSha!);
+    }
+    // 引用集合 ⊆ 磁盘集合，且磁盘集合不含未引用 sha。
+    expect(referenced.difference(remainingShas), isEmpty,
+        reason: '所有引用的 blob 都应保留');
+    expect(remainingShas.difference(referenced), isEmpty,
+        reason: '所有未被引用的 blob 都应被 gc 掉');
+  });
+
+  test('clearSessionsExcept 保留白名单会话并 gc 释放孤儿 blob', () async {
+    final f = await stagingFile('only.txt', 'a');
+    await ledger.recordMutation(
+      sessionId: 'keep',
+      toolCallId: 'k1',
+      toolName: 'Edit',
+      filePath: f.path,
+      kind: FileMutationKind.modify,
+      beforeContent: 'a',
+      afterContent: 'b',
+    );
+    await ledger.recordMutation(
+      sessionId: 'drop',
+      toolCallId: 'd1',
+      toolName: 'Edit',
+      filePath: f.path,
+      kind: FileMutationKind.modify,
+      beforeContent: 'b',
+      afterContent: 'c',
+    );
+
+    final removed = await ledger.clearSessionsExcept({'keep'});
+    expect(removed, 1);
+    expect(
+      Directory(p.join(tmp.path, 'sessions', 'drop')).existsSync(),
+      isFalse,
+    );
+    expect(
+      Directory(p.join(tmp.path, 'sessions', 'keep')).existsSync(),
+      isTrue,
+    );
+
+    // drop 独有的 sha=hash('c') 应该被回收
+    final keepRecords = await ledger.recordsForSession('keep');
+    final keptShas = <String>{
+      for (final r in keepRecords) ...[
+        if (r.beforeSha != null) r.beforeSha!,
+        if (r.afterSha != null) r.afterSha!,
+      ],
+    };
+    final blobsRoot = Directory(p.join(tmp.path, 'blobs'));
+    final remainingShas = <String>{};
+    await for (final shard in blobsRoot.list()) {
+      if (shard is! Directory) continue;
+      await for (final blob in shard.list()) {
+        if (blob is! File) continue;
+        remainingShas.add(p.basenameWithoutExtension(blob.path));
+      }
+    }
+    expect(remainingShas, equals(keptShas));
+  });
+}
+
+/// `touch -t` 期望的 stamp 格式：CCYYMMDDhhmm.SS
+String _mtimeStamp(DateTime dt) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${dt.year}${two(dt.month)}${two(dt.day)}${two(dt.hour)}${two(dt.minute)}.${two(dt.second)}';
 }

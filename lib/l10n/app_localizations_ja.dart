@@ -3013,6 +3013,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fileMutationPathCopied => 'パスをコピーしました';
 
   @override
+  String fileMutationRevealMore(int count) {
+    return '残り $count 件の変更があります — タップして次のバッチを表示';
+  }
+
+  @override
+  String get fileMutationRevealAll => 'すべて表示';
+
+  @override
+  String get fileMutationHistoryInspector => '履歴インスペクター';
+
+  @override
+  String get fileMutationHistoryInspectorTitle => 'セッションのファイル履歴';
+
+  @override
+  String get fileMutationHistoryInspectorFilterHint => 'パスで絞り込み…';
+
+  @override
+  String get fileMutationHistoryInspectorEmpty => 'フィルターに一致するファイル変更はありません。';
+
+  @override
   String get fileMutationUndone => '元に戻し済み';
 
   @override

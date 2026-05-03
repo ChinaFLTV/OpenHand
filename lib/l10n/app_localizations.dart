@@ -5668,6 +5668,42 @@ abstract class AppLocalizations {
   /// **'路径已复制'**
   String get fileMutationPathCopied;
 
+  /// No description provided for @fileMutationRevealMore.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'还有 {count} 条变更未展示，点击继续展开'**
+  String fileMutationRevealMore(int count);
+
+  /// No description provided for @fileMutationRevealAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部展开'**
+  String get fileMutationRevealAll;
+
+  /// No description provided for @fileMutationHistoryInspector.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'历史检查器'**
+  String get fileMutationHistoryInspector;
+
+  /// No description provided for @fileMutationHistoryInspectorTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话文件变更历史'**
+  String get fileMutationHistoryInspectorTitle;
+
+  /// No description provided for @fileMutationHistoryInspectorFilterHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按路径过滤…'**
+  String get fileMutationHistoryInspectorFilterHint;
+
+  /// No description provided for @fileMutationHistoryInspectorEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有匹配过滤条件的文件变更。'**
+  String get fileMutationHistoryInspectorEmpty;
+
   /// No description provided for @fileMutationUndone.
   ///
   /// In zh_Hans, this message translates to:

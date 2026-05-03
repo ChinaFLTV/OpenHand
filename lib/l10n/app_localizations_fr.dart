@@ -3191,6 +3191,34 @@ class AppLocalizationsFr extends AppLocalizations {
   String get fileMutationPathCopied => 'Chemin copié';
 
   @override
+  String fileMutationRevealMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'modifications masquées',
+      one: 'modification masquée',
+    );
+    return '$count $_temp0 — appuyez pour afficher le lot suivant';
+  }
+
+  @override
+  String get fileMutationRevealAll => 'Tout afficher';
+
+  @override
+  String get fileMutationHistoryInspector => 'Inspecteur d\'historique';
+
+  @override
+  String get fileMutationHistoryInspectorTitle =>
+      'Historique des fichiers de la session';
+
+  @override
+  String get fileMutationHistoryInspectorFilterHint => 'Filtrer par chemin…';
+
+  @override
+  String get fileMutationHistoryInspectorEmpty =>
+      'Aucune modification de fichier ne correspond au filtre.';
+
+  @override
   String get fileMutationUndone => 'Annulé';
 
   @override

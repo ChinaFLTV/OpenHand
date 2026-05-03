@@ -473,6 +473,15 @@ class AiFileMutationLedger {
     return _buildView(record, all, undone);
   }
 
+  /// 阶段 ⑪a：会话级 history inspector 用——一次性返回当前会话所有记录
+  /// 的 view。比"对每条 record 调 viewForRecord"少一次磁盘扫一次 ledger。
+  Future<List<FileMutationView>> viewsForSession(String sessionId) async {
+    final all = await recordsForSession(sessionId);
+    if (all.isEmpty) return const <FileMutationView>[];
+    final undone = await _loadUndoneSet(sessionId);
+    return [for (final r in all) _buildView(r, all, undone)];
+  }
+
   FileMutationView _buildView(
     FileMutationRecord record,
     List<FileMutationRecord> all,

@@ -2972,6 +2972,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fileMutationPathCopied => '路径已复制';
 
   @override
+  String fileMutationRevealMore(int count) {
+    return '还有 $count 条变更未展示，点击继续展开';
+  }
+
+  @override
+  String get fileMutationRevealAll => '全部展开';
+
+  @override
+  String get fileMutationHistoryInspector => '历史检查器';
+
+  @override
+  String get fileMutationHistoryInspectorTitle => '会话文件变更历史';
+
+  @override
+  String get fileMutationHistoryInspectorFilterHint => '按路径过滤…';
+
+  @override
+  String get fileMutationHistoryInspectorEmpty => '没有匹配过滤条件的文件变更。';
+
+  @override
   String get fileMutationUndone => '已撤销';
 
   @override
@@ -7710,6 +7730,26 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get fileMutationPathCopied => '路径已复制';
 
   @override
+  String fileMutationRevealMore(int count) {
+    return '还有 $count 条变更未展示，点击继续展开';
+  }
+
+  @override
+  String get fileMutationRevealAll => '全部展开';
+
+  @override
+  String get fileMutationHistoryInspector => '历史检查器';
+
+  @override
+  String get fileMutationHistoryInspectorTitle => '会话文件变更历史';
+
+  @override
+  String get fileMutationHistoryInspectorFilterHint => '按路径过滤…';
+
+  @override
+  String get fileMutationHistoryInspectorEmpty => '没有匹配过滤条件的文件变更。';
+
+  @override
   String get fileMutationUndone => '已撤销';
 
   @override
@@ -12445,6 +12485,26 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get fileMutationPathCopied => '路徑已複製';
+
+  @override
+  String fileMutationRevealMore(int count) {
+    return '還有 $count 條變更未展示，點擊繼續展開';
+  }
+
+  @override
+  String get fileMutationRevealAll => '全部展開';
+
+  @override
+  String get fileMutationHistoryInspector => '歷史檢查器';
+
+  @override
+  String get fileMutationHistoryInspectorTitle => '會話檔案變更歷史';
+
+  @override
+  String get fileMutationHistoryInspectorFilterHint => '按路徑過濾…';
+
+  @override
+  String get fileMutationHistoryInspectorEmpty => '沒有符合過濾條件的檔案變更。';
 
   @override
   String get fileMutationUndone => '已復原';
