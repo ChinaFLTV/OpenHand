@@ -1058,6 +1058,13 @@
       "total": {"type": "int"}
     }
   },
+  "snackToolSearchLoaded": "ToolSearch loaded {loaded}/{total} MCP tool(s)",
+  "@snackToolSearchLoaded": {
+    "placeholders": {
+      "loaded": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "toolbarRuntimeNotices": "{count} runtime notices",
   "@toolbarRuntimeNotices": {
     "placeholders": {

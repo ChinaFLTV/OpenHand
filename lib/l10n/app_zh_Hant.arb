@@ -1059,6 +1059,13 @@
       "total": {"type": "int"}
     }
   },
+  "snackToolSearchLoaded": "ToolSearch 已載入 {loaded}/{total} 個 MCP 工具",
+  "@snackToolSearchLoaded": {
+    "placeholders": {
+      "loaded": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "@toolbarRuntimeNotices": {
     "placeholders": {
       "count": {

@@ -2538,6 +2538,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String snackToolSearchLoaded(int loaded, int total) {
+    return 'ToolSearch loaded $loaded/$total MCP tool(s)';
+  }
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '$completed/$total steps completed';
   }

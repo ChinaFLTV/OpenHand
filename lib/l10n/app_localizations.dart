@@ -4654,6 +4654,12 @@ abstract class AppLocalizations {
   /// **'MCP 已载 {loaded}/{total}'**
   String toolbarMcpLazyLoading(int loaded, int total);
 
+  /// No description provided for @snackToolSearchLoaded.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'ToolSearch 已加载 {loaded}/{total} 个 MCP 工具'**
+  String snackToolSearchLoaded(int loaded, int total);
+
   /// No description provided for @toolbarPlanStepsCompleted.
   ///
   /// In zh_Hans, this message translates to:

@@ -2405,6 +2405,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String snackToolSearchLoaded(int loaded, int total) {
+    return 'ToolSearch 已加载 $loaded/$total 个 MCP 工具';
+  }
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
@@ -6786,6 +6791,11 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
+  String snackToolSearchLoaded(int loaded, int total) {
+    return 'ToolSearch 已加载 $loaded/$total 个 MCP 工具';
+  }
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
@@ -11163,6 +11173,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String toolbarMcpLazyLoading(int loaded, int total) {
     return 'MCP 已載 $loaded/$total';
+  }
+
+  @override
+  String snackToolSearchLoaded(int loaded, int total) {
+    return 'ToolSearch 已載入 $loaded/$total 個 MCP 工具';
   }
 
   @override

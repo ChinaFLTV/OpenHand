@@ -2433,6 +2433,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String snackToolSearchLoaded(int loaded, int total) {
+    return 'ToolSearch が MCP ツールを $loaded/$total 件ロードしました';
+  }
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '$completed/$total 完了';
   }

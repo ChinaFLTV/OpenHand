@@ -1129,8 +1129,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
+    _observedSessionController?.toolSearchLoadedSignal.removeListener(
+      _handleToolSearchLoadedSignal,
+    );
     _observedSessionController = sessionController;
     _observedSessionController?.addListener(_handleSessionControllerChanged);
+    _observedSessionController?.toolSearchLoadedSignal.addListener(
+      _handleToolSearchLoadedSignal,
+    );
     _activeComposerSessionId = sessionController.currentSessionId;
     _activeTranscriptSessionId = sessionController.currentSessionId;
   }
@@ -1154,6 +1160,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     WidgetsBinding.instance.removeObserver(this);
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
+    _observedSessionController?.toolSearchLoadedSignal.removeListener(
+      _handleToolSearchLoadedSignal,
+    );
     _messageScrollController.removeListener(_handleMessageScroll);
     HardwareKeyboard.instance.removeHandler(_handleGlobalShortcutKeyEvent);
     _disposeAskUserChoicePresenter?.call();
@@ -1217,6 +1226,44 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = _observedSessionController;
     _scheduleSessionControllerUiSync();
     _processMessageQueueIfNeeded(sessionController);
+  }
+
+  /// 监听 [AiSessionController.toolSearchLoadedSignal]：当模型成功通过
+  /// `ToolSearch` 加载若干 MCP 工具时，仅在事件指向当前会话时弹出 SnackBar。
+  int _lastObservedToolSearchRevision = 0;
+  void _handleToolSearchLoadedSignal() {
+    if (!mounted) return;
+    final controller = _observedSessionController;
+    if (controller == null) return;
+    final event = controller.toolSearchLoadedSignal.value;
+    if (event == null) return;
+    if (event.revision == _lastObservedToolSearchRevision) return;
+    _lastObservedToolSearchRevision = event.revision;
+    if (event.sessionId != controller.currentSessionId) return;
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.search_rounded, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.snackToolSearchLoaded(
+                  event.loadedCount,
+                  event.totalDeferred,
+                ),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _scheduleSessionControllerUiSync() {

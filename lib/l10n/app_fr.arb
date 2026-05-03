@@ -1058,6 +1058,13 @@
       "total": {"type": "int"}
     }
   },
+  "snackToolSearchLoaded": "ToolSearch a chargé {loaded}/{total} outil(s) MCP",
+  "@snackToolSearchLoaded": {
+    "placeholders": {
+      "loaded": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "toolbarRuntimeNotices": "{count} notices runtime",
   "@toolbarRuntimeNotices": {
     "placeholders": {

@@ -1058,6 +1058,13 @@
       "total": {"type": "int"}
     }
   },
+  "snackToolSearchLoaded": "ToolSearch が MCP ツールを {loaded}/{total} 件ロードしました",
+  "@snackToolSearchLoaded": {
+    "placeholders": {
+      "loaded": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "toolbarRuntimeNotices": "{count} 件のランタイム通知",
   "@toolbarRuntimeNotices": {
     "placeholders": {

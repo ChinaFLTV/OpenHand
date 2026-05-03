@@ -222,6 +222,26 @@ class AiRuntimeToolPreview {
   int get toolCount => toolNames.length;
 }
 
+/// 描述一次成功的 `ToolSearch` 加载，用于触发 transcript 顶部的 SnackBar 提示。
+@immutable
+class AiToolSearchLoadedEvent {
+  const AiToolSearchLoadedEvent({
+    required this.sessionId,
+    required this.loadedNames,
+    required this.totalDeferred,
+    required this.query,
+    required this.revision,
+  });
+
+  final String sessionId;
+  final List<String> loadedNames;
+  final int totalDeferred;
+  final String query;
+  final int revision;
+
+  int get loadedCount => loadedNames.length;
+}
+
 class AiSessionController extends ChangeNotifier {
   AiSessionController._({
     required AiSessionStore store,
@@ -419,6 +439,15 @@ class AiSessionController extends ChangeNotifier {
   /// 前缀）。会话被 dispose 时清理。
   final Map<String, Set<String>> _loadedMcpToolsBySession =
       <String, Set<String>>{};
+
+  /// `ToolSearch` 成功加载 MCP 工具后向 UI 广播的一次性事件。
+  /// `OpenHandHomePage` 监听此 Listenable，匹配当前会话后弹出 SnackBar。
+  /// `revision` 自增确保即使连续两次加载相同名集合也能触发新通知。
+  final ValueNotifier<AiToolSearchLoadedEvent?> _toolSearchLoadedSignal =
+      ValueNotifier<AiToolSearchLoadedEvent?>(null);
+  ValueListenable<AiToolSearchLoadedEvent?> get toolSearchLoadedSignal =>
+      _toolSearchLoadedSignal;
+  int _toolSearchSignalRevision = 0;
 
   /// 2026-04-29 — Group A 设置项缓存。每当方法接收到 [runtimeContext] 时
   /// 写入本字段；helper 在自身没有 runtimeContext 入参的场景下从中读取
@@ -2260,6 +2289,7 @@ class AiSessionController extends ChangeNotifier {
     }
     _toolRuntimeService.dispose();
     _chatClient.dispose();
+    _toolSearchLoadedSignal.dispose();
     super.dispose();
   }
 
@@ -3794,11 +3824,31 @@ class AiSessionController extends ChangeNotifier {
       sessionId,
       () => <String>{},
     );
+    final addedNames = <String>[];
     for (final entry in raw) {
       if (entry is String && entry.isNotEmpty) {
-        loaded.add(entry);
+        if (loaded.add(entry)) {
+          addedNames.add(entry);
+        } else {
+          // Even if the tool is already in the loaded set, surface it in the
+          // event so the SnackBar reflects what the model just queried for.
+          addedNames.add(entry);
+        }
       }
     }
+    if (addedNames.isEmpty) return;
+    final totalDeferred = result.metadata['tool_search_total_deferred'];
+    final query = result.metadata['tool_search_query'];
+    _toolSearchSignalRevision += 1;
+    _toolSearchLoadedSignal.value = AiToolSearchLoadedEvent(
+      sessionId: sessionId,
+      loadedNames: List<String>.unmodifiable(addedNames),
+      totalDeferred: totalDeferred is int
+          ? totalDeferred
+          : (totalDeferred is num ? totalDeferred.toInt() : addedNames.length),
+      query: query is String ? query : '',
+      revision: _toolSearchSignalRevision,
+    );
   }
 
   Future<AiToolExecutionResult> _executeSingleToolCall({
