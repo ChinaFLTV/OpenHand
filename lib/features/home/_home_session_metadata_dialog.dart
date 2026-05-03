@@ -308,6 +308,10 @@ class _SessionMetadataDialog extends StatelessWidget {
                         colorScheme,
                         lastPromptMetadata,
                       ),
+                      ..._buildPostCompactRehydrationSection(
+                        context,
+                        lastPromptMetadata,
+                      ),
                       ..._buildCompactMemorySection(
                         context,
                         lastPromptMetadata,
@@ -1069,6 +1073,102 @@ class _SessionMetadataDialog extends StatelessWidget {
             ),
             value: sidecarPath.isEmpty ? '-' : sidecarPath,
           ),
+        ],
+      ),
+    ];
+  }
+
+  List<Widget> _buildPostCompactRehydrationSection(
+    BuildContext context,
+    Map<String, Object?> metadata,
+  ) {
+    final rehydration = _metadataObjectMap(
+      metadata['post_compact_rehydration'],
+    );
+    if (rehydration.isEmpty) {
+      return const <Widget>[];
+    }
+    final channels = _metadataStringList(rehydration['restored_channels']);
+    final checkpointId = '${rehydration['checkpoint_message_id'] ?? ''}'.trim();
+    final checkpointCreatedAt = '${rehydration['checkpoint_created_at'] ?? ''}'
+        .trim();
+    final active = rehydration['active'] == true;
+    final runtimeToolCount = _metadataInt(rehydration['runtime_tool_count']);
+    final builtinToolCount = _metadataInt(rehydration['builtin_tool_count']);
+    final skillToolCount = _metadataInt(rehydration['skill_tool_count']);
+    final mcpToolCount = _metadataInt(rehydration['mcp_tool_count']);
+    final recentReadFileCount = _metadataInt(
+      rehydration['recent_read_file_count'],
+    );
+    final invokedSkillCount = _metadataInt(rehydration['invoked_skill_count']);
+    final mcpServerInstructionCount = _metadataInt(
+      rehydration['mcp_server_instruction_count'],
+    );
+    final sessionStartHookCount = _metadataInt(
+      rehydration['session_start_hook_count'],
+    );
+    final agentResultCount = _metadataInt(rehydration['agent_result_count']);
+    final deferredBuiltinToolCount = _metadataInt(
+      rehydration['deferred_builtin_tool_count'],
+    );
+    final agentTypeCount = _metadataInt(rehydration['agent_type_count']);
+
+    return <Widget>[
+      const SizedBox(height: 16),
+      _MetadataSection(
+        title: _localizedText(
+          context,
+          zh: '压缩后上下文恢复',
+          en: 'Post-Compact Rehydration',
+        ),
+        children: [
+          _MetadataEntryRow(
+            label: _localizedMetadataField(context, 'post_compact_active'),
+            value: active
+                ? _localizedText(context, zh: '启用', en: 'Active')
+                : _localizedText(context, zh: '未启用', en: 'Inactive'),
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(context, 'checkpoint_message_id'),
+            value: checkpointId.isEmpty ? '-' : checkpointId,
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(context, 'checkpoint_created_at'),
+            value: checkpointCreatedAt.isEmpty ? '-' : checkpointCreatedAt,
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(context, 'runtime_tool_count'),
+            value:
+                '$runtimeToolCount ($builtinToolCount builtin, $skillToolCount skill, $mcpToolCount MCP)',
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(context, 'restored_signal_counts'),
+            value:
+                'read_files=$recentReadFileCount, skills=$invokedSkillCount, mcp_instructions=$mcpServerInstructionCount, session_hooks=$sessionStartHookCount, agent_results=$agentResultCount, deferred_tools=$deferredBuiltinToolCount, agent_types=$agentTypeCount',
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _localizedText(context, zh: '恢复通道', en: 'Restored Channels'),
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          if (channels.isEmpty)
+            Text(
+              _localizedText(context, zh: '暂无恢复通道。', en: 'No channels.'),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: channels
+                  .map((channel) => _MetadataChip(label: channel))
+                  .toList(growable: false),
+            ),
         ],
       ),
     ];

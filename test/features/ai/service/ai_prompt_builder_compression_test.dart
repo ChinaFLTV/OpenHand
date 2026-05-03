@@ -912,6 +912,72 @@ void main() {
     );
     expect(rehydration['restored_channels'], contains('agent_listing'));
   });
+
+  test('restores task agent result context after compact', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final agentResult = AiSessionMessage.toolResult(
+      id: 'task-result-before-compact',
+      content:
+          'status: success\nresult: research agent found that compact restore needs async result anchors.',
+      createdAt: now,
+      metadata: const <String, Object?>{
+        'tool_call_id': 'call-task-before-compact',
+        'tool_name': 'Task',
+        'command': 'Task research compact restore',
+        'status': 'success',
+        'duration_ms': 1234,
+        'subagent_type': 'research',
+        'subagent_session_isolated': true,
+      },
+    );
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: 'cp-agent-result-restore',
+      content: 'summary',
+      createdAt: now.add(const Duration(minutes: 1)),
+      metadata: const <String, Object?>{},
+    );
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: '继续根据 agent 结果执行',
+      createdAt: now.add(const Duration(minutes: 2)),
+    );
+    final messages = <AiSessionMessage>[agentResult, checkpoint, latest];
+    final session = _session(template: template, now: now, messages: messages);
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(),
+      runtimeContext: _runtimeContext(),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: messages,
+      latestUserMessageId: latest.id,
+    );
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
+    final rehydration = Map<String, Object?>.from(
+      result.metadata['post_compact_rehydration']! as Map,
+    );
+
+    expect(promptText, contains('# [5.12] Restored Agent Result Context'));
+    expect(promptText, contains('## research'));
+    expect(promptText, contains('compact restore needs async result anchors'));
+    expect(rehydration['agent_result_count'], 1);
+    expect(rehydration['restored_channels'], contains('agent_results'));
+  });
 }
 
 AiSessionMessage _toolCall(String id, String callId, DateTime now) {

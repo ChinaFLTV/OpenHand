@@ -68,6 +68,9 @@ class AiPromptBuilder {
   static const int _postCompactRestoreMaxSessionStartHookChars = 8000;
   static const int _postCompactRestoreMaxToolAgentChars = 8000;
   static const int _postCompactRestoreMaxDeferredTools = 40;
+  static const int _postCompactRestoreMaxAgentResults = 3;
+  static const int _postCompactRestoreMaxAgentResultChars = 12000;
+  static const int _postCompactRestoreMaxCharsPerAgentResult = 4000;
   static const int _compressionUserManifestMaxChars = 12000;
   static const int _compressionUserManifestMaxCharsPerMessage = 1200;
   static const int _compressionResourceManifestMaxItems = 40;
@@ -312,6 +315,11 @@ class AiPromptBuilder {
       resolvedToolsByName: resolvedToolsByName,
       latestCompressionPoint: latestCompressionPoint,
     );
+    final restoredAgentResultContext =
+        _renderPostCompactRestoredAgentResultContext(
+          historyMessages: historyMessages,
+          latestCompressionPoint: latestCompressionPoint,
+        );
 
     final messages = <AiChatTurn>[
       AiChatTurn(
@@ -425,6 +433,12 @@ class AiPromptBuilder {
           role: AiChatRole.system,
           content:
               '# [5.11] Restored Tool and Agent Listing\n\n$restoredToolAgentContext',
+        ),
+      if (restoredAgentResultContext.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content:
+              '# [5.12] Restored Agent Result Context\n\n$restoredAgentResultContext',
         ),
       ...latestUserTurns,
     ];
@@ -628,6 +642,10 @@ class AiPromptBuilder {
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
     );
+    final recentAgentResults = _recentTaskAgentResultAnchors(
+      historyMessages: historyMessages,
+      latestCompressionPoint: latestCompressionPoint,
+    );
     final deferredTools = _postCompactDeferredBuiltinTools(resolvedToolsByName);
     final taskAgentTypes = _postCompactTaskAgentTypes(
       availableToolNames: availableToolNames,
@@ -661,6 +679,7 @@ class AiPromptBuilder {
       if (recentReadFiles.isNotEmpty) 'recent_read_files',
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills',
       if (recentSessionStartHooks.isNotEmpty) 'session_start_hooks',
+      if (recentAgentResults.isNotEmpty) 'agent_results',
       if (deferredTools.isNotEmpty) 'deferred_builtin_tools',
       if (taskAgentTypes.isNotEmpty) 'agent_listing',
     ];
@@ -695,6 +714,19 @@ class AiPromptBuilder {
       'repository_snapshot_present': repositorySnapshot != null,
       'recent_read_file_count': recentReadFiles.length,
       'session_start_hook_count': recentSessionStartHooks.length,
+      'agent_result_count': recentAgentResults.length,
+      if (recentAgentResults.isNotEmpty)
+        'agent_results': recentAgentResults
+            .map(
+              (message) => <String, Object?>{
+                'message_id': message.id,
+                'created_at': message.createdAt.toUtc().toIso8601String(),
+                'subagent_type': '${message.metadata['subagent_type'] ?? ''}'
+                    .trim(),
+                'status': '${message.metadata['status'] ?? ''}'.trim(),
+              },
+            )
+            .toList(growable: false),
       'deferred_builtin_tool_count': deferredTools.length,
       if (deferredTools.isNotEmpty)
         'deferred_builtin_tool_names': deferredTools
@@ -2638,6 +2670,97 @@ $content
       lines.add('- [$status] $content');
     }
     return lines.join('\n');
+  }
+
+  String _renderPostCompactRestoredAgentResultContext({
+    required List<AiSessionMessage> historyMessages,
+    required AiSessionMessage? latestCompressionPoint,
+  }) {
+    final agentResults = _recentTaskAgentResultAnchors(
+      historyMessages: historyMessages,
+      latestCompressionPoint: latestCompressionPoint,
+    );
+    if (agentResults.isEmpty) {
+      return '';
+    }
+    final buffer = StringBuffer()
+      ..writeln(
+        'Background agent results restored after compaction. Treat these as completed Task/subagent observations that may no longer be present in the compressed transcript.',
+      );
+    for (final message in agentResults) {
+      final metadata = message.metadata;
+      final subagentType = '${metadata['subagent_type'] ?? ''}'.trim();
+      final status =
+          '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
+              .trim();
+      final command = '${metadata['command'] ?? ''}'.trim();
+      final durationMs = metadata['duration_ms'];
+      final content = _truncateRestoredContextContent(
+        message.content.trim(),
+        _postCompactRestoreMaxCharsPerAgentResult,
+        'agent_result_truncated',
+      );
+      buffer
+        ..writeln()
+        ..writeln('## ${subagentType.isEmpty ? 'Task Subagent' : subagentType}')
+        ..writeln('- message_id: ${message.id}')
+        ..writeln(
+          '- created_at: ${message.createdAt.toUtc().toIso8601String()}',
+        );
+      if (status.isNotEmpty) {
+        buffer.writeln('- status: $status');
+      }
+      if (command.isNotEmpty) {
+        buffer.writeln('- command: ${_truncate(command, 160)}');
+      }
+      if (durationMs != null) {
+        buffer.writeln('- duration_ms: $durationMs');
+      }
+      if (content.isNotEmpty) {
+        buffer
+          ..writeln()
+          ..writeln(content);
+      }
+    }
+    return _truncateRestoredContextContent(
+      buffer.toString().trimRight(),
+      _postCompactRestoreMaxAgentResultChars,
+      'restored_agent_results_truncated',
+    );
+  }
+
+  List<AiSessionMessage> _recentTaskAgentResultAnchors({
+    required List<AiSessionMessage> historyMessages,
+    required AiSessionMessage? latestCompressionPoint,
+    int maxResults = _postCompactRestoreMaxAgentResults,
+  }) {
+    if (latestCompressionPoint == null || maxResults <= 0) {
+      return const <AiSessionMessage>[];
+    }
+    final checkpointIndex = historyMessages.indexWhere(
+      (message) => message.id == latestCompressionPoint.id,
+    );
+    final searchEnd = checkpointIndex == -1
+        ? historyMessages.length
+        : checkpointIndex;
+    final results = <AiSessionMessage>[];
+    for (var i = searchEnd - 1; i >= 0 && results.length < maxResults; i--) {
+      final message = historyMessages[i];
+      if (_isTaskAgentResultMessage(message)) {
+        results.add(message);
+      }
+    }
+    return results.reversed.toList(growable: false);
+  }
+
+  bool _isTaskAgentResultMessage(AiSessionMessage message) {
+    if (message.kind != AiSessionMessageKind.tool) {
+      return false;
+    }
+    final toolName = '${message.metadata['tool_name'] ?? ''}'.trim();
+    final subagentType = '${message.metadata['subagent_type'] ?? ''}'.trim();
+    final isolated = message.metadata['subagent_session_isolated'] == true;
+    return toolName == 'Task' || (subagentType.isNotEmpty && isolated);
   }
 
   String _renderPostCompactRestoredToolAgentContext({

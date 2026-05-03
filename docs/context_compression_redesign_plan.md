@@ -211,6 +211,7 @@ Hardness API phase runner 有独立交接压缩：
 | Session Memory Sidecar | `ai_session_store.dart` / `ai_session_controller.dart` | 压缩成功后写入 `sessions/{sessionId}/memory/compact-latest.md` / `compact-latest.json`，作为独立可审计的持久摘要文件 |
 | Sidecar 读取/恢复 | `ai_session_store.dart` | 读取 sidecar 前恢复原子写 `.tmp/.bak`，主消息表缺失 checkpoint 时可从 sidecar 重建最新 compression checkpoint |
 | Sidecar 调试 UI | `_home_session_metadata_dialog.dart` | 会话元数据弹窗展示 compact memory sidecar 状态、checkpoint id、字符数、恢复标记和路径 |
+| Post-Compact 可观测性 UI | `_home_session_metadata_dialog.dart` | 会话元数据弹窗展示 `post_compact_rehydration` active/checkpoint、restored channels 与各恢复信号计数 |
 | 附件压缩降级 | `ai_prompt_builder.dart` | 压缩 prompt 渲染附件时 summary 优先、长文本 2K 字符封顶、无摘要图片降级为 `[image]` marker |
 | 最近 Read 文件锚点 | `ai_prompt_builder.dart` | post-compact metadata 与 Focus Context 注入最近 5 个 Read 文件路径/类型/渲染模式，作为轻量文件恢复清单 |
 | 真实文件内容恢复 | `ai_prompt_builder.dart` | checkpoint 后从最近 Read 文件锚点中恢复最多 5 个现存文本文件内容，按单文件/总字符预算注入 `[5.6] Restored File Context` |
@@ -219,6 +220,7 @@ Hardness API phase runner 有独立交接压缩：
 | MCP Context 恢复 | `ai_prompt_builder.dart` / `mcp_tool_discovery_service.dart` | checkpoint 后复宣当前 MCP servers、MCP tool names/descriptions 与真实 InitializeResult.instructions，按 40 工具/12K 字符预算注入 `[5.9] Restored MCP Context` |
 | SessionStart Hooks 恢复 | `ai_session_controller.dart` / `ai_prompt_builder.dart` | 压缩成功后以 `source=compact` 重新执行 SessionStart hooks，并从 checkpoint 前最近 hook 输出中恢复 `[5.10] Restored SessionStart Hook Context` |
 | Deferred Tools / Agent Listing 恢复 | `ai_prompt_builder.dart` / `ai_task_tool.dart` | checkpoint 后复宣当前 runtime catalog 中 `lazy/deferred` 内建工具与 Task subagent 类型，按 40 工具/8K 字符预算注入 `[5.11] Restored Tool and Agent Listing` |
+| Async Agent Result 恢复 | `ai_prompt_builder.dart` / `ai_task_tool.dart` | checkpoint 后恢复 checkpoint 前最近 Task/subagent 结果，按 3 条/12K 字符预算注入 `[5.12] Restored Agent Result Context` |
 | 压缩 Manifest | `ai_prompt_builder.dart` / `assets/prompts/*/compression_summary_instructions.md` | 压缩 payload 显式加入 `User Messages Manifest` 与 `Resource Recovery Manifest`，所有模板要求保留用户消息章节和资源恢复锚点 |
 | Summary 规范化 | `ai_session_controller.dart` | 对齐 Claude Code `formatCompactSummary`，写入 checkpoint 前剥离 `<analysis>` 草稿并提取 `<summary>` 正文 |
 
@@ -370,16 +372,18 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 6. **文件型 session memory sidecar**：压缩 checkpoint 成功提交后，额外原子写入 `compact-latest.md` 与 `compact-latest.json`，让摘要脱离主消息表也可被审计、导出和后续恢复逻辑复用；prompt metadata 同步暴露 sidecar path。
 7. **Sidecar 恢复链路**：会话完整加载时会尝试读取 compact sidecar；若主消息表缺失最新 checkpoint，会用 sidecar 中的摘要和元数据恢复一个标记了 `restored_from_compact_memory_sidecar` 的 checkpoint，增强异常恢复能力。
 8. **Sidecar 可观测性**：会话元数据弹窗增加“压缩记忆 Sidecar”区块，便于排查 checkpoint 是否已写入旁路文件、是否从旁路恢复、当前摘要字符数与路径。
-9. **压缩前附件降级**：对齐 Claude Code `stripImagesFromMessages` 的思想，compact 请求不再把长文档附件原文无界塞入摘要 prompt；有 summary 用 summary，无 summary 的图片/媒体用轻量 marker，文本附件最多保留 2K 字符。
-10. **最近 Read 文件恢复锚点**：对齐 Claude Code post-compact file restore 的目的，OpenHand 先采用轻量清单策略，在 `post_compact_rehydration` 与 Focus Context 中列出最近 5 个 Read 文件路径、文件类型和渲染模式，避免压缩后模型完全丢失“刚读过哪些文件”的工作集。
-11. **真实文件内容恢复**：在最新 checkpoint 存在时，Prompt Builder 会尝试从 checkpoint 之前最近 Read 过的文件里恢复最多 5 个仍存在的文本文件快照，并以 12K/文件、30K/总量预算注入 `[5.6] Restored File Context`；读取失败走 `silentLog`，不阻断 prompt 构建。
-12. **Invoked Skill 内容恢复**：对齐 Claude Code `createSkillAttachmentIfNeeded`，OpenHand 在 checkpoint 后从历史 skill 调用元数据里恢复最近 3 个仍在 `availableSkills` 中的技能 manifest/default prompt，并按 8K/技能、20K/总量预算注入 `[5.7] Restored Skill Context`。
-13. **Plan Context 内容恢复**：对齐 Claude Code `createPlanAttachmentIfNeeded` / plan mode attachment 的意图，OpenHand 在 checkpoint 后将当前 plan mode、审批状态、pending plan、最近 3 条 plan record 以及当前 todo 列表重注入 `[5.8] Restored Plan Context`，总量限制 12K 字符，避免压缩后模型丢失继续执行计划所需的结构状态。
-14. **MCP Context 复宣**：对齐 Claude Code `getMcpInstructionsDeltaAttachment` 的 post-compact 复宣策略，OpenHand 在 MCP tool discovery 阶段保存 InitializeResult.instructions，并经 `McpToolCatalog` / `AiResolvedToolCatalog` 传入 Prompt Builder；checkpoint 后 `[5.9] Restored MCP Context` 会复宣当前 MCP servers、可见 MCP tools 与真实 server instructions，其中单 server instructions 4K、总 MCP context 12K 字符封顶。
-15. **压缩输入 Manifest**：结合文章中 Claude Code “All user messages” 与 Manus “最小可恢复锚点”思想，compression payload 在完整 transcript 之前额外提供有界 `User Messages Manifest`（12K 总量、1.2K/条）和 `Resource Recovery Manifest`（最多 40 个 Read/WebFetch 锚点），避免模型在长 transcript 中漏掉用户约束或可重新加载的路径/URL。
-16. **SessionStart Hooks 恢复**：对齐 Claude Code compact 成功后 `processSessionStartHooks('compact')` 的做法，OpenHand 在压缩 checkpoint 提交并执行 PostCompact 后，会再次触发 SessionStart hooks（`source=compact`）；Claude-style SessionStart `systemReminders` 会落为 hook result 消息，Prompt Builder 还会从 checkpoint 前最近 5 条 SessionStart hook 输出中恢复 `[5.10] Restored SessionStart Hook Context`，总量 8K 字符封顶。
-17. **Deferred Tools / Agent Listing 恢复**：对齐 Claude Code `getDeferredToolsDeltaAttachment` 与 `getAgentListingDeltaAttachment` 的 post-compact 复宣意图，OpenHand 在 prompt 构建时读取本轮 `AiResolvedToolCatalog`，若存在 `lazy/deferred` 内建工具或可用 `Task` 工具，则注入 `[5.11] Restored Tool and Agent Listing`，并在 `post_compact_rehydration` 暴露 `deferred_builtin_tool_count`、`agent_type_count` 与对应 restored channels。
-18. **Summary 规范化**：对齐 Claude Code `formatCompactSummary`，OpenHand 在生成 compression checkpoint 前会剥离 `<analysis>...</analysis>` 草稿并提取 `<summary>...</summary>` 正文，防止压缩模型的草稿推理污染持久 checkpoint。
+9. **Post-Compact 可观测性 UI**：会话元数据弹窗新增“压缩后上下文恢复”区块，直接展示 `post_compact_rehydration` 的 active/checkpoint、runtime tool count、restored channels 与 read/skill/MCP/hook/agent/deferred/tool listing 等恢复信号计数。
+10. **压缩前附件降级**：对齐 Claude Code `stripImagesFromMessages` 的思想，compact 请求不再把长文档附件原文无界塞入摘要 prompt；有 summary 用 summary，无 summary 的图片/媒体用轻量 marker，文本附件最多保留 2K 字符。
+11. **最近 Read 文件恢复锚点**：对齐 Claude Code post-compact file restore 的目的，OpenHand 先采用轻量清单策略，在 `post_compact_rehydration` 与 Focus Context 中列出最近 5 个 Read 文件路径、文件类型和渲染模式，避免压缩后模型完全丢失“刚读过哪些文件”的工作集。
+12. **真实文件内容恢复**：在最新 checkpoint 存在时，Prompt Builder 会尝试从 checkpoint 之前最近 Read 过的文件里恢复最多 5 个仍存在的文本文件快照，并以 12K/文件、30K/总量预算注入 `[5.6] Restored File Context`；读取失败走 `silentLog`，不阻断 prompt 构建。
+13. **Invoked Skill 内容恢复**：对齐 Claude Code `createSkillAttachmentIfNeeded`，OpenHand 在 checkpoint 后从历史 skill 调用元数据里恢复最近 3 个仍在 `availableSkills` 中的技能 manifest/default prompt，并按 8K/技能、20K/总量预算注入 `[5.7] Restored Skill Context`。
+14. **Plan Context 内容恢复**：对齐 Claude Code `createPlanAttachmentIfNeeded` / plan mode attachment 的意图，OpenHand 在 checkpoint 后将当前 plan mode、审批状态、pending plan、最近 3 条 plan record 以及当前 todo 列表重注入 `[5.8] Restored Plan Context`，总量限制 12K 字符，避免压缩后模型丢失继续执行计划所需的结构状态。
+15. **MCP Context 复宣**：对齐 Claude Code `getMcpInstructionsDeltaAttachment` 的 post-compact 复宣策略，OpenHand 在 MCP tool discovery 阶段保存 InitializeResult.instructions，并经 `McpToolCatalog` / `AiResolvedToolCatalog` 传入 Prompt Builder；checkpoint 后 `[5.9] Restored MCP Context` 会复宣当前 MCP servers、可见 MCP tools 与真实 server instructions，其中单 server instructions 4K、总 MCP context 12K 字符封顶。
+16. **压缩输入 Manifest**：结合文章中 Claude Code “All user messages” 与 Manus “最小可恢复锚点”思想，compression payload 在完整 transcript 之前额外提供有界 `User Messages Manifest`（12K 总量、1.2K/条）和 `Resource Recovery Manifest`（最多 40 个 Read/WebFetch 锚点），避免模型在长 transcript 中漏掉用户约束或可重新加载的路径/URL。
+17. **SessionStart Hooks 恢复**：对齐 Claude Code compact 成功后 `processSessionStartHooks('compact')` 的做法，OpenHand 在压缩 checkpoint 提交并执行 PostCompact 后，会再次触发 SessionStart hooks（`source=compact`）；Claude-style SessionStart `systemReminders` 会落为 hook result 消息，Prompt Builder 还会从 checkpoint 前最近 5 条 SessionStart hook 输出中恢复 `[5.10] Restored SessionStart Hook Context`，总量 8K 字符封顶。
+18. **Deferred Tools / Agent Listing 恢复**：对齐 Claude Code `getDeferredToolsDeltaAttachment` 与 `getAgentListingDeltaAttachment` 的 post-compact 复宣意图，OpenHand 在 prompt 构建时读取本轮 `AiResolvedToolCatalog`，若存在 `lazy/deferred` 内建工具或可用 `Task` 工具，则注入 `[5.11] Restored Tool and Agent Listing`，并在 `post_compact_rehydration` 暴露 `deferred_builtin_tool_count`、`agent_type_count` 与对应 restored channels。
+19. **Async Agent Result 恢复**：对齐 Claude Code 压缩后恢复异步 agent 附件的意图，OpenHand 会从 checkpoint 前最近 3 条 Task/subagent 结果中恢复状态、subagent 类型、命令与有界输出，注入 `[5.12] Restored Agent Result Context`，并在 `post_compact_rehydration` 暴露 `agent_result_count` / `agent_results`。
+20. **Summary 规范化**：对齐 Claude Code `formatCompactSummary`，OpenHand 在生成 compression checkpoint 前会剥离 `<analysis>...</analysis>` 草稿并提取 `<summary>...</summary>` 正文，防止压缩模型的草稿推理污染持久 checkpoint。
 
 ## 7. Prompt 维护准则
 
