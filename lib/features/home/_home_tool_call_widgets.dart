@@ -250,6 +250,11 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                 label:
                     '${AppLocalizations.of(context)!.tlCallExit}: ${toolCall.exitCode}',
               ),
+            // 当工具调用仍登记在执行中心时，提供独立 Stop 按钮：
+            // 单击只杀本调用（区别于全局"停止响应"，不影响并行的兄弟工具）。
+            _ToolCancelButton(
+              toolCallId: '${message.metadata['tool_call_id'] ?? ''}',
+            ),
           ],
         ),
         // Phase swap: keys-row (pre-execution) ⇄ expandable-sections
@@ -1551,6 +1556,84 @@ class _ToolExecutionChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(label, style: theme.textTheme.labelMedium),
         ],
+      ),
+    );
+  }
+}
+
+/// 工具卡片右侧出现的"独立 Stop"按钮 —— 仅当 [toolCallId] 仍登记在
+/// [AiToolExecutionRegistry] 时显现。点击只终止本调用，不影响并行执行的
+/// 兄弟工具，区别于全局的"停止响应"。
+class _ToolCancelButton extends StatefulWidget {
+  const _ToolCancelButton({required this.toolCallId});
+
+  final String toolCallId;
+
+  @override
+  State<_ToolCancelButton> createState() => _ToolCancelButtonState();
+}
+
+class _ToolCancelButtonState extends State<_ToolCancelButton> {
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AiToolExecutionRegistry.instance.addListener(_onRegistryChanged);
+  }
+
+  @override
+  void dispose() {
+    AiToolExecutionRegistry.instance.removeListener(_onRegistryChanged);
+    super.dispose();
+  }
+
+  void _onRegistryChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _onTap() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await AiToolExecutionRegistry.instance.cancelToolCall(widget.toolCallId);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final id = widget.toolCallId.trim();
+    if (id.isEmpty) return const SizedBox.shrink();
+    final record = AiToolExecutionRegistry.instance.recordOf(id);
+    if (record == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Tooltip(
+      message: AppLocalizations.of(context)!.tlCallStopRequest,
+      child: InkWell(
+        onTap: _busy ? null : _onTap,
+        borderRadius: _borderRadius999,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: cs.errorContainer.withValues(alpha: 0.55),
+            borderRadius: _borderRadius999,
+            border: Border.all(color: cs.error.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _busy ? Icons.hourglass_top : Icons.stop_circle_outlined,
+                size: 14,
+                color: cs.error,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

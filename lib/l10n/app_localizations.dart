@@ -5560,6 +5560,12 @@ abstract class AppLocalizations {
   /// **'已停止'**
   String get tlCallStopped;
 
+  /// No description provided for @tlCallStopRequest.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'终止此工具调用'**
+  String get tlCallStopRequest;
+
   /// No description provided for @tlCallBlocked.
   ///
   /// In zh_Hans, this message translates to:

@@ -74,6 +74,7 @@ import '../ai/service/ai_file_history_service.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_session_jsonl_exporter.dart';
+import '../ai/service/ai_tool_execution_registry.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
 import '../ai/service/lsp_client_service.dart';
 import '../ai/service/mcp_loaded_tools_tracker.dart';

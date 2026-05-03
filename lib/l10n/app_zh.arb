@@ -1366,6 +1366,7 @@
   "tlCallTool": "工具",
   "tlCallSkill": "技能",
   "tlCallStopped": "已停止",
+  "tlCallStopRequest": "终止此工具调用",
   "tlCallBlocked": "已拦截",
   "tlCallRejected": "用户拒绝",
   "tlCallInvalid": "参数无效",

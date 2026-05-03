@@ -2940,6 +2940,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tlCallStopped => '停止';
 
   @override
+  String get tlCallStopRequest => 'このツール呼び出しを停止';
+
+  @override
   String get tlCallBlocked => 'ブロック';
 
   @override

@@ -2900,6 +2900,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tlCallStopped => '已停止';
 
   @override
+  String get tlCallStopRequest => '终止此工具调用';
+
+  @override
   String get tlCallBlocked => '已拦截';
 
   @override
@@ -7519,6 +7522,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tlCallStopped => '已停止';
 
   @override
+  String get tlCallStopRequest => '终止此工具调用';
+
+  @override
   String get tlCallBlocked => '已拦截';
 
   @override
@@ -12135,6 +12141,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tlCallStopped => '已停止';
+
+  @override
+  String get tlCallStopRequest => '終止此工具調用';
 
   @override
   String get tlCallBlocked => '已拦截';

@@ -1366,6 +1366,7 @@
   "tlCallTool": "Tool",
   "tlCallSkill": "Skill",
   "tlCallStopped": "Stopped",
+  "tlCallStopRequest": "Stop this tool call",
   "tlCallBlocked": "Blocked",
   "tlCallRejected": "Rejected",
   "tlCallInvalid": "Invalid",

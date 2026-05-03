@@ -1366,6 +1366,7 @@
   "tlCallTool": "Werkzeug",
   "tlCallSkill": "Fähigkeit",
   "tlCallStopped": "Gestoppt",
+  "tlCallStopRequest": "Diesen Werkzeugaufruf abbrechen",
   "tlCallBlocked": "Blockiert",
   "tlCallRejected": "Abgelehnt",
   "tlCallInvalid": "Ungültig",

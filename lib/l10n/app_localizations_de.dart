@@ -3093,6 +3093,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tlCallStopped => 'Gestoppt';
 
   @override
+  String get tlCallStopRequest => 'Diesen Werkzeugaufruf abbrechen';
+
+  @override
   String get tlCallBlocked => 'Blockiert';
 
   @override

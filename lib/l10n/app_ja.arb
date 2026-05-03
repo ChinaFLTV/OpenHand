@@ -1366,6 +1366,7 @@
   "tlCallTool": "ツール",
   "tlCallSkill": "スキル",
   "tlCallStopped": "停止",
+  "tlCallStopRequest": "このツール呼び出しを停止",
   "tlCallBlocked": "ブロック",
   "tlCallRejected": "却下",
   "tlCallInvalid": "無効",
