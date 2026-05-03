@@ -361,6 +361,34 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap) {
+    return 'Reset to default ($defaultCap)';
+  }
+
+  @override
+  String get settingsToolSearchReplayCancelWindowLabel =>
+      'Replay cancel window';
+
+  @override
+  String get settingsToolSearchReplayCancelWindowBody =>
+      'How long the snackbar waits before sending; press Cancel inside this window to discard.';
+
+  @override
+  String settingsToolSearchReplayCancelWindowValue(int seconds) {
+    return 'Window: $seconds s';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
+    return 'Range: $min–$max s (default 3)';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
+    return 'Reset to default ($defaultSeconds s)';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       'When lazy loading is active, MCP tool descriptions are folded into a name index. The built-in ToolSearch tool fetches full JSON Schema on demand via three query forms:\n• select:NAME (direct, space-separated for multi-select)\n• keyword (scored against name/description)\n• +KEYWORD (required term to filter noise)\nResolved tools are added to the per-session loaded set so the next turn calls them directly with no extra search.';
 
@@ -2650,6 +2678,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedHistoryClearAction => 'Clear history';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportTooltip => 'Export history';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportCsv => 'Copy as CSV';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdown => 'Copy as Markdown';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportEmptyToast =>
+      'History is empty (after filter); nothing to export.';
+
+  @override
+  String snackToolSearchLoadedHistoryExportedToast(int count) {
+    return 'Copied $count history entries to clipboard.';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryClearedToast => 'Load history cleared';

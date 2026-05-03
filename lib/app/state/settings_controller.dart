@@ -142,6 +142,8 @@ class SettingsController extends ChangeNotifier {
        _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays,
        _hardnessToolSearchHistoryMaxPhases =
            snapshot.hardnessToolSearchHistoryMaxPhases,
+       _toolSearchReplayCancelWindowSeconds =
+           snapshot.toolSearchReplayCancelWindowSeconds,
        _reduceMotion = snapshot.reduceMotion,
        _proxySettings = snapshot.proxySettings,
        _persistenceIssue = persistenceIssue;
@@ -243,6 +245,7 @@ class SettingsController extends ChangeNotifier {
   bool _cronAutoCleanupEnabled;
   int _cronAutoCleanupRetentionDays;
   int _hardnessToolSearchHistoryMaxPhases;
+  int _toolSearchReplayCancelWindowSeconds;
   bool _reduceMotion;
   AppProxySettings _proxySettings;
   SettingsPersistenceIssue? _persistenceIssue;
@@ -433,6 +436,11 @@ class SettingsController extends ChangeNotifier {
   /// （LRU 阐出最早者）。默认 8，范围 [1, 64]。
   int get hardnessToolSearchHistoryMaxPhases =>
       _hardnessToolSearchHistoryMaxPhases;
+
+  /// ToolSearch 历史「重放」按下后的反悔窗口（秒）。在窗口内点
+  /// snackbar 上的 Cancel 可撤销发送。默认 3，范围 [1, 30]。
+  int get toolSearchReplayCancelWindowSeconds =>
+      _toolSearchReplayCancelWindowSeconds;
 
   /// 2026-05 — 用户层减少动画总开关。true 时自研动画时长归 0，
   /// 同时通过 MediaQuery.disableAnimations 同步禁用 Flutter 内置动画
@@ -1840,6 +1848,21 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  /// 调整 ToolSearch 重放反悔窗口（秒）。范围 [1, 30]，超出会 clamp。
+  Future<bool> updateToolSearchReplayCancelWindowSeconds(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minToolSearchReplayCancelWindowSeconds,
+      AppSettingsSnapshot.maxToolSearchReplayCancelWindowSeconds,
+    );
+    return _commitMutation(() {
+      if (_toolSearchReplayCancelWindowSeconds == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _toolSearchReplayCancelWindowSeconds = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
   // 2026-05 — 减少动画总开关。
   Future<bool> updateReduceMotion(bool value) async {
     return _commitMutation(() {
@@ -2064,6 +2087,8 @@ class SettingsController extends ChangeNotifier {
       cronAutoCleanupEnabled: _cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: _cronAutoCleanupRetentionDays,
       hardnessToolSearchHistoryMaxPhases: _hardnessToolSearchHistoryMaxPhases,
+      toolSearchReplayCancelWindowSeconds:
+          _toolSearchReplayCancelWindowSeconds,
       reduceMotion: _reduceMotion,
       proxySettings: _proxySettings,
     );
@@ -2176,6 +2201,8 @@ class SettingsController extends ChangeNotifier {
     _showSelfLearningMessages = snapshot.showSelfLearningMessages;
     _hardnessToolSearchHistoryMaxPhases =
         snapshot.hardnessToolSearchHistoryMaxPhases;
+    _toolSearchReplayCancelWindowSeconds =
+        snapshot.toolSearchReplayCancelWindowSeconds;
     _reduceMotion = snapshot.reduceMotion;
     _proxySettings = snapshot.proxySettings;
   }

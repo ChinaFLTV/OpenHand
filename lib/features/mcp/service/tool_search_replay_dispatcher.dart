@@ -39,10 +39,10 @@ Future<void> replayToolSearchInFreshSession({
 }
 
 class ToolSearchReplayDispatcher {
-  ToolSearchReplayDispatcher({this.window = const Duration(seconds: 3)});
+  ToolSearchReplayDispatcher({this.defaultWindow = const Duration(seconds: 3)});
 
-  /// 反悔窗口长度。默认 3 秒，与 UI snackbar 时长一致。
-  final Duration window;
+  /// 反悔窗口默认值。3 秒。可被 [schedule] 的 `window` 参数覆盖。
+  final Duration defaultWindow;
 
   Timer? _timer;
   bool _settled = false;
@@ -53,21 +53,21 @@ class ToolSearchReplayDispatcher {
 
   /// 调度一次重放。会取消之前任何 pending 的调度（不触发其回调）。
   /// [onFire] 在窗口耗尽后触发；[onCancel] 在窗口内被 [cancel] 时触发。
+  /// 可选 [window] 覆盖本次调度的反悔窗口长度。
   void schedule({
     required FutureOr<void> Function() onFire,
     required void Function() onCancel,
+    Duration? window,
   }) {
     if (_disposed) return;
     _timer?.cancel();
     _settled = false;
-    _timer = Timer(window, () async {
+    _timer = Timer(window ?? defaultWindow, () async {
       if (_disposed || _settled) return;
       _settled = true;
       _timer = null;
       await onFire();
     });
-    // 用闭包捕获 onCancel，让 cancel() 在不知道当前 onCancel 是哪一个的
-    // 情况下也能调用最新一次注册的取消回调。
     _pendingCancel = onCancel;
   }
 

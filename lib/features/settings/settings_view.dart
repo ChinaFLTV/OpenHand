@@ -2850,6 +2850,12 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 18),
         _buildHardnessToolSearchHistoryRow(context, settingsController, l10n),
+        const SizedBox(height: 18),
+        _buildToolSearchReplayCancelWindowRow(
+          context,
+          settingsController,
+          l10n,
+        ),
       ],
     );
   }
@@ -2864,6 +2870,8 @@ class _SettingsViewState extends State<SettingsView> {
     final cap = settingsController.hardnessToolSearchHistoryMaxPhases;
     const minCap = AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases;
     const maxCap = AppSettingsSnapshot.maxHardnessToolSearchHistoryMaxPhases;
+    const defaultCap =
+        AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases;
     return _ResponsiveSettingRow(
       title: l10n.settingsHardnessToolSearchHistoryCapLabel,
       subtitle: l10n.settingsHardnessToolSearchHistoryCapBody,
@@ -2871,9 +2879,32 @@ class _SettingsViewState extends State<SettingsView> {
       control: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l10n.settingsHardnessToolSearchHistoryCapValue(cap),
-            style: Theme.of(context).textTheme.bodyMedium,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.settingsHardnessToolSearchHistoryCapValue(cap),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              IconButton(
+                tooltip: l10n.settingsHardnessToolSearchHistoryCapResetTooltip(
+                  defaultCap,
+                ),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                onPressed: cap == defaultCap
+                    ? null
+                    : () async {
+                        final saved = await settingsController
+                            .updateHardnessToolSearchHistoryMaxPhases(
+                          defaultCap,
+                        );
+                        if (!context.mounted || saved) return;
+                        _showPersistenceFailureSnackBar(context);
+                      },
+              ),
+            ],
           ),
           Slider(
             min: minCap.toDouble(),
@@ -2890,6 +2921,76 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           Text(
             l10n.settingsHardnessToolSearchHistoryCapRange(minCap, maxCap),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ToolSearch 历史「重放」按钮的反悔窗口（秒）。1..30，默认 3。
+  Widget _buildToolSearchReplayCancelWindowRow(
+    BuildContext context,
+    SettingsController settingsController,
+    AppLocalizations l10n,
+  ) {
+    final seconds = settingsController.toolSearchReplayCancelWindowSeconds;
+    const minSec = AppSettingsSnapshot.minToolSearchReplayCancelWindowSeconds;
+    const maxSec = AppSettingsSnapshot.maxToolSearchReplayCancelWindowSeconds;
+    const defaultSec =
+        AppSettingsSnapshot.defaultToolSearchReplayCancelWindowSeconds;
+    return _ResponsiveSettingRow(
+      title: l10n.settingsToolSearchReplayCancelWindowLabel,
+      subtitle: l10n.settingsToolSearchReplayCancelWindowBody,
+      controlMaxWidth: 360,
+      control: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.settingsToolSearchReplayCancelWindowValue(seconds),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              IconButton(
+                tooltip:
+                    l10n.settingsToolSearchReplayCancelWindowResetTooltip(
+                  defaultSec,
+                ),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                onPressed: seconds == defaultSec
+                    ? null
+                    : () async {
+                        final saved = await settingsController
+                            .updateToolSearchReplayCancelWindowSeconds(
+                          defaultSec,
+                        );
+                        if (!context.mounted || saved) return;
+                        _showPersistenceFailureSnackBar(context);
+                      },
+              ),
+            ],
+          ),
+          Slider(
+            min: minSec.toDouble(),
+            max: maxSec.toDouble(),
+            divisions: maxSec - minSec,
+            value: seconds.clamp(minSec, maxSec).toDouble(),
+            label: '${seconds}s',
+            onChanged: (value) async {
+              final saved = await settingsController
+                  .updateToolSearchReplayCancelWindowSeconds(value.round());
+              if (!context.mounted || saved) return;
+              _showPersistenceFailureSnackBar(context);
+            },
+          ),
+          Text(
+            l10n.settingsToolSearchReplayCancelWindowRange(minSec, maxSec),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),

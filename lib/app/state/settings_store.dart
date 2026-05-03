@@ -263,6 +263,8 @@ class SettingsStore {
       'cron_auto_cleanup_retention_days': snapshot.cronAutoCleanupRetentionDays,
       'hardness_tool_search_history_max_phases':
           snapshot.hardnessToolSearchHistoryMaxPhases,
+      'tool_search_replay_cancel_window_seconds':
+          snapshot.toolSearchReplayCancelWindowSeconds,
       'reduce_motion': snapshot.reduceMotion,
       'proxy': snapshot.proxySettings.toJson(),
       'ai_models': snapshot.aiModels
@@ -1012,6 +1014,16 @@ class SettingsStore {
           )
         : AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases;
 
+    final rawReplayCancelWindow =
+        json['tool_search_replay_cancel_window_seconds'];
+    final toolSearchReplayCancelWindowSeconds =
+        (rawReplayCancelWindow is int && rawReplayCancelWindow > 0)
+        ? rawReplayCancelWindow.clamp(
+            AppSettingsSnapshot.minToolSearchReplayCancelWindowSeconds,
+            AppSettingsSnapshot.maxToolSearchReplayCancelWindowSeconds,
+          )
+        : AppSettingsSnapshot.defaultToolSearchReplayCancelWindowSeconds;
+
     final reduceMotion = json['reduce_motion'] is bool
         ? json['reduce_motion'] as bool
         : false;
@@ -1104,6 +1116,8 @@ class SettingsStore {
       cronAutoCleanupEnabled: cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: cronAutoCleanupRetentionDays,
       hardnessToolSearchHistoryMaxPhases: hardnessToolSearchHistoryMaxPhases,
+      toolSearchReplayCancelWindowSeconds:
+          toolSearchReplayCancelWindowSeconds,
       reduceMotion: reduceMotion,
       proxySettings: proxySettings,
     );

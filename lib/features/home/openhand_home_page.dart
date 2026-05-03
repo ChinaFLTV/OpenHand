@@ -1290,9 +1290,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  /// 用户点击 ToolSearch 历史「重放」按钮后，给的反悔窗口。在此期间
-  /// 撤销将清空 composer 并不发送；超时则正常派发。
-  static const Duration kToolSearchReplayCancelWindow = Duration(seconds: 3);
+  /// Hardness ToolSearch 重放反悔窗口由
+  /// [SettingsController.toolSearchReplayCancelWindowSeconds] 提供
+  /// （默认 3 秒，范围 1..30）；dispatcher 自身不再持有硬编码默认。
   late final ToolSearchReplayDispatcher _toolSearchReplayDispatcher =
       ToolSearchReplayDispatcher();
 
@@ -1414,6 +1414,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
+    final cancelWindow = Duration(
+      seconds: context
+          .read<SettingsController>()
+          .toolSearchReplayCancelWindowSeconds,
+    );
     final completer = Completer<void>();
 
     void onCancel() {
@@ -1465,7 +1470,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         SnackBar(
           content: Text(l10n.snackToolSearchLoadedReplayPendingToast),
           behavior: SnackBarBehavior.floating,
-          duration: kToolSearchReplayCancelWindow,
+          duration: cancelWindow,
           action: SnackBarAction(
             label: l10n.snackToolSearchLoadedReplayCancelAction,
             onPressed: _toolSearchReplayDispatcher.cancel,
@@ -1477,6 +1482,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _toolSearchReplayDispatcher.schedule(
       onFire: onFire,
       onCancel: onCancel,
+      window: cancelWindow,
     );
 
     return completer.future;

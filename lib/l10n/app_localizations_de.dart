@@ -362,6 +362,34 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap) {
+    return 'Auf Standard zurücksetzen ($defaultCap)';
+  }
+
+  @override
+  String get settingsToolSearchReplayCancelWindowLabel =>
+      'Wiedergabe-Abbruchfenster';
+
+  @override
+  String get settingsToolSearchReplayCancelWindowBody =>
+      'Wartezeit der Snackbar vor dem Senden; innerhalb des Fensters kann mit Abbrechen verworfen werden.';
+
+  @override
+  String settingsToolSearchReplayCancelWindowValue(int seconds) {
+    return 'Fenster: $seconds s';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
+    return 'Bereich: $min–$max s (Standard 3)';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
+    return 'Auf Standard zurücksetzen ($defaultSeconds s)';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       'Bei aktivem Lazy Loading werden MCP-Tool-Beschreibungen zu einem Namensindex zusammengefaltet. Das eingebaute ToolSearch-Tool ruft das vollständige JSON-Schema bei Bedarf über drei Abfrageformen ab:\n• select:NAME (direkte Auswahl, mehrfach durch Leerzeichen getrennt)\n• Stichwort (bewertet gegen name/description)\n• +STICHWORT (Pflichtwort zum Filtern)\nAufgelöste Tools werden dem geladenen Set der Sitzung hinzugefügt, sodass der nächste Zug sie direkt aufruft.';
 
@@ -2679,6 +2707,25 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedHistoryClearAction => 'Verlauf leeren';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportTooltip => 'Verlauf exportieren';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportCsv => 'Als CSV kopieren';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdown =>
+      'Als Markdown kopieren';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportEmptyToast =>
+      'Verlauf nach Filterung leer; nichts zu exportieren.';
+
+  @override
+  String snackToolSearchLoadedHistoryExportedToast(int count) {
+    return '$count Verlaufseinträge in die Zwischenablage kopiert.';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryClearedToast => 'Ladeverlauf geleert';

@@ -349,6 +349,33 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap) {
+    return '重置为默认值（$defaultCap）';
+  }
+
+  @override
+  String get settingsToolSearchReplayCancelWindowLabel => '重放反悔窗口';
+
+  @override
+  String get settingsToolSearchReplayCancelWindowBody =>
+      'snackbar 在发送前等待的秒数；期间点取消即可撤销。';
+
+  @override
+  String settingsToolSearchReplayCancelWindowValue(int seconds) {
+    return '窗口：$seconds 秒';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
+    return '范围：$min–$max 秒（默认 3）';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
+    return '重置为默认值（$defaultSeconds 秒）';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       '懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。';
 
@@ -2509,6 +2536,23 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedHistoryClearAction => '清空历史';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportTooltip => '导出历史';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportCsv => '复制为 CSV';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdown => '复制为 Markdown';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportEmptyToast => '过滤后历史为空，无可导出。';
+
+  @override
+  String snackToolSearchLoadedHistoryExportedToast(int count) {
+    return '已复制 $count 条历史到剪贴板。';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryClearedToast => '加载历史已清空';
@@ -4845,6 +4889,33 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
+  String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap) {
+    return '重置为默认值（$defaultCap）';
+  }
+
+  @override
+  String get settingsToolSearchReplayCancelWindowLabel => '重放反悔窗口';
+
+  @override
+  String get settingsToolSearchReplayCancelWindowBody =>
+      'snackbar 在发送前等待的秒数；期间点取消即可撤销。';
+
+  @override
+  String settingsToolSearchReplayCancelWindowValue(int seconds) {
+    return '窗口：$seconds 秒';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
+    return '范围：$min–$max 秒（默认 3）';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
+    return '重置为默认值（$defaultSeconds 秒）';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       '懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。';
 
@@ -7005,6 +7076,23 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedHistoryClearAction => '清空历史';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportTooltip => '导出历史';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportCsv => '复制为 CSV';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdown => '复制为 Markdown';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportEmptyToast => '过滤后历史为空，无可导出。';
+
+  @override
+  String snackToolSearchLoadedHistoryExportedToast(int count) {
+    return '已复制 $count 条历史到剪贴板。';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryClearedToast => '加载历史已清空';
@@ -9340,6 +9428,33 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
+  String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap) {
+    return '重設為預設值（$defaultCap）';
+  }
+
+  @override
+  String get settingsToolSearchReplayCancelWindowLabel => '重播後悔視窗';
+
+  @override
+  String get settingsToolSearchReplayCancelWindowBody =>
+      'snackbar 送出前等待的秒數；期間按取消即可撤銷。';
+
+  @override
+  String settingsToolSearchReplayCancelWindowValue(int seconds) {
+    return '視窗：$seconds 秒';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
+    return '範圍：$min–$max 秒（預設 3）';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
+    return '重設為預設值（$defaultSeconds 秒）';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       '懶載入啟用時：MCP 工具描述被折疊為名稱索引，模型透過內建 ToolSearch 工具按需取回完整 JSON Schema。支援三種查詢：\n• select:NAME（直接選取，可空格分隔多個）\n• 關鍵字（按 name/description 評分配對）\n• +KEYWORD（必含詞，用於過濾雜訊）\n命中工具會寫入目前會話已載入清單，下一輪即可直接呼叫，無需再次查詢。';
 
@@ -11500,6 +11615,23 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedHistoryClearAction => '清空歷史';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportTooltip => '匯出歷史';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportCsv => '複製為 CSV';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdown => '複製為 Markdown';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportEmptyToast => '篩選後歷史為空，無可匯出。';
+
+  @override
+  String snackToolSearchLoadedHistoryExportedToast(int count) {
+    return '已複製 $count 條歷史至剪貼簿。';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryClearedToast => '載入歷史已清空';

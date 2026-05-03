@@ -217,6 +217,91 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     );
   }
 
+  /// 把当前 [_history]（应用 [_historyFilterQuery]、[_historyFilterSource] 之后）
+  /// 序列化为 CSV 或 Markdown 表，写入剪贴板。
+  Future<void> _handleExportHistory(_HistoryExportFormat format) async {
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    final entries = _filterHistory(_history);
+    if (entries.isEmpty) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(l10n.snackToolSearchLoadedHistoryExportEmptyToast),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final payload = format == _HistoryExportFormat.csv
+        ? _serializeHistoryAsCsv(entries)
+        : _serializeHistoryAsMarkdown(entries);
+    await Clipboard.setData(ClipboardData(text: payload));
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(
+          l10n.snackToolSearchLoadedHistoryExportedToast(entries.length),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  String _serializeHistoryAsCsv(List<AiToolSearchLoadHistoryEntry> entries) {
+    final buf = StringBuffer()
+      ..writeln('timestamp,source,query,added_count,total_deferred,added_names');
+    for (final e in entries) {
+      buf
+        ..write(_csvEscape(e.timestamp.toIso8601String()))
+        ..write(',')
+        ..write(_csvEscape(e.source.name))
+        ..write(',')
+        ..write(_csvEscape(e.query))
+        ..write(',')
+        ..write(e.addedCount)
+        ..write(',')
+        ..write(e.totalDeferred)
+        ..write(',')
+        ..writeln(_csvEscape(e.addedNames.join(';')));
+    }
+    return buf.toString();
+  }
+
+  String _csvEscape(String raw) {
+    if (raw.isEmpty) return '';
+    final needsQuote = raw.contains(',') ||
+        raw.contains('"') ||
+        raw.contains('\n') ||
+        raw.contains('\r');
+    if (!needsQuote) return raw;
+    return '"${raw.replaceAll('"', '""')}"';
+  }
+
+  String _serializeHistoryAsMarkdown(
+    List<AiToolSearchLoadHistoryEntry> entries,
+  ) {
+    final buf = StringBuffer()
+      ..writeln('| Timestamp | Source | Query | +Added / Deferred | Names |')
+      ..writeln('| --- | --- | --- | --- | --- |');
+    for (final e in entries) {
+      buf
+        ..write('| `')
+        ..write(e.timestamp.toIso8601String())
+        ..write('` | ')
+        ..write(e.source.name)
+        ..write(' | ')
+        ..write(_mdEscape(e.query))
+        ..write(' | ')
+        ..write('+${e.addedCount} / ${e.totalDeferred}')
+        ..write(' | ')
+        ..writeln('${_mdEscape(e.addedNames.join(', '))} |');
+    }
+    return buf.toString();
+  }
+
+  String _mdEscape(String raw) =>
+      raw.replaceAll('|', r'\|').replaceAll('\n', ' ');
+
   /// 把 [_groupByServer] 的结果按 [_filterQuery] 做大小写不敏感子串过滤，
   /// 仅保留至少有一项命中的分组；分组内只保留命中条目。
   List<_ToolGroup> _filterGroups(List<_ToolGroup> groups) {
@@ -393,6 +478,24 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               ),
             ),
             const SizedBox(width: 8),
+            PopupMenuButton<_HistoryExportFormat>(
+              tooltip: l10n.snackToolSearchLoadedHistoryExportTooltip,
+              icon: const Icon(Icons.ios_share_rounded, size: 18),
+              padding: EdgeInsets.zero,
+              onSelected: _handleExportHistory,
+              itemBuilder: (context) => <PopupMenuEntry<_HistoryExportFormat>>[
+                PopupMenuItem<_HistoryExportFormat>(
+                  value: _HistoryExportFormat.csv,
+                  child: Text(l10n.snackToolSearchLoadedHistoryExportCsv),
+                ),
+                PopupMenuItem<_HistoryExportFormat>(
+                  value: _HistoryExportFormat.markdown,
+                  child:
+                      Text(l10n.snackToolSearchLoadedHistoryExportMarkdown),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
             TextButton.icon(
               onPressed: _handleClearHistory,
               icon: const Icon(Icons.delete_sweep_rounded, size: 16),
@@ -714,3 +817,6 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     );
   }
 }
+
+/// 历史导出格式：CSV（电子表格）或 Markdown 表（README/issue 粘贴）。
+enum _HistoryExportFormat { csv, markdown }

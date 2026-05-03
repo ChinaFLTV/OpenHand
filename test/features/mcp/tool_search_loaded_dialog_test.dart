@@ -542,4 +542,108 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+      'history export menu copies CSV payload to clipboard with header row',
+      (tester) async {
+    final clipboard = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          final args = call.arguments as Map?;
+          final text = args?['text'] as String?;
+          if (text != null) clipboard.add(text);
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__a__b'],
+      history: <AiToolSearchLoadHistoryEntry>[
+        AiToolSearchLoadHistoryEntry(
+          timestamp: DateTime.utc(2026, 5, 4, 1, 2, 3),
+          query: 'demo,query',
+          addedNames: const ['mcp__a__b'],
+          totalDeferred: 7,
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('Load history (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.ios_share_rounded));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Copy as CSV'));
+    await tester.pumpAndSettle();
+
+    expect(clipboard, hasLength(1));
+    final payload = clipboard.single;
+    expect(payload, contains('timestamp,source,query,added_count'));
+    expect(payload, contains('"demo,query"'));
+    expect(payload, contains('mcp__a__b'));
+    expect(find.textContaining('Copied 1 history entries'), findsOneWidget);
+  });
+
+  testWidgets(
+      'history export menu copies Markdown table when filter has no matches still '
+      'allows when not filtered',
+      (tester) async {
+    final clipboard = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          final args = call.arguments as Map?;
+          final text = args?['text'] as String?;
+          if (text != null) clipboard.add(text);
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await _pumpDialog(
+      tester,
+      names: const <String>['mcp__a__b'],
+      history: <AiToolSearchLoadHistoryEntry>[
+        AiToolSearchLoadHistoryEntry(
+          timestamp: DateTime.utc(2026, 5, 4),
+          query: 'q1|pipe',
+          addedNames: const ['mcp__a__b'],
+          totalDeferred: 3,
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('Load history (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.ios_share_rounded));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Copy as Markdown'));
+    await tester.pumpAndSettle();
+
+    expect(clipboard, hasLength(1));
+    final md = clipboard.single;
+    expect(md, contains('| Timestamp |'));
+    // Pipes inside cells must be escaped to keep the markdown table valid.
+    expect(md, contains(r'q1\|pipe'));
+  });
 }

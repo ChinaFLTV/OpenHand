@@ -363,6 +363,34 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap) {
+    return 'Réinitialiser à la valeur par défaut ($defaultCap)';
+  }
+
+  @override
+  String get settingsToolSearchReplayCancelWindowLabel =>
+      'Fenêtre d’annulation du replay';
+
+  @override
+  String get settingsToolSearchReplayCancelWindowBody =>
+      'Délai d’attente de la snackbar avant l’envoi ; appuyez sur Annuler pour ignorer.';
+
+  @override
+  String settingsToolSearchReplayCancelWindowValue(int seconds) {
+    return 'Fenêtre : $seconds s';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
+    return 'Plage : $min–$max s (par défaut 3)';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
+    return 'Réinitialiser à la valeur par défaut ($defaultSeconds s)';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       'Lorsque le chargement différé est actif, les descriptions des outils MCP sont repliées en un index de noms. L\'outil intégré ToolSearch récupère le schéma JSON complet à la demande via trois formes :\n• select:NAME (sélection directe, multi-sélection séparée par espaces)\n• mot-clé (scoré sur name/description)\n• +MOTCLE (terme requis pour filtrer le bruit)\nLes outils résolus sont ajoutés à l\'ensemble chargé de la session afin que le tour suivant les appelle directement.';
 
@@ -2696,6 +2724,25 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedHistoryClearAction => 'Effacer l\'historique';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportTooltip =>
+      'Exporter l’historique';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportCsv => 'Copier en CSV';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdown => 'Copier en Markdown';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportEmptyToast =>
+      'Historique vide après filtrage ; rien à exporter.';
+
+  @override
+  String snackToolSearchLoadedHistoryExportedToast(int count) {
+    return '$count entrées d’historique copiées dans le presse-papiers.';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryClearedToast =>

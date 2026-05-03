@@ -350,6 +350,33 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap) {
+    return 'デフォルトにリセット（$defaultCap）';
+  }
+
+  @override
+  String get settingsToolSearchReplayCancelWindowLabel => 'リプレイキャンセルされるまでの待ち時間';
+
+  @override
+  String get settingsToolSearchReplayCancelWindowBody =>
+      'snackbar が送信するまでの秒数。期間中にキャンセルを押すとキャンセルされます。';
+
+  @override
+  String settingsToolSearchReplayCancelWindowValue(int seconds) {
+    return 'ウィンドウ：$seconds 秒';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
+    return '範囲：$min–$max 秒（デフォルト 3）';
+  }
+
+  @override
+  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
+    return 'デフォルトにリセット（$defaultSeconds 秒）';
+  }
+
+  @override
   String get mcpLazyLoadingHowItWorks =>
       '遅延読み込みが有効な間、MCP ツールの説明は名前インデックスに折りたたまれ、組み込みの ToolSearch ツールが必要に応じて完全な JSON Schema を取得します。3 つのクエリ形式に対応：\n• select:NAME（直接選択、空白区切りで複数指定可）\n• キーワード（name/description にスコアリング）\n• +KEYWORD（ノイズ除去のための必須語）\n解決済みツールはセッションのロード済みセットに追加され、次ターンでは追加検索なしで直接呼び出せます。';
 
@@ -2540,6 +2567,24 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedHistoryClearAction => '履歴をクリア';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportTooltip => '履歴をエクスポート';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportCsv => 'CSV としてコピー';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportMarkdown => 'Markdown としてコピー';
+
+  @override
+  String get snackToolSearchLoadedHistoryExportEmptyToast =>
+      'フィルター適用後の履歴が空です。エクスポートできません。';
+
+  @override
+  String snackToolSearchLoadedHistoryExportedToast(int count) {
+    return '$count 件の履歴をクリップボードにコピーしました。';
+  }
 
   @override
   String get snackToolSearchLoadedHistoryClearedToast => 'ロード履歴をクリアしました';

@@ -225,6 +225,8 @@ class AppSettingsSnapshot {
     this.cronAutoCleanupRetentionDays = defaultCronAutoCleanupRetentionDays,
     this.hardnessToolSearchHistoryMaxPhases =
         defaultHardnessToolSearchHistoryMaxPhases,
+    this.toolSearchReplayCancelWindowSeconds =
+        defaultToolSearchReplayCancelWindowSeconds,
     this.reduceMotion = false,
     AppProxySettings? proxySettings,
   }) : proxySettings =
@@ -266,6 +268,9 @@ class AppSettingsSnapshot {
   static const int defaultHardnessToolSearchHistoryMaxPhases = 8;
   static const int minHardnessToolSearchHistoryMaxPhases = 1;
   static const int maxHardnessToolSearchHistoryMaxPhases = 64;
+  static const int defaultToolSearchReplayCancelWindowSeconds = 3;
+  static const int minToolSearchReplayCancelWindowSeconds = 1;
+  static const int maxToolSearchReplayCancelWindowSeconds = 30;
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
   static const int minAiMessageCompressionThresholdChars = 2000;
@@ -661,6 +666,10 @@ class AppSettingsSnapshot {
   /// 「全会话」维度淘汰最早的 phase 桶。默认 8。
   final int hardnessToolSearchHistoryMaxPhases;
 
+  /// ToolSearch 历史「重放」按钮按下后的反悔窗口（秒）。该窗口期内
+  /// 用户可在 snackbar 上点 Cancel 撤销发送，超时则提交。范围 1..30。
+  final int toolSearchReplayCancelWindowSeconds;
+
   /// 2026-05 — 用户层减少动画总开关。true 时所有自定义动画
   /// 时长压到 0；built-in 动画（路由/弹窗/HeroAnimation）通过
   /// MediaQuery.disableAnimations 同步禁用。`AppearOnce`、
@@ -758,6 +767,7 @@ class AppSettingsSnapshot {
     bool? cronAutoCleanupEnabled,
     int? cronAutoCleanupRetentionDays,
     int? hardnessToolSearchHistoryMaxPhases,
+    int? toolSearchReplayCancelWindowSeconds,
     bool? reduceMotion,
     AppProxySettings? proxySettings,
     bool clearSelectedAiModelId = false,
@@ -919,6 +929,9 @@ class AppSettingsSnapshot {
       hardnessToolSearchHistoryMaxPhases:
           hardnessToolSearchHistoryMaxPhases ??
           this.hardnessToolSearchHistoryMaxPhases,
+      toolSearchReplayCancelWindowSeconds:
+          toolSearchReplayCancelWindowSeconds ??
+          this.toolSearchReplayCancelWindowSeconds,
       reduceMotion: reduceMotion ?? this.reduceMotion,
       proxySettings: proxySettings ?? this.proxySettings,
     );

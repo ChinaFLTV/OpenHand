@@ -760,6 +760,42 @@ abstract class AppLocalizations {
   /// **'范围：{min}–{max}（默认 8）'**
   String settingsHardnessToolSearchHistoryCapRange(int min, int max);
 
+  /// No description provided for @settingsHardnessToolSearchHistoryCapResetTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置为默认值（{defaultCap}）'**
+  String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap);
+
+  /// No description provided for @settingsToolSearchReplayCancelWindowLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重放反悔窗口'**
+  String get settingsToolSearchReplayCancelWindowLabel;
+
+  /// No description provided for @settingsToolSearchReplayCancelWindowBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'snackbar 在发送前等待的秒数；期间点取消即可撤销。'**
+  String get settingsToolSearchReplayCancelWindowBody;
+
+  /// No description provided for @settingsToolSearchReplayCancelWindowValue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'窗口：{seconds} 秒'**
+  String settingsToolSearchReplayCancelWindowValue(int seconds);
+
+  /// No description provided for @settingsToolSearchReplayCancelWindowRange.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'范围：{min}–{max} 秒（默认 3）'**
+  String settingsToolSearchReplayCancelWindowRange(int min, int max);
+
+  /// No description provided for @settingsToolSearchReplayCancelWindowResetTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置为默认值（{defaultSeconds} 秒）'**
+  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds);
+
   /// No description provided for @mcpLazyLoadingHowItWorks.
   ///
   /// In zh_Hans, this message translates to:
@@ -4845,6 +4881,36 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'清空历史'**
   String get snackToolSearchLoadedHistoryClearAction;
+
+  /// No description provided for @snackToolSearchLoadedHistoryExportTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出历史'**
+  String get snackToolSearchLoadedHistoryExportTooltip;
+
+  /// No description provided for @snackToolSearchLoadedHistoryExportCsv.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制为 CSV'**
+  String get snackToolSearchLoadedHistoryExportCsv;
+
+  /// No description provided for @snackToolSearchLoadedHistoryExportMarkdown.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制为 Markdown'**
+  String get snackToolSearchLoadedHistoryExportMarkdown;
+
+  /// No description provided for @snackToolSearchLoadedHistoryExportEmptyToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'过滤后历史为空，无可导出。'**
+  String get snackToolSearchLoadedHistoryExportEmptyToast;
+
+  /// No description provided for @snackToolSearchLoadedHistoryExportedToast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 {count} 条历史到剪贴板。'**
+  String snackToolSearchLoadedHistoryExportedToast(int count);
 
   /// No description provided for @snackToolSearchLoadedHistoryClearedToast.
   ///

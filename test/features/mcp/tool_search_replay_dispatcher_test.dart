@@ -55,8 +55,9 @@ void main() {
 
   test('cancel() after fire is a no-op', () {
     fakeAsync((async) {
-      final dispatcher =
-          ToolSearchReplayDispatcher(window: const Duration(milliseconds: 50));
+      final dispatcher = ToolSearchReplayDispatcher(
+        defaultWindow: const Duration(milliseconds: 50),
+      );
       var fired = 0;
       var cancelled = 0;
       dispatcher.schedule(
@@ -128,6 +129,22 @@ void main() {
       async.elapse(const Duration(seconds: 5));
       expect(fired, 0);
       expect(dispatcher.hasPending, isFalse);
+    });
+  });
+
+  test('schedule() per-call `window` overrides defaultWindow', () {
+    fakeAsync((async) {
+      final dispatcher = ToolSearchReplayDispatcher(
+        defaultWindow: const Duration(seconds: 10),
+      );
+      var fired = 0;
+      dispatcher.schedule(
+        onFire: () async => fired++,
+        onCancel: () {},
+        window: const Duration(milliseconds: 200),
+      );
+      async.elapse(const Duration(milliseconds: 250));
+      expect(fired, 1, reason: 'override should fire well before defaultWindow');
     });
   });
 }
