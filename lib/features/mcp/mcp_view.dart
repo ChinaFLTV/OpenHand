@@ -1226,12 +1226,38 @@ class _McpServerCard extends StatelessWidget {
                         label: _healthStatusSummary(context, healthStatus),
                       ),
                     if (toolCatalog.isLoading)
-                      _McpStatusChip(
-                        icon: Icons.radar_rounded,
-                        label: _localizedText(
-                          context,
-                          zh: '扫描 Tool 中',
-                          en: 'Scanning Tools',
+                      Tooltip(
+                        message: server.type == McpServerType.stdio
+                            ? _localizedText(
+                                context,
+                                zh: '首次启动通常较慢：npx / uvx 需要在线拉取 npm / PyPI 包并安装。\n'
+                                    '本应用给 stdio MCP 留 90 秒的发现窗口。',
+                                en:
+                                    'First launch is usually slow: npx / uvx '
+                                    'pulls npm / PyPI packages on demand. '
+                                    'OpenHand grants stdio MCP servers a 90 s '
+                                    'discovery window.',
+                              )
+                            : _localizedText(
+                                context,
+                                zh: '正在扫描该 MCP 服务暴露的 Tool 列表。',
+                                en:
+                                    'Scanning the tool list exposed by this '
+                                    'MCP server.',
+                              ),
+                        child: _McpStatusChip(
+                          icon: Icons.radar_rounded,
+                          label: server.type == McpServerType.stdio
+                              ? _localizedText(
+                                  context,
+                                  zh: '首启准备中…',
+                                  en: 'Bootstrapping…',
+                                )
+                              : _localizedText(
+                                  context,
+                                  zh: '扫描 Tool 中',
+                                  en: 'Scanning Tools',
+                                ),
                         ),
                       )
                     else if (toolCatalog.lastScannedAt != null)
