@@ -98,6 +98,7 @@ import '../mcp/mcp_controller.dart';
 import '../mcp/mcp_view.dart';
 import '../mcp/model/mcp_server.dart';
 import '../mcp/model/mcp_tool.dart';
+import '../mcp/service/tool_search_replay_dispatcher.dart';
 import '../mcp/widgets/tool_search_loaded_dialog.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
@@ -1145,8 +1146,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   @override
   void dispose() {
-    _pendingToolSearchReplayTimer?.cancel();
-    _pendingToolSearchReplayTimer = null;
+    _toolSearchReplayDispatcher.dispose();
     _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
     _activeHardnessOrchestrator?.cancel();
     _activeHardnessOrchestrator?.dispose();
@@ -1290,21 +1290,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  /// HardnessApiPhaseRunner 在 ToolSearch 成功加载 MCP 工具后回调本方法，
-  /// 以与 AI session 一致的样式提示用户。
-  /// 与 AiSessionController 不同，硬度阶段没有共享的 tracker，因此本地维护
-  /// 一份按 phase-session 分桶的历史时间线，供 dialog 展示。
-  /// 用 [LinkedHashMap] 的插入序天然实现 LRU：每次写入都先 remove 再 put，
-  /// 让最近活跃的 phase 落在 Map 末尾；新增时若超过
-  /// [SettingsController.hardnessToolSearchHistoryMaxPhases]，淘汰最早的
-  /// phase 桶，防止长会话内存膨胀（即使 onPhaseEnded 因异常路径漏调也兜底）。
-  /// 默认值由 [AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases]
-  /// 给出，运行时读自 SettingsController。
-
   /// 用户点击 ToolSearch 历史「重放」按钮后，给的反悔窗口。在此期间
   /// 撤销将清空 composer 并不发送；超时则正常派发。
   static const Duration kToolSearchReplayCancelWindow = Duration(seconds: 3);
-  Timer? _pendingToolSearchReplayTimer;
+  late final ToolSearchReplayDispatcher _toolSearchReplayDispatcher =
+      ToolSearchReplayDispatcher();
+
+  /// 硬度阶段没有共享 tracker，因此本地维护一份按 phase-session 分桶的
+  /// ToolSearch 历史时间线，供 dialog 展示。用 [LinkedHashMap] 的插入序
+  /// 天然实现 LRU：每次写入都先 remove 再 put，让最近活跃的 phase 落在
+  /// Map 末尾；新增时若超过用户配置的上限（运行时读自
+  /// [SettingsController.hardnessToolSearchHistoryMaxPhases]，默认值由
+  /// [AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases] 给出，
+  /// 上下界 1..64），淘汰最早的 phase 桶，防止长会话内存膨胀（即使
+  /// onPhaseEnded 因异常路径漏调也兜底）。
   final Map<String, List<AiToolSearchLoadHistoryEntry>>
   _hardnessToolSearchHistory = <String, List<AiToolSearchLoadHistoryEntry>>{};
 
@@ -1412,20 +1411,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       text: query,
       selection: TextSelection.collapsed(offset: query.length),
     );
-    // 任何先前还没触发的 replay 都先取消，避免叠加多个 timer。
-    _pendingToolSearchReplayTimer?.cancel();
-    _pendingToolSearchReplayTimer = null;
 
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     final completer = Completer<void>();
-    var cancelled = false;
 
-    void doCancel() {
-      if (cancelled) return;
-      cancelled = true;
-      _pendingToolSearchReplayTimer?.cancel();
-      _pendingToolSearchReplayTimer = null;
+    void onCancel() {
       // 仅在 composer 仍然展示我们刚塞进去的内容时清空，避免误删
       // 用户在 3 秒窗口内手动续写的文字。
       if (_composerController.text == query) {
@@ -1445,6 +1436,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!completer.isCompleted) completer.complete();
     }
 
+    Future<void> onFire() async {
+      if (!mounted) {
+        if (!completer.isCompleted) completer.complete();
+        return;
+      }
+      await _sendMessage();
+      if (!mounted) {
+        if (!completer.isCompleted) completer.complete();
+        return;
+      }
+      final l10nNow = AppLocalizations.of(context);
+      final messengerNow = ScaffoldMessenger.maybeOf(context);
+      if (l10nNow != null && messengerNow != null) {
+        messengerNow.showSnackBar(
+          SnackBar(
+            content: Text(l10nNow.snackToolSearchLoadedReplayedToast),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      if (!completer.isCompleted) completer.complete();
+    }
+
     if (l10n != null && messenger != null) {
       messenger.showSnackBar(
         SnackBar(
@@ -1453,38 +1468,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           duration: kToolSearchReplayCancelWindow,
           action: SnackBarAction(
             label: l10n.snackToolSearchLoadedReplayCancelAction,
-            onPressed: doCancel,
+            onPressed: _toolSearchReplayDispatcher.cancel,
           ),
         ),
       );
     }
 
-    _pendingToolSearchReplayTimer = Timer(
-      kToolSearchReplayCancelWindow,
-      () async {
-        _pendingToolSearchReplayTimer = null;
-        if (!mounted || cancelled) {
-          if (!completer.isCompleted) completer.complete();
-          return;
-        }
-        await _sendMessage();
-        if (!mounted) {
-          if (!completer.isCompleted) completer.complete();
-          return;
-        }
-        final l10nNow = AppLocalizations.of(context);
-        final messengerNow = ScaffoldMessenger.maybeOf(context);
-        if (l10nNow != null && messengerNow != null) {
-          messengerNow.showSnackBar(
-            SnackBar(
-              content: Text(l10nNow.snackToolSearchLoadedReplayedToast),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-        if (!completer.isCompleted) completer.complete();
-      },
+    _toolSearchReplayDispatcher.schedule(
+      onFire: onFire,
+      onCancel: onCancel,
     );
 
     return completer.future;
@@ -1500,14 +1492,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final fallbackTemplateId =
         sessionController.currentSession?.templateId ??
         sessionController.templateRepository.templates.first.id;
-    final created = await _createSession(
-      templateId: fallbackTemplateId,
-      initialMode: AiSessionMode.fromStorage(
-        context.read<SettingsController>().aiDefaultSessionMode,
-      ),
+    final initialMode = AiSessionMode.fromStorage(
+      context.read<SettingsController>().aiDefaultSessionMode,
     );
-    if (!created || !mounted) return;
-    await _replayToolSearchSelectQuery(names);
+    await replayToolSearchInFreshSession(
+      names: names,
+      createSession: () => _createSession(
+        templateId: fallbackTemplateId,
+        initialMode: initialMode,
+      ),
+      replayInCurrentSession: (replayNames) async {
+        if (!mounted) return;
+        await _replayToolSearchSelectQuery(replayNames);
+      },
+    );
   }
 
   void _scheduleSessionControllerUiSync() {

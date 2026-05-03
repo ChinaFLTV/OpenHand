@@ -104,6 +104,9 @@
 - 阶段化（Plan → Implement → Verify → Recap）流水线，自带工具亲和过滤。
 - 内嵌 CLI 安装与登录助手，所有外部进程通过 `safe_subprocess` 受控执行。
 - Dashboard 拆分为 13 个 `.part.dart` UI 子树，单文件可维护。
+- ToolSearch 加载历史按 phase-session 分桶 LRU 缓存，上限可在 **设置 → MCP**
+  调整（`hardnessToolSearchHistoryMaxPhases`，默认 8、范围 1..64）；超过上限
+  时自动淘汰最早的 phase 桶，长会话不会无界增长。
 
 ### 7. 桌面级人机协作
 - **全局快捷键**：`Ctrl+P` 切换面板、`Ctrl+Enter` 发送、`@` 触发提及/技能选择。

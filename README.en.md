@@ -106,6 +106,10 @@ Orchestrate 20+ model protocols, programmable tools, skills, MCP servers, hooks 
 - Phased (Plan → Implement → Verify → Recap) pipeline with per-phase tool affinity.
 - Built-in CLI installer / login helper, all external processes routed through `safe_subprocess`.
 - Dashboard split into 13 `.part.dart` UI subtrees for maintainability.
+- ToolSearch load history is bucketed per phase-session as an LRU cache; the
+  cap is adjustable under **Settings → MCP** (`hardnessToolSearchHistoryMaxPhases`,
+  default 8, range 1..64). Older phase buckets are evicted automatically so
+  long sessions never grow unbounded.
 
 ### 7. Desktop-grade UX
 - **Global shortcuts**: `Ctrl+P` toggles the panel, `Ctrl+Enter` sends, `@` triggers mention/skill picker.
