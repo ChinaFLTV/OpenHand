@@ -1415,41 +1415,57 @@ class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText>
 
   @override
   Widget build(BuildContext context) {
+    final Widget body;
     if (!_animatedOnce || _controller == null) {
-      return Text(
+      body = Text(
         widget.text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: widget.style,
       );
-    }
-    return AnimatedBuilder(
-      animation: _controller!,
-      builder: (context, _) {
-        final t = Curves.easeOutCubic.transform(
-          _controller!.value.clamp(0.0, 1.0),
-        );
-        final settled = _settledText;
-        final displayText = settled ?? _composeScrambledText(t);
-        // Light scale + fade for a Q-bouncy reveal. ElasticOut overshoot
-        // is intentionally gentle (1.04 → 1.0) to avoid layout jitter on
-        // narrow sidebar tiles.
-        final scale = 1.0 + (1.0 - t) * 0.06;
-        final fade = (0.55 + 0.45 * t).clamp(0.0, 1.0);
-        return Opacity(
-          opacity: fade,
-          child: Transform.scale(
-            scale: scale,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              displayText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: widget.style,
+    } else {
+      body = AnimatedBuilder(
+        animation: _controller!,
+        builder: (context, _) {
+          final t = Curves.easeOutCubic.transform(
+            _controller!.value.clamp(0.0, 1.0),
+          );
+          final settled = _settledText;
+          final displayText = settled ?? _composeScrambledText(t);
+          // Light scale + fade for a Q-bouncy reveal. ElasticOut overshoot
+          // is intentionally gentle (1.04 → 1.0) to avoid layout jitter on
+          // narrow sidebar tiles.
+          final scale = 1.0 + (1.0 - t) * 0.06;
+          final fade = (0.55 + 0.45 * t).clamp(0.0, 1.0);
+          return Opacity(
+            opacity: fade,
+            child: Transform.scale(
+              scale: scale,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                displayText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: widget.style,
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      );
+    }
+    // Hover-tooltip exposes the full title when it's truncated by ellipsis.
+    // We always wrap (even short titles) — Flutter's Tooltip suppresses the
+    // popup when the trigger has no overflow only on web; on desktop we
+    // accept the rare no-op tooltip on short titles in exchange for never
+    // hiding a long title behind ellipsis.
+    final trimmed = widget.text.trim();
+    if (trimmed.isEmpty) {
+      return body;
+    }
+    return Tooltip(
+      message: trimmed,
+      waitDuration: const Duration(milliseconds: 380),
+      child: body,
     );
   }
 
