@@ -237,7 +237,7 @@ Hardness API phase runner 有独立交接压缩：
 | L2 | Thread Checkpoint | active conversation 超阈值 | 是 | 生成模板专用 checkpoint |
 | L3 | Durable Handoff / Memory | Hardness 阶段或跨线程接力 | 是 | 生成可持久化交接文档或长期记忆 |
 
-现状已有 L0、L2、Hardness L3。本轮增强了 L2 的 prompt 与失败韧性。后续重点是补 L1 与更可靠的 L2 窗口安全。
+现状 L0/L1/L2/L3 均已有第一版：L1 micro compact 清理已消费旧工具结果，L2 checkpoint 使用 group-safe window/PTL retry/Context Gap，并在 checkpoint 后恢复文件、技能、计划、MCP、hooks、工具/agent listing 与 agent result 等运行态。
 
 ### 5.2 压缩预算模型
 
@@ -302,7 +302,7 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 
 优先级：高
 
-状态：已在 2026-05-03 继续落地第一版；后续仍可追加更细的端到端 fake chat client 测试。
+状态：已在 2026-05-03 继续落地第一版；已有 group boundary、PTL retry、summary normalization 与 post-compact restore 单元测试守护。
 
 1. 新增 `_CompressionMessageGroup`，在 `ai_session_controller.dart` 内部使用，避免拆出过多文件。
 2. 将保留窗口和压缩窗口从“按单条消息”改为“按 group”。
@@ -329,7 +329,7 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 
 优先级：中
 
-状态：已在 2026-05-03 落地第一版；当前使用字符 / 4 的轻量估算，只在会话元数据弹窗展示，不主动打断发送流程。
+状态：已在 2026-05-03 落地第一版；当前使用字符 / 4 的轻量估算，在会话工具栏展示紧凑状态，并在会话元数据弹窗展示完整预算与恢复细节，不主动打断发送流程。
 
 补充：后续已将预算状态改为更接近 Claude Code 的阈值语义：summary reserve、auto-compact buffer、warning/error buffer、manual blocking buffer 分开记录。
 
@@ -342,12 +342,12 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 
 优先级：中
 
-状态：已在 2026-05-03 落地第一版；当前记录 sidecar 元数据并阻断结构不完整的 handoff，尚未接入 session error 持久化。
+状态：已在 2026-05-03 落地第一版；当前记录成功 sidecar 元数据，阻断结构不完整的 handoff，并在生成异常、空文档或校验失败时写入结构化失败 sidecar 与阶段日志 JSON line。
 
 1. 将 `_handoffSystemPrompt` 与 `assets/prompts/hardness_engineering/compression_summary_instructions.md` 对齐，避免两套清单漂移。
 2. handoff 校验从 heading 检查升级为必填段落 + 关键字段检查。
 3. 保存 handoff 时写 sidecar metadata：phase、source turn count、source chars、validation result、model id。
-4. 交接失败时不要只做 silent trim：向 session error 记录结构化失败原因。
+4. 交接失败时不要只做 silent trim：向持久化 sidecar 与 session phase log 记录结构化失败原因。
 
 ### Phase 5：模板资产守护
 

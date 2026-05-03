@@ -85,6 +85,39 @@ Map<String, String> _markdownSectionBodies(String content) {
   return result;
 }
 
+Map<String, Object?> buildHardnessHandoffFailureRecord({
+  required HardnessPhase phase,
+  required int sessionIndex,
+  required int sourceTurnCount,
+  required int sourceCharacters,
+  required int contextWindowTokens,
+  required int effectiveThresholdCharacters,
+  required String modelId,
+  required String modelLabel,
+  required String failureStage,
+  required String reason,
+  int? handoffCharacters,
+  DateTime? createdAt,
+}) {
+  return <String, Object?>{
+    'schema': 'openhand.hardness_handoff_failure.v1',
+    'phase': phase.storageValue,
+    'phase_label': phase.displayNameZh,
+    'session_index': sessionIndex,
+    'source_turn_count': sourceTurnCount,
+    'source_characters': sourceCharacters,
+    'context_window_tokens': contextWindowTokens,
+    'effective_threshold_characters': effectiveThresholdCharacters,
+    'handoff_characters': handoffCharacters,
+    'model_id': modelId,
+    'model_label': modelLabel,
+    'failure_stage': failureStage,
+    'reason': reason,
+    'fallback': 'trim_conversation',
+    'created_at': (createdAt ?? DateTime.now()).toUtc().toIso8601String(),
+  };
+}
+
 /// Executes a single Hardness Engineering phase using an API-based model
 /// (URL mode) instead of a CLI tool. This bridges the gap between the
 /// Hardness phase orchestration protocol and the standard AI session
@@ -749,6 +782,19 @@ class HardnessApiPhaseRunner {
     } catch (e) {
       final safeError = _sanitizeError('$e', model);
       emit('⚠ 交接文档生成失败：$safeError — 退化为截断模式继续执行');
+      await _recordHandoffFailure(
+        phase: phase,
+        persistenceDirectory: persistenceDirectory,
+        sessionIndex: _handoffSessionCounter + 1,
+        sourceTurnCount: conversation.length,
+        sourceCharacters: totalChars,
+        contextWindowTokens: contextWindowTokens,
+        effectiveThresholdCharacters: effectiveCharThreshold,
+        model: model,
+        failureStage: 'generation_exception',
+        reason: safeError,
+        emit: emit,
+      );
       // Fallback: trim conversation the old way to keep going.
       _trimConversationFallback(
         conversation,
@@ -759,6 +805,20 @@ class HardnessApiPhaseRunner {
 
     if (handoffDocContent.isEmpty) {
       emit('⚠ 交接文档为空 — 退化为截断模式继续执行');
+      await _recordHandoffFailure(
+        phase: phase,
+        persistenceDirectory: persistenceDirectory,
+        sessionIndex: _handoffSessionCounter + 1,
+        sourceTurnCount: conversation.length,
+        sourceCharacters: totalChars,
+        contextWindowTokens: contextWindowTokens,
+        effectiveThresholdCharacters: effectiveCharThreshold,
+        model: model,
+        failureStage: 'empty_document',
+        reason: 'handoff document is empty',
+        handoffCharacters: 0,
+        emit: emit,
+      );
       _trimConversationFallback(
         conversation,
         contextWindowTokens: contextWindowTokens,
@@ -770,6 +830,20 @@ class HardnessApiPhaseRunner {
       emit('⚠ 交接文档结构不完整：$validationError — 退化为截断模式继续执行');
       emit(
         '  {"handoff_validation":"failed","reason":${jsonEncode(validationError)}}',
+      );
+      await _recordHandoffFailure(
+        phase: phase,
+        persistenceDirectory: persistenceDirectory,
+        sessionIndex: _handoffSessionCounter + 1,
+        sourceTurnCount: conversation.length,
+        sourceCharacters: totalChars,
+        contextWindowTokens: contextWindowTokens,
+        effectiveThresholdCharacters: effectiveCharThreshold,
+        model: model,
+        failureStage: 'validation_failed',
+        reason: validationError,
+        handoffCharacters: handoffDocContent.length,
+        emit: emit,
       );
       _trimConversationFallback(
         conversation,
@@ -839,6 +913,66 @@ class HardnessApiPhaseRunner {
     emit('');
 
     return freshConversation;
+  }
+
+  Future<void> _recordHandoffFailure({
+    required HardnessPhase phase,
+    required String persistenceDirectory,
+    required int sessionIndex,
+    required int sourceTurnCount,
+    required int sourceCharacters,
+    required int contextWindowTokens,
+    required int effectiveThresholdCharacters,
+    required AiModelConfig model,
+    required String failureStage,
+    required String reason,
+    required void Function(String line) emit,
+    int? handoffCharacters,
+  }) async {
+    final timestamp = DateTime.now().toUtc();
+    final ts = timestamp
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    final handoffDir = Directory(
+      p.join(persistenceDirectory, 'steering', 'handoff'),
+    );
+    final record = buildHardnessHandoffFailureRecord(
+      phase: phase,
+      sessionIndex: sessionIndex,
+      sourceTurnCount: sourceTurnCount,
+      sourceCharacters: sourceCharacters,
+      contextWindowTokens: contextWindowTokens,
+      effectiveThresholdCharacters: effectiveThresholdCharacters,
+      modelId: model.id,
+      modelLabel: model.displayName,
+      failureStage: failureStage,
+      reason: reason,
+      handoffCharacters: handoffCharacters,
+      createdAt: timestamp,
+    );
+    try {
+      await handoffDir.create(recursive: true);
+      final failureFile = File(
+        p.join(
+          handoffDir.path,
+          'handoff-failure-${phase.storageValue}-s$sessionIndex-$ts.json',
+        ),
+      );
+      await failureFile.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(record),
+        flush: true,
+      );
+      emit('📋 交接失败记录已保存：${failureFile.path}');
+      emit(
+        '  {"handoff_failure":"recorded","stage":${jsonEncode(failureStage)},"path":${jsonEncode(failureFile.path)}}',
+      );
+    } catch (e) {
+      emit('⚠ 交接失败记录保存失败：$e');
+      emit(
+        '  {"handoff_failure":"record_failed","stage":${jsonEncode(failureStage)},"reason":${jsonEncode(reason)}}',
+      );
+    }
   }
 
   /// Builds the prompt sent to the model to generate a handoff document.

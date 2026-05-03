@@ -31,6 +31,10 @@ class _SessionToolbar extends StatelessWidget {
       session,
       livePreview: liveRuntimeToolPreview,
     );
+    final contextBudgetLabel = _contextBudgetToolbarLabel(
+      context,
+      session.lastPromptMetadata,
+    );
     final planTimeline = _buildPlanTimelineData(
       context,
       session,
@@ -109,7 +113,9 @@ class _SessionToolbar extends StatelessWidget {
                             const SizedBox(width: 8),
                             _ToolbarPill(
                               icon: Icons.data_object_rounded,
-                              label: AppLocalizations.of(context)!.toolbarSessionMetadata,
+                              label: AppLocalizations.of(
+                                context,
+                              )!.toolbarSessionMetadata,
                               onTap: () {
                                 _showSessionMetadataDialog(
                                   context,
@@ -121,6 +127,23 @@ class _SessionToolbar extends StatelessWidget {
                                 );
                               },
                             ),
+                            if (contextBudgetLabel != null) ...[
+                              const SizedBox(width: 8),
+                              _ToolbarPill(
+                                icon: Icons.speed_rounded,
+                                label: contextBudgetLabel,
+                                onTap: () {
+                                  _showSessionMetadataDialog(
+                                    context,
+                                    session,
+                                    liveRuntimeToolPreview:
+                                        liveRuntimeToolPreview,
+                                    activeProfile: activeProfile,
+                                    claudeStyle: claudeStyle,
+                                  );
+                                },
+                              ),
+                            ],
                             const SizedBox(width: 8),
                             _ToolbarPill(
                               icon: Icons.update_rounded,
@@ -129,10 +152,14 @@ class _SessionToolbar extends StatelessWidget {
                             if (_isInputCacheLocked(context, session)) ...[
                               const SizedBox(width: 8),
                               Tooltip(
-                                message: AppLocalizations.of(context)!.toolbarProviderModelLocked,
+                                message: AppLocalizations.of(
+                                  context,
+                                )!.toolbarProviderModelLocked,
                                 child: _ToolbarPill(
                                   icon: Icons.lock_outline_rounded,
-                                  label: AppLocalizations.of(context)!.toolbarModelLocked,
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.toolbarModelLocked,
                                 ),
                               ),
                             ],
@@ -142,7 +169,9 @@ class _SessionToolbar extends StatelessWidget {
                               const SizedBox(width: 8),
                               _ToolbarPill(
                                 icon: Icons.fact_check_outlined,
-                                label: AppLocalizations.of(context)!.toolbarSessionAudit,
+                                label: AppLocalizations.of(
+                                  context,
+                                )!.toolbarSessionAudit,
                                 onTap: () {
                                   _showSessionAuditDialog(
                                     context,
@@ -164,8 +193,8 @@ class _SessionToolbar extends StatelessWidget {
                 const SizedBox(width: 10),
                 AnimatedSwitcher(
                   duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   child: _ToolbarPill(
@@ -483,9 +512,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
       Scrollable.ensureVisible(
         chipContext,
         alignment: 0.5,
-        duration: animated
-            ? const Duration(milliseconds: 520)
-            : Duration.zero,
+        duration: animated ? const Duration(milliseconds: 520) : Duration.zero,
         curve: animated ? Curves.easeOutCubic : Curves.linear,
       );
     });
@@ -615,8 +642,8 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
               ],
               AnimatedSwitcher(
                 duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
                 child: Text(
                   data.awaitingApproval
                       ? AppLocalizations.of(context)!.toolbarPlanPending
@@ -699,15 +726,15 @@ class _PlanTimelineVisibilityButton extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -828,8 +855,8 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
           )
         : AnimatedContainer(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: chipDecoration,
@@ -1270,7 +1297,12 @@ DateTime _planTimelineMessageActivityAt(AiSessionMessage message) {
     try {
       return DateTime.parse(editedAt).toUtc();
     } catch (error, stack) {
-      silentLog('session_toolbar', 'parse plan timeline edited_at', error, stack);
+      silentLog(
+        'session_toolbar',
+        'parse plan timeline edited_at',
+        error,
+        stack,
+      );
     }
   }
   return message.createdAt;
@@ -1496,7 +1528,9 @@ String _runtimeModeLabel(
   final mode = explicitMode ?? status?.sessionMode ?? AiSessionMode.chat;
   final l10n = AppLocalizations.of(context)!;
   if (mode != AiSessionMode.plan) {
-    return compact ? l10n.toolbarRuntimeModeChatCompact : l10n.toolbarRuntimeModeChat;
+    return compact
+        ? l10n.toolbarRuntimeModeChatCompact
+        : l10n.toolbarRuntimeModeChat;
   }
   if (status != null && status.sessionMode == AiSessionMode.plan) {
     if (status.awaitingPlanApproval) {
@@ -1520,7 +1554,35 @@ String _runtimeModeLabel(
           : l10n.toolbarRuntimeModePlanDrafting;
     }
   }
-  return compact ? l10n.toolbarRuntimeModePlanCompact : l10n.toolbarRuntimeModePlan;
+  return compact
+      ? l10n.toolbarRuntimeModePlanCompact
+      : l10n.toolbarRuntimeModePlan;
+}
+
+String? _contextBudgetToolbarLabel(
+  BuildContext context,
+  Map<String, Object?> metadata,
+) {
+  final estimatedTokens = _metadataInt(
+    metadata['context_budget_estimated_prompt_tokens'],
+  );
+  if (estimatedTokens <= 0) {
+    return null;
+  }
+  final percentLeft = _metadataInt(metadata['context_budget_percent_left']);
+  final status = '${metadata['context_budget_status'] ?? ''}'.trim();
+  final statusLabel = switch (status) {
+    'critical' => _localizedText(context, zh: '危险', en: 'critical'),
+    'auto_compact' => _localizedText(context, zh: '压缩', en: 'compact'),
+    'warning' => _localizedText(context, zh: '偏高', en: 'high'),
+    'ok' => _localizedText(context, zh: '正常', en: 'ok'),
+    _ => _localizedText(context, zh: '未知', en: 'unknown'),
+  };
+  return _localizedText(
+    context,
+    zh: '上下文 $percentLeft% · $statusLabel',
+    en: 'Ctx $percentLeft% · $statusLabel',
+  );
 }
 
 String _localizedFilesToggle(BuildContext context, bool visible) {
@@ -1568,16 +1630,34 @@ String _runtimeToolCatalogStatusLabel(
 
 String _runtimeToolGateReasonLabel(BuildContext context, String gateReason) {
   return switch (gateReason.trim()) {
-    'awaiting_plan_approval' => AppLocalizations.of(context)!.toolbarPlanAwaitingNoExecTools,
-    'plan_mode_recovery_inspection' => AppLocalizations.of(context)!.toolbarPlanReviewBeforeResume,
-    'plan_mode_execution' => AppLocalizations.of(context)!.toolbarPlanApprovedExecOpen,
-    'plan_mode_planning_with_exit_allowed' => AppLocalizations.of(context)!.toolbarPlanOnlyPlanningExitAllowed,
-    'plan_mode_planning_only' => AppLocalizations.of(context)!.toolbarPlanOnlyPlanningOnly,
-    'mode_switch_requires_refresh' => AppLocalizations.of(context)!.toolbarModeJustSwitched,
-    'chat_mode_no_tools' => AppLocalizations.of(context)!.toolbarChatModeNoTools,
+    'awaiting_plan_approval' => AppLocalizations.of(
+      context,
+    )!.toolbarPlanAwaitingNoExecTools,
+    'plan_mode_recovery_inspection' => AppLocalizations.of(
+      context,
+    )!.toolbarPlanReviewBeforeResume,
+    'plan_mode_execution' => AppLocalizations.of(
+      context,
+    )!.toolbarPlanApprovedExecOpen,
+    'plan_mode_planning_with_exit_allowed' => AppLocalizations.of(
+      context,
+    )!.toolbarPlanOnlyPlanningExitAllowed,
+    'plan_mode_planning_only' => AppLocalizations.of(
+      context,
+    )!.toolbarPlanOnlyPlanningOnly,
+    'mode_switch_requires_refresh' => AppLocalizations.of(
+      context,
+    )!.toolbarModeJustSwitched,
+    'chat_mode_no_tools' => AppLocalizations.of(
+      context,
+    )!.toolbarChatModeNoTools,
     'chat_mode' => AppLocalizations.of(context)!.toolbarChatModeAllTools,
-    'model_no_tool_support' => AppLocalizations.of(context)!.toolbarToolsProtocolUnsupported,
-    'no_runtime_snapshot' => AppLocalizations.of(context)!.toolbarRuntimeNoSnapshotPrompt,
+    'model_no_tool_support' => AppLocalizations.of(
+      context,
+    )!.toolbarToolsProtocolUnsupported,
+    'no_runtime_snapshot' => AppLocalizations.of(
+      context,
+    )!.toolbarRuntimeNoSnapshotPrompt,
     _ =>
       gateReason.isEmpty
           ? AppLocalizations.of(context)!.toolbarGateNoReason
@@ -1592,7 +1672,9 @@ String _composerModeTooltip(
 ) {
   if (mode != AiSessionMode.plan) {
     if (status != null && !status.supportsToolCalls) {
-      return AppLocalizations.of(context)!.toolbarGateProtocolUnsupportedSwitchPlan;
+      return AppLocalizations.of(
+        context,
+      )!.toolbarGateProtocolUnsupportedSwitchPlan;
     }
     return AppLocalizations.of(context)!.toolbarGateChatActiveSwitchPlan;
   }
@@ -1600,7 +1682,9 @@ String _composerModeTooltip(
     return AppLocalizations.of(context)!.toolbarGatePlanActiveSwitchChat;
   }
   if (!status.supportsToolCalls) {
-    return AppLocalizations.of(context)!.toolbarGateProtocolUnsupportedSwitchChat;
+    return AppLocalizations.of(
+      context,
+    )!.toolbarGateProtocolUnsupportedSwitchChat;
   }
   if (status.stale) {
     return AppLocalizations.of(context)!.toolbarGatePlanJustSwitchedToChat;

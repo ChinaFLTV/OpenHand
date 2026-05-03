@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:openhand/features/hardness/hardness_api_phase_runner.dart';
+import 'package:openhand/features/hardness/model/hardness_phase.dart';
 
 void main() {
   test('accepts asset-aligned handoff summary', () {
@@ -99,5 +100,31 @@ void main() {
 ''';
 
     expect(validateHardnessHandoffDocument(content), contains('未解决问题'));
+  });
+
+  test('builds structured handoff failure record', () {
+    final createdAt = DateTime.utc(2026, 5, 3, 12, 30);
+    final record = buildHardnessHandoffFailureRecord(
+      phase: HardnessPhase.implementing,
+      sessionIndex: 2,
+      sourceTurnCount: 18,
+      sourceCharacters: 96000,
+      contextWindowTokens: 32000,
+      effectiveThresholdCharacters: 90000,
+      modelId: 'model-a',
+      modelLabel: 'Model A',
+      failureStage: 'validation_failed',
+      reason: '缺少未解决问题',
+      handoffCharacters: 512,
+      createdAt: createdAt,
+    );
+
+    expect(record['schema'], 'openhand.hardness_handoff_failure.v1');
+    expect(record['phase'], HardnessPhase.implementing.storageValue);
+    expect(record['source_turn_count'], 18);
+    expect(record['failure_stage'], 'validation_failed');
+    expect(record['reason'], '缺少未解决问题');
+    expect(record['fallback'], 'trim_conversation');
+    expect(record['created_at'], createdAt.toIso8601String());
   });
 }
