@@ -1393,6 +1393,8 @@
   "fileMutationHistoryInspectorTitle": "Historique des fichiers de la session",
   "fileMutationHistoryInspectorFilterHint": "Filtrer par chemin…",
   "fileMutationHistoryInspectorEmpty": "Aucune modification de fichier ne correspond au filtre.",
+  "fileMutationHistoryInspectorZoomIn": "Cibler ce chemin",
+  "fileMutationHistoryInspectorZoomOut": "Afficher tous les chemins",
   "fileMutationUndone": "Annulé",
   "fileMutationCascadeUndone": "Annulation en cascade",
   "fileMutationUndoThis": "Annuler cette modification",

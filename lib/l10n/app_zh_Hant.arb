@@ -1393,6 +1393,8 @@
   "fileMutationHistoryInspectorTitle": "會話檔案變更歷史",
   "fileMutationHistoryInspectorFilterHint": "按路徑過濾…",
   "fileMutationHistoryInspectorEmpty": "沒有符合過濾條件的檔案變更。",
+  "fileMutationHistoryInspectorZoomIn": "只看此路徑",
+  "fileMutationHistoryInspectorZoomOut": "返回全部路徑",
   "fileMutationUndone": "已復原",
   "fileMutationCascadeUndone": "連動失效",
   "fileMutationUndoThis": "復原此次修改",

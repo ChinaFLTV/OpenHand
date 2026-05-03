@@ -1452,6 +1452,8 @@
   "fileMutationHistoryInspectorTitle": "会话文件变更历史",
   "fileMutationHistoryInspectorFilterHint": "按路径过滤…",
   "fileMutationHistoryInspectorEmpty": "没有匹配过滤条件的文件变更。",
+  "fileMutationHistoryInspectorZoomIn": "只看该路径",
+  "fileMutationHistoryInspectorZoomOut": "返回全部路径",
   "fileMutationUndone": "已撤销",
   "fileMutationCascadeUndone": "级联失效",
   "fileMutationUndoThis": "撤销此次修改",

@@ -2992,6 +2992,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fileMutationHistoryInspectorEmpty => '没有匹配过滤条件的文件变更。';
 
   @override
+  String get fileMutationHistoryInspectorZoomIn => '只看该路径';
+
+  @override
+  String get fileMutationHistoryInspectorZoomOut => '返回全部路径';
+
+  @override
   String get fileMutationUndone => '已撤销';
 
   @override
@@ -7750,6 +7756,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get fileMutationHistoryInspectorEmpty => '没有匹配过滤条件的文件变更。';
 
   @override
+  String get fileMutationHistoryInspectorZoomIn => '只看该路径';
+
+  @override
+  String get fileMutationHistoryInspectorZoomOut => '返回全部路径';
+
+  @override
   String get fileMutationUndone => '已撤销';
 
   @override
@@ -12505,6 +12517,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get fileMutationHistoryInspectorEmpty => '沒有符合過濾條件的檔案變更。';
+
+  @override
+  String get fileMutationHistoryInspectorZoomIn => '只看此路徑';
+
+  @override
+  String get fileMutationHistoryInspectorZoomOut => '返回全部路徑';
 
   @override
   String get fileMutationUndone => '已復原';

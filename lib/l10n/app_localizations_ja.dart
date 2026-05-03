@@ -3033,6 +3033,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fileMutationHistoryInspectorEmpty => 'フィルターに一致するファイル変更はありません。';
 
   @override
+  String get fileMutationHistoryInspectorZoomIn => 'このパスだけ表示';
+
+  @override
+  String get fileMutationHistoryInspectorZoomOut => 'すべてのパスに戻る';
+
+  @override
   String get fileMutationUndone => '元に戻し済み';
 
   @override

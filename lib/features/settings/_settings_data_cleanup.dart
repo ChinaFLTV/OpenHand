@@ -740,6 +740,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   LedgerStatsSnapshot? _stats;
   Timer? _saveDebounce;
   bool _pruneNowBusy = false;
+  ({int removed, int bytesFreed})? _lastGcStats;
 
   @override
   void initState() {
@@ -759,6 +760,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
 
   /// 阶段 ⑦d：手动触发一次 ledger 维护——按当前 days/maxVersions 立刻
   /// 跑一遍 prune，刷新统计。期间禁用按钮 + 显示进度。
+  /// 阶段 ⑫c：追加一次 GC 并展示 freed blobs 数量与字节数。
   Future<void> _pruneNow() async {
     final cfg = _config;
     if (cfg == null) return;
@@ -769,6 +771,10 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       }
       if (cfg.maxVersionsPerFile > 0) {
         await _ledger.pruneToMaxVersionsPerFile(cfg.maxVersionsPerFile);
+      }
+      final gc = await _ledger.gcUnreferencedBlobs();
+      if (mounted) {
+        setState(() => _lastGcStats = gc);
       }
       await _refreshStats();
     } finally {
@@ -894,6 +900,22 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                   zh: '立即清理超期', en: 'Prune now')),
             ),
           ),
+          if (_lastGcStats != null) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                _localizedText(context,
+                    zh:
+                        '上次 GC 释放 ${_lastGcStats!.removed} 个 blob · ${formatHumanBytes(_lastGcStats!.bytesFreed)}',
+                    en:
+                        'Last GC freed ${_lastGcStats!.removed} blob(s) · ${formatHumanBytes(_lastGcStats!.bytesFreed)}'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

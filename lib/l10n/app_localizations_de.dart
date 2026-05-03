@@ -3201,6 +3201,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'Keine Dateiänderungen entsprechen dem Filter.';
 
   @override
+  String get fileMutationHistoryInspectorZoomIn =>
+      'Auf diesen Pfad fokussieren';
+
+  @override
+  String get fileMutationHistoryInspectorZoomOut => 'Alle Pfade anzeigen';
+
+  @override
   String get fileMutationUndone => 'Rückgängig';
 
   @override

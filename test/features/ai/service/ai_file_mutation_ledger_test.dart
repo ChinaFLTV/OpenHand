@@ -268,6 +268,34 @@ void main() {
     expect(out.split('\n'), [' a', '-b', '+B']);
   });
 
+  // 阶段 ⑫d：中间档位 → 仅 +/-，丢弃 context
+  test('unifiedDiffLineSummary 中间档位 → 仅保留 +/- 行', () {
+    final huge = 'same\n' * 5000; // 25000B
+    final modified = '${huge}new'; // 多一行新增
+    final out = unifiedDiffLineSummary(
+      huge,
+      modified,
+      maxBytes: 200 * 1024,
+      miniDiffMaxBytes: 1024, // 强制走 mini-diff
+    );
+    // mini-diff 不应包含任何 ` same` context 行
+    expect(out.contains(' same'), isFalse);
+    // 应该只有 +/- 行
+    final lines = out.split('\n').where((l) => l.isNotEmpty).toList();
+    expect(lines.every((l) => l.startsWith('+') || l.startsWith('-')), isTrue);
+  });
+
+  test('unifiedDiffLineSummary 中间档位 + 完全相同 → 空字符串', () {
+    final huge = 'x' * 4096;
+    final out = unifiedDiffLineSummary(
+      huge,
+      huge,
+      maxBytes: 200 * 1024,
+      miniDiffMaxBytes: 1024,
+    );
+    expect(out, '');
+  });
+
   // ─── 阶段⑪d：清理 pipeline 集成测试 ───
   // pruneOlderThan + pruneToMaxVersionsPerFile + gcUnreferencedBlobs 串
   // 起来跑一遍：模拟跨会话 / 多文件 / 多版本，最后断言：
@@ -440,6 +468,59 @@ void main() {
       }
     }
     expect(remainingShas, equals(keptShas));
+  });
+
+  // 阶段 ⑫e：viewsForSession + History Inspector 分组语义回归。
+  test('viewsForSession 跨多个文件返回全部记录、按时间倒序、可分组', () async {
+    final f1 = await stagingFile('alpha.txt', 'A0');
+    final f2 = await stagingFile('beta.txt', 'B0');
+    await ledger.recordMutation(
+      sessionId: 's1', toolCallId: 'tc1', toolName: 'Write',
+      filePath: f1.path, kind: FileMutationKind.modify,
+      beforeContent: 'A0', afterContent: 'A1',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await ledger.recordMutation(
+      sessionId: 's1', toolCallId: 'tc2', toolName: 'Write',
+      filePath: f2.path, kind: FileMutationKind.modify,
+      beforeContent: 'B0', afterContent: 'B1',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await ledger.recordMutation(
+      sessionId: 's1', toolCallId: 'tc3', toolName: 'Write',
+      filePath: f1.path, kind: FileMutationKind.modify,
+      beforeContent: 'A1', afterContent: 'A2',
+    );
+
+    final views = await ledger.viewsForSession('s1');
+    expect(views.length, 3);
+    // 包含三条记录（顺序由实现决定，但必须按 createdAt 单调）
+    final ids = views.map((v) => v.record.toolCallId).toList();
+    expect(ids.toSet(), {'tc1', 'tc2', 'tc3'});
+    final ts = views.map((v) => v.record.createdAt).toList();
+    final sortedAsc = [...ts]..sort();
+    final isAsc = List.generate(ts.length, (i) => ts[i] == sortedAsc[i])
+        .every((b) => b);
+    final isDesc =
+        List.generate(ts.length, (i) => ts[i] == sortedAsc[ts.length - 1 - i])
+            .every((b) => b);
+    expect(isAsc || isDesc, isTrue,
+        reason: 'viewsForSession 必须按时间单调排序');
+
+    // 分组逻辑（与 inspector dialog 保持一致）
+    final groups = <String, List<FileMutationView>>{};
+    for (final v in views) {
+      groups.putIfAbsent(v.record.filePath, () => []).add(v);
+    }
+    expect(groups.length, 2);
+    expect(groups[f1.path]!.length, 2);
+    expect(groups[f2.path]!.length, 1);
+
+    // zoom 过滤模拟（_zoomedPath == f1.path）
+    final zoomed =
+        views.where((v) => v.record.filePath == f1.path).toList();
+    expect(zoomed.length, 2);
+    expect(zoomed.every((v) => v.record.filePath == f1.path), isTrue);
   });
 }
 

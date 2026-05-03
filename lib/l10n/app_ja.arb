@@ -1393,6 +1393,8 @@
   "fileMutationHistoryInspectorTitle": "セッションのファイル履歴",
   "fileMutationHistoryInspectorFilterHint": "パスで絞り込み…",
   "fileMutationHistoryInspectorEmpty": "フィルターに一致するファイル変更はありません。",
+  "fileMutationHistoryInspectorZoomIn": "このパスだけ表示",
+  "fileMutationHistoryInspectorZoomOut": "すべてのパスに戻る",
   "fileMutationUndone": "元に戻し済み",
   "fileMutationCascadeUndone": "連動して無効化",
   "fileMutationUndoThis": "この変更を元に戻す",

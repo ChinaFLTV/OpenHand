@@ -738,14 +738,47 @@ class _FileMutationCardRow extends StatelessWidget {
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
-            onTap: onToggleExpand,
-            onDoubleTap: onOpenLegacyDialog,
-            // 阶段 ⑩c：row hover 背景轻微高亮，让指针落点更清晰。
-            hoverColor: cs.primary.withValues(alpha: 0.05),
-            splashColor: cs.primary.withValues(alpha: 0.10),
-            highlightColor: cs.primary.withValues(alpha: 0.06),
-            child: Padding(
+          // 阶段 ⑫a：键盘导航——
+          // - Up/Down 在 row 间走 Directional focus；
+          // - Space 切换 expand；
+          // - Enter 打开 legacy diff dialog。
+          FocusableActionDetector(
+            shortcuts: const <ShortcutActivator, Intent>{
+              SingleActivator(LogicalKeyboardKey.space):
+                  ActivateIntent(),
+              SingleActivator(LogicalKeyboardKey.enter):
+                  _OpenLegacyDialogIntent(),
+              SingleActivator(LogicalKeyboardKey.numpadEnter):
+                  _OpenLegacyDialogIntent(),
+              SingleActivator(LogicalKeyboardKey.arrowUp):
+                  DirectionalFocusIntent(TraversalDirection.up),
+              SingleActivator(LogicalKeyboardKey.arrowDown):
+                  DirectionalFocusIntent(TraversalDirection.down),
+            },
+            actions: <Type, Action<Intent>>{
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  onToggleExpand();
+                  return null;
+                },
+              ),
+              _OpenLegacyDialogIntent:
+                  CallbackAction<_OpenLegacyDialogIntent>(
+                onInvoke: (_) {
+                  onOpenLegacyDialog();
+                  return null;
+                },
+              ),
+            },
+            child: InkWell(
+              onTap: onToggleExpand,
+              onDoubleTap: onOpenLegacyDialog,
+              // 阶段 ⑩c：row hover 背景轻微高亮，让指针落点更清晰。
+              hoverColor: cs.primary.withValues(alpha: 0.05),
+              splashColor: cs.primary.withValues(alpha: 0.10),
+              highlightColor: cs.primary.withValues(alpha: 0.06),
+              focusColor: cs.primary.withValues(alpha: 0.12),
+              child: Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Opacity(
@@ -832,6 +865,7 @@ class _FileMutationCardRow extends StatelessWidget {
                 ),
               ),
             ),
+          ),
           ),
           AnimatedSize(
             duration: reduceMotion
@@ -1490,6 +1524,9 @@ class _FileMutationHistoryInspectorDialogState
   late Future<List<FileMutationView>> _future;
   String _filter = '';
   late final TextEditingController _filterCtrl;
+  // 阶段 ⑫b：单路径 zoom 模式。group header 双击进入，仅展示该 path
+  // 下的所有版本；空字符串表示常规多路径模式。
+  String? _zoomedPath;
 
   @override
   void initState() {
@@ -1557,6 +1594,22 @@ class _FileMutationHistoryInspectorDialogState
                 ),
               ),
             ),
+            // 阶段 ⑫b：zoom 模式提示条 + 退出按钮
+            if (_zoomedPath != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: InputChip(
+                  avatar: Icon(Icons.center_focus_strong_rounded,
+                      size: 14, color: cs.primary),
+                  label: Text(
+                    _zoomedPath!,
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(fontFamily: 'monospace'),
+                  ),
+                  deleteIcon: const Icon(Icons.close_rounded, size: 14),
+                  onDeleted: () => setState(() => _zoomedPath = null),
+                ),
+              ),
             Divider(
               height: 1,
               color: cs.outlineVariant.withValues(alpha: 0.45),
@@ -1582,7 +1635,13 @@ class _FileMutationHistoryInspectorDialogState
                               .toLowerCase()
                               .contains(_filter.toLowerCase()))
                           .toList(growable: false);
-                  if (filtered.isEmpty) {
+                  // 阶段 ⑫b：zoom 模式 → 只保留该路径
+                  final visible = _zoomedPath == null
+                      ? filtered
+                      : filtered
+                          .where((v) => v.record.filePath == _zoomedPath)
+                          .toList(growable: false);
+                  if (visible.isEmpty) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
@@ -1597,7 +1656,7 @@ class _FileMutationHistoryInspectorDialogState
                   }
                   // 按文件路径分组（保持原 createdAt 倒序）
                   final groups = <String, List<FileMutationView>>{};
-                  for (final v in filtered) {
+                  for (final v in visible) {
                     groups
                         .putIfAbsent(
                           v.record.filePath,
@@ -1619,6 +1678,10 @@ class _FileMutationHistoryInspectorDialogState
                       return _HistoryInspectorGroup(
                         filePath: path,
                         entries: entries,
+                        zoomed: _zoomedPath == path,
+                        onZoomToggle: () => setState(() {
+                          _zoomedPath = _zoomedPath == path ? null : path;
+                        }),
                       );
                     },
                   );
@@ -1649,10 +1712,14 @@ class _HistoryInspectorGroup extends StatelessWidget {
   const _HistoryInspectorGroup({
     required this.filePath,
     required this.entries,
+    required this.zoomed,
+    required this.onZoomToggle,
   });
 
   final String filePath;
   final List<FileMutationView> entries;
+  final bool zoomed;
+  final VoidCallback onZoomToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -1676,6 +1743,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
             // group header
             InkWell(
               onTap: () => _copyPathToClipboard(context, filePath),
+              onDoubleTap: onZoomToggle,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(12),
               ),
@@ -1701,6 +1769,25 @@ class _HistoryInspectorGroup extends StatelessWidget {
                         ),
                       ),
                     ),
+                    IconButton(
+                      icon: Icon(
+                        zoomed
+                            ? Icons.center_focus_strong_rounded
+                            : Icons.center_focus_weak_outlined,
+                        size: 14,
+                      ),
+                      tooltip: zoomed
+                          ? l10n.fileMutationHistoryInspectorZoomOut
+                          : l10n.fileMutationHistoryInspectorZoomIn,
+                      onPressed: onZoomToggle,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
@@ -1822,4 +1909,9 @@ class _RecordKindBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 阶段 ⑫a：FileMutationCard row 键盘 Enter 触发的 Intent。
+class _OpenLegacyDialogIntent extends Intent {
+  const _OpenLegacyDialogIntent();
 }

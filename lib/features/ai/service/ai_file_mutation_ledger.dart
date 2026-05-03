@@ -196,12 +196,19 @@ class LedgerConfig {
 /// 展开，避免在 UI 线程上炸成几万行。返回一行式占位摘要，包含双侧
 /// 字节数 + sha256 前 12 位（若提供 [beforeSha]/[afterSha]），便于
 /// 之后从 ledger blobs 拉原文核对。
+///
+/// 阶段 ⑫d：在 [miniDiffMaxBytes]（默认 32 KiB） < 任一侧 ≤ [maxBytes]
+/// 的中间区间，返回「精简 mini-diff」——只保留 +/- 行，丢弃所有相
+/// 同上下文行。这样既能让模型/用户看到差异主体，又把 token 量级压
+/// 在数 KB 内，避免大文件在 UI/上下文里被全文 +context 撑爆。
 const int unifiedDiffLineSummaryDefaultMaxBytes = 256 * 1024;
+const int unifiedDiffLineSummaryDefaultMiniDiffBytes = 32 * 1024;
 
 String unifiedDiffLineSummary(
   String before,
   String after, {
   int maxBytes = unifiedDiffLineSummaryDefaultMaxBytes,
+  int miniDiffMaxBytes = unifiedDiffLineSummaryDefaultMiniDiffBytes,
   String? beforeSha,
   String? afterSha,
 }) {
@@ -218,8 +225,30 @@ String unifiedDiffLineSummary(
   }
   final a = before.split('\n');
   final b = after.split('\n');
-  final out = StringBuffer();
   final maxLen = a.length > b.length ? a.length : b.length;
+  // 阶段 ⑫d：中间区间走 mini-diff（仅 +/-）。
+  final compact = before.length > miniDiffMaxBytes ||
+      after.length > miniDiffMaxBytes;
+  if (compact) {
+    final out = StringBuffer();
+    var emitted = 0;
+    for (var i = 0; i < maxLen; i++) {
+      final lhs = i < a.length ? a[i] : null;
+      final rhs = i < b.length ? b[i] : null;
+      if (lhs == rhs) continue;
+      if (lhs != null) {
+        out.writeln('-$lhs');
+        emitted++;
+      }
+      if (rhs != null) {
+        out.writeln('+$rhs');
+        emitted++;
+      }
+    }
+    if (emitted == 0) return '';
+    return out.toString().trimRight();
+  }
+  final out = StringBuffer();
   for (var i = 0; i < maxLen; i++) {
     final lhs = i < a.length ? a[i] : null;
     final rhs = i < b.length ? b[i] : null;
@@ -847,7 +876,10 @@ class AiFileMutationLedger {
   }
 
   /// 删除没有任何 ledger 引用的 blob。容错：失败仅日志，不抛出。
-  Future<void> gcUnreferencedBlobs() async {
+  /// 阶段 ⑫c：返回 (removed, bytesFreed) 以便 UI 展示统计。
+  Future<({int removed, int bytesFreed})> gcUnreferencedBlobs() async {
+    var removed = 0;
+    var bytesFreed = 0;
     try {
       final referenced = <String>{};
       final sessions = _sessionsDir();
@@ -862,7 +894,7 @@ class AiFileMutationLedger {
         }
       }
       final blobs = _blobsDir();
-      if (!await blobs.exists()) return;
+      if (!await blobs.exists()) return (removed: 0, bytesFreed: 0);
       await for (final shard in blobs.list()) {
         if (shard is! Directory) continue;
         await for (final blob in shard.list()) {
@@ -870,7 +902,10 @@ class AiFileMutationLedger {
           final basename = p.basenameWithoutExtension(blob.path);
           if (!referenced.contains(basename)) {
             try {
+              final size = await blob.length();
               await blob.delete();
+              removed += 1;
+              bytesFreed += size;
             } catch (error, stack) {
               silentLog('ai_file_mutation_ledger', 'gc blob', error, stack);
             }
@@ -880,6 +915,7 @@ class AiFileMutationLedger {
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'gcUnreferencedBlobs', error, stack);
     }
+    return (removed: removed, bytesFreed: bytesFreed);
   }
 
   // ───────────────────────── 内部工具 ─────────────────────────

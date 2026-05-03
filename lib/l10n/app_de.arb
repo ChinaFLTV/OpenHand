@@ -1393,6 +1393,8 @@
   "fileMutationHistoryInspectorTitle": "Dateiänderungsverlauf der Sitzung",
   "fileMutationHistoryInspectorFilterHint": "Nach Pfad filtern…",
   "fileMutationHistoryInspectorEmpty": "Keine Dateiänderungen entsprechen dem Filter.",
+  "fileMutationHistoryInspectorZoomIn": "Auf diesen Pfad fokussieren",
+  "fileMutationHistoryInspectorZoomOut": "Alle Pfade anzeigen",
   "fileMutationUndone": "Rückgängig",
   "fileMutationCascadeUndone": "Kaskadiert rückgängig",
   "fileMutationUndoThis": "Diese Änderung rückgängig machen",

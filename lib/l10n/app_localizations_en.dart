@@ -3163,6 +3163,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'No file changes match the current filter.';
 
   @override
+  String get fileMutationHistoryInspectorZoomIn => 'Focus on this path';
+
+  @override
+  String get fileMutationHistoryInspectorZoomOut => 'Show all paths';
+
+  @override
   String get fileMutationUndone => 'Undone';
 
   @override

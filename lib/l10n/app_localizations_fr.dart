@@ -3219,6 +3219,12 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucune modification de fichier ne correspond au filtre.';
 
   @override
+  String get fileMutationHistoryInspectorZoomIn => 'Cibler ce chemin';
+
+  @override
+  String get fileMutationHistoryInspectorZoomOut => 'Afficher tous les chemins';
+
+  @override
   String get fileMutationUndone => 'Annulé';
 
   @override

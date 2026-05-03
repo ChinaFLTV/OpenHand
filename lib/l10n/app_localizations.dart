@@ -5704,6 +5704,18 @@ abstract class AppLocalizations {
   /// **'没有匹配过滤条件的文件变更。'**
   String get fileMutationHistoryInspectorEmpty;
 
+  /// No description provided for @fileMutationHistoryInspectorZoomIn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'只看该路径'**
+  String get fileMutationHistoryInspectorZoomIn;
+
+  /// No description provided for @fileMutationHistoryInspectorZoomOut.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'返回全部路径'**
+  String get fileMutationHistoryInspectorZoomOut;
+
   /// No description provided for @fileMutationUndone.
   ///
   /// In zh_Hans, this message translates to:
