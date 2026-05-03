@@ -270,6 +270,8 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
             if (category != DataCleanupCategory.values.last)
               const Divider(height: 24),
           ],
+          const SizedBox(height: 16),
+          const _LedgerAdvancedControls(),
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
@@ -720,4 +722,173 @@ String _categoryConfirmBody(
         'Clean "${_categoryTitle(context, category)}"?\n\n$detail\n\n'
         'This action cannot be undone.',
   );
+}
+
+/// 文件变动 ledger 的高级配置：每文件最多保留 N 条 + N 天前自动清理。
+/// 配置走 ledger 自身的 `<root>/config.json`，不进入 SettingsController。
+class _LedgerAdvancedControls extends StatefulWidget {
+  const _LedgerAdvancedControls();
+
+  @override
+  State<_LedgerAdvancedControls> createState() =>
+      _LedgerAdvancedControlsState();
+}
+
+class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
+  final AiFileMutationLedger _ledger = AiFileMutationLedger();
+  LedgerConfig? _config;
+  Timer? _saveDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _ledger.loadConfig().then((c) {
+      if (!mounted) return;
+      setState(() => _config = c);
+    });
+  }
+
+  @override
+  void dispose() {
+    _saveDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleSave(LedgerConfig next) {
+    setState(() => _config = next);
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 350), () {
+      _ledger.saveConfig(next);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final config = _config;
+    if (config == null) {
+      return SizedBox(
+        height: 64,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+          ),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune_rounded, size: 16, color: cs.primary),
+              const SizedBox(width: 8),
+              Text(
+                _localizedText(context,
+                    zh: '文件变动历史 — 高级控制', en: 'File Mutation Ledger — Advanced'),
+                style: theme.textTheme.labelLarge
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _SliderRow(
+            label: _localizedText(context,
+                zh: '每文件最多保留 N 条历史',
+                en: 'Max versions per file'),
+            valueText: config.maxVersionsPerFile == 0
+                ? _localizedText(context, zh: '不限制', en: 'Unlimited')
+                : '${config.maxVersionsPerFile}',
+            value: config.maxVersionsPerFile.toDouble(),
+            min: LedgerConfig.minMaxVersionsPerFile.toDouble(),
+            max: LedgerConfig.maxMaxVersionsPerFile.toDouble(),
+            divisions: LedgerConfig.maxMaxVersionsPerFile,
+            onChanged: (v) => _scheduleSave(
+                config.copyWith(maxVersionsPerFile: v.round())),
+          ),
+          _SliderRow(
+            label: _localizedText(context,
+                zh: 'N 天前的历史自动清理（启动时）',
+                en: 'Auto-cleanup older than N days (on launch)'),
+            valueText: config.autoCleanupDays == 0
+                ? _localizedText(context, zh: '关闭', en: 'Disabled')
+                : _localizedText(context,
+                    zh: '${config.autoCleanupDays} 天',
+                    en: '${config.autoCleanupDays} days'),
+            value: config.autoCleanupDays.toDouble(),
+            min: LedgerConfig.minAutoCleanupDays.toDouble(),
+            max: LedgerConfig.maxAutoCleanupDays.toDouble(),
+            divisions: LedgerConfig.maxAutoCleanupDays,
+            onChanged: (v) => _scheduleSave(
+                config.copyWith(autoCleanupDays: v.round())),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SliderRow extends StatelessWidget {
+  const _SliderRow({
+    required this.label,
+    required this.valueText,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String valueText;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(label,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              ),
+              const SizedBox(width: 12),
+              Text(valueText, style: theme.textTheme.labelMedium),
+            ],
+          ),
+          SizedBox(
+            height: 28,
+            child: Slider(
+              value: value.clamp(min, max),
+              min: min,
+              max: max,
+              divisions: divisions <= 0 ? null : divisions,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

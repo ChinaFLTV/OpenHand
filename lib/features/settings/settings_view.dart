@@ -48,6 +48,7 @@ import '../ai/model/ai_lsp_language_settings.dart';
 import '../ai/model/ai_model_catalog.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/service/ai_chat_service.dart';
+import '../ai/service/ai_file_mutation_ledger.dart';
 import '../ai/service/ai_image_generation_service.dart';
 import '../ai/service/ai_lsp_managed_install_service.dart';
 import '../ai/service/ai_model_scanner.dart';

@@ -130,6 +130,51 @@ class FileMutationOutcome {
   final String errorMessage;
 }
 
+/// 用户可配置的 ledger 行为。持久化到 `<root>/config.json`。
+class LedgerConfig {
+  const LedgerConfig({
+    this.maxVersionsPerFile = defaultMaxVersionsPerFile,
+    this.autoCleanupDays = defaultAutoCleanupDays,
+  });
+
+  /// 每个会话内同一文件保留的最近 N 条变动。<=0 表示不限制。
+  final int maxVersionsPerFile;
+
+  /// 自动清理 N 天前的全部变动（启动时触发一次）。<=0 表示禁用。
+  final int autoCleanupDays;
+
+  static const int defaultMaxVersionsPerFile = 10;
+  static const int minMaxVersionsPerFile = 0;
+  static const int maxMaxVersionsPerFile = 200;
+  static const int defaultAutoCleanupDays = 30;
+  static const int minAutoCleanupDays = 0;
+  static const int maxAutoCleanupDays = 365;
+
+  LedgerConfig copyWith({int? maxVersionsPerFile, int? autoCleanupDays}) =>
+      LedgerConfig(
+        maxVersionsPerFile: maxVersionsPerFile ?? this.maxVersionsPerFile,
+        autoCleanupDays: autoCleanupDays ?? this.autoCleanupDays,
+      );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'max_versions_per_file': maxVersionsPerFile,
+    'auto_cleanup_days': autoCleanupDays,
+  };
+
+  static LedgerConfig fromJson(Map<String, Object?> json) {
+    final maxV = (json['max_versions_per_file'] as num?)?.toInt() ??
+        defaultMaxVersionsPerFile;
+    final days = (json['auto_cleanup_days'] as num?)?.toInt() ??
+        defaultAutoCleanupDays;
+    return LedgerConfig(
+      maxVersionsPerFile:
+          maxV.clamp(minMaxVersionsPerFile, maxMaxVersionsPerFile).toInt(),
+      autoCleanupDays:
+          days.clamp(minAutoCleanupDays, maxAutoCleanupDays).toInt(),
+    );
+  }
+}
+
 class AiFileMutationLedger {
   AiFileMutationLedger({String? rootDirectoryOverride})
     : _rootOverride = rootDirectoryOverride;
@@ -146,6 +191,39 @@ class AiFileMutationLedger {
   Directory _sessionDir(String sessionId) => Directory(p.join(_sessionsDir().path, _safeSessionId(sessionId)));
   File _ledgerFile(String sessionId) => File(p.join(_sessionDir(sessionId).path, 'ledger.jsonl'));
   File _stateFile(String sessionId) => File(p.join(_sessionDir(sessionId).path, 'state.json'));
+  File _configFile() => File(p.join(_root, 'config.json'));
+
+  LedgerConfig? _cachedConfig;
+  bool _ranAutoCleanup = false;
+
+  Future<LedgerConfig> loadConfig() async {
+    if (_cachedConfig != null) return _cachedConfig!;
+    try {
+      final f = _configFile();
+      if (await f.exists()) {
+        final raw = await f.readAsString();
+        if (raw.trim().isNotEmpty) {
+          final json = jsonDecode(raw) as Map<String, Object?>;
+          _cachedConfig = LedgerConfig.fromJson(json);
+          return _cachedConfig!;
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'loadConfig', error, stack);
+    }
+    _cachedConfig = const LedgerConfig();
+    return _cachedConfig!;
+  }
+
+  Future<void> saveConfig(LedgerConfig config) async {
+    _cachedConfig = config;
+    try {
+      await _ensureInitialized();
+      await writeFileAtomically(_configFile(), jsonEncode(config.toJson()));
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'saveConfig', error, stack);
+    }
+  }
 
   Future<void> _ensureInitialized() async {
     try {
@@ -157,8 +235,32 @@ class AiFileMutationLedger {
         _migratedLegacy = true;
         unawaited(_migrateLegacyTempStorage());
       }
+      if (!_ranAutoCleanup) {
+        _ranAutoCleanup = true;
+        // 测试场景下使用了 rootOverride，自动清理会与并发写入抢资源；只在
+        // 真实运行（未传 override）路径上启用一次性自动清理。
+        if (_rootOverride == null) {
+          unawaited(_runAutoCleanupOnce());
+        }
+      }
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'init', error, stack);
+    }
+  }
+
+  /// 启动后异步运行：按 [LedgerConfig.autoCleanupDays] 清理过期记录，再按
+  /// [LedgerConfig.maxVersionsPerFile] 修剪每个文件的历史。失败仅日志。
+  Future<void> _runAutoCleanupOnce() async {
+    try {
+      final config = await loadConfig();
+      if (config.autoCleanupDays > 0) {
+        await pruneOlderThan(Duration(days: config.autoCleanupDays));
+      }
+      if (config.maxVersionsPerFile > 0) {
+        await pruneToMaxVersionsPerFile(config.maxVersionsPerFile);
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'auto cleanup', error, stack);
     }
   }
 
@@ -241,6 +343,15 @@ class AiFileMutationLedger {
       final ledger = _ledgerFile(sessionId);
       final line = '${jsonEncode(record.toJson())}\n';
       await ledger.writeAsString(line, mode: FileMode.append, flush: true);
+      // 写入后按当前配置即时收紧每文件历史数。autoCleanupDays 在启动时已处理。
+      try {
+        final cfg = await loadConfig();
+        if (cfg.maxVersionsPerFile > 0) {
+          await _trimSessionFileVersions(sessionId, record.filePath, cfg.maxVersionsPerFile);
+        }
+      } catch (error, stack) {
+        silentLog('ai_file_mutation_ledger', 'post-record trim', error, stack);
+      }
       return record;
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'recordMutation', error, stack);
@@ -537,6 +648,41 @@ class AiFileMutationLedger {
     }
     await gcUnreferencedBlobs();
     return removed;
+  }
+
+  /// 仅对单个 (session,file) 做版本截断，避免 [recordMutation] 后扫描全库。
+  /// 老条目被物理移除，blob gc 留给下次启动或显式调用。
+  Future<void> _trimSessionFileVersions(
+    String sessionId,
+    String filePath,
+    int maxVersionsPerFile,
+  ) async {
+    if (maxVersionsPerFile <= 0) return;
+    final records = await recordsForSession(sessionId);
+    final sameFile = records.where((r) => r.filePath == filePath).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (sameFile.length <= maxVersionsPerFile) return;
+    final keepIds = sameFile.take(maxVersionsPerFile).map((r) => r.recordId).toSet();
+    final survivors = <FileMutationRecord>[];
+    for (final r in records) {
+      if (r.filePath != filePath || keepIds.contains(r.recordId)) {
+        survivors.add(r);
+      }
+    }
+    final ledger = _ledgerFile(sessionId);
+    if (survivors.isEmpty) {
+      if (await ledger.exists()) await ledger.delete();
+    } else {
+      final buffer = StringBuffer();
+      for (final r in survivors) {
+        buffer.writeln(jsonEncode(r.toJson()));
+      }
+      await writeFileAtomically(ledger, buffer.toString());
+    }
+    final survivorIds = survivors.map((r) => r.recordId).toSet();
+    final undone = await _loadUndoneSet(sessionId);
+    undone.removeWhere((id) => !survivorIds.contains(id));
+    await _saveUndoneSet(sessionId, undone);
   }
 
   /// 对每个文件每个会话只保留最近 [maxVersionsPerFile] 条记录的 before/after
