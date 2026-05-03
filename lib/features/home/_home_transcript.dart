@@ -8,6 +8,37 @@ class _MessageBubbleObjectKey extends GlobalObjectKey {
   const _MessageBubbleObjectKey(String super.messageId);
 }
 
+/// 阶段⑰b：跨 widget 的「按 messageId 平滑滚动」分发器。
+/// `_SessionTranscriptState` 在 init/dispose 时按 sessionId 注册自身；
+/// 任意位置（汇总卡、跳转链接等）可调 `scrollToMessage(sessionId, msgId)`。
+/// 若目标已离开视窗（`_windowStartIndex` 之前），会循环 reveal-older
+/// 直到目标进入物化范围，再调 `Scrollable.ensureVisible` 丝滑落位。
+class _TranscriptScrollDispatcher {
+  _TranscriptScrollDispatcher._();
+  static final _TranscriptScrollDispatcher instance =
+      _TranscriptScrollDispatcher._();
+
+  final Map<String, _SessionTranscriptState> _statesBySession =
+      <String, _SessionTranscriptState>{};
+
+  void register(String sessionId, _SessionTranscriptState state) {
+    if (sessionId.isEmpty) return;
+    _statesBySession[sessionId] = state;
+  }
+
+  void unregister(String sessionId, _SessionTranscriptState state) {
+    if (_statesBySession[sessionId] == state) {
+      _statesBySession.remove(sessionId);
+    }
+  }
+
+  Future<bool> scrollToMessage(String sessionId, String messageId) async {
+    final state = _statesBySession[sessionId];
+    if (state == null) return false;
+    return state._scrollToMessageId(messageId);
+  }
+}
+
 class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
   const _SessionTranscriptLoadingPlaceholder({
     super.key,
@@ -193,6 +224,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void initState() {
     super.initState();
     _syncWindowStartIndex(forceReset: true);
+    _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
     // First-open jank fix: when the user picks an existing thread for the
     // first time, the workspace pane and the transcript both mount in the
     // same frame. Materialising N message render entries (each later mounts
@@ -244,6 +276,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void didUpdateWidget(covariant _SessionTranscript oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.session.id != widget.session.id) {
+      _TranscriptScrollDispatcher.instance
+          .unregister(oldWidget.session.id, this);
+      _TranscriptScrollDispatcher.instance
+          .register(widget.session.id, this);
       // Switching sessions used to rebuild the full transcript synchronously
       // inside `didUpdateWidget`, which on large sessions blocked the frame
       // that paints the new toolbar / shell. We now reset to an empty list
@@ -522,9 +558,53 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   @override
   void dispose() {
+    _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
     _dripTimer?.cancel();
     _dripTimer = null;
     super.dispose();
+  }
+
+  /// 阶段⑰b：按 messageId 渐进式滚动到目标气泡。若已物化在视窗
+  /// 或 cacheExtent 内则直接 `Scrollable.ensureVisible`；若目标
+  /// 早于 `_windowStartIndex`（被「Load earlier」窗口剪掉），就
+  /// 循环 reveal-older 一段一段把窗口往前推开，直到目标进入物化
+  /// 范围再丝滑滚到 alignment=0.18。返回是否成功。
+  Future<bool> _scrollToMessageId(String messageId) async {
+    if (!mounted) return false;
+    final reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    Duration smoothDuration = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 520);
+    Future<bool> tryEnsureVisible() async {
+      final ctx = _MessageBubbleObjectKey(messageId).currentContext;
+      if (ctx == null) return false;
+      await Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.18,
+        duration: smoothDuration,
+        curve: Curves.easeOutCubic,
+      );
+      return true;
+    }
+
+    if (await tryEnsureVisible()) return true;
+
+    // 目标尚未物化。先看看它在 displayMessages 中是否存在 / 位置。
+    final display = widget.session.displayMessages;
+    final targetIndex = display.indexWhere((m) => m.id == messageId);
+    if (targetIndex < 0) return false;
+
+    // 反复 reveal-older 直到 _windowStartIndex 把目标囊括进来。
+    var safety = 32; // 兜底防御：极端情况下 reveal 失败避免死循环。
+    while (mounted && targetIndex < _windowStartIndex && safety-- > 0) {
+      await _revealOlderMessages(display.length);
+      // reveal-older 会等待 16ms + 一个 post-frame；再让一帧给
+      // _MessageBubble 完成 layout，使 GlobalObjectKey 注册到新 ctx。
+      await WidgetsBinding.instance.endOfFrame;
+      if (await tryEnsureVisible()) return true;
+    }
+    return tryEnsureVisible();
   }
 
   void _handleRenderEntryExitCompleted(String messageId) {

@@ -2461,6 +2461,17 @@ class _RoundFileMutationSummaryCardState
   Future<List<_RoundSummaryRow>>? _rowsFuture;
   String? _lastSessionId;
   String? _lastMessageId;
+  // 阶段⑰c：批量「撤销本轮」并发执行进度。
+  int _bulkUndoTotal = 0;
+  int _bulkUndoDone = 0;
+  bool get _bulkUndoBusy => _bulkUndoTotal > 0;
+  final ValueNotifier<int> _pulseSignal = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _pulseSignal.dispose();
+    super.dispose();
+  }
 
   List<String> get _toolCallIds {
     final raw = widget.message.metadata['round_summary_tool_call_ids'];
@@ -2537,38 +2548,128 @@ class _RoundFileMutationSummaryCardState
 
   Future<void> _jumpToSourceMessage(String? messageId) async {
     if (messageId == null || messageId.isEmpty) return;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final key = _MessageBubbleObjectKey(messageId);
-    final ctx = key.currentContext;
-    if (ctx != null) {
-      // 已物化在视窗或 cacheExtent 内 → 直接 ensureVisible，
-      // alignment 0.18 让目标稍微偏上、留出上下文呼吸感。
-      await Scrollable.ensureVisible(
-        ctx,
-        alignment: 0.18,
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 520),
-        curve: Curves.easeOutCubic,
-      );
-      return;
-    }
-    // Fallback：目标尚未构造 (ListView.builder 已释放或未到达)。
-    // 通知用户并触发一次「展开更早消息」入口提示——保持温和、
-    // 不打断；具体策略后续按需扩展。
-    if (mounted) {
+    final ctrl = context.read<AiSessionController>();
+    final sessionId = ctrl.currentSession?.id ?? '';
+    if (sessionId.isEmpty) return;
+    final ok = await _TranscriptScrollDispatcher.instance.scrollToMessage(
+      sessionId,
+      messageId,
+    );
+    if (!ok && mounted) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           duration: const Duration(milliseconds: 2200),
           content: Text(
             _localizedTextStatic(context,
-                zh: '目标消息已离开当前视窗，请滚动到该位置后重试。',
-                en:
-                    'Source message is outside the current window; scroll up first.'),
+                zh: '未能定位来源消息（可能已被删除）。',
+                en: 'Could not locate source message (may have been deleted).'),
           ),
         ),
       );
     }
+  }
+
+  /// 阶段⑰c：「全部撤销本轮」批量入口。
+  /// 按 filePath 聚合 → 同文件严格串行（避免互相覆盖磁盘内容），
+  /// 跨文件 4 路并行；进度打到 header chip 与中央 overlay；完成后
+  /// 单次 reload + highlight pulse；任意失败 SnackBar 报最后一次错误。
+  Future<void> _undoAllRound(List<_RoundSummaryRow> rows) async {
+    if (_bulkUndoBusy) return;
+    final candidates = rows.where((r) => r.view.canUndo).toList(growable: false);
+    if (candidates.isEmpty) return;
+    final groups = <String, List<_RoundSummaryRow>>{};
+    for (final r in candidates) {
+      groups.putIfAbsent(r.view.record.filePath, () => <_RoundSummaryRow>[])
+          .add(r);
+    }
+    setState(() {
+      _bulkUndoTotal = candidates.length;
+      _bulkUndoDone = 0;
+    });
+    final ledger = context.read<AiSessionController>().toolRuntimeService
+        .mutationLedger;
+    String? lastError;
+    const concurrency = 4;
+    final paths = groups.keys.toList();
+    int nextPath = 0;
+    Future<void> worker() async {
+      while (true) {
+        if (!mounted) return;
+        if (nextPath >= paths.length) return;
+        final p = paths[nextPath];
+        nextPath += 1;
+        for (final r in groups[p]!) {
+          if (!mounted) return;
+          try {
+            final res = await ledger.undoRecord(
+              sessionId: r.view.record.sessionId,
+              recordId: r.view.record.recordId,
+            );
+            if (!res.success && res.errorMessage.isNotEmpty) {
+              lastError = res.errorMessage;
+            }
+          } catch (error, stack) {
+            silentLog('round_summary_card', '_undoAllRound', error, stack);
+            lastError = '$error';
+          }
+          if (!mounted) return;
+          setState(() => _bulkUndoDone += 1);
+        }
+      }
+    }
+
+    await Future.wait(
+      List<Future<void>>.generate(concurrency, (_) => worker()),
+    );
+    if (!mounted) return;
+    setState(() {
+      _bulkUndoTotal = 0;
+      _bulkUndoDone = 0;
+      _rowsFuture = _load(context);
+    });
+    _pulseSignal.value += 1;
+    if (lastError != null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(lastError!)),
+      );
+    }
+  }
+
+  /// 阶段⑰d：把本轮全部 ledger 记录序列化为 JSON 写入剪贴板。
+  /// 字段直接调 FileMutationRecord.toJson()，再附 toolCallId /
+  /// sourceMessageId 让外部审计/对账能完整反查。
+  Future<void> _exportRoundJson(List<_RoundSummaryRow> rows) async {
+    final payload = <String, Object?>{
+      'session_id': widget.message.metadata['session_id'] ??
+          context.read<AiSessionController>().currentSession?.id,
+      'round_summary_message_id': widget.message.id,
+      'anchor_user_message_id':
+          widget.message.metadata['round_summary_anchor_user_id'],
+      'created_at': widget.message.createdAt.toIso8601String(),
+      'rows': [
+        for (final r in rows)
+          <String, Object?>{
+            'record': r.view.record.toJson(),
+            'effectively_undone': r.view.isEffectivelyUndone,
+            'tool_call_id': r.toolCallId,
+            'source_message_id': r.sourceMessageId,
+          },
+      ],
+    };
+    final encoded = const JsonEncoder.withIndent('  ').convert(payload);
+    await Clipboard.setData(ClipboardData(text: encoded));
+    if (!mounted) return;
+    _pulseSignal.value += 1;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        duration: const Duration(milliseconds: 1800),
+        content: Text(
+          _localizedTextStatic(context,
+              zh: '本轮文件变动 JSON 已复制到剪贴板',
+              en: 'Round mutations JSON copied to clipboard'),
+        ),
+      ),
+    );
   }
 
   @override
@@ -2577,7 +2678,11 @@ class _RoundFileMutationSummaryCardState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    return Container(
+    return AppearOnce(
+      child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
       decoration: BoxDecoration(
         color: cs.surfaceContainer.withValues(alpha: 0.92),
         borderRadius: const BorderRadius.all(Radius.circular(18)),
@@ -2659,6 +2764,36 @@ class _RoundFileMutationSummaryCardState
           },
         ),
       ),
+    ),
+        // HighlightPulse: undo / export 成功后温和高亮顶边。
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
+        ),
+        // Bulk-undo overlay：blur + 进度环。
+        Positioned.fill(
+          child: IgnorePointer(
+            ignoring: !_bulkUndoBusy,
+            child: AnimatedSwitcher(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 220),
+              child: _bulkUndoBusy
+                  ? _BulkUndoOverlay(
+                      key: const ValueKey('round-bulk-undo-overlay'),
+                      done: _bulkUndoDone,
+                      total: _bulkUndoTotal,
+                    )
+                  : const SizedBox.shrink(
+                      key: ValueKey('round-bulk-undo-overlay-hidden'),
+                    ),
+            ),
+          ),
+        ),
+      ],
+    ),
     );
   }
 
@@ -2748,20 +2883,66 @@ class _RoundFileMutationSummaryCardState
           ],
           const Spacer(),
           if (totalAdded > 0 || totalRemoved > 0)
-            Tooltip(
-              message: _localizedTextStatic(context,
-                  zh: '字节增减估算（基于文件大小）',
-                  en: 'Byte delta (file-size estimate)'),
-              child: Text(
-                '${totalAdded > 0 ? '+${_compactBytes(totalAdded)}' : ''}'
-                '${totalAdded > 0 && totalRemoved > 0 ? ' ' : ''}'
-                '${totalRemoved > 0 ? '-${_compactBytes(totalRemoved)}' : ''}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Tooltip(
+                message: _localizedTextStatic(context,
+                    zh: '字节增减估算（基于文件大小）',
+                    en: 'Byte delta (file-size estimate)'),
+                child: Text(
+                  '${totalAdded > 0 ? '+${_compactBytes(totalAdded)}' : ''}'
+                  '${totalAdded > 0 && totalRemoved > 0 ? ' ' : ''}'
+                  '${totalRemoved > 0 ? '-${_compactBytes(totalRemoved)}' : ''}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
             ),
+          // 阶段⑰c：进度 chip — 全部撤销中显示 N/M。
+          if (_bulkUndoBusy) ...[
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.6,
+                value:
+                    _bulkUndoTotal == 0 ? null : _bulkUndoDone / _bulkUndoTotal,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$_bulkUndoDone/$_bulkUndoTotal',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          // 阶段⑰c/⑰d：右侧动作组（按 reduceMotion 透明度逐个淡入由
+          // 上层 HighlightPulse 提供反馈，无需在此再加入场动画）。
+          if (rows.isNotEmpty && rows.any((r) => r.view.canUndo) &&
+              !_bulkUndoBusy)
+            _IconActionButton(
+              icon: Icons.undo_rounded,
+              tooltip: _localizedTextStatic(context,
+                  zh: '撤销本轮全部变动', en: 'Undo all round mutations'),
+              onTap: () => _undoAllRound(rows),
+            ),
+          if (rows.isNotEmpty)
+            _IconActionButton(
+              icon: Icons.data_object_rounded,
+              tooltip: _localizedTextStatic(context,
+                  zh: '导出本轮 JSON', en: 'Export round as JSON'),
+              onTap: () => _exportRoundJson(rows),
+            ),
+          _IconActionButton(
+            icon: Icons.refresh_rounded,
+            tooltip: _localizedTextStatic(context,
+                zh: '刷新汇总', en: 'Refresh summary'),
+            onTap: () => setState(() => _rowsFuture = _load(context)),
+          ),
         ],
       ),
     );
