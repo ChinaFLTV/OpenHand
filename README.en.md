@@ -159,7 +159,7 @@ For each protocol OpenHand bundles:
 
 | Module | Entry | Capability |
 |---|---|---|
-| **MCP** | Sidebar → MCP | Add stdio / SSE / WebSocket Model Context Protocol servers; tools auto-injected into the session catalog. |
+| **MCP** | Sidebar → MCP | Add stdio / SSE / WebSocket Model Context Protocol servers; tools auto-injected into the session catalog. Large MCP tool sets support **lazy loading** (see [docs/mcp-lazy-loading.md](docs/mcp-lazy-loading.md)). |
 | **Skills** | Sidebar → Skills | Built-in skills market and local skill packs; the `SkillManager` tool lets the AI mount skills on demand. |
 | **Hooks** | Sidebar → Hooks | Run shell on lifecycle events (e.g. `PostToolUse`, `PreCompact`) via `HooksExecutor`. |
 | **Crons** | Sidebar → Crons | Cron-expression scheduler + history cleanup worker. Supports `script` / `agent` jobs; system jobs are locked from deletion. |

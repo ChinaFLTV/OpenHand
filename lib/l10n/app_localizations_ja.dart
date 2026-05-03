@@ -2459,6 +2459,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedClearedToast => 'ロード済み一覧をクリアしました';
 
   @override
+  String get mcpLazyLoadingViewLoadedAction => '現在のセッションのロード済み一覧を表示';
+
+  @override
+  String get mcpLazyLoadingNoActiveSession => '現在アクティブなセッションがありません';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '$completed/$total 完了';
   }

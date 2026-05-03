@@ -1072,6 +1072,8 @@
   "snackToolSearchLoadedCopiedToast": "コピー済み",
   "snackToolSearchLoadedClearAction": "ロード済み一覧をクリア",
   "snackToolSearchLoadedClearedToast": "ロード済み一覧をクリアしました",
+  "mcpLazyLoadingViewLoadedAction": "現在のセッションのロード済み一覧を表示",
+  "mcpLazyLoadingNoActiveSession": "現在アクティブなセッションがありません",
   "toolbarRuntimeNotices": "{count} 件のランタイム通知",
   "@toolbarRuntimeNotices": {
     "placeholders": {

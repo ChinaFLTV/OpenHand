@@ -54,6 +54,7 @@ import '../crons/crons_controller.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/model/mcp_lazy_loading_mode.dart';
+import '../mcp/widgets/tool_search_loaded_dialog.dart';
 import '../memory/memory_controller.dart';
 import '../skills/skills_controller.dart';
 import 'data_cleanup/data_cleanup_models.dart';
@@ -2756,6 +2757,15 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 18),
         _McpLazyLoadingHelpBanner(text: l10n.mcpLazyLoadingHowItWorks),
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: OutlinedButton.icon(
+            onPressed: () => _openCurrentSessionLoadedToolsDialog(context),
+            icon: const Icon(Icons.search_rounded, size: 18),
+            label: Text(l10n.mcpLazyLoadingViewLoadedAction),
+          ),
+        ),
         const SizedBox(height: 12),
         _ResponsiveSettingRow(
           title: l10n.mcpLazyLoadingModeLabel,
@@ -3954,6 +3964,27 @@ class _SettingsViewState extends State<SettingsView> {
         kind: _SettingsSnackKind.error,
       );
     }
+  }
+
+  /// 设置页快捷入口：弹出当前活跃会话已通过 ToolSearch 加载的 MCP 工具列表。
+  /// 无活跃会话时仅 toast 提示，不弹 dialog（避免与空列表占位混淆）。
+  void _openCurrentSessionLoadedToolsDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final aiCtrl = context.read<AiSessionController>();
+    final sessionId = aiCtrl.currentSessionId;
+    if (sessionId == null) {
+      _showSnackBar(
+        context,
+        l10n.mcpLazyLoadingNoActiveSession,
+      );
+      return;
+    }
+    final names = aiCtrl.loadedMcpToolNamesForSession(sessionId);
+    showToolSearchLoadedDialog(
+      context,
+      names: names,
+      onClear: () => aiCtrl.clearLoadedMcpToolsForSession(sessionId),
+    );
   }
 
   Future<void> _showAiModelDialog(

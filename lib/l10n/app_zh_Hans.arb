@@ -1132,6 +1132,8 @@
   "snackToolSearchLoadedCopiedToast": "已复制",
   "snackToolSearchLoadedClearAction": "清空已加载列表",
   "snackToolSearchLoadedClearedToast": "已清空已加载列表",
+  "mcpLazyLoadingViewLoadedAction": "查看本会话已加载列表",
+  "mcpLazyLoadingNoActiveSession": "当前没有正在活动的会话",
   "@toolbarRuntimeNotices": {
     "placeholders": {
       "count": {

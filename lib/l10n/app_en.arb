@@ -1072,6 +1072,8 @@
   "snackToolSearchLoadedCopiedToast": "Copied",
   "snackToolSearchLoadedClearAction": "Clear loaded list",
   "snackToolSearchLoadedClearedToast": "Loaded list cleared",
+  "mcpLazyLoadingViewLoadedAction": "View loaded list (current session)",
+  "mcpLazyLoadingNoActiveSession": "No active session right now",
   "toolbarRuntimeNotices": "{count} runtime notices",
   "@toolbarRuntimeNotices": {
     "placeholders": {

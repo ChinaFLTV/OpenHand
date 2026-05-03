@@ -2431,6 +2431,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedClearedToast => '已清空已加载列表';
 
   @override
+  String get mcpLazyLoadingViewLoadedAction => '查看本会话已加载列表';
+
+  @override
+  String get mcpLazyLoadingNoActiveSession => '当前没有正在活动的会话';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
@@ -6838,6 +6844,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedClearedToast => '已清空已加载列表';
 
   @override
+  String get mcpLazyLoadingViewLoadedAction => '查看本会话已加载列表';
+
+  @override
+  String get mcpLazyLoadingNoActiveSession => '当前没有正在活动的会话';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
@@ -11242,6 +11254,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedClearedToast => '已清空已載入清單';
+
+  @override
+  String get mcpLazyLoadingViewLoadedAction => '檢視本會話已載入清單';
+
+  @override
+  String get mcpLazyLoadingNoActiveSession => '目前沒有進行中的會話';
 
   @override
   String toolbarPlanStepsCompleted(int completed, int total) {

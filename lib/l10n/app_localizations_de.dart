@@ -2594,6 +2594,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get snackToolSearchLoadedClearedToast => 'Geladene Liste geleert';
 
   @override
+  String get mcpLazyLoadingViewLoadedAction =>
+      'Geladene Liste der aktuellen Sitzung anzeigen';
+
+  @override
+  String get mcpLazyLoadingNoActiveSession => 'Derzeit keine aktive Sitzung';
+
+  @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '$completed/$total Schritte abgeschlossen';
   }

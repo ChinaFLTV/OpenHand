@@ -157,7 +157,7 @@
 
 | 模块 | 入口 | 能力 |
 |---|---|---|
-| **MCP** | 侧栏 → MCP | 添加 stdio / SSE / WebSocket 类型的 Model Context Protocol 服务，工具自动注入会话目录。 |
+| **MCP** | 侧栏 → MCP | 添加 stdio / SSE / WebSocket 类型的 Model Context Protocol 服务，工具自动注入会话目录。MCP 工具集庞大时支持**懒加载**模式（详见 [docs/mcp-lazy-loading.md](docs/mcp-lazy-loading.md)）。 |
 | **Skills** | 侧栏 → 技能 | 内置技能市场，支持本地 Skill 包；`SkillManager` 工具供 AI 自主装载。 |
 | **Hooks** | 侧栏 → 钩子 | 在会话生命周期事件（如 PostToolUse / PreCompact）执行 Shell；统一通过 `HooksExecutor`。 |
 | **Crons** | 侧栏 → 定时 | Cron 表达式 + 历史清理 Worker；支持 `script` / `agent` 两种执行类型，系统级任务带锁不可删。 |

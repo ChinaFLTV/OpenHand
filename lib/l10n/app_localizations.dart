@@ -4702,6 +4702,18 @@ abstract class AppLocalizations {
   /// **'已清空已加载列表'**
   String get snackToolSearchLoadedClearedToast;
 
+  /// No description provided for @mcpLazyLoadingViewLoadedAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看本会话已加载列表'**
+  String get mcpLazyLoadingViewLoadedAction;
+
+  /// No description provided for @mcpLazyLoadingNoActiveSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前没有正在活动的会话'**
+  String get mcpLazyLoadingNoActiveSession;
+
   /// No description provided for @toolbarPlanStepsCompleted.
   ///
   /// In zh_Hans, this message translates to:

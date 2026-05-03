@@ -97,6 +97,7 @@ import '../mcp/mcp_controller.dart';
 import '../mcp/mcp_view.dart';
 import '../mcp/model/mcp_server.dart';
 import '../mcp/model/mcp_tool.dart';
+import '../mcp/widgets/tool_search_loaded_dialog.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
 import '../message_gateway/message_gateway_view.dart';
@@ -1324,95 +1325,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     void Function()? onClear,
   }) {
     if (!mounted) return;
-    final l10n = AppLocalizations.of(context);
-    if (l10n == null) return;
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        var displayNames = names;
-        return StatefulBuilder(
-          builder: (statefulContext, setStateDialog) {
-            return AlertDialog(
-              title: Row(
-                children: [
-                  Expanded(child: Text(l10n.snackToolSearchLoadedDialogTitle)),
-                  if (onClear != null && displayNames.isNotEmpty)
-                    TextButton.icon(
-                      onPressed: () {
-                        onClear();
-                        setStateDialog(() => displayNames = const <String>[]);
-                        ScaffoldMessenger.maybeOf(statefulContext)?.showSnackBar(
-                          SnackBar(
-                            content: Text(l10n.snackToolSearchLoadedClearedToast),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-                      label: Text(l10n.snackToolSearchLoadedClearAction),
-                    ),
-                ],
-              ),
-              content: SizedBox(
-                width: 460,
-                child: displayNames.isEmpty
-                    ? Text(
-                        '—',
-                        style: Theme.of(dialogContext).textTheme.bodyMedium,
-                      )
-                    : Scrollbar(
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: displayNames.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (_, index) {
-                            final name = displayNames[index];
-                            return ListTile(
-                              dense: true,
-                              leading: const Icon(
-                                Icons.extension_rounded,
-                                size: 18,
-                              ),
-                              title: SelectableText(
-                                name,
-                                style: const TextStyle(fontFamily: 'monospace'),
-                              ),
-                              trailing: IconButton(
-                                tooltip:
-                                    '${l10n.snackToolSearchLoadedCopyAction}$name',
-                                icon: const Icon(Icons.copy_rounded, size: 18),
-                                onPressed: () async {
-                                  await Clipboard.setData(
-                                    ClipboardData(text: 'select:$name'),
-                                  );
-                                  if (!statefulContext.mounted) return;
-                                  ScaffoldMessenger.maybeOf(
-                                    statefulContext,
-                                  )?.showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        l10n.snackToolSearchLoadedCopiedToast,
-                                      ),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(l10n.snackToolSearchLoadedDialogClose),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    unawaited(
+      showToolSearchLoadedDialog(context, names: names, onClear: onClear),
     );
   }
 

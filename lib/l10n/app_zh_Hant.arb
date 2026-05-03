@@ -1073,6 +1073,8 @@
   "snackToolSearchLoadedCopiedToast": "已複製",
   "snackToolSearchLoadedClearAction": "清空已載入清單",
   "snackToolSearchLoadedClearedToast": "已清空已載入清單",
+  "mcpLazyLoadingViewLoadedAction": "檢視本會話已載入清單",
+  "mcpLazyLoadingNoActiveSession": "目前沒有進行中的會話",
   "@toolbarRuntimeNotices": {
     "placeholders": {
       "count": {
