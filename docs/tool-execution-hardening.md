@@ -190,3 +190,34 @@ Failure modes: <列表>
 * **v2 ReadLints / Git / safe_subprocess 全量接入 registry**：当前 `runProcessWithTimeout` 已具备硬超时 + SIGKILL 兜底，对 lint/git 等短命令"必须能手动中止"的优先级较低；后续会通过给 `runProcessWithTimeout` 增加 `String? toolCallId` 可选参数 + 默认调用方批量补丁的方式一次性吞掉。
 * **v3 进程组 kill / MCP 连接池 / 设置项参数化 / v4 AST 准入 / 停滞检测**：保持原计划，不在本轮交付。
 
+---
+
+## 十、v2/v3/v4 续接落地说明（2026-05 后续）
+
+### 10.1 safe_subprocess 透传 toolCallId（v2 收尾）
+* `runProcessWithTimeout` 新增可选 `String? toolCallId`：非空时 `Process.start` 后立即 `attachPid` + `attachKiller`（SIGTERM → 500ms 宽限 → SIGKILL）。HTTP/Dart 工具不传即保持无副作用。
+* `AiReadLintsTool`：`_runAnalyze` 接 `toolCallId` 参数，从 `dispatchInput` 拿到调用 ID 注入。
+* `AiGitTool`：`_executeGitOperation`/`_run` 全量改用 `runProcessWithTimeout`，去掉直接 `Process.start`，所有 8 个 `_run(...)` 调用点都在闭包内拿到 `toolCallId`，工具用户能在卡片点 Stop 立即终止 git。
+* MCP stdio 之外所有内建工具的派生子进程因此都进入登记中心。
+
+### 10.2 进程组 kill：setsid 包装（v3）
+* 直接通过外部 `setsid` 二进制（`/usr/bin/setsid` / `/usr/local/bin/setsid` / `/opt/homebrew/bin/setsid` / `/bin/sh -lc 'command -v setsid'`）派生 bash，让 bash 成为新进程组的 leader，pid == pgid。
+* `_setsidProbe` 静态缓存探测结果，未命中 setsid 时 graceful 降级为原生派生路径（与 Windows 一致）。
+* `_processGroupLeaders` 记录所有以 leader 身份派生的 pid。
+* `_killProcess` 检测到 leader 时改走 `_sendSignalToProcessGroup(pid, 'TERM')`，等 500ms 仍存活再 `KILL`，等价于 `kill -- -PGID`，保证 bash 创建的子孙进程链一并结束。
+
+### 10.3 5s/45s 停滞监控 + 交互式 prompt 启发式（v4）
+* `BashToolExecutionUpdate` 新增 `String? stallWarning` 字段。持久 + 一次性两个执行路径都内嵌 `Timer.periodic(5s)` 看 `lastOutputAtMs`：超过 45 秒无新增 stdout/stderr 即触发一次告警 update。
+* 命中条件后再用 `_interactivePromptHeuristic`（覆盖 `(y/n)` / `Continue?` / `password:` / `Are you sure?` / `Press <Enter> to continue` 等）扫描末尾 1KB stdout/stderr，命中则把匹配片段拼进警告："已 45s 无新输出，疑似在等待交互式输入：…"。
+* `AiSessionController` onUpdate 把 `stallWarning` 透传到工具消息 metadata `tool_execution_stall_warning`；`_ToolCallBody` running 状态下显示 "可能停滞" chip + Tooltip 原文，命令重新有输出后 `stallWarningEmitted` 复位、警告自动消失。
+
+### 10.4 设置页观测面板（v2）
+* `_settings_active_tool_calls.dart`：订阅 `AiToolExecutionRegistry`，按行展示每个调用的 displayName / kind / pid / sessionId / elapsed，提供独立 Stop。
+* Active records 为空时不起 1s ticker，避免空转重绘。
+* 插在 `_SettingsSection.activeToolCalls`（AI 模型与内建工具之间），便于调试和"全局停止"后验证所有项是否都被迫中止。
+* 7 份 ARB 同步新增 `settingsActiveToolCallsTitle/Body/Empty/Cancel`。
+
+### 10.5 设置项参数化（v3，**待后续接力**）
+`subprocessGracefulShutdownMs` / `bashOutputMaxBytes` / `maxConcurrentTools` 三个设置仍是硬编码（500ms / 当前 `maxCapturedCharacters` / 8）。9 步流程（snapshot defaults+ctor+field+copyWith → settings_store read clamp+write → settings_controller field/getter/updateAiX → ai_session_runtime_context → openhand_home_page 两个 ctor 站点 + cache key list → 消费方 `static const` 改公有可变实例 → AiSessionController._captureLatestRuntimeContext 传播 → 7 份 ARB Label/Body/Save/Saved/Invalid + gen-l10n → settings_view UI controller/focus/init/dispose/sync/control/_save\*）需要单独成一次提交。
+
+
