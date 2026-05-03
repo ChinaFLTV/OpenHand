@@ -160,26 +160,26 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   //
   // Mechanics: `_materializedTailLimit` caps how many display messages
   // (counted from `_windowStartIndex`) `_visibleMessagesForWindow` will
-  // expose. `_dripTimer` ticks every 70 ms, increments the limit by 1
-  // and re-syncs render entries. Once the limit reaches the visible
-  // tail's true length the limit clears and the timer stops. New
-  // messages that arrive mid-drip are picked up automatically because
-  // each tick re-reads `widget.session.displayMessages.length`.
+  // expose. `_dripTimer` ticks every `_dripStepInterval`, increments
+  // the limit by 1 and re-syncs render entries. Once the limit reaches
+  // the visible tail's true length the limit clears and the timer
+  // stops. New messages that arrive mid-drip are picked up
+  // automatically because each tick re-reads
+  // `widget.session.displayMessages.length`.
   int? _materializedTailLimit;
   Timer? _dripTimer;
-  // 2026-05-04 (调优): 阈值 4 → 3 让三连发的工具调用也能享受
-  // 涩流；首批 2 → 1 减少"先一股脑挤进 2 张然后才慢慢漏"的
-  // 突兀感，改成"第一张到位后稳定地一张张追上来"；步长
-  // 70 → 120 → 150 ms：再放慢一档，给 elasticOut 主峰之外
-  // 后续的回弹收敛留够呼吸时间，每张卡片真正"安顿好"再让
-  // 下一张登场，整体观感从"踏点"升级为"从容落子"。
-  // 2026-05-02 (补强): 3 → 2，覆盖"两张新卡片同帧追加"场景。
-  // 现在只要一次 diff 里有多于 1 张新增卡片，就会进入串行
-  // materialization，避免双卡/混合类型卡片同帧挤入列表导致
-  // transcript 高度突跳、布局抖动和 markdown/code-block 解析峰值。
+  // 2026-05-04 → 2026-05-08 节奏校准：阈值锁定 2（任何"同帧 ≥2 张
+  // 新卡片"都进入串行 materialization，覆盖并行工具调用、AI 一次性
+  // 吐多张混合卡、撤销恢复批量回灌等所有"同时填装"场景）；
+  // 首批 chunk = 1 让首张卡片即刻到位避免"先空 400ms 再开始漏"
+  // 的迟滞感，剩余按 step 串行登场；步长 70→120→150→**400 ms** 再
+  // 放慢一大档：用户明确要求"绝不允许同帧塞多张消息卡片"，并以
+  // 400 ms 作为感官上"一张一张缓缓落子"的最小可感知间隔。配合
+  // 110 ms 入场 stagger（drip 模式下每 tick 仅 1 张 entering，
+  // stagger 自然失活），呈现"卡片→稳定→下一张"的 Q 弹节拍。
   static const int _dripStartChunkSize = 1;
   static const int _dripActivationThreshold = 2;
-  static const Duration _dripStepInterval = Duration(milliseconds: 150);
+  static const Duration _dripStepInterval = Duration(milliseconds: 400);
 
   @override
   void initState() {
