@@ -2780,6 +2780,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Voir la liste chargée (session actuelle)';
 
   @override
+  String get mcpToolSearchExportLastDirResetAction =>
+      'Réinitialiser le dossier d’export mémorisé';
+
+  @override
+  String get mcpToolSearchExportLastDirResetToast =>
+      'Dossier d’export mémorisé effacé';
+
+  @override
   String get mcpLazyLoadingNoActiveSession => 'Aucune session active';
 
   @override

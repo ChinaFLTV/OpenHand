@@ -162,4 +162,71 @@ void main() {
       expect(firstAi, lessThan(firstHardness));
     });
   });
+
+  group('ToolSearchHistorySerializer.fromJson', () {
+    test('round-trips entries produced by toJson', () {
+      final original = <AiToolSearchLoadHistoryEntry>[
+        AiToolSearchLoadHistoryEntry(
+          timestamp: DateTime.utc(2026, 5, 4, 10, 11, 12),
+          query: 'logs since yesterday',
+          addedNames: const ['mcp__journal__tail', 'mcp__journal__since'],
+          totalDeferred: 9,
+        ),
+        AiToolSearchLoadHistoryEntry(
+          timestamp: DateTime.utc(2026, 5, 5, 8, 30),
+          query: 'cpu profile flamegraph',
+          addedNames: const ['mcp__perf__flame'],
+          totalDeferred: 4,
+          source: AiToolSearchLoadSource.hardnessPhase,
+        ),
+      ];
+      final encoded = ToolSearchHistorySerializer.toJson(original);
+      final decoded = ToolSearchHistorySerializer.fromJson(encoded);
+      expect(decoded.length, 2);
+      for (var i = 0; i < original.length; i++) {
+        expect(decoded[i].timestamp, original[i].timestamp);
+        expect(decoded[i].query, original[i].query);
+        expect(decoded[i].addedNames, original[i].addedNames);
+        expect(decoded[i].totalDeferred, original[i].totalDeferred);
+        expect(decoded[i].source, original[i].source);
+      }
+    });
+
+    test('rejects unsupported version', () {
+      const payload = '{"version": 99, "entries": []}';
+      expect(
+        () => ToolSearchHistorySerializer.fromJson(payload),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('falls back to aiSession for unknown source string', () {
+      final payload = ToolSearchHistorySerializer.toJson(
+        <AiToolSearchLoadHistoryEntry>[
+          AiToolSearchLoadHistoryEntry(
+            timestamp: DateTime.utc(2026, 5, 5),
+            query: 'q',
+            addedNames: const ['x'],
+            totalDeferred: 1,
+          ),
+        ],
+      ).replaceFirst('"aiSession"', '"someFutureSource"');
+      final decoded = ToolSearchHistorySerializer.fromJson(payload);
+      expect(decoded.single.source, AiToolSearchLoadSource.aiSession);
+    });
+
+    test('rejects malformed JSON', () {
+      expect(
+        () => ToolSearchHistorySerializer.fromJson('not json'),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects non-object root', () {
+      expect(
+        () => ToolSearchHistorySerializer.fromJson('[]'),
+        throwsA(isA<FormatException>()),
+      );
+    });
+  });
 }

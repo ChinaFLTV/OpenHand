@@ -117,19 +117,61 @@
   "settingsHardnessToolSearchHistoryCapLabel": "Hardness ToolSearch 履歴の保持上限",
   "settingsHardnessToolSearchHistoryCapBody": "ToolSearch 読み込み済みダイアログが保持する Hardness phase の最大件数。超えた分は LRU で逆出されます。",
   "settingsHardnessToolSearchHistoryCapValue": "現在 {cap} 件の phase を保持中",
-  "@settingsHardnessToolSearchHistoryCapValue": {"placeholders": {"cap": {"type": "int"}}},
+  "@settingsHardnessToolSearchHistoryCapValue": {
+    "placeholders": {
+      "cap": {
+        "type": "int"
+      }
+    }
+  },
   "settingsHardnessToolSearchHistoryCapRange": "範囲: {min}–{max}（デフォルト 8）",
-  "@settingsHardnessToolSearchHistoryCapRange": {"placeholders": {"min": {"type": "int"}, "max": {"type": "int"}}},
+  "@settingsHardnessToolSearchHistoryCapRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "settingsHardnessToolSearchHistoryCapResetTooltip": "デフォルトにリセット（{defaultCap}）",
-  "@settingsHardnessToolSearchHistoryCapResetTooltip": {"placeholders": {"defaultCap": {"type": "int"}}},
+  "@settingsHardnessToolSearchHistoryCapResetTooltip": {
+    "placeholders": {
+      "defaultCap": {
+        "type": "int"
+      }
+    }
+  },
   "settingsToolSearchReplayCancelWindowLabel": "リプレイキャンセルされるまでの待ち時間",
   "settingsToolSearchReplayCancelWindowBody": "snackbar が送信するまでの秒数。期間中にキャンセルを押すとキャンセルされます。",
   "settingsToolSearchReplayCancelWindowValue": "ウィンドウ：{seconds} 秒",
-  "@settingsToolSearchReplayCancelWindowValue": {"placeholders": {"seconds": {"type": "int"}}},
+  "@settingsToolSearchReplayCancelWindowValue": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "settingsToolSearchReplayCancelWindowRange": "範囲：{min}–{max} 秒（デフォルト 3）",
-  "@settingsToolSearchReplayCancelWindowRange": {"placeholders": {"min": {"type": "int"}, "max": {"type": "int"}}},
+  "@settingsToolSearchReplayCancelWindowRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "settingsToolSearchReplayCancelWindowResetTooltip": "デフォルトにリセット（{defaultSeconds} 秒）",
-  "@settingsToolSearchReplayCancelWindowResetTooltip": {"placeholders": {"defaultSeconds": {"type": "int"}}},
+  "@settingsToolSearchReplayCancelWindowResetTooltip": {
+    "placeholders": {
+      "defaultSeconds": {
+        "type": "int"
+      }
+    }
+  },
   "settingsGeneralTitle": "一般",
   "settingsGeneralSubtitle": "テーマ、言語、アプリの基本情報を管理します。",
   "settingsAiSubtitle": "チャットモデル、認証、プロトコルアダプターを管理します。",
@@ -1070,15 +1112,23 @@
   "toolbarMcpLazyLoading": "MCP {loaded}/{total} ロード済",
   "@toolbarMcpLazyLoading": {
     "placeholders": {
-      "loaded": {"type": "int"},
-      "total": {"type": "int"}
+      "loaded": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "snackToolSearchLoaded": "ToolSearch が MCP ツールを {loaded}/{total} 件ロードしました",
   "@snackToolSearchLoaded": {
     "placeholders": {
-      "loaded": {"type": "int"},
-      "total": {"type": "int"}
+      "loaded": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "snackToolSearchLoadedAction": "一覧を表示",
@@ -1106,7 +1156,16 @@
   "snackToolSearchLoadedSourceFilterAi": "AI のみ",
   "snackToolSearchLoadedSourceFilterHardness": "Hardness のみ",
   "snackToolSearchLoadedSummary": "このセッションで {queries} 個のクエリから {tools} 個の MCP ツールをロード",
-  "@snackToolSearchLoadedSummary": {"placeholders": {"queries": {"type": "int"}, "tools": {"type": "int"}}},
+  "@snackToolSearchLoadedSummary": {
+    "placeholders": {
+      "queries": {
+        "type": "int"
+      },
+      "tools": {
+        "type": "int"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryReplayAction": "このバッチを select:… としてコピー",
   "snackToolSearchLoadedHistoryClearAction": "履歴をクリア",
   "snackToolSearchLoadedHistoryExportTooltip": "履歴をエクスポート",
@@ -1117,15 +1176,44 @@
   "snackToolSearchLoadedHistoryExportSaveMarkdown": "Markdown として保存…",
   "snackToolSearchLoadedHistoryExportSaveJson": "JSON として保存…",
   "snackToolSearchLoadedHistoryExportSavedToast": "{count} 件を {path} に保存しました",
-  "@snackToolSearchLoadedHistoryExportSavedToast": {"placeholders": {"count": {"type": "int"}, "path": {"type": "String"}}},
+  "@snackToolSearchLoadedHistoryExportSavedToast": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryExportSaveFailedToast": "保存に失敗しました：{error}",
-  "@snackToolSearchLoadedHistoryExportSaveFailedToast": {"placeholders": {"error": {"type": "String"}}},
+  "@snackToolSearchLoadedHistoryExportSaveFailedToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryExportRevealAction": "Finder で表示",
   "snackToolSearchLoadedHistoryExportEmptyToast": "フィルター適用後の履歴が空です。エクスポートできません。",
   "snackToolSearchLoadedHistoryExportedToast": "{count} 件の履歴をクリップボードにコピーしました。",
-  "@snackToolSearchLoadedHistoryExportedToast": {"placeholders": {"count": {"type": "int"}}},
+  "@snackToolSearchLoadedHistoryExportedToast": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryClearedToast": "ロード履歴をクリアしました",
   "mcpLazyLoadingViewLoadedAction": "現在のセッションのロード済み一覧を表示",
+  "mcpToolSearchExportLastDirResetAction": "保存されたエクスポート先をリセット",
+  "@mcpToolSearchExportLastDirResetAction": {
+    "description": "Settings -> MCP: button label that clears the remembered export folder for ToolSearch history dialog."
+  },
+  "mcpToolSearchExportLastDirResetToast": "エクスポート先の記憶をクリアしました",
+  "@mcpToolSearchExportLastDirResetToast": {
+    "description": "Settings: snackbar shown after clearing the remembered ToolSearch export folder."
+  },
   "mcpLazyLoadingNoActiveSession": "現在アクティブなセッションがありません",
   "toolbarRuntimeNotices": "{count} 件のランタイム通知",
   "@toolbarRuntimeNotices": {

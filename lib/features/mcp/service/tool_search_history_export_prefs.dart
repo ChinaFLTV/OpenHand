@@ -1,0 +1,70 @@
+import 'package:sqflite_common/sqlite_api.dart';
+
+import '../../../app/support/silent_log.dart';
+import '../../../shared/data/database_service.dart';
+
+/// 轻量 KV：记忆 ToolSearch 历史导出对话框上次落地目录，下次自动开在那。
+///
+/// 复用 `app_settings` 表（key/value），避免给 [AppSettingsSnapshot] 9 步管线
+/// 再加一个纯 UX 字段。设置 view 上提供 Reset 按钮调用 [clear]。
+class ToolSearchHistoryExportPrefs {
+  const ToolSearchHistoryExportPrefs._();
+
+  static const String _kLastDirKey = 'tool_search_history_export_last_dir';
+
+  static Database get _db => DatabaseService.instance.database;
+
+  /// 上次成功导出落地的目录路径；不存在时返回 null。
+  static Future<String?> readLastDir() async {
+    try {
+      final rows = await _db.query(
+        'app_settings',
+        where: 'key = ?',
+        whereArgs: <Object?>[_kLastDirKey],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      final v = rows.first['value'] as String?;
+      if (v == null || v.trim().isEmpty) return null;
+      return v;
+    } catch (error, stack) {
+      silentLog('tool_search_history_export_prefs', 'readLastDir', error, stack);
+      return null;
+    }
+  }
+
+  /// 写入 / 覆盖上次导出目录；空字符串等同于 [clear]。
+  static Future<void> writeLastDir(String dir) async {
+    final trimmed = dir.trim();
+    if (trimmed.isEmpty) {
+      await clear();
+      return;
+    }
+    try {
+      await _db.insert('app_settings', <String, Object?>{
+        'key': _kLastDirKey,
+        'value': trimmed,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (error, stack) {
+      silentLog(
+        'tool_search_history_export_prefs',
+        'writeLastDir',
+        error,
+        stack,
+      );
+    }
+  }
+
+  /// 清除已记忆的目录（Settings 中的 Reset 按钮）。
+  static Future<void> clear() async {
+    try {
+      await _db.delete(
+        'app_settings',
+        where: 'key = ?',
+        whereArgs: <Object?>[_kLastDirKey],
+      );
+    } catch (error, stack) {
+      silentLog('tool_search_history_export_prefs', 'clear', error, stack);
+    }
+  }
+}

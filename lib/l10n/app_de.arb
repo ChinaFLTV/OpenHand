@@ -117,19 +117,61 @@
   "settingsHardnessToolSearchHistoryCapLabel": "Hardness ToolSearch Verlaufslimit",
   "settingsHardnessToolSearchHistoryCapBody": "Maximale Anzahl letzter Hardness-Phasen, für die der ToolSearch-Verlauf im Dialog „Geladene Liste“ gespeichert bleibt. Ältere Phasen werden per LRU verworfen.",
   "settingsHardnessToolSearchHistoryCapValue": "Zurzeit werden die letzten {cap} Phase(n) gespeichert",
-  "@settingsHardnessToolSearchHistoryCapValue": {"placeholders": {"cap": {"type": "int"}}},
+  "@settingsHardnessToolSearchHistoryCapValue": {
+    "placeholders": {
+      "cap": {
+        "type": "int"
+      }
+    }
+  },
   "settingsHardnessToolSearchHistoryCapRange": "Bereich: {min}–{max} (Standard 8)",
-  "@settingsHardnessToolSearchHistoryCapRange": {"placeholders": {"min": {"type": "int"}, "max": {"type": "int"}}},
+  "@settingsHardnessToolSearchHistoryCapRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "settingsHardnessToolSearchHistoryCapResetTooltip": "Auf Standard zurücksetzen ({defaultCap})",
-  "@settingsHardnessToolSearchHistoryCapResetTooltip": {"placeholders": {"defaultCap": {"type": "int"}}},
+  "@settingsHardnessToolSearchHistoryCapResetTooltip": {
+    "placeholders": {
+      "defaultCap": {
+        "type": "int"
+      }
+    }
+  },
   "settingsToolSearchReplayCancelWindowLabel": "Wiedergabe-Abbruchfenster",
   "settingsToolSearchReplayCancelWindowBody": "Wartezeit der Snackbar vor dem Senden; innerhalb des Fensters kann mit Abbrechen verworfen werden.",
   "settingsToolSearchReplayCancelWindowValue": "Fenster: {seconds} s",
-  "@settingsToolSearchReplayCancelWindowValue": {"placeholders": {"seconds": {"type": "int"}}},
+  "@settingsToolSearchReplayCancelWindowValue": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "settingsToolSearchReplayCancelWindowRange": "Bereich: {min}–{max} s (Standard 3)",
-  "@settingsToolSearchReplayCancelWindowRange": {"placeholders": {"min": {"type": "int"}, "max": {"type": "int"}}},
+  "@settingsToolSearchReplayCancelWindowRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "settingsToolSearchReplayCancelWindowResetTooltip": "Auf Standard zurücksetzen ({defaultSeconds} s)",
-  "@settingsToolSearchReplayCancelWindowResetTooltip": {"placeholders": {"defaultSeconds": {"type": "int"}}},
+  "@settingsToolSearchReplayCancelWindowResetTooltip": {
+    "placeholders": {
+      "defaultSeconds": {
+        "type": "int"
+      }
+    }
+  },
   "settingsGeneralTitle": "Allgemein",
   "settingsGeneralSubtitle": "Verwalte Thema, Sprache und grundlegende App-Informationen.",
   "settingsAiSubtitle": "Chat-Modelle, Authentifizierung und Protokolladapter verwalten.",
@@ -1070,15 +1112,23 @@
   "toolbarMcpLazyLoading": "MCP {loaded}/{total} geladen",
   "@toolbarMcpLazyLoading": {
     "placeholders": {
-      "loaded": {"type": "int"},
-      "total": {"type": "int"}
+      "loaded": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "snackToolSearchLoaded": "ToolSearch hat {loaded}/{total} MCP-Tool(s) geladen",
   "@snackToolSearchLoaded": {
     "placeholders": {
-      "loaded": {"type": "int"},
-      "total": {"type": "int"}
+      "loaded": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "snackToolSearchLoadedAction": "Liste anzeigen",
@@ -1106,7 +1156,16 @@
   "snackToolSearchLoadedSourceFilterAi": "Nur KI",
   "snackToolSearchLoadedSourceFilterHardness": "Nur Hardness",
   "snackToolSearchLoadedSummary": "{tools} MCP-Tool(s) aus {queries} Anfrage(n) in dieser Sitzung geladen",
-  "@snackToolSearchLoadedSummary": {"placeholders": {"queries": {"type": "int"}, "tools": {"type": "int"}}},
+  "@snackToolSearchLoadedSummary": {
+    "placeholders": {
+      "queries": {
+        "type": "int"
+      },
+      "tools": {
+        "type": "int"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryReplayAction": "Diese Charge als select:… kopieren",
   "snackToolSearchLoadedHistoryClearAction": "Verlauf leeren",
   "snackToolSearchLoadedHistoryExportTooltip": "Verlauf exportieren",
@@ -1117,15 +1176,44 @@
   "snackToolSearchLoadedHistoryExportSaveMarkdown": "Als Markdown speichern…",
   "snackToolSearchLoadedHistoryExportSaveJson": "Als JSON speichern…",
   "snackToolSearchLoadedHistoryExportSavedToast": "{count} Einträge in {path} gespeichert",
-  "@snackToolSearchLoadedHistoryExportSavedToast": {"placeholders": {"count": {"type": "int"}, "path": {"type": "String"}}},
+  "@snackToolSearchLoadedHistoryExportSavedToast": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryExportSaveFailedToast": "Speichern fehlgeschlagen: {error}",
-  "@snackToolSearchLoadedHistoryExportSaveFailedToast": {"placeholders": {"error": {"type": "String"}}},
+  "@snackToolSearchLoadedHistoryExportSaveFailedToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryExportRevealAction": "Im Finder anzeigen",
   "snackToolSearchLoadedHistoryExportEmptyToast": "Verlauf nach Filterung leer; nichts zu exportieren.",
   "snackToolSearchLoadedHistoryExportedToast": "{count} Verlaufseinträge in die Zwischenablage kopiert.",
-  "@snackToolSearchLoadedHistoryExportedToast": {"placeholders": {"count": {"type": "int"}}},
+  "@snackToolSearchLoadedHistoryExportedToast": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryClearedToast": "Ladeverlauf geleert",
   "mcpLazyLoadingViewLoadedAction": "Geladene Liste der aktuellen Sitzung anzeigen",
+  "mcpToolSearchExportLastDirResetAction": "Gespeicherten Exportordner zurücksetzen",
+  "@mcpToolSearchExportLastDirResetAction": {
+    "description": "Settings -> MCP: button label that clears the remembered export folder for ToolSearch history dialog."
+  },
+  "mcpToolSearchExportLastDirResetToast": "Gespeicherter Exportordner gelöscht",
+  "@mcpToolSearchExportLastDirResetToast": {
+    "description": "Settings: snackbar shown after clearing the remembered ToolSearch export folder."
+  },
   "mcpLazyLoadingNoActiveSession": "Derzeit keine aktive Sitzung",
   "toolbarRuntimeNotices": "{count} Laufzeit-Hinweise",
   "@toolbarRuntimeNotices": {

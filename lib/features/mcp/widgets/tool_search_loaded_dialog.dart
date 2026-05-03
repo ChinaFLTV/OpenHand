@@ -1,13 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../ai/service/mcp_loaded_tools_tracker.dart';
+import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
 
 /// 弹出 [ToolSearchLoadedDialog] 的便捷入口。
@@ -273,10 +276,13 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       extensions: <String>[ext],
     );
     FileSaveLocation? location;
+    final lastDir = await ToolSearchHistoryExportPrefs.readLastDir();
+    if (!mounted) return;
     try {
       location = await getSaveLocation(
         suggestedName: suggested,
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
+        initialDirectory: lastDir,
       );
     } catch (error, stack) {
       silentLog(
@@ -319,6 +325,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     }
     if (!mounted) return;
     final savedPath = location.path;
+    // Remember the directory for next export.
+    unawaited(ToolSearchHistoryExportPrefs.writeLastDir(p.dirname(savedPath)));
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
         content: Text(

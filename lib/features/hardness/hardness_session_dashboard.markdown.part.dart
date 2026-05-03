@@ -739,63 +739,12 @@ void _heSanitizeMarkdownAst(List<md.Node> nodes) {
 // _HePill — matches _ToolbarPill (surfaceContainerHighest bg, primary icon, h:32)
 // =============================================================================
 
-class _HePill extends StatelessWidget {
-  const _HePill({
-    required this.icon,
-    required this.label,
-    this.onTap,
-    this.foregroundColor,
-  });
+// =============================================================================
+// _HePill — backed by shared `OhPill` so other panels can reuse the visual.
+// Typedef keeps existing call sites (`const _HePill(...)`) compiling untouched.
+// =============================================================================
 
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  final Color? foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final resolvedForeground = foregroundColor ?? theme.colorScheme.primary;
-    final child = Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: _br999,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: resolvedForeground),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.fade,
-            softWrap: false,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: foregroundColor ?? theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-    if (onTap == null) return child;
-    return Material(
-      color: Colors.transparent,
-      borderRadius: _br999,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: _br999,
-        overlayColor: WidgetStatePropertyAll<Color>(
-          theme.colorScheme.primary.withValues(alpha: 0.08),
-        ),
-        child: child,
-      ),
-    );
-  }
-}
+typedef _HePill = OhPill;
 
 // =============================================================================
 // _HeOutputLinesDial — mirrors _TokenDial but for CLI output lines

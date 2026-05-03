@@ -2619,6 +2619,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpLazyLoadingViewLoadedAction => '現在のセッションのロード済み一覧を表示';
 
   @override
+  String get mcpToolSearchExportLastDirResetAction => '保存されたエクスポート先をリセット';
+
+  @override
+  String get mcpToolSearchExportLastDirResetToast => 'エクスポート先の記憶をクリアしました';
+
+  @override
   String get mcpLazyLoadingNoActiveSession => '現在アクティブなセッションがありません';
 
   @override

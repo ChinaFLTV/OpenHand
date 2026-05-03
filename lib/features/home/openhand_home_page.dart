@@ -6151,6 +6151,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 },
                 replayPendingDeadlineListenable:
                     _toolSearchReplayDispatcher.pendingDeadlineListenable,
+                onCancelPendingReplay: _toolSearchReplayDispatcher.cancel,
               )
             : SectionPlaceholder(
                 icon: Icons.construction_rounded,

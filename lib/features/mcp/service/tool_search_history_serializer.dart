@@ -99,4 +99,77 @@ class ToolSearchHistorySerializer {
     };
     return const JsonEncoder.withIndent('  ').convert(root);
   }
+
+  /// 反向解析由 [toJson] 生成的字符串。仅识别 `version: 1` 协议；其它版本
+  /// 抛 [FormatException]。容忍：
+  ///   - `entries` 中条目缺少 `query`/`added_names` 时分别回落 `''` / `<>`；
+  ///   - `source` 字符串非已知 enum 时回落 [AiToolSearchLoadSource.aiSession]；
+  ///   - `timestamp` 非法 ISO8601 抛 [FormatException]。
+  ///
+  /// 返回的 entries 顺序与 JSON 中 `entries` 数组顺序一致（与 [toJson] 对称）。
+  static List<AiToolSearchLoadHistoryEntry> fromJson(String source) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(source);
+    } on FormatException catch (e) {
+      throw FormatException('ToolSearchHistorySerializer.fromJson: ${e.message}');
+    }
+    if (decoded is! Map) {
+      throw const FormatException(
+        'ToolSearchHistorySerializer.fromJson: root must be a JSON object',
+      );
+    }
+    final version = decoded['version'];
+    if (version != 1) {
+      throw FormatException(
+        'ToolSearchHistorySerializer.fromJson: unsupported version $version',
+      );
+    }
+    final raw = decoded['entries'];
+    if (raw is! List) {
+      throw const FormatException(
+        'ToolSearchHistorySerializer.fromJson: "entries" must be a JSON array',
+      );
+    }
+    final result = <AiToolSearchLoadHistoryEntry>[];
+    for (var i = 0; i < raw.length; i++) {
+      final row = raw[i];
+      if (row is! Map) {
+        throw FormatException(
+          'ToolSearchHistorySerializer.fromJson: entries[$i] must be a JSON object',
+        );
+      }
+      final tsRaw = row['timestamp'];
+      if (tsRaw is! String) {
+        throw FormatException(
+          'ToolSearchHistorySerializer.fromJson: entries[$i].timestamp missing or not a string',
+        );
+      }
+      final timestamp = DateTime.parse(tsRaw);
+      final sourceName = row['source'];
+      final src = AiToolSearchLoadSource.values.firstWhere(
+        (s) => s.name == sourceName,
+        orElse: () => AiToolSearchLoadSource.aiSession,
+      );
+      final query = (row['query'] is String) ? row['query'] as String : '';
+      final addedNames = <String>[
+        if (row['added_names'] is List)
+          for (final n in row['added_names'] as List)
+            if (n is String) n,
+      ];
+      final totalDeferred = (row['total_deferred'] is num)
+          ? (row['total_deferred'] as num).toInt()
+          : 0;
+      result.add(
+        AiToolSearchLoadHistoryEntry(
+          timestamp: timestamp,
+          query: query,
+          addedNames: addedNames,
+          totalDeferred: totalDeferred,
+          source: src,
+        ),
+      );
+    }
+    return result;
+  }
 }

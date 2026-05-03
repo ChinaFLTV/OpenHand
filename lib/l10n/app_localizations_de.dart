@@ -2763,6 +2763,14 @@ class AppLocalizationsDe extends AppLocalizations {
       'Geladene Liste der aktuellen Sitzung anzeigen';
 
   @override
+  String get mcpToolSearchExportLastDirResetAction =>
+      'Gespeicherten Exportordner zurücksetzen';
+
+  @override
+  String get mcpToolSearchExportLastDirResetToast =>
+      'Gespeicherter Exportordner gelöscht';
+
+  @override
   String get mcpLazyLoadingNoActiveSession => 'Derzeit keine aktive Sitzung';
 
   @override

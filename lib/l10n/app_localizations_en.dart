@@ -2731,6 +2731,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'View loaded list (current session)';
 
   @override
+  String get mcpToolSearchExportLastDirResetAction =>
+      'Reset remembered export folder';
+
+  @override
+  String get mcpToolSearchExportLastDirResetToast =>
+      'Tool search export folder cleared';
+
+  @override
   String get mcpLazyLoadingNoActiveSession => 'No active session right now';
 
   @override

@@ -4966,6 +4966,18 @@ abstract class AppLocalizations {
   /// **'查看本会话已加载列表'**
   String get mcpLazyLoadingViewLoadedAction;
 
+  /// Settings -> MCP: button label that clears the remembered export folder for ToolSearch history dialog.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清除记忆的导出目录'**
+  String get mcpToolSearchExportLastDirResetAction;
+
+  /// Settings: snackbar shown after clearing the remembered ToolSearch export folder.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已清除导出目录记忆'**
+  String get mcpToolSearchExportLastDirResetToast;
+
   /// No description provided for @mcpLazyLoadingNoActiveSession.
   ///
   /// In zh_Hans, this message translates to:

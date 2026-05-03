@@ -56,6 +56,7 @@ import '../crons/crons_controller.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/model/mcp_lazy_loading_mode.dart';
+import '../mcp/service/tool_search_history_export_prefs.dart';
 import '../mcp/widgets/tool_search_loaded_dialog.dart';
 import '../memory/memory_controller.dart';
 import '../skills/skills_controller.dart';
@@ -2768,6 +2769,15 @@ class _SettingsViewState extends State<SettingsView> {
             label: Text(l10n.mcpLazyLoadingViewLoadedAction),
           ),
         ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            onPressed: () => _resetToolSearchExportLastDir(context),
+            icon: const Icon(Icons.restart_alt_rounded, size: 18),
+            label: Text(l10n.mcpToolSearchExportLastDirResetAction),
+          ),
+        ),
         const SizedBox(height: 12),
         _ResponsiveSettingRow(
           title: l10n.mcpLazyLoadingModeLabel,
@@ -4166,6 +4176,18 @@ class _SettingsViewState extends State<SettingsView> {
       names: names,
       history: history,
       onClear: () => aiCtrl.clearLoadedMcpToolsForSession(sessionId),
+    );
+  }
+
+  /// 清除 ToolSearch 历史导出对话框记忆的「上次落地目录」，让下次导出回到
+  /// 系统默认位置（macOS Documents / Windows %USERPROFILE% 等）。
+  Future<void> _resetToolSearchExportLastDir(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    await ToolSearchHistoryExportPrefs.clear();
+    if (!context.mounted) return;
+    _showSnackBar(
+      context,
+      l10n.mcpToolSearchExportLastDirResetToast,
     );
   }
 

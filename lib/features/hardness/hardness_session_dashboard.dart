@@ -21,6 +21,7 @@ import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';
 import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/model_search_selector.dart';
+import '../../shared/widgets/oh_pill.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
 import '../home/message_path_linking.dart';
@@ -29,6 +30,7 @@ import 'hardness_orchestrator.dart';
 import 'model/hardness_phase.dart';
 import 'model/hardness_role_config.dart';
 import 'model/hardness_session_config.dart';
+import 'widgets/hardness_pending_replay_badge.dart';
 
 // 2026-04-27 Split scaffolding (step 0). The implementation is being
 // progressively extracted into per-section part files. Each part shares the
@@ -849,6 +851,7 @@ class HardnessSessionPane extends StatefulWidget {
     this.controller,
     this.filePathRoots = const [],
     this.replayPendingDeadlineListenable,
+    this.onCancelPendingReplay,
   });
 
   final HardnessSessionConfig config;
@@ -888,6 +891,10 @@ class HardnessSessionPane extends StatefulWidget {
   /// header 右侧出现一个「撤销 Ns」倒计时 chip。顶层从
   /// `ToolSearchReplayDispatcher.pendingDeadlineListenable` 取。
   final ValueListenable<DateTime?>? replayPendingDeadlineListenable;
+
+  /// 点击「撤销 Ns」chip 时回调，通常接到
+  /// [ToolSearchReplayDispatcher.cancel] 立即取消重放。
+  final VoidCallback? onCancelPendingReplay;
 
   @override
   State<HardnessSessionPane> createState() => _HardnessSessionPaneState();
@@ -1654,6 +1661,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
           onToggleFullAccess: widget.onToggleFullAccessPermission,
           replayPendingDeadlineListenable:
               widget.replayPendingDeadlineListenable,
+          onCancelPendingReplay: widget.onCancelPendingReplay,
         ),
         const SizedBox(height: 12),
         Expanded(child: _buildFeed(context)),

@@ -116,19 +116,61 @@
   "settingsHardnessToolSearchHistoryCapLabel": "Hardness ToolSearch 历史保留上限",
   "settingsHardnessToolSearchHistoryCapBody": "ToolSearch 已加载列表对话框保留的 Hardness phase 最大个数，超出后以 LRU 淘汰。",
   "settingsHardnessToolSearchHistoryCapValue": "当前保留最近 {cap} 个 phase",
-  "@settingsHardnessToolSearchHistoryCapValue": {"placeholders": {"cap": {"type": "int"}}},
+  "@settingsHardnessToolSearchHistoryCapValue": {
+    "placeholders": {
+      "cap": {
+        "type": "int"
+      }
+    }
+  },
   "settingsHardnessToolSearchHistoryCapRange": "范围：{min}–{max}（默认 8）",
-  "@settingsHardnessToolSearchHistoryCapRange": {"placeholders": {"min": {"type": "int"}, "max": {"type": "int"}}},
+  "@settingsHardnessToolSearchHistoryCapRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "settingsHardnessToolSearchHistoryCapResetTooltip": "重置为默认值（{defaultCap}）",
-  "@settingsHardnessToolSearchHistoryCapResetTooltip": {"placeholders": {"defaultCap": {"type": "int"}}},
+  "@settingsHardnessToolSearchHistoryCapResetTooltip": {
+    "placeholders": {
+      "defaultCap": {
+        "type": "int"
+      }
+    }
+  },
   "settingsToolSearchReplayCancelWindowLabel": "重放反悔窗口",
   "settingsToolSearchReplayCancelWindowBody": "snackbar 在发送前等待的秒数；期间点取消即可撤销。",
   "settingsToolSearchReplayCancelWindowValue": "窗口：{seconds} 秒",
-  "@settingsToolSearchReplayCancelWindowValue": {"placeholders": {"seconds": {"type": "int"}}},
+  "@settingsToolSearchReplayCancelWindowValue": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "settingsToolSearchReplayCancelWindowRange": "范围：{min}–{max} 秒（默认 3）",
-  "@settingsToolSearchReplayCancelWindowRange": {"placeholders": {"min": {"type": "int"}, "max": {"type": "int"}}},
+  "@settingsToolSearchReplayCancelWindowRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "settingsToolSearchReplayCancelWindowResetTooltip": "重置为默认值（{defaultSeconds} 秒）",
-  "@settingsToolSearchReplayCancelWindowResetTooltip": {"placeholders": {"defaultSeconds": {"type": "int"}}},
+  "@settingsToolSearchReplayCancelWindowResetTooltip": {
+    "placeholders": {
+      "defaultSeconds": {
+        "type": "int"
+      }
+    }
+  },
   "mcpLazyLoadingHowItWorks": "懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。",
   "settingsGeneralTitle": "常规",
   "settingsGeneralSubtitle": "管理主题、语言与应用基础信息。",
@@ -1071,15 +1113,23 @@
   "toolbarMcpLazyLoading": "MCP 已载 {loaded}/{total}",
   "@toolbarMcpLazyLoading": {
     "placeholders": {
-      "loaded": {"type": "int"},
-      "total": {"type": "int"}
+      "loaded": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "snackToolSearchLoaded": "ToolSearch 已加载 {loaded}/{total} 个 MCP 工具",
   "@snackToolSearchLoaded": {
     "placeholders": {
-      "loaded": {"type": "int"},
-      "total": {"type": "int"}
+      "loaded": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "snackToolSearchLoadedAction": "查看列表",
@@ -1107,7 +1157,16 @@
   "snackToolSearchLoadedSourceFilterAi": "仅 AI",
   "snackToolSearchLoadedSourceFilterHardness": "仅 Hardness",
   "snackToolSearchLoadedSummary": "本会话已从 {queries} 个查询中加载 {tools} 个 MCP 工具",
-  "@snackToolSearchLoadedSummary": {"placeholders": {"queries": {"type": "int"}, "tools": {"type": "int"}}},
+  "@snackToolSearchLoadedSummary": {
+    "placeholders": {
+      "queries": {
+        "type": "int"
+      },
+      "tools": {
+        "type": "int"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryReplayAction": "把本次复制为 select:…",
   "snackToolSearchLoadedHistoryClearAction": "清空历史",
   "snackToolSearchLoadedHistoryExportTooltip": "导出历史",
@@ -1118,15 +1177,44 @@
   "snackToolSearchLoadedHistoryExportSaveMarkdown": "保存为 Markdown…",
   "snackToolSearchLoadedHistoryExportSaveJson": "保存为 JSON…",
   "snackToolSearchLoadedHistoryExportSavedToast": "已保存 {count} 条到 {path}",
-  "@snackToolSearchLoadedHistoryExportSavedToast": {"placeholders": {"count": {"type": "int"}, "path": {"type": "String"}}},
+  "@snackToolSearchLoadedHistoryExportSavedToast": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryExportSaveFailedToast": "保存失败：{error}",
-  "@snackToolSearchLoadedHistoryExportSaveFailedToast": {"placeholders": {"error": {"type": "String"}}},
+  "@snackToolSearchLoadedHistoryExportSaveFailedToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryExportRevealAction": "在访谈器中显示",
   "snackToolSearchLoadedHistoryExportEmptyToast": "过滤后历史为空，无可导出。",
   "snackToolSearchLoadedHistoryExportedToast": "已复制 {count} 条历史到剪贴板。",
-  "@snackToolSearchLoadedHistoryExportedToast": {"placeholders": {"count": {"type": "int"}}},
+  "@snackToolSearchLoadedHistoryExportedToast": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "snackToolSearchLoadedHistoryClearedToast": "加载历史已清空",
   "mcpLazyLoadingViewLoadedAction": "查看本会话已加载列表",
+  "mcpToolSearchExportLastDirResetAction": "清除记忆的导出目录",
+  "@mcpToolSearchExportLastDirResetAction": {
+    "description": "Settings -> MCP: button label that clears the remembered export folder for ToolSearch history dialog."
+  },
+  "mcpToolSearchExportLastDirResetToast": "已清除导出目录记忆",
+  "@mcpToolSearchExportLastDirResetToast": {
+    "description": "Settings: snackbar shown after clearing the remembered ToolSearch export folder."
+  },
   "mcpLazyLoadingNoActiveSession": "当前没有正在活动的会话",
   "@toolbarRuntimeNotices": {
     "placeholders": {

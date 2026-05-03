@@ -2586,6 +2586,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpLazyLoadingViewLoadedAction => '查看本会话已加载列表';
 
   @override
+  String get mcpToolSearchExportLastDirResetAction => '清除记忆的导出目录';
+
+  @override
+  String get mcpToolSearchExportLastDirResetToast => '已清除导出目录记忆';
+
+  @override
   String get mcpLazyLoadingNoActiveSession => '当前没有正在活动的会话';
 
   @override
@@ -7151,6 +7157,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpLazyLoadingViewLoadedAction => '查看本会话已加载列表';
 
   @override
+  String get mcpToolSearchExportLastDirResetAction => '清除记忆的导出目录';
+
+  @override
+  String get mcpToolSearchExportLastDirResetToast => '已清除导出目录记忆';
+
+  @override
   String get mcpLazyLoadingNoActiveSession => '当前没有正在活动的会话';
 
   @override
@@ -11713,6 +11725,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpLazyLoadingViewLoadedAction => '檢視本會話已載入清單';
+
+  @override
+  String get mcpToolSearchExportLastDirResetAction => '清除記憶的匯出目錄';
+
+  @override
+  String get mcpToolSearchExportLastDirResetToast => '已清除匯出目錄記憶';
 
   @override
   String get mcpLazyLoadingNoActiveSession => '目前沒有進行中的會話';
