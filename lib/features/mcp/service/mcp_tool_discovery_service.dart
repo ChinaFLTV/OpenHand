@@ -45,11 +45,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     : _client = client ?? SystemProxyResolver.instance.createHttpClient();
 
   static const Duration _scanTimeout = Duration(seconds: 8);
-  // stdio 首次冷启动通常要跑 npx / uvx 拉远端包（chrome-devtools-mcp 这类
-  // 还要顺带装 puppeteer 浏览器二进制），8 秒经常不够。给 stdio 单独放宽。
-  static const Duration _stdioScanTimeout = Duration(seconds: 90);
+  // stdio 首次冷启动通常要跑 npx / uvx 拉远端包；chrome-devtools-mcp 这类
+  // 还要顺带装 puppeteer + Chrome Beta（≈250MB），普通家宽 3~5 分钟很常见。
+  // 给 stdio 单独大幅放宽到 6 分钟（扫描）/ 4 分钟（健康检查），命中缓存后
+  // 下次会瞬间返回，不影响热路径。
+  static const Duration _stdioScanTimeout = Duration(minutes: 6);
   static const Duration _healthCheckTimeout = Duration(seconds: 6);
-  static const Duration _stdioHealthCheckTimeout = Duration(seconds: 60);
+  static const Duration _stdioHealthCheckTimeout = Duration(minutes: 4);
   static const Duration _requestTimeout = Duration(seconds: 6);
   static const Duration _toolCallTimeout = Duration(seconds: 30);
   static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
@@ -2398,19 +2400,23 @@ String _friendlyTimeoutMessage(
     'health' => 'health check / 健康检查',
     _ => stage,
   };
+  final humanLimit = limit.inSeconds >= 90
+      ? '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} 分钟'
+      : '${limit.inSeconds} 秒';
   return AiTransportDiagnosticMessages.format(
     title: 'MCP timed out · MCP 超时 [${server.name}]',
     reason:
-        '$stageLabel 在 ${limit.inSeconds} 秒内未完成。常见诱因：\n'
-        '  · stdio 服务进程启动慢 (npx / uvx 首次 cold start 拉镜像 / 依赖)\n'
+        '$stageLabel 在 $humanLimit 内未完成。常见诱因：\n'
+        '  · stdio 服务进程启动慢 (npx / uvx 首次 cold start 拉镜像 / 依赖，'
+        'chrome-devtools-mcp 这类还会下载 Chrome Beta ≈250MB)\n'
         '  · HTTP / SSE 服务被网络层 (代理 / 防火墙) 拦在中途\n'
         '  · 服务自身内部死锁或在等待外部 API 响应\n'
         '  · 该机器 CPU / IO 极度繁忙',
     try_:
-        '· 等几秒后再试 (尤其 npx / uvx 首启会下载依赖)\n'
-        '· 在终端独立运行 server.command 验证启动耗时\n'
-        '· 提高 MCP 扫描超时阈值或拆分配置\n'
-        '· 检查代理 / 防火墙是否拦截了出站 / 上游连接',
+        '· 在终端单独跑一遍 server.command 看下载是否走得通 (网络/代理/镜像源)\n'
+        '· 已把 stdio 缓存隔离到 ~/.openhand/mcp/package-cache，可手动 rm -rf 重置\n'
+        '· 首启过后命中缓存即恢复秒级，故失败可直接重试\n'
+        '· 必要时给 npm/uv 配镜像源 (例：~/.npmrc → registry=https://registry.npmmirror.com)',
     raw: label,
   );
 }
