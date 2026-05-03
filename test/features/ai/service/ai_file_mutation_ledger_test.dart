@@ -160,4 +160,55 @@ void main() {
     expect(outcome.success, isFalse);
     expect(outcome.errorMessage, contains('blob'));
   });
+
+  // ─── 阶段⑥a 配置 + 自动修剪 ───
+  test('LedgerConfig fromJson/toJson 双向 + clamp 越界值', () {
+    final raw = LedgerConfig(maxVersionsPerFile: 999, autoCleanupDays: -5)
+        .toJson();
+    final restored = LedgerConfig.fromJson(raw);
+    expect(restored.maxVersionsPerFile,
+        equals(LedgerConfig.maxMaxVersionsPerFile));
+    expect(restored.autoCleanupDays,
+        equals(LedgerConfig.minAutoCleanupDays));
+
+    final mid = LedgerConfig.fromJson(<String, Object?>{
+      'max_versions_per_file': 5,
+      'auto_cleanup_days': 7,
+    });
+    expect(mid.maxVersionsPerFile, 5);
+    expect(mid.autoCleanupDays, 7);
+  });
+
+  test('saveConfig 落盘后 loadConfig 取回相同值', () async {
+    await ledger.saveConfig(
+      const LedgerConfig(maxVersionsPerFile: 4, autoCleanupDays: 14),
+    );
+    // 新实例从同一 root 读
+    final ledger2 = AiFileMutationLedger(rootDirectoryOverride: tmp.path);
+    final cfg = await ledger2.loadConfig();
+    expect(cfg.maxVersionsPerFile, 4);
+    expect(cfg.autoCleanupDays, 14);
+  });
+
+  test('recordMutation 后 _trimSessionFileVersions 自动截断到 maxVersionsPerFile',
+      () async {
+    final f = await stagingFile('foo.txt', '0');
+    await ledger.saveConfig(
+      const LedgerConfig(maxVersionsPerFile: 3, autoCleanupDays: 0),
+    );
+    for (var i = 0; i < 6; i++) {
+      await ledger.recordMutation(
+        sessionId: 's1',
+        toolCallId: 'tc$i',
+        toolName: 'Edit',
+        filePath: f.path,
+        kind: FileMutationKind.modify,
+        beforeContent: '$i',
+        afterContent: '${i + 1}',
+      );
+    }
+    final remaining = await ledger.recordsForSession('s1');
+    expect(remaining.length, 3,
+        reason: '只应保留最近 3 条同文件记录');
+  });
 }
