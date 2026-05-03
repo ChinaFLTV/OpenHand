@@ -71,6 +71,7 @@ import '../ai/service/ai_bash_tool_service.dart';
 import '../ai/service/ai_chat_service.dart';
 import '../ai/service/ai_claude_hook_service.dart';
 import '../ai/service/ai_file_history_service.dart';
+import '../ai/service/ai_file_mutation_ledger.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_session_jsonl_exporter.dart';
