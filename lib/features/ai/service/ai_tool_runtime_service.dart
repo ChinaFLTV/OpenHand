@@ -21,6 +21,7 @@ import 'ai_bash_tool_service.dart';
 import 'ai_chat_service.dart';
 import 'ai_claude_hook_service.dart';
 import 'ai_file_history_service.dart';
+import 'ai_file_mutation_ledger.dart';
 import 'ai_file_tracker_service.dart';
 import 'ai_protocol_adapter.dart';
 import 'ai_tool_execution_registry.dart';
@@ -190,6 +191,7 @@ class AiToolRuntimeService {
     Future<List<InternetAddress>> Function(String host)? hostLookup,
     AiFileTrackerService? fileTrackerService,
     AiFileHistoryService? fileHistoryService,
+    AiFileMutationLedger? mutationLedger,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
   }) : _bashToolService = bashToolService,
@@ -200,7 +202,8 @@ class AiToolRuntimeService {
            httpClient ?? SystemProxyResolver.instance.createHttpClient(),
        _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
        _fileTracker = fileTrackerService ?? AiFileTrackerService(),
-       _fileHistory = fileHistoryService ?? AiFileHistoryService() {
+       _fileHistory = fileHistoryService ?? AiFileHistoryService(),
+       _mutationLedger = mutationLedger ?? AiFileMutationLedger() {
     // 2026-04-01 02:02:39 初始化完整服务依赖注入的多态工具注册中心
     _toolRegistry = AiToolRegistry.withServiceDependencies(
       bashToolService: _bashToolService,
@@ -228,12 +231,17 @@ class AiToolRuntimeService {
   // 2026-04-12: 文件追踪和历史版本服务
   final AiFileTrackerService _fileTracker;
   final AiFileHistoryService _fileHistory;
+  final AiFileMutationLedger _mutationLedger;
 
   /// 获取文件追踪服务（供外部访问，如会话重置时清理）
   AiFileTrackerService get fileTracker => _fileTracker;
 
   /// 获取文件历史服务（供外部访问，如回滚功能）
   AiFileHistoryService get fileHistory => _fileHistory;
+
+  /// 2026-05-03 — 新型文件变动 ledger（全局单例，供工具钩子/UI
+  /// 联动 undo/redo 使用）。
+  AiFileMutationLedger get mutationLedger => _mutationLedger;
 
   static const int _maxToolNameLength = 64;
 

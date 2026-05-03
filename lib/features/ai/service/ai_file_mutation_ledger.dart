@@ -1,0 +1,698 @@
+// 2026-05-03 — 文件变动 ledger（内容寻址 + 撤销/重做 + 级联追踪）。
+//
+// 存储布局（位于 ~/.openhand/file_history/ 之下）：
+//
+//   blobs/<sha[0..2]>/<sha>.txt       内容寻址的 UTF-8 文本 blob（去重）
+//   sessions/<sessionId>/ledger.jsonl  追加式变动日志，每行一条 MutationRecord
+//   sessions/<sessionId>/state.json    {"undone":["<recordId>", ...]}
+//
+// 核心语义：每次文件级写操作（Write/Edit/MultiEdit/NotebookEdit/DeleteFile/
+// Bash 写入/MCP 文件写入等）在工具执行钩子里调用 [recordMutation] 同时落
+// before/after 两份内容；撤销 X 时把磁盘文件恢复为 X.before 并把"X 之后所
+// 有发生在同一文件上的记录"标记为 undone（级联）；重做 X 时把磁盘文件恢
+// 复为 X.after 并仅清除 X 自己的 undone 标志。
+//
+// 该服务对底层备份缺失/损坏/IO 失败等做兜底：所有读写都走 silentLog，对
+// 调用方暴露 success 标志而非抛出，UI 据此显示降级提示。
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as p;
+
+import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/silent_log.dart';
+import '../../../shared/data/atomic_file_operations.dart';
+
+enum FileMutationKind { create, modify, delete }
+
+class FileMutationRecord {
+  const FileMutationRecord({
+    required this.recordId,
+    required this.sessionId,
+    required this.toolCallId,
+    required this.toolName,
+    required this.filePath,
+    required this.kind,
+    required this.createdAt,
+    required this.beforeSha,
+    required this.afterSha,
+    required this.beforeSize,
+    required this.afterSize,
+  });
+
+  final String recordId;
+  final String sessionId;
+  final String toolCallId;
+  final String toolName;
+  final String filePath;
+  final FileMutationKind kind;
+  final DateTime createdAt;
+  final String? beforeSha;
+  final String? afterSha;
+  final int beforeSize;
+  final int afterSize;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': recordId,
+    'session_id': sessionId,
+    'tool_call_id': toolCallId,
+    'tool_name': toolName,
+    'path': filePath,
+    'kind': kind.name,
+    'ts': createdAt.toUtc().toIso8601String(),
+    'before_sha': beforeSha,
+    'after_sha': afterSha,
+    'before_size': beforeSize,
+    'after_size': afterSize,
+  };
+
+  static FileMutationRecord? tryFromJson(Map<String, Object?> json, {required String sessionId}) {
+    final id = json['id'] as String?;
+    if (id == null || id.isEmpty) return null;
+    final kindName = '${json['kind'] ?? 'modify'}';
+    final kind = FileMutationKind.values.firstWhere(
+      (k) => k.name == kindName,
+      orElse: () => FileMutationKind.modify,
+    );
+    return FileMutationRecord(
+      recordId: id,
+      sessionId: sessionId,
+      toolCallId: '${json['tool_call_id'] ?? ''}',
+      toolName: '${json['tool_name'] ?? ''}',
+      filePath: '${json['path'] ?? ''}',
+      kind: kind,
+      createdAt: DateTime.tryParse('${json['ts'] ?? ''}')?.toUtc() ?? DateTime.now().toUtc(),
+      beforeSha: json['before_sha'] as String?,
+      afterSha: json['after_sha'] as String?,
+      beforeSize: (json['before_size'] as num?)?.toInt() ?? 0,
+      afterSize: (json['after_size'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// UI 渲染所需的派生状态（由 ledger 在查询时一次性算好）。
+class FileMutationView {
+  const FileMutationView({
+    required this.record,
+    required this.directlyUndone,
+    required this.cascadeUndone,
+    required this.canUndo,
+    required this.canRedo,
+  });
+
+  final FileMutationRecord record;
+
+  /// 用户主动按了"撤销"。
+  final bool directlyUndone;
+
+  /// 因为同文件上更早的记录被撤销而被连带失效。
+  final bool cascadeUndone;
+
+  /// 当前是否处于可执行"撤销"的状态。
+  final bool canUndo;
+
+  /// 当前是否处于可执行"重做"的状态。
+  final bool canRedo;
+
+  bool get isEffectivelyUndone => directlyUndone || cascadeUndone;
+}
+
+class FileMutationOutcome {
+  const FileMutationOutcome._({required this.success, this.errorMessage = ''});
+  const FileMutationOutcome.ok() : this._(success: true);
+  const FileMutationOutcome.fail(String message) : this._(success: false, errorMessage: message);
+
+  final bool success;
+  final String errorMessage;
+}
+
+class AiFileMutationLedger {
+  AiFileMutationLedger({String? rootDirectoryOverride})
+    : _rootOverride = rootDirectoryOverride;
+
+  final String? _rootOverride;
+  final Random _rand = Random.secure();
+  bool _migratedLegacy = false;
+
+  String get _root =>
+      _rootOverride ?? p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history');
+
+  Directory _blobsDir() => Directory(p.join(_root, 'blobs'));
+  Directory _sessionsDir() => Directory(p.join(_root, 'sessions'));
+  Directory _sessionDir(String sessionId) => Directory(p.join(_sessionsDir().path, _safeSessionId(sessionId)));
+  File _ledgerFile(String sessionId) => File(p.join(_sessionDir(sessionId).path, 'ledger.jsonl'));
+  File _stateFile(String sessionId) => File(p.join(_sessionDir(sessionId).path, 'state.json'));
+
+  Future<void> _ensureInitialized() async {
+    try {
+      final blobs = _blobsDir();
+      if (!await blobs.exists()) await blobs.create(recursive: true);
+      final sessions = _sessionsDir();
+      if (!await sessions.exists()) await sessions.create(recursive: true);
+      if (!_migratedLegacy) {
+        _migratedLegacy = true;
+        unawaited(_migrateLegacyTempStorage());
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'init', error, stack);
+    }
+  }
+
+  /// 一次性把 [Directory.systemTemp]/.openhand-file-history 的旧扁平结构
+  /// 拷贝为 ledger 友好的 blob，丢失的元数据用合成 record 兜底。失败不
+  /// 影响主流程，旧目录最终被删除。
+  Future<void> _migrateLegacyTempStorage() async {
+    try {
+      final legacyDir = Directory(p.join(Directory.systemTemp.path, '.openhand-file-history'));
+      if (!await legacyDir.exists()) return;
+      // 旧布局：<hash>/<versionId>.{content,meta.json}
+      await for (final entity in legacyDir.list()) {
+        if (entity is! Directory) continue;
+        await for (final file in entity.list()) {
+          if (file is! File || !file.path.endsWith('.content')) continue;
+          try {
+            final content = await file.readAsString();
+            await _writeBlobIfMissing(_sha256Of(content), content);
+          } catch (error, stack) {
+            silentLog('ai_file_mutation_ledger', 'migrate blob', error, stack);
+          }
+        }
+      }
+      try {
+        await legacyDir.delete(recursive: true);
+      } catch (error, stack) {
+        silentLog('ai_file_mutation_ledger', 'delete legacy dir', error, stack);
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'migrate legacy', error, stack);
+    }
+  }
+
+  /// 记录一次文件级变动，同时持久化 before/after 两份内容（去重）。
+  Future<FileMutationRecord?> recordMutation({
+    required String sessionId,
+    required String toolCallId,
+    required String toolName,
+    required String filePath,
+    required FileMutationKind kind,
+    required String? beforeContent,
+    required String? afterContent,
+  }) async {
+    if (sessionId.trim().isEmpty || filePath.trim().isEmpty) return null;
+    await _ensureInitialized();
+    try {
+      final sessionDir = _sessionDir(sessionId);
+      if (!await sessionDir.exists()) await sessionDir.create(recursive: true);
+
+      String? beforeSha;
+      int beforeSize = 0;
+      if (beforeContent != null) {
+        beforeSha = _sha256Of(beforeContent);
+        beforeSize = utf8.encode(beforeContent).length;
+        await _writeBlobIfMissing(beforeSha, beforeContent);
+      }
+      String? afterSha;
+      int afterSize = 0;
+      if (afterContent != null) {
+        afterSha = _sha256Of(afterContent);
+        afterSize = utf8.encode(afterContent).length;
+        await _writeBlobIfMissing(afterSha, afterContent);
+      }
+
+      final recordId =
+          '${DateTime.now().toUtc().millisecondsSinceEpoch}_${_randomSuffix()}';
+      final record = FileMutationRecord(
+        recordId: recordId,
+        sessionId: sessionId,
+        toolCallId: toolCallId,
+        toolName: toolName,
+        filePath: p.normalize(filePath),
+        kind: kind,
+        createdAt: DateTime.now().toUtc(),
+        beforeSha: beforeSha,
+        afterSha: afterSha,
+        beforeSize: beforeSize,
+        afterSize: afterSize,
+      );
+      final ledger = _ledgerFile(sessionId);
+      final line = '${jsonEncode(record.toJson())}\n';
+      await ledger.writeAsString(line, mode: FileMode.append, flush: true);
+      return record;
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'recordMutation', error, stack);
+      return null;
+    }
+  }
+
+  Future<List<FileMutationRecord>> recordsForSession(String sessionId) async {
+    if (sessionId.trim().isEmpty) return const <FileMutationRecord>[];
+    await _ensureInitialized();
+    final ledger = _ledgerFile(sessionId);
+    if (!await ledger.exists()) return const <FileMutationRecord>[];
+    final records = <FileMutationRecord>[];
+    try {
+      final lines = await ledger.readAsLines();
+      for (final raw in lines) {
+        final trimmed = raw.trim();
+        if (trimmed.isEmpty) continue;
+        try {
+          final json = jsonDecode(trimmed) as Map<String, Object?>;
+          final record = FileMutationRecord.tryFromJson(json, sessionId: sessionId);
+          if (record != null) records.add(record);
+        } catch (error, stack) {
+          silentLog('ai_file_mutation_ledger', 'parse ledger line', error, stack);
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'read ledger', error, stack);
+    }
+    records.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return records;
+  }
+
+  Future<List<FileMutationView>> viewsForToolCall({
+    required String sessionId,
+    required String toolCallId,
+  }) async {
+    if (toolCallId.trim().isEmpty) return const <FileMutationView>[];
+    final all = await recordsForSession(sessionId);
+    final undone = await _loadUndoneSet(sessionId);
+    final views = <FileMutationView>[];
+    for (final r in all) {
+      if (r.toolCallId != toolCallId) continue;
+      views.add(_buildView(r, all, undone));
+    }
+    return views;
+  }
+
+  Future<FileMutationView?> viewForRecord({
+    required String sessionId,
+    required String recordId,
+  }) async {
+    final all = await recordsForSession(sessionId);
+    final record = all.where((r) => r.recordId == recordId).firstOrNull;
+    if (record == null) return null;
+    final undone = await _loadUndoneSet(sessionId);
+    return _buildView(record, all, undone);
+  }
+
+  FileMutationView _buildView(
+    FileMutationRecord record,
+    List<FileMutationRecord> all,
+    Set<String> undoneSet,
+  ) {
+    final directlyUndone = undoneSet.contains(record.recordId);
+    var cascadeUndone = false;
+    if (!directlyUndone) {
+      // 级联：同文件上、时间更早的记录被直接撤销 → 由于撤销会把"X 及之后
+      // 同文件记录"全部置为 undone，理论上若是级联也会落入 undoneSet。这
+      // 里再做一次保险性推断：若 undoneSet 里存在同文件更早记录，则视为
+      // 级联失效。
+      for (final earlier in all) {
+        if (earlier.recordId == record.recordId) break;
+        if (earlier.filePath != record.filePath) continue;
+        if (undoneSet.contains(earlier.recordId)) {
+          cascadeUndone = true;
+          break;
+        }
+      }
+    } else {
+      // directlyUndone 也可能是被级联打的；如果同文件更早记录也在 undoneSet
+      // 里，则视为"被级联"而非"直接撤销"。
+      for (final earlier in all) {
+        if (earlier.recordId == record.recordId) break;
+        if (earlier.filePath != record.filePath) continue;
+        if (undoneSet.contains(earlier.recordId)) {
+          cascadeUndone = true;
+          break;
+        }
+      }
+    }
+    final canUndo = !directlyUndone && !cascadeUndone;
+    final canRedo = directlyUndone || cascadeUndone;
+    return FileMutationView(
+      record: record,
+      directlyUndone: directlyUndone && !cascadeUndone,
+      cascadeUndone: cascadeUndone,
+      canUndo: canUndo,
+      canRedo: canRedo,
+    );
+  }
+
+  /// 撤销：把磁盘恢复到 [recordId] 的 before 状态，并把同文件上 ts >=
+  /// recordId 的所有记录都标记 undone（级联）。
+  Future<FileMutationOutcome> undoRecord({
+    required String sessionId,
+    required String recordId,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final all = await recordsForSession(sessionId);
+      final target = all.where((r) => r.recordId == recordId).firstOrNull;
+      if (target == null) return const FileMutationOutcome.fail('record-not-found');
+
+      // 恢复磁盘：before 为 null 表示这是 create，撤销 = 删除磁盘文件。
+      final outFile = File(target.filePath);
+      if (target.beforeSha == null) {
+        if (await outFile.exists()) {
+          try {
+            await outFile.delete();
+          } catch (error, stack) {
+            silentLog('ai_file_mutation_ledger', 'undo delete', error, stack);
+            return FileMutationOutcome.fail('delete-failed:$error');
+          }
+        }
+      } else {
+        final beforeContent = await _readBlob(target.beforeSha!);
+        if (beforeContent == null) {
+          return const FileMutationOutcome.fail('before-blob-missing');
+        }
+        try {
+          await outFile.parent.create(recursive: true);
+          await writeFileAtomically(outFile, beforeContent);
+        } catch (error, stack) {
+          silentLog('ai_file_mutation_ledger', 'undo write', error, stack);
+          return FileMutationOutcome.fail('restore-failed:$error');
+        }
+      }
+
+      // 级联标记
+      final undone = await _loadUndoneSet(sessionId);
+      for (final r in all) {
+        if (r.filePath != target.filePath) continue;
+        if (!r.createdAt.isBefore(target.createdAt)) {
+          undone.add(r.recordId);
+        }
+      }
+      await _saveUndoneSet(sessionId, undone);
+      return const FileMutationOutcome.ok();
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'undoRecord', error, stack);
+      return FileMutationOutcome.fail('$error');
+    }
+  }
+
+  /// 重做：把磁盘恢复为 [recordId] 的 after，并仅清除自己的 undone 标志。
+  Future<FileMutationOutcome> redoRecord({
+    required String sessionId,
+    required String recordId,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final all = await recordsForSession(sessionId);
+      final target = all.where((r) => r.recordId == recordId).firstOrNull;
+      if (target == null) return const FileMutationOutcome.fail('record-not-found');
+
+      final outFile = File(target.filePath);
+      if (target.afterSha == null) {
+        // delete 类型：重做 = 删除文件
+        if (await outFile.exists()) {
+          try {
+            await outFile.delete();
+          } catch (error, stack) {
+            silentLog('ai_file_mutation_ledger', 'redo delete', error, stack);
+            return FileMutationOutcome.fail('delete-failed:$error');
+          }
+        }
+      } else {
+        final afterContent = await _readBlob(target.afterSha!);
+        if (afterContent == null) {
+          return const FileMutationOutcome.fail('after-blob-missing');
+        }
+        try {
+          await outFile.parent.create(recursive: true);
+          await writeFileAtomically(outFile, afterContent);
+        } catch (error, stack) {
+          silentLog('ai_file_mutation_ledger', 'redo write', error, stack);
+          return FileMutationOutcome.fail('restore-failed:$error');
+        }
+      }
+
+      final undone = await _loadUndoneSet(sessionId);
+      undone.remove(recordId);
+      await _saveUndoneSet(sessionId, undone);
+      return const FileMutationOutcome.ok();
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'redoRecord', error, stack);
+      return FileMutationOutcome.fail('$error');
+    }
+  }
+
+  Future<String?> readBlob(String sha) => _readBlob(sha);
+
+  // ─────────────────────── 维护 / 数据清理 ───────────────────────
+
+  Future<int> totalSizeBytes() async {
+    await _ensureInitialized();
+    var total = 0;
+    try {
+      final root = Directory(_root);
+      if (!await root.exists()) return 0;
+      await for (final entity in root.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          try {
+            total += await entity.length();
+          } catch (error, stack) {
+            silentLog('ai_file_mutation_ledger', 'size single', error, stack);
+          }
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'totalSizeBytes', error, stack);
+    }
+    return total;
+  }
+
+  Future<void> clearAll() async {
+    try {
+      final root = Directory(_root);
+      if (await root.exists()) {
+        await root.delete(recursive: true);
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'clearAll', error, stack);
+    }
+  }
+
+  Future<void> clearSession(String sessionId) async {
+    try {
+      final dir = _sessionDir(sessionId);
+      if (await dir.exists()) await dir.delete(recursive: true);
+      // 不主动 GC blobs，避免影响其他会话引用；总清理时统一处理。
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'clearSession', error, stack);
+    }
+    await gcUnreferencedBlobs();
+  }
+
+  /// 清理所有非 [keepSessionIds] 列出的会话目录。
+  Future<int> clearSessionsExcept(Set<String> keepSessionIds) async {
+    var removed = 0;
+    try {
+      final sessions = _sessionsDir();
+      if (!await sessions.exists()) return 0;
+      final keep = keepSessionIds.map(_safeSessionId).toSet();
+      await for (final entity in sessions.list()) {
+        if (entity is! Directory) continue;
+        if (keep.contains(p.basename(entity.path))) continue;
+        try {
+          await entity.delete(recursive: true);
+          removed++;
+        } catch (error, stack) {
+          silentLog('ai_file_mutation_ledger', 'clearSessionsExcept', error, stack);
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'clearSessionsExcept', error, stack);
+    }
+    await gcUnreferencedBlobs();
+    return removed;
+  }
+
+  /// 删除最早 `now - retention` 之前的全部会话 ledger（同时回收 blob）。
+  Future<int> pruneOlderThan(Duration retention) async {
+    var removed = 0;
+    try {
+      final cutoff = DateTime.now().subtract(retention);
+      final sessions = _sessionsDir();
+      if (!await sessions.exists()) return 0;
+      await for (final entity in sessions.list()) {
+        if (entity is! Directory) continue;
+        try {
+          final stat = await entity.stat();
+          if (stat.modified.isBefore(cutoff)) {
+            await entity.delete(recursive: true);
+            removed++;
+          }
+        } catch (error, stack) {
+          silentLog('ai_file_mutation_ledger', 'pruneOlderThan', error, stack);
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'pruneOlderThan', error, stack);
+    }
+    await gcUnreferencedBlobs();
+    return removed;
+  }
+
+  /// 对每个文件每个会话只保留最近 [maxVersionsPerFile] 条记录的 before/after
+  /// 引用；老记录从 ledger 中物理移除。返回被移除的记录条数。
+  Future<int> pruneToMaxVersionsPerFile(int maxVersionsPerFile) async {
+    if (maxVersionsPerFile <= 0) return 0;
+    var removed = 0;
+    try {
+      final sessions = _sessionsDir();
+      if (!await sessions.exists()) return 0;
+      await for (final entity in sessions.list()) {
+        if (entity is! Directory) continue;
+        final sessionId = p.basename(entity.path);
+        final records = await recordsForSession(sessionId);
+        // 按文件分组，按时间倒序保留前 N 条。
+        final byFile = <String, List<FileMutationRecord>>{};
+        for (final r in records) {
+          byFile.putIfAbsent(r.filePath, () => <FileMutationRecord>[]).add(r);
+        }
+        final keepIds = <String>{};
+        byFile.forEach((_, list) {
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          for (final r in list.take(maxVersionsPerFile)) {
+            keepIds.add(r.recordId);
+          }
+        });
+        final survivors = records.where((r) => keepIds.contains(r.recordId)).toList();
+        removed += records.length - survivors.length;
+        // 重写 ledger
+        final ledger = _ledgerFile(sessionId);
+        if (survivors.isEmpty) {
+          if (await ledger.exists()) await ledger.delete();
+        } else {
+          final buffer = StringBuffer();
+          for (final r in survivors) {
+            buffer.writeln(jsonEncode(r.toJson()));
+          }
+          await writeFileAtomically(ledger, buffer.toString());
+        }
+        // 同步精简 undone 集合
+        final undone = await _loadUndoneSet(sessionId);
+        undone.removeWhere((id) => !keepIds.contains(id));
+        await _saveUndoneSet(sessionId, undone);
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'pruneToMaxVersionsPerFile', error, stack);
+    }
+    await gcUnreferencedBlobs();
+    return removed;
+  }
+
+  /// 删除没有任何 ledger 引用的 blob。容错：失败仅日志，不抛出。
+  Future<void> gcUnreferencedBlobs() async {
+    try {
+      final referenced = <String>{};
+      final sessions = _sessionsDir();
+      if (await sessions.exists()) {
+        await for (final entity in sessions.list()) {
+          if (entity is! Directory) continue;
+          final records = await recordsForSession(p.basename(entity.path));
+          for (final r in records) {
+            if (r.beforeSha != null) referenced.add(r.beforeSha!);
+            if (r.afterSha != null) referenced.add(r.afterSha!);
+          }
+        }
+      }
+      final blobs = _blobsDir();
+      if (!await blobs.exists()) return;
+      await for (final shard in blobs.list()) {
+        if (shard is! Directory) continue;
+        await for (final blob in shard.list()) {
+          if (blob is! File) continue;
+          final basename = p.basenameWithoutExtension(blob.path);
+          if (!referenced.contains(basename)) {
+            try {
+              await blob.delete();
+            } catch (error, stack) {
+              silentLog('ai_file_mutation_ledger', 'gc blob', error, stack);
+            }
+          }
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'gcUnreferencedBlobs', error, stack);
+    }
+  }
+
+  // ───────────────────────── 内部工具 ─────────────────────────
+
+  Future<Set<String>> _loadUndoneSet(String sessionId) async {
+    try {
+      final state = _stateFile(sessionId);
+      if (!await state.exists()) return <String>{};
+      final raw = await state.readAsString();
+      if (raw.trim().isEmpty) return <String>{};
+      final parsed = jsonDecode(raw);
+      if (parsed is Map<String, Object?>) {
+        final list = parsed['undone'];
+        if (list is List) {
+          return list.whereType<String>().toSet();
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'loadUndoneSet', error, stack);
+    }
+    return <String>{};
+  }
+
+  Future<void> _saveUndoneSet(String sessionId, Set<String> undone) async {
+    try {
+      final dir = _sessionDir(sessionId);
+      if (!await dir.exists()) await dir.create(recursive: true);
+      final state = _stateFile(sessionId);
+      await writeFileAtomically(
+        state,
+        jsonEncode(<String, Object?>{'undone': undone.toList()..sort()}),
+      );
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'saveUndoneSet', error, stack);
+    }
+  }
+
+  Future<void> _writeBlobIfMissing(String sha, String content) async {
+    final shard = sha.substring(0, 2);
+    final dir = Directory(p.join(_blobsDir().path, shard));
+    final file = File(p.join(dir.path, '$sha.txt'));
+    if (await file.exists()) return;
+    if (!await dir.exists()) await dir.create(recursive: true);
+    await writeFileAtomically(file, content);
+  }
+
+  Future<String?> _readBlob(String sha) async {
+    try {
+      final shard = sha.substring(0, 2);
+      final file = File(p.join(_blobsDir().path, shard, '$sha.txt'));
+      if (!await file.exists()) return null;
+      return await file.readAsString();
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'readBlob', error, stack);
+      return null;
+    }
+  }
+
+  String _sha256Of(String content) {
+    return sha256.convert(utf8.encode(content)).toString();
+  }
+
+  String _randomSuffix() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    return List<String>.generate(6, (_) => chars[_rand.nextInt(chars.length)]).join();
+  }
+
+  String _safeSessionId(String raw) {
+    final trimmed = raw.trim();
+    return trimmed.replaceAll(RegExp(r'[^a-zA-Z0-9_\-.]'), '_');
+  }
+}
+
+

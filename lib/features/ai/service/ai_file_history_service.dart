@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/data/atomic_file_operations.dart';
 
@@ -20,10 +21,18 @@ class AiFileHistoryService {
   final int maxVersionsPerFile;
 
   /// 获取历史版本存储目录
+  ///
+  /// 2026-05-03 — 默认路径从 `Directory.systemTemp/.openhand-file-history`
+  /// 切换到 `~/.openhand/file_history/legacy_versions/`，与其他 OpenHand
+  /// 应用数据位置保持一致，供全局「数据清理」控制。
   Future<Directory> _getHistoryDir() async {
     final baseDir =
         _historyDirectory ??
-        p.join(Directory.systemTemp.path, '.openhand-file-history');
+        p.join(
+          OpenHandPaths.defaultRootDirectoryPath(),
+          'file_history',
+          'legacy_versions',
+        );
     final dir = Directory(baseDir);
     if (!await dir.exists()) {
       await dir.create(recursive: true);
