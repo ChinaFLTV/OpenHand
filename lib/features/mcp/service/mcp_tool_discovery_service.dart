@@ -425,10 +425,15 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_StdioSession> _initializeStdioSession(McpServer server) async {
+    final resolved = _resolveStdioLaunch(server);
     final session = _StdioSession(
       process: await Process.start(
-        server.command,
-        server.args,
+        resolved.executable,
+        resolved.args,
+        environment: resolved.environment,
+        // Windows .cmd / .bat / .ps1 launchers (e.g. `npx.cmd`) only resolve
+        // through the shell. On macOS / Linux we already resolved an absolute
+        // path, so direct exec keeps argv quoting honest.
         runInShell: Platform.isWindows,
       ),
       requestTimeout: _requestTimeout,
@@ -1532,6 +1537,127 @@ class _LegacySseSession {
   }
 }
 
+/// 解析 MCP stdio 配置中的 `command`，把它升级成 *绝对路径 + 增强 PATH 的环境*。
+///
+/// 背景：从 Finder / Xcode / VS Code 启动的 macOS Flutter 应用，子进程继承到的
+/// `PATH` 通常只剩 `/usr/bin:/bin:/usr/sbin:/sbin`，缺少 Homebrew (`/opt/homebrew/bin`、
+/// `/usr/local/bin`)、`npm -g`、`pipx`、`uv`、`bun`、`deno`、`cargo`、`volta`、
+/// `fnm` 等开发工具的 bin 目录。结果就是用户写 `npx chrome-devtools-mcp@latest`
+/// 这类配置时被 `errno=2 (No such file or directory)` 拒绝。这里在实际 `Process.start`
+/// 之前显式补全候选目录，并把命令名解析成绝对路径，避免命中 OS 默认 PATH。
+class _ResolvedStdioLaunch {
+  const _ResolvedStdioLaunch({
+    required this.executable,
+    required this.args,
+    required this.environment,
+    required this.augmentedPath,
+  });
+
+  final String executable;
+  final List<String> args;
+  final Map<String, String> environment;
+  final String augmentedPath;
+}
+
+_ResolvedStdioLaunch _resolveStdioLaunch(McpServer server) {
+  final separator = Platform.isWindows ? ';' : ':';
+  final originalPath = Platform.environment['PATH'] ?? '';
+  final originalSegments = originalPath
+      .split(separator)
+      .map((segment) => segment.trim())
+      .where((segment) => segment.isNotEmpty)
+      .toList(growable: false);
+
+  final extraSegments = <String>[];
+  final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+  if (Platform.isMacOS) {
+    extraSegments.addAll(const [
+      '/opt/homebrew/bin',
+      '/opt/homebrew/sbin',
+      '/usr/local/bin',
+      '/usr/local/sbin',
+    ]);
+  } else if (Platform.isLinux) {
+    extraSegments.addAll(const [
+      '/usr/local/bin',
+      '/usr/local/sbin',
+      '/snap/bin',
+    ]);
+  }
+  if (home != null && home.isNotEmpty) {
+    if (Platform.isWindows) {
+      extraSegments.addAll([
+        '$home\\AppData\\Roaming\\npm',
+        '$home\\AppData\\Local\\Programs\\Python\\Python312\\Scripts',
+        '$home\\.cargo\\bin',
+        '$home\\.bun\\bin',
+        '$home\\.deno\\bin',
+        '$home\\.local\\bin',
+      ]);
+    } else {
+      extraSegments.addAll([
+        '$home/.npm-global/bin',
+        '$home/.local/bin',
+        '$home/.cargo/bin',
+        '$home/.bun/bin',
+        '$home/.deno/bin',
+        '$home/.volta/bin',
+      ]);
+    }
+  }
+
+  final mergedSegments = <String>[];
+  final seen = <String>{};
+  for (final segment in [...originalSegments, ...extraSegments]) {
+    if (seen.add(segment)) {
+      mergedSegments.add(segment);
+    }
+  }
+  final mergedPath = mergedSegments.join(separator);
+
+  final rawCommand = server.command.trim();
+  String executable = rawCommand;
+  final containsSeparator = rawCommand.contains('/') ||
+      (Platform.isWindows && rawCommand.contains('\\'));
+  if (rawCommand.isNotEmpty && !containsSeparator) {
+    final candidates = <String>[rawCommand];
+    if (Platform.isWindows) {
+      final lower = rawCommand.toLowerCase();
+      const exts = ['.cmd', '.bat', '.exe', '.ps1'];
+      for (final ext in exts) {
+        if (!lower.endsWith(ext)) {
+          candidates.add('$rawCommand$ext');
+        }
+      }
+    }
+    for (final dir in mergedSegments) {
+      var hit = false;
+      for (final candidate in candidates) {
+        final full = dir.endsWith(Platform.pathSeparator)
+            ? '$dir$candidate'
+            : '$dir${Platform.pathSeparator}$candidate';
+        try {
+          if (File(full).existsSync()) {
+            executable = full;
+            hit = true;
+            break;
+          }
+        } catch (_) {
+          // 沙盒 / 权限问题：忽略此目录继续。
+        }
+      }
+      if (hit) break;
+    }
+  }
+
+  return _ResolvedStdioLaunch(
+    executable: executable,
+    args: server.args,
+    environment: <String, String>{'PATH': mergedPath},
+    augmentedPath: mergedPath,
+  );
+}
+
 class _StdioSession {
   _StdioSession({required Process process, required Duration requestTimeout})
     : _process = process,
@@ -1930,22 +2056,32 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
     return AiTransportDiagnosticMessages.httpClient(error, contextLabel: label);
   }
   if (error is ProcessException) {
+    String pathHint;
+    try {
+      pathHint = _resolveStdioLaunch(server).augmentedPath;
+    } catch (_) {
+      pathHint = Platform.environment['PATH'] ?? '';
+    }
+    if (pathHint.isEmpty) pathHint = '(空)';
     return AiTransportDiagnosticMessages.format(
       title: 'MCP stdio launch failed · MCP 进程启动失败 [${server.name}]',
       reason:
           '尝试以子进程方式启动 MCP 服务时被操作系统拒绝：\n'
           '  · 命令: ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
           '  · 退出 / errno: ${error.errorCode}\n'
+          '  · 解析后的 PATH: $pathHint\n'
           '常见诱因：\n'
-          '  · 命令拼写错误 / 不在 PATH 上 (例如未安装 npx / node / uvx)\n'
+          '  · 命令不在 PATH 上 (GUI 启动的应用 PATH 极简，不含 Homebrew / nvm / volta / npm-global 等)\n'
+          '  · 命令拼写错误 / 二进制未安装 (例如未装 Node 就写了 npx)\n'
           '  · 可执行文件缺少执行权限 (chmod +x)\n'
           '  · 依赖未安装 (例如 npm 包未 install / Python venv 未激活)\n'
           '  · 沙盒 / SIP / Gatekeeper 拒绝该二进制运行',
       try_:
-          '· 在终端单独运行该命令复现报错\n'
+          '· 在终端独立运行该命令复现报错：`which npx && npx <pkg>`\n'
+          '· 把 command 改成绝对路径 (如 /opt/homebrew/bin/npx) 再保存\n'
+          '· 用 nvm / volta 的用户：在登录 shell 启动应用，或用 corepack/volta shim\n'
           '· 检查 PATH 与可执行权限\n'
-          '· 重新安装该 MCP 工具的依赖\n'
-          '· 查看系统 console 是否有 Gatekeeper 拦截记录',
+          '· 重新安装该 MCP 工具的依赖',
       raw: error.message.isEmpty ? null : error.message,
     );
   }

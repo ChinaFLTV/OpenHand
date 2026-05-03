@@ -260,7 +260,9 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
 
     return ListView.separated(
       key: const ValueKey<String>('mcp-list'),
-      padding: const EdgeInsets.only(bottom: 12),
+      // 顶部留 1.5px 缓冲：ListView 视口在 y=0 处会把卡片描边的最上一像素切掉，
+      // 滚动后看上去像「第一张卡片少了上边框」。在所有列表面板里都这样补。
+      padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
       itemCount: servers.length,
       cacheExtent: 600,
       separatorBuilder: (context, index) => const SizedBox(height: 14),

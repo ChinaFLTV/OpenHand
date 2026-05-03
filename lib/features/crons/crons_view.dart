@@ -94,6 +94,8 @@ class CronsView extends StatelessWidget {
                       context,
                     ).copyWith(scrollbars: false),
                     child: ListView.separated(
+                      // 顶部 2px 缓冲，避免滚动到顶时第一张卡的描边被视口剪掉。
+                      padding: const EdgeInsets.only(top: 2),
                       itemCount: entries.length,
                       separatorBuilder: (context, index) =>
                           const SizedBox(height: 12),

@@ -181,7 +181,7 @@ class InstructionsView extends StatelessWidget {
         final entry = snapshot.entries[index];
         return Padding(
           key: ValueKey(entry.id),
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
           child: SettingsAwareAppearOnce(
             child: RepaintBoundary(
               child: _InstructionCard(

@@ -283,7 +283,7 @@ class _SkillsViewState extends State<SkillsView> {
             ? constraints.maxWidth
             : 380.0;
         return GridView.builder(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: maxCrossAxisExtent,
             mainAxisSpacing: 16,

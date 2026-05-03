@@ -247,7 +247,7 @@ class MemoryView extends StatelessWidget {
 
     return ListView.separated(
       key: const ValueKey<String>('memory-list'),
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
       itemCount: items.length,
       cacheExtent: 600,
       separatorBuilder: (context, index) => const SizedBox(height: 14),
