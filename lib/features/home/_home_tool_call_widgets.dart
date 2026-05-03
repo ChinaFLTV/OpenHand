@@ -11,7 +11,7 @@ class _ToolCallBody extends StatefulWidget {
 }
 
 class _ToolCallBodyState extends State<_ToolCallBody>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool? _argumentsExpandedOverride;
   bool? _resultExpandedOverride;
   _ToolCallViewData? _cachedViewData;
@@ -215,9 +215,12 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                 ),
                 child: child,
               );
-              if (reduceMotion || isPreExecution || settleRaw >= 1.0) {
+              if (reduceMotion || isPreExecution) {
                 return container;
               }
+              // 始终用 Transform.scale 包裹（settled 时 scale=1）以保持
+              // widget tree 结构稳定，避免 conditional wrap 导致的
+              // Element 重建/AnimatedSize ticker 重建。
               return Transform.scale(
                 scale: settleScale,
                 alignment: Alignment.topLeft,
