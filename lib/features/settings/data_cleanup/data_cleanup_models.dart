@@ -33,6 +33,10 @@ enum DataCleanupCategory {
   /// LSP 安装目录（默认 `~/.openhand/lsp/`），由托管下载器写入。
   lspDirectory,
 
+  /// 文件变动 ledger（默认 `~/.openhand/file_history/`）：保存所有工具
+  /// 写操作的 before/after 快照与 jsonl ledger，支撑卡片侧的撤销/重做。
+  fileMutationLedger,
+
   /// 一键清空：上述所有分类的并集。
   ///
   /// **不会**删除 sqlite 数据库文件本身或 `~/.openhand/settings.json`，

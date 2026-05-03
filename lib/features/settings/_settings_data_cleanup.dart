@@ -113,6 +113,10 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
         DataCleanupCategory.lspDirectory,
         _service.measureLspDirectory,
       ),
+      measureOne(
+        DataCleanupCategory.fileMutationLedger,
+        _service.measureMutationLedger,
+      ),
     ]);
     if (!mounted || token != _measureToken) {
       return;
@@ -200,6 +204,9 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           break;
         case DataCleanupCategory.lspDirectory:
           await _service.cleanLspDirectory();
+          break;
+        case DataCleanupCategory.fileMutationLedger:
+          await _service.cleanMutationLedger();
           break;
         case DataCleanupCategory.wipeAll:
           final errors = await _service.cleanAll();
@@ -578,6 +585,8 @@ IconData _categoryIcon(DataCleanupCategory category) {
       return Icons.auto_awesome_outlined;
     case DataCleanupCategory.lspDirectory:
       return Icons.code_outlined;
+    case DataCleanupCategory.fileMutationLedger:
+      return Icons.history_rounded;
     case DataCleanupCategory.wipeAll:
       return Icons.delete_sweep_outlined;
   }
@@ -601,6 +610,8 @@ String _categoryTitle(BuildContext context, DataCleanupCategory category) {
       return _localizedText(context, zh: '技能目录', en: 'Skills Directory');
     case DataCleanupCategory.lspDirectory:
       return _localizedText(context, zh: 'LSP 安装目录', en: 'LSP Install Dir');
+    case DataCleanupCategory.fileMutationLedger:
+      return _localizedText(context, zh: '文件变动历史', en: 'File Mutation Ledger');
     case DataCleanupCategory.wipeAll:
       return _localizedText(context, zh: '全部数据', en: 'All Data');
   }
@@ -670,6 +681,17 @@ String _categorySubtitle(
         en:
             'Managed LSP binaries under ~/.openhand/lsp/. They will be '
             'reinstalled on next use.',
+      );
+    case DataCleanupCategory.fileMutationLedger:
+      return _localizedText(
+        context,
+        zh:
+            '~/.openhand/file_history/ 下的文件变动 ledger（before/after 快照 + jsonl '
+            '记录）。清理后历史卡片可能不再展示可撤销状态。',
+        en:
+            'File mutation ledger under ~/.openhand/file_history/ (before/'
+            'after blobs + jsonl). After cleanup, historical cards may no '
+            'longer expose undo controls.',
       );
     case DataCleanupCategory.wipeAll:
       return _localizedText(

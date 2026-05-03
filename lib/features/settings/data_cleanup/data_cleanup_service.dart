@@ -23,6 +23,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/data/database_service.dart';
 import '../../ai/ai_session_controller.dart';
+import '../../ai/service/ai_file_mutation_ledger.dart';
 import '../../crons/crons_controller.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../memory/memory_controller.dart';
@@ -142,6 +143,14 @@ class DataCleanupService {
     );
   }
 
+  /// 2026-05-03 文件变动 ledger 体积（`~/.openhand/file_history/`）。
+  Future<DataCleanupSizeReport> measureMutationLedger() {
+    return compute(
+      _isolateMeasureDirectory,
+      p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history'),
+    );
+  }
+
   /// 所有分类合计。计算独立分支的并集，**不会**重复加和。
   Future<DataCleanupSizeReport> measureAll() async {
     final results = await Future.wait<DataCleanupSizeReport>(<
@@ -155,6 +164,7 @@ class DataCleanupService {
       measureMcpConfig(),
       measureSkillsDirectory(),
       measureLspDirectory(),
+      measureMutationLedger(),
     ]);
     return results.fold<DataCleanupSizeReport>(
       DataCleanupSizeReport.empty,
@@ -246,6 +256,16 @@ class DataCleanupService {
     );
   }
 
+  /// 2026-05-03 清空文件变动 ledger（所有会话的 jsonl + state +
+  /// blob）。调用后卡片侧 undo/redo 会退化为 metadata-only 列表。
+  Future<void> cleanMutationLedger() async {
+    try {
+      await AiFileMutationLedger().clearAll();
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'cleanMutationLedger', error, stack);
+    }
+  }
+
   /// 顺序执行所有分类的清理。任何分支抛异常都会被 silentLog 吞掉，
   /// 后续分类继续执行；最终的总错误数通过返回的 `errors` 暴露给 UI。
   Future<int> cleanAll() async {
@@ -266,6 +286,7 @@ class DataCleanupService {
     await runStep('mcpConfig', cleanMcpConfig);
     await runStep('skillsDirectory', cleanSkillsDirectory);
     await runStep('lspDirectory', cleanLspDirectory);
+    await runStep('mutationLedger', cleanMutationLedger);
     // 会话放在最后清理：上面的步骤即便意外失败，残留附件引用也已经
     // 失效，但 sessions 表仍在；如果反过来先清 sessions，再清附件失败，
     // 用户看到的是"会话没了，但附件目录还在占空间"。
