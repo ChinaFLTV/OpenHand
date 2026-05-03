@@ -150,3 +150,43 @@ Failure modes: <列表>
 ## 八、本文档维护责任
 
 每完成一个 roadmap 项后追加一节"vX 落地说明"，**不要**改写已交付章节。
+
+---
+
+## 九、v2 落地说明（2026-05）
+
+本轮交付以下 roadmap 项：
+
+### 9.1 持久 Bash 会话接入登记中心
+* `_executeWithPersistentSession` 增加 `String? toolCallId` 可选参数，由 `execute` 透传。
+* 拿到 `_PersistentBashSession` 后将 `session.process.pid` 与 `() => _closePersistentSession(sessionId)` 闭包登记到 registry；UI 触发 `cancelToolCall` 即关闭整个 shell，下次同 sessionId 的 bash 调用经 `_ensurePersistentSession` 自动重建，**不影响**后续命令执行（lazy respawn）。
+* 设计权衡：未尝试 SIGINT 当前前台命令的精细做法 —— 我们的持久 shell 是非交互模式（`bash` 无 `-i`），SIGINT 行为不稳定；直接 close + 重建更可预期。
+
+### 9.2 MCP stdio 接入 per-call kill
+* `McpToolDiscoveryService.callTool` 抽象签名加 `String? toolCallId`，`DefaultMcpToolDiscoveryService.callTool` 与 `_callToolOverStdio` 同步扩展。
+* `_StdioSession` 暴露 `process` 只读 getter；stdio 路径在握手成功后将 pid + `() => session.close()` 登记到 registry。`session.close()` 内部已实现 stdin.close → 等待 exit → 超时 SIGKILL，复用既有路径。
+* HTTP / SSE 协议不派生子进程，仍依赖外层 `_toolCallTimeout` 自然超时，故无需登记 killer（registry 默认 no-op）。
+* `AiToolRuntimeService._executeMcpTool` 透传 `toolCall.id`。
+
+### 9.3 工具卡片独立 Stop 按钮
+* 新增 `_ToolCancelButton`（[lib/features/home/_home_tool_call_widgets.dart](../lib/features/home/_home_tool_call_widgets.dart)）：subscribe `AiToolExecutionRegistry`，仅当 `recordOf(toolCallId) != null` 时显现红色 Stop 图标 chip；点击只杀本调用。
+* 显示态：常态 `stop_circle_outlined` + `errorContainer` 底；点击进入 hourglass 占位避免重复触发，结束后随 registry 反注销自动隐藏。
+* 与全局"停止响应"区别：本按钮**不**清空 streaming 状态、**不**触发 plan-approval 重置；仅向 registry 发起单点取消，并行兄弟工具继续执行。
+* 新增 l10n key `tlCallStopRequest`（7 个 ARB 同步更新 + `flutter gen-l10n` 重生成）。
+
+### 9.4 变更点
+
+| 文件 | 改动 |
+|------|------|
+| [lib/features/ai/service/ai_bash_tool_service.dart](../lib/features/ai/service/ai_bash_tool_service.dart) | 持久 session 路径 attachPid/attachKiller |
+| [lib/features/mcp/service/mcp_tool_discovery_service.dart](../lib/features/mcp/service/mcp_tool_discovery_service.dart) | callTool 加 toolCallId、stdio 路径登记 + `_StdioSession.process` getter |
+| [lib/features/ai/service/ai_tool_runtime_service.dart](../lib/features/ai/service/ai_tool_runtime_service.dart) | _executeMcpTool 透传 toolCall.id |
+| [lib/features/home/_home_tool_call_widgets.dart](../lib/features/home/_home_tool_call_widgets.dart) | 新增 `_ToolCancelButton` |
+| [lib/features/home/openhand_home_page.dart](../lib/features/home/openhand_home_page.dart) | import registry |
+| [lib/l10n/*.arb](../lib/l10n/) × 7 | 新增 `tlCallStopRequest` |
+
+### 9.5 暂未交付（继续保留在路线图，理由说明）
+* **v2 设置页"运行中工具调用"列表**：可观测面板属于增量 UX，等首批用户反馈再设计交互结构。
+* **v2 ReadLints / Git / safe_subprocess 全量接入 registry**：当前 `runProcessWithTimeout` 已具备硬超时 + SIGKILL 兜底，对 lint/git 等短命令"必须能手动中止"的优先级较低；后续会通过给 `runProcessWithTimeout` 增加 `String? toolCallId` 可选参数 + 默认调用方批量补丁的方式一次性吞掉。
+* **v3 进程组 kill / MCP 连接池 / 设置项参数化 / v4 AST 准入 / 停滞检测**：保持原计划，不在本轮交付。
+
