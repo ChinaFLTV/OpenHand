@@ -3004,6 +3004,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fileMutationCopyAllDiffDone => 'すべての diff をクリップボードにコピーしました';
 
   @override
+  String get fileMutationRevealLedger => 'ファイルマネージャーで ledger.jsonl を表示';
+
+  @override
+  String get fileMutationCopyPath => 'ファイルパスをコピー';
+
+  @override
+  String get fileMutationPathCopied => 'パスをコピーしました';
+
+  @override
   String get fileMutationUndone => '元に戻し済み';
 
   @override

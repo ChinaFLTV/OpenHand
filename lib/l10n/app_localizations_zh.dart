@@ -2963,6 +2963,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fileMutationCopyAllDiffDone => '全部 diff 已复制到剪贴板';
 
   @override
+  String get fileMutationRevealLedger => '在文件管理器中查看 ledger.jsonl';
+
+  @override
+  String get fileMutationCopyPath => '复制文件路径';
+
+  @override
+  String get fileMutationPathCopied => '路径已复制';
+
+  @override
   String get fileMutationUndone => '已撤销';
 
   @override
@@ -7692,6 +7701,15 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get fileMutationCopyAllDiffDone => '全部 diff 已复制到剪贴板';
 
   @override
+  String get fileMutationRevealLedger => '在文件管理器中查看 ledger.jsonl';
+
+  @override
+  String get fileMutationCopyPath => '复制文件路径';
+
+  @override
+  String get fileMutationPathCopied => '路径已复制';
+
+  @override
   String get fileMutationUndone => '已撤销';
 
   @override
@@ -12418,6 +12436,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get fileMutationCopyAllDiffDone => '全部 diff 已複製到剪貼簿';
+
+  @override
+  String get fileMutationRevealLedger => '於檔案管理員中查看 ledger.jsonl';
+
+  @override
+  String get fileMutationCopyPath => '複製檔案路徑';
+
+  @override
+  String get fileMutationPathCopied => '路徑已複製';
 
   @override
   String get fileMutationUndone => '已復原';

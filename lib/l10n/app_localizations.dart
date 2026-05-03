@@ -5650,6 +5650,24 @@ abstract class AppLocalizations {
   /// **'全部 diff 已复制到剪贴板'**
   String get fileMutationCopyAllDiffDone;
 
+  /// No description provided for @fileMutationRevealLedger.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在文件管理器中查看 ledger.jsonl'**
+  String get fileMutationRevealLedger;
+
+  /// No description provided for @fileMutationCopyPath.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制文件路径'**
+  String get fileMutationCopyPath;
+
+  /// No description provided for @fileMutationPathCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'路径已复制'**
+  String get fileMutationPathCopied;
+
   /// No description provided for @fileMutationUndone.
   ///
   /// In zh_Hans, this message translates to:

@@ -3127,6 +3127,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fileMutationCopyAllDiffDone => 'All diffs copied to clipboard';
 
   @override
+  String get fileMutationRevealLedger => 'Reveal ledger.jsonl in file manager';
+
+  @override
+  String get fileMutationCopyPath => 'Copy file path';
+
+  @override
+  String get fileMutationPathCopied => 'Path copied';
+
+  @override
   String get fileMutationUndone => 'Undone';
 
   @override

@@ -167,58 +167,65 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
   }
 
-  /// 阶段 ⑨b：「全部撤销」改为受限并发（最多 4 路并行），并维护
-  /// `_bulkUndoDone / _bulkUndoTotal` 计数，header 实时显示进度。
-  /// 完成后：
-  ///   - 单次 `_refresh()` 拉取最终 view 列表（避免每条都触发重建）。
-  ///   - 触发一次 highlight pulse（成功 ≥1 才 pulse）。
-  ///   - 若有失败，弹出 SnackBar 摘要。
+  /// 阶段 ⑨b / ⑩e：「全部撤销」并发执行 + 进度提示。
+  /// - 按 `record.filePath` 分组，**同一文件内严格串行**（避免互相
+  ///   覆盖 / 竞争同一份磁盘内容）；
+  /// - **跨文件最多 4 路并行**；
+  /// - header 实时显示「N/M」进度环；
+  /// - 完成后单次 `_refresh()` + 一次 highlight pulse；
+  /// - 任意失败 SnackBar 摘要最后一个 error。
   Future<void> _undoAll(List<FileMutationView> views) async {
     if (_bulkUndoBusy) return;
     final candidates = views.where((v) => v.canUndo).toList(growable: false);
     if (candidates.isEmpty) return;
+    // 按文件路径聚合（保留每条原始顺序——遵循 ledger 时间倒序撤销最佳实践）。
+    final groups = <String, List<FileMutationView>>{};
+    for (final v in candidates) {
+      groups.putIfAbsent(v.record.filePath, () => <FileMutationView>[]).add(v);
+    }
     setState(() {
       _bulkUndoTotal = candidates.length;
       _bulkUndoDone = 0;
     });
     final ledger = _ctrl(context).toolRuntimeService.mutationLedger;
     const concurrency = 4;
-    int next = 0;
+    final paths = groups.keys.toList();
+    int nextPath = 0;
     int success = 0;
     int failure = 0;
     String? lastError;
 
     Future<void> worker() async {
       while (true) {
-        final i = next++;
-        if (i >= candidates.length) return;
-        final v = candidates[i];
-        try {
-          final r = await ledger.undoRecord(
-            sessionId: v.record.sessionId,
-            recordId: v.record.recordId,
-          );
-          if (r.success) {
-            success++;
-          } else {
+        final i = nextPath++;
+        if (i >= paths.length) return;
+        final groupViews = groups[paths[i]]!;
+        // 同文件内：串行撤销，避免并发覆写。
+        for (final v in groupViews) {
+          try {
+            final r = await ledger.undoRecord(
+              sessionId: v.record.sessionId,
+              recordId: v.record.recordId,
+            );
+            if (r.success) {
+              success++;
+            } else {
+              failure++;
+              if (r.errorMessage.isNotEmpty) lastError = r.errorMessage;
+            }
+          } catch (e) {
             failure++;
-            if (r.errorMessage.isNotEmpty) lastError = r.errorMessage;
+            lastError = e.toString();
+          } finally {
+            if (mounted) setState(() => _bulkUndoDone++);
           }
-        } catch (e) {
-          failure++;
-          lastError = e.toString();
-        } finally {
-          if (mounted) setState(() => _bulkUndoDone++);
         }
       }
     }
 
-    await Future.wait(
-      List.generate(
-        candidates.length < concurrency ? candidates.length : concurrency,
-        (_) => worker(),
-      ),
-    );
+    final workerCount =
+        paths.length < concurrency ? paths.length : concurrency;
+    await Future.wait(List.generate(workerCount, (_) => worker()));
 
     if (!mounted) return;
     setState(() {
@@ -281,6 +288,34 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     );
   }
 
+  /// 阶段 ⑩a：把当前会话的 `sessions/<id>/ledger.jsonl` 在系统文件管理器
+  /// 里高亮（macOS `open -R` / Windows `explorer.exe /select,` /
+  /// Linux 退化到打开父目录）。文件不存在时退化到打开 ledger 根目录。
+  Future<void> _revealLedgerFile() async {
+    final ctrl = _ctrl(context);
+    final sessionId = ctrl.currentSession?.id ?? '';
+    if (sessionId.isEmpty) return;
+    final ledger = ctrl.toolRuntimeService.mutationLedger;
+    final file = ledger.ledgerFileFor(sessionId);
+    final target = await file.exists() ? file.path : file.parent.path;
+    try {
+      if (Platform.isMacOS) {
+        await runProcessWithTimeout('open', <String>['-R', target],
+            tag: 'file_mutation_card.reveal');
+      } else if (Platform.isWindows) {
+        await runProcessWithTimeout(
+            'explorer.exe', <String>['/select,$target'],
+            tag: 'file_mutation_card.reveal');
+      } else {
+        final dir = await file.exists() ? file.parent.path : target;
+        await runProcessWithTimeout('xdg-open', <String>[dir],
+            tag: 'file_mutation_card.reveal');
+      }
+    } catch (error, stack) {
+      silentLog('file_mutation_card', '_revealLedgerFile', error, stack);
+    }
+  }
+
   void _toggleExpand(String recordId) {
     setState(() {
       if (!_expandedRecordIds.add(recordId)) {
@@ -304,9 +339,13 @@ class _FileMutationCardState extends State<_FileMutationCard> {
         // 渲染只读多文件行（保留点击查看 diff 对话框的能力）。
         if (views.isEmpty) {
           if (fallbackPaths.isEmpty) return const SizedBox.shrink();
-          return _buildLegacyMultiPath(theme, cs, fallbackPaths);
+          // 阶段 ⑩d：FileMutationCard 走 AppearOnce 入场（fade + 12px 上滑）。
+          // AppearOnce 自身在 reduceMotion 时退化为零时长，无需额外 gate。
+          return AppearOnce(
+            child: _buildLegacyMultiPath(theme, cs, fallbackPaths),
+          );
         }
-        return _buildLedgerCard(theme, cs, views);
+        return AppearOnce(child: _buildLedgerCard(theme, cs, views));
       },
     );
   }
@@ -409,7 +448,15 @@ class _FileMutationCardState extends State<_FileMutationCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header
-          Padding(
+          Tooltip(
+            message: AppLocalizations.of(context)!.fileMutationRevealLedger,
+            waitDuration: const Duration(milliseconds: 600),
+            child: InkWell(
+              onTap: _revealLedgerFile,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+              child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
             child: Row(
               children: [
@@ -484,6 +531,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                   onTap: () => _copyAllDiff(views),
                 ),
               ],
+            ),
+          ),
             ),
           ),
           Divider(
@@ -646,6 +695,10 @@ class _FileMutationCardRow extends StatelessWidget {
           InkWell(
             onTap: onToggleExpand,
             onDoubleTap: onOpenLegacyDialog,
+            // 阶段 ⑩c：row hover 背景轻微高亮，让指针落点更清晰。
+            hoverColor: cs.primary.withValues(alpha: 0.05),
+            splashColor: cs.primary.withValues(alpha: 0.10),
+            highlightColor: cs.primary.withValues(alpha: 0.06),
             child: Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -665,17 +718,30 @@ class _FileMutationCardRow extends StatelessWidget {
                     Icon(_kindIcon, size: 14, color: _kindColor(cs)),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(
-                        _FileMutationCard._shortenFilePath(view.record.filePath),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
-                          color: cs.onSurface,
-                          decoration: greyOut
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
-                          decorationColor: cs.onSurfaceVariant,
+                      // 阶段 ⑩b：hover 显示完整路径，右键 / Ctrl-长按复制路径。
+                      child: Tooltip(
+                        message: view.record.filePath,
+                        waitDuration: const Duration(milliseconds: 500),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onSecondaryTap: () => _copyPathToClipboard(
+                              context, view.record.filePath),
+                          onLongPress: () => _copyPathToClipboard(
+                              context, view.record.filePath),
+                          child: Text(
+                            _FileMutationCard
+                                ._shortenFilePath(view.record.filePath),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              color: cs.onSurface,
+                              decoration: greyOut
+                                  ? TextDecoration.lineThrough
+                                  : TextDecoration.none,
+                              decorationColor: cs.onSurfaceVariant,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -844,6 +910,19 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
         : await ledger.readBlob(v.record.afterSha!);
     return (before: before, after: after);
   }
+}
+
+/// 阶段 ⑩b：把 `filePath` 写入剪贴板并 SnackBar 提示。统一从 Row 的右键
+/// / 长按手势调用，因此抽到顶层而非 row state。
+Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
+  await Clipboard.setData(ClipboardData(text: filePath));
+  if (!context.mounted) return;
+  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    SnackBar(
+      content: Text(AppLocalizations.of(context)!.fileMutationPathCopied),
+      duration: const Duration(seconds: 2),
+    ),
+  );
 }
 
 /// 简易 LCS-based unified diff（与 [_FileDiffDialogState._computeSimpleDiff]

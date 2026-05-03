@@ -3163,6 +3163,16 @@ class AppLocalizationsDe extends AppLocalizations {
       'Alle Diffs in die Zwischenablage kopiert';
 
   @override
+  String get fileMutationRevealLedger =>
+      'ledger.jsonl im Dateimanager anzeigen';
+
+  @override
+  String get fileMutationCopyPath => 'Dateipfad kopieren';
+
+  @override
+  String get fileMutationPathCopied => 'Pfad kopiert';
+
+  @override
   String get fileMutationUndone => 'Rückgängig';
 
   @override

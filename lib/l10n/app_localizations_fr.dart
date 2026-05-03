@@ -3181,6 +3181,16 @@ class AppLocalizationsFr extends AppLocalizations {
       'Tous les diffs copiés dans le presse-papiers';
 
   @override
+  String get fileMutationRevealLedger =>
+      'Afficher ledger.jsonl dans le gestionnaire de fichiers';
+
+  @override
+  String get fileMutationCopyPath => 'Copier le chemin du fichier';
+
+  @override
+  String get fileMutationPathCopied => 'Chemin copié';
+
+  @override
   String get fileMutationUndone => 'Annulé';
 
   @override

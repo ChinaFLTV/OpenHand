@@ -249,6 +249,10 @@ class AiFileMutationLedger {
   Directory _sessionDir(String sessionId) => Directory(p.join(_sessionsDir().path, _safeSessionId(sessionId)));
   File _ledgerFile(String sessionId) => File(p.join(_sessionDir(sessionId).path, 'ledger.jsonl'));
   File _stateFile(String sessionId) => File(p.join(_sessionDir(sessionId).path, 'state.json'));
+
+  /// 阶段 ⑩a：暴露给 UI 用——「点击卡片 header」要把 ledger.jsonl 在系统
+  /// 文件管理器里高亮。返回的文件可能尚未存在（会话尚未发生过 mutation）。
+  File ledgerFileFor(String sessionId) => _ledgerFile(sessionId);
   File _configFile() => File(p.join(_root, 'config.json'));
 
   LedgerConfig? _cachedConfig;
