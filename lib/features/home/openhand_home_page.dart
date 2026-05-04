@@ -1574,10 +1574,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             if (nextPhase != AiSendPhase.idle) {
               break;
             }
-            final nextMessage = q.removeAt(0);
-            if (q.isEmpty) {
-              _queuedMessagesBySessionId.remove(sessionId);
+            if (context.read<SettingsController>().selectedAiModel == null) {
+              break;
             }
+            late final _QueuedMessage nextMessage;
+            setState(() {
+              nextMessage = q.removeAt(0);
+              if (q.isEmpty) {
+                _queuedMessagesBySessionId.remove(sessionId);
+              }
+            });
             unawaited(
               _submitTextToSession(
                 sessionId,
