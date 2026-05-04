@@ -56,6 +56,7 @@ flutter:
     - assets/prompts/machine_expert/
     - assets/prompts/programming_expert/
     - assets/branding/
+    - assets/web/
 
 # Use system SQLite on macOS (avoids downloading from GitHub).
 hooks:

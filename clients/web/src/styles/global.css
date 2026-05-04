@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+
+/* M3 Expressive token slot：默认值 = deep_sea_blue 预设的 light scheme，
+   /api/meta 拉到 theme 后由 applyThemeTokens 覆盖。 */
+:root {
+  --m3-primary: #2D63B8;
+  --m3-on-primary: #FFFFFF;
+  --m3-surface: #FDFCFF;
+  --m3-surface-container: #EEF1F8;
+  --m3-on-surface: #1A1C1E;
+  --m3-on-surface-variant: #43474E;
+  --m3-outline: #73777F;
+  --m3-error: #B3261E;
+
+  /* M3 Expressive 标志性圆角 + elevation + motion easing */
+  --m3-radius-sm: 8px;
+  --m3-radius-md: 14px;
+  --m3-radius-lg: 22px;
+  --m3-radius-xl: 28px;
+  --m3-elev-1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --m3-elev-2: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --m3-elev-3: 0 6px 18px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --m3-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --m3-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  font-family: 'PingFang SC', 'Helvetica Neue', system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Noto Sans CJK SC', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+[data-brightness='dark'] {
+  --m3-elev-1: 0 1px 2px rgba(0, 0, 0, 0.40), 0 1px 3px rgba(0, 0, 0, 0.28);
+  --m3-elev-2: 0 2px 6px rgba(0, 0, 0, 0.46), 0 1px 2px rgba(0, 0, 0, 0.32);
+  --m3-elev-3: 0 6px 18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.36);
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: var(--m3-surface);
+  color: var(--m3-on-surface);
+}
+
+/* Tailwind v4 主题扩展：给配色 / 圆角 / 阴影 起 utility 别名 */
+@theme {
+  --color-m3-primary: var(--m3-primary);
+  --color-m3-on-primary: var(--m3-on-primary);
+  --color-m3-surface: var(--m3-surface);
+  --color-m3-surface-container: var(--m3-surface-container);
+  --color-m3-on-surface: var(--m3-on-surface);
+  --color-m3-on-surface-variant: var(--m3-on-surface-variant);
+  --color-m3-outline: var(--m3-outline);
+  --color-m3-error: var(--m3-error);
+  --radius-m3-sm: var(--m3-radius-sm);
+  --radius-m3-md: var(--m3-radius-md);
+  --radius-m3-lg: var(--m3-radius-lg);
+  --radius-m3-xl: var(--m3-radius-xl);
+  --shadow-m3-1: var(--m3-elev-1);
+  --shadow-m3-2: var(--m3-elev-2);
+  --shadow-m3-3: var(--m3-elev-3);
+}

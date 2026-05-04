@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
@@ -462,9 +463,21 @@ class WebMessagePlatformService {
   /// `_WebGatewayAuthSession` 给 handler。
   Router _buildRouter() {
     final router = Router(notFoundHandler: _shelfNotFound);
-    router.get('/', (shelf.Request _) => _html(_buildWebClientHtml()));
-    router.get('/login', (shelf.Request _) => _html(_buildWebClientHtml()));
-    router.get('/thread', (shelf.Request _) => _html(_buildWebClientHtml()));
+    // SPA shell：优先返回 clients/web 构建产物（assets/web/index.html），缺失
+    // 时 fallback 到 legacy 内嵌模板，保证未跑过 build_web.sh 的环境也可访问。
+    router.get('/', (shelf.Request _) => _serveWebShell());
+    router.get('/login', (shelf.Request _) => _serveWebShell());
+    router.get('/thread', (shelf.Request _) => _serveWebShell());
+    // Vite 产物里 index.html 引用 app.js / app.css 同级文件，直接出 bundle。
+    router.get('/app.js', (shelf.Request _) =>
+        _serveBundleAsset('assets/web/app.js', 'application/javascript; charset=utf-8'));
+    router.get('/app.css', (shelf.Request _) =>
+        _serveBundleAsset('assets/web/app.css', 'text/css; charset=utf-8'));
+    // 通配子路径覆盖 chunks/*.js 与 assets/*.{png,svg,woff2,...}。
+    router.get('/chunks/<path|.+>', (shelf.Request _, String path) =>
+        _serveBundleAsset('assets/web/chunks/$path', _guessContentType(path)));
+    router.get('/assets/<path|.+>', (shelf.Request _, String path) =>
+        _serveBundleAsset('assets/web/assets/$path', _guessContentType(path)));
     router.get('/api/health', _apiHealth);
     router.get('/api/meta', _apiMeta);
     router.post('/api/login', _login);
@@ -1752,6 +1765,63 @@ class WebMessagePlatformService {
         HttpHeaders.contentTypeHeader: 'text/html; charset=utf-8',
       },
     );
+  }
+
+  /// SPA shell：优先尝试 `assets/web/index.html`（clients/web 子项目的 Vite
+  /// 构建产物），缺失时退回内嵌 legacy 模板，保证未跑 build_web.sh 的环境
+  /// 也能访问。`rootBundle` 在桌面/移动平台均可用，service 与 Flutter app
+  /// 在同一 isolate。
+  Future<shelf.Response> _serveWebShell() async {
+    try {
+      final html = await rootBundle.loadString('assets/web/index.html');
+      return _html(html);
+    } catch (e, stack) {
+      silentLog('web_gateway_service', '_serveWebShell.fallback', e, stack);
+      return _html(_buildWebClientHtml());
+    }
+  }
+
+  /// 静态资源（app.js / app.css / chunks/* / assets/*）从 rootBundle 取，
+  /// 缺失或读取失败 → 404。`Cache-Control: max-age=0,must-revalidate` 保证
+  /// 重新构建后旧浏览器拿到的是新版本（文件名是确定性的，没有 hash）。
+  Future<shelf.Response> _serveBundleAsset(String key, String contentType) async {
+    try {
+      final data = await rootBundle.load(key);
+      final bytes = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      return shelf.Response.ok(
+        bytes,
+        headers: <String, String>{
+          HttpHeaders.contentTypeHeader: contentType,
+          HttpHeaders.cacheControlHeader: 'max-age=0, must-revalidate',
+          HttpHeaders.contentLengthHeader: bytes.length.toString(),
+        },
+      );
+    } catch (e, stack) {
+      silentLog('web_gateway_service', '_serveBundleAsset:$key', e, stack);
+      return shelf.Response.notFound('asset_not_found: $key');
+    }
+  }
+
+  /// 极简 MIME 推断，只覆盖 Vite 构建会产生的扩展名。
+  String _guessContentType(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.js') || lower.endsWith('.mjs')) {
+      return 'application/javascript; charset=utf-8';
+    }
+    if (lower.endsWith('.css')) return 'text/css; charset=utf-8';
+    if (lower.endsWith('.json')) return 'application/json; charset=utf-8';
+    if (lower.endsWith('.svg')) return 'image/svg+xml';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.woff2')) return 'font/woff2';
+    if (lower.endsWith('.woff')) return 'font/woff';
+    if (lower.endsWith('.ttf')) return 'font/ttf';
+    if (lower.endsWith('.map')) return 'application/json; charset=utf-8';
+    return 'application/octet-stream';
   }
 
   void _log(
