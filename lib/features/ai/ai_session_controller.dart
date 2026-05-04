@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Directory, File, NetworkInterface, Platform;
 import 'dart:math' as math;
+import 'dart:ui' show FlutterView, PlatformDispatcher;
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
@@ -982,7 +983,7 @@ class AiSessionController extends ChangeNotifier {
     final now = _clock().toUtc();
     final deviceId = await _readOrCreateDeviceId();
     final network = await _localNetworkSnapshot();
-    final source = _defaultAppLoginSource();
+    final source = _defaultAppLoginSource(runtimeContext);
     return <String, Object?>{
       'web_gateway_context': <String, Object?>{
         'login_source': source,
@@ -1008,11 +1009,30 @@ class AiSessionController extends ChangeNotifier {
     };
   }
 
-  String _defaultAppLoginSource() {
+  String _defaultAppLoginSource(AiSessionRuntimeContext runtimeContext) {
+    final runtimePlatform = runtimeContext.platformName.toLowerCase();
+    if (runtimePlatform.contains('ipad') ||
+        runtimePlatform.contains('tablet')) {
+      return 'APP_TABLET';
+    }
     if (Platform.isAndroid || Platform.isIOS) {
+      if (_looksLikeTabletViewport()) return 'APP_TABLET';
       return 'APP_MOBILE';
     }
     return 'APP_PC';
+  }
+
+  bool _looksLikeTabletViewport() {
+    try {
+      for (final FlutterView view in PlatformDispatcher.instance.views) {
+        final ratio = view.devicePixelRatio;
+        if (ratio <= 0) continue;
+        final logicalSize = view.physicalSize / ratio;
+        final shortestSide = math.min(logicalSize.width, logicalSize.height);
+        if (shortestSide >= 600) return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   Future<String> _readOrCreateDeviceId() async {

@@ -246,6 +246,7 @@ class WebMessagePlatformService {
   String _lastError = '';
   _ProcessDiagnostics _processDiagnostics = const _ProcessDiagnostics();
   DateTime? _processDiagnosticsAt;
+  _LinuxCpuSample? _previousLinuxCpuSample;
 
   Stream<WebGatewayLogEntry> get logStream => _logStreamController.stream;
   List<WebGatewayLogEntry> get logs =>
@@ -1583,6 +1584,7 @@ class WebMessagePlatformService {
   }
 
   Future<_ProcessDiagnostics> _sampleLinuxProcessDiagnostics() async {
+    final cpuPercent = await _sampleLinuxCpuPercent();
     int? threadCount;
     int? swapBytes;
     try {
@@ -1604,10 +1606,60 @@ class WebMessagePlatformService {
       fileHandleCount = Directory('/proc/self/fd').listSync().length;
     } catch (_) {}
     return _ProcessDiagnostics(
+      cpuPercent: cpuPercent,
       threadCount: threadCount,
       fileHandleCount: fileHandleCount,
       swapBytes: swapBytes,
     );
+  }
+
+  Future<double?> _sampleLinuxCpuPercent() async {
+    final sample = await _readLinuxCpuSample();
+    if (sample == null) return _processDiagnostics.cpuPercent;
+    final previous = _previousLinuxCpuSample;
+    _previousLinuxCpuSample = sample;
+    if (previous == null) return _processDiagnostics.cpuPercent;
+    final processDelta = sample.processTicks - previous.processTicks;
+    final totalDelta = sample.totalTicks - previous.totalTicks;
+    if (processDelta < 0 || totalDelta <= 0) {
+      return _processDiagnostics.cpuPercent;
+    }
+    final cpuCount = math.max(1, Platform.numberOfProcessors);
+    return processDelta / totalDelta * cpuCount * 100;
+  }
+
+  Future<_LinuxCpuSample?> _readLinuxCpuSample() async {
+    try {
+      final processStat = await File('/proc/self/stat').readAsString();
+      final processEnd = processStat.lastIndexOf(')');
+      if (processEnd < 0) return null;
+      final processFields = processStat
+          .substring(processEnd + 1)
+          .trim()
+          .split(RegExp(r'\s+'));
+      if (processFields.length <= 12) return null;
+      final userTicks = int.tryParse(processFields[11]);
+      final systemTicks = int.tryParse(processFields[12]);
+      if (userTicks == null || systemTicks == null) return null;
+
+      final statLines = await File('/proc/stat').readAsLines();
+      final cpuLine = statLines.firstWhere(
+        (line) => line.startsWith('cpu '),
+        orElse: () => '',
+      );
+      if (cpuLine.isEmpty) return null;
+      var totalTicks = 0;
+      for (final part in cpuLine.trim().split(RegExp(r'\s+')).skip(1)) {
+        totalTicks += int.tryParse(part) ?? 0;
+      }
+      if (totalTicks <= 0) return null;
+      return _LinuxCpuSample(
+        processTicks: userTicks + systemTicks,
+        totalTicks: totalTicks,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   String _makeToken() {
@@ -1664,6 +1716,13 @@ class _ProcessDiagnostics {
   final int? threadCount;
   final int? fileHandleCount;
   final int? swapBytes;
+}
+
+class _LinuxCpuSample {
+  const _LinuxCpuSample({required this.processTicks, required this.totalTicks});
+
+  final int processTicks;
+  final int totalTicks;
 }
 
 String _modelKey(String providerId, String modelId) => '$providerId::$modelId';
