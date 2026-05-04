@@ -2043,7 +2043,8 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
             options: widget.options,
             selected: widget.selected,
             emptyMeansAll: widget.emptyMeansAll,
-            onChanged: widget.onChanged,
+            onApply: widget.onChanged,
+            onClose: _menuController.close,
           ),
         ],
         builder: (context, controller, child) {
@@ -2093,13 +2094,15 @@ class _MultiSelectDropdownMenu<T> extends StatefulWidget {
     required this.options,
     required this.selected,
     required this.emptyMeansAll,
-    required this.onChanged,
+    required this.onApply,
+    required this.onClose,
   });
 
   final List<_SelectOption<T>> options;
   final Set<T> selected;
   final bool emptyMeansAll;
-  final ValueChanged<Set<T>> onChanged;
+  final ValueChanged<Set<T>> onApply;
+  final VoidCallback onClose;
 
   @override
   State<_MultiSelectDropdownMenu<T>> createState() =>
@@ -2171,7 +2174,7 @@ class _MultiSelectDropdownMenuState<T>
             child: Row(
               children: [
                 TextButton.icon(
-                  onPressed: () => _emit(
+                  onPressed: () => _setSelected(
                     widget.emptyMeansAll
                         ? <T>{}
                         : widget.options.map((option) => option.value).toSet(),
@@ -2183,15 +2186,20 @@ class _MultiSelectDropdownMenuState<T>
                 TextButton.icon(
                   onPressed: () {
                     if (widget.emptyMeansAll) {
-                      _emit(<T>{});
+                      _setSelected(<T>{});
                       return;
                     }
                     if (_selected.length > 1) {
-                      _emit({_selected.first});
+                      _setSelected({_selected.first});
                     }
                   },
                   icon: const Icon(Icons.clear_all_rounded, size: 18),
                   label: Text(widget.emptyMeansAll ? '清空限制' : '保留一项'),
+                ),
+                const Spacer(),
+                FilledButton.tonal(
+                  onPressed: _applyAndClose,
+                  child: const Text('完成'),
                 ),
               ],
             ),
@@ -2234,12 +2242,16 @@ class _MultiSelectDropdownMenuState<T>
       next.add(value);
     }
     if (!widget.emptyMeansAll && next.isEmpty) return;
-    _emit(next);
+    _setSelected(next);
   }
 
-  void _emit(Set<T> next) {
+  void _setSelected(Set<T> next) {
     setState(() => _selected = next);
-    widget.onChanged(next);
+  }
+
+  void _applyAndClose() {
+    widget.onApply(Set<T>.from(_selected));
+    widget.onClose();
   }
 }
 
