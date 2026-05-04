@@ -621,37 +621,17 @@ class AiSessionStore {
     _validateSessionForStorage(session);
 
     await _db.transaction((txn) async {
-      // Preserve any existing display_order, pinned, and archived flags
-      // assigned via the Thread Session Management dialog. The default
-      // ConflictAlgorithm.replace would otherwise wipe these columns on
-      // every save (it deletes the existing row before inserting the
-      // replacement).
-      final existing = await txn.query(
-        'sessions',
-        columns: const <String>['display_order', 'pinned', 'archived'],
-        where: 'id = ?',
-        whereArgs: <Object?>[session.id],
-        limit: 1,
-      );
-      final preservedDisplayOrder = existing.isNotEmpty
-          ? existing.first['display_order']
-          : null;
-      final preservedPinned = existing.isNotEmpty
-          ? (existing.first['pinned'] as int? ?? 0)
-          : 0;
-      final preservedArchived = existing.isNotEmpty
-          ? (existing.first['archived'] as int? ?? 0)
-          : 0;
-
-      // Upsert session row.
       final row = _sessionToRow(session);
-      row['display_order'] = preservedDisplayOrder;
-      row['pinned'] = preservedPinned;
-      row['archived'] = preservedArchived;
       await txn.insert(
         'sessions',
         row,
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      await txn.update(
+        'sessions',
+        row,
+        where: 'id = ?',
+        whereArgs: <Object?>[session.id],
       );
 
       // Replace all messages: delete existing, then bulk-insert.

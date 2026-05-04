@@ -2196,7 +2196,10 @@ class AiSessionController extends ChangeNotifier {
             },
           ),
         );
+        final persistUserTurnStopwatch = Stopwatch()..start();
         final userCommitted = await _commitSessionLocked(session);
+        sendPreflightTimingsMs['persist_user_turn'] =
+            persistUserTurnStopwatch.elapsedMilliseconds;
         if (!userCommitted) {
           if (preparedUserTurn.importedAttachments) {
             await _attachmentService.deleteMessageAttachments(
@@ -2210,6 +2213,22 @@ class AiSessionController extends ChangeNotifier {
           );
           return false;
         }
+        session = _upsertMessage(
+          _sessionById(session.id) ?? session,
+          messageId: preparedUserTurn.userMessage.id,
+          create: () => preparedUserTurn.userMessage,
+          update: (message) => message.copyWith(
+            metadata: <String, Object?>{
+              ...message.metadata,
+              'send_preflight_timings_ms': Map<String, int>.from(
+                sendPreflightTimingsMs,
+              ),
+              'send_preflight_elapsed_ms':
+                  sendPreflightStopwatch.elapsedMilliseconds,
+            },
+          ),
+        );
+        _replaceSessionInMemory(session);
         _setSessionSendPhase(session.id, AiSendPhase.responding);
         notifyListeners();
 
