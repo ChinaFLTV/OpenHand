@@ -85,33 +85,57 @@ class AiGitSnapshotService {
       return _cacheSnapshot(snapshot);
     }
 
-    final repositoryRootPath = await _readGitText(
+    final repositoryRootPathFuture = _readGitText(
       normalizedDirectory,
       const <String>['rev-parse', '--show-toplevel'],
     );
-    final currentBranch = await _readGitText(
+    final currentBranchFuture = _readGitText(
       normalizedDirectory,
       const <String>['rev-parse', '--abbrev-ref', 'HEAD'],
     );
-    final mainBranch = await _resolveMainBranch(
+    final remoteHeadFuture = _readGitText(normalizedDirectory, const <String>[
+      'symbolic-ref',
+      '--quiet',
+      '--short',
+      'refs/remotes/origin/HEAD',
+    ]);
+    final hasMainBranchFuture = _hasLocalBranch(normalizedDirectory, 'main');
+    final hasMasterBranchFuture = _hasLocalBranch(
       normalizedDirectory,
-      fallbackBranch: currentBranch,
+      'master',
     );
-    final statusSnapshot = await _readGitText(
+    final statusSnapshotFuture = _readGitText(
       normalizedDirectory,
       const <String>['status', '--short', '--branch'],
     );
-    final recentCommitLines = await _readGitText(
+    final recentCommitLinesFuture = _readGitText(
       normalizedDirectory,
       const <String>['log', '--oneline', '-5'],
     );
+    await Future.wait<Object>(<Future<Object>>[
+      repositoryRootPathFuture,
+      currentBranchFuture,
+      remoteHeadFuture,
+      hasMainBranchFuture,
+      hasMasterBranchFuture,
+      statusSnapshotFuture,
+      recentCommitLinesFuture,
+    ]);
+    final currentBranch = await currentBranchFuture;
+    final mainBranch = _resolveMainBranchFromSnapshot(
+      remoteHead: await remoteHeadFuture,
+      fallbackBranch: currentBranch,
+      hasMainBranch: await hasMainBranchFuture,
+      hasMasterBranch: await hasMasterBranchFuture,
+    );
+    final recentCommitLines = await recentCommitLinesFuture;
     snapshot = AiRepositorySnapshot(
       workingDirectory: normalizedDirectory,
       isGitRepository: true,
-      repositoryRootPath: repositoryRootPath,
+      repositoryRootPath: await repositoryRootPathFuture,
       currentBranch: currentBranch,
       mainBranch: mainBranch,
-      statusSnapshot: statusSnapshot,
+      statusSnapshot: await statusSnapshotFuture,
       recentCommits: recentCommitLines
           .split('\n')
           .map((item) => item.trim())
@@ -140,24 +164,20 @@ class AiGitSnapshotService {
     return result.exitCode == 0 && result.stdout.trim() == 'true';
   }
 
-  Future<String> _resolveMainBranch(
-    String workingDirectory, {
+  String _resolveMainBranchFromSnapshot({
+    required String remoteHead,
     required String fallbackBranch,
-  }) async {
-    final remoteHead = await _readGitText(workingDirectory, const <String>[
-      'symbolic-ref',
-      '--quiet',
-      '--short',
-      'refs/remotes/origin/HEAD',
-    ]);
+    required bool hasMainBranch,
+    required bool hasMasterBranch,
+  }) {
     if (remoteHead.isNotEmpty) {
       final segments = remoteHead.split('/');
       return segments.isEmpty ? remoteHead : segments.last.trim();
     }
-    if (await _hasLocalBranch(workingDirectory, 'main')) {
+    if (hasMainBranch) {
       return 'main';
     }
-    if (await _hasLocalBranch(workingDirectory, 'master')) {
+    if (hasMasterBranch) {
       return 'master';
     }
     return fallbackBranch;

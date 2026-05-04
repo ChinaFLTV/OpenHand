@@ -3207,13 +3207,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final appInfo = context.read<AppInfo>();
     final effectiveWorkingDirectory =
         workingDirectory ?? OpenHandPaths.applicationDirectoryPath();
-    final gitSnapshot = await _gitSnapshotService.loadSnapshot(
+    final gitSnapshotFuture = _gitSnapshotService.loadSnapshot(
       workingDirectory: effectiveWorkingDirectory,
     );
+    _workspaceInstructionService.maxDocumentCharacters =
+        settingsController.aiMaxWorkspaceDocumentCharacters;
+    final workspaceInstructionDocuments = _workspaceInstructionService
+        .loadDocuments(
+          startDirectory: OpenHandPaths.applicationDirectoryPath(),
+          homeDirectory: OpenHandPaths.homeDirectoryPath(),
+        );
     final mcpToolCatalogsByServerName = <String, McpToolCatalog>{
       for (final server in mcpController.servers)
         server.name: mcpController.toolCatalogFor(server.name),
     };
+    final gitSnapshot = await gitSnapshotFuture;
     final now = DateTime.now().toLocal();
     return AiSessionRuntimeContext(
       localeTag: settingsController.locale.toLanguageTag(),
@@ -3300,15 +3308,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       availableMcpServers: mcpController.servers,
       mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
       builtinToolConfigs: settingsController.builtinToolConfigs,
-      workspaceInstructionDocuments: (() {
-        // Group E: 同步工作区指令文档字符上限。
-        _workspaceInstructionService.maxDocumentCharacters =
-            settingsController.aiMaxWorkspaceDocumentCharacters;
-        return _workspaceInstructionService.loadDocuments(
-          startDirectory: OpenHandPaths.applicationDirectoryPath(),
-          homeDirectory: OpenHandPaths.homeDirectoryPath(),
-        );
-      })(),
+      workspaceInstructionDocuments: workspaceInstructionDocuments,
       userInstructions: instructionsController.entries,
       skippedInstructionIds: skippedInstructionIds,
     );
