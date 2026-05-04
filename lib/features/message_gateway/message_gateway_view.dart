@@ -2688,9 +2688,8 @@ class _TrendLinePainter extends CustomPainter {
       path.quadraticBezierTo(previous.dx, previous.dy, mid.dx, mid.dy);
     }
     path.lineTo(points.last.dx, points.last.dy);
-    final metric = path.computeMetrics().isEmpty
-        ? null
-        : path.computeMetrics().first;
+    final metrics = path.computeMetrics().toList(growable: false);
+    final metric = metrics.isEmpty ? null : metrics.first;
     final visiblePath = metric == null
         ? path
         : metric.extractPath(0, metric.length * progress.clamp(0.0, 1.0));
