@@ -15,7 +15,7 @@ const dict: Record<string, string> = {
   'home.theme.source.default': '主题来源：默认 token',
   'home.urls.title': '可访问 URL（点击复制）',
   'home.urls.empty': '当前 service 未返回 accessible_urls。',
-  'home.next.stages': '后续阶段：会话 / 多类型消息 / 文件 / Ops 仪表盘。',
+  'home.next.stages': 'Web 通用消息平台全量能力已在顶部入口提供。',
   'login.title': '登录 Web 通用消息平台',
   'login.subtitle': 'OpenHand 主控制台已开启鉴权，请输入用户名与密码',
   'login.username': '用户名',

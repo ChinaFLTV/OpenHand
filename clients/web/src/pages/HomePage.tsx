@@ -56,7 +56,7 @@ export function HomePage() {
               {t('app.brand')}
             </h1>
             <p class="text-sm mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              Stage 3：会话列表 + 单会话视图（消息发送留待 Stage 4）
+              Web 通用消息平台：会话 / 多类型消息 / 工作区文件 / Ops / 日志
             </p>
           </div>
           <div class="flex items-center gap-2 flex-wrap justify-end">

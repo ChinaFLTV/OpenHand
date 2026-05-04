@@ -30,7 +30,6 @@ import '../model/web_gateway_runtime.dart';
 import '../model/web_gateway_session_metadata.dart';
 import '../model/web_message_platform_config.dart';
 import 'web_gateway_accessible_urls.dart';
-import 'web_message_platform_legacy_client_html.dart';
 
 // 公共类型已抽到 model/web_gateway_runtime.dart，re-export 让 view 现有 import 继续生效。
 export '../model/web_gateway_runtime.dart';
@@ -1799,28 +1798,40 @@ class WebMessagePlatformService {
     );
   }
 
-  /// 构造 HTML 响应。仅给三条 SPA 入口路由用，浏览器允许缓存。
-  shelf.Response _html(String html) {
-    return shelf.Response.ok(
-      html,
+  /// 构造 HTML 响应。默认 200；bundle 缺失时会传 503。
+  shelf.Response _html(String html, {int status = HttpStatus.ok}) {
+    return shelf.Response(
+      status,
+      body: html,
       headers: const <String, String>{
         HttpHeaders.contentTypeHeader: 'text/html; charset=utf-8',
       },
     );
   }
 
-  /// SPA shell：优先尝试 `assets/web/index.html`（clients/web 子项目的 Vite
-  /// 构建产物），缺失时退回内嵌 legacy 模板，保证未跑 build_web.sh 的环境
-  /// 也能访问。`rootBundle` 在桌面/移动平台均可用，service 与 Flutter app
-  /// 在同一 isolate。
+  /// Web shell 入口。仅从 bundle `assets/web/index.html`（由 clients/web
+  /// 的 Vite 构建产出）加载。缺失时返回 503 + 人可读提示，
+  /// 提醒开发者在 OpenHand 仓库下执行 `pnpm --filter @openhand/web build`。
+  /// (Stage 6 下架了遗留的 inline legacy SPA fallback。)
   Future<shelf.Response> _serveWebShell() async {
     try {
       final html = await rootBundle.loadString('assets/web/index.html');
       return _html(html);
     } catch (e, stack) {
-      silentLog('web_gateway_service', '_serveWebShell.fallback', e, stack);
-      return _html(_buildWebClientHtml());
+      silentLog('web_gateway_service', '_serveWebShell.missing_bundle', e, stack);
+      return _html(_missingBundleHtml(), status: HttpStatus.serviceUnavailable);
     }
+  }
+
+  String _missingBundleHtml() {
+    return '<!doctype html><meta charset="utf-8"><title>OpenHand Web</title>'
+        '<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:64px auto;padding:0 24px;line-height:1.6;color:#1d1b20;}'
+        'code{background:#f3edf7;padding:2px 6px;border-radius:4px;font-family:ui-monospace,monospace;}</style>'
+        '<h1>Web client bundle is missing</h1>'
+        '<p>The Web shell could not load <code>assets/web/index.html</code>.</p>'
+        '<p>Run the following inside the OpenHand repository to produce the bundle:</p>'
+        '<pre><code>cd clients/web &amp;&amp; pnpm install &amp;&amp; pnpm build</code></pre>'
+        '<p>Then restart the Web service.</p>';
   }
 
   /// 静态资源（app.js / app.css / chunks/* / assets/*）从 rootBundle 取，
@@ -2102,17 +2113,6 @@ class WebMessagePlatformService {
     return base64UrlEncode(bytes).replaceAll('=', '');
   }
 
-  String _buildWebClientHtml() {
-    return webMessagePlatformLegacyClientHtml
-        .replaceAll('{{primary}}', _theme.primary)
-        .replaceAll('{{onPrimary}}', _theme.onPrimary)
-        .replaceAll('{{surface}}', _theme.surface)
-        .replaceAll('{{surfaceContainer}}', _theme.surfaceContainer)
-        .replaceAll('{{onSurface}}', _theme.onSurface)
-        .replaceAll('{{onSurfaceVariant}}', _theme.onSurfaceVariant)
-        .replaceAll('{{outline}}', _theme.outline)
-        .replaceAll('{{error}}', _theme.error);
-  }
 }
 
 class _AllowedWebModel {
@@ -2177,5 +2177,3 @@ String _normalizeWorkspaceExtension(String value) {
 }
 
 
-
-// _webClientHtml 已迁出至 service/web_message_platform_legacy_client_html.dart
