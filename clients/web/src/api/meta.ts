@@ -3,6 +3,16 @@ import type { M3ThemeTokens } from '../theme/tokens';
 export interface ApiMetaService {
   bound_url?: string;
   accessible_urls?: string[];
+  auth_enabled?: boolean;
+  telemetry_enabled?: boolean;
+  logging_enabled?: boolean;
+  ops_enabled?: boolean;
+  plan_mode_enabled?: boolean;
+  session_management_enabled?: boolean;
+  single_message_token_limit?: number;
+  max_messages_per_session?: number;
+  name?: string;
+  description?: string;
 }
 
 export interface ApiMetaThemeRaw {
