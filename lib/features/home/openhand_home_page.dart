@@ -2346,7 +2346,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case OpenHandShortcutAction.sendMessage:
         final hasComposerDraft =
             _composerController.text.trim().isNotEmpty ||
-            _pendingAttachments.isNotEmpty;
+            _pendingAttachments.isNotEmpty ||
+            (_composerPanelKey.currentState?.hasPendingProjectFileReferences ??
+                false);
         if (_canStopCurrentSessionResponse(sessionController) &&
             !hasComposerDraft) {
           await _stopResponding();

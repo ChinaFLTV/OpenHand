@@ -779,6 +779,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         .replaceAll('>', '&gt;');
   }
 
+  bool get hasPendingProjectFileReferences => _projectFileReferences.isNotEmpty;
+
   /// Injects project file/directory references into the controller text and
   /// clears the capsule list. Called both from the send button and from the
   /// parent via [GlobalKey] for keyboard-shortcut sends.
@@ -958,175 +960,193 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               final isFirst = index == 0;
               final isLast = index == widget.queuedMessages.length - 1;
               return AnimatedRemovableChip(
-                key: ValueKey<String>(
-                  'queued:$index:${identityHashCode(msg)}',
-                ),
+                key: ValueKey<String>('queued:$index:${identityHashCode(msg)}'),
                 settings: chipAnim,
                 collapseAxis: Axis.vertical,
                 onRemove: () => widget.onRemoveQueuedMessage(index),
                 builder: (ctx, requestRemove) => Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.hourglass_empty_rounded,
-                        size: 14,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outlineVariant.withValues(alpha: 0.5),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          msg.text.replaceAll('\n', ' '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                                fontStyle: FontStyle.italic,
-                              ),
-                        ),
-                      ),
-                      if (msg.attachments.isNotEmpty) ...[
-                        const SizedBox(width: 8),
+                    ),
+                    child: Row(
+                      children: [
                         Icon(
-                          Icons.attach_file_rounded,
-                          size: 12,
+                          Icons.hourglass_empty_rounded,
+                          size: 14,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${msg.attachments.length}',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            msg.text.replaceAll('\n', ' '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                          ),
+                        ),
+                        if (msg.attachments.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.attach_file_rounded,
+                            size: 12,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${msg.attachments.length}',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                        const SizedBox(width: 4),
+                        // 2026-05 — wrap inline toolbar buttons in
+                        // MicroPressFeedback for an 80ms scale-down +
+                        // 140ms ease-out rebound on tap. Honors
+                        // reduceMotion via the wrapper.
+                        MicroPressFeedback(
+                          enabled: !isFirst,
+                          child: IconButton(
+                            onPressed: isFirst
+                                ? null
+                                : () => widget.onMoveQueuedMessage(
+                                    index,
+                                    index - 1,
+                                  ),
+                            icon: Icon(
+                              Icons.arrow_upward_rounded,
+                              size: 14,
+                              color: isFirst
+                                  ? Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant
+                                        .withValues(alpha: 0.3)
+                                  : Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '上移',
+                              en: 'Move up',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          enabled: !isLast,
+                          child: IconButton(
+                            onPressed: isLast
+                                ? null
+                                : () => widget.onMoveQueuedMessage(
+                                    index,
+                                    index + 1,
+                                  ),
+                            icon: Icon(
+                              Icons.arrow_downward_rounded,
+                              size: 14,
+                              color: isLast
+                                  ? Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant
+                                        .withValues(alpha: 0.3)
+                                  : Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '下移',
+                              en: 'Move down',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            onPressed: () async {
+                              final edited = await _showEditQueuedMessageDialog(
+                                context,
+                                msg.text,
+                              );
+                              if (edited != null && edited.trim().isNotEmpty) {
+                                widget.onEditQueuedMessage(index, edited);
+                              }
+                            },
+                            icon: Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '编辑此等待消息',
+                              en: 'Edit this queued message',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            onPressed: requestRemove,
+                            icon: Icon(
+                              Icons.close_rounded,
+                              size: 14,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '删除此等待消息',
+                              en: 'Remove this queued message',
+                            ),
+                          ),
                         ),
                       ],
-                      const SizedBox(width: 4),
-                      // 2026-05 — wrap inline toolbar buttons in
-                      // MicroPressFeedback for an 80ms scale-down +
-                      // 140ms ease-out rebound on tap. Honors
-                      // reduceMotion via the wrapper.
-                      MicroPressFeedback(
-                        enabled: !isFirst,
-                        child: IconButton(
-                          onPressed: isFirst
-                              ? null
-                              : () => widget.onMoveQueuedMessage(
-                                    index, index - 1),
-                          icon: Icon(
-                            Icons.arrow_upward_rounded,
-                            size: 14,
-                            color: isFirst
-                                ? Theme.of(context).colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.3)
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          tooltip: _localizedText(
-                            context,
-                            zh: '上移',
-                            en: 'Move up',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      MicroPressFeedback(
-                        enabled: !isLast,
-                        child: IconButton(
-                          onPressed: isLast
-                              ? null
-                              : () => widget.onMoveQueuedMessage(
-                                    index, index + 1),
-                          icon: Icon(
-                            Icons.arrow_downward_rounded,
-                            size: 14,
-                            color: isLast
-                                ? Theme.of(context).colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.3)
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          tooltip: _localizedText(
-                            context,
-                            zh: '下移',
-                            en: 'Move down',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      MicroPressFeedback(
-                        child: IconButton(
-                          onPressed: () async {
-                            final edited = await _showEditQueuedMessageDialog(
-                              context,
-                              msg.text,
-                            );
-                            if (edited != null && edited.trim().isNotEmpty) {
-                              widget.onEditQueuedMessage(index, edited);
-                            }
-                          },
-                          icon: Icon(
-                            Icons.edit_outlined,
-                            size: 14,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          tooltip: _localizedText(
-                            context,
-                            zh: '编辑此等待消息',
-                            en: 'Edit this queued message',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      MicroPressFeedback(
-                        child: IconButton(
-                          onPressed: requestRemove,
-                          icon: Icon(
-                            Icons.close_rounded,
-                            size: 14,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          tooltip: _localizedText(
-                            context,
-                            zh: '删除此等待消息',
-                            en: 'Remove this queued message',
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
               );
             },
           ),
@@ -1189,9 +1209,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               // global text-editing shortcuts and forwards the keystroke
               // to our composer callbacks instead.
               child: _ComposerShortcutsHost(
-                bindings: context
-                    .watch<SettingsController>()
-                    .shortcutBindings,
+                bindings: context.watch<SettingsController>().shortcutBindings,
                 onSend: () => unawaited(widget.onSend()),
                 onToggleCollapsed: () =>
                     widget.onCollapsedChanged(!widget.isCollapsed),
@@ -1277,10 +1295,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                                       ),
                                 ),
                               ),
-                              child: const Icon(
-                                Icons.tune_rounded,
-                                size: 18,
-                              ),
+                              child: const Icon(Icons.tune_rounded, size: 18),
                             ),
                           ),
                         ),
@@ -1330,10 +1345,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           message: widget.attachmentsEnabled
               ? _localizedText(
                   context,
-                  zh:
-                      '添加附件（最多 $aiMessageAttachmentLimit 个，单文件 ≤10MB；支持图片、文本、代码、表格和 PDF）',
-                  en:
-                      'Add attachments (up to $aiMessageAttachmentLimit, ≤10MB each; images, text, code, spreadsheets, PDF)',
+                  zh: '添加附件（最多 $aiMessageAttachmentLimit 个，单文件 ≤10MB；支持图片、文本、代码、表格和 PDF）',
+                  en: 'Add attachments (up to $aiMessageAttachmentLimit, ≤10MB each; images, text, code, spreadsheets, PDF)',
                 )
               : _localizedText(
                   context,
@@ -1383,8 +1396,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               child: AnimatedRotation(
                 turns: widget.isCollapsed ? 0.5 : 0,
                 duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
                 child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),
@@ -1532,8 +1545,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       color: colorScheme.surfaceContainerHigh,
       child: AnimatedContainer(
         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 260),
+            ? Duration.zero
+            : const Duration(milliseconds: 260),
         curve: Curves.easeInOutCubicEmphasized,
         padding: EdgeInsets.fromLTRB(18, 14, 18, widget.isCollapsed ? 10 : 18),
         child: Column(
@@ -1788,8 +1801,8 @@ class _ComposerModeButton extends StatelessWidget {
             // LayoutBuilder (see note in _ComposerPanelState.build).
             child: AnimatedSwitcher(
               duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+                  ? Duration.zero
+                  : const Duration(milliseconds: 180),
               child: Icon(
                 modeIcon,
                 key: ValueKey<String>('${mode.storageValue}-$modeIcon'),
@@ -1803,8 +1816,8 @@ class _ComposerModeButton extends StatelessWidget {
           // LayoutBuilder (see note in _ComposerPanelState.build).
           AnimatedSwitcher(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
             child: Text(
               modeLabel,
               key: ValueKey<String>('${mode.storageValue}-$modeLabel'),
@@ -1926,8 +1939,8 @@ class _ComposerCreationModeButtonState
             // FadeTransition (SingleChildRenderObjectWidget) is safe.
             child: AnimatedSwitcher(
               duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                  ? Duration.zero
+                  : const Duration(milliseconds: 220),
               child: Icon(
                 _iconForMode(widget.creationMode),
                 key: ValueKey<_CreationMode>(widget.creationMode),
@@ -2073,9 +2086,10 @@ class _ReorderableAttachmentWrapState
 
   @override
   Widget build(BuildContext context) {
-    final chipAnim = context.select<SettingsController, DialogAnimationSettings>(
-      (c) => c.chipAnimationSettings,
-    );
+    final chipAnim = context
+        .select<SettingsController, DialogAnimationSettings>(
+          (c) => c.chipAnimationSettings,
+        );
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -2143,7 +2157,7 @@ class _ReorderableAttachmentWrapState
                     curve: Curves.easeOutCubic,
                     transform: isHovering
                         ? (Matrix4.identity()
-                          ..scaleByDouble(1.02, 1.02, 1.0, 1.0))
+                            ..scaleByDouble(1.02, 1.02, 1.0, 1.0))
                         : Matrix4.identity(),
                     transformAlignment: Alignment.center,
                     decoration: BoxDecoration(
@@ -2375,9 +2389,10 @@ class _ReorderableProjectReferenceWrapState
 
   @override
   Widget build(BuildContext context) {
-    final chipAnim = context.select<SettingsController, DialogAnimationSettings>(
-      (c) => c.chipAnimationSettings,
-    );
+    final chipAnim = context
+        .select<SettingsController, DialogAnimationSettings>(
+          (c) => c.chipAnimationSettings,
+        );
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -2435,7 +2450,7 @@ class _ReorderableProjectReferenceWrapState
                     curve: Curves.easeOutCubic,
                     transform: isHovering
                         ? (Matrix4.identity()
-                          ..scaleByDouble(1.02, 1.02, 1.0, 1.0))
+                            ..scaleByDouble(1.02, 1.02, 1.0, 1.0))
                         : Matrix4.identity(),
                     transformAlignment: Alignment.center,
                     decoration: BoxDecoration(
@@ -2619,176 +2634,178 @@ class _AtMentionOverlayPanel extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
               child: Material(
-              elevation: 8,
-              shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(16),
-              color: isDark
-                  ? colorScheme.surfaceContainerHigh
-                  : colorScheme.surface,
-              surfaceTintColor: colorScheme.surfaceTint,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Breadcrumb row.
-                  if (breadcrumbs.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _AtMentionBreadcrumbChip(
-                              label: isZh ? '项目根目录' : 'Project Root',
-                              icon: Icons.home_rounded,
-                              onTap: () => onBreadcrumbTap(-1),
-                            ),
-                            for (var i = 0; i < breadcrumbs.length; i++) ...[
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
-                                ),
-                                child: Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 14,
-                                  color: colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.4),
-                                ),
-                              ),
+                elevation: 8,
+                shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+                color: isDark
+                    ? colorScheme.surfaceContainerHigh
+                    : colorScheme.surface,
+                surfaceTintColor: colorScheme.surfaceTint,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Breadcrumb row.
+                    if (breadcrumbs.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                               _AtMentionBreadcrumbChip(
-                                label: breadcrumbs[i],
-                                icon: Icons.folder_rounded,
-                                onTap: () => onBreadcrumbTap(i),
-                                isLast: i == breadcrumbs.length - 1,
+                                label: isZh ? '项目根目录' : 'Project Root',
+                                icon: Icons.home_rounded,
+                                onTap: () => onBreadcrumbTap(-1),
                               ),
+                              for (var i = 0; i < breadcrumbs.length; i++) ...[
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                  ),
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 14,
+                                    color: colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                _AtMentionBreadcrumbChip(
+                                  label: breadcrumbs[i],
+                                  icon: Icons.folder_rounded,
+                                  onTap: () => onBreadcrumbTap(i),
+                                  isLast: i == breadcrumbs.length - 1,
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  // Results.
-                  if (loading)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    )
-                  else if (items.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Center(
-                        child: Text(
-                          isZh
-                              ? '未找到匹配文件或目录'
-                              : 'No matching files or directories',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.6,
-                            ),
                           ),
                         ),
                       ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        shrinkWrap: true,
-                        itemCount: items.length,
-                        itemBuilder: (ctx, index) {
-                          final item = items[index];
-                          final isSelected = index == selectedIndex;
-                          return Material(
-                            color: isSelected
-                                ? colorScheme.primaryContainer.withValues(
-                                    alpha: 0.4,
-                                  )
-                                : Colors.transparent,
-                            child: InkWell(
-                              onTap: () => onSelect(item),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _atMentionIcon(item),
-                                      size: 18,
-                                      color: item.isDirectory
-                                          ? colorScheme.primary
-                                          : colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.name,
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          Text(
-                                            item.relativePath,
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                                  color: colorScheme
-                                                      .onSurfaceVariant
-                                                      .withValues(alpha: 0.55),
-                                                  fontSize: 10,
-                                                ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (item.isDirectory) ...[
-                                      const SizedBox(width: 4),
-                                      SizedBox(
-                                        width: 28,
-                                        height: 28,
-                                        child: IconButton(
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          tooltip: isZh
-                                              ? '进入目录'
-                                              : 'Open directory',
-                                          onPressed: () => onDrillDown(item),
-                                          icon: Icon(
-                                            Icons.chevron_right_rounded,
-                                            size: 18,
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                    // Results.
+                    if (loading)
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      )
+                    else if (items.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Center(
+                          child: Text(
+                            isZh
+                                ? '未找到匹配文件或目录'
+                                : 'No matching files or directories',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.6,
                               ),
                             ),
-                          );
-                        },
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (ctx, index) {
+                            final item = items[index];
+                            final isSelected = index == selectedIndex;
+                            return Material(
+                              color: isSelected
+                                  ? colorScheme.primaryContainer.withValues(
+                                      alpha: 0.4,
+                                    )
+                                  : Colors.transparent,
+                              child: InkWell(
+                                onTap: () => onSelect(item),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _atMentionIcon(item),
+                                        size: 18,
+                                        color: item.isDirectory
+                                            ? colorScheme.primary
+                                            : colorScheme.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.name,
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              item.relativePath,
+                                              style: theme.textTheme.labelSmall
+                                                  ?.copyWith(
+                                                    color: colorScheme
+                                                        .onSurfaceVariant
+                                                        .withValues(
+                                                          alpha: 0.55,
+                                                        ),
+                                                    fontSize: 10,
+                                                  ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (item.isDirectory) ...[
+                                        const SizedBox(width: 4),
+                                        SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: IconButton(
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            tooltip: isZh
+                                                ? '进入目录'
+                                                : 'Open directory',
+                                            onPressed: () => onDrillDown(item),
+                                            icon: Icon(
+                                              Icons.chevron_right_rounded,
+                                              size: 18,
+                                              color: colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
           ),
         ),
       ],
@@ -3526,8 +3543,8 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
             // that drives opacity at the render level via markNeedsPaint).
             child: AnimatedSwitcher(
               duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
+                  ? Duration.zero
+                  : const Duration(milliseconds: 200),
               child: Text(
                 label,
                 key: ValueKey<String>('creation-options-label-$label'),
