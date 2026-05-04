@@ -84,6 +84,9 @@ class MessageGatewayController extends ChangeNotifier {
   WebGatewayRuntimeState get runtimeState => _service.state;
   bool get isRunning => _service.isRunning;
   String get webUrl => _service.boundUrl;
+  /// 当前可访问该 Web 服务的全部 URL（监听通配符地址时含 LAN IP）。
+  /// view 与设置面板可直接 `Wrap`/`SelectableText.rich` 渲染。
+  List<String> get webUrls => _service.accessibleUrls;
   List<WebGatewayLogEntry> get logs => _service.logs;
   List<WebGatewayCleanupResult> get cleanupHistory => _service.cleanupHistory;
   WebGatewayRuntimeSnapshot runtimeSnapshot() => _service.runtimeSnapshot();

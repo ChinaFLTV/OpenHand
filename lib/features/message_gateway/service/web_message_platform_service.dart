@@ -102,6 +102,12 @@ class WebMessagePlatformService {
   DateTime? _processDiagnosticsAt;
   _LinuxCpuSample? _previousLinuxCpuSample;
 
+  /// 缓存当前主机非环回 IPv4 地址列表，作为 `accessibleUrls` 在
+  /// 监听 `0.0.0.0` / `::` 时枚举局域网 URL 的数据源。`start()` 后填充，
+  /// `runtimeSnapshotAsync()` 触发时按 30s TTL 刷新。
+  List<String> _localAddressesCache = const <String>[];
+  DateTime? _localAddressesAt;
+
   Stream<WebGatewayLogEntry> get logStream => _logStreamController.stream;
   List<WebGatewayLogEntry> get logs =>
       List<WebGatewayLogEntry>.unmodifiable(_memoryLogs);
@@ -113,6 +119,34 @@ class WebMessagePlatformService {
   String get boundUrl => _server == null
       ? ''
       : 'http://${_displayHost(_config.listenHost)}:${_server!.port}';
+
+  /// 当前可访问该 Web 服务的全部 URL：
+  /// - 监听具体 IP（如 `192.168.1.5`）→ 仅返回 `[boundUrl]`
+  /// - 监听通配符 (`0.0.0.0` / `::` / 空串) → 返回 `localhost` + `127.0.0.1`
+  ///   + 所有非环回 IPv4 地址。`_localAddressesCache` 由 `_refreshLocalAddresses`
+  ///   异步填充；服务未启动时返回空列表。
+  List<String> get accessibleUrls {
+    final server = _server;
+    if (server == null) return const <String>[];
+    final port = server.port;
+    final normalized = _config.listenHost.trim();
+    final isWildcard = normalized.isEmpty ||
+        normalized == '0.0.0.0' ||
+        normalized == '::' ||
+        normalized == '::0';
+    if (!isWildcard) {
+      return List<String>.unmodifiable(<String>['http://$normalized:$port']);
+    }
+    final urls = <String>{
+      'http://localhost:$port',
+      'http://127.0.0.1:$port',
+    };
+    for (final addr in _localAddressesCache) {
+      if (addr.isEmpty) continue;
+      urls.add('http://$addr:$port');
+    }
+    return List<String>.unmodifiable(urls);
+  }
 
   void updateTheme(WebGatewayThemeSnapshot theme) {
     _theme = theme;
@@ -148,6 +182,9 @@ class WebMessagePlatformService {
       _server = server;
       _startedAt = DateTime.now().toUtc();
       _state = WebGatewayRuntimeState.running;
+      // 启动后立刻探测一次主机 IP 列表，便于 UI 第一时间展示 LAN 访问 URL；
+      // TTL 由 _refreshLocalAddressesIfStale 自行管理。失败仅 silentLog。
+      unawaited(_refreshLocalAddressesIfStale(ttl: Duration.zero));
       _log(WebGatewayLogLevel.success, 'BOOT', 'Web 服务已监听 $boundUrl');
       // 启动后顺手做一次过期清理；失败不应阻塞 boot 流程，但要走 silentLog
       // 防止 Future error 被 unawaited 静默吞掉。
@@ -234,6 +271,7 @@ class WebMessagePlatformService {
       startedAt: startedAt,
       uptimeMs: uptimeMs,
       boundUrl: boundUrl,
+      accessibleUrls: accessibleUrls,
       activeRequests: _activeRequests,
       totalRequests: _totalRequests,
       totalErrors: _totalErrors,
@@ -255,7 +293,38 @@ class WebMessagePlatformService {
 
   Future<WebGatewayRuntimeSnapshot> runtimeSnapshotAsync() async {
     await _refreshProcessDiagnosticsIfStale();
+    await _refreshLocalAddressesIfStale();
     return runtimeSnapshot();
+  }
+
+  /// 刷新主机非环回 IPv4 地址列表，30 s TTL。失败不抛，仅 silentLog——
+  /// 缓存保持上一次结果（启动期为空列表，UI 仍能显示 localhost/127.0.0.1）。
+  Future<void> _refreshLocalAddressesIfStale({Duration ttl = const Duration(seconds: 30)}) async {
+    final stamp = _localAddressesAt;
+    if (stamp != null && DateTime.now().toUtc().difference(stamp) < ttl) {
+      return;
+    }
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+      );
+      final addrs = <String>[];
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          final value = addr.address.trim();
+          if (value.isNotEmpty) addrs.add(value);
+        }
+      }
+      _localAddressesCache = List<String>.unmodifiable(addrs);
+      _localAddressesAt = DateTime.now().toUtc();
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_service',
+        'refresh local addresses',
+        error,
+        stack,
+      );
+    }
   }
 
   Future<WebGatewayHealthResult> runHealthCheck() async {
@@ -591,6 +660,8 @@ class WebMessagePlatformService {
         'id': webMessagePlatformBuiltinId,
         'name': webMessagePlatformBuiltinName,
         'description': _config.description,
+        'bound_url': boundUrl,
+        'accessible_urls': accessibleUrls,
         'auth_enabled': _config.authEnabled,
         'telemetry_enabled': _config.telemetryEnabled,
         'logging_enabled': _config.loggingEnabled,

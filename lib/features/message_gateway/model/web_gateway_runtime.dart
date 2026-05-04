@@ -151,6 +151,7 @@ class WebGatewayRuntimeSnapshot {
     required this.startedAt,
     required this.uptimeMs,
     required this.boundUrl,
+    required this.accessibleUrls,
     required this.activeRequests,
     required this.totalRequests,
     required this.totalErrors,
@@ -173,6 +174,12 @@ class WebGatewayRuntimeSnapshot {
   final DateTime? startedAt;
   final int uptimeMs;
   final String boundUrl;
+
+  /// 当前可访问该 Web 服务的 URL 列表。
+  /// - 监听 `0.0.0.0` / `::` 时枚举：`localhost` + `127.0.0.1` + 所有非环回 IPv4
+  /// - 监听具体 IP 时仅含 `boundUrl`
+  /// - 未启动时为空列表
+  final List<String> accessibleUrls;
   final int activeRequests;
   final int totalRequests;
   final int totalErrors;
@@ -196,6 +203,7 @@ class WebGatewayRuntimeSnapshot {
       'started_at': startedAt?.toUtc().toIso8601String(),
       'uptime_ms': uptimeMs,
       'bound_url': boundUrl,
+      'accessible_urls': accessibleUrls,
       'active_requests': activeRequests,
       'total_requests': totalRequests,
       'total_errors': totalErrors,
