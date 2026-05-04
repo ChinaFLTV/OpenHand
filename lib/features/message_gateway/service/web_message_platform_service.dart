@@ -29,6 +29,11 @@ import '../model/web_message_platform_config.dart';
 export '../model/web_gateway_runtime.dart';
 export '../model/web_gateway_session_metadata.dart';
 
+// 内部子系统 — 通过 part 共享同一 library，保持私有 API 表面不变。
+part 'web_message_platform_service_logger.part.dart';
+part 'web_message_platform_service_auth.part.dart';
+part 'web_message_platform_service_telemetry.part.dart';
+
 class WebMessagePlatformService {
   WebMessagePlatformService({
     required AiSessionController sessionController,
@@ -1967,59 +1972,6 @@ class _ParsedModelKey {
   final String modelId;
 }
 
-class _ProcessDiagnostics {
-  const _ProcessDiagnostics({
-    this.cpuPercent,
-    this.threadCount,
-    this.fileHandleCount,
-    this.swapBytes,
-  });
-
-  final double? cpuPercent;
-  final int? threadCount;
-  final int? fileHandleCount;
-  final int? swapBytes;
-}
-
-class _LinuxCpuSample {
-  const _LinuxCpuSample({required this.processTicks, required this.totalTicks});
-
-  final int processTicks;
-  final int totalTicks;
-}
-
-class _CleanupStats {
-  const _CleanupStats({
-    this.deletedFiles = 0,
-    this.deletedDirectories = 0,
-    this.bytesFreed = 0,
-  });
-
-  final int deletedFiles;
-  final int deletedDirectories;
-  final int bytesFreed;
-
-  _CleanupStats copyWith({
-    int? deletedFiles,
-    int? deletedDirectories,
-    int? bytesFreed,
-  }) {
-    return _CleanupStats(
-      deletedFiles: deletedFiles ?? this.deletedFiles,
-      deletedDirectories: deletedDirectories ?? this.deletedDirectories,
-      bytesFreed: bytesFreed ?? this.bytesFreed,
-    );
-  }
-
-  _CleanupStats operator +(_CleanupStats other) {
-    return _CleanupStats(
-      deletedFiles: deletedFiles + other.deletedFiles,
-      deletedDirectories: deletedDirectories + other.deletedDirectories,
-      bytesFreed: bytesFreed + other.bytesFreed,
-    );
-  }
-}
-
 String _modelKey(String providerId, String modelId) => '$providerId::$modelId';
 
 _ParsedModelKey? _parseModelKey(String key) {
@@ -2029,208 +1981,6 @@ _ParsedModelKey? _parseModelKey(String key) {
   final modelId = parts[1].trim();
   if (providerId.isEmpty || modelId.isEmpty) return null;
   return _ParsedModelKey(providerId: providerId, modelId: modelId);
-}
-
-class _WebGatewayAuthSession {
-  const _WebGatewayAuthSession({
-    required this.token,
-    required this.source,
-    required this.deviceId,
-    required this.deviceMacAddress,
-    required this.deviceName,
-    required this.devicePlatform,
-    required this.loginAt,
-    required this.remoteAddress,
-    required this.userAgent,
-  });
-
-  final String token;
-  final WebGatewayLoginSource source;
-  final String deviceId;
-  final String deviceMacAddress;
-  final String deviceName;
-  final String devicePlatform;
-  final DateTime loginAt;
-  final String remoteAddress;
-  final String userAgent;
-
-  Map<String, Object?> toMetadata() {
-    return <String, Object?>{
-      'login_source': source.storageValue,
-      'source': source.storageValue,
-      'device_id': deviceId,
-      'device_mac_address': deviceMacAddress,
-      'device_name': deviceName,
-      'device_platform': devicePlatform,
-      'login_at': loginAt.toUtc().toIso8601String(),
-      'login_os': devicePlatform,
-      'login_address': remoteAddress,
-      'remote_ip': remoteAddress,
-      'user_agent': userAgent,
-      'entrypoint': 'web_message_platform',
-    };
-  }
-}
-
-class _WebGatewayRotatingLogger {
-  _WebGatewayRotatingLogger({String? logsDirectoryPath})
-    : directoryPath = p.join(
-        logsDirectoryPath ?? OpenHandPaths.defaultLogsDirectoryPath(),
-        'message_gateway',
-      );
-
-  final String directoryPath;
-  String get filePath => p.join(directoryPath, 'web-platform.log');
-
-  int get currentSizeBytes {
-    try {
-      final file = File(filePath);
-      if (!file.existsSync()) return 0;
-      return file.lengthSync();
-    } catch (_) {
-      return 0;
-    }
-  }
-
-  Future<void> write(
-    WebGatewayLogEntry entry,
-    WebGatewayLogConfig config,
-  ) async {
-    try {
-      final dir = Directory(directoryPath);
-      await dir.create(recursive: true);
-      await _rotateIfNeeded(config);
-      await File(
-        filePath,
-      ).writeAsString('${entry.toLogLine()}\n', mode: FileMode.append);
-    } catch (error, stack) {
-      silentLog('web_gateway_logger', 'write', error, stack);
-    }
-  }
-
-  Future<_CleanupStats> clear() async {
-    final dir = Directory(directoryPath);
-    if (!await dir.exists()) return const _CleanupStats();
-    var stats = const _CleanupStats();
-    final files = dir
-        .listSync(followLinks: false)
-        .whereType<File>()
-        .where((item) => p.basename(item.path).startsWith('web-platform'));
-    for (final file in files) {
-      try {
-        final stat = await file.stat();
-        await file.delete();
-        stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
-      } catch (_) {}
-    }
-    return stats;
-  }
-
-  Future<_CleanupStats> prune(WebGatewayLogConfig config) async {
-    final dir = Directory(directoryPath);
-    if (!await dir.exists()) return const _CleanupStats();
-    final cutoff = DateTime.now().subtract(Duration(days: config.rotationDays));
-    var stats = const _CleanupStats();
-    final files =
-        dir
-            .listSync(followLinks: false)
-            .whereType<File>()
-            .where((item) => p.basename(item.path).startsWith('web-platform'))
-            .toList(growable: false)
-          ..sort(
-            (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
-          );
-
-    Future<void> deleteFile(File file) async {
-      try {
-        final stat = await file.stat();
-        await file.delete();
-        stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
-      } catch (_) {}
-    }
-
-    final deleted = <String>{};
-    for (final file in files) {
-      if (p.equals(file.path, filePath)) continue;
-      if (file.statSync().modified.isBefore(cutoff)) {
-        await deleteFile(file);
-        deleted.add(file.path);
-      }
-    }
-    final remaining = files
-        .where((file) => !deleted.contains(file.path))
-        .toList(growable: false);
-    for (final old in remaining.skip(config.maxFiles)) {
-      if (p.equals(old.path, filePath)) continue;
-      await deleteFile(old);
-    }
-    return stats;
-  }
-
-  Future<List<Map<String, Object?>>> readBundle() async {
-    final dir = Directory(directoryPath);
-    if (!await dir.exists()) return const <Map<String, Object?>>[];
-    final files =
-        dir
-            .listSync(followLinks: false)
-            .whereType<File>()
-            .where((item) => p.basename(item.path).startsWith('web-platform'))
-            .toList(growable: false)
-          ..sort(
-            (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
-          );
-    final items = <Map<String, Object?>>[];
-    for (final file in files) {
-      try {
-        final stat = await file.stat();
-        final bytes = await file.readAsBytes();
-        items.add(<String, Object?>{
-          'name': p.basename(file.path),
-          'size': stat.size,
-          'modified_at': stat.modified.toUtc().toIso8601String(),
-          'content': utf8.decode(bytes, allowMalformed: true),
-        });
-      } catch (_) {}
-    }
-    return items;
-  }
-
-  Future<String> readCurrentLogText() async {
-    final file = File(filePath);
-    if (!await file.exists()) return '';
-    final bytes = await file.readAsBytes();
-    return utf8.decode(bytes, allowMalformed: true);
-  }
-
-  Future<void> _rotateIfNeeded(WebGatewayLogConfig config) async {
-    final file = File(filePath);
-    if (!await file.exists()) return;
-    final stat = await file.stat();
-    final tooLarge = stat.size >= config.fileMaxBytes;
-    final tooOld =
-        DateTime.now().difference(stat.modified).inDays >= config.rotationDays;
-    if (!tooLarge && !tooOld) return;
-    final stamp = DateTime.now()
-        .toUtc()
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .replaceAll('.', '-');
-    await file.rename(p.join(directoryPath, 'web-platform-$stamp.log'));
-    final logs =
-        Directory(directoryPath)
-            .listSync(followLinks: false)
-            .whereType<File>()
-            .where((item) => p.basename(item.path).startsWith('web-platform'))
-            .toList(growable: false)
-          ..sort(
-            (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
-          );
-    for (final old in logs.skip(config.maxFiles)) {
-      try {
-        await old.delete();
-      } catch (_) {}
-    }
-  }
 }
 
 String _string(Object? value, String fallback) {
@@ -2260,19 +2010,7 @@ String _normalizeWorkspaceExtension(String value) {
   return safe.isEmpty ? '' : '.$safe';
 }
 
-int? _parseMacSwapBytes(String value) {
-  final match = RegExp(r'used\s*=\s*([0-9.]+)([MG]?)').firstMatch(value);
-  if (match == null) return null;
-  final number = double.tryParse(match.group(1) ?? '');
-  if (number == null) return null;
-  final unit = match.group(2) ?? '';
-  final multiplier = unit == 'G'
-      ? 1024 * 1024 * 1024
-      : unit == 'M'
-      ? 1024 * 1024
-      : 1;
-  return (number * multiplier).round();
-}
+
 
 const String _webClientHtml = r'''<!doctype html>
 <html lang="zh-CN">
