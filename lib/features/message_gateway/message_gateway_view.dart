@@ -1057,12 +1057,13 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final Set<WebGatewayLogLevel> _hidden = <WebGatewayLogLevel>{};
   final List<WebGatewayLogEntry> _rendered = <WebGatewayLogEntry>[];
+  final Set<int> _renderedIds = <int>{};
   bool _follow = true;
   int _anchorLogId = 0;
   int _historyLimit = 0;
   int _lastPageSize = 60;
-  String _renderedSignature = '';
-  String _pendingRenderedSignature = '';
+  int _renderedFingerprint = 0;
+  int _pendingRenderedFingerprint = 0;
   List<WebGatewayLogEntry> _pendingRenderedTarget =
       const <WebGatewayLogEntry>[];
   bool _syncScheduled = false;
@@ -1238,17 +1239,25 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
     ];
   }
 
+  int _logFingerprint(List<WebGatewayLogEntry> logs) {
+    var hash = logs.length;
+    for (final entry in logs) {
+      hash = 0x3fffffff & (hash * 31 + entry.id);
+    }
+    return hash;
+  }
+
   void _scheduleRenderedSync(List<WebGatewayLogEntry> target) {
-    final signature = target.map((entry) => entry.id).join(',');
-    if (signature == _renderedSignature && !_syncScheduled) return;
+    final fingerprint = _logFingerprint(target);
+    if (fingerprint == _renderedFingerprint && !_syncScheduled) return;
     _pendingRenderedTarget = List<WebGatewayLogEntry>.from(target);
-    _pendingRenderedSignature = signature;
+    _pendingRenderedFingerprint = fingerprint;
     if (_syncScheduled) return;
     _syncScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _syncScheduled = false;
-      _renderedSignature = _pendingRenderedSignature;
+      _renderedFingerprint = _pendingRenderedFingerprint;
       _syncRendered(_pendingRenderedTarget);
       if (_follow) _scrollToBottomSoon();
     });
@@ -1261,6 +1270,9 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         _rendered
           ..clear()
           ..addAll(target);
+        _renderedIds
+          ..clear()
+          ..addAll(target.map((entry) => entry.id));
       });
       return;
     }
@@ -1269,6 +1281,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       final entry = _rendered[index];
       if (!targetIds.contains(entry.id)) {
         _rendered.removeAt(index);
+        _renderedIds.remove(entry.id);
         listState.removeItem(
           index,
           (context, animation) => _AnimatedLogLine(
@@ -1280,13 +1293,12 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         );
       }
     }
-    final renderedIds = _rendered.map((entry) => entry.id).toSet();
     for (var targetIndex = 0; targetIndex < target.length; targetIndex++) {
       final entry = target[targetIndex];
-      if (renderedIds.contains(entry.id)) continue;
+      if (_renderedIds.contains(entry.id)) continue;
       final insertIndex = math.min(targetIndex, _rendered.length);
       _rendered.insert(insertIndex, entry);
-      renderedIds.add(entry.id);
+      _renderedIds.add(entry.id);
       listState.insertItem(
         insertIndex,
         duration: _motionDuration(context, 280),
@@ -1366,6 +1378,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
   Timer? _timer;
   final List<WebGatewayRuntimeSnapshot> _trend = <WebGatewayRuntimeSnapshot>[];
   bool _isCleaning = false;
+  bool _isRefreshingSnapshot = false;
 
   @override
   void initState() {
@@ -1381,13 +1394,18 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
   }
 
   Future<void> _tick() async {
-    if (!mounted) return;
-    final snapshot = await widget.controller.refreshRuntimeSnapshot();
-    if (!mounted) return;
-    setState(() {
-      _trend.add(snapshot);
-      if (_trend.length > 60) _trend.removeAt(0);
-    });
+    if (!mounted || _isRefreshingSnapshot) return;
+    _isRefreshingSnapshot = true;
+    try {
+      final snapshot = await widget.controller.refreshRuntimeSnapshot();
+      if (!mounted) return;
+      setState(() {
+        _trend.add(snapshot);
+        if (_trend.length > 60) _trend.removeAt(0);
+      });
+    } finally {
+      _isRefreshingSnapshot = false;
+    }
   }
 
   @override
@@ -2802,15 +2820,13 @@ class _TrendLinePainter extends CustomPainter {
       path.quadraticBezierTo(previous.dx, previous.dy, mid.dx, mid.dy);
     }
     path.lineTo(points.last.dx, points.last.dy);
-    final metrics = path.computeMetrics().toList(growable: false);
-    final metric = metrics.isEmpty ? null : metrics.first;
-    final visiblePath = metric == null
-        ? path
-        : metric.extractPath(0, metric.length * progress.clamp(0.0, 1.0));
-    final fillPath = Path.from(visiblePath)
+    final fillPath = Path.from(path)
       ..lineTo(points.last.dx, chart.bottom)
       ..lineTo(points.first.dx, chart.bottom)
       ..close();
+    final visibleRight = chart.left + chart.width * progress.clamp(0.0, 1.0);
+    canvas.save();
+    canvas.clipRect(Rect.fromLTRB(chart.left, chart.top, visibleRight, chart.bottom));
     canvas.drawPath(
       fillPath,
       Paint()
@@ -2824,7 +2840,7 @@ class _TrendLinePainter extends CustomPainter {
         ).createShader(chart),
     );
     canvas.drawPath(
-      visiblePath,
+      path,
       Paint()
         ..color = lineColor
         ..style = PaintingStyle.stroke
@@ -2832,6 +2848,7 @@ class _TrendLinePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
+      canvas.restore();
   }
 
   void _paintLabel(
