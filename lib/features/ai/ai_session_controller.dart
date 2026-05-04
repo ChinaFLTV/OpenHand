@@ -688,7 +688,15 @@ class AiSessionController extends ChangeNotifier {
   }
 
   bool canStopResponding(String? sessionId) {
-    return sendPhaseForSession(sessionId) != AiSendPhase.idle;
+    final normalizedSessionId = sessionId?.trim() ?? '';
+    if (normalizedSessionId.isEmpty) {
+      return false;
+    }
+    if (sendPhaseForSession(normalizedSessionId) != AiSendPhase.idle) {
+      return true;
+    }
+    final stopSignal = _sessionStopSignals[normalizedSessionId];
+    return stopSignal != null && !stopSignal.isCompleted;
   }
 
   /// Temporarily transitions a session into [AiSendPhase.awaitingApproval].

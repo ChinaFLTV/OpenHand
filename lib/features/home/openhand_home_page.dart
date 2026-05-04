@@ -1009,6 +1009,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (controllerPhase != AiSendPhase.idle) {
       return controllerPhase;
     }
+    if (sessionController.canStopResponding(sessionId)) {
+      return AiSendPhase.responding;
+    }
     return _submittingSessionId == sessionId
         ? AiSendPhase.sendingMessage
         : AiSendPhase.idle;
@@ -1561,26 +1564,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         if (phase == AiSendPhase.idle && _submittingSessionId != sessionId) {
           final q = _queuedMessagesBySessionId[sessionId];
           if (q != null && q.isNotEmpty) {
-            final nextMessage = q.removeAt(0);
-            if (q.isEmpty) {
-              _queuedMessagesBySessionId.remove(sessionId);
-            }
-            // Re-check guards after dequeue to avoid double-submit when
-            // another concurrent path has already started a submission.
+            // Re-check guards before dequeue to avoid dropping a queued item
+            // while the AI phase is still settling.
             if (_submittingSessionId != null) break;
             final nextPhase = _displaySendPhaseForSession(
               sessionController,
               sessionId,
             );
-            if (nextPhase == AiSendPhase.idle) {
+            if (nextPhase != AiSendPhase.idle) {
+              break;
+            }
+            final nextMessage = q.removeAt(0);
+            if (q.isEmpty) {
+              _queuedMessagesBySessionId.remove(sessionId);
+            }
+            unawaited(
               _submitTextToSession(
                 sessionId,
                 nextMessage.text,
                 nextMessage.attachments,
                 additionalSystemReminders: nextMessage.systemReminders,
                 selectedSkillMetadata: nextMessage.skillMetadata,
-              );
-            }
+              ),
+            );
             break; // Process one at a time across all sessions
           }
         }
@@ -2332,7 +2338,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     switch (action) {
       case OpenHandShortcutAction.sendMessage:
-        if (_canStopCurrentSessionResponse(sessionController)) {
+        final hasComposerDraft =
+            _composerController.text.trim().isNotEmpty ||
+            _pendingAttachments.isNotEmpty;
+        if (_canStopCurrentSessionResponse(sessionController) &&
+            !hasComposerDraft) {
           await _stopResponding();
           return;
         }
@@ -3654,6 +3664,47 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return confirmed == true;
   }
 
+  void _queueMessageForSession({
+    required String sessionId,
+    required String prompt,
+    required List<_ComposerAttachmentDraft> pendingAttachments,
+    required List<String> additionalSystemReminders,
+    required Map<String, Object?>? selectedSkillMetadata,
+  }) {
+    final queued = _QueuedMessage(
+      text: prompt,
+      attachments: pendingAttachments,
+      systemReminders: additionalSystemReminders,
+      skillMetadata: selectedSkillMetadata,
+    );
+    setState(() {
+      final q = _queuedMessagesBySessionId[sessionId] ?? <_QueuedMessage>[];
+      q.add(queued);
+      _queuedMessagesBySessionId[sessionId] = q;
+      _replaceComposerText('');
+      _pendingAttachments = const <_ComposerAttachmentDraft>[];
+      if (!_composerCollapsed) {
+        _composerFocusNode.requestFocus();
+      }
+    });
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _localizedText(
+            context,
+            zh: '消息已暂存，将在当前回答完成后自动发送。',
+            en: 'Message queued and will be sent automatically.',
+          ),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _sendMessage() async {
     final l10n = AppLocalizations.of(context)!;
     var prompt = _composerController.text.trim();
@@ -3663,27 +3714,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (prompt.isEmpty && pendingAttachments.isEmpty) {
       return;
     }
-    final slashCommand = parseOpenHandSlashCommand(prompt);
-    if (slashCommand != null) {
-      if (pendingAttachments.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _localizedText(
-                context,
-                zh: '本地斜杠命令不支持携带附件。',
-                en: 'Local slash commands do not accept attachments.',
-              ),
-            ),
-          ),
-        );
-        return;
-      }
-      _replaceComposerText('');
-      await _handleSlashCommand(slashCommand);
-      return;
-    }
-
+    final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
     final selectedModel = settingsController.selectedAiModel;
     if (selectedModel == null) {
@@ -3707,6 +3738,46 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       return;
     }
+    final existingSessionId = sessionController.currentSessionId;
+    if (existingSessionId != null &&
+        _displaySendPhaseForSession(sessionController, existingSessionId) !=
+            AiSendPhase.idle) {
+      final composerState = _composerPanelKey.currentState;
+      final skillDisplayMetadata = composerState?.peekPendingSkillMetadata();
+      final skillReminder = composerState?.consumePendingSkillReminder();
+      final additionalSystemReminders = <String>[
+        if (skillReminder != null && skillReminder.trim().isNotEmpty)
+          skillReminder,
+      ];
+      _queueMessageForSession(
+        sessionId: existingSessionId,
+        prompt: prompt,
+        pendingAttachments: pendingAttachments,
+        additionalSystemReminders: additionalSystemReminders,
+        selectedSkillMetadata: skillDisplayMetadata,
+      );
+      return;
+    }
+    final slashCommand = parseOpenHandSlashCommand(prompt);
+    if (slashCommand != null) {
+      if (pendingAttachments.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: '本地斜杠命令不支持携带附件。',
+                en: 'Local slash commands do not accept attachments.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+      _replaceComposerText('');
+      await _handleSlashCommand(slashCommand);
+      return;
+    }
     // Warn (non-blocking) when the user attaches images but the model is
     // not detected as supporting inline image content.
     if (pendingAttachments.any(
@@ -3726,7 +3797,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
     }
 
-    final sessionController = context.read<AiSessionController>();
     MachineExpertDialogResult? machineExpertConfig;
     AiSessionRuntimeContext? runtimeContext;
     if (sessionController.currentSession == null) {
@@ -3840,38 +3910,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _displaySendPhaseForSession(sessionController, targetSessionId) !=
         AiSendPhase.idle;
     if (isProcessing) {
-      final queued = _QueuedMessage(
-        text: prompt,
-        attachments: pendingAttachments,
-        systemReminders: additionalSystemReminders,
-        skillMetadata: skillDisplayMetadata,
-      );
-      setState(() {
-        final q =
-            _queuedMessagesBySessionId[targetSessionId] ?? <_QueuedMessage>[];
-        q.add(queued);
-        _queuedMessagesBySessionId[targetSessionId] = q;
-        _replaceComposerText('');
-        _pendingAttachments = const <_ComposerAttachmentDraft>[];
-        if (!_composerCollapsed) {
-          _composerFocusNode.requestFocus();
-        }
-      });
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _localizedText(
-              context,
-              zh: '消息已暂存，将在当前回答完成后自动发送。',
-              en: 'Message queued and will be sent automatically.',
-            ),
-          ),
-          duration: const Duration(seconds: 2),
-        ),
+      _queueMessageForSession(
+        sessionId: targetSessionId,
+        prompt: prompt,
+        pendingAttachments: pendingAttachments,
+        additionalSystemReminders: additionalSystemReminders,
+        selectedSkillMetadata: skillDisplayMetadata,
       );
       return;
     }
