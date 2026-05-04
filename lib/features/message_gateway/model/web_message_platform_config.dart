@@ -232,6 +232,10 @@ class WebMessagePlatformConfig {
     this.planModeEnabled = false,
     this.singleMessageTokenLimit = 2000,
     this.maxMessagesPerSession = 100,
+    this.workspaceFilesEnabled = true,
+    this.workspaceFileWriteEnabled = true,
+    this.workspaceFileMaxBytes = 1024 * 1024,
+    this.workspaceFileAllowedExtensions = const <String>[],
     this.healthCheck = const WebGatewayHealthCheckConfig(),
     this.logConfig = const WebGatewayLogConfig(),
   });
@@ -291,6 +295,18 @@ class WebMessagePlatformConfig {
         1,
         10000,
       ),
+      workspaceFilesEnabled: json['workspace_files_enabled'] as bool? ?? true,
+      workspaceFileWriteEnabled:
+          json['workspace_file_write_enabled'] as bool? ?? true,
+      workspaceFileMaxBytes: _clampInt(
+        json['workspace_file_max_bytes'],
+        1024 * 1024,
+        1024,
+        32 * 1024 * 1024,
+      ),
+      workspaceFileAllowedExtensions: _extensionList(
+        json['workspace_file_allowed_extensions'],
+      ),
       healthCheck: json['health_check'] is Map
           ? WebGatewayHealthCheckConfig.fromJson(
               Map<String, Object?>.from(json['health_check'] as Map),
@@ -329,6 +345,10 @@ class WebMessagePlatformConfig {
   final bool planModeEnabled;
   final int singleMessageTokenLimit;
   final int maxMessagesPerSession;
+  final bool workspaceFilesEnabled;
+  final bool workspaceFileWriteEnabled;
+  final int workspaceFileMaxBytes;
+  final List<String> workspaceFileAllowedExtensions;
   final WebGatewayHealthCheckConfig healthCheck;
   final WebGatewayLogConfig logConfig;
 
@@ -357,6 +377,10 @@ class WebMessagePlatformConfig {
     bool? planModeEnabled,
     int? singleMessageTokenLimit,
     int? maxMessagesPerSession,
+    bool? workspaceFilesEnabled,
+    bool? workspaceFileWriteEnabled,
+    int? workspaceFileMaxBytes,
+    List<String>? workspaceFileAllowedExtensions,
     WebGatewayHealthCheckConfig? healthCheck,
     WebGatewayLogConfig? logConfig,
   }) {
@@ -389,6 +413,14 @@ class WebMessagePlatformConfig {
           singleMessageTokenLimit ?? this.singleMessageTokenLimit,
       maxMessagesPerSession:
           maxMessagesPerSession ?? this.maxMessagesPerSession,
+      workspaceFilesEnabled:
+          workspaceFilesEnabled ?? this.workspaceFilesEnabled,
+      workspaceFileWriteEnabled:
+          workspaceFileWriteEnabled ?? this.workspaceFileWriteEnabled,
+      workspaceFileMaxBytes:
+          workspaceFileMaxBytes ?? this.workspaceFileMaxBytes,
+      workspaceFileAllowedExtensions:
+          workspaceFileAllowedExtensions ?? this.workspaceFileAllowedExtensions,
       healthCheck: healthCheck ?? this.healthCheck,
       logConfig: logConfig ?? this.logConfig,
     );
@@ -424,6 +456,10 @@ class WebMessagePlatformConfig {
       'plan_mode_enabled': planModeEnabled,
       'single_message_token_limit': singleMessageTokenLimit,
       'max_messages_per_session': maxMessagesPerSession,
+      'workspace_files_enabled': workspaceFilesEnabled,
+      'workspace_file_write_enabled': workspaceFileWriteEnabled,
+      'workspace_file_max_bytes': workspaceFileMaxBytes,
+      'workspace_file_allowed_extensions': workspaceFileAllowedExtensions,
       'health_check': healthCheck.toJson(),
       'log_config': logConfig.toJson(),
     };
@@ -459,6 +495,27 @@ List<String> _stringList(
     if (seen.add(text.toLowerCase())) values.add(text);
   }
   return values;
+}
+
+List<String> _extensionList(Object? raw) {
+  final result = <String>[];
+  final seen = <String>{};
+  for (final item in _stringList(raw)) {
+    final normalized = _normalizeExtension(item);
+    if (normalized.isEmpty) continue;
+    if (seen.add(normalized)) result.add(normalized);
+  }
+  return result;
+}
+
+String _normalizeExtension(String value) {
+  final trimmed = value.trim().toLowerCase();
+  if (trimmed.isEmpty) return '';
+  final withoutLeadingDot = trimmed.startsWith('.')
+      ? trimmed.substring(1)
+      : trimmed;
+  final safe = withoutLeadingDot.replaceAll(RegExp(r'[^a-z0-9_+-]'), '');
+  return safe.isEmpty ? '' : '.$safe';
 }
 
 Map<String, String> _stringMap(Object? raw) {

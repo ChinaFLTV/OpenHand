@@ -646,6 +646,12 @@ class WebMessagePlatformService {
         'single_message_token_limit': _config.singleMessageTokenLimit,
         'max_messages_per_session': _config.maxMessagesPerSession,
       },
+      'workspace_files': <String, Object?>{
+        'enabled': _config.workspaceFilesEnabled,
+        'write_enabled': _config.workspaceFileWriteEnabled,
+        'max_file_bytes': _config.workspaceFileMaxBytes,
+        'allowed_extensions': _config.workspaceFileAllowedExtensions,
+      },
       'theme': _theme.toJson(),
       'templates': _allowedTemplates()
           .map(
@@ -1029,7 +1035,19 @@ class WebMessagePlatformService {
   }
 
   Future<int> _listWorkspaceFiles(HttpRequest request) async {
+    if (!_config.workspaceFilesEnabled) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'workspace_files_disabled',
+      });
+    }
     final relative = request.uri.queryParameters['path'] ?? '';
+    final query = (request.uri.queryParameters['q'] ?? '').trim().toLowerCase();
+    final typeFilter = (request.uri.queryParameters['type'] ?? 'all')
+        .trim()
+        .toLowerCase();
+    final extensionFilter = _workspaceExtensionsForQuery(
+      request.uri.queryParameters['extensions'],
+    );
     final dir = _resolveWorkspacePath(relative);
     if (dir == null || !await FileSystemEntity.isDirectory(dir)) {
       return _json(request, HttpStatus.notFound, <String, Object?>{
@@ -1047,26 +1065,54 @@ class WebMessagePlatformService {
             .toLowerCase()
             .compareTo(p.basename(b.path).toLowerCase());
       });
+    final items = <Map<String, Object?>>[];
+    for (final entry in entries) {
+      final isDirectory = entry is Directory;
+      final entryType = isDirectory ? 'directory' : 'file';
+      if (typeFilter == 'file' && isDirectory) continue;
+      if (typeFilter == 'directory' && !isDirectory) continue;
+      if (!isDirectory &&
+          !_workspaceExtensionAllowed(entry.path, extensionFilter)) {
+        continue;
+      }
+      final relativePath = _relativeWorkspacePath(entry.path);
+      final name = p.basename(entry.path);
+      if (query.isNotEmpty &&
+          !name.toLowerCase().contains(query) &&
+          !relativePath.toLowerCase().contains(query)) {
+        continue;
+      }
+      final stat = entry.statSync();
+      items.add(<String, Object?>{
+        'name': name,
+        'path': relativePath,
+        'type': entryType,
+        'size': stat.size,
+        'modified_at': stat.modified.toUtc().toIso8601String(),
+        if (!isDirectory) 'extension': p.extension(entry.path).toLowerCase(),
+        if (!isDirectory)
+          'editable': stat.size <= _config.workspaceFileMaxBytes,
+      });
+      if (items.length >= 300) break;
+    }
     return _json(request, HttpStatus.ok, <String, Object?>{
       'root': root,
       'path': _relativeWorkspacePath(dir),
-      'items': entries
-          .take(300)
-          .map((entry) {
-            final stat = entry.statSync();
-            return <String, Object?>{
-              'name': p.basename(entry.path),
-              'path': _relativeWorkspacePath(entry.path),
-              'type': entry is Directory ? 'directory' : 'file',
-              'size': stat.size,
-              'modified_at': stat.modified.toUtc().toIso8601String(),
-            };
-          })
-          .toList(growable: false),
+      'items': items,
+      'query': query,
+      'type': typeFilter,
+      'write_enabled': _config.workspaceFileWriteEnabled,
+      'max_file_bytes': _config.workspaceFileMaxBytes,
+      'allowed_extensions': _config.workspaceFileAllowedExtensions,
     });
   }
 
   Future<int> _readWorkspaceFile(HttpRequest request) async {
+    if (!_config.workspaceFilesEnabled) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'workspace_files_disabled',
+      });
+    }
     final relative = request.uri.queryParameters['path'] ?? '';
     final filePath = _resolveWorkspacePath(relative);
     if (filePath == null || !await FileSystemEntity.isFile(filePath)) {
@@ -1074,11 +1120,16 @@ class WebMessagePlatformService {
         'error': 'file_not_found',
       });
     }
+    if (!_workspaceExtensionAllowed(filePath, _workspaceAllowedExtensions())) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'file_extension_not_allowed',
+      });
+    }
     final stat = await File(filePath).stat();
-    if (stat.size > 1024 * 1024) {
+    if (stat.size > _config.workspaceFileMaxBytes) {
       return _json(request, HttpStatus.badRequest, <String, Object?>{
         'error': 'file_too_large',
-        'limit_bytes': 1024 * 1024,
+        'limit_bytes': _config.workspaceFileMaxBytes,
       });
     }
     final bytes = await File(filePath).readAsBytes();
@@ -1096,19 +1147,37 @@ class WebMessagePlatformService {
   }
 
   Future<int> _writeWorkspaceFile(HttpRequest request) async {
-    final body = await _readJsonBody(request, maxBytes: 2 * 1024 * 1024);
+    if (!_config.workspaceFilesEnabled) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'workspace_files_disabled',
+      });
+    }
+    if (!_config.workspaceFileWriteEnabled) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'workspace_file_write_disabled',
+      });
+    }
+    final body = await _readJsonBody(
+      request,
+      maxBytes: _config.workspaceFileMaxBytes + 1024,
+    );
     final relative = _string(body['path'], '');
     final content = _string(body['content'], '');
-    if (utf8.encode(content).length > 1024 * 1024) {
+    if (utf8.encode(content).length > _config.workspaceFileMaxBytes) {
       return _json(request, HttpStatus.badRequest, <String, Object?>{
         'error': 'content_too_large',
-        'limit_bytes': 1024 * 1024,
+        'limit_bytes': _config.workspaceFileMaxBytes,
       });
     }
     final filePath = _resolveWorkspacePath(relative);
     if (filePath == null) {
       return _json(request, HttpStatus.badRequest, <String, Object?>{
         'error': 'path_outside_workspace',
+      });
+    }
+    if (!_workspaceExtensionAllowed(filePath, _workspaceAllowedExtensions())) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'file_extension_not_allowed',
       });
     }
     final file = File(filePath);
@@ -1449,7 +1518,7 @@ class WebMessagePlatformService {
     response.headers.set(HttpHeaders.accessControlAllowOriginHeader, '*');
     response.headers.set(
       HttpHeaders.accessControlAllowMethodsHeader,
-      'GET,POST,OPTIONS',
+      'GET,POST,PUT,OPTIONS',
     );
     response.headers.set(
       HttpHeaders.accessControlAllowHeadersHeader,
@@ -1515,6 +1584,31 @@ class WebMessagePlatformService {
     final root = OpenHandPaths.applicationDirectoryPath();
     if (absolutePath == root) return '';
     return p.relative(absolutePath, from: root).replaceAll('\\', '/');
+  }
+
+  Set<String> _workspaceAllowedExtensions() {
+    return _config.workspaceFileAllowedExtensions
+        .map(_normalizeWorkspaceExtension)
+        .where((extension) => extension.isNotEmpty)
+        .toSet();
+  }
+
+  Set<String> _workspaceExtensionsForQuery(String? raw) {
+    final configured = _workspaceAllowedExtensions();
+    final requested = (raw ?? '')
+        .split(',')
+        .map(_normalizeWorkspaceExtension)
+        .where((extension) => extension.isNotEmpty)
+        .toSet();
+    if (requested.isEmpty) return configured;
+    if (configured.isEmpty) return requested;
+    return requested.where(configured.contains).toSet();
+  }
+
+  bool _workspaceExtensionAllowed(String path, Set<String> allowedExtensions) {
+    if (allowedExtensions.isEmpty) return true;
+    final extension = _normalizeWorkspaceExtension(p.extension(path));
+    return allowedExtensions.contains(extension);
   }
 
   bool _looksBinary(List<int> bytes) {
@@ -1858,6 +1952,16 @@ String _safeFileName(String value) {
   return sanitized.length > 120 ? sanitized.substring(0, 120) : sanitized;
 }
 
+String _normalizeWorkspaceExtension(String value) {
+  final trimmed = value.trim().toLowerCase();
+  if (trimmed.isEmpty) return '';
+  final withoutLeadingDot = trimmed.startsWith('.')
+      ? trimmed.substring(1)
+      : trimmed;
+  final safe = withoutLeadingDot.replaceAll(RegExp(r'[^a-z0-9_+-]'), '');
+  return safe.isEmpty ? '' : '.$safe';
+}
+
 int? _parseMacSwapBytes(String value) {
   final match = RegExp(r'used\s*=\s*([0-9.]+)([MG]?)').firstMatch(value);
   if (match == null) return null;
@@ -1941,6 +2045,7 @@ input, select { height: 42px; border: 1px solid var(--outline); border-radius: 8
 .modal.open { display: grid; }
 .modal .panel { width: min(560px, 100%); }
 .modal .panel.wide { width: min(980px, 100%); max-height: min(780px, calc(100vh - 36px)); display: flex; flex-direction: column; }
+.file-tools { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) 140px; gap: 10px; }
 .file-layout { min-height: 0; display: grid; grid-template-columns: minmax(220px, 320px) 1fr; gap: 12px; margin-top: 12px; }
 .file-list { min-height: 320px; max-height: 58vh; overflow: auto; border: 1px solid var(--outline); border-radius: 8px; padding: 6px; }
 .file-row { width: 100%; min-height: 36px; border-radius: 8px; background: transparent; color: var(--on-surface); text-align: left; padding: 8px 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1959,6 +2064,7 @@ input, select { height: 42px; border: 1px solid var(--outline); border-radius: 8
   .messages { padding: 12px; }
   .msg { max-width: 94%; }
   .composer { grid-template-columns: auto 1fr auto; padding: 10px; }
+  .file-tools { grid-template-columns: 1fr; }
   .file-layout { grid-template-columns: 1fr; }
   .text-btn span { display: none; }
   .fab { right: 16px; bottom: 82px; }
@@ -1989,17 +2095,17 @@ input, select { height: 42px; border: 1px solid var(--outline); border-radius: 8
   <button id="newSession" class="fab" title="新建线程">＋</button>
 </div>
 <div id="newModal" class="modal"><form id="newForm" class="panel"><h1>新建线程</h1><label class="field"><span>线程名称</span><input id="newTitle" placeholder="新会话" /></label><label class="field"><span>线程模板</span><select id="template"></select></label><label class="field"><span>对话模式</span><select id="mode"></select></label><label class="field"><span>模型</span><select id="model"></select></label><div style="display:flex;gap:10px;margin-top:18px"><button type="button" id="cancelNew" class="text-btn">取消</button><button class="text-btn primary" style="flex:1" type="submit">创建</button></div></form></div>
-<div id="fileModal" class="modal"><div class="panel wide"><div style="display:flex;gap:10px;align-items:center"><h1 style="flex:1">项目文件</h1><button id="closeFiles" class="icon-btn">×</button></div><div class="field"><span>路径</span><input id="filePath" value="" /></div><div class="file-layout"><div id="fileList" class="file-list"></div><div class="file-editor"><input id="editingPath" readonly placeholder="选择文本文件" /><textarea id="fileContent" spellcheck="false"></textarea><div style="display:flex;gap:10px"><button id="saveFile" class="text-btn primary" style="flex:1">保存文件</button><button id="reloadFile" class="text-btn">重载</button></div></div></div></div></div>
+<div id="fileModal" class="modal"><div class="panel wide"><div style="display:flex;gap:10px;align-items:center"><h1 style="flex:1">项目文件</h1><button id="closeFiles" class="icon-btn">×</button></div><div class="file-tools"><label class="field"><span>路径</span><input id="filePath" value="" /></label><label class="field"><span>搜索</span><input id="fileSearch" placeholder="文件名或相对路径" /></label><label class="field"><span>类型</span><select id="fileType"><option value="all">全部</option><option value="directory">文件夹</option><option value="file">文件</option></select></label></div><div id="filePolicy" class="side-subtitle" style="margin-top:8px"></div><div class="file-layout"><div id="fileList" class="file-list"></div><div class="file-editor"><input id="editingPath" readonly placeholder="选择文本文件" /><textarea id="fileContent" spellcheck="false"></textarea><div style="display:flex;gap:10px"><button id="saveFile" class="text-btn primary" style="flex:1">保存文件</button><button id="reloadFile" class="text-btn">重载</button></div></div></div></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const state = { meta:null, token:localStorage.getItem('oh_token') || '', deviceId: localStorage.getItem('oh_device_id') || '', source:'WEB_PC', page:1, hasMore:true, sessions:[], active:null, poll:null, modelKey:'', filePath:'', editingPath:'' };
+const state = { meta:null, token:localStorage.getItem('oh_token') || '', deviceId: localStorage.getItem('oh_device_id') || '', source:'WEB_PC', page:1, hasMore:true, sessions:[], active:null, poll:null, modelKey:'', filePath:'', fileSearch:'', fileType:'all', editingPath:'', workspaceFiles:{enabled:true,write:true,maxBytes:1048576,allowedExtensions:[]} };
 if(!state.deviceId){ state.deviceId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(); localStorage.setItem('oh_device_id', state.deviceId); }
 function detectSource(){ const w = Math.min(innerWidth, screen.width || innerWidth); state.source = w < 760 ? 'WEB_MOBILE' : 'WEB_PC'; }
 function headers(){ const h = {'content-type':'application/json','x-openhand-device-id':state.deviceId,'x-openhand-source':state.source,'x-openhand-device-platform':navigator.platform || ''}; if(state.token) h.authorization = 'Bearer '+state.token; return h; }
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2200); }
 async function api(path, opts={}){ const res = await fetch(path,{...opts,headers:{...headers(),...(opts.headers||{})}}); const json = await res.json().catch(()=>({})); if(!res.ok) throw Object.assign(new Error(json.message||json.error||res.statusText),{status:res.status,json}); return json; }
 async function boot(){ detectSource(); state.meta = await api('/api/meta'); applyMeta(); if(state.meta.service.auth_enabled && !state.token){ showLogin(); } else { if(!state.token) await anonymousLogin(); showApp(); await loadSessions(true); } }
-function applyMeta(){ document.getElementById('serviceLine').textContent = state.meta.service.auth_enabled ? '鉴权已开启' : '免鉴权本地访问'; fill('template', state.meta.templates.map(t=>[t.id,t.name])); fill('mode', state.meta.conversation_modes.map(m=>[m,m])); fill('model', state.meta.models.map(m=>[m.key,m.label])); state.modelKey = state.meta.models[0]?.key || ''; }
+function applyMeta(){ document.getElementById('serviceLine').textContent = state.meta.service.auth_enabled ? '鉴权已开启' : '免鉴权本地访问'; const wf=state.meta.workspace_files||{}; state.workspaceFiles={enabled:wf.enabled!==false,write:wf.write_enabled!==false,maxBytes:wf.max_file_bytes||1048576,allowedExtensions:wf.allowed_extensions||[]}; const filesBtn=document.getElementById('files'); filesBtn.disabled=!state.workspaceFiles.enabled; fill('template', state.meta.templates.map(t=>[t.id,t.name])); fill('mode', state.meta.conversation_modes.map(m=>[m,m])); fill('model', state.meta.models.map(m=>[m.key,m.label])); state.modelKey = state.meta.models[0]?.key || ''; syncFilePolicy(); }
 function fill(id, rows){ const el=document.getElementById(id); el.innerHTML=''; rows.forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; el.appendChild(o); }); }
 function showLogin(){ document.getElementById('login').classList.remove('hidden'); document.getElementById('app').classList.add('hidden'); }
 async function anonymousLogin(){ const j = await api('/api/login',{method:'POST',body:JSON.stringify(devicePayload())}); state.token=j.token; if(j.token !== 'anonymous') localStorage.setItem('oh_token',j.token); }
@@ -2017,15 +2123,19 @@ document.getElementById('menu').onclick=()=>document.getElementById('sidebar').c
 document.getElementById('newSession').onclick=()=>document.getElementById('newModal').classList.add('open');
 document.getElementById('cancelNew').onclick=()=>document.getElementById('newModal').classList.remove('open');
 document.getElementById('newForm').onsubmit=async e=>{ e.preventDefault(); try{ const j=await api('/api/sessions',{method:'POST',body:JSON.stringify({title:newTitle.value,template_id:template.value,mode:mode.value==='normal'?'chat':'chat'})}); document.getElementById('newModal').classList.remove('open'); await loadSessions(true); await openSession(j.session.id); }catch(err){ toast(err.message); }};
-document.getElementById('files').onclick=()=>{ document.getElementById('fileModal').classList.add('open'); loadFiles(state.filePath).catch(e=>toast(e.message)); };
+document.getElementById('files').onclick=()=>{ if(!state.workspaceFiles.enabled) return toast('项目文件访问已关闭'); document.getElementById('fileModal').classList.add('open'); syncFilePolicy(); loadFiles(state.filePath).catch(e=>toast(e.message)); };
 document.getElementById('closeFiles').onclick=()=>document.getElementById('fileModal').classList.remove('open');
 document.getElementById('filePath').onkeydown=e=>{ if(e.key==='Enter') loadFiles(filePath.value).catch(err=>toast(err.message)); };
+document.getElementById('fileSearch').onkeydown=e=>{ if(e.key==='Enter'){ state.fileSearch=fileSearch.value.trim(); loadFiles(state.filePath).catch(err=>toast(err.message)); }};
+document.getElementById('fileType').onchange=()=>{ state.fileType=fileType.value||'all'; loadFiles(state.filePath).catch(err=>toast(err.message)); };
 document.getElementById('reloadFile').onclick=()=> state.editingPath ? readFile(state.editingPath).catch(e=>toast(e.message)) : loadFiles(state.filePath).catch(e=>toast(e.message));
-document.getElementById('saveFile').onclick=async()=>{ if(!state.editingPath) return toast('请选择文件'); try{ await api('/api/workspace/file',{method:'PUT',body:JSON.stringify({path:state.editingPath,content:fileContent.value})}); toast('文件已保存'); }catch(err){ toast(err.message); } };
-async function loadFiles(path=''){ const j=await api('/api/workspace/files?path='+encodeURIComponent(path||'')); state.filePath=j.path||''; filePath.value=state.filePath; renderFiles(j); }
+document.getElementById('saveFile').onclick=async()=>{ if(!state.workspaceFiles.write) return toast('当前为只读模式'); if(!state.editingPath) return toast('请选择文件'); try{ await api('/api/workspace/file',{method:'PUT',body:JSON.stringify({path:state.editingPath,content:fileContent.value})}); toast('文件已保存'); }catch(err){ toast(err.message); } };
+function bytesLabel(bytes){ if(bytes<1024) return bytes+' B'; const kb=bytes/1024; if(kb<1024) return kb.toFixed(1)+' KB'; const mb=kb/1024; return mb.toFixed(1)+' MB'; }
+function syncFilePolicy(){ const ext=state.workspaceFiles.allowedExtensions.length?state.workspaceFiles.allowedExtensions.join(', '):'全部文本'; filePolicy.textContent=`${state.workspaceFiles.write?'读写':'只读'} · 单文件 ${bytesLabel(state.workspaceFiles.maxBytes)} · 扩展名 ${ext}`; saveFile.disabled=!state.workspaceFiles.write||!state.editingPath; fileContent.readOnly=!state.workspaceFiles.write; }
+async function loadFiles(path=''){ state.fileSearch=fileSearch.value.trim(); state.fileType=fileType.value||'all'; const params=new URLSearchParams({path:path||'',q:state.fileSearch,type:state.fileType}); const j=await api('/api/workspace/files?'+params.toString()); state.filePath=j.path||''; filePath.value=state.filePath; renderFiles(j); syncFilePolicy(); }
 function parentPath(path){ const parts=String(path||'').split('/').filter(Boolean); parts.pop(); return parts.join('/'); }
-function renderFiles(data){ const box=document.getElementById('fileList'); box.innerHTML=''; if(data.path){ const up=document.createElement('button'); up.className='file-row'; up.textContent='..'; up.onclick=()=>loadFiles(parentPath(data.path)).catch(e=>toast(e.message)); box.appendChild(up); } data.items.forEach(item=>{ const b=document.createElement('button'); b.className='file-row'; b.textContent=(item.type==='directory'?'▸ ':'  ')+item.name; b.title=item.path; b.onclick=()=> item.type==='directory' ? loadFiles(item.path).catch(e=>toast(e.message)) : readFile(item.path).catch(e=>toast(e.message)); box.appendChild(b); }); }
-async function readFile(path){ const j=await api('/api/workspace/file?path='+encodeURIComponent(path)); state.editingPath=j.path; editingPath.value=j.path; fileContent.value=j.content||''; }
+function renderFiles(data){ const box=document.getElementById('fileList'); box.innerHTML=''; if(data.path){ const up=document.createElement('button'); up.className='file-row'; up.textContent='..'; up.onclick=()=>loadFiles(parentPath(data.path)).catch(e=>toast(e.message)); box.appendChild(up); } if(!data.items.length){ const empty=document.createElement('div'); empty.className='side-subtitle'; empty.style.padding='12px'; empty.textContent='没有匹配的文件'; box.appendChild(empty); return; } data.items.forEach(item=>{ const b=document.createElement('button'); b.className='file-row'; b.textContent=(item.type==='directory'?'▸ ':'  ')+item.name+(item.type==='file'&&item.editable===false?' · 过大':''); b.title=item.path; b.onclick=()=> item.type==='directory' ? loadFiles(item.path).catch(e=>toast(e.message)) : readFile(item.path).catch(e=>toast(e.message)); box.appendChild(b); }); }
+async function readFile(path){ const j=await api('/api/workspace/file?path='+encodeURIComponent(path)); state.editingPath=j.path; editingPath.value=j.path; fileContent.value=j.content||''; syncFilePolicy(); }
 document.getElementById('attach').onclick=()=>document.getElementById('file').click();
 document.getElementById('composer').onsubmit=async e=>{ e.preventDefault(); if(!state.active) return toast('请先选择线程'); const files=[...document.getElementById('file').files]; const attachments=[]; for(const f of files){ const data=await new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(String(r.result).split(',')[1]||''); r.onerror=reject; r.readAsDataURL(f); }); attachments.push({name:f.name,mime_type:f.type,data_base64:data}); } try{ await api('/api/sessions/'+state.active+'/messages',{method:'POST',body:JSON.stringify({content:input.value,attachments,mode:mode.value,model_key:model.value})}); input.value=''; file.value=''; await refreshThread(); }catch(err){ toast(err.message); }};
 addEventListener('resize', detectSource);

@@ -350,6 +350,12 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   icon: Icons.forum_outlined,
                   label: '单会话 ${config.maxMessagesPerSession} 条',
                 ),
+                _InfoChip(
+                  icon: Icons.folder_open_rounded,
+                  label: config.workspaceFilesEnabled
+                      ? (config.workspaceFileWriteEnabled ? '文件读写' : '文件只读')
+                      : '文件关闭',
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -453,6 +459,8 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late bool _loggingEnabled;
   late bool _opsEnabled;
   late bool _planModeEnabled;
+  late bool _workspaceFilesEnabled;
+  late bool _workspaceFileWriteEnabled;
   late final TextEditingController _descriptionController;
   late final TextEditingController _hostController;
   late final TextEditingController _portController;
@@ -464,6 +472,8 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late final TextEditingController _logMaxMbController;
   late final TextEditingController _logRotationDaysController;
   late final TextEditingController _logMaxFilesController;
+  late final TextEditingController _workspaceFileMaxMbController;
+  late final TextEditingController _workspaceFileExtensionsController;
   late final TextEditingController _healthPathController;
   late final TextEditingController _healthMethodController;
   late final TextEditingController _healthTimeoutController;
@@ -491,6 +501,8 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _loggingEnabled = config.loggingEnabled;
     _opsEnabled = config.opsEnabled;
     _planModeEnabled = config.planModeEnabled;
+    _workspaceFilesEnabled = config.workspaceFilesEnabled;
+    _workspaceFileWriteEnabled = config.workspaceFileWriteEnabled;
     _descriptionController = TextEditingController(text: config.description);
     _hostController = TextEditingController(text: config.listenHost);
     _portController = TextEditingController(text: '${config.listenPort}');
@@ -513,6 +525,13 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     );
     _logMaxFilesController = TextEditingController(
       text: '${config.logConfig.maxFiles}',
+    );
+    _workspaceFileMaxMbController = TextEditingController(
+      text:
+          '${math.max(1, (config.workspaceFileMaxBytes / (1024 * 1024)).ceil())}',
+    );
+    _workspaceFileExtensionsController = TextEditingController(
+      text: config.workspaceFileAllowedExtensions.join(', '),
     );
     _healthPathController = TextEditingController(
       text: config.healthCheck.path,
@@ -556,6 +575,8 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _logMaxMbController.dispose();
     _logRotationDaysController.dispose();
     _logMaxFilesController.dispose();
+    _workspaceFileMaxMbController.dispose();
+    _workspaceFileExtensionsController.dispose();
     _healthPathController.dispose();
     _healthMethodController.dispose();
     _healthTimeoutController.dispose();
@@ -643,6 +664,19 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                               value: _planModeEnabled,
                               onChanged: (v) =>
                                   setState(() => _planModeEnabled = v),
+                            ),
+                            _SwitchTile(
+                              label: '是否开放项目文件',
+                              value: _workspaceFilesEnabled,
+                              onChanged: (v) =>
+                                  setState(() => _workspaceFilesEnabled = v),
+                            ),
+                            _SwitchTile(
+                              label: '是否允许写入文件',
+                              value: _workspaceFileWriteEnabled,
+                              onChanged: (v) => setState(
+                                () => _workspaceFileWriteEnabled = v,
+                              ),
                             ),
                           ],
                         ),
@@ -781,6 +815,22 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           onChanged: (next) => setState(() => _models = next),
                         ),
                         const SizedBox(height: 18),
+                        const _SectionTitle('项目文件'),
+                        _ResponsiveFields(
+                          twoColumns: twoColumns,
+                          children: [
+                            _TextFieldSpec(
+                              label: '单文件最大(MB)',
+                              controller: _workspaceFileMaxMbController,
+                              keyboardType: TextInputType.number,
+                            ),
+                            _TextFieldSpec(
+                              label: '允许扩展名(空=全部文本)',
+                              controller: _workspaceFileExtensionsController,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
                         const _SectionTitle('健康检查'),
                         _SwitchTile(
                           label: '是否跟随重定向',
@@ -905,6 +955,16 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       planModeEnabled: _planModeEnabled,
       singleMessageTokenLimit: _int(_singleMessageController.text, 2000),
       maxMessagesPerSession: _int(_maxMessagesController.text, 100),
+      workspaceFilesEnabled: _workspaceFilesEnabled,
+      workspaceFileWriteEnabled:
+          _workspaceFilesEnabled && _workspaceFileWriteEnabled,
+      workspaceFileMaxBytes:
+          math.max(1, _int(_workspaceFileMaxMbController.text, 1)) *
+          1024 *
+          1024,
+      workspaceFileAllowedExtensions: _parseExtensions(
+        _workspaceFileExtensionsController.text,
+      ),
       healthCheck: WebGatewayHealthCheckConfig(
         path: _healthPathController.text.trim().isEmpty
             ? '/api/health'
@@ -1742,6 +1802,22 @@ Map<String, String> _parseQueryParameters(String raw) {
     final key = trimmed.substring(0, index).trim();
     final value = trimmed.substring(index + 1).trim();
     if (key.isNotEmpty) result[key] = value;
+  }
+  return result;
+}
+
+List<String> _parseExtensions(String raw) {
+  final result = <String>[];
+  final seen = <String>{};
+  final normalized = raw.replaceAll('\n', ',').replaceAll(';', ',');
+  for (final part in normalized.split(',')) {
+    final trimmed = part.trim().toLowerCase();
+    if (trimmed.isEmpty) continue;
+    final withoutDot = trimmed.startsWith('.') ? trimmed.substring(1) : trimmed;
+    final safe = withoutDot.replaceAll(RegExp(r'[^a-z0-9_+-]'), '');
+    if (safe.isEmpty) continue;
+    final extension = '.$safe';
+    if (seen.add(extension)) result.add(extension);
   }
   return result;
 }
