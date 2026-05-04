@@ -7023,19 +7023,20 @@ $trimmedSummary''';
     if (threshold <= 0) {
       return false;
     }
-    final activeConversationMessages = session.activeConversationMessages
-        .where(
-          (message) => message.kind != AiSessionMessageKind.compressionPoint,
-        )
-        .toList(growable: false);
-    if (activeConversationMessages.isEmpty) {
-      return false;
+    var totalCharacters = 0;
+    final startIndex = (session.latestCompressionPointIndex ?? -1) + 1;
+    for (var index = startIndex; index < session.messages.length; index++) {
+      final message = session.messages[index];
+      if (!message.isConversationTurn ||
+          message.kind == AiSessionMessageKind.compressionPoint) {
+        continue;
+      }
+      totalCharacters += message.characterCount;
+      if (totalCharacters > threshold) {
+        return true;
+      }
     }
-    final totalCharacters = activeConversationMessages.fold<int>(
-      0,
-      (sum, message) => sum + message.characterCount,
-    );
-    return totalCharacters > threshold;
+    return false;
   }
 
   int _effectiveCompressionThresholdChars({
