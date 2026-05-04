@@ -1320,7 +1320,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final existing = _hardnessToolSearchHistory.remove(phaseSessionId);
     final bucket = existing ?? <AiToolSearchLoadHistoryEntry>[];
     _hardnessToolSearchHistory[phaseSessionId] = bucket;
-    final cap = context.read<SettingsController>().hardnessToolSearchHistoryMaxPhases;
+    final cap = context
+        .read<SettingsController>()
+        .hardnessToolSearchHistoryMaxPhases;
     while (_hardnessToolSearchHistory.length > cap) {
       _hardnessToolSearchHistory.remove(_hardnessToolSearchHistory.keys.first);
     }
@@ -1826,7 +1828,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // "Build scheduled during frame" 断言。当当前正处于 layout / paint /
     // 持久回调阶段时，把状态变更推迟到本帧结束后的 post-frame 回调里。
     final phase = SchedulerBinding.instance.schedulerPhase;
-    final inFrame = phase == SchedulerPhase.persistentCallbacks ||
+    final inFrame =
+        phase == SchedulerPhase.persistentCallbacks ||
         phase == SchedulerPhase.midFrameMicrotasks ||
         phase == SchedulerPhase.transientCallbacks;
     if (inFrame) {
@@ -1834,8 +1837,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         if (!mounted) {
           return;
         }
-        final latestPaused =
-            _autoFollowEnabled && !_shouldAutoFollowMessages;
+        final latestPaused = _autoFollowEnabled && !_shouldAutoFollowMessages;
         if (latestPaused == _autoFollowPaused) {
           return;
         }
@@ -2185,9 +2187,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final hasModifier = Platform.isMacOS
           ? hw.isMetaPressed
           : hw.isControlPressed;
-      if (hasModifier &&
-          !hw.isShiftPressed &&
-          !hw.isAltPressed) {
+      if (hasModifier && !hw.isShiftPressed && !hw.isAltPressed) {
         unawaited(_tryPasteImageFromClipboard());
         // Intentionally fall through (return ignored) so the TextField can
         // still paste text if the clipboard happens to carry both.
@@ -2750,7 +2750,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       try {
         await config.initializePersistenceDirectories();
       } catch (error, stack) {
-        silentLog('openhand_home_page', 'initialize HE persistence directories', error, stack);
+        silentLog(
+          'openhand_home_page',
+          'initialize HE persistence directories',
+          error,
+          stack,
+        );
       }
       if (!mounted) return false;
       // Launch the program-driven HE session inside the app's content pane
@@ -3217,8 +3222,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
       aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
       aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,
-      aiInputCacheUpdateInterval:
-          settingsController.aiInputCacheUpdateInterval,
+      aiInputCacheUpdateInterval: settingsController.aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount:
           settingsController.aiInputCacheBreakpointCount,
       aiInputCacheBreakpointPositions:
@@ -3227,10 +3231,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       maxRecentErrors: settingsController.aiMaxRecentErrors,
       maxPlanHistoryEntries: settingsController.aiMaxPlanHistoryEntries,
-      maxTruncationContinuations: settingsController.aiMaxTruncationContinuations,
-      estimatedCharactersPerToken: settingsController.aiEstimatedCharactersPerToken,
+      maxTruncationContinuations:
+          settingsController.aiMaxTruncationContinuations,
+      estimatedCharactersPerToken:
+          settingsController.aiEstimatedCharactersPerToken,
       maxToolOutputChars: settingsController.aiMaxToolOutputChars,
-      writeConfirmationTimeoutMs: settingsController.aiWriteConfirmationTimeoutMs,
+      writeConfirmationTimeoutMs:
+          settingsController.aiWriteConfirmationTimeoutMs,
       fastPathWriteAnalysisThreshold:
           settingsController.aiFastPathWriteAnalysisThreshold,
       maxHookTextCharacters: settingsController.aiMaxHookTextCharacters,
@@ -3243,8 +3250,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       webFetchMaxCacheEntries: settingsController.aiWebFetchMaxCacheEntries,
       attachmentMaxInlineImageDimension:
           settingsController.aiAttachmentMaxInlineImageDimension,
-      attachmentMaxTextRawBytes:
-          settingsController.aiAttachmentMaxTextRawBytes,
+      attachmentMaxTextRawBytes: settingsController.aiAttachmentMaxTextRawBytes,
       attachmentMaxPdfRawBytes: settingsController.aiAttachmentMaxPdfRawBytes,
       attachmentMaxImageRawBytes:
           settingsController.aiAttachmentMaxImageRawBytes,
@@ -3470,8 +3476,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
       aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
       aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,
-      aiInputCacheUpdateInterval:
-          settingsController.aiInputCacheUpdateInterval,
+      aiInputCacheUpdateInterval: settingsController.aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount:
           settingsController.aiInputCacheBreakpointCount,
       aiInputCacheBreakpointPositions:
@@ -3480,10 +3485,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       maxRecentErrors: settingsController.aiMaxRecentErrors,
       maxPlanHistoryEntries: settingsController.aiMaxPlanHistoryEntries,
-      maxTruncationContinuations: settingsController.aiMaxTruncationContinuations,
-      estimatedCharactersPerToken: settingsController.aiEstimatedCharactersPerToken,
+      maxTruncationContinuations:
+          settingsController.aiMaxTruncationContinuations,
+      estimatedCharactersPerToken:
+          settingsController.aiEstimatedCharactersPerToken,
       maxToolOutputChars: settingsController.aiMaxToolOutputChars,
-      writeConfirmationTimeoutMs: settingsController.aiWriteConfirmationTimeoutMs,
+      writeConfirmationTimeoutMs:
+          settingsController.aiWriteConfirmationTimeoutMs,
       fastPathWriteAnalysisThreshold:
           settingsController.aiFastPathWriteAnalysisThreshold,
       maxHookTextCharacters: settingsController.aiMaxHookTextCharacters,
@@ -3496,8 +3504,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       webFetchMaxCacheEntries: settingsController.aiWebFetchMaxCacheEntries,
       attachmentMaxInlineImageDimension:
           settingsController.aiAttachmentMaxInlineImageDimension,
-      attachmentMaxTextRawBytes:
-          settingsController.aiAttachmentMaxTextRawBytes,
+      attachmentMaxTextRawBytes: settingsController.aiAttachmentMaxTextRawBytes,
       attachmentMaxPdfRawBytes: settingsController.aiAttachmentMaxPdfRawBytes,
       attachmentMaxImageRawBytes:
           settingsController.aiAttachmentMaxImageRawBytes,
@@ -3611,7 +3618,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (context) {
-        final theme = Theme.of(context);
         return AlertDialog(
           title: Text(
             _localizedText(context, zh: '启用完全访问权限？', en: 'Enable Full Access?'),
@@ -3624,19 +3630,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             ),
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text(_localizedText(context, zh: '取消', en: 'Cancel')),
+              label: _localizedText(context, zh: '取消', en: 'Cancel'),
             ),
-            FilledButton(
+            OpenHandDialogActionButton.destructive(
               onPressed: () => Navigator.of(context).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
-              ),
-              child: Text(
-                _localizedText(context, zh: '是，仍然继续', en: 'Yes, Continue'),
-              ),
+              label: _localizedText(context, zh: '是，仍然继续', en: 'Yes, Continue'),
             ),
           ],
         );
@@ -4191,8 +4191,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _localizedText(
               context,
               zh: '剪贴板图片超出 10MB 单文件上限，已忽略。',
-              en:
-                  'Clipboard image exceeds the 10MB per-attachment limit and was ignored.',
+              en: 'Clipboard image exceeds the 10MB per-attachment limit and was ignored.',
             ),
           ),
         ),
@@ -4201,9 +4200,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     String tempPath;
     try {
-      final tempDir = await Directory.systemTemp.createTemp(
-        'openhand_paste_',
-      );
+      final tempDir = await Directory.systemTemp.createTemp('openhand_paste_');
       final ts = DateTime.now().toIso8601String().replaceAll(
         RegExp(r'[^0-9]'),
         '',
@@ -4792,7 +4789,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             final selected = context.read<SettingsController>().selectedAiModel;
             return selected?.modelProfiles[selected.modelId];
           }(),
-          claudeStyle: context.read<SettingsController>().selectedAiModel?.protocolType ==
+          claudeStyle:
+              context
+                  .read<SettingsController>()
+                  .selectedAiModel
+                  ?.protocolType ==
               AiProtocolType.claude,
         );
         return;
@@ -5250,9 +5251,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            _localizedText(context,
-                zh: '加载会话失败：$error',
-                en: 'Failed to load session: $error'),
+            _localizedText(
+              context,
+              zh: '加载会话失败：$error',
+              en: 'Failed to load session: $error',
+            ),
           ),
         ),
       );
@@ -5263,9 +5266,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              _localizedText(context,
-                  zh: '会话不存在或已被删除。',
-                  en: 'Session is missing or has been deleted.'),
+              _localizedText(
+                context,
+                zh: '会话不存在或已被删除。',
+                en: 'Session is missing or has been deleted.',
+              ),
             ),
           ),
         );
@@ -5281,10 +5286,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (config == null || !mounted) return;
 
     // Step 3: pick the destination file.
-    const typeGroup = XTypeGroup(
-      label: 'JSONL',
-      extensions: <String>['jsonl'],
-    );
+    const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
     final suggested =
         '${_sanitizeFileBasename(loaded.title)}_${loaded.id}.jsonl';
     FileSaveLocation? location;
@@ -5294,15 +5296,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog('openhand_home_page', '_exportSession.getSaveLocation', error,
-          stack);
+      silentLog(
+        'openhand_home_page',
+        '_exportSession.getSaveLocation',
+        error,
+        stack,
+      );
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            _localizedText(context,
-                zh: '无法打开保存对话框：$error',
-                en: 'Unable to open save dialog: $error'),
+            _localizedText(
+              context,
+              zh: '无法打开保存对话框：$error',
+              en: 'Unable to open save dialog: $error',
+            ),
           ),
         ),
       );
@@ -5312,40 +5320,40 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     // Step 4: kick off the streamed export with progress UI.
     final cancelToken = ExportCancelToken();
-    final progressController =
-        ExportProgressController(cancelToken: cancelToken);
+    final progressController = ExportProgressController(
+      cancelToken: cancelToken,
+    );
 
     final dialogFuture = showExportProgressDialog(
       context: context,
       controller: progressController,
-      title: _localizedText(context,
-          zh: '导出会话数据', en: 'Export Session Data'),
-      subtitle: _localizedText(context,
-          zh: '正在导出 “${loaded.title}”…',
-          en: 'Exporting "${loaded.title}"…'),
-      cancelLabel:
-          _localizedText(context, zh: '取消', en: 'Cancel'),
+      title: _localizedText(context, zh: '导出会话数据', en: 'Export Session Data'),
+      subtitle: _localizedText(
+        context,
+        zh: '正在导出 “${loaded.title}”…',
+        en: 'Exporting "${loaded.title}"…',
+      ),
+      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
     );
 
     ExportResult result;
     try {
-      result = await exportAiSessionToJsonl(
-        session: loaded,
-        destinationPath: location.path,
-        cancelToken: cancelToken,
-        config: config,
-        onProgress: progressController.updateProgress,
-      ).timeout(_exportTimeout, onTimeout: () {
-        cancelToken.cancel();
-        return const ExportResult(kind: ExportResultKind.failure);
-      });
+      result =
+          await exportAiSessionToJsonl(
+            session: loaded,
+            destinationPath: location.path,
+            cancelToken: cancelToken,
+            config: config,
+            onProgress: progressController.updateProgress,
+          ).timeout(
+            _exportTimeout,
+            onTimeout: () {
+              cancelToken.cancel();
+              return const ExportResult(kind: ExportResultKind.failure);
+            },
+          );
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        '_exportSession.runExport',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '_exportSession.runExport', error, stack);
       result = ExportResult(kind: ExportResultKind.failure, error: error);
     }
     progressController.markFinished();
@@ -5372,10 +5380,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (config == null || !mounted) return;
 
     // Step 2: pick the destination file.
-    const typeGroup = XTypeGroup(
-      label: 'JSONL',
-      extensions: <String>['jsonl'],
-    );
+    const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
     final suggested =
         '${_sanitizeFileBasename(record.title)}_${record.id}.jsonl';
     FileSaveLocation? location;
@@ -5385,15 +5390,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog('openhand_home_page',
-          '_exportHardnessSession.getSaveLocation', error, stack);
+      silentLog(
+        'openhand_home_page',
+        '_exportHardnessSession.getSaveLocation',
+        error,
+        stack,
+      );
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            _localizedText(context,
-                zh: '无法打开保存对话框：$error',
-                en: 'Unable to open save dialog: $error'),
+            _localizedText(
+              context,
+              zh: '无法打开保存对话框：$error',
+              en: 'Unable to open save dialog: $error',
+            ),
           ),
         ),
       );
@@ -5402,32 +5413,38 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (location == null || !mounted) return;
 
     final cancelToken = ExportCancelToken();
-    final progressController =
-        ExportProgressController(cancelToken: cancelToken);
+    final progressController = ExportProgressController(
+      cancelToken: cancelToken,
+    );
 
     final dialogFuture = showExportProgressDialog(
       context: context,
       controller: progressController,
-      title: _localizedText(context,
-          zh: '导出会话数据', en: 'Export Session Data'),
-      subtitle: _localizedText(context,
-          zh: '正在导出 “${record.title}”…',
-          en: 'Exporting "${record.title}"…'),
+      title: _localizedText(context, zh: '导出会话数据', en: 'Export Session Data'),
+      subtitle: _localizedText(
+        context,
+        zh: '正在导出 “${record.title}”…',
+        en: 'Exporting "${record.title}"…',
+      ),
       cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
     );
 
     ExportResult result;
     try {
-      result = await exportHardnessSessionToJsonl(
-        record: record,
-        destinationPath: location.path,
-        cancelToken: cancelToken,
-        config: config,
-        onProgress: progressController.updateProgress,
-      ).timeout(_exportTimeout, onTimeout: () {
-        cancelToken.cancel();
-        return const ExportResult(kind: ExportResultKind.failure);
-      });
+      result =
+          await exportHardnessSessionToJsonl(
+            record: record,
+            destinationPath: location.path,
+            cancelToken: cancelToken,
+            config: config,
+            onProgress: progressController.updateProgress,
+          ).timeout(
+            _exportTimeout,
+            onTimeout: () {
+              cancelToken.cancel();
+              return const ExportResult(kind: ExportResultKind.failure);
+            },
+          );
     } catch (error, stack) {
       silentLog(
         'openhand_home_page',
@@ -5457,18 +5474,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final String message;
     switch (result.kind) {
       case ExportResultKind.success:
-        message = _localizedText(ctx,
-            zh: '导出成功：$destinationPath',
-            en: 'Export succeeded: $destinationPath');
+        message = _localizedText(
+          ctx,
+          zh: '导出成功：$destinationPath',
+          en: 'Export succeeded: $destinationPath',
+        );
         break;
       case ExportResultKind.cancelled:
-        message =
-            _localizedText(ctx, zh: '已取消导出。', en: 'Export cancelled.');
+        message = _localizedText(ctx, zh: '已取消导出。', en: 'Export cancelled.');
         break;
       case ExportResultKind.failure:
         final reason = result.error?.toString() ?? 'unknown error';
-        message = _localizedText(ctx,
-            zh: '导出失败：$reason', en: 'Export failed: $reason');
+        message = _localizedText(
+          ctx,
+          zh: '导出失败：$reason',
+          en: 'Export failed: $reason',
+        );
         break;
     }
     messenger.showSnackBar(SnackBar(content: Text(message)));
@@ -6475,7 +6496,9 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                 child: MicroPressFeedback(
                   enabled: _count > 1,
                   child: IconButton(
-                    onPressed: _count > 1 ? () => setState(() => _count--) : null,
+                    onPressed: _count > 1
+                        ? () => setState(() => _count--)
+                        : null,
                     icon: const Icon(Icons.remove_circle_outline),
                   ),
                 ),
@@ -6494,7 +6517,9 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                 child: MicroPressFeedback(
                   enabled: _count < 4,
                   child: IconButton(
-                    onPressed: _count < 4 ? () => setState(() => _count++) : null,
+                    onPressed: _count < 4
+                        ? () => setState(() => _count++)
+                        : null,
                     icon: const Icon(Icons.add_circle_outline),
                   ),
                 ),

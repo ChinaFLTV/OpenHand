@@ -10,6 +10,7 @@ import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/hover_lift.dart';
+import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import 'data/memory_store.dart';
 import 'memory_controller.dart';
@@ -69,109 +70,107 @@ class MemoryView extends StatelessWidget {
     return Stack(
       children: [
         Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final stacked = constraints.maxWidth < 980;
-            final actions = Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.end,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: memorySnapshot.isLoading
-                      ? null
-                      : () => memoryController.refresh(),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: Text(l10n.memoryRefresh),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _openDirectory(context),
-                  icon: const Icon(Icons.folder_open_rounded),
-                  label: Text(l10n.memoryOpenDirectory),
-                ),
-                FilledButton.icon(
-                  onPressed: () => _showMemoryDialog(context),
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(l10n.memoryNewEntry),
-                ),
-              ],
-            );
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked = constraints.maxWidth < 980;
+                final actions = Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: memorySnapshot.isLoading
+                          ? null
+                          : () => memoryController.refresh(),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(l10n.memoryRefresh),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _openDirectory(context),
+                      icon: const Icon(Icons.folder_open_rounded),
+                      label: Text(l10n.memoryOpenDirectory),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () => _showMemoryDialog(context),
+                      icon: const Icon(Icons.add_rounded),
+                      label: Text(l10n.memoryNewEntry),
+                    ),
+                  ],
+                );
 
-            if (stacked) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _MemoryPageHeader(
-                    title: l10n.memoryPageTitle,
-                    subtitle: l10n.memoryPageSubtitle,
-                  ),
-                  const SizedBox(height: 20),
-                  actions,
-                ],
-              );
-            }
+                if (stacked) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _MemoryPageHeader(
+                        title: l10n.memoryPageTitle,
+                        subtitle: l10n.memoryPageSubtitle,
+                      ),
+                      const SizedBox(height: 20),
+                      actions,
+                    ],
+                  );
+                }
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _MemoryPageHeader(
-                    title: l10n.memoryPageTitle,
-                    subtitle: l10n.memoryPageSubtitle,
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Flexible(
-                  child: Align(
-                    alignment: Alignment.topRight,
-                    child: actions,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 20),
-        if (!memoryEnabled) ...[
-          _MemoryInfoCard(
-            icon: Icons.toggle_off_rounded,
-            title: l10n.memoryDisabledTitle,
-            body: l10n.memoryDisabledBody,
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (memorySnapshot.persistenceIssue != null) ...[
-          _MemoryPersistenceIssueCard(
-            issue: memorySnapshot.persistenceIssue!,
-            onDismiss: memoryController.clearPersistenceIssue,
-          ),
-          const SizedBox(height: 16),
-        ],
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-            child: _buildBody(
-              context,
-              isLoading: memorySnapshot.isLoading,
-              errorMessage: memorySnapshot.errorMessage,
-              entries: memorySnapshot.entries,
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _MemoryPageHeader(
+                        title: l10n.memoryPageTitle,
+                        subtitle: l10n.memoryPageSubtitle,
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: actions,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-          ),
+            const SizedBox(height: 20),
+            if (!memoryEnabled) ...[
+              _MemoryInfoCard(
+                icon: Icons.toggle_off_rounded,
+                title: l10n.memoryDisabledTitle,
+                body: l10n.memoryDisabledBody,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (memorySnapshot.persistenceIssue != null) ...[
+              _MemoryPersistenceIssueCard(
+                issue: memorySnapshot.persistenceIssue!,
+                onDismiss: memoryController.clearPersistenceIssue,
+              ),
+              const SizedBox(height: 16),
+            ],
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                child: _buildBody(
+                  context,
+                  isLoading: memorySnapshot.isLoading,
+                  errorMessage: memorySnapshot.errorMessage,
+                  entries: memorySnapshot.entries,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
         Positioned(
           top: 0,
           left: 0,
           right: 0,
           child: IgnorePointer(
-            child: HighlightPulse(
-              signal: memoryController.saveSuccessSignal,
-            ),
+            child: HighlightPulse(signal: memoryController.saveSuccessSignal),
           ),
         ),
       ],
@@ -263,8 +262,7 @@ class MemoryView extends StatelessWidget {
                   key: ValueKey<String>('memory-profile-${entry.id}'),
                   entry: entry,
                   isProfile: true,
-                  onTap: () =>
-                      _showMemoryDialog(context, initialEntry: entry),
+                  onTap: () => _showMemoryDialog(context, initialEntry: entry),
                   onActionSelected: (action) {
                     switch (action) {
                       case _MemoryCardAction.edit:
@@ -284,8 +282,7 @@ class MemoryView extends StatelessWidget {
                 child: _MemoryEntryCard(
                   key: ValueKey<String>('memory-auto-learned-${entry.id}'),
                   entry: entry,
-                  onTap: () =>
-                      _showMemoryDialog(context, initialEntry: entry),
+                  onTap: () => _showMemoryDialog(context, initialEntry: entry),
                   onActionSelected: (action) {
                     switch (action) {
                       case _MemoryCardAction.edit:
@@ -305,8 +302,7 @@ class MemoryView extends StatelessWidget {
                 child: _MemoryEntryCard(
                   key: ValueKey<String>('memory-entry-${entry.id}'),
                   entry: entry,
-                  onTap: () =>
-                      _showMemoryDialog(context, initialEntry: entry),
+                  onTap: () => _showMemoryDialog(context, initialEntry: entry),
                   onActionSelected: (action) {
                     switch (action) {
                       case _MemoryCardAction.edit:
@@ -331,8 +327,11 @@ class MemoryView extends StatelessWidget {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.memoryOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.memoryOperationFailed,
+        kind: _SnackKind.error,
+      );
     }
   }
 
@@ -374,13 +373,13 @@ class MemoryView extends StatelessWidget {
               '用户画像将被删除。Self-learning will recreate this on next cycle.',
             ),
             actions: [
-              TextButton(
+              OpenHandDialogActionButton.secondary(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: Text(l10n.commonCancel),
+                label: l10n.commonCancel,
               ),
-              FilledButton(
+              OpenHandDialogActionButton.destructive(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Delete anyway'),
+                label: 'Delete anyway',
               ),
             ],
           );
@@ -389,13 +388,13 @@ class MemoryView extends StatelessWidget {
           title: Text(l10n.memoryDeleteConfirmTitle),
           content: Text(l10n.memoryDeleteConfirmBody),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(l10n.commonCancel),
+              label: l10n.commonCancel,
             ),
-            FilledButton(
+            OpenHandDialogActionButton.destructive(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(l10n.commonDelete),
+              label: l10n.commonDelete,
             ),
           ],
         );
@@ -410,15 +409,21 @@ class MemoryView extends StatelessWidget {
       return;
     }
     if (!deleted) {
-      _showSnackBar(context, l10n.memoryOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.memoryOperationFailed,
+        kind: _SnackKind.error,
+      );
       return;
     }
     _showSnackBar(context, l10n.memoryEntryDeleted, kind: _SnackKind.success);
   }
 
-  void _showSnackBar(BuildContext context, String message,
-      {_SnackKind kind = _SnackKind.info}) {
+  void _showSnackBar(
+    BuildContext context,
+    String message, {
+    _SnackKind kind = _SnackKind.info,
+  }) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) {
         return;
@@ -623,9 +628,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                                 ? '"${UserMemoryEntry.autoLearnedTag}" 是自主学习记忆的固定标识，不可移除。'
                                 : '"${UserMemoryEntry.autoLearnedTag}" 是自主学习专用标签，普通记忆无法手动添加。',
                             style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: 16),
@@ -783,10 +786,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
   }
 
   List<String> _mergedTagsWithInput() {
-    final raw = <String>[
-      ..._tags,
-      ..._splitTagInput(_tagInputController.text),
-    ];
+    final raw = <String>[..._tags, ..._splitTagInput(_tagInputController.text)];
     // 防御性过滤：普通记忆永远剔除 `自主学习` 标签；自主学习记忆永远保留。
     final isAutoLearnedEntry = _isAutoLearnedEntry;
     final filtered = <String>[];
@@ -911,155 +911,155 @@ class _MemoryEntryCard extends StatelessWidget {
 
     return HoverLift(
       child: Card(
-      clipBehavior: Clip.antiAlias,
-      color: isProfile
-          ? colorScheme.primaryContainer.withValues(alpha: 0.35)
-          : null,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isProfile) ...[
-                Text(
-                  'User Profile · 用户画像',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      isProfile
-                          ? Icons.account_circle_outlined
-                          : Icons.psychology_alt_outlined,
-                      color: colorScheme.onPrimaryContainer,
+        clipBehavior: Clip.antiAlias,
+        color: isProfile
+            ? colorScheme.primaryContainer.withValues(alpha: 0.35)
+            : null,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isProfile) ...[
+                  Text(
+                    'User Profile · 用户画像',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 2026-04-25: 优先展示 [UserMemoryEntry.title]
-                        // (AI 自我学习生成 / 用户编辑保存)。当 title 为空时
-                        // 退化到 [_shouldShowTitle] 判断 preview 是否值得展示。
-                        if (entry.title.trim().isNotEmpty) ...[
-                          Text(
-                            entry.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 6),
-                        ] else if (_shouldShowTitle(entry)) ...[
-                          Text(
-                            entry.preview,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 6),
-                        ],
-                        Text(
-                          '${l10n.memoryCreatedAtLabel}: ${_formatCreatedAt(context, entry.createdAt)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          entry.content,
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  AnimatedPopupMenuButton<_MemoryCardAction>(
-                    onSelected: onActionSelected,
-                    itemBuilder: (context) {
-                      return [
-                        PopupMenuItem<_MemoryCardAction>(
-                          value: _MemoryCardAction.edit,
-                          child: Text(l10n.commonEdit),
-                        ),
-                        PopupMenuItem<_MemoryCardAction>(
-                          value: _MemoryCardAction.delete,
-                          child: Text(l10n.commonDelete),
-                        ),
-                      ];
-                    },
-                  ),
+                  const SizedBox(height: 10),
                 ],
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  // 2026-04-25: 自主学习卡片不再使用单独的顶部胶囊，而是把
-                  // "自主学习" 标签下沉到这里作为标签行的第一项，沿用普通
-                  // Chip 的尺寸与节奏，不再视觉上"特殊化"。
-                  if (isAutoLearned)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        isProfile
+                            ? Icons.account_circle_outlined
+                            : Icons.psychology_alt_outlined,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 2026-04-25: 优先展示 [UserMemoryEntry.title]
+                          // (AI 自我学习生成 / 用户编辑保存)。当 title 为空时
+                          // 退化到 [_shouldShowTitle] 判断 preview 是否值得展示。
+                          if (entry.title.trim().isNotEmpty) ...[
+                            Text(
+                              entry.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 6),
+                          ] else if (_shouldShowTitle(entry)) ...[
+                            Text(
+                              entry.preview,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 6),
+                          ],
+                          Text(
+                            '${l10n.memoryCreatedAtLabel}: ${_formatCreatedAt(context, entry.createdAt)}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            entry.content,
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    AnimatedPopupMenuButton<_MemoryCardAction>(
+                      onSelected: onActionSelected,
+                      itemBuilder: (context) {
+                        return [
+                          PopupMenuItem<_MemoryCardAction>(
+                            value: _MemoryCardAction.edit,
+                            child: Text(l10n.commonEdit),
+                          ),
+                          PopupMenuItem<_MemoryCardAction>(
+                            value: _MemoryCardAction.delete,
+                            child: Text(l10n.commonDelete),
+                          ),
+                        ];
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    // 2026-04-25: 自主学习卡片不再使用单独的顶部胶囊，而是把
+                    // "自主学习" 标签下沉到这里作为标签行的第一项，沿用普通
+                    // Chip 的尺寸与节奏，不再视觉上"特殊化"。
+                    if (isAutoLearned)
+                      Chip(
+                        avatar: Icon(
+                          Icons.auto_awesome_outlined,
+                          size: 18,
+                          color: colorScheme.onTertiaryContainer,
+                        ),
+                        backgroundColor: colorScheme.tertiaryContainer
+                            .withValues(alpha: 0.7),
+                        side: BorderSide.none,
+                        label: Text(
+                          '自主学习',
+                          style: TextStyle(
+                            color: colorScheme.onTertiaryContainer,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     Chip(
                       avatar: Icon(
-                        Icons.auto_awesome_outlined,
+                        isProfile
+                            ? Icons.account_circle_outlined
+                            : Icons.person_outline_rounded,
                         size: 18,
-                        color: colorScheme.onTertiaryContainer,
                       ),
-                      backgroundColor: colorScheme.tertiaryContainer
-                          .withValues(alpha: 0.7),
-                      side: BorderSide.none,
-                      label: Text(
-                        '自主学习',
-                        style: TextStyle(
-                          color: colorScheme.onTertiaryContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      label: Text(isProfile ? '用户画像' : l10n.memoryTypeUser),
+                    ),
+                    for (final tag in visibleTags)
+                      Chip(
+                        avatar: const Icon(Icons.sell_outlined, size: 18),
+                        label: Text(tag),
                       ),
-                    ),
-                  Chip(
-                    avatar: Icon(
-                      isProfile
-                          ? Icons.account_circle_outlined
-                          : Icons.person_outline_rounded,
-                      size: 18,
-                    ),
-                    label: Text(isProfile ? '用户画像' : l10n.memoryTypeUser),
-                  ),
-                  for (final tag in visibleTags)
-                    Chip(
-                      avatar: const Icon(Icons.sell_outlined, size: 18),
-                      label: Text(tag),
-                    ),
-                  if (hiddenTagCount > 0)
-                    Chip(
-                      avatar: const Icon(Icons.more_horiz_rounded, size: 18),
-                      label: Text('+$hiddenTagCount'),
-                    ),
-                ],
-              ),
-            ],
+                    if (hiddenTagCount > 0)
+                      Chip(
+                        avatar: const Icon(Icons.more_horiz_rounded, size: 18),
+                        label: Text('+$hiddenTagCount'),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

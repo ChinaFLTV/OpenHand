@@ -10,6 +10,12 @@ class OpenHandDialogActionButton extends StatelessWidget {
     required this.onPressed,
   }) : _variant = _OpenHandDialogActionButtonVariant.primary;
 
+  const OpenHandDialogActionButton.destructive({
+    super.key,
+    required this.label,
+    required this.onPressed,
+  }) : _variant = _OpenHandDialogActionButtonVariant.destructive;
+
   const OpenHandDialogActionButton.secondary({
     super.key,
     required this.label,
@@ -52,6 +58,18 @@ class OpenHandDialogActionButton extends StatelessWidget {
           style: buttonStyle,
           child: child,
         ),
+        _OpenHandDialogActionButtonVariant.destructive => FilledButton(
+          onPressed: onPressed,
+          style: buttonStyle.copyWith(
+            backgroundColor: WidgetStatePropertyAll<Color>(
+              theme.colorScheme.error,
+            ),
+            foregroundColor: WidgetStatePropertyAll<Color>(
+              theme.colorScheme.onError,
+            ),
+          ),
+          child: child,
+        ),
         _OpenHandDialogActionButtonVariant.secondary => FilledButton.tonal(
           onPressed: onPressed,
           style: buttonStyle,
@@ -62,4 +80,4 @@ class OpenHandDialogActionButton extends StatelessWidget {
   }
 }
 
-enum _OpenHandDialogActionButtonVariant { primary, secondary }
+enum _OpenHandDialogActionButtonVariant { primary, secondary, destructive }

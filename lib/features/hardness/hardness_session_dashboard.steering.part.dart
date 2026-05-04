@@ -65,7 +65,12 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
           try {
             stat = await entity.stat();
           } catch (error, stack) {
-            silentLog('hardness_steering', 'stat directory entry', error, stack);
+            silentLog(
+              'hardness_steering',
+              'stat directory entry',
+              error,
+              stack,
+            );
           }
           entries.add(
             _HeSteeringEntry(
@@ -170,8 +175,8 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
               Expanded(
                 child: AnimatedSwitcher(
                   duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                      ? Duration.zero
+                      : const Duration(milliseconds: 220),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   child: _loading
@@ -195,8 +200,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           itemCount: _entries.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 2),
+                          separatorBuilder: (_, _) => const SizedBox(height: 2),
                           itemBuilder: (ctx, i) {
                             final entry = _entries[i];
                             return _HeSteeringEntryTile(
@@ -593,13 +597,13 @@ class _HeSteeringFileEditorDialogState
               : 'You have unsaved changes. Discard them?',
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(widget.isZh ? '取消' : 'Cancel'),
+            label: widget.isZh ? '取消' : 'Cancel',
           ),
-          TextButton(
+          OpenHandDialogActionButton.destructive(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(widget.isZh ? '放弃' : 'Discard'),
+            label: widget.isZh ? '放弃' : 'Discard',
           ),
         ],
       ),
@@ -849,8 +853,8 @@ class _HeSteeringFileEditorDialogState
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     child: _loading

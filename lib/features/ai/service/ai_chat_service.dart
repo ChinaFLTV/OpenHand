@@ -26,6 +26,7 @@ abstract class AiChatClient {
     AiCreationRequest creationRequest,
     Duration timeout,
     AiInputCacheRuntimeConfig? inputCacheConfig,
+    void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   });
 
   Future<AiChatStreamingResponse> sendMessageStream({
@@ -38,11 +39,38 @@ abstract class AiChatClient {
     Duration streamIdleTimeout,
     Future<void>? cancelSignal,
     AiInputCacheRuntimeConfig? inputCacheConfig,
+    void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   });
 
   Future<String> testModel(AiModelConfig model);
 
   void dispose();
+}
+
+class AiChatRequestTelemetry {
+  const AiChatRequestTelemetry({
+    this.requestUrl,
+    this.requestMethod,
+    this.requestHeaders,
+    this.requestBody,
+    this.rawResponse,
+    this.startedAt,
+    this.endedAt,
+    this.durationMs,
+    this.finishReason,
+    this.error,
+  });
+
+  final String? requestUrl;
+  final String? requestMethod;
+  final Map<String, String>? requestHeaders;
+  final Map<String, Object?>? requestBody;
+  final String? rawResponse;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+  final int? durationMs;
+  final String? finishReason;
+  final String? error;
 }
 
 class AiChatCompletion {
@@ -347,6 +375,7 @@ class AiChatService implements AiChatClient {
     AiCreationRequest creationRequest = AiCreationRequest.none,
     Duration timeout = const Duration(seconds: 60),
     AiInputCacheRuntimeConfig? inputCacheConfig,
+    void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
     if (_shouldDivertToMediaEndpoint(model, creationRequest)) {
@@ -374,23 +403,75 @@ class AiChatService implements AiChatClient {
           ? model.requestMethod.trim()
           : 'POST';
       final startedAt = DateTime.now().toUtc();
-      final response = await http.Response.fromStream(
-        await _sendHttpRequestWithRedirects(
-          client: _client,
-          method: effectiveMethod,
-          uri: Uri.parse(blueprint.url),
-          headers: blueprint.headers,
-          body: jsonEncode(blueprint.body),
-          timeout: timeout,
+      onRequestStarted?.call(
+        AiChatRequestTelemetry(
+          requestUrl: blueprint.url,
+          requestMethod: effectiveMethod,
+          requestHeaders: Map<String, String>.unmodifiable(blueprint.headers),
+          requestBody: blueprint.body,
+          startedAt: startedAt,
         ),
       );
+      AiChatRequestTelemetry telemetry({
+        String? rawResponse,
+        DateTime? endedAt,
+        String? error,
+      }) {
+        final resolvedEndedAt = endedAt ?? DateTime.now().toUtc();
+        return AiChatRequestTelemetry(
+          requestUrl: blueprint.url,
+          requestMethod: effectiveMethod,
+          requestHeaders: Map<String, String>.unmodifiable(blueprint.headers),
+          requestBody: blueprint.body,
+          rawResponse: rawResponse,
+          startedAt: startedAt,
+          endedAt: resolvedEndedAt,
+          durationMs: resolvedEndedAt.difference(startedAt).inMilliseconds,
+          error: error,
+        );
+      }
+
+      late final http.Response response;
+      try {
+        response = await http.Response.fromStream(
+          await _sendHttpRequestWithRedirects(
+            client: _client,
+            method: effectiveMethod,
+            uri: Uri.parse(blueprint.url),
+            headers: blueprint.headers,
+            body: jsonEncode(blueprint.body),
+            timeout: timeout,
+          ),
+        );
+      } on TimeoutException {
+        final message = AiTransportDiagnosticMessages.timeout(timeout);
+        throw AiChatException(message, telemetry: telemetry(error: message));
+      } on HandshakeException catch (error) {
+        final message = AiTransportDiagnosticMessages.handshake(error);
+        throw AiChatException(message, telemetry: telemetry(error: message));
+      } on TlsException catch (error) {
+        final message = AiTransportDiagnosticMessages.tls(error);
+        throw AiChatException(message, telemetry: telemetry(error: message));
+      } on SocketException catch (error) {
+        final message = AiTransportDiagnosticMessages.socket(error);
+        throw AiChatException(message, telemetry: telemetry(error: message));
+      } on http.ClientException catch (error) {
+        final message = AiTransportDiagnosticMessages.httpClient(error);
+        throw AiChatException(message, telemetry: telemetry(error: message));
+      }
       final endedAt = DateTime.now().toUtc();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final errorMessage = adapter.extractErrorMessage(response.body);
+        final message = AiTransportDiagnosticMessages.httpStatus(
+          response.statusCode,
+          serverMessage: errorMessage,
+        );
         throw AiChatException(
-          AiTransportDiagnosticMessages.httpStatus(
-            response.statusCode,
-            serverMessage: errorMessage,
+          message,
+          telemetry: telemetry(
+            rawResponse: response.body,
+            endedAt: endedAt,
+            error: message,
           ),
         );
       }
@@ -425,7 +506,14 @@ class AiChatService implements AiChatClient {
           durationMs: endedAt.difference(startedAt).inMilliseconds,
         );
       } on FormatException catch (error) {
-        throw AiChatException(error.message);
+        throw AiChatException(
+          error.message,
+          telemetry: telemetry(
+            rawResponse: response.body,
+            endedAt: endedAt,
+            error: error.message,
+          ),
+        );
       }
     } on TimeoutException {
       throw AiChatException(AiTransportDiagnosticMessages.timeout(timeout));
@@ -471,6 +559,7 @@ class AiChatService implements AiChatClient {
     Duration streamIdleTimeout = const Duration(seconds: 120),
     Future<void>? cancelSignal,
     AiInputCacheRuntimeConfig? inputCacheConfig,
+    void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
     // Media generation is a one-shot or bounded-poll protocol on dedicated
@@ -485,6 +574,7 @@ class AiChatService implements AiChatClient {
         creationRequest: creationRequest,
         timeout: timeout,
         cancelSignal: cancelSignal,
+        onRequestStarted: onRequestStarted,
       );
     }
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
@@ -500,6 +590,7 @@ class AiChatService implements AiChatClient {
         creationRequest: creationRequest,
         timeout: timeout,
         cancelSignal: cancelSignal,
+        onRequestStarted: onRequestStarted,
       );
     }
     final isClaudeProtocol = adapter is ClaudeProtocolAdapter;
@@ -519,6 +610,40 @@ class AiChatService implements AiChatClient {
     final streamStartedAt = DateTime.now().toUtc();
     final capturedHeaders = Map<String, String>.unmodifiable(blueprint.headers);
     final capturedBody = blueprint.body;
+    onRequestStarted?.call(
+      AiChatRequestTelemetry(
+        requestUrl: blueprint.url,
+        requestMethod: effectiveMethod,
+        requestHeaders: capturedHeaders,
+        requestBody: capturedBody,
+        startedAt: streamStartedAt,
+      ),
+    );
+
+    AiChatRequestTelemetry telemetrySnapshot({
+      String? rawResponse,
+      DateTime? endedAt,
+      int? durationMs,
+      String? finishReason,
+      String? error,
+    }) {
+      final resolvedEndedAt = endedAt ?? DateTime.now().toUtc();
+      return AiChatRequestTelemetry(
+        requestUrl: blueprint.url,
+        requestMethod: effectiveMethod,
+        requestHeaders: capturedHeaders,
+        requestBody: capturedBody,
+        rawResponse: rawResponse,
+        startedAt: streamStartedAt,
+        endedAt: resolvedEndedAt,
+        durationMs:
+            durationMs ??
+            resolvedEndedAt.difference(streamStartedAt).inMilliseconds,
+        finishReason: finishReason,
+        error: error,
+      );
+    }
+
     final request = http.Request(effectiveMethod, Uri.parse(blueprint.url))
       ..headers.addAll(blueprint.headers)
       ..body = jsonEncode(blueprint.body);
@@ -563,15 +688,35 @@ class AiChatService implements AiChatClient {
         streamedResponse = firstResult as http.StreamedResponse;
       }
     } on TimeoutException {
-      throw AiChatException(AiTransportDiagnosticMessages.timeout(timeout));
+      final message = AiTransportDiagnosticMessages.timeout(timeout);
+      throw AiChatException(
+        message,
+        telemetry: telemetrySnapshot(error: message),
+      );
     } on HandshakeException catch (error) {
-      throw AiChatException(AiTransportDiagnosticMessages.handshake(error));
+      final message = AiTransportDiagnosticMessages.handshake(error);
+      throw AiChatException(
+        message,
+        telemetry: telemetrySnapshot(error: message),
+      );
     } on TlsException catch (error) {
-      throw AiChatException(AiTransportDiagnosticMessages.tls(error));
+      final message = AiTransportDiagnosticMessages.tls(error);
+      throw AiChatException(
+        message,
+        telemetry: telemetrySnapshot(error: message),
+      );
     } on SocketException catch (error) {
-      throw AiChatException(AiTransportDiagnosticMessages.socket(error));
+      final message = AiTransportDiagnosticMessages.socket(error);
+      throw AiChatException(
+        message,
+        telemetry: telemetrySnapshot(error: message),
+      );
     } on http.ClientException catch (error) {
-      throw AiChatException(AiTransportDiagnosticMessages.httpClient(error));
+      final message = AiTransportDiagnosticMessages.httpClient(error);
+      throw AiChatException(
+        message,
+        telemetry: telemetrySnapshot(error: message),
+      );
     }
     _debugAiStreamLog(
       'model=${model.modelId} stream_connected status=${streamedResponse.statusCode} url=${streamedResponse.request?.url ?? blueprint.url}',
@@ -581,11 +726,13 @@ class AiChatService implements AiChatClient {
         streamedResponse.statusCode >= 300) {
       final errorBody = await streamedResponse.stream.bytesToString();
       final errorMessage = adapter.extractErrorMessage(errorBody);
+      final message = AiTransportDiagnosticMessages.httpStatus(
+        streamedResponse.statusCode,
+        serverMessage: errorMessage,
+      );
       throw AiChatException(
-        AiTransportDiagnosticMessages.httpStatus(
-          streamedResponse.statusCode,
-          serverMessage: errorMessage,
-        ),
+        message,
+        telemetry: telemetrySnapshot(rawResponse: errorBody, error: message),
       );
     }
     final eventController = StreamController<AiChatStreamEvent>(sync: true);
@@ -784,7 +931,14 @@ class AiChatService implements AiChatClient {
           );
           if (!resultCompleter.isCompleted) {
             resultCompleter.completeError(
-              AiChatException('API error: $errorMessage'),
+              AiChatException(
+                'API error: $errorMessage',
+                telemetry: telemetrySnapshot(
+                  rawResponse: rawResponseBuffer.toString(),
+                  finishReason: finishReason,
+                  error: errorMessage,
+                ),
+              ),
               StackTrace.current,
             );
           }
@@ -890,10 +1044,18 @@ class AiChatService implements AiChatClient {
               'model=${model.modelId} stream_error error=$error',
             );
             if (!resultCompleter.isCompleted) {
+              final message = error is TimeoutException
+                  ? AiTransportDiagnosticMessages.timeout(streamIdleTimeout)
+                  : '$error';
               resultCompleter.completeError(
-                error is TimeoutException
-                    ? const AiChatException('Request timed out.')
-                    : AiChatException('$error'),
+                AiChatException(
+                  message,
+                  telemetry: telemetrySnapshot(
+                    rawResponse: rawResponseBuffer.toString(),
+                    finishReason: finishReason,
+                    error: message,
+                  ),
+                ),
                 stackTrace,
               );
             }
@@ -934,6 +1096,7 @@ class AiChatService implements AiChatClient {
     AiCreationRequest creationRequest = AiCreationRequest.none,
     required Duration timeout,
     Future<void>? cancelSignal,
+    void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
     final controller = StreamController<AiChatStreamEvent>(sync: true);
     final completer = Completer<AiChatStreamResult>();
@@ -975,6 +1138,7 @@ class AiChatService implements AiChatClient {
           responseModalities: responseModalities,
           creationRequest: creationRequest,
           timeout: timeout,
+          onRequestStarted: onRequestStarted,
         );
         // Race the actual completion against (a) the caller's cancel
         // signal, and (b) our internal signal raised by `cancel()`.
@@ -1554,9 +1718,10 @@ void _debugAiStreamLog(String message) {
 }
 
 class AiChatException implements Exception {
-  const AiChatException(this.message);
+  const AiChatException(this.message, {this.telemetry});
 
   final String message;
+  final AiChatRequestTelemetry? telemetry;
 
   @override
   String toString() => message;

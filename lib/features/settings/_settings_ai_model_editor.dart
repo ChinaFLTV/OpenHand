@@ -304,618 +304,698 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.initialModel == null
-                      ? l10n.aiModelDialogCreateTitle
-                      : l10n.aiModelDialogEditTitle,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: SingleChildScrollView(
-                    // Disable the macOS trackpad rubber-band / overscroll
-                    // elastic effect. Inside a bounded-height modal dialog
-                    // the bouncing spring simulation combined with rapid
-                    // successive wheel / trackpad events causes the
-                    // visible "pull-back / jitter" glitch.
-                    physics: const ClampingScrollPhysics(),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: _nameController,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: AppLocalizations.of(context)!.mdlEdProviderName,
-                              hintText: AppLocalizations.of(context)!.mdlEdOptionalEGDeepseekLocalOllama,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _baseUrlController,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: l10n.aiModelBaseUrl,
-                            ),
-                            validator: (value) {
-                              final rawValue = value?.trim() ?? '';
-                              if (rawValue.isEmpty) {
-                                return l10n.aiModelBaseUrlRequired;
-                              }
-                              if (!isValidHttpUrl(rawValue)) {
-                                return l10n.aiModelBaseUrlInvalid;
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final stacked = constraints.maxWidth < 640;
-                              final authDropdown =
-                                  DropdownButtonFormField<AiAuthScheme>(
-                                    initialValue: _authScheme,
-                                    decoration: InputDecoration(
-                                      labelText: l10n.aiModelAuthScheme,
-                                    ),
-                                    items: AiAuthScheme.values
-                                        .map(
-                                          (item) =>
-                                              DropdownMenuItem<AiAuthScheme>(
-                                                value: item,
-                                                child: Text(item.label(l10n)),
-                                              ),
-                                        )
-                                        .toList(growable: false),
-                                    onChanged: _isSaving
-                                        ? null
-                                        : (value) {
-                                            if (value == null) {
-                                              return;
-                                            }
-                                            setState(() {
-                                              _authScheme = value;
-                                            });
-                                          },
-                                  );
-                              final protocolDropdown =
-                                  DropdownButtonFormField<AiProtocolType>(
-                                    initialValue: _protocolType,
-                                    decoration: InputDecoration(
-                                      labelText: l10n.aiModelProtocol,
-                                    ),
-                                    items: AiProtocolType.values
-                                        .map(
-                                          (item) =>
-                                              DropdownMenuItem<AiProtocolType>(
-                                                value: item,
-                                                child: Text(item.label(l10n)),
-                                              ),
-                                        )
-                                        .toList(growable: false),
-                                    onChanged: _isSaving
-                                        ? null
-                                        : (value) {
-                                            if (value == null) {
-                                              return;
-                                            }
-                                            setState(() {
-                                              _protocolType = value;
-                                            });
-                                          },
-                                  );
-                              if (stacked) {
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    authDropdown,
-                                    const SizedBox(height: 16),
-                                    protocolDropdown,
-                                  ],
-                                );
-                              }
-                              return Row(
-                                children: [
-                                  Expanded(child: authDropdown),
-                                  const SizedBox(width: 16),
-                                  Expanded(child: protocolDropdown),
-                                ],
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _tokenController,
-                            enabled: !_isSaving,
-                            obscureText: _obscureToken,
-                            decoration: InputDecoration(
-                              labelText: l10n.aiModelToken,
-                              suffixIconConstraints: const BoxConstraints(
-                                minWidth: 56,
-                                minHeight: 40,
-                              ),
-                              suffixIcon: Padding(
-                                padding: const EdgeInsetsDirectional.only(
-                                  end: 10,
-                                ),
-                                child: IconButton(
-                                  onPressed: _isSaving
-                                      ? null
-                                      : () {
-                                          setState(() {
-                                            _obscureToken = !_obscureToken;
-                                          });
-                                        },
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    foregroundColor:
-                                        colorScheme.onSurfaceVariant,
-                                    disabledForegroundColor: colorScheme
-                                        .onSurfaceVariant
-                                        .withValues(alpha: 0.38),
-                                    minimumSize: const Size(36, 36),
-                                    maximumSize: const Size(36, 36),
-                                    padding: EdgeInsets.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  icon: Icon(
-                                    _obscureToken
-                                        ? Icons.visibility_outlined
-                                        : Icons.visibility_off_outlined,
-                                    size: 22,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          // ── Model scan section ──
-                          Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.initialModel == null
+                          ? l10n.aiModelDialogCreateTitle
+                          : l10n.aiModelDialogEditTitle,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        // Disable the macOS trackpad rubber-band / overscroll
+                        // elastic effect. Inside a bounded-height modal dialog
+                        // the bouncing spring simulation combined with rapid
+                        // successive wheel / trackpad events causes the
+                        // visible "pull-back / jitter" glitch.
+                        physics: const ClampingScrollPhysics(),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                l10n.aiModelAvailableModels,
-                                style: Theme.of(context).textTheme.titleSmall,
+                              TextFormField(
+                                controller: _nameController,
+                                enabled: !_isSaving,
+                                decoration: InputDecoration(
+                                  labelText: AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdProviderName,
+                                  hintText: AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdOptionalEGDeepseekLocalOllama,
+                                ),
                               ),
-                              const SizedBox(width: 12),
-                              if (_isScanning)
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _baseUrlController,
+                                enabled: !_isSaving,
+                                decoration: InputDecoration(
+                                  labelText: l10n.aiModelBaseUrl,
+                                ),
+                                validator: (value) {
+                                  final rawValue = value?.trim() ?? '';
+                                  if (rawValue.isEmpty) {
+                                    return l10n.aiModelBaseUrlRequired;
+                                  }
+                                  if (!isValidHttpUrl(rawValue)) {
+                                    return l10n.aiModelBaseUrlInvalid;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final authDropdown =
+                                      DropdownButtonFormField<AiAuthScheme>(
+                                        initialValue: _authScheme,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.aiModelAuthScheme,
+                                        ),
+                                        items: AiAuthScheme.values
+                                            .map(
+                                              (item) =>
+                                                  DropdownMenuItem<
+                                                    AiAuthScheme
+                                                  >(
+                                                    value: item,
+                                                    child: Text(
+                                                      item.label(l10n),
+                                                    ),
+                                                  ),
+                                            )
+                                            .toList(growable: false),
+                                        onChanged: _isSaving
+                                            ? null
+                                            : (value) {
+                                                if (value == null) {
+                                                  return;
+                                                }
+                                                setState(() {
+                                                  _authScheme = value;
+                                                });
+                                              },
+                                      );
+                                  final protocolDropdown =
+                                      DropdownButtonFormField<AiProtocolType>(
+                                        initialValue: _protocolType,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.aiModelProtocol,
+                                        ),
+                                        items: AiProtocolType.values
+                                            .map(
+                                              (item) =>
+                                                  DropdownMenuItem<
+                                                    AiProtocolType
+                                                  >(
+                                                    value: item,
+                                                    child: Text(
+                                                      item.label(l10n),
+                                                    ),
+                                                  ),
+                                            )
+                                            .toList(growable: false),
+                                        onChanged: _isSaving
+                                            ? null
+                                            : (value) {
+                                                if (value == null) {
+                                                  return;
+                                                }
+                                                setState(() {
+                                                  _protocolType = value;
+                                                });
+                                              },
+                                      );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        authDropdown,
+                                        const SizedBox(height: 16),
+                                        protocolDropdown,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
+                                    children: [
+                                      Expanded(child: authDropdown),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: protocolDropdown),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _tokenController,
+                                enabled: !_isSaving,
+                                obscureText: _obscureToken,
+                                decoration: InputDecoration(
+                                  labelText: l10n.aiModelToken,
+                                  suffixIconConstraints: const BoxConstraints(
+                                    minWidth: 56,
+                                    minHeight: 40,
+                                  ),
+                                  suffixIcon: Padding(
+                                    padding: const EdgeInsetsDirectional.only(
+                                      end: 10,
+                                    ),
+                                    child: IconButton(
+                                      onPressed: _isSaving
+                                          ? null
+                                          : () {
+                                              setState(() {
+                                                _obscureToken = !_obscureToken;
+                                              });
+                                            },
+                                      style: IconButton.styleFrom(
+                                        backgroundColor: Colors.transparent,
+                                        foregroundColor:
+                                            colorScheme.onSurfaceVariant,
+                                        disabledForegroundColor: colorScheme
+                                            .onSurfaceVariant
+                                            .withValues(alpha: 0.38),
+                                        minimumSize: const Size(36, 36),
+                                        maximumSize: const Size(36, 36),
+                                        padding: EdgeInsets.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      icon: Icon(
+                                        _obscureToken
+                                            ? Icons.visibility_outlined
+                                            : Icons.visibility_off_outlined,
+                                        size: 22,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              // ── Model scan section ──
+                              Row(
+                                children: [
+                                  Text(
+                                    l10n.aiModelAvailableModels,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  if (_isScanning)
+                                    const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  else
+                                    FilledButton.tonalIcon(
+                                      onPressed: _isSaving ? null : _scanModels,
+                                      icon: const Icon(
+                                        Icons.radar_rounded,
+                                        size: 18,
+                                      ),
+                                      label: Text(l10n.aiModelScanButton),
+                                    ),
+                                  if (_isScanning) ...[
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      l10n.aiModelScanning,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              if (_scanError != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  _scanError!,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: colorScheme.error),
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              // Available models chip list
+                              if (_visibleModelIds.isNotEmpty)
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 200,
+                                  ),
+                                  child: RepaintBoundary(
+                                    // Swallow overscroll notifications from this
+                                    // inner scroll area so they cannot bubble up
+                                    // and re-trigger the outer SingleChildScrollView,
+                                    // which would cause both scrollables to
+                                    // jitter against each other.
+                                    child: NotificationListener<OverscrollNotification>(
+                                      onNotification: (_) => true,
+                                      child: Scrollbar(
+                                        controller: _chipScrollController,
+                                        thumbVisibility:
+                                            _visibleModelIds.length > 30,
+                                        child: SingleChildScrollView(
+                                          controller: _chipScrollController,
+                                          physics:
+                                              const ClampingScrollPhysics(),
+                                          child: Wrap(
+                                            spacing: 8,
+                                            runSpacing: 6,
+                                            children: _visibleModelIds
+                                                .map((id) {
+                                                  final isActive =
+                                                      id == _activeModelId;
+                                                  return _AiProviderModelChip(
+                                                    modelId: id,
+                                                    isActive: isActive,
+                                                    enabled: !_isSaving,
+                                                    hasProfile:
+                                                        _modelProfiles[id]
+                                                            ?.hasUserOverrides ==
+                                                        true,
+                                                    tooltip: isActive
+                                                        ? AppLocalizations.of(
+                                                            context,
+                                                          )!.mdlEdCurrentlyActiveModel
+                                                        : AppLocalizations.of(
+                                                            context,
+                                                          )!.mdlEdClickToSetAsActiveModel,
+                                                    onPressed: () =>
+                                                        _selectModelId(id),
+                                                    onEdit: () =>
+                                                        _editModelProfile(id),
+                                                    onDeleted: () =>
+                                                        _removeModelId(id),
+                                                  );
+                                                })
+                                                .toList(growable: false),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 )
                               else
-                                FilledButton.tonalIcon(
-                                  onPressed: _isSaving ? null : _scanModels,
-                                  icon: const Icon(
-                                    Icons.radar_rounded,
-                                    size: 18,
-                                  ),
-                                  label: Text(l10n.aiModelScanButton),
-                                ),
-                              if (_isScanning) ...[
-                                const SizedBox(width: 8),
                                 Text(
-                                  l10n.aiModelScanning,
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdTapScanModelsToDiscoverModels,
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: colorScheme.onSurfaceVariant,
                                       ),
                                 ),
-                              ],
-                            ],
-                          ),
-                          if (_scanError != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              _scanError!,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: colorScheme.error),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                          // Available models chip list
-                          if (_visibleModelIds.isNotEmpty)
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxHeight: 200),
-                              child: RepaintBoundary(
-                                // Swallow overscroll notifications from this
-                                // inner scroll area so they cannot bubble up
-                                // and re-trigger the outer SingleChildScrollView,
-                                // which would cause both scrollables to
-                                // jitter against each other.
-                                child: NotificationListener<OverscrollNotification>(
-                                  onNotification: (_) => true,
-                                  child: Scrollbar(
-                                    controller: _chipScrollController,
-                                    thumbVisibility:
-                                        _visibleModelIds.length > 30,
-                                    child: SingleChildScrollView(
-                                      controller: _chipScrollController,
-                                      physics: const ClampingScrollPhysics(),
-                                      child: Wrap(
-                                        spacing: 8,
-                                        runSpacing: 6,
-                                        children: _visibleModelIds
-                                            .map((id) {
-                                              final isActive =
-                                                  id == _activeModelId;
-                                              return _AiProviderModelChip(
-                                                modelId: id,
-                                                isActive: isActive,
-                                                enabled: !_isSaving,
-                                                hasProfile:
-                                                    _modelProfiles[id]
-                                                        ?.hasUserOverrides ==
-                                                    true,
-                                                tooltip: isActive
-                                                    ? AppLocalizations.of(context)!.mdlEdCurrentlyActiveModel
-                                                    : AppLocalizations.of(context)!.mdlEdClickToSetAsActiveModel,
-                                                onPressed: () =>
-                                                    _selectModelId(id),
-                                                onEdit: () =>
-                                                    _editModelProfile(id),
-                                                onDeleted: () =>
-                                                    _removeModelId(id),
-                                              );
-                                            })
-                                            .toList(growable: false),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            )
-                          else
-                            Text(
-                              AppLocalizations.of(context)!.mdlEdTapScanModelsToDiscoverModels,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                          const SizedBox(height: 12),
-                          // Manual model ID input
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _manualModelIdController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: l10n.aiModelManualIdHint,
-                                    isDense: true,
-                                  ),
-                                  onSubmitted: (_) => _addManualModelId(),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              FilledButton.tonal(
-                                onPressed: _isSaving ? null : _addManualModelId,
-                                child: Text(l10n.aiModelManualIdAdd),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Current active model (legacy field, auto-synced)
-                          TextFormField(
-                            controller: _modelIdController,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: AppLocalizations.of(context)!.mdlEdActiveModelId,
-                              helperText: AppLocalizations.of(context)!.mdlEdTheModelUsedForConversationsSelect,
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                _activeModelId = value.trim().isEmpty
-                                    ? null
-                                    : value.trim();
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _maxContextTokensController,
-                            enabled: !_isSaving,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: AppLocalizations.of(context)!.mdlEdMaxContextTokens,
-                              helperText: AppLocalizations.of(context)!.mdlEdOptionalLimitsTheHistorySliceUsed,
-                            ),
-                            validator: (value) {
-                              final trimmed = value?.trim() ?? '';
-                              if (trimmed.isEmpty) {
-                                return null;
-                              }
-                              final parsed = int.tryParse(trimmed);
-                              if (parsed == null || parsed <= 0) {
-                                return AppLocalizations.of(context)!.mdlEdEnterAWholeNumberGreaterThan;
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // ── Request configuration section ──
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final stacked = constraints.maxWidth < 640;
-                              final methodDropdown =
-                                  DropdownButtonFormField<String>(
-                                    initialValue: _requestMethod,
-                                    decoration: InputDecoration(
-                                      labelText: AppLocalizations.of(context)!.mdlEdRequestMethod,
-                                    ),
-                                    items: const <DropdownMenuItem<String>>[
-                                      DropdownMenuItem<String>(
-                                        value: 'POST',
-                                        child: Text('POST'),
-                                      ),
-                                      DropdownMenuItem<String>(
-                                        value: 'GET',
-                                        child: Text('GET'),
-                                      ),
-                                      DropdownMenuItem<String>(
-                                        value: 'PUT',
-                                        child: Text('PUT'),
-                                      ),
-                                      DropdownMenuItem<String>(
-                                        value: 'PATCH',
-                                        child: Text('PATCH'),
-                                      ),
-                                      DropdownMenuItem<String>(
-                                        value: 'DELETE',
-                                        child: Text('DELETE'),
-                                      ),
-                                      DropdownMenuItem<String>(
-                                        value: 'HEAD',
-                                        child: Text('HEAD'),
-                                      ),
-                                      DropdownMenuItem<String>(
-                                        value: 'OPTIONS',
-                                        child: Text('OPTIONS'),
-                                      ),
-                                    ],
-                                    onChanged: _isSaving
-                                        ? null
-                                        : (value) {
-                                            if (value == null) return;
-                                            setState(() {
-                                              _requestMethod = value;
-                                            });
-                                          },
-                                  );
-                              final streamToggle = InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: AppLocalizations.of(context)!.mdlEdOutputMode,
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.only(top: 8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      _streamEnabled
-                                          ? AppLocalizations.of(context)!.mdlEdStreaming
-                                          : AppLocalizations.of(context)!.mdlEdNonStreaming,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                          ),
-                                    ),
-                                    const Spacer(),
-                                    Switch(
-                                      value: _streamEnabled,
-                                      onChanged: null, // Disabled for now
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (stacked) {
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    methodDropdown,
-                                    const SizedBox(height: 16),
-                                    streamToggle,
-                                  ],
-                                );
-                              }
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              const SizedBox(height: 12),
+                              // Manual model ID input
+                              Row(
                                 children: [
-                                  Expanded(child: methodDropdown),
-                                  const SizedBox(width: 16),
-                                  Expanded(child: streamToggle),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _manualModelIdController,
+                                      enabled: !_isSaving,
+                                      decoration: InputDecoration(
+                                        labelText: l10n.aiModelManualIdHint,
+                                        isDense: true,
+                                      ),
+                                      onSubmitted: (_) => _addManualModelId(),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  FilledButton.tonal(
+                                    onPressed: _isSaving
+                                        ? null
+                                        : _addManualModelId,
+                                    child: Text(l10n.aiModelManualIdAdd),
+                                  ),
                                 ],
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final stacked = constraints.maxWidth < 640;
-                              final maxTokensField = TextFormField(
-                                controller: _maxTokensController,
+                              ),
+                              const SizedBox(height: 16),
+                              // Current active model (legacy field, auto-synced)
+                              TextFormField(
+                                controller: _modelIdController,
+                                enabled: !_isSaving,
+                                decoration: InputDecoration(
+                                  labelText: AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdActiveModelId,
+                                  helperText: AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdTheModelUsedForConversationsSelect,
+                                ),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _activeModelId = value.trim().isEmpty
+                                        ? null
+                                        : value.trim();
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _maxContextTokensController,
                                 enabled: !_isSaving,
                                 keyboardType: TextInputType.number,
                                 decoration: InputDecoration(
-                                  labelText: AppLocalizations.of(context)!.mdlEdMaxOutputTokens,
-                                  helperText: AppLocalizations.of(context)!.mdlEdOptionalUsesAdapterDefaultIfUnset,
+                                  labelText: AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdMaxContextTokens,
+                                  helperText: AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdOptionalLimitsTheHistorySliceUsed,
                                 ),
                                 validator: (value) {
                                   final trimmed = value?.trim() ?? '';
-                                  if (trimmed.isEmpty) return null;
+                                  if (trimmed.isEmpty) {
+                                    return null;
+                                  }
                                   final parsed = int.tryParse(trimmed);
                                   if (parsed == null || parsed <= 0) {
-                                    return AppLocalizations.of(context)!.mdlEdEnterAWholeNumberGreaterThan;
+                                    return AppLocalizations.of(
+                                      context,
+                                    )!.mdlEdEnterAWholeNumberGreaterThan;
                                   }
                                   return null;
                                 },
-                              );
-                              final temperatureField = TextFormField(
-                                controller: _temperatureController,
-                                enabled: !_isSaving,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
+                              ),
+                              const SizedBox(height: 16),
+                              // ── Request configuration section ──
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final methodDropdown =
+                                      DropdownButtonFormField<String>(
+                                        initialValue: _requestMethod,
+                                        decoration: InputDecoration(
+                                          labelText: AppLocalizations.of(
+                                            context,
+                                          )!.mdlEdRequestMethod,
+                                        ),
+                                        items: const <DropdownMenuItem<String>>[
+                                          DropdownMenuItem<String>(
+                                            value: 'POST',
+                                            child: Text('POST'),
+                                          ),
+                                          DropdownMenuItem<String>(
+                                            value: 'GET',
+                                            child: Text('GET'),
+                                          ),
+                                          DropdownMenuItem<String>(
+                                            value: 'PUT',
+                                            child: Text('PUT'),
+                                          ),
+                                          DropdownMenuItem<String>(
+                                            value: 'PATCH',
+                                            child: Text('PATCH'),
+                                          ),
+                                          DropdownMenuItem<String>(
+                                            value: 'DELETE',
+                                            child: Text('DELETE'),
+                                          ),
+                                          DropdownMenuItem<String>(
+                                            value: 'HEAD',
+                                            child: Text('HEAD'),
+                                          ),
+                                          DropdownMenuItem<String>(
+                                            value: 'OPTIONS',
+                                            child: Text('OPTIONS'),
+                                          ),
+                                        ],
+                                        onChanged: _isSaving
+                                            ? null
+                                            : (value) {
+                                                if (value == null) return;
+                                                setState(() {
+                                                  _requestMethod = value;
+                                                });
+                                              },
+                                      );
+                                  final streamToggle = InputDecorator(
+                                    decoration: InputDecoration(
+                                      labelText: AppLocalizations.of(
+                                        context,
+                                      )!.mdlEdOutputMode,
+                                      border: InputBorder.none,
+                                      contentPadding: const EdgeInsets.only(
+                                        top: 8,
+                                      ),
                                     ),
-                                decoration: InputDecoration(
-                                  labelText: AppLocalizations.of(context)!.mdlEdTemperature,
-                                  helperText: AppLocalizations.of(context)!.mdlEd0020Default0,
-                                ),
-                                validator: (value) {
-                                  final trimmed = value?.trim() ?? '';
-                                  if (trimmed.isEmpty) return null;
-                                  final parsed = double.tryParse(trimmed);
-                                  if (parsed == null ||
-                                      parsed < 0 ||
-                                      parsed > 2.0) {
-                                    return AppLocalizations.of(context)!.mdlEdEnterANumberBetween00;
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          _streamEnabled
+                                              ? AppLocalizations.of(
+                                                  context,
+                                                )!.mdlEdStreaming
+                                              : AppLocalizations.of(
+                                                  context,
+                                                )!.mdlEdNonStreaming,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color: colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        ),
+                                        const Spacer(),
+                                        Switch(
+                                          value: _streamEnabled,
+                                          onChanged: null, // Disabled for now
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        methodDropdown,
+                                        const SizedBox(height: 16),
+                                        streamToggle,
+                                      ],
+                                    );
                                   }
-                                  return null;
+                                  return Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(child: methodDropdown),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: streamToggle),
+                                    ],
+                                  );
                                 },
-                              );
-                              if (stacked) {
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    maxTokensField,
-                                    const SizedBox(height: 16),
-                                    temperatureField,
-                                  ],
-                                );
-                              }
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              ),
+                              const SizedBox(height: 16),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final maxTokensField = TextFormField(
+                                    controller: _maxTokensController,
+                                    enabled: !_isSaving,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText: AppLocalizations.of(
+                                        context,
+                                      )!.mdlEdMaxOutputTokens,
+                                      helperText: AppLocalizations.of(
+                                        context,
+                                      )!.mdlEdOptionalUsesAdapterDefaultIfUnset,
+                                    ),
+                                    validator: (value) {
+                                      final trimmed = value?.trim() ?? '';
+                                      if (trimmed.isEmpty) return null;
+                                      final parsed = int.tryParse(trimmed);
+                                      if (parsed == null || parsed <= 0) {
+                                        return AppLocalizations.of(
+                                          context,
+                                        )!.mdlEdEnterAWholeNumberGreaterThan;
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                  final temperatureField = TextFormField(
+                                    controller: _temperatureController,
+                                    enabled: !_isSaving,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    decoration: InputDecoration(
+                                      labelText: AppLocalizations.of(
+                                        context,
+                                      )!.mdlEdTemperature,
+                                      helperText: AppLocalizations.of(
+                                        context,
+                                      )!.mdlEd0020Default0,
+                                    ),
+                                    validator: (value) {
+                                      final trimmed = value?.trim() ?? '';
+                                      if (trimmed.isEmpty) return null;
+                                      final parsed = double.tryParse(trimmed);
+                                      if (parsed == null ||
+                                          parsed < 0 ||
+                                          parsed > 2.0) {
+                                        return AppLocalizations.of(
+                                          context,
+                                        )!.mdlEdEnterANumberBetween00;
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        maxTokensField,
+                                        const SizedBox(height: 16),
+                                        temperatureField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(child: maxTokensField),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: temperatureField),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 20),
+                              // ── Custom headers section ──
+                              Row(
                                 children: [
-                                  Expanded(child: maxTokensField),
-                                  const SizedBox(width: 16),
-                                  Expanded(child: temperatureField),
+                                  Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.mdlEdCustomHeaders,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
+                                  ),
+                                  const Spacer(),
+                                  FilledButton.tonalIcon(
+                                    onPressed: _isSaving
+                                        ? null
+                                        : _addHeaderEntry,
+                                    icon: const Icon(Icons.add, size: 18),
+                                    label: Text(
+                                      AppLocalizations.of(context)!.mdlEdAdd,
+                                    ),
+                                  ),
                                 ],
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                          // ── Custom headers section ──
-                          Row(
-                            children: [
-                              Text(
-                                AppLocalizations.of(context)!.mdlEdCustomHeaders,
-                                style: Theme.of(context).textTheme.titleSmall,
                               ),
-                              const Spacer(),
-                              FilledButton.tonalIcon(
-                                onPressed: _isSaving ? null : _addHeaderEntry,
-                                icon: const Icon(Icons.add, size: 18),
-                                label: Text(
-                                  AppLocalizations.of(context)!.mdlEdAdd,
+                              const SizedBox(height: 8),
+                              if (_customHeaderEntries.isEmpty)
+                                Text(
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdNoCustomHeadersTapAddTo,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                )
+                              else
+                                ..._customHeaderEntries.asMap().entries.map((
+                                  mapEntry,
+                                ) {
+                                  final index = mapEntry.key;
+                                  final entry = mapEntry.value;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          flex: 2,
+                                          child: TextField(
+                                            controller: entry.keyController,
+                                            enabled: !_isSaving,
+                                            decoration: InputDecoration(
+                                              labelText: AppLocalizations.of(
+                                                context,
+                                              )!.mdlEdHeaderName,
+                                              isDense: true,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          flex: 3,
+                                          child: TextField(
+                                            controller: entry.valueController,
+                                            enabled: !_isSaving,
+                                            decoration: InputDecoration(
+                                              labelText: AppLocalizations.of(
+                                                context,
+                                              )!.mdlEdHeaderValue,
+                                              isDense: true,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          onPressed: _isSaving
+                                              ? null
+                                              : () => _removeHeaderEntry(index),
+                                          icon: const Icon(
+                                            Icons.close,
+                                            size: 18,
+                                          ),
+                                          style: IconButton.styleFrom(
+                                            minimumSize: const Size(32, 32),
+                                            maximumSize: const Size(32, 32),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              if (_errorMessage != null) ...[
+                                const SizedBox(height: 16),
+                                Text(
+                                  _errorMessage!,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(color: colorScheme.error),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          if (_customHeaderEntries.isEmpty)
-                            Text(
-                              AppLocalizations.of(context)!.mdlEdNoCustomHeadersTapAddTo,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                            )
-                          else
-                            ..._customHeaderEntries.asMap().entries.map((
-                              mapEntry,
-                            ) {
-                              final index = mapEntry.key;
-                              final entry = mapEntry.value;
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 2,
-                                      child: TextField(
-                                        controller: entry.keyController,
-                                        enabled: !_isSaving,
-                                        decoration: InputDecoration(
-                                          labelText: AppLocalizations.of(context)!.mdlEdHeaderName,
-                                          isDense: true,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      flex: 3,
-                                      child: TextField(
-                                        controller: entry.valueController,
-                                        enabled: !_isSaving,
-                                        decoration: InputDecoration(
-                                          labelText: AppLocalizations.of(context)!.mdlEdHeaderValue,
-                                          isDense: true,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      onPressed: _isSaving
-                                          ? null
-                                          : () => _removeHeaderEntry(index),
-                                      icon: const Icon(Icons.close, size: 18),
-                                      style: IconButton.styleFrom(
-                                        minimumSize: const Size(32, 32),
-                                        maximumSize: const Size(32, 32),
-                                        padding: EdgeInsets.zero,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                          if (_errorMessage != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              _errorMessage!,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: colorScheme.error),
-                            ),
-                          ],
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                if (_isSaving) ...[
-                  const SizedBox(height: 12),
-                  const LinearProgressIndicator(),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      label: l10n.commonCancel,
-                    ),
-                    const SizedBox(width: 12),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: _isSaving ? null : _handleSave,
-                      label: l10n.commonSave,
+                    if (_isSaving) ...[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(),
+                    ],
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OpenHandDialogActionButton.secondary(
+                          onPressed: _isSaving
+                              ? null
+                              : () => Navigator.of(context).pop(false),
+                          label: l10n.commonCancel,
+                        ),
+                        const SizedBox(width: 12),
+                        OpenHandDialogActionButton.primary(
+                          onPressed: _isSaving ? null : _handleSave,
+                          label: l10n.commonSave,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
               Positioned(
                 top: 0,
                 left: 0,
@@ -1214,10 +1294,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       supportsAttachments: _supportsAttachments,
       inputUsdPer1M: _parseNonNegativeDouble(_inputUsdPer1MController.text),
       outputUsdPer1M: _parseNonNegativeDouble(_outputUsdPer1MController.text),
-      cacheReadUsdPer1M:
-          _parseNonNegativeDouble(_cacheReadUsdPer1MController.text),
-      cacheWriteUsdPer1M:
-          _parseNonNegativeDouble(_cacheWriteUsdPer1MController.text),
+      cacheReadUsdPer1M: _parseNonNegativeDouble(
+        _cacheReadUsdPer1MController.text,
+      ),
+      cacheWriteUsdPer1M: _parseNonNegativeDouble(
+        _cacheWriteUsdPer1MController.text,
+      ),
     );
     Navigator.of(context).pop(profile);
   }
@@ -1262,7 +1344,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 controller: _displayNameController,
                 decoration: InputDecoration(
                   labelText: AppLocalizations.of(context)!.mdlEdDisplayName,
-                  hintText: AppLocalizations.of(context)!.mdlEdOptionalShownInTheUi,
+                  hintText: AppLocalizations.of(
+                    context,
+                  )!.mdlEdOptionalShownInTheUi,
                   isDense: true,
                 ),
               ),
@@ -1351,10 +1435,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 children: AiModelModality.values
                     .map((m) {
                       final label = switch (m) {
-                        AiModelModality.text => AppLocalizations.of(context)!.mdlEdText,
-                        AiModelModality.image => AppLocalizations.of(context)!.mdlEdImage,
-                        AiModelModality.video => AppLocalizations.of(context)!.mdlEdVideo,
-                        AiModelModality.audio => AppLocalizations.of(context)!.mdlEdAudio,
+                        AiModelModality.text => AppLocalizations.of(
+                          context,
+                        )!.mdlEdText,
+                        AiModelModality.image => AppLocalizations.of(
+                          context,
+                        )!.mdlEdImage,
+                        AiModelModality.video => AppLocalizations.of(
+                          context,
+                        )!.mdlEdVideo,
+                        AiModelModality.audio => AppLocalizations.of(
+                          context,
+                        )!.mdlEdAudio,
                       };
                       return FilterChip(
                         label: Text(label),
@@ -1385,11 +1477,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 children: AiModelCapability.values
                     .map((c) {
                       final label = switch (c) {
-                        AiModelCapability.imageGeneration => AppLocalizations.of(context)!.mdlEdImage,
-                        AiModelCapability.videoGeneration => AppLocalizations.of(context)!.mdlEdVideo,
-                        AiModelCapability.audioGeneration => AppLocalizations.of(context)!.mdlEdAudio,
-                        AiModelCapability.pdfGeneration => AppLocalizations.of(context)!.mdlEdPdf,
-                        AiModelCapability.pptGeneration => AppLocalizations.of(context)!.mdlEdPpt,
+                        AiModelCapability.imageGeneration =>
+                          AppLocalizations.of(context)!.mdlEdImage,
+                        AiModelCapability.videoGeneration =>
+                          AppLocalizations.of(context)!.mdlEdVideo,
+                        AiModelCapability.audioGeneration =>
+                          AppLocalizations.of(context)!.mdlEdAudio,
+                        AiModelCapability.pdfGeneration => AppLocalizations.of(
+                          context,
+                        )!.mdlEdPdf,
+                        AiModelCapability.pptGeneration => AppLocalizations.of(
+                          context,
+                        )!.mdlEdPpt,
                       };
                       return FilterChip(
                         label: Text(label),
@@ -1421,7 +1520,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       controller: _maxContextLengthController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.mdlEdContextLength,
+                        labelText: AppLocalizations.of(
+                          context,
+                        )!.mdlEdContextLength,
                         isDense: true,
                       ),
                     ),
@@ -1432,7 +1533,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       controller: _maxSummaryLengthController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.mdlEdSummaryLength,
+                        labelText: AppLocalizations.of(
+                          context,
+                        )!.mdlEdSummaryLength,
                         isDense: true,
                       ),
                     ),
@@ -1447,7 +1550,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       controller: _maxOutputLengthController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.mdlEdOutputLength,
+                        labelText: AppLocalizations.of(
+                          context,
+                        )!.mdlEdOutputLength,
                         isDense: true,
                       ),
                     ),
@@ -1458,7 +1563,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       controller: _maxThinkingLengthController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.mdlEdThinkingLength,
+                        labelText: AppLocalizations.of(
+                          context,
+                        )!.mdlEdThinkingLength,
                         isDense: true,
                       ),
                     ),
@@ -1475,8 +1582,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   Expanded(
                     child: TextField(
                       controller: _inputUsdPer1MController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText: AppLocalizations.of(context)!.mdlEdInput,
                         isDense: true,
@@ -1487,8 +1595,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   Expanded(
                     child: TextField(
                       controller: _outputUsdPer1MController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText: AppLocalizations.of(context)!.mdlEdOutput,
                         isDense: true,
@@ -1503,8 +1612,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   Expanded(
                     child: TextField(
                       controller: _cacheReadUsdPer1MController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText: AppLocalizations.of(context)!.mdlEdCacheRead,
                         isDense: true,
@@ -1515,10 +1625,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   Expanded(
                     child: TextField(
                       controller: _cacheWriteUsdPer1MController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.mdlEdCacheWrite,
+                        labelText: AppLocalizations.of(
+                          context,
+                        )!.mdlEdCacheWrite,
                         isDense: true,
                       ),
                     ),
@@ -1530,32 +1643,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         ),
       ),
       actions: <Widget>[
-        TextButton(
+        OpenHandDialogActionButton.destructive(
           onPressed: _reset,
-          style: TextButton.styleFrom(
-            minimumSize: const Size(64, 40),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-          child: Text(
-            AppLocalizations.of(context)!.mdlEdReset,
-            style: TextStyle(color: colorScheme.error),
-          ),
+          label: AppLocalizations.of(context)!.mdlEdReset,
         ),
-        OutlinedButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(64, 40),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-          child: Text(AppLocalizations.of(context)!.mdlEdCancel),
+          label: AppLocalizations.of(context)!.mdlEdCancel,
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: _save,
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(64, 40),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-          child: Text(AppLocalizations.of(context)!.mdlEdOk),
+          label: AppLocalizations.of(context)!.mdlEdOk,
         ),
       ],
     );

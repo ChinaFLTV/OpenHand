@@ -357,15 +357,15 @@ Future<String?> _showEditQueuedMessageDialog(
             ),
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(isZh ? '取消' : 'Cancel'),
+              label: isZh ? '取消' : 'Cancel',
             ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () {
                 Navigator.of(dialogContext).pop(controller.text);
               },
-              child: Text(isZh ? '保存' : 'Save'),
+              label: isZh ? '保存' : 'Save',
             ),
           ],
         );

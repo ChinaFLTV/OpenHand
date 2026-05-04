@@ -16,6 +16,7 @@ import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/hover_lift.dart';
+import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'instructions_controller.dart';
 import 'model/user_instruction_entry.dart';
 
@@ -48,76 +49,80 @@ class InstructionsView extends StatelessWidget {
     return Stack(
       children: [
         Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final stacked = constraints.maxWidth < 980;
-            final actions = Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.end,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: snapshot.isLoading
-                      ? null
-                      : () => controller.refresh(),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: Text(l10n.instructionRefresh),
-                ),
-                FilledButton.icon(
-                  onPressed: () => _openEditor(context, controller, null),
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(l10n.instructionNewEntry),
-                ),
-              ],
-            );
-            final header = _InstructionsHeader(
-              title: l10n.instructionPageTitle,
-              subtitle: l10n.instructionPageSubtitle,
-            );
-            if (stacked) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  header,
-                  const SizedBox(height: 20),
-                  Align(alignment: Alignment.centerRight, child: actions),
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(child: header),
-                const SizedBox(width: 20),
-                Flexible(
-                  child: Align(alignment: Alignment.topRight, child: actions),
-                ),
-              ],
-            );
-          },
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked = constraints.maxWidth < 980;
+                final actions = Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: snapshot.isLoading
+                          ? null
+                          : () => controller.refresh(),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(l10n.instructionRefresh),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () => _openEditor(context, controller, null),
+                      icon: const Icon(Icons.add_rounded),
+                      label: Text(l10n.instructionNewEntry),
+                    ),
+                  ],
+                );
+                final header = _InstructionsHeader(
+                  title: l10n.instructionPageTitle,
+                  subtitle: l10n.instructionPageSubtitle,
+                );
+                if (stacked) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      header,
+                      const SizedBox(height: 20),
+                      Align(alignment: Alignment.centerRight, child: actions),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(child: header),
+                    const SizedBox(width: 20),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: actions,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+            if (snapshot.errorMessage != null &&
+                snapshot.entries.isNotEmpty) ...[
+              _InstructionsStateCard(
+                icon: Icons.error_outline_rounded,
+                color: theme.colorScheme.error,
+                title: l10n.instructionLoadFailedTitle,
+                body: snapshot.errorMessage!,
+              ),
+              const SizedBox(height: 16),
+            ],
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                child: _buildBody(context, controller, snapshot),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
-        if (snapshot.errorMessage != null && snapshot.entries.isNotEmpty) ...[
-          _InstructionsStateCard(
-            icon: Icons.error_outline_rounded,
-            color: theme.colorScheme.error,
-            title: l10n.instructionLoadFailedTitle,
-            body: snapshot.errorMessage!,
-          ),
-          const SizedBox(height: 16),
-        ],
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-            child: _buildBody(context, controller, snapshot),
-          ),
-        ),
-      ],
-    ),
         Positioned(
           top: 0,
           left: 0,
@@ -232,13 +237,13 @@ class InstructionsView extends StatelessWidget {
         title: Text(l10n.instructionDeleteConfirmTitle),
         content: Text('${l10n.instructionDeleteConfirmBody}\n\n${entry.name}'),
         actions: <Widget>[
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.commonCancel),
+            label: l10n.commonCancel,
           ),
-          FilledButton(
+          OpenHandDialogActionButton.destructive(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.commonDelete),
+            label: l10n.commonDelete,
           ),
         ],
       ),
@@ -346,184 +351,184 @@ class _InstructionCard extends StatelessWidget {
 
     return HoverLift(
       child: Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ReorderableDragStartListener(
-                    index: dragIndex,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: entry.enabled
-                                ? colorScheme.primaryContainer
-                                : colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          alignment: Alignment.center,
-                          child: Icon(
-                            Icons.auto_awesome_motion_outlined,
-                            color: entry.enabled
-                                ? colorScheme.onPrimaryContainer
-                                : colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        Positioned(
-                          left: -4,
-                          top: -4,
-                          child: Container(
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHigh,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: colorScheme.surface),
-                            ),
-                            child: Icon(
-                              Icons.drag_indicator_rounded,
-                              size: 15,
-                              color: colorScheme.outline,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: Container(
-                            width: 14,
-                            height: 14,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ReorderableDragStartListener(
+                      index: dragIndex,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            width: 54,
+                            height: 54,
                             decoration: BoxDecoration(
                               color: entry.enabled
-                                  ? colorScheme.primary
-                                  : colorScheme.outlineVariant,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: colorScheme.surface),
+                                  ? colorScheme.primaryContainer
+                                  : colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.auto_awesome_motion_outlined,
+                              color: entry.enabled
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.onSurfaceVariant,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          entry.enabled
-                              ? l10n.instructionEnabledStatus
-                              : l10n.instructionDisabledStatus,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: entry.enabled
-                                ? colorScheme.primary
-                                : colorScheme.onSurfaceVariant,
+                          Positioned(
+                            left: -4,
+                            top: -4,
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHigh,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: colorScheme.surface),
+                              ),
+                              child: Icon(
+                                Icons.drag_indicator_rounded,
+                                size: 15,
+                                color: colorScheme.outline,
+                              ),
+                            ),
                           ),
-                        ),
-                        if (entry.description.trim().isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            entry.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: entry.enabled
+                                    ? colorScheme.primary
+                                    : colorScheme.outlineVariant,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: colorScheme.surface),
+                              ),
                             ),
                           ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: AnimatedPopupMenuButton<_InstructionCardAction>(
-                      onSelected: onActionSelected,
-                      itemBuilder: (context) => [
-                        PopupMenuItem<_InstructionCardAction>(
-                          value: _InstructionCardAction.edit,
-                          child: Text(l10n.commonEdit),
-                        ),
-                        PopupMenuItem<_InstructionCardAction>(
-                          value: _InstructionCardAction.delete,
-                          child: Text(l10n.commonDelete),
-                        ),
-                      ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            entry.enabled
+                                ? l10n.instructionEnabledStatus
+                                : l10n.instructionDisabledStatus,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: entry.enabled
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          if (entry.description.trim().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              entry.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    _InstructionToggleChip(
-                      enabled: entry.enabled,
-                      enabledLabel: l10n.instructionEnabledStatus,
-                      disabledLabel: l10n.instructionDisabledStatus,
-                      onPressed: () => onToggle(!entry.enabled),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: AnimatedPopupMenuButton<_InstructionCardAction>(
+                        onSelected: onActionSelected,
+                        itemBuilder: (context) => [
+                          PopupMenuItem<_InstructionCardAction>(
+                            value: _InstructionCardAction.edit,
+                            child: Text(l10n.commonEdit),
+                          ),
+                          PopupMenuItem<_InstructionCardAction>(
+                            value: _InstructionCardAction.delete,
+                            child: Text(l10n.commonDelete),
+                          ),
+                        ],
+                      ),
                     ),
-                    _MetadataChip(
-                      icon: Icons.label_outline_rounded,
-                      label: 'v${entry.version}',
-                    ),
-                    if (entry.applyTo.trim().isNotEmpty)
-                      _MetadataChip(
-                        icon: Icons.account_tree_outlined,
-                        label:
-                            '${l10n.instructionApplyToChipLabel}: ${entry.applyTo}',
-                      ),
-                    if (entry.notes.isNotEmpty)
-                      _MetadataChip(
-                        icon: Icons.notes_outlined,
-                        label:
-                            '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
-                      ),
-                    for (final taskType in taskTypes)
-                      _MetadataChip(
-                        icon: Icons.category_outlined,
-                        label: taskType,
-                      ),
-                    if (hiddenTaskTypeCount > 0)
-                      _MetadataChip(
-                        icon: Icons.more_horiz_rounded,
-                        label: '+$hiddenTaskTypeCount',
-                      ),
-                    for (final keyword in keywords)
-                      _MetadataChip(icon: Icons.tag_rounded, label: keyword),
-                    if (hiddenKeywordCount > 0)
-                      _MetadataChip(
-                        icon: Icons.more_horiz_rounded,
-                        label: '+$hiddenKeywordCount',
-                      ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      _InstructionToggleChip(
+                        enabled: entry.enabled,
+                        enabledLabel: l10n.instructionEnabledStatus,
+                        disabledLabel: l10n.instructionDisabledStatus,
+                        onPressed: () => onToggle(!entry.enabled),
+                      ),
+                      _MetadataChip(
+                        icon: Icons.label_outline_rounded,
+                        label: 'v${entry.version}',
+                      ),
+                      if (entry.applyTo.trim().isNotEmpty)
+                        _MetadataChip(
+                          icon: Icons.account_tree_outlined,
+                          label:
+                              '${l10n.instructionApplyToChipLabel}: ${entry.applyTo}',
+                        ),
+                      if (entry.notes.isNotEmpty)
+                        _MetadataChip(
+                          icon: Icons.notes_outlined,
+                          label:
+                              '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
+                        ),
+                      for (final taskType in taskTypes)
+                        _MetadataChip(
+                          icon: Icons.category_outlined,
+                          label: taskType,
+                        ),
+                      if (hiddenTaskTypeCount > 0)
+                        _MetadataChip(
+                          icon: Icons.more_horiz_rounded,
+                          label: '+$hiddenTaskTypeCount',
+                        ),
+                      for (final keyword in keywords)
+                        _MetadataChip(icon: Icons.tag_rounded, label: keyword),
+                      if (hiddenKeywordCount > 0)
+                        _MetadataChip(
+                          icon: Icons.more_horiz_rounded,
+                          label: '+$hiddenKeywordCount',
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -634,8 +639,8 @@ class _InstructionToggleCard extends StatelessWidget {
           onTap: onChanged == null ? null : () => onChanged!(!value),
           child: AnimatedContainer(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: value

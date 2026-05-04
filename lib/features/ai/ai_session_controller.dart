@@ -2338,8 +2338,7 @@ class AiSessionController extends ChangeNotifier {
       catalog: fullCatalog,
       runtimeContext: runtimeContext,
       toolRuntimeService: _toolRuntimeService,
-      alreadyLoadedNames:
-          _loadedMcpToolsTracker.rawSetForSession(session.id),
+      alreadyLoadedNames: _loadedMcpToolsTracker.rawSetForSession(session.id),
     );
     var workingSession = session;
     var activeLatestUserMessageId = latestUserMessageId;
@@ -2420,6 +2419,41 @@ class AiSessionController extends ChangeNotifier {
             toolCatalogForRound.mcpServerInstructionsByName,
         useDsmlToolCalls: !supportsNativeToolCalls,
       );
+      var preStreamTelemetryPreviewed = false;
+      if (activeLatestUserMessageId != null) {
+        final nextSession = _applyPreStreamTelemetryToUserMessage(
+          session: workingSession,
+          model: model,
+          runtimeContext: runtimeContext,
+          promptResult: promptResult,
+          userMessageId: activeLatestUserMessageId,
+        );
+        if (!identical(nextSession, workingSession)) {
+          workingSession = nextSession;
+          _previewSession(workingSession);
+          preStreamTelemetryPreviewed = true;
+        }
+      }
+      void previewRequestStartTelemetry(AiChatRequestTelemetry telemetry) {
+        final userMessageId = activeLatestUserMessageId;
+        if (userMessageId == null || userMessageId.isEmpty) {
+          return;
+        }
+        final nextSession = _applyRequestStartTelemetryToUserMessage(
+          session: workingSession,
+          model: model,
+          runtimeContext: runtimeContext,
+          telemetry: telemetry,
+          userMessageId: userMessageId,
+        );
+        if (identical(nextSession, workingSession)) {
+          return;
+        }
+        workingSession = nextSession;
+        _previewSession(workingSession);
+        preStreamTelemetryPreviewed = true;
+      }
+
       late final AiChatStreamingResponse streamResponse;
       try {
         // Media generation (image/video/audio) intentionally bypasses
@@ -2427,9 +2461,13 @@ class AiSessionController extends ChangeNotifier {
         // minutes (grok-imagine-video can run 10+ min). The chat client
         // forwards this `timeout` straight into the media-gen pipeline,
         // and a 60s budget would expire mid-poll → TimeoutException.
+        final streamOpenTimeoutSeconds = math.max(
+          runtimeContext.connectTimeoutSeconds,
+          runtimeContext.responseTimeoutSeconds,
+        );
         final Duration effectiveRequestTimeout = creationRequest.isActive
             ? _mediaGenerationTimeoutFor(creationRequest)
-            : Duration(seconds: runtimeContext.connectTimeoutSeconds);
+            : Duration(seconds: streamOpenTimeoutSeconds);
         streamResponse = await _chatClient.sendMessageStream(
           model: model,
           messages: promptResult.messages,
@@ -2453,6 +2491,7 @@ class AiSessionController extends ChangeNotifier {
             breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
             breakpointPositions: runtimeContext.aiInputCacheBreakpointPositions,
           ),
+          onRequestStarted: previewRequestStartTelemetry,
         );
       } catch (error) {
         if (_isStopRequestedForSession(workingSession.id)) {
@@ -2475,7 +2514,13 @@ class AiSessionController extends ChangeNotifier {
           detail: '$error',
         );
         final erroredSession = _appendError(
-          workingSession,
+          _applyRoundFailureTelemetryToMessages(
+            session: workingSession,
+            error: error,
+            runtimeContext: runtimeContext,
+            model: model,
+            userMessageId: activeLatestUserMessageId,
+          ),
           stage: errorStage,
           message: '$error',
           detail: '$error',
@@ -2498,22 +2543,6 @@ class AiSessionController extends ChangeNotifier {
       }
 
       var streamedSession = workingSession;
-      // Phase-1 telemetry: immediately stamp the composed prompt + env onto
-      // the user message so the audit dialog shows data during streaming.
-      var preStreamTelemetryPreviewed = false;
-      if (activeLatestUserMessageId != null) {
-        final nextSession = _applyPreStreamTelemetryToUserMessage(
-          session: streamedSession,
-          runtimeContext: runtimeContext,
-          promptResult: promptResult,
-          userMessageId: activeLatestUserMessageId,
-        );
-        if (!identical(nextSession, streamedSession)) {
-          streamedSession = nextSession;
-          _previewSession(streamedSession);
-          preStreamTelemetryPreviewed = true;
-        }
-      }
       String? assistantMessageId;
       String? reasoningMessageId;
       AiTokenUsage? streamedUsage;
@@ -2987,6 +3016,15 @@ class AiSessionController extends ChangeNotifier {
           stage: 'chat_stream',
           detail: '$error',
         );
+        streamedSession = _applyRoundFailureTelemetryToMessages(
+          session: streamedSession,
+          error: error,
+          runtimeContext: runtimeContext,
+          model: model,
+          userMessageId: activeLatestUserMessageId,
+          assistantMessageId: assistantMessageId,
+          reasoningMessageId: reasoningMessageId,
+        );
         final failedToolSession = _markPendingToolCallsFailed(
           streamedSession,
           detail:
@@ -3065,6 +3103,7 @@ class AiSessionController extends ChangeNotifier {
         session: streamedSession,
         result: result,
         runtimeContext: runtimeContext,
+        model: model,
         promptResult: promptResult,
         userMessageId: activeLatestUserMessageId,
         assistantMessageId: assistantMessageId,
@@ -3733,8 +3772,8 @@ class AiSessionController extends ChangeNotifier {
       return null;
     }
     final readFilePaths = _readFileHistory(workingSession);
-    final concurrencyLimit =
-        (_latestRuntimeContext?.maxConcurrentTools ?? 8).clamp(1, 64);
+    final concurrencyLimit = (_latestRuntimeContext?.maxConcurrentTools ?? 8)
+        .clamp(1, 64);
     final results = await _runWithConcurrencyLimit<AiToolExecutionResult>(
       runningStates.length,
       concurrencyLimit,
@@ -3989,6 +4028,7 @@ class AiSessionController extends ChangeNotifier {
         results[index] = await task(index);
       }
     }
+
     final workerCount = effectiveLimit < total ? effectiveLimit : total;
     await Future.wait(
       List<Future<void>>.generate(workerCount, (_) => worker()),
@@ -7431,6 +7471,82 @@ $trimmedSummary''';
     return '$kept\n\n…[telemetry_truncated: dropped $dropped chars]';
   }
 
+  Map<String, String> _redactTelemetryHeaders(Map<String, String> headers) {
+    const sensitiveNames = <String>{
+      'authorization',
+      'cookie',
+      'proxy-authorization',
+      'x-api-key',
+      'api-key',
+      'openai-api-key',
+      'anthropic-api-key',
+    };
+    return headers.map((name, value) {
+      final lowerName = name.toLowerCase();
+      final isSensitive =
+          sensitiveNames.contains(lowerName) ||
+          lowerName.contains('token') ||
+          lowerName.contains('secret') ||
+          lowerName.contains('credential');
+      return MapEntry(name, isSensitive ? '[redacted]' : value);
+    });
+  }
+
+  bool _isSensitiveTelemetryKey(String key) {
+    final normalized = key.trim().toLowerCase();
+    return normalized == 'authorization' ||
+        normalized == 'cookie' ||
+        normalized == 'proxy-authorization' ||
+        normalized == 'api-key' ||
+        normalized == 'x-api-key' ||
+        normalized.contains('token') ||
+        normalized.contains('secret') ||
+        normalized.contains('password') ||
+        normalized.contains('credential');
+  }
+
+  Object? _sanitizeTelemetryValue(Object? value, int maxChars, {String? key}) {
+    if (key != null && _isSensitiveTelemetryKey(key)) {
+      return '[redacted]';
+    }
+    if (value == null || value is num || value is bool) {
+      return value;
+    }
+    if (value is DateTime) {
+      return value.toUtc().toIso8601String();
+    }
+    if (value is String) {
+      return _clampTelemetryPayload(value, maxChars);
+    }
+    if (value is Map) {
+      final sanitized = <String, Object?>{};
+      for (final entry in value.entries) {
+        final entryKey = '${entry.key}';
+        sanitized[entryKey] = _sanitizeTelemetryValue(
+          entry.value,
+          maxChars,
+          key: entryKey,
+        );
+      }
+      return sanitized;
+    }
+    if (value is Iterable) {
+      return value
+          .map((item) => _sanitizeTelemetryValue(item, maxChars))
+          .toList(growable: false);
+    }
+    return _clampTelemetryPayload('$value', maxChars);
+  }
+
+  Map<String, Object?> _sanitizeTelemetryMap(
+    Map<String, Object?> value,
+    int maxChars,
+  ) {
+    return Map<String, Object?>.from(
+      _sanitizeTelemetryValue(value, maxChars) as Map<String, Object?>,
+    );
+  }
+
   /// Renders the list of prompt turns (the final composed body sent to the
   /// AI) into a human-readable, copy-friendly transcript for the audit
   /// dialog. Each turn becomes a `# role` block followed by its content.
@@ -7568,6 +7684,8 @@ $trimmedSummary''';
     }
     final maxChars = runtimeContext.telemetryMaxPayloadChars;
     final payload = <String, Object?>{
+      'telemetry_in_flight': false,
+      'telemetry_captured_at': _clock().toUtc().toIso8601String(),
       if (result.startedAt != null)
         'started_at': result.startedAt!.toIso8601String(),
       if (result.endedAt != null) 'ended_at': result.endedAt!.toIso8601String(),
@@ -7576,9 +7694,9 @@ $trimmedSummary''';
       if (result.requestUrl != null) 'request_url': result.requestUrl,
       if (result.requestMethod != null) 'request_method': result.requestMethod,
       if (result.requestHeaders != null && result.requestHeaders!.isNotEmpty)
-        'request_headers': Map<String, String>.from(result.requestHeaders!),
+        'request_headers': _redactTelemetryHeaders(result.requestHeaders!),
       if (result.requestBody != null)
-        'request_payload': Map<String, Object?>.from(result.requestBody!),
+        'request_payload': _sanitizeTelemetryMap(result.requestBody!, maxChars),
     };
     if (runtimeContext.telemetryCaptureRawPayload &&
         result.rawResponse != null &&
@@ -7596,12 +7714,67 @@ $trimmedSummary''';
     return payload;
   }
 
+  Map<String, Object?> _buildRoundFailureTelemetryMetadata({
+    required Object error,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    if (!runtimeContext.telemetryDebugEnabled) {
+      return const <String, Object?>{};
+    }
+    final telemetry = error is AiChatException ? error.telemetry : null;
+    final now = _clock().toUtc();
+    final startedAt = telemetry?.startedAt;
+    final endedAt = telemetry?.endedAt ?? now;
+    final errorText = telemetry?.error?.trim().isNotEmpty == true
+        ? telemetry!.error!.trim()
+        : '$error';
+    final payload = <String, Object?>{
+      'telemetry_in_flight': false,
+      'telemetry_captured_at': now.toIso8601String(),
+      'error': errorText,
+      if (startedAt != null) 'started_at': startedAt.toIso8601String(),
+      'ended_at': endedAt.toIso8601String(),
+      if (telemetry?.durationMs != null)
+        'duration_ms': telemetry!.durationMs
+      else if (startedAt != null)
+        'duration_ms': endedAt.difference(startedAt).inMilliseconds,
+      if (telemetry?.finishReason != null)
+        'finish_reason': telemetry!.finishReason,
+      if (telemetry?.requestUrl != null) 'request_url': telemetry!.requestUrl,
+      if (telemetry?.requestMethod != null)
+        'request_method': telemetry!.requestMethod,
+      if (telemetry?.requestHeaders != null &&
+          telemetry!.requestHeaders!.isNotEmpty)
+        'request_headers': _redactTelemetryHeaders(telemetry.requestHeaders!),
+      if (telemetry?.requestBody != null)
+        'request_payload': _sanitizeTelemetryMap(
+          telemetry!.requestBody!,
+          runtimeContext.telemetryMaxPayloadChars,
+        ),
+    };
+    if (runtimeContext.telemetryCaptureRawPayload &&
+        telemetry?.rawResponse != null &&
+        telemetry!.rawResponse!.isNotEmpty) {
+      payload['response_raw'] = _clampTelemetryPayload(
+        telemetry.rawResponse,
+        runtimeContext.telemetryMaxPayloadChars,
+      );
+    }
+    if (runtimeContext.telemetryCaptureEnvironment) {
+      payload['environment'] = _captureRuntimeEnvironmentSnapshot(
+        runtimeContext,
+      );
+    }
+    return payload;
+  }
+
   /// Writes telemetry metadata onto the user / assistant / reasoning messages
   /// produced during a round without overwriting existing metadata keys.
   AiSession _applyRoundTelemetryToMessages({
     required AiSession session,
     required AiChatStreamResult result,
     required AiSessionRuntimeContext runtimeContext,
+    required AiModelConfig model,
     required AiPromptBuildResult promptResult,
     String? userMessageId,
     String? assistantMessageId,
@@ -7642,7 +7815,133 @@ $trimmedSummary''';
         continue;
       }
       final nextMetadata = <String, Object?>{...message.metadata, ...telemetry};
-      updatedMessages.add(message.copyWith(metadata: nextMetadata));
+      updatedMessages.add(
+        message.copyWith(
+          metadata: nextMetadata,
+          modelId: message.modelId ?? model.id,
+          modelLabel: message.modelLabel ?? model.displayName,
+        ),
+      );
+      changed = true;
+    }
+    if (!changed) return session;
+    return session.copyWith(
+      messages: updatedMessages,
+      updatedAt: _clock().toUtc(),
+    );
+  }
+
+  AiSession _applyRoundFailureTelemetryToMessages({
+    required AiSession session,
+    required Object error,
+    required AiSessionRuntimeContext runtimeContext,
+    required AiModelConfig model,
+    String? userMessageId,
+    String? assistantMessageId,
+    String? reasoningMessageId,
+  }) {
+    if (!runtimeContext.telemetryDebugEnabled) {
+      return session;
+    }
+    final telemetry = _buildRoundFailureTelemetryMetadata(
+      error: error,
+      runtimeContext: runtimeContext,
+    );
+    final targetIds = <String>{
+      if (userMessageId != null && userMessageId.isNotEmpty) userMessageId,
+      if (assistantMessageId != null && assistantMessageId.isNotEmpty)
+        assistantMessageId,
+      if (reasoningMessageId != null && reasoningMessageId.isNotEmpty)
+        reasoningMessageId,
+    };
+    if (targetIds.isEmpty) {
+      return session;
+    }
+    final updatedMessages = <AiSessionMessage>[];
+    var changed = false;
+    for (final message in session.messages) {
+      if (!targetIds.contains(message.id)) {
+        updatedMessages.add(message);
+        continue;
+      }
+      updatedMessages.add(
+        message.copyWith(
+          metadata: <String, Object?>{...message.metadata, ...telemetry},
+          modelId: message.modelId ?? model.id,
+          modelLabel: message.modelLabel ?? model.displayName,
+        ),
+      );
+      changed = true;
+    }
+    if (!changed) return session;
+    return session.copyWith(
+      messages: updatedMessages,
+      updatedAt: _clock().toUtc(),
+    );
+  }
+
+  Map<String, Object?> _buildRequestStartTelemetryMetadata({
+    required AiChatRequestTelemetry telemetry,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    if (!runtimeContext.telemetryDebugEnabled) {
+      return const <String, Object?>{};
+    }
+    final startedAt = telemetry.startedAt ?? _clock().toUtc();
+    final maxChars = runtimeContext.telemetryMaxPayloadChars;
+    final payload = <String, Object?>{
+      'telemetry_in_flight': true,
+      'telemetry_captured_at': _clock().toUtc().toIso8601String(),
+      'started_at': startedAt.toIso8601String(),
+      'request_started_at': startedAt.toIso8601String(),
+      if (telemetry.requestUrl != null) 'request_url': telemetry.requestUrl,
+      if (telemetry.requestMethod != null)
+        'request_method': telemetry.requestMethod,
+      if (telemetry.requestHeaders != null &&
+          telemetry.requestHeaders!.isNotEmpty)
+        'request_headers': _redactTelemetryHeaders(telemetry.requestHeaders!),
+      if (telemetry.requestBody != null)
+        'request_payload': _sanitizeTelemetryMap(
+          telemetry.requestBody!,
+          maxChars,
+        ),
+    };
+    if (runtimeContext.telemetryCaptureEnvironment) {
+      payload['environment'] = _captureRuntimeEnvironmentSnapshot(
+        runtimeContext,
+      );
+    }
+    return payload;
+  }
+
+  AiSession _applyRequestStartTelemetryToUserMessage({
+    required AiSession session,
+    required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
+    required AiChatRequestTelemetry telemetry,
+    required String userMessageId,
+  }) {
+    final metadata = _buildRequestStartTelemetryMetadata(
+      telemetry: telemetry,
+      runtimeContext: runtimeContext,
+    );
+    if (metadata.isEmpty || userMessageId.isEmpty) {
+      return session;
+    }
+    final updatedMessages = <AiSessionMessage>[];
+    var changed = false;
+    for (final message in session.messages) {
+      if (message.id != userMessageId) {
+        updatedMessages.add(message);
+        continue;
+      }
+      updatedMessages.add(
+        message.copyWith(
+          metadata: <String, Object?>{...message.metadata, ...metadata},
+          modelId: message.modelId ?? model.id,
+          modelLabel: message.modelLabel ?? model.displayName,
+        ),
+      );
       changed = true;
     }
     if (!changed) return session;
@@ -7658,6 +7957,7 @@ $trimmedSummary''';
   /// streaming its response.
   AiSession _applyPreStreamTelemetryToUserMessage({
     required AiSession session,
+    required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     required AiPromptBuildResult promptResult,
     required String userMessageId,
@@ -7666,23 +7966,41 @@ $trimmedSummary''';
       return session;
     }
     if (userMessageId.isEmpty) return session;
+    final maxChars = runtimeContext.telemetryMaxPayloadChars;
     final composedPromptTurns = _composedPromptTurnsForAudit(
       promptResult.messages,
     );
     final composedPromptText = _renderComposedPromptForAudit(
       promptResult.messages,
     );
+    final estimatedPromptTokens = math.max(
+      1,
+      (promptResult.promptCharacterCount /
+              math.max(1, runtimeContext.estimatedCharactersPerToken))
+          .ceil(),
+    );
+    final preflightStartedAt = _clock().toUtc();
     final userExtras = <String, Object?>{
+      'telemetry_in_flight': true,
+      'started_at': preflightStartedAt.toIso8601String(),
       if (composedPromptTurns.isNotEmpty)
-        'composed_prompt_turns': composedPromptTurns,
+        'composed_prompt_turns': _sanitizeTelemetryValue(
+          composedPromptTurns,
+          maxChars,
+        ),
       if (composedPromptText.isNotEmpty)
         'composed_prompt_text': _clampTelemetryPayload(
           composedPromptText,
-          runtimeContext.telemetryMaxPayloadChars,
+          maxChars,
         ),
       if (promptResult.metadata.isNotEmpty)
-        'prompt_metadata': Map<String, Object?>.from(promptResult.metadata),
+        'prompt_metadata': _sanitizeTelemetryMap(
+          Map<String, Object?>.from(promptResult.metadata),
+          maxChars,
+        ),
       'prompt_character_count': promptResult.promptCharacterCount,
+      'estimated_prompt_tokens': estimatedPromptTokens,
+      'estimated_total_tokens': estimatedPromptTokens,
       'prompt_system_message_count': promptResult.systemMessageCount,
       'prompt_history_message_count': promptResult.historyMessageCount,
       // Mark a timestamp so the audit dialog knows data was captured.
@@ -7704,7 +8022,13 @@ $trimmedSummary''';
         ...message.metadata,
         ...userExtras,
       };
-      updatedMessages.add(message.copyWith(metadata: nextMetadata));
+      updatedMessages.add(
+        message.copyWith(
+          metadata: nextMetadata,
+          modelId: message.modelId ?? model.id,
+          modelLabel: message.modelLabel ?? model.displayName,
+        ),
+      );
       changed = true;
     }
     if (!changed) return session;

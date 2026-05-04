@@ -514,15 +514,15 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
             },
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(isZh ? '取消' : 'Cancel'),
+              label: isZh ? '取消' : 'Cancel',
             ),
-            TextButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () {
                 Navigator.of(dialogContext).pop(controller.text.trim());
               },
-              child: Text(isZh ? '确定' : 'OK'),
+              label: isZh ? '确定' : 'OK',
             ),
           ],
         );
@@ -558,18 +558,13 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                 : 'Are you sure you want to delete "${node.name}"? This cannot be undone.',
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(isZh ? '取消' : 'Cancel'),
+              label: isZh ? '取消' : 'Cancel',
             ),
-            TextButton(
+            OpenHandDialogActionButton.destructive(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                isZh ? '删除' : 'Delete',
-                style: TextStyle(
-                  color: Theme.of(dialogContext).colorScheme.error,
-                ),
-              ),
+              label: isZh ? '删除' : 'Delete',
             ),
           ],
         );
@@ -694,7 +689,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
               const SizedBox(width: 2),
               // Select Opened File (scroll-from-source)
               Tooltip(
-                message: AppLocalizations.of(context)!.progExpFESelectOpenedFile,
+                message: AppLocalizations.of(
+                  context,
+                )!.progExpFESelectOpenedFile,
                 child: Material(
                   color: Colors.transparent,
                   borderRadius: _borderRadius999,
@@ -1211,8 +1208,8 @@ class _FileTreeTile extends StatelessWidget {
                   AnimatedRotation(
                     turns: node.isExpanded ? 0.25 : 0,
                     duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
                     child: Icon(
                       Icons.chevron_right_rounded,
@@ -2096,7 +2093,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             truncated: false,
           ),
           usingLsp: false,
-          hintMessage: AppLocalizations.of(context)!.progExpFETypeASymbolNameToSearch,
+          hintMessage: AppLocalizations.of(
+            context,
+          )!.progExpFETypeASymbolNameToSearch,
         );
         return;
       }
@@ -2114,7 +2113,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               truncated: false,
             ),
             usingLsp: false,
-            hintMessage: AppLocalizations.of(context)!.progExpFENoWorkspaceSymbolBackendIsAvailable,
+            hintMessage: AppLocalizations.of(
+              context,
+            )!.progExpFENoWorkspaceSymbolBackendIsAvailable,
           );
           return;
         }
@@ -2136,7 +2137,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           extraction,
           usingLsp: true,
           hintMessage: extraction.symbols.isEmpty
-              ? AppLocalizations.of(context)!.progExpFENoMatchingWorkspaceSymbolsWereFound
+              ? AppLocalizations.of(
+                  context,
+                )!.progExpFENoMatchingWorkspaceSymbolsWereFound
               : null,
         );
       } catch (_) {
@@ -2146,7 +2149,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             truncated: false,
           ),
           usingLsp: false,
-          hintMessage: AppLocalizations.of(context)!.progExpFEFetchingWorkspaceSymbolsFailedConfirmTha,
+          hintMessage: AppLocalizations.of(
+            context,
+          )!.progExpFEFetchingWorkspaceSymbolsFailedConfirmTha,
         );
       }
       return;
@@ -2157,7 +2162,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       applyExtraction(
         fallbackExtraction,
         usingLsp: false,
-        hintMessage: AppLocalizations.of(context)!.progExpFEThisFileIsStillInLarge,
+        hintMessage: AppLocalizations.of(
+          context,
+        )!.progExpFEThisFileIsStillInLarge,
       );
       return;
     }
@@ -2173,7 +2180,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         applyExtraction(
           fallbackExtraction,
           usingLsp: false,
-          hintMessage: AppLocalizations.of(context)!.progExpFENoLspSymbolBackendIsAvailable,
+          hintMessage: AppLocalizations.of(
+            context,
+          )!.progExpFENoLspSymbolBackendIsAvailable,
         );
         return;
       }
@@ -2205,7 +2214,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       applyExtraction(
         fallbackExtraction,
         usingLsp: false,
-        hintMessage: AppLocalizations.of(context)!.progExpFEFetchingLspSymbolsFailedSoThe,
+        hintMessage: AppLocalizations.of(
+          context,
+        )!.progExpFEFetchingLspSymbolsFailedSoThe,
       );
     }
   }
@@ -2777,21 +2788,18 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextButton(
+                      OpenHandDialogActionButton.secondary(
                         onPressed: () => Navigator.of(dialogContext).pop(false),
-                        child: Text(isZh ? '取消' : 'Cancel'),
+                        label: isZh ? '取消' : 'Cancel',
                       ),
                       const SizedBox(width: 8),
-                      FilledButton.icon(
+                      OpenHandDialogActionButton.primary(
                         onPressed: canApply
                             ? () => Navigator.of(dialogContext).pop(true)
                             : null,
-                        icon: const Icon(Icons.check_rounded),
-                        label: Text(
-                          canApply
-                              ? (isZh ? '应用修改' : 'Apply Changes')
-                              : (isZh ? '无可应用修改' : 'No Applicable Changes'),
-                        ),
+                        label: canApply
+                            ? (isZh ? '应用修改' : 'Apply Changes')
+                            : (isZh ? '无可应用修改' : 'No Applicable Changes'),
                       ),
                     ],
                   ),
@@ -2875,14 +2883,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             },
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(isZh ? '取消' : 'Cancel'),
+              label: isZh ? '取消' : 'Cancel',
             ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () =>
                   Navigator.of(dialogContext).pop(controller.text.trim()),
-              child: Text(isZh ? '应用' : 'Apply'),
+              label: isZh ? '应用' : 'Apply',
             ),
           ],
         );
@@ -2895,8 +2903,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Future<void> _renameSymbolAtCursor() async {
     final title = AppLocalizations.of(context)!.progExpFERenameSymbol;
-    final previewDescription = AppLocalizations.of(context)!.progExpFEReviewTheDiffForThisRename;
-    final previewCanceledMessage = AppLocalizations.of(context)!.progExpFETheRenameWasCancelledAndNo;
+    final previewDescription = AppLocalizations.of(
+      context,
+    )!.progExpFEReviewTheDiffForThisRename;
+    final previewCanceledMessage = AppLocalizations.of(
+      context,
+    )!.progExpFETheRenameWasCancelledAndNo;
     final resolution = await _prepareCursorLspAction(title);
     if (resolution == null) {
       return;
@@ -2920,7 +2932,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (prepared == null) {
         _showLspMessage(
           title: title,
-          message: AppLocalizations.of(context)!.progExpFETheSymbolAtTheCurrentCursor,
+          message: AppLocalizations.of(
+            context,
+          )!.progExpFETheSymbolAtTheCurrentCursor,
         );
         return;
       }
@@ -2950,7 +2964,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (edit.isEmpty && !edit.hasUnsupportedOperations) {
         _showLspMessage(
           title: title,
-          message: AppLocalizations.of(context)!.progExpFETheLanguageServerDidNotReturn,
+          message: AppLocalizations.of(
+            context,
+          )!.progExpFETheLanguageServerDidNotReturn,
         );
         return;
       }
@@ -2977,7 +2993,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Future<void> _showCodeActionsAtCursor() async {
     final title = AppLocalizations.of(context)!.progExpFECodeActions;
-    final emptyMessage = AppLocalizations.of(context)!.progExpFENoCodeActionsAreAvailableAt;
+    final emptyMessage = AppLocalizations.of(
+      context,
+    )!.progExpFENoCodeActionsAreAvailableAt;
     final resolution = await _prepareCursorLspAction(title);
     if (resolution == null) {
       return;
@@ -3051,12 +3069,24 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return;
     }
     final title = action.title;
-    final previewDescription = AppLocalizations.of(context)!.progExpFEReviewTheDiffFromThisCode;
-    final commandPreviewDescription = AppLocalizations.of(context)!.progExpFEIfTheLanguageServerCommandRequests;
-    final previewCanceledMessage = AppLocalizations.of(context)!.progExpFETheCodeActionWasCancelledAnd;
-    final commandExecutedMessage = AppLocalizations.of(context)!.progExpFEExecutedTheLanguageServerCommand;
-    final commandEditsSkippedMessage = AppLocalizations.of(context)!.progExpFESomeLanguageServerRequestedEditsWere;
-    final noApplicableEditsMessage = AppLocalizations.of(context)!.progExpFEThisCodeActionDidNotReturn;
+    final previewDescription = AppLocalizations.of(
+      context,
+    )!.progExpFEReviewTheDiffFromThisCode;
+    final commandPreviewDescription = AppLocalizations.of(
+      context,
+    )!.progExpFEIfTheLanguageServerCommandRequests;
+    final previewCanceledMessage = AppLocalizations.of(
+      context,
+    )!.progExpFETheCodeActionWasCancelledAnd;
+    final commandExecutedMessage = AppLocalizations.of(
+      context,
+    )!.progExpFEExecutedTheLanguageServerCommand;
+    final commandEditsSkippedMessage = AppLocalizations.of(
+      context,
+    )!.progExpFESomeLanguageServerRequestedEditsWere;
+    final noApplicableEditsMessage = AppLocalizations.of(
+      context,
+    )!.progExpFEThisCodeActionDidNotReturn;
     _showLspLoading(title);
     final previewContext = _PendingWorkspaceEditPreviewContext(
       title: title,
@@ -3343,7 +3373,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset anchorPosition,
   ) async {
     final title = AppLocalizations.of(context)!.progExpFEQuickFix;
-    final noActionsMessage = AppLocalizations.of(context)!.progExpFENoQuickFixesAreAvailableFor;
+    final noActionsMessage = AppLocalizations.of(
+      context,
+    )!.progExpFENoQuickFixesAreAvailableFor;
     try {
       final actions = await _requestCodeActionsForEditorDiagnostics(
         title: title,
@@ -3379,7 +3411,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset anchorPosition,
   ) async {
     final title = AppLocalizations.of(context)!.progExpFECodeActions;
-    final noActionsMessage = AppLocalizations.of(context)!.progExpFENoCodeActionsAreAvailableFor;
+    final noActionsMessage = AppLocalizations.of(
+      context,
+    )!.progExpFENoCodeActionsAreAvailableFor;
     try {
       final actions = await _requestCodeActionsForEditorDiagnostics(
         title: title,
@@ -3707,7 +3741,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset anchorPosition,
   ) async {
     final title = AppLocalizations.of(context)!.progExpFEQuickFix;
-    final noDiagnosticsMessage = AppLocalizations.of(context)!.progExpFENoQuickFixesAreAvailableFor2;
+    final noDiagnosticsMessage = AppLocalizations.of(
+      context,
+    )!.progExpFENoQuickFixesAreAvailableFor2;
     final resolution = await _prepareLspActionWithoutResultBar(title);
     if (resolution == null) {
       return;
@@ -3868,7 +3904,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   String? _cursorLspPreconditionMessage(String filePath) {
     final controller = _textControllers[filePath];
     if (controller == null) {
-      return AppLocalizations.of(context)!.progExpFETheCurrentFileIsStillLoading;
+      return AppLocalizations.of(
+        context,
+      )!.progExpFETheCurrentFileIsStillLoading;
     }
     if (controller.useVirtualizedPreview &&
         !_forcedFullEditorFiles.contains(filePath)) {
@@ -3880,7 +3918,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   String? _documentLspPreconditionMessage(String filePath) {
     final controller = _textControllers[filePath];
     if (controller == null) {
-      return AppLocalizations.of(context)!.progExpFETheCurrentFileIsStillLoading2;
+      return AppLocalizations.of(
+        context,
+      )!.progExpFETheCurrentFileIsStillLoading2;
     }
     if (controller.useVirtualizedPreview &&
         !_forcedFullEditorFiles.contains(filePath)) {
@@ -4102,7 +4142,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (controller == null) {
       _showLspMessage(
         title: title,
-        message: AppLocalizations.of(context)!.progExpFETheCurrentFileIsNotReady,
+        message: AppLocalizations.of(
+          context,
+        )!.progExpFETheCurrentFileIsNotReady,
       );
       return;
     }
@@ -4133,7 +4175,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (edits.isEmpty) {
         _showLspMessage(
           title: title,
-          message: AppLocalizations.of(context)!.progExpFETheFormatterDidNotReturnAny,
+          message: AppLocalizations.of(
+            context,
+          )!.progExpFETheFormatterDidNotReturnAny,
         );
         return;
       }
@@ -4142,7 +4186,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (nextText == controller.text) {
         _showLspMessage(
           title: title,
-          message: AppLocalizations.of(context)!.progExpFEFormattingProducedTheSameContentSo,
+          message: AppLocalizations.of(
+            context,
+          )!.progExpFEFormattingProducedTheSameContentSo,
         );
         return;
       }
@@ -4165,7 +4211,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
       _showLspMessage(
         title: title,
-        message: AppLocalizations.of(context)!.progExpFEAppliedEditsLengthFormattingEdits(edits.length),
+        message: AppLocalizations.of(
+          context,
+        )!.progExpFEAppliedEditsLengthFormattingEdits(edits.length),
       );
     } catch (error) {
       if (!mounted) {
@@ -4199,7 +4247,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (locations.isEmpty) {
         _showLspMessage(
           title: title,
-          message: AppLocalizations.of(context)!.progExpFENoDefinitionWasFoundAtThe,
+          message: AppLocalizations.of(
+            context,
+          )!.progExpFENoDefinitionWasFoundAtThe,
         );
         return;
       }
@@ -4211,7 +4261,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _showLspLocations(
         title: title,
         locations: locations,
-        message: AppLocalizations.of(context)!.progExpFEMultipleDefinitionsWereFoundChooseA,
+        message: AppLocalizations.of(
+          context,
+        )!.progExpFEMultipleDefinitionsWereFoundChooseA,
       );
     } catch (error) {
       if (!mounted) {
@@ -4245,7 +4297,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (locations.isEmpty) {
         _showLspMessage(
           title: title,
-          message: AppLocalizations.of(context)!.progExpFENoReferencesWereFoundAtThe,
+          message: AppLocalizations.of(
+            context,
+          )!.progExpFENoReferencesWereFoundAtThe,
         );
         return;
       }
@@ -4282,7 +4336,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (hover == null || hover.renderedText.trim().isEmpty) {
         _showLspMessage(
           title: title,
-          message: AppLocalizations.of(context)!.progExpFEThereIsNoHoverInformationAt,
+          message: AppLocalizations.of(
+            context,
+          )!.progExpFEThereIsNoHoverInformationAt,
         );
         return;
       }
@@ -4712,7 +4768,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           return relative;
         }
       } catch (error, stack) {
-        silentLog('file_explorer', 'display path relative to active root', error, stack);
+        silentLog(
+          'file_explorer',
+          'display path relative to active root',
+          error,
+          stack,
+        );
       }
     }
     final inferredRoot = _inferWorkspaceRoot(widget.activeFilePath);
@@ -4722,7 +4783,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         return relative;
       }
     } catch (error, stack) {
-      silentLog('file_explorer', 'display path relative to inferred root', error, stack);
+      silentLog(
+        'file_explorer',
+        'display path relative to inferred root',
+        error,
+        stack,
+      );
     }
     return filePath;
   }
@@ -4788,21 +4854,25 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ? '项目模式：继续使用全局按语言配置'
                 : 'Project mode: using the global per-language mapping');
       final lspName = resolution.displayName ?? resolution.backendId ?? 'LSP';
-      final projLang = _programmingLanguageLabel(context, widget.projectLanguage);
+      final projLang = _programmingLanguageLabel(
+        context,
+        widget.projectLanguage,
+      );
       final fileLang = _programmingLanguageLabel(context, resolution.language);
       final rootPath = resolution.rootPath;
       _showLspMessage(
         title: title,
-        message: AppLocalizations.of(context)!.progExpFEResolvedLspBackendForCurrentFile(
-          lspName,
-          projLang,
-          fileLang,
-          modeLine,
-          sdkSourceLine,
-          lspSourceLine,
-          rootPath,
-          command,
-        ),
+        message: AppLocalizations.of(context)!
+            .progExpFEResolvedLspBackendForCurrentFile(
+              lspName,
+              projLang,
+              fileLang,
+              modeLine,
+              sdkSourceLine,
+              lspSourceLine,
+              rootPath,
+              command,
+            ),
       );
     } catch (error) {
       if (!mounted) {
@@ -5352,7 +5422,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                   _FindBarButton(
                     icon: Icons.refresh_rounded,
-                    tooltip: AppLocalizations.of(context)!.progExpFEReResolveTheBackendForThe,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFEReResolveTheBackendForThe,
                     onPressed: () {
                       unawaited(
                         _ensureLspBackend(widget.activeFilePath, force: true),
@@ -5362,7 +5434,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                   _FindBarButton(
                     icon: Icons.hub_rounded,
-                    tooltip: AppLocalizations.of(context)!.progExpFEInspectBackendDetails,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFEInspectBackendDetails,
                     onPressed: () {
                       unawaited(_showLspBackendStatusForActiveFile());
                     },
@@ -5789,7 +5863,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (commentStyle == null) {
       _showLspMessage(
         title: title,
-        message: AppLocalizations.of(context)!.progExpFEThisLanguageDoesNotHaveA,
+        message: AppLocalizations.of(
+          context,
+        )!.progExpFEThisLanguageDoesNotHaveA,
       );
       return true;
     }
@@ -6043,7 +6119,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         if (explicit) {
           _showLspMessage(
             title: title,
-            message: AppLocalizations.of(context)!.progExpFEThereIsNoSignatureHelpAvailable,
+            message: AppLocalizations.of(
+              context,
+            )!.progExpFEThereIsNoSignatureHelpAvailable,
           );
         }
         _hideSignatureHelpOverlay();
@@ -6618,7 +6696,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 const SizedBox(width: 4),
                 _FindBarButton(
                   icon: Icons.find_replace_rounded,
-                  tooltip: AppLocalizations.of(context)!.progExpFEReplaceCurrent,
+                  tooltip: AppLocalizations.of(
+                    context,
+                  )!.progExpFEReplaceCurrent,
                   onPressed: _findMatchOffsets.isEmpty ? null : _replaceCurrent,
                   colorScheme: colorScheme,
                 ),
@@ -6775,7 +6855,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               const SizedBox(width: 4),
               _FindBarButton(
                 icon: Icons.article_outlined,
-                tooltip: AppLocalizations.of(context)!.progExpFECurrentFileSymbols,
+                tooltip: AppLocalizations.of(
+                  context,
+                )!.progExpFECurrentFileSymbols,
                 onPressed: _workspaceSymbolMode
                     ? () => _setSymbolSearchMode(false)
                     : null,
@@ -6784,7 +6866,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
               _FindBarButton(
                 icon: Icons.travel_explore_rounded,
-                tooltip: AppLocalizations.of(context)!.progExpFEWorkspaceSymbols,
+                tooltip: AppLocalizations.of(
+                  context,
+                )!.progExpFEWorkspaceSymbols,
                 onPressed: _workspaceSymbolMode
                     ? null
                     : () => _setSymbolSearchMode(true),
@@ -7062,7 +7146,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               if (supportsDiagnostics)
                 _FindBarButton(
                   icon: Icons.refresh_rounded,
-                  tooltip: AppLocalizations.of(context)!.progExpFERefreshDiagnostics,
+                  tooltip: AppLocalizations.of(
+                    context,
+                  )!.progExpFERefreshDiagnostics,
                   onPressed: isLoading
                       ? null
                       : () => _refreshDiagnostics(filePath),
@@ -7902,8 +7988,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     );
     final backendResolution = _lspResolutionForFile(widget.activeFilePath);
     final lspActionColor = _lspActionColor(colorScheme, widget.activeFilePath);
-    final definitionTitle = AppLocalizations.of(context)!.progExpFEGoToDefinition;
-    final referencesTitle = AppLocalizations.of(context)!.progExpFEFindReferences;
+    final definitionTitle = AppLocalizations.of(
+      context,
+    )!.progExpFEGoToDefinition;
+    final referencesTitle = AppLocalizations.of(
+      context,
+    )!.progExpFEFindReferences;
     final renameTitle = AppLocalizations.of(context)!.progExpFERenameSymbol;
     final codeActionsTitle = AppLocalizations.of(context)!.progExpFECodeActions;
     final formatTitle = AppLocalizations.of(context)!.progExpFEFormatDocument;
@@ -7965,7 +8055,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     colorScheme: colorScheme,
                     icon: Icons.account_tree_rounded,
                     label: AppLocalizations.of(context)!.progExpFESymbols,
-                    tooltip: AppLocalizations.of(context)!.progExpFESymbolNavigationShiftCmdCtrlO,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFESymbolNavigationShiftCmdCtrlO,
                     onTap: _showSymbolBar,
                     active: _symbolBarVisible && !_workspaceSymbolMode,
                   ),
@@ -7974,7 +8066,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     colorScheme: colorScheme,
                     icon: Icons.travel_explore_rounded,
                     label: AppLocalizations.of(context)!.progExpFEWorkspace,
-                    tooltip: AppLocalizations.of(context)!.progExpFEWorkspaceSymbolSearchCmdCtrlT,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFEWorkspaceSymbolSearchCmdCtrlT,
                     onTap: _showWorkspaceSymbolBar,
                     active: _symbolBarVisible && _workspaceSymbolMode,
                   ),
@@ -7989,7 +8083,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         ? Icons.sync_rounded
                         : Icons.info_outline_rounded,
                     label: diagnosticsLabel,
-                    tooltip: AppLocalizations.of(context)!.progExpFEShowDiagnosticsForTheCurrentFile,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFEShowDiagnosticsForTheCurrentFile,
                     onTap: () {
                       setState(() {
                         if (_diagnosticsBarVisible) {
@@ -8061,7 +8157,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       context,
                       widget.activeFilePath,
                     ),
-                    tooltip: AppLocalizations.of(context)!.progExpFEInspectTheLspBackendBoundTo,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFEInspectTheLspBackendBoundTo,
                     onTap: () {
                       unawaited(_showLspBackendStatusForActiveFile());
                     },
@@ -8077,7 +8175,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     colorScheme: colorScheme,
                     icon: Icons.subdirectory_arrow_right_rounded,
                     label: AppLocalizations.of(context)!.progExpFEDef,
-                    tooltip: AppLocalizations.of(context)!.progExpFEGoToDefinitionF12CmdCtrl,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFEGoToDefinitionF12CmdCtrl,
                     onTap: () {
                       unawaited(_goToDefinitionAtCursor());
                     },
@@ -8091,7 +8191,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     colorScheme: colorScheme,
                     icon: Icons.format_list_bulleted_rounded,
                     label: AppLocalizations.of(context)!.progExpFERefs,
-                    tooltip: AppLocalizations.of(context)!.progExpFEFindReferencesShiftF12CmdCtrl,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFEFindReferencesShiftF12CmdCtrl,
                     onTap: () {
                       unawaited(_findReferencesAtCursor());
                     },
@@ -8105,7 +8207,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     colorScheme: colorScheme,
                     icon: Icons.info_outline_rounded,
                     label: AppLocalizations.of(context)!.progExpFEHover,
-                    tooltip: AppLocalizations.of(context)!.progExpFEHoverInfoCmdCtrlI,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFEHoverInfoCmdCtrlI,
                     onTap: () {
                       unawaited(_showHoverAtCursor());
                     },
@@ -8118,7 +8222,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     colorScheme: colorScheme,
                     icon: Icons.drive_file_rename_outline_rounded,
                     label: AppLocalizations.of(context)!.progExpFERename,
-                    tooltip: AppLocalizations.of(context)!.progExpFERenameSymbolF2,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFERenameSymbolF2,
                     onTap: () {
                       unawaited(_renameSymbolAtCursor());
                     },
@@ -8131,7 +8237,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     colorScheme: colorScheme,
                     icon: Icons.lightbulb_outline_rounded,
                     label: AppLocalizations.of(context)!.progExpFEActions,
-                    tooltip: AppLocalizations.of(context)!.progExpFECodeActionsCmdCtrl,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFECodeActionsCmdCtrl,
                     onTap: () {
                       unawaited(_showCodeActionsAtCursor());
                     },
@@ -8145,7 +8253,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     colorScheme: colorScheme,
                     icon: Icons.auto_fix_high_rounded,
                     label: AppLocalizations.of(context)!.progExpFEFormat,
-                    tooltip: AppLocalizations.of(context)!.progExpFEFormatTheCurrentFileFormatshortcut(formatShortcut),
+                    tooltip: AppLocalizations.of(context)!
+                        .progExpFEFormatTheCurrentFileFormatshortcut(
+                          formatShortcut,
+                        ),
                     onTap: () {
                       unawaited(_formatDocument(widget.activeFilePath));
                     },
@@ -8220,7 +8331,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     } catch (error, stack) {
       silentLog('file_explorer', 'save file $filePath', error, stack);
       if (!mounted) return;
-      final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+      final isZh = Localizations.localeOf(
+        context,
+      ).languageCode.startsWith('zh');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -8245,7 +8358,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       context: context,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
-        final colorScheme = theme.colorScheme;
         return AlertDialog(
           title: Text(
             isZh ? '文件未保存' : 'Unsaved Changes',
@@ -8257,23 +8369,20 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 : '"$fileName" has unsaved changes. Do you want to save?',
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () =>
                   Navigator.of(dialogContext).pop(_UnsavedCloseAction.cancel),
-              child: Text(isZh ? '取消' : 'Cancel'),
+              label: isZh ? '取消' : 'Cancel',
             ),
-            TextButton(
+            OpenHandDialogActionButton.destructive(
               onPressed: () =>
                   Navigator.of(dialogContext).pop(_UnsavedCloseAction.discard),
-              child: Text(
-                isZh ? '不保存' : "Don't Save",
-                style: TextStyle(color: colorScheme.error),
-              ),
+              label: isZh ? '不保存' : "Don't Save",
             ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () =>
                   Navigator.of(dialogContext).pop(_UnsavedCloseAction.save),
-              child: Text(isZh ? '保存' : 'Save'),
+              label: isZh ? '保存' : 'Save',
             ),
           ],
         );
@@ -8345,7 +8454,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         relativeFromWorkspace = candidate;
       }
     } catch (error, stack) {
-      silentLog('file_explorer', 'workspace-relative path for copy menu', error, stack);
+      silentLog(
+        'file_explorer',
+        'workspace-relative path for copy menu',
+        error,
+        stack,
+      );
     }
 
     final selected = await showAnimatedMenu<String>(
@@ -9121,7 +9235,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (locations.isEmpty) {
         _showLspMessage(
           title: title,
-          message: AppLocalizations.of(context)!.progExpFENoImplementationWasFoundAtThe,
+          message: AppLocalizations.of(
+            context,
+          )!.progExpFENoImplementationWasFoundAtThe,
         );
         return;
       }
@@ -9133,7 +9249,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _showLspLocations(
         title: title,
         locations: locations,
-        message: AppLocalizations.of(context)!.progExpFEMultipleImplementationsFoundChooseATarge,
+        message: AppLocalizations.of(
+          context,
+        )!.progExpFEMultipleImplementationsFoundChooseATarge,
       );
     } catch (error) {
       if (!mounted) return;
@@ -9168,7 +9286,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (matching.isEmpty) {
         _showLspMessage(
           title: title,
-          message: AppLocalizations.of(context)!.progExpFENoCodeactionkindRefactoringIsAvailableAt(codeActionKind),
+          message: AppLocalizations.of(
+            context,
+          )!.progExpFENoCodeactionkindRefactoringIsAvailableAt(codeActionKind),
         );
         return;
       }
@@ -9251,7 +9371,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         final applied = await _reviewWorkspaceEditAndMaybeApply(
           title: title,
           edit: edit,
-          description: AppLocalizations.of(context)!.progExpFEReviewTheChangesBeforeApplying,
+          description: AppLocalizations.of(
+            context,
+          )!.progExpFEReviewTheChangesBeforeApplying,
         );
         if (!mounted) return;
         if (applied) {
@@ -9634,7 +9756,11 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 // File explorer toggle button
                 if (widget.onToggleFileExplorer != null)
                   _EditorActionButton(
-                    tooltip: (widget.fileExplorerVisible ? AppLocalizations.of(context)!.progExpFEHideFileBrowser : AppLocalizations.of(context)!.progExpFEShowFileBrowser),
+                    tooltip: (widget.fileExplorerVisible
+                        ? AppLocalizations.of(context)!.progExpFEHideFileBrowser
+                        : AppLocalizations.of(
+                            context,
+                          )!.progExpFEShowFileBrowser),
                     icon: widget.fileExplorerVisible
                         ? Icons.folder_open_rounded
                         : Icons.folder_rounded,
@@ -9645,7 +9771,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                 // Close all button
                 _EditorActionButton(
-                  tooltip: AppLocalizations.of(context)!.progExpFECloseEditorReturnToSession,
+                  tooltip: AppLocalizations.of(
+                    context,
+                  )!.progExpFECloseEditorReturnToSession,
                   icon: Icons.close_rounded,
                   color: colorScheme.onSurfaceVariant,
                   onPressed: widget.onCloseAll,
@@ -9691,8 +9819,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ClipRect(
                       child: AnimatedSize(
                         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.bottomCenter,
                         child: _buildFindBar(colorScheme),
@@ -9702,8 +9830,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ClipRect(
                       child: AnimatedSize(
                         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.bottomCenter,
                         child: _buildGoToLineBar(colorScheme),
@@ -9713,8 +9841,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ClipRect(
                       child: AnimatedSize(
                         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.bottomCenter,
                         child: _buildSymbolBar(colorScheme),
@@ -9744,8 +9872,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ClipRect(
                       child: AnimatedSize(
                         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 250),
+                            ? Duration.zero
+                            : const Duration(milliseconds: 250),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.topCenter,
                         child: _buildProjectToolchainBar(colorScheme),
@@ -9754,8 +9882,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ClipRect(
                       child: AnimatedSize(
                         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 250),
+                            ? Duration.zero
+                            : const Duration(milliseconds: 250),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.topCenter,
                         child: _buildDiagnosticsBar(colorScheme),
@@ -9764,8 +9892,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ClipRect(
                       child: AnimatedSize(
                         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 250),
+                            ? Duration.zero
+                            : const Duration(milliseconds: 250),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.topCenter,
                         child: _buildLspResultBar(colorScheme),
@@ -13669,7 +13797,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                       child: IgnorePointer(
                                         ignoring: !showQuickFix,
                                         child: Tooltip(
-                                          message: AppLocalizations.of(context)!.progExpFEShowQuickFixesForThisDiagnostic,
+                                          message: AppLocalizations.of(
+                                            context,
+                                          )!.progExpFEShowQuickFixesForThisDiagnostic,
                                           child: GestureDetector(
                                             behavior: HitTestBehavior.opaque,
                                             onTapDown: (details) => widget
@@ -13973,7 +14103,9 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  AppLocalizations.of(context)!.progExpFELargeFilePerformanceModeIsActive,
+                  AppLocalizations.of(
+                    context,
+                  )!.progExpFELargeFilePerformanceModeIsActive,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
@@ -14178,8 +14310,8 @@ class _EditorTab extends StatelessWidget {
               ),
               child: AnimatedContainer(
                 duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
+                    ? Duration.zero
+                    : const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),

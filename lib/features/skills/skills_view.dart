@@ -12,6 +12,7 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/hover_lift.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
+import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import 'model/local_skill.dart';
 import 'skill_market_dialog.dart';
@@ -222,8 +223,8 @@ class _SkillsViewState extends State<SkillsView> {
         Expanded(
           child: AnimatedSwitcher(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
             child: _buildBody(
               context,
               filteredSkills: filteredSkills,
@@ -350,14 +351,16 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, '${l10n.skillsImportSuccess}: ${skill.name}',
-          kind: _SnackKind.success);
+      _showSnackBar(
+        context,
+        '${l10n.skillsImportSuccess}: ${skill.name}',
+        kind: _SnackKind.success,
+      );
     } catch (e) {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
     }
   }
 
@@ -372,8 +375,11 @@ class _SkillsViewState extends State<SkillsView> {
     if (!context.mounted || createdSkillName == null) {
       return;
     }
-    _showSnackBar(context, '${l10n.skillTemplateCreated}: $createdSkillName',
-        kind: _SnackKind.success);
+    _showSnackBar(
+      context,
+      '${l10n.skillTemplateCreated}: $createdSkillName',
+      kind: _SnackKind.success,
+    );
   }
 
   Future<void> _showSkillMarket(BuildContext context) async {
@@ -388,8 +394,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
     }
   }
 
@@ -404,8 +409,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
     }
   }
 
@@ -494,8 +498,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
     }
   }
 
@@ -527,8 +530,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
     }
   }
 
@@ -544,13 +546,13 @@ class _SkillsViewState extends State<SkillsView> {
           title: Text(l10n.skillsDeleteConfirmTitle),
           content: Text('${l10n.skillsDeleteConfirmBody}\n\n${skill.name}'),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(l10n.skillsEditorCancel),
+              label: l10n.skillsEditorCancel,
             ),
-            FilledButton(
+            OpenHandDialogActionButton.destructive(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(l10n.skillsDeleteConfirmAction),
+              label: l10n.skillsDeleteConfirmAction,
             ),
           ],
         );
@@ -565,18 +567,24 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillsDeleteSuccess, kind: _SnackKind.success);
+      _showSnackBar(
+        context,
+        l10n.skillsDeleteSuccess,
+        kind: _SnackKind.success,
+      );
     } catch (e) {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
     }
   }
 
-  void _showSnackBar(BuildContext context, String message,
-      {_SnackKind kind = _SnackKind.info}) {
+  void _showSnackBar(
+    BuildContext context,
+    String message, {
+    _SnackKind kind = _SnackKind.info,
+  }) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) {
         return;
@@ -1506,107 +1514,107 @@ class _SkillCard extends StatelessWidget {
 
     return HoverLift(
       child: Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SkillCardAvatar(skill: skill),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onOpen,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SkillCardAvatar(skill: skill),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            skill.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            skill.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    AnimatedPopupMenuButton<_SkillCardAction>(
+                      onSelected: onActionSelected,
+                      itemBuilder: (context) {
+                        return [
+                          PopupMenuItem<_SkillCardAction>(
+                            value: _SkillCardAction.openDirectory,
+                            child: Text(l10n.skillsOpenDirectory),
+                          ),
+                          PopupMenuItem<_SkillCardAction>(
+                            value: _SkillCardAction.edit,
+                            child: Text(l10n.skillsEdit),
+                          ),
+                          PopupMenuItem<_SkillCardAction>(
+                            value: _SkillCardAction.delete,
+                            child: Text(l10n.skillsDelete),
+                          ),
+                        ];
+                      },
+                    ),
+                  ],
+                ),
+                if (skill.defaultPrompt != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          skill.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium,
+                        Icon(
+                          Icons.auto_awesome_outlined,
+                          size: 18,
+                          color: colorScheme.primary,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          skill.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            skill.defaultPrompt!,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  AnimatedPopupMenuButton<_SkillCardAction>(
-                    onSelected: onActionSelected,
-                    itemBuilder: (context) {
-                      return [
-                        PopupMenuItem<_SkillCardAction>(
-                          value: _SkillCardAction.openDirectory,
-                          child: Text(l10n.skillsOpenDirectory),
-                        ),
-                        PopupMenuItem<_SkillCardAction>(
-                          value: _SkillCardAction.edit,
-                          child: Text(l10n.skillsEdit),
-                        ),
-                        PopupMenuItem<_SkillCardAction>(
-                          value: _SkillCardAction.delete,
-                          child: Text(l10n.skillsDelete),
-                        ),
-                      ];
-                    },
-                  ),
                 ],
-              ),
-              if (skill.defaultPrompt != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.auto_awesome_outlined,
-                        size: 18,
-                        color: colorScheme.primary,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          skill.defaultPrompt!,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
+                const Spacer(),
+                Chip(
+                  avatar: const Icon(Icons.description_outlined, size: 18),
+                  label: Text(
+                    skill.displayDirectoryPath,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
-              const Spacer(),
-              Chip(
-                avatar: const Icon(Icons.description_outlined, size: 18),
-                label: Text(
-                  skill.displayDirectoryPath,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

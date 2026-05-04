@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'hardness_cli_catalog.dart';
 
 /// Shows a dialog that runs the CLI install command and streams output in real time.
@@ -66,7 +67,12 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
     try {
       _process?.kill();
     } catch (error, stack) {
-      silentLog('hardness_cli_install_dialog', 'kill process on dispose', error, stack);
+      silentLog(
+        'hardness_cli_install_dialog',
+        'kill process on dispose',
+        error,
+        stack,
+      );
     }
     _scrollController.dispose();
     _successPulse.dispose();
@@ -220,7 +226,12 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
     try {
       _process?.kill();
     } catch (error, stack) {
-      silentLog('hardness_cli_install_dialog', 'kill process on cancel', error, stack);
+      silentLog(
+        'hardness_cli_install_dialog',
+        'kill process on cancel',
+        error,
+        stack,
+      );
     }
     setState(() {
       _cancelled = true;
@@ -269,7 +280,12 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
         }
       }
     } catch (error, stack) {
-      silentLog('hardness_cli_install_dialog', 'resolve installer path via shell', error, stack);
+      silentLog(
+        'hardness_cli_install_dialog',
+        'resolve installer path via shell',
+        error,
+        stack,
+      );
     }
 
     final shellCmdStr = ([
@@ -478,75 +494,77 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
         child: Stack(
           children: [
             Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status row
-            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_running)
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: statusColor,
+                // Status row
+                Row(
+                  children: [
+                    if (_running)
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: statusColor,
+                        ),
+                      )
+                    else
+                      Icon(statusIcon, size: 18, color: statusColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      statusLabel,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: statusColor,
+                      ),
                     ),
-                  )
-                else
-                  Icon(statusIcon, size: 18, color: statusColor),
-                const SizedBox(width: 8),
-                Text(
-                  statusLabel,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: statusColor,
+                    const Spacer(),
+                    if (widget.cli.installDocUrl != null)
+                      // Copy doc URL to clipboard
+                      TextButton.icon(
+                        onPressed: () => Clipboard.setData(
+                          ClipboardData(text: widget.cli.installDocUrl!),
+                        ),
+                        icon: const Icon(Icons.link_rounded, size: 14),
+                        label: Text(
+                          isZh ? '复制文档链接' : 'Copy Doc URL',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Log output area
+                Expanded(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D1117),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
+                    ),
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _logLines.length,
+                        itemBuilder: (context, index) {
+                          return _LogLine(line: _logLines[index]);
+                        },
+                      ),
+                    ),
                   ),
                 ),
-                const Spacer(),
-                if (widget.cli.installDocUrl != null)
-                  // Copy doc URL to clipboard
-                  TextButton.icon(
-                    onPressed: () => Clipboard.setData(
-                      ClipboardData(text: widget.cli.installDocUrl!),
-                    ),
-                    icon: const Icon(Icons.link_rounded, size: 14),
-                    label: Text(
-                      isZh ? '复制文档链接' : 'Copy Doc URL',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                  ),
               ],
             ),
-            const SizedBox(height: 10),
-            // Log output area
-            Expanded(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0D1117),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Scrollbar(
-                  controller: _scrollController,
-                  thumbVisibility: true,
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _logLines.length,
-                    itemBuilder: (context, index) {
-                      return _LogLine(line: _logLines[index]);
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
             Positioned(
               top: 0,
               left: 0,
@@ -582,9 +600,9 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
             ),
           )
         else ...[
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(isZh ? '关闭' : 'Close'),
+            label: isZh ? '关闭' : 'Close',
           ),
           // Show elevated-retry button when a permission error was detected
           // and we haven't already attempted an elevated install.
@@ -592,22 +610,14 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
               _isPermissionError &&
               !_elevatedRetryAttempted &&
               (Platform.isMacOS || Platform.isLinux))
-            FilledButton.icon(
+            OpenHandDialogActionButton.destructive(
               onPressed: _retryWithAdminPrivileges,
-              icon: const Icon(Icons.admin_panel_settings_rounded, size: 16),
-              label: Text(
-                isZh ? '以管理员权限重试' : 'Retry with Admin',
-                style: const TextStyle(fontSize: 13),
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor: colorScheme.error,
-                foregroundColor: colorScheme.onError,
-              ),
+              label: isZh ? '以管理员权限重试' : 'Retry with Admin',
             ),
           if (_success)
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text(isZh ? '完成，继续' : 'Done'),
+              label: isZh ? '完成，继续' : 'Done',
             ),
         ],
       ],

@@ -13,6 +13,7 @@ import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/hover_lift.dart';
+import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import 'data/mcp_store.dart';
 import 'mcp_controller.dart';
@@ -122,101 +123,101 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     return Stack(
       children: [
         Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final stacked = constraints.maxWidth < 980;
-            final actions = Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.end,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: mcpSnapshot.isLoading
-                      ? null
-                      : () => mcpController.refresh(),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: Text(l10n.mcpRefresh),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _openDirectory(context),
-                  icon: const Icon(Icons.folder_open_rounded),
-                  label: Text(l10n.mcpOpenDirectory),
-                ),
-                FilledButton.icon(
-                  onPressed: () => _showServerDialog(context),
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(l10n.mcpNewServer),
-                ),
-              ],
-            );
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked = constraints.maxWidth < 980;
+                final actions = Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: mcpSnapshot.isLoading
+                          ? null
+                          : () => mcpController.refresh(),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(l10n.mcpRefresh),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _openDirectory(context),
+                      icon: const Icon(Icons.folder_open_rounded),
+                      label: Text(l10n.mcpOpenDirectory),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () => _showServerDialog(context),
+                      icon: const Icon(Icons.add_rounded),
+                      label: Text(l10n.mcpNewServer),
+                    ),
+                  ],
+                );
 
-            if (stacked) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _McpPageHeader(
-                    title: l10n.mcpPageTitle,
-                    subtitle: l10n.mcpPageSubtitle,
-                  ),
-                  const SizedBox(height: 20),
-                  actions,
-                ],
-              );
-            }
+                if (stacked) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _McpPageHeader(
+                        title: l10n.mcpPageTitle,
+                        subtitle: l10n.mcpPageSubtitle,
+                      ),
+                      const SizedBox(height: 20),
+                      actions,
+                    ],
+                  );
+                }
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _McpPageHeader(
-                    title: l10n.mcpPageTitle,
-                    subtitle: l10n.mcpPageSubtitle,
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Flexible(
-                  child: Align(
-                    alignment: Alignment.topRight,
-                    child: actions,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 20),
-        if (!mcpEnabled) ...[
-          _McpInfoCard(
-            icon: Icons.toggle_off_rounded,
-            title: l10n.mcpDisabledTitle,
-            body: l10n.mcpDisabledBody,
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (mcpSnapshot.persistenceIssue != null) ...[
-          _McpPersistenceIssueCard(
-            issue: mcpSnapshot.persistenceIssue!,
-            onDismiss: mcpController.clearPersistenceIssue,
-          ),
-          const SizedBox(height: 16),
-        ],
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-            child: _buildBody(
-              context,
-              isLoading: mcpSnapshot.isLoading,
-              errorMessage: mcpSnapshot.errorMessage,
-              servers: mcpSnapshot.servers,
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _McpPageHeader(
+                        title: l10n.mcpPageTitle,
+                        subtitle: l10n.mcpPageSubtitle,
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: actions,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-          ),
+            const SizedBox(height: 20),
+            if (!mcpEnabled) ...[
+              _McpInfoCard(
+                icon: Icons.toggle_off_rounded,
+                title: l10n.mcpDisabledTitle,
+                body: l10n.mcpDisabledBody,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (mcpSnapshot.persistenceIssue != null) ...[
+              _McpPersistenceIssueCard(
+                issue: mcpSnapshot.persistenceIssue!,
+                onDismiss: mcpController.clearPersistenceIssue,
+              ),
+              const SizedBox(height: 16),
+            ],
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                child: _buildBody(
+                  context,
+                  isLoading: mcpSnapshot.isLoading,
+                  errorMessage: mcpSnapshot.errorMessage,
+                  servers: mcpSnapshot.servers,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
         Positioned(
           top: 0,
           left: 0,
@@ -271,41 +272,42 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         return SettingsAwareAppearOnce(
           key: ValueKey<String>('mcp-server-appear-${server.name}'),
           child: RepaintBoundary(
-            child: Selector<
-              McpController,
-              ({McpServerHealth healthStatus, McpToolCatalog toolCatalog})
-            >(
-              key: ValueKey<String>('mcp-server-${server.name}'),
-              selector: (context, controller) => (
-                healthStatus: controller.healthStatusFor(server.name),
-                toolCatalog: controller.toolCatalogFor(server.name),
-              ),
-              builder: (context, cardState, child) {
-                final controller = context.read<McpController>();
-                return _McpServerCard(
-                  key: ValueKey<String>('mcp-server-card-${server.name}'),
-                  server: server,
-                  healthStatus: cardState.healthStatus,
-                  toolCatalog: cardState.toolCatalog,
-                  onTap: () =>
-                      _showServerDialog(context, initialServer: server),
-                  onToggleEnabled: (enabled) =>
-                      _updateServerEnabled(context, server.name, enabled),
-                  onCheckHealth: () =>
-                      controller.checkServerHealth(server.name),
-                  onRefreshTools: () =>
-                      controller.refreshServerTools(server.name),
-                  onActionSelected: (action) {
-                    switch (action) {
-                      case _McpCardAction.edit:
-                        _showServerDialog(context, initialServer: server);
-                      case _McpCardAction.delete:
-                        _confirmDeleteServer(context, server);
-                    }
+            child:
+                Selector<
+                  McpController,
+                  ({McpServerHealth healthStatus, McpToolCatalog toolCatalog})
+                >(
+                  key: ValueKey<String>('mcp-server-${server.name}'),
+                  selector: (context, controller) => (
+                    healthStatus: controller.healthStatusFor(server.name),
+                    toolCatalog: controller.toolCatalogFor(server.name),
+                  ),
+                  builder: (context, cardState, child) {
+                    final controller = context.read<McpController>();
+                    return _McpServerCard(
+                      key: ValueKey<String>('mcp-server-card-${server.name}'),
+                      server: server,
+                      healthStatus: cardState.healthStatus,
+                      toolCatalog: cardState.toolCatalog,
+                      onTap: () =>
+                          _showServerDialog(context, initialServer: server),
+                      onToggleEnabled: (enabled) =>
+                          _updateServerEnabled(context, server.name, enabled),
+                      onCheckHealth: () =>
+                          controller.checkServerHealth(server.name),
+                      onRefreshTools: () =>
+                          controller.refreshServerTools(server.name),
+                      onActionSelected: (action) {
+                        switch (action) {
+                          case _McpCardAction.edit:
+                            _showServerDialog(context, initialServer: server);
+                          case _McpCardAction.delete:
+                            _confirmDeleteServer(context, server);
+                        }
+                      },
+                    );
                   },
-                );
-              },
-            ),
+                ),
           ),
         );
       },
@@ -320,8 +322,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.mcpOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(context, l10n.mcpOperationFailed, kind: _SnackKind.error);
     }
   }
 
@@ -368,13 +369,13 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           title: Text(l10n.mcpDeleteConfirmTitle),
           content: Text('${l10n.mcpDeleteConfirmBody}\n\n${server.name}'),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(l10n.commonCancel),
+              label: l10n.commonCancel,
             ),
-            FilledButton(
+            OpenHandDialogActionButton.destructive(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(l10n.commonDelete),
+              label: l10n.commonDelete,
             ),
           ],
         );
@@ -389,8 +390,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       return;
     }
     if (!deleted) {
-      _showSnackBar(context, l10n.mcpOperationFailed,
-          kind: _SnackKind.error);
+      _showSnackBar(context, l10n.mcpOperationFailed, kind: _SnackKind.error);
       return;
     }
     _showSnackBar(context, l10n.mcpServerDeleted, kind: _SnackKind.success);
@@ -412,8 +412,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     _showSnackBar(context, l10n.mcpOperationFailed, kind: _SnackKind.error);
   }
 
-  void _showSnackBar(BuildContext context, String message,
-      {_SnackKind kind = _SnackKind.info}) {
+  void _showSnackBar(
+    BuildContext context,
+    String message, {
+    _SnackKind kind = _SnackKind.info,
+  }) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) {
         return;
@@ -1062,296 +1065,299 @@ class _McpServerCard extends StatelessWidget {
 
     return HoverLift(
       child: Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: 54,
-                        height: 54,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          server.initials,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: _McpHealthStatusDot(
-                          server: server,
-                          healthStatus: healthStatus,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
                       children: [
-                        Text(server.name, style: theme.textTheme.titleLarge),
-                        const SizedBox(height: 6),
-                        Text(
-                          server.type.label(l10n),
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: colorScheme.primary,
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            server.initials,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: colorScheme.onPrimaryContainer,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          server.summary,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: _McpHealthStatusDot(
+                            server: server,
+                            healthStatus: healthStatus,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Tooltip(
-                    message: _localizedText(
-                      context,
-                      zh: '健康检测',
-                      en: 'Health Check',
-                    ),
-                    child: SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: IconButton.filledTonal(
-                        onPressed: healthStatus.isChecking
-                            ? null
-                            : onCheckHealth,
-                        icon: healthStatus.isChecking
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                ),
-                              )
-                            : Icon(_healthStatusActionIcon(healthStatus)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(server.name, style: theme.textTheme.titleLarge),
+                          const SizedBox(height: 6),
+                          Text(
+                            server.type.label(l10n),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            server.summary,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Tooltip(
-                    message: _localizedText(
-                      context,
-                      zh: '刷新 Tool 检测',
-                      en: 'Refresh Tool Scan',
-                    ),
-                    child: SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: IconButton.filledTonal(
-                        onPressed: toolCatalog.isLoading
-                            ? null
-                            : onRefreshTools,
-                        icon: toolCatalog.isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                ),
-                              )
-                            : const Icon(Icons.refresh_rounded),
+                    const SizedBox(width: 12),
+                    Tooltip(
+                      message: _localizedText(
+                        context,
+                        zh: '健康检测',
+                        en: 'Health Check',
+                      ),
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: IconButton.filledTonal(
+                          onPressed: healthStatus.isChecking
+                              ? null
+                              : onCheckHealth,
+                          icon: healthStatus.isChecking
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                  ),
+                                )
+                              : Icon(_healthStatusActionIcon(healthStatus)),
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: _localizedText(
+                        context,
+                        zh: '刷新 Tool 检测',
+                        en: 'Refresh Tool Scan',
+                      ),
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: IconButton.filledTonal(
+                          onPressed: toolCatalog.isLoading
+                              ? null
+                              : onRefreshTools,
+                          icon: toolCatalog.isLoading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                  ),
+                                )
+                              : const Icon(Icons.refresh_rounded),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: AnimatedPopupMenuButton<_McpCardAction>(
+                        onSelected: onActionSelected,
+                        itemBuilder: (context) {
+                          return [
+                            PopupMenuItem<_McpCardAction>(
+                              value: _McpCardAction.edit,
+                              child: Text(l10n.commonEdit),
+                            ),
+                            PopupMenuItem<_McpCardAction>(
+                              value: _McpCardAction.delete,
+                              child: Text(l10n.commonDelete),
+                            ),
+                          ];
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      _McpServerToggleChip(
+                        enabled: server.enabled,
+                        onPressed: () => onToggleEnabled(!server.enabled),
+                      ),
+                      if (server.headers.isNotEmpty)
+                        _McpStatusChip(
+                          icon: Icons.badge_outlined,
+                          label: _localizedText(
+                            context,
+                            zh: '${server.headers.length} 个 Header',
+                            en: '${server.headers.length} Headers',
+                          ),
+                        ),
+                      if (healthStatus.isChecking ||
+                          healthStatus.lastCheckedAt != null)
+                        _McpStatusChip(
+                          icon: _healthStatusChipIcon(healthStatus),
+                          label: _healthStatusSummary(context, healthStatus),
+                        ),
+                      if (toolCatalog.isLoading)
+                        AnimatedBuilder(
+                          animation: mcpStdioBootstrapStatus,
+                          builder: (context, _) {
+                            final liveLine = server.type == McpServerType.stdio
+                                ? mcpStdioBootstrapStatus.statusOf(server.name)
+                                : null;
+                            final tooltipBase =
+                                server.type == McpServerType.stdio
+                                ? _localizedText(
+                                    context,
+                                    zh:
+                                        '首次启动通常较慢：npx / uvx 需要在线拉取 npm / PyPI 包并安装。\n'
+                                        '本应用给 stdio MCP 留最长 6 分钟的发现窗口。',
+                                    en:
+                                        'First launch is usually slow: npx / uvx '
+                                        'pulls npm / PyPI packages on demand. '
+                                        'OpenHand grants stdio MCP servers up to '
+                                        '6 minutes for discovery.',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '正在扫描该 MCP 服务暴露的 Tool 列表。',
+                                    en:
+                                        'Scanning the tool list exposed by this '
+                                        'MCP server.',
+                                  );
+                            final tooltipMsg =
+                                liveLine != null && liveLine.isNotEmpty
+                                ? '$tooltipBase\n\n$liveLine'
+                                : tooltipBase;
+                            // 标签：拿到 stderr 行后切到「首启 · 实时进度」，否则保持初始文案。
+                            final label = server.type == McpServerType.stdio
+                                ? (liveLine != null && liveLine.isNotEmpty
+                                      ? _truncateMiddle(liveLine)
+                                      : _localizedText(
+                                          context,
+                                          zh: '首启准备中…',
+                                          en: 'Bootstrapping…',
+                                        ))
+                                : _localizedText(
+                                    context,
+                                    zh: '扫描 Tool 中',
+                                    en: 'Scanning Tools',
+                                  );
+                            return Tooltip(
+                              message: tooltipMsg,
+                              child: _McpStatusChip(
+                                icon: Icons.radar_rounded,
+                                label: label,
+                              ),
+                            );
+                          },
+                        )
+                      else if (toolCatalog.lastScannedAt != null)
+                        _McpStatusChip(
+                          icon: Icons.build_circle_outlined,
+                          label: _localizedText(
+                            context,
+                            zh: '${toolCatalog.tools.length} 个 Tool',
+                            en: '${toolCatalog.tools.length} Tools',
+                          ),
+                        ),
+                      if (toolCatalog.lastScannedAt != null)
+                        _McpStatusChip(
+                          icon: Icons.schedule_rounded,
+                          label: _formatStatusTime(
+                            context,
+                            toolCatalog.lastScannedAt!,
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                  SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: AnimatedPopupMenuButton<_McpCardAction>(
-                      onSelected: onActionSelected,
-                      itemBuilder: (context) {
-                        return [
-                          PopupMenuItem<_McpCardAction>(
-                            value: _McpCardAction.edit,
-                            child: Text(l10n.commonEdit),
-                          ),
-                          PopupMenuItem<_McpCardAction>(
-                            value: _McpCardAction.delete,
-                            child: Text(l10n.commonDelete),
-                          ),
-                        ];
-                      },
+                ),
+                if (healthStatus.hasError) ...[
+                  const SizedBox(height: 14),
+                  _McpInlineNotice(
+                    icon: Icons.health_and_safety_outlined,
+                    color: colorScheme.errorContainer,
+                    foregroundColor: colorScheme.onErrorContainer,
+                    message: healthStatus.errorMessage!,
+                  ),
+                ],
+                if (toolCatalog.hasError) ...[
+                  const SizedBox(height: 14),
+                  _McpInlineNotice(
+                    icon: Icons.error_outline_rounded,
+                    color: colorScheme.errorContainer,
+                    foregroundColor: colorScheme.onErrorContainer,
+                    message: toolCatalog.errorMessage!,
+                  ),
+                ],
+                if (toolCatalog.hasWarning) ...[
+                  const SizedBox(height: 14),
+                  _McpInlineNotice(
+                    icon: Icons.warning_amber_rounded,
+                    color: colorScheme.tertiaryContainer,
+                    foregroundColor: colorScheme.onTertiaryContainer,
+                    message: toolCatalog.warningMessage!,
+                  ),
+                ],
+                if (toolCatalog.tools.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  _McpToolPreview(server: server, toolCatalog: toolCatalog),
+                ] else if (!toolCatalog.isLoading && !toolCatalog.hasError) ...[
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      server.enabled
+                          ? _localizedText(
+                              context,
+                              zh: '暂未发现可用 Tool，可手动刷新重试。',
+                              en: 'No tools were discovered yet. Try refreshing this service.',
+                            )
+                          : _localizedText(
+                              context,
+                              zh: '服务已禁用，可手动刷新检测 Tool 信息。',
+                              en: 'This service is disabled. Refresh manually to inspect its tools.',
+                            ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _McpServerToggleChip(
-                      enabled: server.enabled,
-                      onPressed: () => onToggleEnabled(!server.enabled),
-                    ),
-                    if (server.headers.isNotEmpty)
-                      _McpStatusChip(
-                        icon: Icons.badge_outlined,
-                        label: _localizedText(
-                          context,
-                          zh: '${server.headers.length} 个 Header',
-                          en: '${server.headers.length} Headers',
-                        ),
-                      ),
-                    if (healthStatus.isChecking ||
-                        healthStatus.lastCheckedAt != null)
-                      _McpStatusChip(
-                        icon: _healthStatusChipIcon(healthStatus),
-                        label: _healthStatusSummary(context, healthStatus),
-                      ),
-                    if (toolCatalog.isLoading)
-                      AnimatedBuilder(
-                        animation: mcpStdioBootstrapStatus,
-                        builder: (context, _) {
-                          final liveLine = server.type == McpServerType.stdio
-                              ? mcpStdioBootstrapStatus.statusOf(server.name)
-                              : null;
-                          final tooltipBase = server.type == McpServerType.stdio
-                              ? _localizedText(
-                                  context,
-                                  zh: '首次启动通常较慢：npx / uvx 需要在线拉取 npm / PyPI 包并安装。\n'
-                                      '本应用给 stdio MCP 留最长 6 分钟的发现窗口。',
-                                  en:
-                                      'First launch is usually slow: npx / uvx '
-                                      'pulls npm / PyPI packages on demand. '
-                                      'OpenHand grants stdio MCP servers up to '
-                                      '6 minutes for discovery.',
-                                )
-                              : _localizedText(
-                                  context,
-                                  zh: '正在扫描该 MCP 服务暴露的 Tool 列表。',
-                                  en:
-                                      'Scanning the tool list exposed by this '
-                                      'MCP server.',
-                                );
-                          final tooltipMsg = liveLine != null && liveLine.isNotEmpty
-                              ? '$tooltipBase\n\n$liveLine'
-                              : tooltipBase;
-                          // 标签：拿到 stderr 行后切到「首启 · 实时进度」，否则保持初始文案。
-                          final label = server.type == McpServerType.stdio
-                              ? (liveLine != null && liveLine.isNotEmpty
-                                  ? _truncateMiddle(liveLine)
-                                  : _localizedText(
-                                      context,
-                                      zh: '首启准备中…',
-                                      en: 'Bootstrapping…',
-                                    ))
-                              : _localizedText(
-                                  context,
-                                  zh: '扫描 Tool 中',
-                                  en: 'Scanning Tools',
-                                );
-                          return Tooltip(
-                            message: tooltipMsg,
-                            child: _McpStatusChip(
-                              icon: Icons.radar_rounded,
-                              label: label,
-                            ),
-                          );
-                        },
-                      )
-                    else if (toolCatalog.lastScannedAt != null)
-                      _McpStatusChip(
-                        icon: Icons.build_circle_outlined,
-                        label: _localizedText(
-                          context,
-                          zh: '${toolCatalog.tools.length} 个 Tool',
-                          en: '${toolCatalog.tools.length} Tools',
-                        ),
-                      ),
-                    if (toolCatalog.lastScannedAt != null)
-                      _McpStatusChip(
-                        icon: Icons.schedule_rounded,
-                        label: _formatStatusTime(
-                          context,
-                          toolCatalog.lastScannedAt!,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (healthStatus.hasError) ...[
-                const SizedBox(height: 14),
-                _McpInlineNotice(
-                  icon: Icons.health_and_safety_outlined,
-                  color: colorScheme.errorContainer,
-                  foregroundColor: colorScheme.onErrorContainer,
-                  message: healthStatus.errorMessage!,
-                ),
               ],
-              if (toolCatalog.hasError) ...[
-                const SizedBox(height: 14),
-                _McpInlineNotice(
-                  icon: Icons.error_outline_rounded,
-                  color: colorScheme.errorContainer,
-                  foregroundColor: colorScheme.onErrorContainer,
-                  message: toolCatalog.errorMessage!,
-                ),
-              ],
-              if (toolCatalog.hasWarning) ...[
-                const SizedBox(height: 14),
-                _McpInlineNotice(
-                  icon: Icons.warning_amber_rounded,
-                  color: colorScheme.tertiaryContainer,
-                  foregroundColor: colorScheme.onTertiaryContainer,
-                  message: toolCatalog.warningMessage!,
-                ),
-              ],
-              if (toolCatalog.tools.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                _McpToolPreview(server: server, toolCatalog: toolCatalog),
-              ] else if (!toolCatalog.isLoading && !toolCatalog.hasError) ...[
-                const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    server.enabled
-                        ? _localizedText(
-                            context,
-                            zh: '暂未发现可用 Tool，可手动刷新重试。',
-                            en: 'No tools were discovered yet. Try refreshing this service.',
-                          )
-                        : _localizedText(
-                            context,
-                            zh: '服务已禁用，可手动刷新检测 Tool 信息。',
-                            en: 'This service is disabled. Refresh manually to inspect its tools.',
-                          ),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -1397,7 +1403,9 @@ class _McpServerToggleChip extends StatelessWidget {
           : _localizedText(context, zh: '点击启用', en: 'Click to Enable'),
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0.0, end: enabled ? 1.0 : 0.0),
-        duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         builder: (context, t, _) {
           final backgroundColor = Color.lerp(disabledBg, enabledBg, t)!;
@@ -1452,8 +1460,8 @@ class _McpHealthStatusDot extends StatelessWidget {
       message: _healthStatusDotTooltip(context, server, healthStatus),
       child: AnimatedContainer(
         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         width: 16,
         height: 16,
         decoration: BoxDecoration(

@@ -35,17 +35,13 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
                       : 'Dialog, menu, page/module, workspace panel, chip, and list item animations will all be reset to defaults. Customized values will be overwritten and this cannot be undone.',
                 ),
                 actions: [
-                  // Use FilledButton.tonal for Cancel so it visually balances
-                  // the primary FilledButton (same height, padding, shape).
-                  // Plain TextButton has different intrinsic height which
-                  // makes the two action buttons look mismatched.
-                  FilledButton.tonal(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(ctx).pop(false),
-                    child: Text(isZh ? '取消' : 'Cancel'),
+                    label: isZh ? '取消' : 'Cancel',
                   ),
-                  FilledButton(
+                  OpenHandDialogActionButton.primary(
                     onPressed: () => Navigator.of(ctx).pop(true),
-                    child: Text(isZh ? '恢复' : 'Restore'),
+                    label: isZh ? '恢复' : 'Restore',
                   ),
                 ],
               ),

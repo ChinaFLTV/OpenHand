@@ -1918,16 +1918,13 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
               : 'Are you sure you want to delete this phase? The execution log will be removed.',
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            label: isZh ? '取消' : 'Cancel',
           ),
-          TextButton(
+          OpenHandDialogActionButton.destructive(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              isZh ? '删除' : 'Delete',
-              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
-            ),
+            label: isZh ? '删除' : 'Delete',
           ),
         ],
       ),
@@ -1949,16 +1946,13 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
                     'The active CLI process will be killed. Already-generated files are kept.',
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(isZh ? '继续运行' : 'Keep Running'),
+            label: isZh ? '继续运行' : 'Keep Running',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.destructive(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            child: Text(isZh ? '中止' : 'Cancel'),
+            label: isZh ? '中止' : 'Cancel',
           ),
         ],
       ),
@@ -1974,4 +1968,3 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
 //   Container(surfaceContainerHigh, br:16, pad h:14 v:6)
 //   Row( title + scrollable info pills | token dial )
 // =============================================================================
-

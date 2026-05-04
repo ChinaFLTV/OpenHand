@@ -53,6 +53,44 @@ String _auditFormatOrDash(Object? value) {
   return text.isEmpty ? '—' : text;
 }
 
+AiSessionMessage? _auditRelatedTelemetryMessage(
+  AiSession session,
+  AiSessionMessage message,
+) {
+  if (message.kind != AiSessionMessageKind.user) {
+    return null;
+  }
+  final startIndex = session.messages.indexWhere(
+    (item) => item.id == message.id,
+  );
+  if (startIndex == -1) {
+    return null;
+  }
+  for (var index = startIndex + 1; index < session.messages.length; index++) {
+    final candidate = session.messages[index];
+    if (candidate.kind == AiSessionMessageKind.user) {
+      break;
+    }
+    if (candidate.isDeleted) {
+      continue;
+    }
+    final metadata = candidate.metadata;
+    final hasTelemetry =
+        candidate.modelId != null ||
+        candidate.usage != null ||
+        metadata.containsKey('started_at') ||
+        metadata.containsKey('request_url') ||
+        metadata.containsKey('request_payload') ||
+        metadata.containsKey('response_raw') ||
+        metadata.containsKey('error') ||
+        metadata.containsKey('telemetry');
+    if (hasTelemetry) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 /// Gemini-style greyscale sweep shimmer placeholder for audit fields that are
 /// still being populated (e.g. while the AI response is streaming).
 class _AuditShimmerPlaceholder extends StatefulWidget {
@@ -137,8 +175,8 @@ class _AuditDialogSizeAnimator extends StatelessWidget {
     return ClipRect(
       child: AnimatedSize(
         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 260),
+            ? Duration.zero
+            : const Duration(milliseconds: 260),
         curve: Curves.easeInOutCubic,
         alignment: Alignment.topCenter,
         child: child,
@@ -221,8 +259,8 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
                     curve: Curves.easeInOutCubic,
                     child: Icon(
                       Icons.expand_more_rounded,
@@ -245,8 +283,8 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
           ClipRect(
             child: AnimatedSize(
               duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                  ? Duration.zero
+                  : const Duration(milliseconds: 220),
               curve: Curves.easeInOutCubic,
               alignment: Alignment.topLeft,
               child: !widget.collapsible || _expanded
@@ -386,8 +424,8 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
                     curve: Curves.easeInOutCubic,
                     child: Icon(
                       Icons.expand_more_rounded,
@@ -414,7 +452,9 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              AppLocalizations.of(context)!.auditCopiedToClipboard,
+                              AppLocalizations.of(
+                                context,
+                              )!.auditCopiedToClipboard,
                             ),
                           ),
                         );
@@ -438,8 +478,8 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
             ClipRect(
               child: AnimatedSize(
                 duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
                 curve: Curves.easeInOutCubic,
                 alignment: Alignment.topLeft,
                 child: _expanded
@@ -537,63 +577,110 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
   Widget build(BuildContext context) {
     final session = _liveSession;
     final message = _liveMessage;
+    final relatedMessage = _auditRelatedTelemetryMessage(session, message);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final size = MediaQuery.sizeOf(context);
     final maxWidth = size.width * 0.88;
     final maxHeight = size.height * 0.88;
     final metadata = Map<String, Object?>.from(message.metadata);
+    final relatedMetadata = relatedMessage == null
+        ? const <String, Object?>{}
+        : Map<String, Object?>.from(relatedMessage.metadata);
     // Pull well-known telemetry shape if present.
     final telemetry = metadata['telemetry'];
+    final relatedTelemetry = relatedMetadata['telemetry'];
     final durationMs = _auditFirstInt([
       metadata['duration_ms'],
       if (telemetry is Map) telemetry['duration_ms'],
+      relatedMetadata['duration_ms'],
+      if (relatedTelemetry is Map) relatedTelemetry['duration_ms'],
     ]);
     final startedAt = _auditFirstDate([
       metadata['started_at'],
       if (telemetry is Map) telemetry['started_at'],
+      relatedMetadata['started_at'],
+      if (relatedTelemetry is Map) relatedTelemetry['started_at'],
     ]);
     final endedAt = _auditFirstDate([
       metadata['ended_at'],
       metadata['completed_at'],
       if (telemetry is Map) telemetry['ended_at'],
+      relatedMetadata['ended_at'],
+      relatedMetadata['completed_at'],
+      if (relatedTelemetry is Map) relatedTelemetry['ended_at'],
     ]);
     final error = _auditFirstString([
       metadata['error'],
       metadata['error_message'],
       if (telemetry is Map) telemetry['error'],
+      relatedMetadata['error'],
+      relatedMetadata['error_message'],
+      if (relatedTelemetry is Map) relatedTelemetry['error'],
     ]);
     final requestUrl = _auditFirstString([
       metadata['request_url'],
       if (telemetry is Map) telemetry['request_url'],
+      relatedMetadata['request_url'],
+      if (relatedTelemetry is Map) relatedTelemetry['request_url'],
     ]);
     final requestMethod = _auditFirstString([
       metadata['request_method'],
       if (telemetry is Map) telemetry['request_method'],
+      relatedMetadata['request_method'],
+      if (relatedTelemetry is Map) relatedTelemetry['request_method'],
     ]);
     final requestHeaders = _auditFirstMap([
       metadata['request_headers'],
       if (telemetry is Map) telemetry['request_headers'],
+      relatedMetadata['request_headers'],
+      if (relatedTelemetry is Map) relatedTelemetry['request_headers'],
     ]);
     final requestPayload = _auditFirstAny([
       metadata['request_payload'],
       metadata['request_body'],
       if (telemetry is Map) telemetry['request_payload'],
+      relatedMetadata['request_payload'],
+      relatedMetadata['request_body'],
+      if (relatedTelemetry is Map) relatedTelemetry['request_payload'],
     ]);
     final responseRaw = _auditFirstAny([
       metadata['response_raw'],
       metadata['raw_response'],
       if (telemetry is Map) telemetry['response_raw'],
+      relatedMetadata['response_raw'],
+      relatedMetadata['raw_response'],
+      if (relatedTelemetry is Map) relatedTelemetry['response_raw'],
     ]);
     final envSnapshot = _auditFirstMap([
       metadata['environment'],
       if (telemetry is Map) telemetry['environment'],
+      relatedMetadata['environment'],
+      if (relatedTelemetry is Map) relatedTelemetry['environment'],
     ]);
     final attachments = _auditFirstList([
       metadata['attachments'],
       if (telemetry is Map) telemetry['attachments'],
+      relatedMetadata['attachments'],
+      if (relatedTelemetry is Map) relatedTelemetry['attachments'],
     ]);
     final streaming = metadata[aiSessionMessageMetadataStreamingKey] == true;
+    final telemetryInFlight =
+        metadata['telemetry_in_flight'] == true ||
+        relatedMetadata['telemetry_in_flight'] == true;
+    final waitingForTelemetry = streaming || telemetryInFlight;
+    final displayUsage = message.usage ?? relatedMessage?.usage;
+    final displayModelId = message.modelId ?? relatedMessage?.modelId;
+    final displayModelLabel = message.modelLabel ?? relatedMessage?.modelLabel;
+    final estimatedPromptTokens = _auditFirstInt([
+      metadata['estimated_prompt_tokens'],
+      relatedMetadata['estimated_prompt_tokens'],
+    ]);
+    final estimatedTotalTokens = _auditFirstInt([
+      metadata['estimated_total_tokens'],
+      relatedMetadata['estimated_total_tokens'],
+      estimatedPromptTokens,
+    ]);
     // The composed prompt body that was actually sent to the AI. Stored on
     // user messages by the session controller when telemetry debug is on.
     final composedPromptText = _auditFirstString([
@@ -662,7 +749,9 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         value: message.kind.storageValue,
                       ),
                       _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditCharacterCount,
+                        label: AppLocalizations.of(
+                          context,
+                        )!.auditCharacterCount,
                         value: '${message.characterCount}',
                       ),
                       _AuditKvRow(
@@ -688,12 +777,14 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                   child: Column(
                     children: [
                       _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditStartedCreated,
+                        label: AppLocalizations.of(
+                          context,
+                        )!.auditStartedCreated,
                         value: _auditFormatInstant(
                           startedAt ?? message.createdAt,
                         ),
                       ),
-                      if (streaming && endedAt == null)
+                      if (waitingForTelemetry && endedAt == null)
                         _AuditKvRow(
                           label: AppLocalizations.of(context)!.auditEnded,
                           valueWidget: const _AuditShimmerPlaceholder(
@@ -705,7 +796,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           label: AppLocalizations.of(context)!.auditEnded,
                           value: _auditFormatInstant(endedAt),
                         ),
-                      if (streaming && durationMs == null)
+                      if (waitingForTelemetry && durationMs == null)
                         _AuditKvRow(
                           label: AppLocalizations.of(context)!.auditDurationMs,
                           valueWidget: const _AuditShimmerPlaceholder(
@@ -727,27 +818,37 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                     children: [
                       _AuditKvRow(
                         label: AppLocalizations.of(context)!.auditModelId,
-                        value: _auditFormatOrDash(message.modelId),
+                        value: _auditFormatOrDash(displayModelId),
                       ),
                       _AuditKvRow(
                         label: AppLocalizations.of(context)!.auditModelLabel,
-                        value: _auditFormatOrDash(message.modelLabel),
+                        value: _auditFormatOrDash(displayModelLabel),
                       ),
-                      if (streaming && message.usage == null) ...[
+                      if (waitingForTelemetry && displayUsage == null) ...[
                         _AuditKvRow(
                           label: AppLocalizations.of(context)!.auditTotalTokens,
-                          valueWidget: const _AuditShimmerPlaceholder(
-                            width: 100,
-                          ),
+                          value: estimatedTotalTokens == null
+                              ? null
+                              : '~$estimatedTotalTokens',
+                          valueWidget: estimatedTotalTokens == null
+                              ? const _AuditShimmerPlaceholder(width: 100)
+                              : null,
                         ),
                         _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditPromptTokens,
-                          valueWidget: const _AuditShimmerPlaceholder(
-                            width: 100,
-                          ),
+                          label: AppLocalizations.of(
+                            context,
+                          )!.auditPromptTokens,
+                          value: estimatedPromptTokens == null
+                              ? null
+                              : '~$estimatedPromptTokens',
+                          valueWidget: estimatedPromptTokens == null
+                              ? const _AuditShimmerPlaceholder(width: 100)
+                              : null,
                         ),
                         _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditCompletionTokens,
+                          label: AppLocalizations.of(
+                            context,
+                          )!.auditCompletionTokens,
                           valueWidget: const _AuditShimmerPlaceholder(
                             width: 100,
                           ),
@@ -755,21 +856,29 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       ] else ...[
                         _AuditKvRow(
                           label: AppLocalizations.of(context)!.auditTotalTokens,
-                          value: '${message.usage?.totalTokens ?? '—'}',
+                          value:
+                              '${displayUsage?.totalTokens ?? (estimatedTotalTokens == null ? '—' : '~$estimatedTotalTokens')}',
                         ),
                         _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditPromptTokens,
-                          value: '${message.usage?.promptTokens ?? '—'}',
+                          label: AppLocalizations.of(
+                            context,
+                          )!.auditPromptTokens,
+                          value:
+                              '${displayUsage?.promptTokens ?? (estimatedPromptTokens == null ? '—' : '~$estimatedPromptTokens')}',
                         ),
                         _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditCompletionTokens,
-                          value: '${message.usage?.completionTokens ?? '—'}',
+                          label: AppLocalizations.of(
+                            context,
+                          )!.auditCompletionTokens,
+                          value: '${displayUsage?.completionTokens ?? '—'}',
                         ),
                       ],
-                      if (message.usage != null)
+                      if (displayUsage != null)
                         _AuditJsonBlock(
-                          label: AppLocalizations.of(context)!.auditTokenBreakdown,
-                          json: message.usage!.toJson(),
+                          label: AppLocalizations.of(
+                            context,
+                          )!.auditTokenBreakdown,
+                          json: displayUsage.toJson(),
                         ),
                     ],
                   ),
@@ -792,9 +901,13 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                   initiallyExpanded: false,
                   title: AppLocalizations.of(context)!.auditContent,
                   subtitle: composedPromptText != null
-                      ? AppLocalizations.of(context)!.auditFullComposedPromptThatWasActually
+                      ? AppLocalizations.of(
+                          context,
+                        )!.auditFullComposedPromptThatWasActually
                       : streaming
-                      ? AppLocalizations.of(context)!.auditWaitingForComposedPromptInjectionAuto
+                      ? AppLocalizations.of(
+                          context,
+                        )!.auditWaitingForComposedPromptInjectionAuto
                       : null,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -807,7 +920,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child:
-                            streaming &&
+                            waitingForTelemetry &&
                                 (composedPromptText == null ||
                                     composedPromptText.isEmpty)
                             ? _auditShimmerBlock(lines: 6)
@@ -826,7 +939,9 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       if (composedPromptText != null) ...[
                         const SizedBox(height: 10),
                         _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditUserRawInput,
+                          label: AppLocalizations.of(
+                            context,
+                          )!.auditUserRawInput,
                           value: message.content.isEmpty
                               ? '—'
                               : message.content,
@@ -835,14 +950,18 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         if (composedPromptTurns != null &&
                             composedPromptTurns.isNotEmpty)
                           _AuditJsonBlock(
-                            label: AppLocalizations.of(context)!.auditStructuredPromptTurns,
+                            label: AppLocalizations.of(
+                              context,
+                            )!.auditStructuredPromptTurns,
                             json: composedPromptTurns,
                             emptyHint: AppLocalizations.of(context)!.auditNone,
                           ),
                         if (promptMetadataFromMsg != null &&
                             promptMetadataFromMsg.isNotEmpty)
                           _AuditJsonBlock(
-                            label: AppLocalizations.of(context)!.auditPromptMetadata,
+                            label: AppLocalizations.of(
+                              context,
+                            )!.auditPromptMetadata,
                             json: promptMetadataFromMsg,
                           ),
                       ],
@@ -868,12 +987,16 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       _AuditJsonBlock(
                         label: AppLocalizations.of(context)!.auditHeaders,
                         json: requestHeaders,
-                        emptyHint: AppLocalizations.of(context)!.auditNotCapturedEnableSettingsAiTelemetry,
+                        emptyHint: AppLocalizations.of(
+                          context,
+                        )!.auditNotCapturedEnableSettingsAiTelemetry,
                       ),
                       _AuditJsonBlock(
                         label: AppLocalizations.of(context)!.auditBodyQueryPath,
                         json: requestPayload,
-                        emptyHint: AppLocalizations.of(context)!.auditNotCapturedEnableSettingsAiTelemetry,
+                        emptyHint: AppLocalizations.of(
+                          context,
+                        )!.auditNotCapturedEnableSettingsAiTelemetry,
                       ),
                     ],
                   ),
@@ -883,12 +1006,16 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                   collapsible: true,
                   initiallyExpanded: false,
                   title: AppLocalizations.of(context)!.auditRawAiResponse,
-                  child: streaming && responseRaw == null
+                  child: waitingForTelemetry && responseRaw == null
                       ? _auditShimmerBlock(lines: 4)
                       : _AuditJsonBlock(
-                          label: AppLocalizations.of(context)!.auditExpandRawResponse,
+                          label: AppLocalizations.of(
+                            context,
+                          )!.auditExpandRawResponse,
                           json: responseRaw,
-                          emptyHint: AppLocalizations.of(context)!.auditNotCapturedDebugDisabledOrResponse,
+                          emptyHint: AppLocalizations.of(
+                            context,
+                          )!.auditNotCapturedDebugDisabledOrResponse,
                         ),
                 ),
                 _AuditSectionCard(
@@ -917,7 +1044,9 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                   initiallyExpanded: false,
                   title: AppLocalizations.of(context)!.auditSessionEnvironment,
                   child: _AuditJsonBlock(
-                    label: AppLocalizations.of(context)!.auditEnvironmentSnapshot,
+                    label: AppLocalizations.of(
+                      context,
+                    )!.auditEnvironmentSnapshot,
                     json:
                         envSnapshot ??
                         _auditSafeMap(session.environment.toJson),
@@ -949,9 +1078,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
               );
             },
             icon: const Icon(Icons.copy_all_rounded, size: 18),
-            label: Text(
-              AppLocalizations.of(context)!.auditCopyAuditSnapshot,
-            ),
+            label: Text(AppLocalizations.of(context)!.auditCopyAuditSnapshot),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.of(context).pop(),
@@ -1093,12 +1220,16 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
     } on FormatException catch (error) {
       if (!mounted) return;
       setState(() {
-        _metadataError = AppLocalizations.of(context)!.auditInvalidJsonErrorMessage(error.message);
+        _metadataError = AppLocalizations.of(
+          context,
+        )!.auditInvalidJsonErrorMessage(error.message);
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _metadataError = AppLocalizations.of(context)!.auditSaveFailedError(error);
+        _metadataError = AppLocalizations.of(
+          context,
+        )!.auditSaveFailedError(error);
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1109,20 +1240,20 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(
-          AppLocalizations.of(dialogContext)!.auditDeleteMessage,
-        ),
+        title: Text(AppLocalizations.of(dialogContext)!.auditDeleteMessage),
         content: Text(
-          AppLocalizations.of(dialogContext)!.auditDeleteThisMessageThisCannotBe,
+          AppLocalizations.of(
+            dialogContext,
+          )!.auditDeleteThisMessageThisCannotBe,
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(AppLocalizations.of(dialogContext)!.auditCancel),
+            label: AppLocalizations.of(dialogContext)!.auditCancel,
           ),
-          FilledButton.tonal(
+          OpenHandDialogActionButton.destructive(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(AppLocalizations.of(dialogContext)!.auditDelete),
+            label: AppLocalizations.of(dialogContext)!.auditDelete,
           ),
         ],
       ),
@@ -1241,7 +1372,9 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                         controller: _titleController,
                         focusNode: _titleFocusNode,
                         decoration: InputDecoration(
-                          labelText: AppLocalizations.of(context)!.auditSessionTitle,
+                          labelText: AppLocalizations.of(
+                            context,
+                          )!.auditSessionTitle,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -1260,8 +1393,12 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                 ),
                 _AuditSectionCard(
                   icon: Icons.data_object_rounded,
-                  title: AppLocalizations.of(context)!.auditSessionMetadataEditableJson,
-                  subtitle: AppLocalizations.of(context)!.auditSaveWritesBackThroughTheSession,
+                  title: AppLocalizations.of(
+                    context,
+                  )!.auditSessionMetadataEditableJson,
+                  subtitle: AppLocalizations.of(
+                    context,
+                  )!.auditSaveWritesBackThroughTheSession,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -1296,38 +1433,58 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                   icon: Icons.route_outlined,
                   collapsible: true,
                   initiallyExpanded: false,
-                  title: AppLocalizations.of(context)!.auditRuntimePromptMetadataReadOnly,
-                  subtitle: AppLocalizations.of(context)!.auditUsefulForPromptConstructionTroubleshooti,
+                  title: AppLocalizations.of(
+                    context,
+                  )!.auditRuntimePromptMetadataReadOnly,
+                  subtitle: AppLocalizations.of(
+                    context,
+                  )!.auditUsefulForPromptConstructionTroubleshooti,
                   child: _AuditJsonBlock(
-                    label: AppLocalizations.of(context)!.auditLastPromptMetadata,
+                    label: AppLocalizations.of(
+                      context,
+                    )!.auditLastPromptMetadata,
                     json: session.lastPromptMetadata,
-                    emptyHint: AppLocalizations.of(context)!.auditNoRuntimePromptMetadataYet,
+                    emptyHint: AppLocalizations.of(
+                      context,
+                    )!.auditNoRuntimePromptMetadataYet,
                   ),
                 ),
                 _AuditSectionCard(
                   icon: Icons.public_outlined,
                   title: AppLocalizations.of(context)!.auditEnvironment,
                   child: _AuditJsonBlock(
-                    label: AppLocalizations.of(context)!.auditEnvironmentSnapshot,
+                    label: AppLocalizations.of(
+                      context,
+                    )!.auditEnvironmentSnapshot,
                     json: _auditSafeMap(session.environment.toJson),
                     initiallyExpanded: true,
                   ),
                 ),
                 _AuditSectionCard(
                   icon: Icons.history_rounded,
-                  title: AppLocalizations.of(context)!.auditRecentErrorsSessionRecenterrorsLength(session.recentErrors.length),
+                  title: AppLocalizations.of(context)!
+                      .auditRecentErrorsSessionRecenterrorsLength(
+                        session.recentErrors.length,
+                      ),
                   child: _AuditJsonBlock(
                     label: AppLocalizations.of(context)!.auditErrorList,
                     json: session.recentErrors
                         .map((error) => _auditSafeMap(error.toJson))
                         .toList(growable: false),
-                    emptyHint: AppLocalizations.of(context)!.auditNoErrorsRecorded,
+                    emptyHint: AppLocalizations.of(
+                      context,
+                    )!.auditNoErrorsRecorded,
                   ),
                 ),
                 _AuditSectionCard(
                   icon: Icons.chat_bubble_outline_rounded,
-                  title: AppLocalizations.of(context)!.auditMessagesSessionMessagesLength(session.messages.length),
-                  subtitle: AppLocalizations.of(context)!.auditTapARowToInspectA,
+                  title: AppLocalizations.of(context)!
+                      .auditMessagesSessionMessagesLength(
+                        session.messages.length,
+                      ),
+                  subtitle: AppLocalizations.of(
+                    context,
+                  )!.auditTapARowToInspectA,
                   child: Column(
                     children: session.messages.isEmpty
                         ? <Widget>[

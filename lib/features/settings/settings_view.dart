@@ -2659,13 +2659,13 @@ class _SettingsViewState extends State<SettingsView> {
             AppLocalizations.of(context)!.settingsThisWillRestoreAllBuiltIn,
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(AppLocalizations.of(context)!.settingsCancel),
+              label: AppLocalizations.of(context)!.settingsCancel,
             ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(AppLocalizations.of(context)!.settingsReset),
+              label: AppLocalizations.of(context)!.settingsReset,
             ),
           ],
         );
@@ -2694,16 +2694,13 @@ class _SettingsViewState extends State<SettingsView> {
             )!.settingsAreYouSureYouWantTo(config.effectiveName),
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(AppLocalizations.of(context)!.settingsCancel),
+              label: AppLocalizations.of(context)!.settingsCancel,
             ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
+            OpenHandDialogActionButton.destructive(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(AppLocalizations.of(context)!.settingsDelete),
+              label: AppLocalizations.of(context)!.settingsDelete,
             ),
           ],
         );
@@ -2790,7 +2787,8 @@ class _SettingsViewState extends State<SettingsView> {
           controlMaxWidth: 460,
           control: _McpStdioMirrorModeControl(
             settingsController: settingsController,
-            onPersistenceFailure: () => _showPersistenceFailureSnackBar(context),
+            onPersistenceFailure: () =>
+                _showPersistenceFailureSnackBar(context),
             onReconnect: () => _reconnectMcpServersForMirrorChange(context),
           ),
         ),
@@ -2864,8 +2862,9 @@ class _SettingsViewState extends State<SettingsView> {
               },
               onSelectionChanged: (selection) async {
                 if (selection.isEmpty) return;
-                final saved = await settingsController
-                    .updateMcpLazyLoadingMode(selection.first);
+                final saved = await settingsController.updateMcpLazyLoadingMode(
+                  selection.first,
+                );
                 if (!context.mounted || saved) return;
                 _showPersistenceFailureSnackBar(context);
               },
@@ -2974,8 +2973,8 @@ class _SettingsViewState extends State<SettingsView> {
                     : () async {
                         final saved = await settingsController
                             .updateHardnessToolSearchHistoryMaxPhases(
-                          defaultCap,
-                        );
+                              defaultCap,
+                            );
                         if (!context.mounted || saved) return;
                         _showPersistenceFailureSnackBar(context);
                       },
@@ -3044,8 +3043,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ),
               IconButton(
-                tooltip:
-                    l10n.settingsToolSearchReplayCancelWindowResetTooltip(
+                tooltip: l10n.settingsToolSearchReplayCancelWindowResetTooltip(
                   defaultSec,
                 ),
                 visualDensity: VisualDensity.compact,
@@ -3055,8 +3053,8 @@ class _SettingsViewState extends State<SettingsView> {
                     : () async {
                         final saved = await settingsController
                             .updateToolSearchReplayCancelWindowSeconds(
-                          defaultSec,
-                        );
+                              defaultSec,
+                            );
                         if (!context.mounted || saved) return;
                         _showPersistenceFailureSnackBar(context);
                       },
@@ -4219,10 +4217,7 @@ class _SettingsViewState extends State<SettingsView> {
     final aiCtrl = context.read<AiSessionController>();
     final sessionId = aiCtrl.currentSessionId;
     if (sessionId == null) {
-      _showSnackBar(
-        context,
-        l10n.mcpLazyLoadingNoActiveSession,
-      );
+      _showSnackBar(context, l10n.mcpLazyLoadingNoActiveSession);
       return;
     }
     final names = aiCtrl.loadedMcpToolNamesForSession(sessionId);
@@ -4241,10 +4236,7 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     await ToolSearchHistoryExportPrefs.clear();
     if (!context.mounted) return;
-    _showSnackBar(
-      context,
-      l10n.mcpToolSearchExportLastDirResetToast,
-    );
+    _showSnackBar(context, l10n.mcpToolSearchExportLastDirResetToast);
   }
 
   /// 一键重置 stdio MCP 隔离包缓存（~/.openhand/mcp/package-cache）。
@@ -4272,13 +4264,13 @@ class _SettingsViewState extends State<SettingsView> {
           title: Text(l10n.mcpStdioCacheResetConfirmTitle),
           content: Text(l10n.mcpStdioCacheResetConfirmBody),
           actions: <Widget>[
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(l10n.mcpStdioCacheResetCancel),
+              label: l10n.mcpStdioCacheResetCancel,
             ),
-            FilledButton.tonal(
+            OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(l10n.mcpStdioCacheResetConfirm),
+              label: l10n.mcpStdioCacheResetConfirm,
             ),
           ],
         );
@@ -4770,8 +4762,7 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
     final injects = source.injects;
     final reasonText = switch (source) {
       McpMirrorEffectiveSource.envOn ||
-      McpMirrorEffectiveSource.envOff =>
-        l10n.mcpStdioMirrorModeReasonEnv,
+      McpMirrorEffectiveSource.envOff => l10n.mcpStdioMirrorModeReasonEnv,
       McpMirrorEffectiveSource.settingForceOn ||
       McpMirrorEffectiveSource.settingForceOff =>
         l10n.mcpStdioMirrorModeReasonSetting,
@@ -4782,8 +4773,9 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
     final statusBg = injects
         ? colorScheme.primaryContainer.withValues(alpha: 0.45)
         : colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
-    final statusFg =
-        injects ? colorScheme.onPrimaryContainer : colorScheme.onSurface;
+    final statusFg = injects
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurface;
     final statusBorder = injects
         ? colorScheme.primary.withValues(alpha: 0.30)
         : colorScheme.outlineVariant;
@@ -4811,8 +4803,9 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
           selected: <McpStdioMirrorMode>{selected},
           onSelectionChanged: (selection) async {
             if (selection.isEmpty) return;
-            final saved = await settingsController
-                .updateMcpStdioMirrorMode(selection.first);
+            final saved = await settingsController.updateMcpStdioMirrorMode(
+              selection.first,
+            );
             if (!context.mounted || saved) return;
             onPersistenceFailure();
           },
@@ -4831,9 +4824,7 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    injects
-                        ? Icons.cloud_done_outlined
-                        : Icons.public_outlined,
+                    injects ? Icons.cloud_done_outlined : Icons.public_outlined,
                     size: 18,
                     color: statusFg,
                   ),
@@ -4893,18 +4884,12 @@ class _McpLazyLoadingHelpBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.35),
         borderRadius: const BorderRadius.all(Radius.circular(12)),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.search_rounded,
-            size: 18,
-            color: colorScheme.primary,
-          ),
+          Icon(Icons.search_rounded, size: 18, color: colorScheme.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
