@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../instructions/model/user_instruction_entry.dart';
 import '../../memory/model/user_memory_entry.dart';
@@ -765,7 +766,7 @@ class AiPromptBuilder {
     AiRepositorySnapshot? repositorySnapshot,
   ) {
     final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
-        ? '${runtimeContext.toJson()['application_directory'] ?? ''}'.trim()
+        ? OpenHandPaths.applicationDirectoryPath()
         : runtimeContext.workingDirectory.trim();
     final buffer = StringBuffer()
       ..writeln()
@@ -860,7 +861,7 @@ class AiPromptBuilder {
     String? planModeReminder,
   }) {
     final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
-        ? '${runtimeContext.toJson()['application_directory'] ?? ''}'.trim()
+        ? OpenHandPaths.applicationDirectoryPath()
         : runtimeContext.workingDirectory.trim();
 
     final compact = <String, Object?>{
@@ -958,10 +959,25 @@ class AiPromptBuilder {
     bool awaitingPlanApproval = false,
     bool useDsmlToolCalls = false,
   }) {
-    final visibleTools = availableTools
-        .where((tool) => tool.name.trim().isNotEmpty)
-        .toList(growable: false);
-    if (visibleTools.isEmpty) {
+    final skillTools = <AiToolDefinition>[];
+    final mcpTools = <AiToolDefinition>[];
+    final builtinTools = <AiToolDefinition>[];
+    for (final tool in availableTools) {
+      final name = tool.name.trim();
+      if (name.isEmpty) {
+        continue;
+      }
+      if (name.startsWith('skill__')) {
+        skillTools.add(tool);
+      } else if (name.startsWith('mcp__')) {
+        mcpTools.add(tool);
+      } else {
+        builtinTools.add(tool);
+      }
+    }
+    final visibleToolCount =
+        skillTools.length + mcpTools.length + builtinTools.length;
+    if (visibleToolCount == 0) {
       // 2026-04-27: 在计划模式待批准的轮次，工具目录被主动清空。
       // 原状下模型容易以为“什么工具都没有”而拒绝实现。
       // 为该场景提供明确提示，避免模型谎称工具缺失。
@@ -973,20 +989,6 @@ class AiPromptBuilder {
     // 2026-04-08 工具目录按能力优先级分组呈现：Skill > MCP > Builtin
     // resolveCatalog 已按此顺序注册，definitions 列表天然有序。
     // 此处进一步添加分组标题，让模型在阅读时明确优先级语义。
-    final skillTools = visibleTools
-        .where((tool) => tool.name.startsWith('skill__'))
-        .toList(growable: false);
-    final mcpTools = visibleTools
-        .where((tool) => tool.name.startsWith('mcp__'))
-        .toList(growable: false);
-    final builtinTools = visibleTools
-        .where(
-          (tool) =>
-              !tool.name.startsWith('skill__') &&
-              !tool.name.startsWith('mcp__'),
-        )
-        .toList(growable: false);
-
     // 2026-04-21 对机器专家线程模板，内建终端交互主流程拥有绝对最高优先级；
     // 外部 Skill / MCP 仅可作为辅助知识来源，不得替代目标终端执行入口。
     final isMachineExpert = templateId == 'machine_expert';
@@ -1048,8 +1050,9 @@ class AiPromptBuilder {
     );
     final deferredMatch = toolSearch.name.isEmpty
         ? null
-        : RegExp(r'## Deferred MCP tools \((\d+)\)')
-              .firstMatch(toolSearch.description);
+        : RegExp(
+            r'## Deferred MCP tools \((\d+)\)',
+          ).firstMatch(toolSearch.description);
     if (deferredMatch != null) {
       buffer
         ..writeln()
@@ -1091,7 +1094,7 @@ class AiPromptBuilder {
         _renderToolEntry(buffer, tool, compact: compact);
       }
     }
-    if (useDsmlToolCalls && visibleTools.isNotEmpty) {
+    if (useDsmlToolCalls && visibleToolCount > 0) {
       buffer
         ..writeln()
         ..writeln('## Tool Invocation Format (DSML)')

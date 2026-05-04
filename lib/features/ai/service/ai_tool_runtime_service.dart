@@ -364,11 +364,12 @@ class AiToolRuntimeService {
     }
     final definitions = <AiToolDefinition>[];
     final toolsByName = <String, AiResolvedTool>{};
+    final reservedToolNames = <String>{};
     final notices = <String>[];
     final mcpServerInstructionsByName = <String, String>{};
 
     void register(AiResolvedTool tool) {
-      if (toolsByName.containsKey(tool.name)) {
+      if (!reservedToolNames.add(tool.name)) {
         return;
       }
       toolsByName[tool.name] = tool;
@@ -382,7 +383,7 @@ class AiToolRuntimeService {
 
     // ── 第一优先级：Skill 工具 ─────────────────────────────────────
     for (final skill in runtimeContext.availableSkills) {
-      final tool = _buildSkillTool(skill, toolsByName.keys.toSet());
+      final tool = _buildSkillTool(skill, reservedToolNames);
       register(tool);
     }
 
@@ -407,14 +408,12 @@ class AiToolRuntimeService {
         if (serverInstructions.isNotEmpty) {
           mcpServerInstructionsByName[server.name] = serverInstructions;
         }
-        final takenNames = toolsByName.keys.toSet();
         for (final mcpTool in catalog.tools) {
           final tool = _buildMcpTool(
             server: server,
             tool: mcpTool,
-            takenNames: takenNames,
+            takenNames: reservedToolNames,
           );
-          takenNames.add(tool.name);
           register(tool);
         }
       } catch (error) {
@@ -451,11 +450,12 @@ class AiToolRuntimeService {
   }) {
     final definitions = <AiToolDefinition>[];
     final toolsByName = <String, AiResolvedTool>{};
+    final reservedToolNames = <String>{};
     final notices = <String>[];
     final mcpServerInstructionsByName = <String, String>{};
 
     void register(AiResolvedTool tool) {
-      if (toolsByName.containsKey(tool.name)) {
+      if (!reservedToolNames.add(tool.name)) {
         return;
       }
       toolsByName[tool.name] = tool;
@@ -466,7 +466,7 @@ class AiToolRuntimeService {
 
     // ── 第一优先级：Skill 工具 ─────────────────────────────────────
     for (final skill in runtimeContext.availableSkills) {
-      final tool = _buildSkillTool(skill, toolsByName.keys.toSet());
+      final tool = _buildSkillTool(skill, reservedToolNames);
       register(tool);
     }
 
@@ -500,14 +500,12 @@ class AiToolRuntimeService {
       if (serverInstructions.isNotEmpty) {
         mcpServerInstructionsByName[server.name] = serverInstructions;
       }
-      final takenNames = toolsByName.keys.toSet();
       for (final mcpTool in catalog.tools) {
         final tool = _buildMcpTool(
           server: server,
           tool: mcpTool,
-          takenNames: takenNames,
+          takenNames: reservedToolNames,
         );
-        takenNames.add(tool.name);
         register(tool);
       }
     }
