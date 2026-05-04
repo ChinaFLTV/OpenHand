@@ -5045,12 +5045,10 @@ class AiSessionController extends ChangeNotifier {
     }
     if (affectedToolCallIds.isEmpty) return null;
     final createdAt = _clock().toUtc();
-    final summary = AiSessionMessage.status(
+    final summary = AiSessionMessage.fileMutationSummary(
       id: _idGenerator(),
-      content: '',
       createdAt: createdAt,
       metadata: <String, Object?>{
-        'round_file_mutation_summary': true,
         'round_summary_tool_call_ids': List<String>.unmodifiable(
           affectedToolCallIds,
         ),

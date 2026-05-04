@@ -1654,6 +1654,7 @@ $identity''';
           content: '[${message.kind.storageValue}] $promptContent',
         );
       case AiSessionMessageKind.compressionPoint:
+      case AiSessionMessageKind.fileMutationSummary:
       case AiSessionMessageKind.status:
         return _mapMessageContent(
           role: AiChatRole.system,
@@ -2214,6 +2215,7 @@ $tail''';
         case AiSessionMessageKind.compressionPoint:
         case AiSessionMessageKind.hook:
         case AiSessionMessageKind.selfLearning:
+        case AiSessionMessageKind.fileMutationSummary:
         case AiSessionMessageKind.status:
           break;
       }

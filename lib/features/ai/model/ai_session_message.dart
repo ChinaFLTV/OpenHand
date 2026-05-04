@@ -13,6 +13,7 @@ enum AiSessionMessageKind {
   skill('skill'),
   hook('hook'),
   selfLearning('self_learning'),
+  fileMutationSummary('file_mutation_summary'),
   status('status');
 
   const AiSessionMessageKind(this.storageValue);
@@ -278,6 +279,25 @@ class AiSessionMessage {
     );
   }
 
+  factory AiSessionMessage.fileMutationSummary({
+    required String id,
+    required DateTime createdAt,
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) {
+    return AiSessionMessage(
+      id: id,
+      kind: AiSessionMessageKind.fileMutationSummary,
+      role: AiSessionMessageRole.system,
+      content: '',
+      createdAt: createdAt.toUtc(),
+      characterCount: 0,
+      metadata: <String, Object?>{
+        ...metadata,
+        'round_file_mutation_summary': true,
+      },
+    );
+  }
+
   factory AiSessionMessage.compressionPoint({
     required String id,
     required String content,
@@ -313,7 +333,10 @@ class AiSessionMessage {
   final AiTokenUsage? usage;
   final Map<String, Object?> metadata;
 
-  bool get isVisible => !isDeleted && kind != AiSessionMessageKind.status;
+  bool get isVisible =>
+      !isDeleted &&
+      (kind != AiSessionMessageKind.status ||
+          metadata['round_file_mutation_summary'] == true);
 
   bool get isConversationTurn {
     if (isDeleted) {
@@ -330,6 +353,7 @@ class AiSessionMessage {
       AiSessionMessageKind.skill => true,
       AiSessionMessageKind.hook => true,
       AiSessionMessageKind.selfLearning => true,
+      AiSessionMessageKind.fileMutationSummary => false,
       AiSessionMessageKind.status => false,
     };
   }

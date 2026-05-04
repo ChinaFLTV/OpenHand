@@ -920,6 +920,8 @@ class AiSessionStatistics {
           compressionPointCount += 1;
         case AiSessionMessageKind.selfLearning:
           totalOutputCharacters += message.characterCount;
+        case AiSessionMessageKind.fileMutationSummary:
+          totalOutputCharacters += message.characterCount;
         case AiSessionMessageKind.status:
           totalOutputCharacters += message.characterCount;
       }

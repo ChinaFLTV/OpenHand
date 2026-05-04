@@ -133,6 +133,8 @@ class _AiSessionExportConfigDialogState
           return 'Hook 事件';
         case AiSessionMessageKind.selfLearning:
           return '自学习';
+        case AiSessionMessageKind.fileMutationSummary:
+          return '文件变动总结';
         case AiSessionMessageKind.status:
           return '状态消息';
       }
