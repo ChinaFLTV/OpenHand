@@ -21,12 +21,12 @@ class AiWorkspaceInstructionService {
   final Map<String, _CachedWorkspaceInstructions> _cache =
       <String, _CachedWorkspaceInstructions>{};
 
-  List<AiWorkspaceInstructionDocument> loadDocuments({
+  Future<List<AiWorkspaceInstructionDocument>> loadDocuments({
     required String startDirectory,
     String? homeDirectory,
-  }) {
+  }) async {
     final normalizedStart = p.normalize(startDirectory.trim());
-    if (normalizedStart.isEmpty || !Directory(normalizedStart).existsSync()) {
+    if (normalizedStart.isEmpty || !await Directory(normalizedStart).exists()) {
       return const <AiWorkspaceInstructionDocument>[];
     }
     final normalizedHome = (homeDirectory ?? '').trim().isEmpty
@@ -40,17 +40,17 @@ class AiWorkspaceInstructionService {
     final seenPaths = <String>{};
     final documents = <AiWorkspaceInstructionDocument>[];
 
-    void addDocument(String filePath) {
+    Future<void> addDocument(String filePath) async {
       final normalizedPath = p.normalize(filePath);
       if (!seenPaths.add(normalizedPath)) {
         return;
       }
       final file = File(normalizedPath);
-      if (!file.existsSync()) {
+      if (!await file.exists()) {
         return;
       }
       try {
-        final content = file.readAsStringSync();
+        final content = await file.readAsString();
         final trimmedContent = content.trimRight();
         if (trimmedContent.isEmpty) {
           return;
@@ -68,8 +68,8 @@ class AiWorkspaceInstructionService {
     }
 
     if (normalizedHome != null) {
-      addDocument(p.join(normalizedHome, '.claude', 'CLAUDE.md'));
-      _addRulesDocuments(
+      await addDocument(p.join(normalizedHome, '.claude', 'CLAUDE.md'));
+      await _addRulesDocuments(
         rootDirectory: normalizedHome,
         addDocument: addDocument,
       );
@@ -87,9 +87,12 @@ class AiWorkspaceInstructionService {
     }
     for (final directory in directories.reversed) {
       for (final fileName in _workspaceInstructionFiles) {
-        addDocument(p.join(directory, fileName));
+        await addDocument(p.join(directory, fileName));
       }
-      _addRulesDocuments(rootDirectory: directory, addDocument: addDocument);
+      await _addRulesDocuments(
+        rootDirectory: directory,
+        addDocument: addDocument,
+      );
     }
     return _cacheDocuments(cacheKey, documents);
   }
@@ -125,24 +128,25 @@ class AiWorkspaceInstructionService {
     return immutableDocuments;
   }
 
-  void _addRulesDocuments({
+  Future<void> _addRulesDocuments({
     required String rootDirectory,
-    required void Function(String filePath) addDocument,
-  }) {
+    required Future<void> Function(String filePath) addDocument,
+  }) async {
     final rulesDirectory = Directory(p.join(rootDirectory, '.claude', 'rules'));
-    if (!rulesDirectory.existsSync()) {
+    if (!await rulesDirectory.exists()) {
       return;
     }
-    final ruleFiles =
-        rulesDirectory
-            .listSync()
-            .whereType<File>()
-            .map((item) => p.normalize(item.path))
-            .where((item) => item.toLowerCase().endsWith('.md'))
-            .toList(growable: false)
-          ..sort();
+    final ruleFiles = <String>[];
+    await for (final item in rulesDirectory.list()) {
+      if (item is! File) continue;
+      final normalizedPath = p.normalize(item.path);
+      if (normalizedPath.toLowerCase().endsWith('.md')) {
+        ruleFiles.add(normalizedPath);
+      }
+    }
+    ruleFiles.sort();
     for (final filePath in ruleFiles) {
-      addDocument(filePath);
+      await addDocument(filePath);
     }
   }
 

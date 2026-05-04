@@ -3220,7 +3220,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     _workspaceInstructionService.maxDocumentCharacters =
         settingsController.aiMaxWorkspaceDocumentCharacters;
-    final workspaceInstructionDocuments = _workspaceInstructionService
+    final workspaceInstructionDocumentsFuture = _workspaceInstructionService
         .loadDocuments(
           startDirectory: OpenHandPaths.applicationDirectoryPath(),
           homeDirectory: OpenHandPaths.homeDirectoryPath(),
@@ -3230,6 +3230,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         server.name: mcpController.toolCatalogFor(server.name),
     };
     final gitSnapshot = await gitSnapshotFuture;
+    final workspaceInstructionDocuments =
+        await workspaceInstructionDocumentsFuture;
     final now = DateTime.now().toLocal();
     return AiSessionRuntimeContext(
       localeTag: settingsController.locale.toLanguageTag(),
