@@ -4,6 +4,8 @@ import { useEffect } from 'preact/hooks';
 import { useAuth } from './state/auth';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
+import { SessionsPage } from './pages/SessionsPage';
+import { SessionDetailPage } from './pages/SessionDetailPage';
 import { t } from './i18n';
 
 /// 鉴权守卫：service.auth_enabled=true 且无 token 时强制跳 /login。
@@ -54,14 +56,28 @@ const HomeRoute = () => (
   </RequireAuth>
 );
 
+const SessionsRoute = () => (
+  <RequireAuth>
+    <SessionsPage />
+  </RequireAuth>
+);
+
+const SessionDetailRoute = () => (
+  <RequireAuth>
+    <SessionDetailPage />
+  </RequireAuth>
+);
+
 export function App() {
   return (
     <LocationProvider>
       <Router>
         <Route path="/login" component={LoginPage} />
         <Route path="/" component={HomeRoute} />
-        {/* /thread 占位：Stage 3 实现真实的会话视图 */}
-        <Route path="/thread" component={HomeRoute} />
+        <Route path="/threads" component={SessionsRoute} />
+        <Route path="/threads/:id" component={SessionDetailRoute} />
+        {/* /thread 旧路径：保持后向兼容，跳到列表 */}
+        <Route path="/thread" component={SessionsRoute} />
         <Route default component={NotFound} />
       </Router>
     </LocationProvider>

@@ -468,6 +468,9 @@ class WebMessagePlatformService {
     router.get('/', (shelf.Request _) => _serveWebShell());
     router.get('/login', (shelf.Request _) => _serveWebShell());
     router.get('/thread', (shelf.Request _) => _serveWebShell());
+    router.get('/threads', (shelf.Request _) => _serveWebShell());
+    // SPA 深路由：/threads/<id> 直接刷新或粘贴打开都能命中前端 Router。
+    router.get('/threads/<rest|.+>', (shelf.Request _, String rest) => _serveWebShell());
     // Vite 产物里 index.html 引用 app.js / app.css 同级文件，直接出 bundle。
     router.get('/app.js', (shelf.Request _) =>
         _serveBundleAsset('assets/web/app.js', 'application/javascript; charset=utf-8'));

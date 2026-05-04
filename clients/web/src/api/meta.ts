@@ -27,9 +27,28 @@ export interface ApiMetaThemeRaw {
   brightness?: string;
 }
 
+export interface ApiMetaTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+}
+
+export interface ApiMetaModel {
+  key: string;
+  provider_id: string;
+  provider: string;
+  model_id: string;
+  label: string;
+}
+
 export interface ApiMetaResponse {
   service?: ApiMetaService;
   theme?: ApiMetaThemeRaw;
+  templates?: ApiMetaTemplate[];
+  conversation_modes?: string[];
+  message_types?: string[];
+  models?: ApiMetaModel[];
   config?: Record<string, unknown>;
 }
 

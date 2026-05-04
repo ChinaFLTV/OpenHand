@@ -56,23 +56,37 @@ export function HomePage() {
               {t('app.brand')}
             </h1>
             <p class="text-sm mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              Stage 2：路由 + 鉴权 + 首页 hero
+              Stage 3：会话列表 + 单会话视图（消息发送留待 Stage 4）
             </p>
           </div>
-          {auth.authRequired && (
+          <div class="flex items-center gap-2">
             <button
               type="button"
-              onClick={onLogout}
+              onClick={() => location.route('/threads')}
               class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
               style={{
-                color: 'var(--m3-on-surface-variant)',
-                border: '1px solid var(--m3-outline)',
-                backgroundColor: 'transparent',
+                color: 'var(--m3-on-primary)',
+                backgroundColor: 'var(--m3-primary)',
+                boxShadow: 'var(--m3-elev-1)',
               }}
             >
-              {t('common.logout')}
+              {t('home.openSessions', '进入会话列表')}
             </button>
-          )}
+            {auth.authRequired && (
+              <button
+                type="button"
+                onClick={onLogout}
+                class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
+                style={{
+                  color: 'var(--m3-on-surface-variant)',
+                  border: '1px solid var(--m3-outline)',
+                  backgroundColor: 'transparent',
+                }}
+              >
+                {t('common.logout')}
+              </button>
+            )}
+          </div>
         </header>
 
         {profile?.username && (
