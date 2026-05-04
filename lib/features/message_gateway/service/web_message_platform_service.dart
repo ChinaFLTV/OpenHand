@@ -4,6 +4,9 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
+import 'package:shelf/shelf.dart' as shelf;
+import 'package:shelf/shelf_io.dart' as shelf_io;
+import 'package:shelf_router/shelf_router.dart';
 
 import '../../../app/model/app_info.dart';
 import '../../../app/state/settings_controller.dart';
@@ -130,7 +133,12 @@ class WebMessagePlatformService {
     });
     try {
       final address = _bindAddress(config.listenHost);
-      final server = await HttpServer.bind(
+      final pipeline = const shelf.Pipeline()
+          .addMiddleware(_corsMiddleware())
+          .addMiddleware(_telemetryAndLimitMiddleware());
+      final handler = pipeline.addHandler(_buildRouter().call);
+      final server = await shelf_io.serve(
+        handler,
         address,
         config.listenPort,
         shared: true,
@@ -141,7 +149,6 @@ class WebMessagePlatformService {
       _state = WebGatewayRuntimeState.running;
       _log(WebGatewayLogLevel.success, 'BOOT', 'Web 服务已监听 $boundUrl');
       unawaited(cleanupArtifacts(logs: true, uploads: true, expiredOnly: true));
-      unawaited(_serve(server));
     } catch (error, stack) {
       _state = WebGatewayRuntimeState.crashed;
       _crashCount++;
@@ -363,219 +370,201 @@ class WebMessagePlatformService {
     return _memoryLogs.map((entry) => entry.toLogLine()).join('\n');
   }
 
-  Future<void> _serve(HttpServer server) async {
-    try {
-      await for (final request in server) {
-        unawaited(_handleRequest(request));
-      }
-    } catch (error, stack) {
-      if (!identical(_server, server)) return;
-      _state = WebGatewayRuntimeState.crashed;
-      _crashCount++;
-      _lastError = '$error';
-      _log(WebGatewayLogLevel.error, 'SERVE', '请求循环崩溃: $error');
-      silentLog('web_message_platform_service', 'serve loop', error, stack);
-    }
+  /// shelf 路由表。所有 handler 经过：
+  /// `_corsMiddleware` → `_telemetryAndLimitMiddleware` → router。
+  ///
+  /// 匿名公开路由（不走鉴权）：`GET /`、`GET /login`、`GET /thread`、
+  /// `GET /api/health`、`GET /api/meta`、`POST /api/login`。
+  /// 其余全部经 `_withAuth` 包装：未鉴权返回 401，鉴权后注入
+  /// `_WebGatewayAuthSession` 给 handler。
+  Router _buildRouter() {
+    final router = Router(notFoundHandler: _shelfNotFound);
+    router.get('/', (shelf.Request _) => _html(_buildWebClientHtml()));
+    router.get('/login', (shelf.Request _) => _html(_buildWebClientHtml()));
+    router.get('/thread', (shelf.Request _) => _html(_buildWebClientHtml()));
+    router.get('/api/health', _apiHealth);
+    router.get('/api/meta', _apiMeta);
+    router.post('/api/login', _login);
+
+    router.get('/api/sessions', (shelf.Request r) => _withAuth(r, _listSessions));
+    router.post('/api/sessions', (shelf.Request r) => _withAuth(r, _createSession));
+    router.get('/api/sessions/<sessionId>', (shelf.Request r, String sessionId) =>
+        _withAuth(r, (req, auth) => _getSession(req, auth, sessionId)));
+    router.patch('/api/sessions/<sessionId>', (shelf.Request r, String sessionId) =>
+        _withAuth(r, (req, auth) => _renameSession(req, auth, sessionId)));
+    router.delete('/api/sessions/<sessionId>', (shelf.Request r, String sessionId) =>
+        _withAuth(r, (req, auth) => _deleteSession(req, auth, sessionId)));
+    router.get('/api/sessions/<sessionId>/messages', (shelf.Request r, String sessionId) =>
+        _withAuth(r, (req, auth) => _listMessages(req, auth, sessionId)));
+    router.post('/api/sessions/<sessionId>/messages', (shelf.Request r, String sessionId) =>
+        _withAuth(r, (req, auth) => _sendMessage(req, auth, sessionId)));
+
+    router.get('/api/ops', (shelf.Request r) => _withAuth(r, (_, _) => _opsSnapshot()));
+    router.get('/api/ops/cleanup/history', (shelf.Request r) => _withAuth(r, (_, _) => _cleanupHistoryPayload()));
+    router.post('/api/ops/cleanup', (shelf.Request r) => _withAuth(r, (req, _) => _cleanupOps(req)));
+    router.get('/api/logs', (shelf.Request r) => _withAuth(r, (req, _) => _listLogs(req)));
+    router.get('/api/logs/export', (shelf.Request r) => _withAuth(r, (_, _) => _exportLogs()));
+    router.get('/api/workspace/files', (shelf.Request r) => _withAuth(r, (req, _) => _listWorkspaceFiles(req)));
+    router.get('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _readWorkspaceFile(req)));
+    router.put('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _writeWorkspaceFile(req)));
+
+    return router;
   }
 
-  Future<void> _handleRequest(HttpRequest request) async {
-    final stopwatch = Stopwatch()..start();
-    var statusCode = 200;
-    var responseBytes = 0;
-    String? errorText;
-    final requestBytes = request.contentLength > 0 ? request.contentLength : 0;
-    _totalRequests++;
-    _totalBytesIn += requestBytes;
-    if (_activeRequests >= _config.maxConcurrentRequests) {
-      _totalErrors++;
-      await _json(request, HttpStatus.tooManyRequests, <String, Object?>{
-        'error': 'too_many_requests',
-      });
-      _log(WebGatewayLogLevel.warn, 'HTTP', '请求被并发限制拒绝', <String, Object?>{
-        'path': request.uri.path,
-        'active_requests': _activeRequests,
-        'limit': _config.maxConcurrentRequests,
-      });
-      return;
-    }
-    _activeRequests++;
-    try {
-      _applyCors(request.response);
-      if (request.method == 'OPTIONS') {
-        statusCode = HttpStatus.noContent;
-        request.response.statusCode = statusCode;
-        await request.response.close();
-        return;
-      }
-      responseBytes = await _route(request);
-      statusCode = request.response.statusCode;
-    } catch (error, stack) {
-      statusCode = HttpStatus.internalServerError;
-      errorText = '$error';
-      _totalErrors++;
-      _lastError = errorText;
-      silentLog('web_message_platform_service', 'handle request', error, stack);
-      try {
-        await _json(request, statusCode, <String, Object?>{
-          'error': 'internal_error',
-          'message': errorText,
-        });
-      } catch (responseError, responseStack) {
-        silentLog(
-          'web_message_platform_service',
-          'write error response',
-          responseError,
-          responseStack,
-        );
-        try {
-          await request.response.close();
-        } catch (_) {
-          // Response is already closed.
+  shelf.Response _shelfNotFound(shelf.Request request) =>
+      _json(HttpStatus.notFound, <String, Object?>{'error': 'not_found'});
+
+  /// CORS 头 + OPTIONS 预检统一处理。
+  shelf.Middleware _corsMiddleware() {
+    const corsHeaders = <String, String>{
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+      'access-control-allow-headers':
+          'authorization,content-type,x-openhand-device-id,x-openhand-source,x-openhand-device-mac,x-openhand-device-name,x-openhand-device-platform',
+    };
+    return (innerHandler) {
+      return (shelf.Request request) async {
+        if (request.method == 'OPTIONS') {
+          return shelf.Response(HttpStatus.noContent, headers: corsHeaders);
         }
-      }
-    } finally {
-      _activeRequests = math.max(0, _activeRequests - 1);
-      stopwatch.stop();
-      _totalBytesOut += responseBytes;
-      final level = statusCode >= 500
-          ? WebGatewayLogLevel.error
-          : statusCode >= 400
-          ? WebGatewayLogLevel.warn
-          : (_config.telemetryEnabled
-                ? WebGatewayLogLevel.telemetry
-                : WebGatewayLogLevel.info);
-      final shouldLog =
-          _config.loggingEnabled ||
-          _config.telemetryEnabled ||
-          statusCode >= 400;
-      if (shouldLog) {
-        _log(
-          level,
-          'HTTP',
-          '${request.method} ${request.uri.path} -> $statusCode ${stopwatch.elapsedMilliseconds}ms',
-          <String, Object?>{
-            'method': request.method,
-            'path': request.uri.path,
-            'query': request.uri.queryParameters,
-            'status_code': statusCode,
-            'duration_ms': stopwatch.elapsedMilliseconds,
-            'remote_ip': request.connectionInfo?.remoteAddress.address,
-            'remote_port': request.connectionInfo?.remotePort,
-            'user_agent': request.headers.value(HttpHeaders.userAgentHeader),
-            'content_length': request.contentLength,
-            'response_bytes': responseBytes,
-            'active_requests': _activeRequests,
-            if (errorText != null) 'error': errorText,
-          },
-        );
-      }
-    }
+        final response = await innerHandler(request);
+        return response.change(headers: corsHeaders);
+      };
+    };
   }
 
-  Future<int> _route(HttpRequest request) async {
-    final path = request.uri.path;
-    if (path == '/' || path == '/login' || path == '/thread') {
-      return _html(request, _buildWebClientHtml());
-    }
-    if (path == '/api/health') {
-      return _json(request, HttpStatus.ok, <String, Object?>{
-        'status': 'ok',
-        'service': webMessagePlatformBuiltinName,
-        'state': _state.name,
-        'time': DateTime.now().toUtc().toIso8601String(),
-      });
-    }
-    if (path == '/api/meta' && request.method == 'GET') {
-      return _json(request, HttpStatus.ok, _metaPayload());
-    }
-    if (path == '/api/login' && request.method == 'POST') {
-      return _login(request);
-    }
+  /// 并发限流 + 请求/字节计数 + 异常兜底 + 访问日志。
+  /// 与旧 `_handleRequest` 的副作用一一对应：超过 `maxConcurrentRequests`
+  /// 直接返回 429，否则在 finally 写访问日志，按状态码挑选 level。
+  shelf.Middleware _telemetryAndLimitMiddleware() {
+    return (innerHandler) {
+      return (shelf.Request request) async {
+        _totalRequests++;
+        final requestBytes = request.contentLength ?? 0;
+        _totalBytesIn += requestBytes;
+        if (_activeRequests >= _config.maxConcurrentRequests) {
+          _totalErrors++;
+          _log(
+            WebGatewayLogLevel.warn,
+            'HTTP',
+            '请求被并发限制拒绝',
+            <String, Object?>{
+              'path': request.requestedUri.path,
+              'active_requests': _activeRequests,
+              'limit': _config.maxConcurrentRequests,
+            },
+          );
+          return _json(
+            HttpStatus.tooManyRequests,
+            const <String, Object?>{'error': 'too_many_requests'},
+          );
+        }
+        _activeRequests++;
+        final stopwatch = Stopwatch()..start();
+        var statusCode = 0;
+        var responseBytes = 0;
+        String? errorText;
+        try {
+          final response = await innerHandler(request);
+          statusCode = response.statusCode;
+          responseBytes = response.contentLength ?? 0;
+          return response;
+        } catch (error, stack) {
+          statusCode = HttpStatus.internalServerError;
+          errorText = '$error';
+          _totalErrors++;
+          _lastError = errorText;
+          silentLog(
+            'web_message_platform_service',
+            'handle request',
+            error,
+            stack,
+          );
+          final fallback = _json(
+            HttpStatus.internalServerError,
+            <String, Object?>{
+              'error': 'internal_error',
+              'message': errorText,
+            },
+          );
+          responseBytes = fallback.contentLength ?? 0;
+          return fallback;
+        } finally {
+          _activeRequests = math.max(0, _activeRequests - 1);
+          stopwatch.stop();
+          _totalBytesOut += responseBytes;
+          final connectionInfo = request.context['shelf.io.connection_info']
+              as HttpConnectionInfo?;
+          final level = statusCode >= 500
+              ? WebGatewayLogLevel.error
+              : statusCode >= 400
+                  ? WebGatewayLogLevel.warn
+                  : (_config.telemetryEnabled
+                      ? WebGatewayLogLevel.telemetry
+                      : WebGatewayLogLevel.info);
+          final shouldLog = _config.loggingEnabled ||
+              _config.telemetryEnabled ||
+              statusCode >= 400;
+          if (shouldLog) {
+            _log(
+              level,
+              'HTTP',
+              '${request.method} ${request.requestedUri.path} -> $statusCode ${stopwatch.elapsedMilliseconds}ms',
+              <String, Object?>{
+                'method': request.method,
+                'path': request.requestedUri.path,
+                'query': request.requestedUri.queryParameters,
+                'status_code': statusCode,
+                'duration_ms': stopwatch.elapsedMilliseconds,
+                'remote_ip': connectionInfo?.remoteAddress.address,
+                'remote_port': connectionInfo?.remotePort,
+                'user_agent': request.headers[HttpHeaders.userAgentHeader],
+                'content_length': requestBytes,
+                'response_bytes': responseBytes,
+                'active_requests': _activeRequests,
+                if (errorText != null) 'error': errorText,
+              },
+            );
+          }
+        }
+      };
+    };
+  }
 
+  /// 把 handler 包成「先鉴权后调用」的入口；401 时返回 JSON 错误。
+  Future<shelf.Response> _withAuth(
+    shelf.Request request,
+    Future<shelf.Response> Function(shelf.Request, _WebGatewayAuthSession) handler,
+  ) async {
     final auth = _authorize(request);
     if (auth == null) {
-      return _json(request, HttpStatus.unauthorized, <String, Object?>{
+      return _json(HttpStatus.unauthorized, <String, Object?>{
         'error': 'unauthorized',
       });
     }
+    return handler(request, auth);
+  }
 
-    if (path == '/api/sessions' && request.method == 'GET') {
-      return _listSessions(request, auth);
-    }
-    if (path == '/api/sessions' && request.method == 'POST') {
-      return _createSession(request, auth);
-    }
-    if (path == '/api/ops' && request.method == 'GET') {
-      if (!_config.opsEnabled) {
-        return _json(request, HttpStatus.forbidden, <String, Object?>{
-          'error': 'ops_disabled',
-        });
-      }
-      return _json(
-        request,
-        HttpStatus.ok,
-        (await runtimeSnapshotAsync()).toJson(),
-      );
-    }
-    if (path == '/api/ops/cleanup/history' && request.method == 'GET') {
-      if (!_config.opsEnabled) {
-        return _json(request, HttpStatus.forbidden, <String, Object?>{
-          'error': 'ops_disabled',
-        });
-      }
-      return _cleanupHistoryPayload(request);
-    }
-    if (path == '/api/ops/cleanup' && request.method == 'POST') {
-      if (!_config.opsEnabled) {
-        return _json(request, HttpStatus.forbidden, <String, Object?>{
-          'error': 'ops_disabled',
-        });
-      }
-      return _cleanupOps(request);
-    }
-    if (path == '/api/logs' && request.method == 'GET') {
-      return _listLogs(request);
-    }
-    if (path == '/api/logs/export' && request.method == 'GET') {
-      return _exportLogs(request);
-    }
-    if (path == '/api/workspace/files' && request.method == 'GET') {
-      return _listWorkspaceFiles(request);
-    }
-    if (path == '/api/workspace/file' && request.method == 'GET') {
-      return _readWorkspaceFile(request);
-    }
-    if (path == '/api/workspace/file' && request.method == 'PUT') {
-      return _writeWorkspaceFile(request);
-    }
-
-    final segments = request.uri.pathSegments;
-    if (segments.length >= 3 &&
-        segments[0] == 'api' &&
-        segments[1] == 'sessions') {
-      final sessionId = segments[2];
-      if (segments.length == 3 && request.method == 'GET') {
-        return _getSession(request, auth, sessionId);
-      }
-      if (segments.length == 3 && request.method == 'PATCH') {
-        return _renameSession(request, auth, sessionId);
-      }
-      if (segments.length == 3 && request.method == 'DELETE') {
-        return _deleteSession(request, auth, sessionId);
-      }
-      if (segments.length == 4 && segments[3] == 'messages') {
-        if (request.method == 'GET') {
-          return _listMessages(request, auth, sessionId);
-        }
-        if (request.method == 'POST') {
-          return _sendMessage(request, auth, sessionId);
-        }
-      }
-    }
-
-    return _json(request, HttpStatus.notFound, <String, Object?>{
-      'error': 'not_found',
+  shelf.Response _apiHealth(shelf.Request request) {
+    return _json(HttpStatus.ok, <String, Object?>{
+      'status': 'ok',
+      'service': webMessagePlatformBuiltinName,
+      'state': _state.name,
+      'time': DateTime.now().toUtc().toIso8601String(),
     });
+  }
+
+  shelf.Response _apiMeta(shelf.Request request) {
+    return _json(HttpStatus.ok, _metaPayload());
+  }
+
+  Future<shelf.Response> _opsSnapshot() async {
+    if (!_config.opsEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'ops_disabled',
+      });
+    }
+    return _json(HttpStatus.ok, (await runtimeSnapshotAsync()).toJson());
   }
 
   Map<String, Object?> _metaPayload() {
@@ -630,14 +619,14 @@ class WebMessagePlatformService {
     };
   }
 
-  Future<int> _login(HttpRequest request) async {
+  Future<shelf.Response> _login(shelf.Request request) async {
     final body = await _readJsonBody(request);
     final source = WebGatewayLoginSource.fromStorage(
       _string(body['source'], 'WEB_PC'),
     );
     final deviceId = _string(body['device_id'], '').trim();
     if (deviceId.isEmpty) {
-      return _json(request, HttpStatus.badRequest, <String, Object?>{
+      return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'device_id_required',
       });
     }
@@ -648,9 +637,9 @@ class WebMessagePlatformService {
         _log(WebGatewayLogLevel.warn, 'AUTH', '登录失败', <String, Object?>{
           'username': username,
           'device_id': deviceId,
-          'remote_ip': request.connectionInfo?.remoteAddress.address,
+          'remote_ip': (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)?.remoteAddress.address,
         });
-        return _json(request, HttpStatus.unauthorized, <String, Object?>{
+        return _json(HttpStatus.unauthorized, <String, Object?>{
           'error': 'invalid_credentials',
         });
       }
@@ -664,36 +653,36 @@ class WebMessagePlatformService {
       deviceName: _string(body['device_name'], ''),
       devicePlatform: _string(body['device_platform'], ''),
       loginAt: DateTime.now().toUtc(),
-      remoteAddress: request.connectionInfo?.remoteAddress.address ?? '',
-      userAgent: request.headers.value(HttpHeaders.userAgentHeader) ?? '',
+      remoteAddress: (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)?.remoteAddress.address ?? '',
+      userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
     );
     _authSessions[token] = session;
     _log(WebGatewayLogLevel.success, 'AUTH', '登录成功', session.toMetadata());
-    return _json(request, HttpStatus.ok, <String, Object?>{
+    return _json(HttpStatus.ok, <String, Object?>{
       'token': token,
       'expires_in': null,
       'profile': session.toMetadata(),
     });
   }
 
-  Future<int> _listSessions(
-    HttpRequest request,
+  Future<shelf.Response> _listSessions(
+    shelf.Request request,
     _WebGatewayAuthSession auth,
   ) async {
     final page = math.max(
       1,
-      int.tryParse(request.uri.queryParameters['page'] ?? '') ?? 1,
+      int.tryParse(request.requestedUri.queryParameters['page'] ?? '') ?? 1,
     );
     final pageSize = math.min(
       50,
       math.max(
         1,
-        int.tryParse(request.uri.queryParameters['page_size'] ?? '') ?? 10,
+        int.tryParse(request.requestedUri.queryParameters['page_size'] ?? '') ?? 10,
       ),
     );
     final canAccessAll = _authCanAccessAllSessions(auth);
-    final sourceQuery = request.uri.queryParameters['source']?.trim() ?? '';
-    final deviceQuery = request.uri.queryParameters['device_id']?.trim() ?? '';
+    final sourceQuery = request.requestedUri.queryParameters['source']?.trim() ?? '';
+    final deviceQuery = request.requestedUri.queryParameters['device_id']?.trim() ?? '';
     final source = canAccessAll
         ? sourceQuery
         : (sourceQuery.isEmpty ? auth.source.storageValue : sourceQuery);
@@ -727,7 +716,7 @@ class WebMessagePlatformService {
               .sublist(start, end)
               .map(_sessionSummary)
               .toList(growable: false);
-    return _json(request, HttpStatus.ok, <String, Object?>{
+    return _json(HttpStatus.ok, <String, Object?>{
       'items': items,
       'page': page,
       'page_size': pageSize,
@@ -738,14 +727,14 @@ class WebMessagePlatformService {
     });
   }
 
-  Future<int> _createSession(
-    HttpRequest request,
+  Future<shelf.Response> _createSession(
+    shelf.Request request,
     _WebGatewayAuthSession auth,
   ) async {
     final body = await _readJsonBody(request);
     final templateId = _string(body['template_id'], 'default').trim();
     if (!_templateAllowed(templateId)) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'template_not_allowed',
       });
     }
@@ -765,7 +754,7 @@ class WebMessagePlatformService {
       metadata: metadata,
     );
     if (!ok || _sessionController.currentSession == null) {
-      return _json(request, HttpStatus.internalServerError, <String, Object?>{
+      return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'create_failed',
       });
     }
@@ -788,23 +777,23 @@ class WebMessagePlatformService {
         'device_id': auth.deviceId,
       },
     );
-    return _json(request, HttpStatus.created, <String, Object?>{
+    return _json(HttpStatus.created, <String, Object?>{
       'session': _sessionSummary(session),
     });
   }
 
-  Future<int> _getSession(
-    HttpRequest request,
+  Future<shelf.Response> _getSession(
+    shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) {
-      return _json(request, HttpStatus.notFound, <String, Object?>{
+      return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'session_deleted_or_not_found',
       });
     }
-    return _json(request, HttpStatus.ok, <String, Object?>{
+    return _json(HttpStatus.ok, <String, Object?>{
       'session': _sessionSummary(session),
       'runtime': <String, Object?>{
         'send_phase': _sessionController.sendPhaseForSession(session.id).name,
@@ -814,26 +803,26 @@ class WebMessagePlatformService {
     });
   }
 
-  Future<int> _renameSession(
-    HttpRequest request,
+  Future<shelf.Response> _renameSession(
+    shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
   ) async {
     if (!_config.sessionManagementEnabled) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'session_management_disabled',
       });
     }
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) {
-      return _json(request, HttpStatus.notFound, <String, Object?>{
+      return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'session_deleted_or_not_found',
       });
     }
     final body = await _readJsonBody(request);
     final title = _string(body['title'], '').trim();
     if (title.isEmpty) {
-      return _json(request, HttpStatus.badRequest, <String, Object?>{
+      return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'title_required',
       });
     }
@@ -849,26 +838,24 @@ class WebMessagePlatformService {
       'Web 重命名会话 ${session.id}',
       <String, Object?>{'title': title, 'device_id': auth.deviceId},
     );
-    return _json(
-      request,
-      ok ? HttpStatus.ok : HttpStatus.conflict,
+    return _json(ok ? HttpStatus.ok : HttpStatus.conflict,
       <String, Object?>{'ok': ok, 'session': _sessionSummary(updated)},
     );
   }
 
-  Future<int> _deleteSession(
-    HttpRequest request,
+  Future<shelf.Response> _deleteSession(
+    shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
   ) async {
     if (!_config.sessionManagementEnabled) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'session_management_disabled',
       });
     }
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) {
-      return _json(request, HttpStatus.notFound, <String, Object?>{
+      return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'session_deleted_or_not_found',
       });
     }
@@ -879,21 +866,19 @@ class WebMessagePlatformService {
       'Web 删除会话 ${session.id}',
       <String, Object?>{'title': session.title, 'device_id': auth.deviceId},
     );
-    return _json(
-      request,
-      ok ? HttpStatus.ok : HttpStatus.conflict,
+    return _json(ok ? HttpStatus.ok : HttpStatus.conflict,
       <String, Object?>{'ok': ok, 'deleted_session_id': session.id},
     );
   }
 
-  Future<int> _listMessages(
-    HttpRequest request,
+  Future<shelf.Response> _listMessages(
+    shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) {
-      return _json(request, HttpStatus.notFound, <String, Object?>{
+      return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'session_deleted_or_not_found',
       });
     }
@@ -901,19 +886,19 @@ class WebMessagePlatformService {
       200,
       math.max(
         1,
-        int.tryParse(request.uri.queryParameters['limit'] ?? '') ?? 80,
+        int.tryParse(request.requestedUri.queryParameters['limit'] ?? '') ?? 80,
       ),
     );
     final offset = math.max(
       0,
-      int.tryParse(request.uri.queryParameters['offset'] ?? '') ?? 0,
+      int.tryParse(request.requestedUri.queryParameters['offset'] ?? '') ?? 0,
     );
     final page = await _sessionController.store.loadMessages(
       session.id,
       limit: limit,
       offset: offset,
     );
-    return _json(request, HttpStatus.ok, <String, Object?>{
+    return _json(HttpStatus.ok, <String, Object?>{
       'items': page.messages
           .where((message) => !message.isDeleted)
           .map(_messageJson)
@@ -927,19 +912,19 @@ class WebMessagePlatformService {
     });
   }
 
-  Future<int> _sendMessage(
-    HttpRequest request,
+  Future<shelf.Response> _sendMessage(
+    shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) {
-      return _json(request, HttpStatus.notFound, <String, Object?>{
+      return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'session_deleted_or_not_found',
       });
     }
     if (session.displayMessages.length >= _config.maxMessagesPerSession) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'session_message_limit_reached',
       });
     }
@@ -947,7 +932,7 @@ class WebMessagePlatformService {
     final content = _string(body['content'], '').trim();
     final estimatedTokens = (content.length / 4).ceil();
     if (estimatedTokens > _config.singleMessageTokenLimit) {
-      return _json(request, HttpStatus.badRequest, <String, Object?>{
+      return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'message_too_large',
         'estimated_tokens': estimatedTokens,
         'limit': _config.singleMessageTokenLimit,
@@ -958,7 +943,7 @@ class WebMessagePlatformService {
         WebGatewayConversationMode.fromStorage(rawMode) ??
         WebGatewayConversationMode.normal;
     if (!_config.allowedConversationModes.contains(conversationMode)) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'conversation_mode_not_allowed',
       });
     }
@@ -970,19 +955,19 @@ class WebMessagePlatformService {
         !_config.allowedMessageTypes.contains(
           WebGatewayMessageType.attachment,
         )) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'attachments_not_allowed',
       });
     }
     if (content.isNotEmpty &&
         !_config.allowedMessageTypes.contains(WebGatewayMessageType.text)) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'text_not_allowed',
       });
     }
     final model = _resolveModel(_string(body['model_key'], ''));
     if (model == null) {
-      return _json(request, HttpStatus.badRequest, <String, Object?>{
+      return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'model_not_configured',
       });
     }
@@ -1011,7 +996,7 @@ class WebMessagePlatformService {
       }),
     );
     if (!sent) {
-      return _json(request, HttpStatus.conflict, <String, Object?>{
+      return _json(HttpStatus.conflict, <String, Object?>{
         'error': 'send_failed',
         'message': _sessionController.lastErrorMessageForSession(session.id),
       });
@@ -1026,27 +1011,27 @@ class WebMessagePlatformService {
         'mode': conversationMode.storageValue,
       },
     );
-    return _json(request, HttpStatus.accepted, <String, Object?>{
+    return _json(HttpStatus.accepted, <String, Object?>{
       'ok': true,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
     });
   }
 
-  Future<int> _listLogs(HttpRequest request) async {
+  Future<shelf.Response> _listLogs(shelf.Request request) async {
     final offset = math.max(
       0,
-      int.tryParse(request.uri.queryParameters['offset'] ?? '') ?? 0,
+      int.tryParse(request.requestedUri.queryParameters['offset'] ?? '') ?? 0,
     );
     final limit = math.min(
       2000,
       math.max(
         1,
-        int.tryParse(request.uri.queryParameters['limit'] ?? '') ??
+        int.tryParse(request.requestedUri.queryParameters['limit'] ?? '') ??
             _config.logConfig.lazyReadPageSize,
       ),
     );
     final slice = _memoryLogs.skip(offset).take(limit).toList(growable: false);
-    return _json(request, HttpStatus.ok, <String, Object?>{
+    return _json(HttpStatus.ok, <String, Object?>{
       'items': slice.map((entry) => entry.toJson()).toList(growable: false),
       'offset': offset,
       'limit': limit,
@@ -1055,14 +1040,14 @@ class WebMessagePlatformService {
     });
   }
 
-  Future<int> _cleanupOps(HttpRequest request) async {
+  Future<shelf.Response> _cleanupOps(shelf.Request request) async {
     final body = await _readJsonBody(request);
     final target = _string(body['target'], 'all').trim().toLowerCase();
     final expiredOnly = body['expired_only'] as bool? ?? false;
     final logs = target == 'logs' || target == 'all';
     final uploads = target == 'uploads' || target == 'all';
     if (!logs && !uploads) {
-      return _json(request, HttpStatus.badRequest, <String, Object?>{
+      return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'invalid_cleanup_target',
       });
     }
@@ -1071,11 +1056,11 @@ class WebMessagePlatformService {
       uploads: uploads,
       expiredOnly: expiredOnly,
     );
-    return _json(request, HttpStatus.ok, result.toJson());
+    return _json(HttpStatus.ok, result.toJson());
   }
 
-  Future<int> _cleanupHistoryPayload(HttpRequest request) async {
-    return _json(request, HttpStatus.ok, <String, Object?>{
+  Future<shelf.Response> _cleanupHistoryPayload() async {
+    return _json(HttpStatus.ok, <String, Object?>{
       'items': _cleanupHistory.reversed
           .map((entry) => entry.toJson())
           .toList(growable: false),
@@ -1084,19 +1069,17 @@ class WebMessagePlatformService {
     });
   }
 
-  Future<int> _exportLogs(HttpRequest request) async {
-    final bytes = utf8.encode(await exportLogBundleJson());
-    request.response.statusCode = HttpStatus.ok;
-    request.response.headers.contentType = ContentType.json;
-    request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-    request.response.headers.set(
-      'content-disposition',
-      'attachment; filename="openhand-web-gateway-logs.json"',
+  Future<shelf.Response> _exportLogs() async {
+    final body = await exportLogBundleJson();
+    return shelf.Response.ok(
+      body,
+      headers: const <String, String>{
+        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.cacheControlHeader: 'no-store',
+        'content-disposition':
+            'attachment; filename="openhand-web-gateway-logs.json"',
+      },
     );
-    request.response.contentLength = bytes.length;
-    request.response.add(bytes);
-    await request.response.close();
-    return bytes.length;
   }
 
   Future<Map<String, Object?>> _logBundlePayload() async {
@@ -1108,23 +1091,23 @@ class WebMessagePlatformService {
     };
   }
 
-  Future<int> _listWorkspaceFiles(HttpRequest request) async {
+  Future<shelf.Response> _listWorkspaceFiles(shelf.Request request) async {
     if (!_config.workspaceFilesEnabled) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'workspace_files_disabled',
       });
     }
-    final relative = request.uri.queryParameters['path'] ?? '';
-    final query = (request.uri.queryParameters['q'] ?? '').trim().toLowerCase();
-    final typeFilter = (request.uri.queryParameters['type'] ?? 'all')
+    final relative = request.requestedUri.queryParameters['path'] ?? '';
+    final query = (request.requestedUri.queryParameters['q'] ?? '').trim().toLowerCase();
+    final typeFilter = (request.requestedUri.queryParameters['type'] ?? 'all')
         .trim()
         .toLowerCase();
     final extensionFilter = _workspaceExtensionsForQuery(
-      request.uri.queryParameters['extensions'],
+      request.requestedUri.queryParameters['extensions'],
     );
     final dir = _resolveWorkspacePath(relative);
     if (dir == null || !await FileSystemEntity.isDirectory(dir)) {
-      return _json(request, HttpStatus.notFound, <String, Object?>{
+      return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'directory_not_found',
       });
     }
@@ -1169,7 +1152,7 @@ class WebMessagePlatformService {
       });
       if (items.length >= 300) break;
     }
-    return _json(request, HttpStatus.ok, <String, Object?>{
+    return _json(HttpStatus.ok, <String, Object?>{
       'root': root,
       'path': _relativeWorkspacePath(dir),
       'items': items,
@@ -1181,38 +1164,38 @@ class WebMessagePlatformService {
     });
   }
 
-  Future<int> _readWorkspaceFile(HttpRequest request) async {
+  Future<shelf.Response> _readWorkspaceFile(shelf.Request request) async {
     if (!_config.workspaceFilesEnabled) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'workspace_files_disabled',
       });
     }
-    final relative = request.uri.queryParameters['path'] ?? '';
+    final relative = request.requestedUri.queryParameters['path'] ?? '';
     final filePath = _resolveWorkspacePath(relative);
     if (filePath == null || !await FileSystemEntity.isFile(filePath)) {
-      return _json(request, HttpStatus.notFound, <String, Object?>{
+      return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'file_not_found',
       });
     }
     if (!_workspaceExtensionAllowed(filePath, _workspaceAllowedExtensions())) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'file_extension_not_allowed',
       });
     }
     final stat = await File(filePath).stat();
     if (stat.size > _config.workspaceFileMaxBytes) {
-      return _json(request, HttpStatus.badRequest, <String, Object?>{
+      return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'file_too_large',
         'limit_bytes': _config.workspaceFileMaxBytes,
       });
     }
     final bytes = await File(filePath).readAsBytes();
     if (_looksBinary(bytes)) {
-      return _json(request, HttpStatus.badRequest, <String, Object?>{
+      return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'binary_file_not_supported',
       });
     }
-    return _json(request, HttpStatus.ok, <String, Object?>{
+    return _json(HttpStatus.ok, <String, Object?>{
       'path': _relativeWorkspacePath(filePath),
       'content': utf8.decode(bytes, allowMalformed: true),
       'size': stat.size,
@@ -1220,14 +1203,14 @@ class WebMessagePlatformService {
     });
   }
 
-  Future<int> _writeWorkspaceFile(HttpRequest request) async {
+  Future<shelf.Response> _writeWorkspaceFile(shelf.Request request) async {
     if (!_config.workspaceFilesEnabled) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'workspace_files_disabled',
       });
     }
     if (!_config.workspaceFileWriteEnabled) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'workspace_file_write_disabled',
       });
     }
@@ -1238,19 +1221,19 @@ class WebMessagePlatformService {
     final relative = _string(body['path'], '');
     final content = _string(body['content'], '');
     if (utf8.encode(content).length > _config.workspaceFileMaxBytes) {
-      return _json(request, HttpStatus.badRequest, <String, Object?>{
+      return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'content_too_large',
         'limit_bytes': _config.workspaceFileMaxBytes,
       });
     }
     final filePath = _resolveWorkspacePath(relative);
     if (filePath == null) {
-      return _json(request, HttpStatus.badRequest, <String, Object?>{
+      return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'path_outside_workspace',
       });
     }
     if (!_workspaceExtensionAllowed(filePath, _workspaceAllowedExtensions())) {
-      return _json(request, HttpStatus.forbidden, <String, Object?>{
+      return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'file_extension_not_allowed',
       });
     }
@@ -1262,7 +1245,7 @@ class WebMessagePlatformService {
       'path': _relativeWorkspacePath(filePath),
       'size': stat.size,
     });
-    return _json(request, HttpStatus.ok, <String, Object?>{
+    return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
       'path': _relativeWorkspacePath(filePath),
       'size': stat.size,
@@ -1270,27 +1253,27 @@ class WebMessagePlatformService {
     });
   }
 
-  _WebGatewayAuthSession? _authorize(HttpRequest request) {
+  _WebGatewayAuthSession? _authorize(shelf.Request request) {
     if (!_config.authEnabled) {
       final deviceId =
-          request.headers.value('x-openhand-device-id') ?? 'anonymous-web';
+          request.headers['x-openhand-device-id'] ?? 'anonymous-web';
       return _WebGatewayAuthSession(
         token: 'anonymous',
         source: WebGatewayLoginSource.fromStorage(
-          request.headers.value('x-openhand-source') ?? 'WEB_PC',
+          request.headers['x-openhand-source'] ?? 'WEB_PC',
         ),
         deviceId: deviceId,
-        deviceMacAddress: request.headers.value('x-openhand-device-mac') ?? '',
-        deviceName: request.headers.value('x-openhand-device-name') ?? '',
+        deviceMacAddress: request.headers['x-openhand-device-mac'] ?? '',
+        deviceName: request.headers['x-openhand-device-name'] ?? '',
         devicePlatform:
-            request.headers.value('x-openhand-device-platform') ?? '',
+            request.headers['x-openhand-device-platform'] ?? '',
         loginAt: DateTime.now().toUtc(),
-        remoteAddress: request.connectionInfo?.remoteAddress.address ?? '',
-        userAgent: request.headers.value(HttpHeaders.userAgentHeader) ?? '',
+        remoteAddress: (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)?.remoteAddress.address ?? '',
+        userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
       );
     }
     final authHeader =
-        request.headers.value(HttpHeaders.authorizationHeader) ?? '';
+        request.headers[HttpHeaders.authorizationHeader] ?? '';
     if (!authHeader.startsWith('Bearer ')) return null;
     final token = authHeader.substring('Bearer '.length).trim();
     if (token.isEmpty) return null;
@@ -1320,7 +1303,7 @@ class WebMessagePlatformService {
 
   Map<String, Object?> _metadataForRequest(
     _WebGatewayAuthSession auth,
-    HttpRequest request,
+    shelf.Request request,
     Map<String, Object?> extra,
   ) {
     return <String, Object?>{
@@ -1329,7 +1312,7 @@ class WebMessagePlatformService {
         ...extra,
         'request_id': _nextLogId,
         'request_method': request.method,
-        'request_path': request.uri.path,
+        'request_path': request.requestedUri.path,
         'captured_at': DateTime.now().toUtc().toIso8601String(),
       },
     };
@@ -1647,12 +1630,14 @@ class WebMessagePlatformService {
     return stats;
   }
 
+  /// 读取并解析 JSON 请求体；超过 [maxBytes] 抛 `FormatException`，
+  /// 由外层中间件转 500。空 body 返回 `{}`。
   Future<Map<String, Object?>> _readJsonBody(
-    HttpRequest request, {
+    shelf.Request request, {
     int maxBytes = 1024 * 1024,
   }) async {
     final chunks = <int>[];
-    await for (final chunk in request) {
+    await for (final chunk in request.read()) {
       chunks.addAll(chunk);
       if (chunks.length > maxBytes) {
         throw const FormatException('Request body is too large.');
@@ -1664,40 +1649,26 @@ class WebMessagePlatformService {
     return <String, Object?>{};
   }
 
-  Future<int> _json(
-    HttpRequest request,
-    int statusCode,
-    Map<String, Object?> payload,
-  ) async {
-    final bytes = utf8.encode(jsonEncode(payload));
-    request.response.statusCode = statusCode;
-    request.response.headers.contentType = ContentType.json;
-    request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-    request.response.contentLength = bytes.length;
-    request.response.add(bytes);
-    await request.response.close();
-    return bytes.length;
-  }
-
-  Future<int> _html(HttpRequest request, String html) async {
-    final bytes = utf8.encode(html);
-    request.response.statusCode = HttpStatus.ok;
-    request.response.headers.contentType = ContentType.html;
-    request.response.contentLength = bytes.length;
-    request.response.add(bytes);
-    await request.response.close();
-    return bytes.length;
-  }
-
-  void _applyCors(HttpResponse response) {
-    response.headers.set(HttpHeaders.accessControlAllowOriginHeader, '*');
-    response.headers.set(
-      HttpHeaders.accessControlAllowMethodsHeader,
-      'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+  /// 构造 JSON 响应。`Cache-Control: no-store` 避免浏览器/CDN 缓存敏感数据。
+  shelf.Response _json(int statusCode, Map<String, Object?> payload) {
+    final body = jsonEncode(payload);
+    return shelf.Response(
+      statusCode,
+      body: body,
+      headers: const <String, String>{
+        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.cacheControlHeader: 'no-store',
+      },
     );
-    response.headers.set(
-      HttpHeaders.accessControlAllowHeadersHeader,
-      'authorization,content-type,x-openhand-device-id,x-openhand-source,x-openhand-device-mac,x-openhand-device-name,x-openhand-device-platform',
+  }
+
+  /// 构造 HTML 响应。仅给三条 SPA 入口路由用，浏览器允许缓存。
+  shelf.Response _html(String html) {
+    return shelf.Response.ok(
+      html,
+      headers: const <String, String>{
+        HttpHeaders.contentTypeHeader: 'text/html; charset=utf-8',
+      },
     );
   }
 
