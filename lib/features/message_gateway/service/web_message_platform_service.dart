@@ -551,6 +551,14 @@ class WebMessagePlatformService {
     return encoder.convert(await _logBundlePayload());
   }
 
+  Future<String> exportCurrentLogText() async {
+    final currentFileText = await _fileLogger.readCurrentLogText();
+    if (currentFileText.trim().isNotEmpty) {
+      return currentFileText;
+    }
+    return _memoryLogs.map((entry) => entry.toLogLine()).join('\n');
+  }
+
   Future<void> _serve(HttpServer server) async {
     try {
       await for (final request in server) {
@@ -2387,6 +2395,13 @@ class _WebGatewayRotatingLogger {
       } catch (_) {}
     }
     return items;
+  }
+
+  Future<String> readCurrentLogText() async {
+    final file = File(filePath);
+    if (!await file.exists()) return '';
+    final bytes = await file.readAsBytes();
+    return utf8.decode(bytes, allowMalformed: true);
   }
 
   Future<void> _rotateIfNeeded(WebGatewayLogConfig config) async {

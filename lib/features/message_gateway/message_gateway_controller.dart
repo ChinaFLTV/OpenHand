@@ -226,6 +226,10 @@ class MessageGatewayController extends ChangeNotifier {
     return _service.exportLogBundleJson();
   }
 
+  Future<String> exportCurrentLogText() async {
+    return _service.exportCurrentLogText();
+  }
+
   void updateTheme(ThemeData theme) {
     final colorScheme = theme.colorScheme;
     _service.updateTheme(

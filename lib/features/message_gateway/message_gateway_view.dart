@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -181,10 +183,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -201,7 +200,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       height: 46,
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(18),
                       ),
                       child: Icon(
                         Icons.language_rounded,
@@ -243,32 +242,27 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   runSpacing: 8,
                   alignment: WrapAlignment.end,
                   children: [
-                    Tooltip(
-                      message: config.loggingEnabled
+                    _FeatureIconButton(
+                      tooltip: config.loggingEnabled
                           ? '查看 Web 服务日志'
                           : '开启日志后可查看日志',
-                      child: IconButton.filledTonal(
-                        onPressed: config.loggingEnabled
-                            ? () => _showLogs(context, controller)
-                            : null,
-                        icon: const Icon(Icons.terminal_rounded),
-                      ),
+                      enabled: config.loggingEnabled,
+                      icon: Icons.terminal_rounded,
+                      onPressed: () => _showLogs(context, controller),
                     ),
-                    Tooltip(
-                      message: '健康检测',
-                      child: IconButton.filledTonal(
-                        onPressed: () => _runHealth(context, controller),
-                        icon: const Icon(Icons.monitor_heart_outlined),
-                      ),
+                    _FeatureIconButton(
+                      tooltip: config.healthCheck.enabled
+                          ? '健康检测'
+                          : '开启健康检查后可使用',
+                      enabled: config.healthCheck.enabled,
+                      icon: Icons.monitor_heart_outlined,
+                      onPressed: () => _runHealth(context, controller),
                     ),
-                    Tooltip(
-                      message: config.opsEnabled ? '运维面板' : '开启运维后可查看',
-                      child: IconButton.filledTonal(
-                        onPressed: config.opsEnabled
-                            ? () => _showOps(context, controller)
-                            : null,
-                        icon: const Icon(Icons.speed_rounded),
-                      ),
+                    _FeatureIconButton(
+                      tooltip: config.opsEnabled ? '运维面板' : '开启运维后可查看',
+                      enabled: config.opsEnabled,
+                      icon: Icons.speed_rounded,
+                      onPressed: () => _showOps(context, controller),
                     ),
                     IconButton.filledTonal(
                       tooltip: '编辑配置',
@@ -374,7 +368,10 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    _MetricTile(label: '状态', value: runtime.state.name),
+                    _MetricTile(
+                      label: '状态',
+                      value: _runtimeStateLabel(context, runtime.state),
+                    ),
                     _MetricTile(
                       label: '请求数',
                       value: '${runtime.totalRequests}',
@@ -462,6 +459,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late bool _telemetryEnabled;
   late bool _loggingEnabled;
   late bool _opsEnabled;
+  late bool _healthEnabled;
   late bool _planModeEnabled;
   late bool _sessionManagementEnabled;
   late bool _workspaceFilesEnabled;
@@ -507,6 +505,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _telemetryEnabled = config.telemetryEnabled;
     _loggingEnabled = config.loggingEnabled;
     _opsEnabled = config.opsEnabled;
+    _healthEnabled = config.healthCheck.enabled;
     _planModeEnabled = config.planModeEnabled;
     _sessionManagementEnabled = config.sessionManagementEnabled;
     _workspaceFilesEnabled = config.workspaceFilesEnabled;
@@ -676,6 +675,12 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                               onChanged: (v) => setState(() => _opsEnabled = v),
                             ),
                             _SwitchTile(
+                              label: '是否开启健康检查',
+                              value: _healthEnabled,
+                              onChanged: (v) =>
+                                  setState(() => _healthEnabled = v),
+                            ),
+                            _SwitchTile(
                               label: '是否支持计划模式',
                               value: _planModeEnabled,
                               onChanged: (v) =>
@@ -757,60 +762,60 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         ],
                         const SizedBox(height: 18),
                         const _SectionTitle('安全控制'),
-                        _ChipPicker(
+                        _MultiSelectDropdown<String>(
                           label: '可新建的线程模板类型',
                           emptyMeansAll: true,
-                          options: {
+                          options: [
                             for (final t in widget.controller.templates)
-                              t.id: t.name,
-                          },
+                              _SelectOption(value: t.id, label: t.name),
+                          ],
                           selected: _templates,
                           onChanged: (next) =>
                               setState(() => _templates = next),
                         ),
-                        _ChipPicker(
+                        _MultiSelectDropdown<String>(
                           label: '可用的技能',
                           emptyMeansAll: true,
-                          options: {
+                          options: [
                             for (final name in widget.controller.skillNames)
-                              name: name,
-                          },
+                              _SelectOption(value: name, label: name),
+                          ],
                           selected: _skills,
                           onChanged: (next) => setState(() => _skills = next),
                         ),
-                        _ChipPicker(
+                        _MultiSelectDropdown<String>(
                           label: '可用的 MCP',
                           emptyMeansAll: true,
-                          options: {
+                          options: [
                             for (final name in widget.controller.mcpServerNames)
-                              name: name,
-                          },
+                              _SelectOption(value: name, label: name),
+                          ],
                           selected: _mcpServers,
                           onChanged: (next) =>
                               setState(() => _mcpServers = next),
                         ),
-                        _ChipPicker(
+                        _MultiSelectDropdown<String>(
                           label: '可用的记忆',
                           emptyMeansAll: true,
-                          options: {
+                          options: [
                             for (final id in widget.controller.memoryIds)
-                              id: id,
-                          },
+                              _SelectOption(value: id, label: id),
+                          ],
                           selected: _memories,
                           onChanged: (next) => setState(() => _memories = next),
                         ),
-                        _ChipPicker(
+                        _MultiSelectDropdown<String>(
                           label: '可用的内建工具',
                           emptyMeansAll: true,
-                          options: {
+                          options: [
                             for (final name
                                 in widget.controller.builtinToolNames)
-                              name: name,
-                          },
+                              _SelectOption(value: name, label: name),
+                          ],
                           selected: _tools,
                           onChanged: (next) => setState(() => _tools = next),
                         ),
-                        _EnumChipPicker<WebGatewayMessageType>(
+                        _EnumMultiSelectDropdown<WebGatewayMessageType>(
                           label: '可发送的消息类型',
                           values: WebGatewayMessageType.values,
                           selected: _messageTypes,
@@ -819,20 +824,17 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           onChanged: (next) =>
                               setState(() => _messageTypes = next),
                         ),
-                        _EnumChipPicker<WebGatewayConversationMode>(
+                        _EnumMultiSelectDropdown<WebGatewayConversationMode>(
                           label: '可使用的对话模式',
                           values: WebGatewayConversationMode.values,
                           selected: _modes,
                           labelFor: _modeLabel,
                           onChanged: (next) => setState(() => _modes = next),
                         ),
-                        _ChipPicker(
+                        _ModelMultiSelectField(
                           label: '可使用的模型',
                           emptyMeansAll: true,
-                          options: {
-                            for (final option in widget.controller.modelOptions)
-                              option.key: option.label,
-                          },
+                          options: widget.controller.modelOptions,
                           selected: _models,
                           onChanged: (next) => setState(() => _models = next),
                         ),
@@ -1007,6 +1009,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
           1024 *
           1024,
       healthCheck: WebGatewayHealthCheckConfig(
+        enabled: _healthEnabled,
         path: _healthPathController.text.trim().isEmpty
             ? '/api/health'
             : _healthPathController.text.trim(),
@@ -1051,13 +1054,24 @@ class _WebGatewayLogDialog extends StatefulWidget {
 
 class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final Set<WebGatewayLogLevel> _hidden = <WebGatewayLogLevel>{};
+  final List<WebGatewayLogEntry> _rendered = <WebGatewayLogEntry>[];
   bool _follow = true;
-  int _limit = 300;
+  int _anchorLogId = 0;
+  int _historyLimit = 0;
+  int _lastPageSize = 60;
+  String _renderedSignature = '';
+  String _pendingRenderedSignature = '';
+  List<WebGatewayLogEntry> _pendingRenderedTarget =
+      const <WebGatewayLogEntry>[];
+  bool _syncScheduled = false;
 
   @override
   void initState() {
     super.initState();
+    final logs = widget.controller.logs;
+    _anchorLogId = logs.isEmpty ? 0 : logs.last.id;
     widget.controller.addListener(_onControllerChanged);
   }
 
@@ -1071,26 +1085,21 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   void _onControllerChanged() {
     if (!mounted) return;
     setState(() {});
-    if (_follow) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!_scrollController.hasClients) return;
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-        );
-      });
-    }
+    if (_follow) _scrollToBottomSoon();
   }
 
   @override
   Widget build(BuildContext context) {
     final logs = widget.controller.logs;
-    final visible = logs
-        .skip(math.max(0, logs.length - _limit))
-        .where((entry) => !_hidden.contains(entry.level))
-        .toList(growable: false);
     final mediaSize = MediaQuery.sizeOf(context);
+    _lastPageSize = _logPageSize(mediaSize.height);
+    final visible = _visibleLogs(logs);
+    final historicalCount = logs
+        .where(
+          (entry) => entry.id <= _anchorLogId && !_hidden.contains(entry.level),
+        )
+        .length;
+    _scheduleRenderedSync(visible);
     return Dialog(
       insetPadding: const EdgeInsets.all(18),
       child: ConstrainedBox(
@@ -1113,34 +1122,48 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
-                  IconButton(
-                    tooltip: '加载更多',
-                    onPressed: () => setState(() => _limit += 300),
-                    icon: const Icon(Icons.unfold_more_rounded),
-                  ),
-                  IconButton(
-                    tooltip: _follow ? '取消跟随' : '跟随日志',
-                    onPressed: () => setState(() => _follow = !_follow),
-                    icon: Icon(
-                      _follow
-                          ? Icons.vertical_align_bottom_rounded
-                          : Icons.vertical_align_center_rounded,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '保存日志到剪贴板',
-                    onPressed: () => _copyLogs(visible),
-                    icon: const Icon(Icons.save_alt_rounded),
-                  ),
-                  IconButton(
-                    tooltip: '导出日志包到剪贴板',
-                    onPressed: _copyLogBundle,
-                    icon: const Icon(Icons.archive_outlined),
-                  ),
-                  IconButton(
-                    tooltip: '关闭',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      IconButton(
+                        tooltip: '加载历史更多',
+                        onPressed: historicalCount > _historyLimit
+                            ? () =>
+                                  setState(() => _historyLimit += _lastPageSize)
+                            : null,
+                        icon: const Icon(Icons.history_rounded),
+                      ),
+                      IconButton(
+                        tooltip: '加载最新日志',
+                        onPressed: _loadLatestLogs,
+                        icon: const Icon(Icons.new_releases_outlined),
+                      ),
+                      IconButton(
+                        tooltip: _follow ? '取消跟随' : '跟随日志',
+                        onPressed: () => setState(() => _follow = !_follow),
+                        icon: Icon(
+                          _follow
+                              ? Icons.vertical_align_bottom_rounded
+                              : Icons.vertical_align_center_rounded,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '保存日志到剪贴板',
+                        onPressed: () => _copyLogs(visible),
+                        icon: const Icon(Icons.content_copy_rounded),
+                      ),
+                      IconButton(
+                        tooltip: '导出当前日志',
+                        onPressed: _exportCurrentLog,
+                        icon: const Icon(Icons.save_alt_rounded),
+                      ),
+                      IconButton(
+                        tooltip: '关闭',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1177,12 +1200,16 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                 child: Scrollbar(
                   controller: _scrollController,
                   thumbVisibility: true,
-                  child: ListView.builder(
+                  child: AnimatedList(
+                    key: _listKey,
+                    initialItemCount: _rendered.length,
                     controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
-                    itemCount: visible.length,
-                    itemBuilder: (context, index) =>
-                        _LogLine(entry: visible[index]),
+                    itemBuilder: (context, index, animation) =>
+                        _AnimatedLogLine(
+                          entry: _rendered[index],
+                          animation: animation,
+                        ),
                   ),
                 ),
               ),
@@ -1191,6 +1218,100 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         ),
       ),
     );
+  }
+
+  List<WebGatewayLogEntry> _visibleLogs(List<WebGatewayLogEntry> logs) {
+    final historical = logs
+        .where(
+          (entry) => entry.id <= _anchorLogId && !_hidden.contains(entry.level),
+        )
+        .toList(growable: false);
+    final live = logs
+        .where(
+          (entry) => entry.id > _anchorLogId && !_hidden.contains(entry.level),
+        )
+        .toList(growable: false);
+    final start = math.max(0, historical.length - _historyLimit);
+    return <WebGatewayLogEntry>[
+      if (_historyLimit > 0) ...historical.skip(start),
+      ...live,
+    ];
+  }
+
+  void _scheduleRenderedSync(List<WebGatewayLogEntry> target) {
+    final signature = target.map((entry) => entry.id).join(',');
+    if (signature == _renderedSignature && !_syncScheduled) return;
+    _pendingRenderedTarget = List<WebGatewayLogEntry>.from(target);
+    _pendingRenderedSignature = signature;
+    if (_syncScheduled) return;
+    _syncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncScheduled = false;
+      _renderedSignature = _pendingRenderedSignature;
+      _syncRendered(_pendingRenderedTarget);
+      if (_follow) _scrollToBottomSoon();
+    });
+  }
+
+  void _syncRendered(List<WebGatewayLogEntry> target) {
+    final listState = _listKey.currentState;
+    if (listState == null) {
+      setState(() {
+        _rendered
+          ..clear()
+          ..addAll(target);
+      });
+      return;
+    }
+    final targetIds = target.map((entry) => entry.id).toSet();
+    for (var index = _rendered.length - 1; index >= 0; index--) {
+      final entry = _rendered[index];
+      if (!targetIds.contains(entry.id)) {
+        _rendered.removeAt(index);
+        listState.removeItem(
+          index,
+          (context, animation) => _AnimatedLogLine(
+            entry: entry,
+            animation: animation,
+            removing: true,
+          ),
+          duration: _motionDuration(context, 220),
+        );
+      }
+    }
+    final renderedIds = _rendered.map((entry) => entry.id).toSet();
+    for (var targetIndex = 0; targetIndex < target.length; targetIndex++) {
+      final entry = target[targetIndex];
+      if (renderedIds.contains(entry.id)) continue;
+      final insertIndex = math.min(targetIndex, _rendered.length);
+      _rendered.insert(insertIndex, entry);
+      renderedIds.add(entry.id);
+      listState.insertItem(
+        insertIndex,
+        duration: _motionDuration(context, 280),
+      );
+    }
+  }
+
+  void _loadLatestLogs() {
+    final logs = widget.controller.logs;
+    setState(() {
+      _anchorLogId = logs.isEmpty ? 0 : logs.last.id;
+      _historyLimit = _lastPageSize;
+    });
+    _scrollToBottomSoon();
+  }
+
+  void _scrollToBottomSoon() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: _motionDuration(context, 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   Future<void> _copyLogs(List<WebGatewayLogEntry> logs) async {
@@ -1203,13 +1324,32 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
     ).showSnackBar(const SnackBar(content: Text('日志已保存到剪贴板')));
   }
 
-  Future<void> _copyLogBundle() async {
-    final bundle = await widget.controller.exportLogBundleJson();
-    await Clipboard.setData(ClipboardData(text: bundle));
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('日志包已保存到剪贴板')));
+  Future<void> _exportCurrentLog() async {
+    final stamp = DateTime.now()
+        .toLocal()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    try {
+      final location = await getSaveLocation(
+        suggestedName: 'openhand-web-gateway-current-$stamp.log',
+        acceptedTypeGroups: const [
+          XTypeGroup(label: 'Log', extensions: ['log', 'txt', 'jsonl']),
+        ],
+      );
+      if (location == null) return;
+      final text = await widget.controller.exportCurrentLogText();
+      await File(location.path).writeAsString(text);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('当前日志已导出到 ${location.path}')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('当前日志导出失败: $error')));
+    }
   }
 }
 
@@ -1258,6 +1398,10 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
     final cleanupHistory = widget.controller.cleanupHistory.reversed
         .take(6)
         .toList(growable: false);
+    final isRunning = widget.controller.isRunning;
+    final isTransitioning =
+        snapshot.state == WebGatewayRuntimeState.starting ||
+        snapshot.state == WebGatewayRuntimeState.stopping;
     final mediaSize = MediaQuery.sizeOf(context);
     return Dialog(
       insetPadding: const EdgeInsets.all(18),
@@ -1300,12 +1444,16 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                       runSpacing: 8,
                       children: [
                         FilledButton.tonalIcon(
-                          onPressed: widget.controller.startService,
+                          onPressed: isRunning || isTransitioning
+                              ? null
+                              : widget.controller.startService,
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: const Text('开启'),
                         ),
                         FilledButton.tonalIcon(
-                          onPressed: widget.controller.stopService,
+                          onPressed: !isRunning || isTransitioning
+                              ? null
+                              : widget.controller.stopService,
                           icon: const Icon(Icons.stop_rounded),
                           label: const Text('关机'),
                         ),
@@ -1380,7 +1528,10 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                           children: [
                             _MetricTile(
                               label: '运行状态',
-                              value: snapshot.state.name,
+                              value: _runtimeStateLabel(
+                                context,
+                                snapshot.state,
+                              ),
                             ),
                             _MetricTile(
                               label: '运行时间',
@@ -1449,10 +1600,75 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                     ),
                     const SizedBox(height: 18),
                     const _SectionTitle('吞吐趋势'),
-                    _TrendStrip(
-                      values: _trend
-                          .map((snapshot) => snapshot.totalRequests)
-                          .toList(growable: false),
+                    _TrendLineChart(
+                      title: '请求/秒',
+                      values: _deltaSeries(
+                        _trend,
+                        (snapshot) => snapshot.totalRequests.toDouble(),
+                      ),
+                      valueFormatter: (value) => value.toStringAsFixed(0),
+                    ),
+                    const SizedBox(height: 18),
+                    const _SectionTitle('资源趋势'),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth < 720 ? 1 : 2;
+                        return GridView.count(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: columns == 1 ? 2.35 : 1.85,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _TrendLineChart(
+                              title: 'CPU %',
+                              values: _series(
+                                _trend,
+                                (snapshot) => snapshot.cpuPercent,
+                              ),
+                              valueFormatter: (value) =>
+                                  '${value.toStringAsFixed(1)}%',
+                            ),
+                            _TrendLineChart(
+                              title: '内存 RSS',
+                              values: _series(
+                                _trend,
+                                (snapshot) =>
+                                    snapshot.currentRssBytes.toDouble(),
+                              ),
+                              valueFormatter: (value) => _bytes(value.round()),
+                            ),
+                            _TrendLineChart(
+                              title: '日志磁盘',
+                              values: _series(
+                                _trend,
+                                (snapshot) => snapshot.logBytes.toDouble(),
+                              ),
+                              valueFormatter: (value) => _bytes(value.round()),
+                            ),
+                            _TrendLineChart(
+                              title: '线程数',
+                              values: _series(
+                                _trend,
+                                (snapshot) => snapshot.threadCount?.toDouble(),
+                              ),
+                              valueFormatter: (value) =>
+                                  value.toStringAsFixed(0),
+                            ),
+                            _TrendLineChart(
+                              title: '会话数',
+                              values: _series(
+                                _trend,
+                                (snapshot) =>
+                                    snapshot.openSessionCount.toDouble(),
+                              ),
+                              valueFormatter: (value) =>
+                                  value.toStringAsFixed(0),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     if (cleanupHistory.isNotEmpty) ...[
                       const SizedBox(height: 18),
@@ -1482,7 +1698,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
     required String label,
     required Future<WebGatewayCleanupResult> Function() action,
   }) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
@@ -1551,10 +1767,7 @@ class _GatewayStateCard extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 560),
         child: Card(
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(8),
-          ),
+          clipBehavior: Clip.antiAlias,
           child: Padding(
             padding: const EdgeInsets.all(22),
             child: Row(
@@ -1590,6 +1803,38 @@ class _StatusDot extends StatelessWidget {
     height: 10,
     decoration: BoxDecoration(color: color, shape: BoxShape.circle),
   );
+}
+
+class _FeatureIconButton extends StatelessWidget {
+  const _FeatureIconButton({
+    required this.tooltip,
+    required this.enabled,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final bool enabled;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: IconButton.filledTonal(
+        style: IconButton.styleFrom(
+          disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest
+              .withValues(alpha: .42),
+          disabledForegroundColor: theme.colorScheme.onSurfaceVariant
+              .withValues(alpha: .45),
+        ),
+        onPressed: enabled ? onPressed : null,
+        icon: Icon(icon),
+      ),
+    );
+  }
 }
 
 class _InfoChip extends StatelessWidget {
@@ -1755,106 +2000,450 @@ class _ResponsiveFields extends StatelessWidget {
   );
 }
 
-class _ChipPicker extends StatelessWidget {
-  const _ChipPicker({
+class _SelectOption<T> {
+  const _SelectOption({required this.value, required this.label});
+  final T value;
+  final String label;
+}
+
+class _MultiSelectDropdown<T> extends StatefulWidget {
+  const _MultiSelectDropdown({
     required this.label,
     required this.options,
     required this.selected,
     required this.onChanged,
     this.emptyMeansAll = false,
   });
+
   final String label;
-  final Map<String, String> options;
-  final Set<String> selected;
-  final ValueChanged<Set<String>> onChanged;
+  final List<_SelectOption<T>> options;
+  final Set<T> selected;
+  final ValueChanged<Set<T>> onChanged;
   final bool emptyMeansAll;
+
+  @override
+  State<_MultiSelectDropdown<T>> createState() =>
+      _MultiSelectDropdownState<T>();
+}
+
+class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
+  final MenuController _menuController = MenuController();
+
   @override
   Widget build(BuildContext context) {
-    if (options.isEmpty) return const SizedBox.shrink();
+    if (widget.options.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            emptyMeansAll && selected.isEmpty ? '$label（空=全部）' : label,
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: options.entries
-                .map((entry) {
-                  final isSelected = selected.contains(entry.key);
-                  return FilterChip(
-                    label: Text(entry.value),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      final next = Set<String>.from(selected);
-                      if (isSelected) {
-                        next.remove(entry.key);
-                      } else {
-                        next.add(entry.key);
-                      }
-                      onChanged(next);
-                    },
-                  );
-                })
-                .toList(growable: false),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: MenuAnchor(
+        controller: _menuController,
+        alignmentOffset: const Offset(0, 8),
+        menuChildren: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420, maxHeight: 360),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                    child: Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => widget.onChanged(
+                            widget.emptyMeansAll
+                                ? <T>{}
+                                : widget.options
+                                      .map((option) => option.value)
+                                      .toSet(),
+                          ),
+                          icon: const Icon(Icons.done_all_rounded, size: 18),
+                          label: Text(widget.emptyMeansAll ? '全部' : '全选'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: () {
+                            if (widget.emptyMeansAll) {
+                              widget.onChanged(<T>{});
+                              return;
+                            }
+                            if (widget.selected.length > 1) {
+                              widget.onChanged({widget.selected.first});
+                            }
+                          },
+                          icon: const Icon(Icons.clear_all_rounded, size: 18),
+                          label: Text(widget.emptyMeansAll ? '清空限制' : '保留一项'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  for (final option in widget.options)
+                    CheckboxListTile(
+                      dense: true,
+                      value: widget.emptyMeansAll && widget.selected.isEmpty
+                          ? true
+                          : widget.selected.contains(option.value),
+                      onChanged: (_) => _toggle(option.value),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(
+                        option.label,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ],
+        builder: (context, controller, child) {
+          final open = controller.isOpen;
+          return InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => open ? controller.close() : controller.open(),
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: widget.emptyMeansAll
+                    ? '${widget.label}（空=全部）'
+                    : widget.label,
+                border: const OutlineInputBorder(),
+                suffixIcon: Icon(
+                  open
+                      ? Icons.arrow_drop_up_rounded
+                      : Icons.arrow_drop_down_rounded,
+                ),
+              ),
+              child: Text(
+                _summary(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
+
+  void _toggle(T value) {
+    final next = Set<T>.from(widget.selected);
+    if (next.contains(value)) {
+      next.remove(value);
+    } else {
+      next.add(value);
+    }
+    if (!widget.emptyMeansAll && next.isEmpty) return;
+    widget.onChanged(next);
+  }
+
+  String _summary() {
+    if (widget.emptyMeansAll && widget.selected.isEmpty) return '全部可用';
+    if (widget.selected.isEmpty) return '未选择';
+    final labels = widget.options
+        .where((option) => widget.selected.contains(option.value))
+        .map((option) => option.label)
+        .toList(growable: false);
+    if (labels.length <= 2) return labels.join('、');
+    return '${labels.take(2).join('、')} 等 ${labels.length} 项';
+  }
 }
 
-class _EnumChipPicker<T> extends StatelessWidget {
-  const _EnumChipPicker({
+class _EnumMultiSelectDropdown<T> extends StatelessWidget {
+  const _EnumMultiSelectDropdown({
     required this.label,
     required this.values,
     required this.selected,
     required this.labelFor,
     required this.onChanged,
   });
+
   final String label;
   final List<T> values;
   final Set<T> selected;
   final String Function(T value) labelFor;
   final ValueChanged<Set<T>> onChanged;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: values
-              .map((value) {
-                final isSelected = selected.contains(value);
-                return FilterChip(
-                  label: Text(labelFor(value)),
-                  selected: isSelected,
-                  onSelected: (_) {
-                    final next = Set<T>.from(selected);
-                    if (isSelected) {
-                      next.remove(value);
-                    } else {
-                      next.add(value);
-                    }
-                    if (next.isNotEmpty) onChanged(next);
-                  },
-                );
-              })
-              .toList(growable: false),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => _MultiSelectDropdown<T>(
+    label: label,
+    options: values
+        .map((value) => _SelectOption<T>(value: value, label: labelFor(value)))
+        .toList(growable: false),
+    selected: selected,
+    onChanged: onChanged,
   );
+}
+
+class _ModelMultiSelectField extends StatelessWidget {
+  const _ModelMultiSelectField({
+    required this.label,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+    this.emptyMeansAll = false,
+  });
+
+  final String label;
+  final List<WebGatewayModelOption> options;
+  final Set<String> selected;
+  final ValueChanged<Set<String>> onChanged;
+  final bool emptyMeansAll;
+
+  @override
+  Widget build(BuildContext context) {
+    if (options.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () async {
+          final result = await showAnimatedDialog<Set<String>>(
+            context: context,
+            builder: (_) => _ModelMultiSelectDialog(
+              options: options,
+              selected: selected,
+              emptyMeansAll: emptyMeansAll,
+            ),
+          );
+          if (result != null) onChanged(result);
+        },
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: emptyMeansAll ? '$label（空=全部）' : label,
+            border: const OutlineInputBorder(),
+            suffixIcon: const Icon(Icons.manage_search_rounded),
+          ),
+          child: Text(
+            _modelSummary(options, selected, emptyMeansAll),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModelMultiSelectDialog extends StatefulWidget {
+  const _ModelMultiSelectDialog({
+    required this.options,
+    required this.selected,
+    required this.emptyMeansAll,
+  });
+
+  final List<WebGatewayModelOption> options;
+  final Set<String> selected;
+  final bool emptyMeansAll;
+
+  @override
+  State<_ModelMultiSelectDialog> createState() =>
+      _ModelMultiSelectDialogState();
+}
+
+class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  late Set<String> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<String>.from(widget.selected);
+    _searchController.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final query = _searchController.text.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? widget.options
+        : widget.options
+              .where((option) => option.label.toLowerCase().contains(query))
+              .toList(growable: false);
+    final grouped = <String, List<WebGatewayModelOption>>{};
+    for (final option in filtered) {
+      final providerLabel = option.label.split(' / ').first;
+      (grouped[providerLabel] ??= <WebGatewayModelOption>[]).add(option);
+    }
+    return Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 620),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 12, 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.hub_outlined),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('选择可用模型', style: theme.textTheme.titleMedium),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() => _selected = <String>{}),
+                    child: Text(widget.emptyMeansAll ? '全部' : '清空'),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: '搜索模型',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  suffixIcon: _searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '清空搜索',
+                          onPressed: _searchController.clear,
+                          icon: const Icon(Icons.clear_rounded),
+                        ),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const Center(child: Text('没有匹配的模型'))
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      children: [
+                        for (final entry in grouped.entries) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
+                            child: Text(
+                              entry.key,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          for (final option in entry.value)
+                            CheckboxListTile(
+                              dense: true,
+                              value: widget.emptyMeansAll && _selected.isEmpty
+                                  ? true
+                                  : _selected.contains(option.key),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: Text(
+                                option.modelId,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                option.providerId,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              onChanged: (_) => _toggle(option.key),
+                            ),
+                        ],
+                      ],
+                    ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _modelSummary(
+                        widget.options,
+                        _selected,
+                        widget.emptyMeansAll,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  OpenHandDialogActionButton.primary(
+                    label: '完成',
+                    onPressed: () => Navigator.of(context).pop(_selected),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggle(String key) {
+    setState(() {
+      if (_selected.contains(key)) {
+        _selected.remove(key);
+      } else {
+        _selected.add(key);
+      }
+    });
+  }
+}
+
+class _AnimatedLogLine extends StatelessWidget {
+  const _AnimatedLogLine({
+    required this.entry,
+    required this.animation,
+    this.removing = false,
+  });
+
+  final WebGatewayLogEntry entry;
+  final Animation<double> animation;
+  final bool removing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return _LogLine(entry: entry);
+    }
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: removing ? Curves.easeInCubic : Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return SizeTransition(
+      sizeFactor: animation,
+      axisAlignment: -1,
+      child: FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, .18),
+            end: Offset.zero,
+          ).animate(curved),
+          child: _LogLine(entry: entry),
+        ),
+      ),
+    );
+  }
 }
 
 class _LogLine extends StatelessWidget {
@@ -1936,37 +2525,229 @@ class _CleanupHistoryLine extends StatelessWidget {
   }
 }
 
-class _TrendStrip extends StatelessWidget {
-  const _TrendStrip({required this.values});
-  final List<int> values;
+class _TrendLineChart extends StatelessWidget {
+  const _TrendLineChart({
+    required this.title,
+    required this.values,
+    required this.valueFormatter,
+  });
+
+  final String title;
+  final List<double> values;
+  final String Function(double value) valueFormatter;
+
   @override
   Widget build(BuildContext context) {
-    final maxValue = values.isEmpty ? 1 : math.max(1, values.reduce(math.max));
-    return SizedBox(
-      height: 72,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: values
-            .map((value) {
-              final h = 8 + 58 * (value / maxValue);
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 1),
-                  child: Container(
-                    height: h,
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: .72),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final minValue = values.isEmpty ? 0.0 : values.reduce(math.min);
+    final maxValue = values.isEmpty
+        ? 1.0
+        : math.max(minValue + 1, values.reduce(math.max));
+    return RepaintBoundary(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: .42),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge,
                   ),
                 ),
-              );
-            })
-            .toList(growable: false),
+                Text(
+                  values.isEmpty ? '暂无数据' : valueFormatter(values.last),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 112,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: 1),
+                duration: _motionDuration(context, 420),
+                curve: Curves.easeOutCubic,
+                builder: (context, progress, child) => CustomPaint(
+                  painter: _TrendLinePainter(
+                    values: values,
+                    minValue: minValue,
+                    maxValue: maxValue,
+                    progress: progress,
+                    lineColor: colorScheme.primary,
+                    gridColor: colorScheme.outlineVariant.withValues(
+                      alpha: .72,
+                    ),
+                    labelColor: colorScheme.onSurfaceVariant,
+                    valueFormatter: valueFormatter,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+}
+
+class _TrendLinePainter extends CustomPainter {
+  const _TrendLinePainter({
+    required this.values,
+    required this.minValue,
+    required this.maxValue,
+    required this.progress,
+    required this.lineColor,
+    required this.gridColor,
+    required this.labelColor,
+    required this.valueFormatter,
+  });
+
+  final List<double> values;
+  final double minValue;
+  final double maxValue;
+  final double progress;
+  final Color lineColor;
+  final Color gridColor;
+  final Color labelColor;
+  final String Function(double value) valueFormatter;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const left = 50.0;
+    const right = 8.0;
+    const top = 8.0;
+    const bottom = 24.0;
+    final chart = Rect.fromLTWH(
+      left,
+      top,
+      math.max(1, size.width - left - right),
+      math.max(1, size.height - top - bottom),
+    );
+    final axisPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 3; i++) {
+      final y = chart.top + chart.height * i / 3;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), axisPaint);
+    }
+    canvas.drawLine(
+      Offset(chart.left, chart.top),
+      Offset(chart.left, chart.bottom),
+      axisPaint,
+    );
+    canvas.drawLine(
+      Offset(chart.left, chart.bottom),
+      Offset(chart.right, chart.bottom),
+      axisPaint,
+    );
+    _paintLabel(canvas, valueFormatter(maxValue), Offset(0, chart.top - 2));
+    _paintLabel(canvas, valueFormatter(minValue), Offset(0, chart.bottom - 14));
+    _paintLabel(
+      canvas,
+      '0',
+      Offset(chart.left - 3, chart.bottom + 5),
+      alignRight: false,
+    );
+    _paintLabel(
+      canvas,
+      '${math.max(0, values.length - 1)}',
+      Offset(chart.right - 16, chart.bottom + 5),
+      alignRight: false,
+    );
+    if (values.length < 2) return;
+    final span = math.max(1.0, maxValue - minValue);
+    final points = <Offset>[];
+    for (var i = 0; i < values.length; i++) {
+      final x = chart.left + chart.width * i / (values.length - 1);
+      final normalized = ((values[i] - minValue) / span).clamp(0.0, 1.0);
+      final y = chart.bottom - chart.height * normalized;
+      points.add(Offset(x, y));
+    }
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      final previous = points[i - 1];
+      final point = points[i];
+      final mid = Offset(
+        (previous.dx + point.dx) / 2,
+        (previous.dy + point.dy) / 2,
+      );
+      path.quadraticBezierTo(previous.dx, previous.dy, mid.dx, mid.dy);
+    }
+    path.lineTo(points.last.dx, points.last.dy);
+    final metric = path.computeMetrics().isEmpty
+        ? null
+        : path.computeMetrics().first;
+    final visiblePath = metric == null
+        ? path
+        : metric.extractPath(0, metric.length * progress.clamp(0.0, 1.0));
+    final fillPath = Path.from(visiblePath)
+      ..lineTo(points.last.dx, chart.bottom)
+      ..lineTo(points.first.dx, chart.bottom)
+      ..close();
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            lineColor.withValues(alpha: .20),
+            lineColor.withValues(alpha: .02),
+          ],
+        ).createShader(chart),
+    );
+    canvas.drawPath(
+      visiblePath,
+      Paint()
+        ..color = lineColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  void _paintLabel(
+    Canvas canvas,
+    String text,
+    Offset offset, {
+    bool alignRight = true,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(color: labelColor, fontSize: 10),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: 48);
+    final dx = alignRight ? 46 - painter.width : offset.dx;
+    painter.paint(canvas, Offset(dx, offset.dy));
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrendLinePainter oldDelegate) {
+    return oldDelegate.values != values ||
+        oldDelegate.progress != progress ||
+        oldDelegate.minValue != minValue ||
+        oldDelegate.maxValue != maxValue ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.labelColor != labelColor;
   }
 }
 
@@ -1978,6 +2759,77 @@ String _modeLabel(WebGatewayConversationMode mode) {
     WebGatewayConversationMode.audio => '生成音频',
     WebGatewayConversationMode.deepResearch => '深度研究',
   };
+}
+
+String _modelSummary(
+  List<WebGatewayModelOption> options,
+  Set<String> selected,
+  bool emptyMeansAll,
+) {
+  if (emptyMeansAll && selected.isEmpty) return '全部模型可用';
+  if (selected.isEmpty) return '未选择模型';
+  final labels = options
+      .where((option) => selected.contains(option.key))
+      .map((option) => option.label)
+      .toList(growable: false);
+  if (labels.length <= 2) return labels.join('、');
+  return '${labels.take(2).join('、')} 等 ${labels.length} 个模型';
+}
+
+String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
+  final isZh = Localizations.localeOf(context).languageCode == 'zh';
+  if (!isZh) {
+    return switch (state) {
+      WebGatewayRuntimeState.stopped => 'Stopped',
+      WebGatewayRuntimeState.starting => 'Starting',
+      WebGatewayRuntimeState.running => 'Running',
+      WebGatewayRuntimeState.stopping => 'Stopping',
+      WebGatewayRuntimeState.crashed => 'Crashed',
+    };
+  }
+  return switch (state) {
+    WebGatewayRuntimeState.stopped => '已停止',
+    WebGatewayRuntimeState.starting => '启动中',
+    WebGatewayRuntimeState.running => '运行中',
+    WebGatewayRuntimeState.stopping => '停止中',
+    WebGatewayRuntimeState.crashed => '已崩溃',
+  };
+}
+
+Duration _motionDuration(BuildContext context, int milliseconds) {
+  return MediaQuery.disableAnimationsOf(context)
+      ? Duration.zero
+      : Duration(milliseconds: milliseconds);
+}
+
+List<double> _series(
+  List<WebGatewayRuntimeSnapshot> snapshots,
+  double? Function(WebGatewayRuntimeSnapshot snapshot) pick,
+) {
+  return snapshots
+      .map(pick)
+      .whereType<double>()
+      .map((value) => value.isFinite ? value : 0.0)
+      .toList(growable: false);
+}
+
+List<double> _deltaSeries(
+  List<WebGatewayRuntimeSnapshot> snapshots,
+  double Function(WebGatewayRuntimeSnapshot snapshot) pick,
+) {
+  if (snapshots.length < 2) return const <double>[];
+  final values = <double>[];
+  for (var index = 1; index < snapshots.length; index++) {
+    values.add(
+      math.max(0, pick(snapshots[index]) - pick(snapshots[index - 1])),
+    );
+  }
+  return values;
+}
+
+int _logPageSize(double dialogHeight) {
+  final available = math.max(160.0, dialogHeight - 190);
+  return math.max(24, (available / 22).floor());
 }
 
 String _formatQueryParameters(Map<String, String> value) {
