@@ -1,0 +1,1976 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
+
+import 'package:path/path.dart' as p;
+
+import '../../../app/model/app_info.dart';
+import '../../../app/state/settings_controller.dart';
+import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
+import '../../ai/ai_session_controller.dart';
+import '../../ai/model/ai_creation_mode.dart';
+import '../../ai/model/ai_model_config.dart';
+import '../../ai/model/ai_session.dart';
+import '../../ai/model/ai_session_message.dart';
+import '../../ai/model/ai_session_runtime_context.dart';
+import '../../ai/model/ai_thread_template.dart';
+import '../../instructions/instructions_controller.dart';
+import '../../mcp/mcp_controller.dart';
+import '../../mcp/model/mcp_tool.dart';
+import '../../memory/memory_controller.dart';
+import '../../skills/skills_controller.dart';
+import '../model/web_message_platform_config.dart';
+
+class WebGatewayThemeSnapshot {
+  const WebGatewayThemeSnapshot({
+    this.primary = '#6750A4',
+    this.onPrimary = '#FFFFFF',
+    this.surface = '#FFFBFE',
+    this.surfaceContainer = '#F3EDF7',
+    this.onSurface = '#1D1B20',
+    this.onSurfaceVariant = '#49454F',
+    this.outline = '#CAC4D0',
+    this.error = '#B3261E',
+    this.brightness = 'light',
+  });
+
+  final String primary;
+  final String onPrimary;
+  final String surface;
+  final String surfaceContainer;
+  final String onSurface;
+  final String onSurfaceVariant;
+  final String outline;
+  final String error;
+  final String brightness;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'primary': primary,
+      'on_primary': onPrimary,
+      'surface': surface,
+      'surface_container': surfaceContainer,
+      'on_surface': onSurface,
+      'on_surface_variant': onSurfaceVariant,
+      'outline': outline,
+      'error': error,
+      'brightness': brightness,
+    };
+  }
+}
+
+enum WebGatewayRuntimeState { stopped, starting, running, stopping, crashed }
+
+enum WebGatewayLogLevel { info, success, warn, error, debug, telemetry }
+
+class WebGatewayLogEntry {
+  const WebGatewayLogEntry({
+    required this.id,
+    required this.timestamp,
+    required this.level,
+    required this.tag,
+    required this.message,
+    this.data = const <String, Object?>{},
+  });
+
+  final int id;
+  final DateTime timestamp;
+  final WebGatewayLogLevel level;
+  final String tag;
+  final String message;
+  final Map<String, Object?> data;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'timestamp': timestamp.toUtc().toIso8601String(),
+      'level': level.name,
+      'tag': tag,
+      'message': message,
+      if (data.isNotEmpty) 'data': data,
+    };
+  }
+
+  String toLogLine() => jsonEncode(toJson());
+}
+
+class WebGatewayHealthResult {
+  const WebGatewayHealthResult({
+    required this.ok,
+    required this.statusCode,
+    required this.durationMs,
+    required this.summary,
+    this.bodyPreview = '',
+  });
+
+  final bool ok;
+  final int statusCode;
+  final int durationMs;
+  final String summary;
+  final String bodyPreview;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'ok': ok,
+      'status_code': statusCode,
+      'duration_ms': durationMs,
+      'summary': summary,
+      'body_preview': bodyPreview,
+    };
+  }
+}
+
+class WebGatewayRuntimeSnapshot {
+  const WebGatewayRuntimeSnapshot({
+    required this.state,
+    required this.startedAt,
+    required this.uptimeMs,
+    required this.boundUrl,
+    required this.activeRequests,
+    required this.totalRequests,
+    required this.totalErrors,
+    required this.totalBytesIn,
+    required this.totalBytesOut,
+    required this.crashCount,
+    required this.restartCount,
+    required this.currentRssBytes,
+    required this.maxRssBytes,
+    required this.cpuPercent,
+    required this.threadCount,
+    required this.fileHandleCount,
+    required this.swapBytes,
+    required this.logBytes,
+    required this.openSessionCount,
+    required this.lastError,
+  });
+
+  final WebGatewayRuntimeState state;
+  final DateTime? startedAt;
+  final int uptimeMs;
+  final String boundUrl;
+  final int activeRequests;
+  final int totalRequests;
+  final int totalErrors;
+  final int totalBytesIn;
+  final int totalBytesOut;
+  final int crashCount;
+  final int restartCount;
+  final int currentRssBytes;
+  final int maxRssBytes;
+  final double? cpuPercent;
+  final int? threadCount;
+  final int? fileHandleCount;
+  final int? swapBytes;
+  final int logBytes;
+  final int openSessionCount;
+  final String lastError;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'state': state.name,
+      'started_at': startedAt?.toUtc().toIso8601String(),
+      'uptime_ms': uptimeMs,
+      'bound_url': boundUrl,
+      'active_requests': activeRequests,
+      'total_requests': totalRequests,
+      'total_errors': totalErrors,
+      'total_bytes_in': totalBytesIn,
+      'total_bytes_out': totalBytesOut,
+      'crash_count': crashCount,
+      'restart_count': restartCount,
+      'process': <String, Object?>{
+        'pid': pid,
+        'current_rss_bytes': currentRssBytes,
+        'max_rss_bytes': maxRssBytes,
+        'cpu_percent': cpuPercent,
+        'thread_count': threadCount,
+        'file_handle_count': fileHandleCount,
+        'swap_bytes': swapBytes,
+        'disk_log_bytes': logBytes,
+        'platform': Platform.operatingSystem,
+        'platform_version': Platform.operatingSystemVersion,
+      },
+      'open_session_count': openSessionCount,
+      'last_error': lastError,
+    };
+  }
+}
+
+class WebMessagePlatformService {
+  WebMessagePlatformService({
+    required AiSessionController sessionController,
+    required SettingsController settingsController,
+    required SkillsController skillsController,
+    required McpController mcpController,
+    required MemoryController memoryController,
+    required InstructionsController instructionsController,
+    required AppInfo appInfo,
+  }) : _sessionController = sessionController,
+       _settingsController = settingsController,
+       _skillsController = skillsController,
+       _mcpController = mcpController,
+       _memoryController = memoryController,
+       _instructionsController = instructionsController,
+       _appInfo = appInfo;
+
+  final AiSessionController _sessionController;
+  final SettingsController _settingsController;
+  final SkillsController _skillsController;
+  final McpController _mcpController;
+  final MemoryController _memoryController;
+  final InstructionsController _instructionsController;
+  final AppInfo _appInfo;
+  final StreamController<WebGatewayLogEntry> _logStreamController =
+      StreamController<WebGatewayLogEntry>.broadcast();
+  final List<WebGatewayLogEntry> _memoryLogs = <WebGatewayLogEntry>[];
+  final Map<String, _WebGatewayAuthSession> _authSessions =
+      <String, _WebGatewayAuthSession>{};
+  final _WebGatewayRotatingLogger _fileLogger = _WebGatewayRotatingLogger();
+
+  HttpServer? _server;
+  WebGatewayRuntimeState _state = WebGatewayRuntimeState.stopped;
+  WebMessagePlatformConfig _config = const WebMessagePlatformConfig();
+  WebGatewayThemeSnapshot _theme = const WebGatewayThemeSnapshot();
+  DateTime? _startedAt;
+  int _activeRequests = 0;
+  int _totalRequests = 0;
+  int _totalErrors = 0;
+  int _totalBytesIn = 0;
+  int _totalBytesOut = 0;
+  int _crashCount = 0;
+  int _restartCount = 0;
+  int _nextLogId = 1;
+  String _lastError = '';
+  _ProcessDiagnostics _processDiagnostics = const _ProcessDiagnostics();
+  DateTime? _processDiagnosticsAt;
+
+  Stream<WebGatewayLogEntry> get logStream => _logStreamController.stream;
+  List<WebGatewayLogEntry> get logs =>
+      List<WebGatewayLogEntry>.unmodifiable(_memoryLogs);
+  WebGatewayRuntimeState get state => _state;
+  bool get isRunning =>
+      _server != null && _state == WebGatewayRuntimeState.running;
+  String get boundUrl => _server == null
+      ? ''
+      : 'http://${_displayHost(_config.listenHost)}:${_server!.port}';
+
+  void updateTheme(WebGatewayThemeSnapshot theme) {
+    _theme = theme;
+  }
+
+  Future<void> start(WebMessagePlatformConfig config) async {
+    _config = config;
+    if (_server != null) {
+      await stop();
+    }
+    if (!config.enabled) {
+      _state = WebGatewayRuntimeState.stopped;
+      return;
+    }
+    _state = WebGatewayRuntimeState.starting;
+    _log(WebGatewayLogLevel.info, 'BOOT', '正在启动 Web 通用消息平台', <String, Object?>{
+      'host': config.listenHost,
+      'port': config.listenPort,
+    });
+    try {
+      final address = _bindAddress(config.listenHost);
+      final server = await HttpServer.bind(
+        address,
+        config.listenPort,
+        shared: true,
+      );
+      server.serverHeader = 'OpenHand-WebGateway/1.0';
+      _server = server;
+      _startedAt = DateTime.now().toUtc();
+      _state = WebGatewayRuntimeState.running;
+      _log(WebGatewayLogLevel.success, 'BOOT', 'Web 服务已监听 $boundUrl');
+      unawaited(_serve(server));
+    } catch (error, stack) {
+      _state = WebGatewayRuntimeState.crashed;
+      _crashCount++;
+      _lastError = '$error';
+      _log(WebGatewayLogLevel.error, 'BOOT', 'Web 服务启动失败: $error');
+      silentLog('web_message_platform_service', 'start', error, stack);
+      rethrow;
+    }
+  }
+
+  Future<void> stop() async {
+    final server = _server;
+    if (server == null) {
+      _state = WebGatewayRuntimeState.stopped;
+      return;
+    }
+    _state = WebGatewayRuntimeState.stopping;
+    _log(WebGatewayLogLevel.warn, 'OPS', '正在停止 Web 服务');
+    _server = null;
+    try {
+      await server.close(force: true);
+      _state = WebGatewayRuntimeState.stopped;
+      _startedAt = null;
+      _authSessions.clear();
+      _log(WebGatewayLogLevel.success, 'OPS', 'Web 服务已停止');
+    } catch (error, stack) {
+      _state = WebGatewayRuntimeState.crashed;
+      _crashCount++;
+      _lastError = '$error';
+      _log(WebGatewayLogLevel.error, 'OPS', '停止 Web 服务失败: $error');
+      silentLog('web_message_platform_service', 'stop', error, stack);
+    }
+  }
+
+  Future<void> restart(WebMessagePlatformConfig config) async {
+    _restartCount++;
+    await stop();
+    await start(config);
+  }
+
+  Future<void> reloadConfig(WebMessagePlatformConfig config) async {
+    final needsRestart =
+        config.enabled != _config.enabled ||
+        config.listenHost != _config.listenHost ||
+        config.listenPort != _config.listenPort;
+    _config = config;
+    _log(WebGatewayLogLevel.info, 'OPS', '配置已重新加载');
+    if (needsRestart) {
+      await restart(config);
+    }
+  }
+
+  Future<void> dispose() async {
+    await stop();
+    await _logStreamController.close();
+  }
+
+  WebGatewayRuntimeSnapshot runtimeSnapshot() {
+    final startedAt = _startedAt;
+    final uptimeMs = startedAt == null
+        ? 0
+        : DateTime.now().toUtc().difference(startedAt).inMilliseconds;
+    return WebGatewayRuntimeSnapshot(
+      state: _state,
+      startedAt: startedAt,
+      uptimeMs: uptimeMs,
+      boundUrl: boundUrl,
+      activeRequests: _activeRequests,
+      totalRequests: _totalRequests,
+      totalErrors: _totalErrors,
+      totalBytesIn: _totalBytesIn,
+      totalBytesOut: _totalBytesOut,
+      crashCount: _crashCount,
+      restartCount: _restartCount,
+      currentRssBytes: ProcessInfo.currentRss,
+      maxRssBytes: ProcessInfo.maxRss,
+      cpuPercent: _processDiagnostics.cpuPercent,
+      threadCount: _processDiagnostics.threadCount,
+      fileHandleCount: _processDiagnostics.fileHandleCount,
+      swapBytes: _processDiagnostics.swapBytes,
+      logBytes: _fileLogger.currentSizeBytes,
+      openSessionCount: _sessionController.sessions.length,
+      lastError: _lastError,
+    );
+  }
+
+  Future<WebGatewayRuntimeSnapshot> runtimeSnapshotAsync() async {
+    await _refreshProcessDiagnosticsIfStale();
+    return runtimeSnapshot();
+  }
+
+  Future<WebGatewayHealthResult> runHealthCheck() async {
+    if (_server == null) {
+      return const WebGatewayHealthResult(
+        ok: false,
+        statusCode: 0,
+        durationMs: 0,
+        summary: 'Web 服务未运行',
+      );
+    }
+    final health = _config.healthCheck;
+    final query = <String, String>{...health.queryParameters};
+    final uri = Uri(
+      scheme: 'http',
+      host: _displayHost(_config.listenHost),
+      port: _server!.port,
+      path: health.path.startsWith('/') ? health.path : '/${health.path}',
+      queryParameters: query.isEmpty ? null : query,
+    );
+    final stopwatch = Stopwatch()..start();
+    final client = HttpClient()
+      ..connectionTimeout = Duration(milliseconds: health.timeoutMs);
+    try {
+      final request = await client
+          .openUrl(health.method, uri)
+          .timeout(Duration(milliseconds: health.timeoutMs));
+      request.followRedirects = health.followRedirects;
+      final response = await request.close().timeout(
+        Duration(milliseconds: health.timeoutMs),
+      );
+      final body = await utf8
+          .decodeStream(response)
+          .timeout(Duration(milliseconds: health.timeoutMs));
+      stopwatch.stop();
+      final containsOk =
+          health.responseContains.trim().isEmpty ||
+          body.contains(health.responseContains.trim());
+      final ok = response.statusCode == health.expectedStatusCode && containsOk;
+      final result = WebGatewayHealthResult(
+        ok: ok,
+        statusCode: response.statusCode,
+        durationMs: stopwatch.elapsedMilliseconds,
+        summary: ok ? '健康检查通过' : '健康检查未满足断言',
+        bodyPreview: _truncate(body, 600),
+      );
+      _log(
+        ok ? WebGatewayLogLevel.success : WebGatewayLogLevel.warn,
+        'HEALTH',
+        result.summary,
+        result.toJson(),
+      );
+      return result;
+    } catch (error, stack) {
+      stopwatch.stop();
+      silentLog('web_message_platform_service', 'health check', error, stack);
+      final result = WebGatewayHealthResult(
+        ok: false,
+        statusCode: 0,
+        durationMs: stopwatch.elapsedMilliseconds,
+        summary: '健康检查失败: $error',
+      );
+      _log(WebGatewayLogLevel.error, 'HEALTH', result.summary);
+      return result;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  Future<void> _serve(HttpServer server) async {
+    try {
+      await for (final request in server) {
+        unawaited(_handleRequest(request));
+      }
+    } catch (error, stack) {
+      if (!identical(_server, server)) return;
+      _state = WebGatewayRuntimeState.crashed;
+      _crashCount++;
+      _lastError = '$error';
+      _log(WebGatewayLogLevel.error, 'SERVE', '请求循环崩溃: $error');
+      silentLog('web_message_platform_service', 'serve loop', error, stack);
+    }
+  }
+
+  Future<void> _handleRequest(HttpRequest request) async {
+    final stopwatch = Stopwatch()..start();
+    var statusCode = 200;
+    var responseBytes = 0;
+    String? errorText;
+    final requestBytes = request.contentLength > 0 ? request.contentLength : 0;
+    _totalRequests++;
+    _totalBytesIn += requestBytes;
+    if (_activeRequests >= _config.maxConcurrentRequests) {
+      _totalErrors++;
+      await _json(request, HttpStatus.tooManyRequests, <String, Object?>{
+        'error': 'too_many_requests',
+      });
+      _log(WebGatewayLogLevel.warn, 'HTTP', '请求被并发限制拒绝', <String, Object?>{
+        'path': request.uri.path,
+        'active_requests': _activeRequests,
+        'limit': _config.maxConcurrentRequests,
+      });
+      return;
+    }
+    _activeRequests++;
+    try {
+      _applyCors(request.response);
+      if (request.method == 'OPTIONS') {
+        statusCode = HttpStatus.noContent;
+        request.response.statusCode = statusCode;
+        await request.response.close();
+        return;
+      }
+      responseBytes = await _route(request);
+      statusCode = request.response.statusCode;
+    } catch (error, stack) {
+      statusCode = HttpStatus.internalServerError;
+      errorText = '$error';
+      _totalErrors++;
+      _lastError = errorText;
+      silentLog('web_message_platform_service', 'handle request', error, stack);
+      try {
+        await _json(request, statusCode, <String, Object?>{
+          'error': 'internal_error',
+          'message': errorText,
+        });
+      } catch (responseError, responseStack) {
+        silentLog(
+          'web_message_platform_service',
+          'write error response',
+          responseError,
+          responseStack,
+        );
+        try {
+          await request.response.close();
+        } catch (_) {
+          // Response is already closed.
+        }
+      }
+    } finally {
+      _activeRequests = math.max(0, _activeRequests - 1);
+      stopwatch.stop();
+      _totalBytesOut += responseBytes;
+      final level = statusCode >= 500
+          ? WebGatewayLogLevel.error
+          : statusCode >= 400
+          ? WebGatewayLogLevel.warn
+          : (_config.telemetryEnabled
+                ? WebGatewayLogLevel.telemetry
+                : WebGatewayLogLevel.info);
+      final shouldLog =
+          _config.loggingEnabled ||
+          _config.telemetryEnabled ||
+          statusCode >= 400;
+      if (shouldLog) {
+        _log(
+          level,
+          'HTTP',
+          '${request.method} ${request.uri.path} -> $statusCode ${stopwatch.elapsedMilliseconds}ms',
+          <String, Object?>{
+            'method': request.method,
+            'path': request.uri.path,
+            'query': request.uri.queryParameters,
+            'status_code': statusCode,
+            'duration_ms': stopwatch.elapsedMilliseconds,
+            'remote_ip': request.connectionInfo?.remoteAddress.address,
+            'remote_port': request.connectionInfo?.remotePort,
+            'user_agent': request.headers.value(HttpHeaders.userAgentHeader),
+            'content_length': request.contentLength,
+            'response_bytes': responseBytes,
+            'active_requests': _activeRequests,
+            if (errorText != null) 'error': errorText,
+          },
+        );
+      }
+    }
+  }
+
+  Future<int> _route(HttpRequest request) async {
+    final path = request.uri.path;
+    if (path == '/' || path == '/login' || path == '/thread') {
+      return _html(request, _buildWebClientHtml());
+    }
+    if (path == '/api/health') {
+      return _json(request, HttpStatus.ok, <String, Object?>{
+        'status': 'ok',
+        'service': webMessagePlatformBuiltinName,
+        'state': _state.name,
+        'time': DateTime.now().toUtc().toIso8601String(),
+      });
+    }
+    if (path == '/api/meta' && request.method == 'GET') {
+      return _json(request, HttpStatus.ok, _metaPayload());
+    }
+    if (path == '/api/login' && request.method == 'POST') {
+      return _login(request);
+    }
+
+    final auth = _authorize(request);
+    if (auth == null) {
+      return _json(request, HttpStatus.unauthorized, <String, Object?>{
+        'error': 'unauthorized',
+      });
+    }
+
+    if (path == '/api/sessions' && request.method == 'GET') {
+      return _listSessions(request, auth);
+    }
+    if (path == '/api/sessions' && request.method == 'POST') {
+      return _createSession(request, auth);
+    }
+    if (path == '/api/ops' && request.method == 'GET') {
+      return _json(
+        request,
+        HttpStatus.ok,
+        (await runtimeSnapshotAsync()).toJson(),
+      );
+    }
+    if (path == '/api/logs' && request.method == 'GET') {
+      return _listLogs(request);
+    }
+    if (path == '/api/workspace/files' && request.method == 'GET') {
+      return _listWorkspaceFiles(request);
+    }
+    if (path == '/api/workspace/file' && request.method == 'GET') {
+      return _readWorkspaceFile(request);
+    }
+    if (path == '/api/workspace/file' && request.method == 'PUT') {
+      return _writeWorkspaceFile(request);
+    }
+
+    final segments = request.uri.pathSegments;
+    if (segments.length >= 3 &&
+        segments[0] == 'api' &&
+        segments[1] == 'sessions') {
+      final sessionId = segments[2];
+      if (segments.length == 3 && request.method == 'GET') {
+        return _getSession(request, auth, sessionId);
+      }
+      if (segments.length == 4 && segments[3] == 'messages') {
+        if (request.method == 'GET') {
+          return _listMessages(request, auth, sessionId);
+        }
+        if (request.method == 'POST') {
+          return _sendMessage(request, auth, sessionId);
+        }
+      }
+    }
+
+    return _json(request, HttpStatus.notFound, <String, Object?>{
+      'error': 'not_found',
+    });
+  }
+
+  Map<String, Object?> _metaPayload() {
+    return <String, Object?>{
+      'service': <String, Object?>{
+        'id': webMessagePlatformBuiltinId,
+        'name': webMessagePlatformBuiltinName,
+        'description': _config.description,
+        'auth_enabled': _config.authEnabled,
+        'telemetry_enabled': _config.telemetryEnabled,
+        'logging_enabled': _config.loggingEnabled,
+        'ops_enabled': _config.opsEnabled,
+        'plan_mode_enabled': _config.planModeEnabled,
+        'single_message_token_limit': _config.singleMessageTokenLimit,
+        'max_messages_per_session': _config.maxMessagesPerSession,
+      },
+      'theme': _theme.toJson(),
+      'templates': _allowedTemplates()
+          .map(
+            (template) => <String, Object?>{
+              'id': template.id,
+              'name': template.name,
+              'description': template.description,
+              'icon': template.iconName,
+            },
+          )
+          .toList(growable: false),
+      'conversation_modes': _config.allowedConversationModes
+          .map((item) => item.storageValue)
+          .toList(growable: false),
+      'message_types': _config.allowedMessageTypes
+          .map((item) => item.storageValue)
+          .toList(growable: false),
+      'models': _allowedModels()
+          .map(
+            (item) => <String, Object?>{
+              'key': item.key,
+              'provider_id': item.providerId,
+              'provider': item.providerLabel,
+              'model_id': item.modelId,
+              'label': item.label,
+            },
+          )
+          .toList(growable: false),
+    };
+  }
+
+  Future<int> _login(HttpRequest request) async {
+    final body = await _readJsonBody(request);
+    final source = WebGatewayLoginSource.fromStorage(
+      _string(body['source'], 'WEB_PC'),
+    );
+    final deviceId = _string(body['device_id'], '').trim();
+    if (deviceId.isEmpty) {
+      return _json(request, HttpStatus.badRequest, <String, Object?>{
+        'error': 'device_id_required',
+      });
+    }
+    if (_config.authEnabled) {
+      final username = _string(body['username'], '').trim();
+      final password = _string(body['password'], '');
+      if (username != _config.username || password != _config.password) {
+        _log(WebGatewayLogLevel.warn, 'AUTH', '登录失败', <String, Object?>{
+          'username': username,
+          'device_id': deviceId,
+          'remote_ip': request.connectionInfo?.remoteAddress.address,
+        });
+        return _json(request, HttpStatus.unauthorized, <String, Object?>{
+          'error': 'invalid_credentials',
+        });
+      }
+    }
+    final token = _makeToken();
+    final session = _WebGatewayAuthSession(
+      token: token,
+      source: source,
+      deviceId: deviceId,
+      deviceMacAddress: _string(body['device_mac_address'], ''),
+      deviceName: _string(body['device_name'], ''),
+      devicePlatform: _string(body['device_platform'], ''),
+      loginAt: DateTime.now().toUtc(),
+      remoteAddress: request.connectionInfo?.remoteAddress.address ?? '',
+      userAgent: request.headers.value(HttpHeaders.userAgentHeader) ?? '',
+    );
+    _authSessions[token] = session;
+    _log(WebGatewayLogLevel.success, 'AUTH', '登录成功', session.toMetadata());
+    return _json(request, HttpStatus.ok, <String, Object?>{
+      'token': token,
+      'expires_in': null,
+      'profile': session.toMetadata(),
+    });
+  }
+
+  Future<int> _listSessions(
+    HttpRequest request,
+    _WebGatewayAuthSession auth,
+  ) async {
+    final page = math.max(
+      1,
+      int.tryParse(request.uri.queryParameters['page'] ?? '') ?? 1,
+    );
+    final pageSize = math.min(
+      50,
+      math.max(
+        1,
+        int.tryParse(request.uri.queryParameters['page_size'] ?? '') ?? 10,
+      ),
+    );
+    final source =
+        request.uri.queryParameters['source']?.trim().isNotEmpty == true
+        ? request.uri.queryParameters['source']!.trim()
+        : auth.source.storageValue;
+    final deviceId =
+        request.uri.queryParameters['device_id']?.trim().isNotEmpty == true
+        ? request.uri.queryParameters['device_id']!.trim()
+        : auth.deviceId;
+    final filtered =
+        _sessionController.sessions
+            .where((session) {
+              final context = _webContext(session.metadata);
+              if (source.isNotEmpty &&
+                  _string(context['login_source'], '') != source) {
+                return false;
+              }
+              if (deviceId.isNotEmpty &&
+                  _string(context['device_id'], '') != deviceId) {
+                return false;
+              }
+              return true;
+            })
+            .toList(growable: false)
+          ..sort((a, b) {
+            final updated = b.updatedAt.compareTo(a.updatedAt);
+            return updated != 0 ? updated : b.id.compareTo(a.id);
+          });
+    final start = (page - 1) * pageSize;
+    final end = math.min(filtered.length, start + pageSize);
+    final items = start >= filtered.length
+        ? const <Map<String, Object?>>[]
+        : filtered
+              .sublist(start, end)
+              .map(_sessionSummary)
+              .toList(growable: false);
+    return _json(request, HttpStatus.ok, <String, Object?>{
+      'items': items,
+      'page': page,
+      'page_size': pageSize,
+      'total': filtered.length,
+      'has_more': end < filtered.length,
+      'sort': 'updated_at_desc,id_desc',
+    });
+  }
+
+  Future<int> _createSession(
+    HttpRequest request,
+    _WebGatewayAuthSession auth,
+  ) async {
+    final body = await _readJsonBody(request);
+    final templateId = _string(body['template_id'], 'default').trim();
+    if (!_templateAllowed(templateId)) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'template_not_allowed',
+      });
+    }
+    final requestedMode = _string(body['mode'], 'chat').trim();
+    final mode = requestedMode == 'plan' && _config.planModeEnabled
+        ? AiSessionMode.plan
+        : AiSessionMode.chat;
+    final metadata = _metadataForRequest(auth, request, <String, Object?>{
+      'created_via': 'web_api',
+      'requested_template_id': templateId,
+      'requested_mode': mode.storageValue,
+    });
+    final ok = await _sessionController.createSession(
+      templateId: templateId,
+      runtimeContext: _buildRuntimeContext(templateId: templateId),
+      mode: mode,
+      metadata: metadata,
+    );
+    if (!ok || _sessionController.currentSession == null) {
+      return _json(request, HttpStatus.internalServerError, <String, Object?>{
+        'error': 'create_failed',
+      });
+    }
+    var session = _sessionController.currentSession!;
+    final title = _string(body['title'], '').trim();
+    if (title.isNotEmpty) {
+      await _sessionController.renameSession(session.id, title);
+      session = _sessionController.sessions.firstWhere(
+        (item) => item.id == session.id,
+        orElse: () => session,
+      );
+    }
+    _log(
+      WebGatewayLogLevel.success,
+      'SESSION',
+      'Web 新建会话 ${session.id}',
+      <String, Object?>{
+        'template_id': templateId,
+        'mode': mode.storageValue,
+        'device_id': auth.deviceId,
+      },
+    );
+    return _json(request, HttpStatus.created, <String, Object?>{
+      'session': _sessionSummary(session),
+    });
+  }
+
+  Future<int> _getSession(
+    HttpRequest request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(request, HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    return _json(request, HttpStatus.ok, <String, Object?>{
+      'session': _sessionSummary(session),
+      'runtime': <String, Object?>{
+        'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+        'can_stop': _sessionController.canStopResponding(session.id),
+        'last_error': _sessionController.lastErrorMessageForSession(session.id),
+      },
+    });
+  }
+
+  Future<int> _listMessages(
+    HttpRequest request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(request, HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final limit = math.min(
+      200,
+      math.max(
+        1,
+        int.tryParse(request.uri.queryParameters['limit'] ?? '') ?? 80,
+      ),
+    );
+    final offset = math.max(
+      0,
+      int.tryParse(request.uri.queryParameters['offset'] ?? '') ?? 0,
+    );
+    final page = await _sessionController.store.loadMessages(
+      session.id,
+      limit: limit,
+      offset: offset,
+    );
+    return _json(request, HttpStatus.ok, <String, Object?>{
+      'items': page.messages
+          .where((message) => !message.isDeleted)
+          .map(_messageJson)
+          .toList(growable: false),
+      'offset': offset,
+      'limit': limit,
+      'total': page.totalCount,
+      'has_more': page.hasMore,
+      'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+      'last_error': _sessionController.lastErrorMessageForSession(session.id),
+    });
+  }
+
+  Future<int> _sendMessage(
+    HttpRequest request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(request, HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    if (session.displayMessages.length >= _config.maxMessagesPerSession) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'session_message_limit_reached',
+      });
+    }
+    final body = await _readJsonBody(request, maxBytes: 24 * 1024 * 1024);
+    final content = _string(body['content'], '').trim();
+    final estimatedTokens = (content.length / 4).ceil();
+    if (estimatedTokens > _config.singleMessageTokenLimit) {
+      return _json(request, HttpStatus.badRequest, <String, Object?>{
+        'error': 'message_too_large',
+        'estimated_tokens': estimatedTokens,
+        'limit': _config.singleMessageTokenLimit,
+      });
+    }
+    final rawMode = _string(body['mode'], 'normal');
+    final conversationMode =
+        WebGatewayConversationMode.fromStorage(rawMode) ??
+        WebGatewayConversationMode.normal;
+    if (!_config.allowedConversationModes.contains(conversationMode)) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'conversation_mode_not_allowed',
+      });
+    }
+    final attachments = await _materializeAttachments(
+      session.id,
+      body['attachments'],
+    );
+    if (attachments.isNotEmpty &&
+        !_config.allowedMessageTypes.contains(
+          WebGatewayMessageType.attachment,
+        )) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'attachments_not_allowed',
+      });
+    }
+    if (content.isNotEmpty &&
+        !_config.allowedMessageTypes.contains(WebGatewayMessageType.text)) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'text_not_allowed',
+      });
+    }
+    final model = _resolveModel(_string(body['model_key'], ''));
+    if (model == null) {
+      return _json(request, HttpStatus.badRequest, <String, Object?>{
+        'error': 'model_not_configured',
+      });
+    }
+    final creationRequest = _creationRequestFor(conversationMode);
+    final responseModalities = switch (conversationMode) {
+      WebGatewayConversationMode.image => const <String>['image'],
+      WebGatewayConversationMode.video => const <String>['video'],
+      WebGatewayConversationMode.audio => const <String>['audio'],
+      _ => const <String>[],
+    };
+    final sent = await _sessionController.sendMessage(
+      sessionId: session.id,
+      content: content,
+      model: model,
+      runtimeContext: _buildRuntimeContext(templateId: session.templateId),
+      attachmentFilePaths: attachments,
+      responseModalities: responseModalities,
+      creationRequest: creationRequest,
+      denyCommandRules: _settingsController.aiDenyCommandRules,
+      requireWriteCommandConfirmation: false,
+      userMessageMetadata: _metadataForRequest(auth, request, <String, Object?>{
+        'sent_via': 'web_api',
+        'conversation_mode': conversationMode.storageValue,
+        'model_key': _modelKey(model.id, model.modelId),
+        'attachment_count': attachments.length,
+      }),
+    );
+    if (!sent) {
+      return _json(request, HttpStatus.conflict, <String, Object?>{
+        'error': 'send_failed',
+        'message': _sessionController.lastErrorMessageForSession(session.id),
+      });
+    }
+    _log(
+      WebGatewayLogLevel.success,
+      'MESSAGE',
+      'Web 消息已送入会话 ${session.id}',
+      <String, Object?>{
+        'chars': content.length,
+        'attachments': attachments.length,
+        'mode': conversationMode.storageValue,
+      },
+    );
+    return _json(request, HttpStatus.accepted, <String, Object?>{
+      'ok': true,
+      'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+    });
+  }
+
+  Future<int> _listLogs(HttpRequest request) async {
+    final offset = math.max(
+      0,
+      int.tryParse(request.uri.queryParameters['offset'] ?? '') ?? 0,
+    );
+    final limit = math.min(
+      2000,
+      math.max(
+        1,
+        int.tryParse(request.uri.queryParameters['limit'] ?? '') ??
+            _config.logConfig.lazyReadPageSize,
+      ),
+    );
+    final slice = _memoryLogs.skip(offset).take(limit).toList(growable: false);
+    return _json(request, HttpStatus.ok, <String, Object?>{
+      'items': slice.map((entry) => entry.toJson()).toList(growable: false),
+      'offset': offset,
+      'limit': limit,
+      'total': _memoryLogs.length,
+      'has_more': offset + slice.length < _memoryLogs.length,
+    });
+  }
+
+  Future<int> _listWorkspaceFiles(HttpRequest request) async {
+    final relative = request.uri.queryParameters['path'] ?? '';
+    final dir = _resolveWorkspacePath(relative);
+    if (dir == null || !await FileSystemEntity.isDirectory(dir)) {
+      return _json(request, HttpStatus.notFound, <String, Object?>{
+        'error': 'directory_not_found',
+      });
+    }
+    final root = OpenHandPaths.applicationDirectoryPath();
+    final entries = Directory(dir).listSync(followLinks: false)
+      ..sort((a, b) {
+        final aDir = a is Directory;
+        final bDir = b is Directory;
+        if (aDir != bDir) return aDir ? -1 : 1;
+        return p
+            .basename(a.path)
+            .toLowerCase()
+            .compareTo(p.basename(b.path).toLowerCase());
+      });
+    return _json(request, HttpStatus.ok, <String, Object?>{
+      'root': root,
+      'path': _relativeWorkspacePath(dir),
+      'items': entries
+          .take(300)
+          .map((entry) {
+            final stat = entry.statSync();
+            return <String, Object?>{
+              'name': p.basename(entry.path),
+              'path': _relativeWorkspacePath(entry.path),
+              'type': entry is Directory ? 'directory' : 'file',
+              'size': stat.size,
+              'modified_at': stat.modified.toUtc().toIso8601String(),
+            };
+          })
+          .toList(growable: false),
+    });
+  }
+
+  Future<int> _readWorkspaceFile(HttpRequest request) async {
+    final relative = request.uri.queryParameters['path'] ?? '';
+    final filePath = _resolveWorkspacePath(relative);
+    if (filePath == null || !await FileSystemEntity.isFile(filePath)) {
+      return _json(request, HttpStatus.notFound, <String, Object?>{
+        'error': 'file_not_found',
+      });
+    }
+    final stat = await File(filePath).stat();
+    if (stat.size > 1024 * 1024) {
+      return _json(request, HttpStatus.badRequest, <String, Object?>{
+        'error': 'file_too_large',
+        'limit_bytes': 1024 * 1024,
+      });
+    }
+    final bytes = await File(filePath).readAsBytes();
+    if (_looksBinary(bytes)) {
+      return _json(request, HttpStatus.badRequest, <String, Object?>{
+        'error': 'binary_file_not_supported',
+      });
+    }
+    return _json(request, HttpStatus.ok, <String, Object?>{
+      'path': _relativeWorkspacePath(filePath),
+      'content': utf8.decode(bytes, allowMalformed: true),
+      'size': stat.size,
+      'modified_at': stat.modified.toUtc().toIso8601String(),
+    });
+  }
+
+  Future<int> _writeWorkspaceFile(HttpRequest request) async {
+    final body = await _readJsonBody(request, maxBytes: 2 * 1024 * 1024);
+    final relative = _string(body['path'], '');
+    final content = _string(body['content'], '');
+    if (utf8.encode(content).length > 1024 * 1024) {
+      return _json(request, HttpStatus.badRequest, <String, Object?>{
+        'error': 'content_too_large',
+        'limit_bytes': 1024 * 1024,
+      });
+    }
+    final filePath = _resolveWorkspacePath(relative);
+    if (filePath == null) {
+      return _json(request, HttpStatus.badRequest, <String, Object?>{
+        'error': 'path_outside_workspace',
+      });
+    }
+    final file = File(filePath);
+    await file.parent.create(recursive: true);
+    await file.writeAsString(content);
+    final stat = await file.stat();
+    _log(WebGatewayLogLevel.warn, 'FILES', 'Web 写入项目文件', <String, Object?>{
+      'path': _relativeWorkspacePath(filePath),
+      'size': stat.size,
+    });
+    return _json(request, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'path': _relativeWorkspacePath(filePath),
+      'size': stat.size,
+      'modified_at': stat.modified.toUtc().toIso8601String(),
+    });
+  }
+
+  _WebGatewayAuthSession? _authorize(HttpRequest request) {
+    if (!_config.authEnabled) {
+      final deviceId =
+          request.headers.value('x-openhand-device-id') ?? 'anonymous-web';
+      return _WebGatewayAuthSession(
+        token: 'anonymous',
+        source: WebGatewayLoginSource.fromStorage(
+          request.headers.value('x-openhand-source') ?? 'WEB_PC',
+        ),
+        deviceId: deviceId,
+        deviceMacAddress: request.headers.value('x-openhand-device-mac') ?? '',
+        deviceName: request.headers.value('x-openhand-device-name') ?? '',
+        devicePlatform:
+            request.headers.value('x-openhand-device-platform') ?? '',
+        loginAt: DateTime.now().toUtc(),
+        remoteAddress: request.connectionInfo?.remoteAddress.address ?? '',
+        userAgent: request.headers.value(HttpHeaders.userAgentHeader) ?? '',
+      );
+    }
+    final authHeader =
+        request.headers.value(HttpHeaders.authorizationHeader) ?? '';
+    if (!authHeader.startsWith('Bearer ')) return null;
+    final token = authHeader.substring('Bearer '.length).trim();
+    if (token.isEmpty) return null;
+    return _authSessions[token];
+  }
+
+  AiSession? _findAuthorizedSession(
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) {
+    for (final session in _sessionController.sessions) {
+      if (session.id != sessionId) continue;
+      final context = _webContext(session.metadata);
+      if (_string(context['device_id'], '') != auth.deviceId) return null;
+      if (_string(context['login_source'], '') != auth.source.storageValue) {
+        return null;
+      }
+      return session;
+    }
+    return null;
+  }
+
+  Map<String, Object?> _metadataForRequest(
+    _WebGatewayAuthSession auth,
+    HttpRequest request,
+    Map<String, Object?> extra,
+  ) {
+    return <String, Object?>{
+      webGatewayMetadataKey: <String, Object?>{
+        ...auth.toMetadata(),
+        ...extra,
+        'request_id': _nextLogId,
+        'request_method': request.method,
+        'request_path': request.uri.path,
+        'captured_at': DateTime.now().toUtc().toIso8601String(),
+      },
+    };
+  }
+
+  Map<String, Object?> _webContext(Map<String, Object?> metadata) {
+    final raw = metadata[webGatewayMetadataKey];
+    if (raw is Map) return Map<String, Object?>.from(raw);
+    return const <String, Object?>{};
+  }
+
+  Map<String, Object?> _sessionSummary(AiSession session) {
+    final context = _webContext(session.metadata);
+    final displayMessages = session.displayMessages;
+    final last = displayMessages.isEmpty ? null : displayMessages.last;
+    return <String, Object?>{
+      'id': session.id,
+      'title': session.title,
+      'template_id': session.templateId,
+      'template_name': session.templateName,
+      'created_at': session.createdAt.toUtc().toIso8601String(),
+      'updated_at': session.updatedAt.toUtc().toIso8601String(),
+      'mode': session.mode.storageValue,
+      'message_count': displayMessages.length,
+      'last_message_preview': last == null
+          ? ''
+          : _truncate(last.content.replaceAll('\n', ' '), 160),
+      'last_message_kind': last?.kind.storageValue,
+      'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+      'source': context['login_source'],
+      'device_id': context['device_id'],
+      'metadata': context,
+    };
+  }
+
+  Map<String, Object?> _messageJson(AiSessionMessage message) {
+    return <String, Object?>{
+      'id': message.id,
+      'kind': message.kind.storageValue,
+      'role': message.role.storageValue,
+      'content': message.content,
+      'created_at': message.createdAt.toUtc().toIso8601String(),
+      'character_count': message.characterCount,
+      'model_id': message.modelId,
+      'model_label': message.modelLabel,
+      'metadata': message.metadata,
+    };
+  }
+
+  AiSessionRuntimeContext _buildRuntimeContext({required String templateId}) {
+    final now = DateTime.now().toLocal();
+    final mcpToolCatalogsByServerName = <String, McpToolCatalog>{
+      for (final server in _mcpController.servers)
+        server.name: _mcpController.toolCatalogFor(server.name),
+    };
+    return AiSessionRuntimeContext(
+      localeTag: _settingsController.locale.toLanguageTag(),
+      appVersion: _appInfo.version,
+      appBuildNumber: _appInfo.buildNumber,
+      settingsFilePath: _settingsController.settingsFilePath,
+      skillsStoragePath: _settingsController.skillsStoragePath,
+      mcpServersFilePath: _settingsController.mcpServersFilePath,
+      userMemoryFilePath: _settingsController.userMemoryFilePath,
+      compressionThresholdChars:
+          _settingsController.aiMessageCompressionThresholdChars,
+      memoryEnabled: _settingsController.memoryEnabled,
+      memoryEntries: _settingsController.memoryEnabled
+          ? _memoryController.entries
+          : const [],
+      templateId: templateId,
+      platformName: Platform.operatingSystem,
+      workingDirectory: OpenHandPaths.applicationDirectoryPath(),
+      todayLocalDate:
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      timeZoneName: now.timeZoneName,
+      availableSkills: _config.allowedSkillNames.isEmpty
+          ? _skillsController.skills
+          : _skillsController.skills
+                .where(
+                  (skill) => _config.allowedSkillNames.contains(skill.name),
+                )
+                .toList(growable: false),
+      availableMcpServers: _config.allowedMcpServerNames.isEmpty
+          ? _mcpController.servers
+          : _mcpController.servers
+                .where(
+                  (server) =>
+                      _config.allowedMcpServerNames.contains(server.name),
+                )
+                .toList(growable: false),
+      mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
+      builtinToolConfigs: _settingsController.builtinToolConfigs
+          .where(
+            (tool) =>
+                _config.allowedBuiltinToolNames.isEmpty ||
+                _config.allowedBuiltinToolNames.contains(tool.effectiveName),
+          )
+          .toList(growable: false),
+      userInstructions: _instructionsController.entries,
+    );
+  }
+
+  List<AiThreadTemplate> _allowedTemplates() {
+    if (_config.allowedTemplateIds.isEmpty) return _sessionController.templates;
+    return _sessionController.templates
+        .where((template) => _config.allowedTemplateIds.contains(template.id))
+        .toList(growable: false);
+  }
+
+  bool _templateAllowed(String templateId) {
+    return _config.allowedTemplateIds.isEmpty ||
+        _config.allowedTemplateIds.contains(templateId);
+  }
+
+  List<_AllowedWebModel> _allowedModels() {
+    final result = <_AllowedWebModel>[];
+    for (final provider in _settingsController.aiModels) {
+      for (final modelId in provider.allModelIds) {
+        final key = _modelKey(provider.id, modelId);
+        if (_config.allowedModelKeys.isNotEmpty &&
+            !_config.allowedModelKeys.contains(key)) {
+          continue;
+        }
+        result.add(
+          _AllowedWebModel(
+            key: key,
+            providerId: provider.id,
+            providerLabel: provider.providerLabel,
+            modelId: modelId,
+            label: '${provider.providerLabel} / $modelId',
+          ),
+        );
+      }
+    }
+    return result;
+  }
+
+  AiModelConfig? _resolveModel(String key) {
+    final requested = key.trim();
+    if (requested.isNotEmpty &&
+        (_config.allowedModelKeys.isEmpty ||
+            _config.allowedModelKeys.contains(requested))) {
+      final parsed = _parseModelKey(requested);
+      if (parsed != null) {
+        for (final provider in _settingsController.aiModels) {
+          if (provider.id == parsed.providerId &&
+              provider.allModelIds.contains(parsed.modelId)) {
+            return provider.copyWith(modelId: parsed.modelId);
+          }
+        }
+      }
+    }
+    final selected = _settingsController.selectedAiModel;
+    if (selected != null) {
+      final selectedKey = _modelKey(selected.id, selected.modelId);
+      if (_config.allowedModelKeys.isEmpty ||
+          _config.allowedModelKeys.contains(selectedKey)) {
+        return selected;
+      }
+    }
+    for (final model in _allowedModels()) {
+      final parsed = _parseModelKey(model.key);
+      if (parsed == null) continue;
+      for (final provider in _settingsController.aiModels) {
+        if (provider.id == parsed.providerId) {
+          return provider.copyWith(modelId: parsed.modelId);
+        }
+      }
+    }
+    return null;
+  }
+
+  AiCreationRequest _creationRequestFor(WebGatewayConversationMode mode) {
+    return switch (mode) {
+      WebGatewayConversationMode.image => const AiCreationRequest(
+        mode: AiCreationMode.image,
+      ),
+      WebGatewayConversationMode.video => const AiCreationRequest(
+        mode: AiCreationMode.video,
+      ),
+      WebGatewayConversationMode.audio => const AiCreationRequest(
+        mode: AiCreationMode.audio,
+      ),
+      WebGatewayConversationMode.deepResearch => const AiCreationRequest(
+        mode: AiCreationMode.deepResearch,
+      ),
+      WebGatewayConversationMode.normal => AiCreationRequest.none,
+    };
+  }
+
+  Future<List<String>> _materializeAttachments(
+    String sessionId,
+    Object? raw,
+  ) async {
+    if (raw is! List || raw.isEmpty) return const <String>[];
+    final output = <String>[];
+    final dir = Directory(
+      p.join(
+        OpenHandPaths.defaultCacheDirectoryPath(),
+        'message_gateway',
+        'uploads',
+        sessionId,
+      ),
+    );
+    await dir.create(recursive: true);
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final map = Map<String, Object?>.from(item);
+      final name = _safeFileName(_string(map['name'], 'attachment.bin'));
+      final data = _string(map['data_base64'], '').trim();
+      if (data.isEmpty) continue;
+      final bytes = base64Decode(data);
+      final file = File(
+        p.join(dir.path, '${DateTime.now().microsecondsSinceEpoch}-$name'),
+      );
+      await file.writeAsBytes(bytes);
+      output.add(file.path);
+    }
+    return output;
+  }
+
+  Future<Map<String, Object?>> _readJsonBody(
+    HttpRequest request, {
+    int maxBytes = 1024 * 1024,
+  }) async {
+    final chunks = <int>[];
+    await for (final chunk in request) {
+      chunks.addAll(chunk);
+      if (chunks.length > maxBytes) {
+        throw const FormatException('Request body is too large.');
+      }
+    }
+    if (chunks.isEmpty) return <String, Object?>{};
+    final decoded = jsonDecode(utf8.decode(chunks));
+    if (decoded is Map) return Map<String, Object?>.from(decoded);
+    return <String, Object?>{};
+  }
+
+  Future<int> _json(
+    HttpRequest request,
+    int statusCode,
+    Map<String, Object?> payload,
+  ) async {
+    final bytes = utf8.encode(jsonEncode(payload));
+    request.response.statusCode = statusCode;
+    request.response.headers.contentType = ContentType.json;
+    request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+    request.response.contentLength = bytes.length;
+    request.response.add(bytes);
+    await request.response.close();
+    return bytes.length;
+  }
+
+  Future<int> _html(HttpRequest request, String html) async {
+    final bytes = utf8.encode(html);
+    request.response.statusCode = HttpStatus.ok;
+    request.response.headers.contentType = ContentType.html;
+    request.response.contentLength = bytes.length;
+    request.response.add(bytes);
+    await request.response.close();
+    return bytes.length;
+  }
+
+  void _applyCors(HttpResponse response) {
+    response.headers.set(HttpHeaders.accessControlAllowOriginHeader, '*');
+    response.headers.set(
+      HttpHeaders.accessControlAllowMethodsHeader,
+      'GET,POST,OPTIONS',
+    );
+    response.headers.set(
+      HttpHeaders.accessControlAllowHeadersHeader,
+      'authorization,content-type,x-openhand-device-id,x-openhand-source,x-openhand-device-mac,x-openhand-device-name,x-openhand-device-platform',
+    );
+  }
+
+  void _log(
+    WebGatewayLogLevel level,
+    String tag,
+    String message, [
+    Map<String, Object?> data = const <String, Object?>{},
+  ]) {
+    final entry = WebGatewayLogEntry(
+      id: _nextLogId++,
+      timestamp: DateTime.now().toUtc(),
+      level: level,
+      tag: tag,
+      message: message,
+      data: data,
+    );
+    _memoryLogs.add(entry);
+    if (_memoryLogs.length > 5000) {
+      _memoryLogs.removeRange(0, _memoryLogs.length - 5000);
+    }
+    if (!_logStreamController.isClosed) {
+      _logStreamController.add(entry);
+    }
+    if (_config.loggingEnabled) {
+      unawaited(_fileLogger.write(entry, _config.logConfig));
+    }
+  }
+
+  InternetAddress _bindAddress(String host) {
+    final normalized = host.trim();
+    if (normalized.isEmpty || normalized == '0.0.0.0') {
+      return InternetAddress.anyIPv4;
+    }
+    if (normalized == '::' || normalized == '::0') {
+      return InternetAddress.anyIPv6;
+    }
+    return InternetAddress(normalized);
+  }
+
+  String _displayHost(String host) {
+    final normalized = host.trim();
+    if (normalized.isEmpty || normalized == '0.0.0.0' || normalized == '::') {
+      return '127.0.0.1';
+    }
+    return normalized;
+  }
+
+  String? _resolveWorkspacePath(String rawPath) {
+    final root = OpenHandPaths.applicationDirectoryPath();
+    final normalizedInput = rawPath.trim().replaceAll('\\', '/');
+    if (normalizedInput.startsWith('/')) return null;
+    final resolved = p.normalize(p.join(root, normalizedInput));
+    if (resolved == root || p.isWithin(root, resolved)) return resolved;
+    return null;
+  }
+
+  String _relativeWorkspacePath(String absolutePath) {
+    final root = OpenHandPaths.applicationDirectoryPath();
+    if (absolutePath == root) return '';
+    return p.relative(absolutePath, from: root).replaceAll('\\', '/');
+  }
+
+  bool _looksBinary(List<int> bytes) {
+    final sampleLength = math.min(bytes.length, 4096);
+    for (var i = 0; i < sampleLength; i++) {
+      if (bytes[i] == 0) return true;
+    }
+    return false;
+  }
+
+  Future<void> _refreshProcessDiagnosticsIfStale() async {
+    final now = DateTime.now();
+    final previous = _processDiagnosticsAt;
+    if (previous != null && now.difference(previous).inSeconds < 2) return;
+    _processDiagnosticsAt = now;
+    try {
+      if (Platform.isMacOS) {
+        _processDiagnostics = await _sampleMacProcessDiagnostics();
+      } else if (Platform.isLinux) {
+        _processDiagnostics = await _sampleLinuxProcessDiagnostics();
+      }
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_service',
+        'process diagnostics',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<_ProcessDiagnostics> _sampleMacProcessDiagnostics() async {
+    double? cpuPercent;
+    int? threadCount;
+    final ps = await runProcessWithTimeout(
+      'ps',
+      <String>['-o', '%cpu=', '-o', 'nlwp=', '-p', '$pid'],
+      timeout: const Duration(milliseconds: 900),
+      tag: 'web_message_gateway_ops',
+    );
+    if (ps != null && ps.exitCode == 0) {
+      final parts = '${ps.stdout}'.trim().split(RegExp(r'\s+'));
+      if (parts.isNotEmpty) cpuPercent = double.tryParse(parts[0]);
+      if (parts.length > 1) threadCount = int.tryParse(parts[1]);
+    }
+    final lsof = await runProcessWithTimeout(
+      'lsof',
+      <String>['-n', '-p', '$pid'],
+      timeout: const Duration(milliseconds: 1200),
+      tag: 'web_message_gateway_ops',
+    );
+    final fileHandleCount = lsof == null || lsof.exitCode != 0
+        ? null
+        : math.max(0, '${lsof.stdout}'.trim().split('\n').length - 1);
+    final swap = await runProcessWithTimeout(
+      'sysctl',
+      const <String>['vm.swapusage'],
+      timeout: const Duration(milliseconds: 900),
+      tag: 'web_message_gateway_ops',
+    );
+    return _ProcessDiagnostics(
+      cpuPercent: cpuPercent,
+      threadCount: threadCount,
+      fileHandleCount: fileHandleCount,
+      swapBytes: _parseMacSwapBytes('${swap?.stdout ?? ''}'),
+    );
+  }
+
+  Future<_ProcessDiagnostics> _sampleLinuxProcessDiagnostics() async {
+    int? threadCount;
+    int? swapBytes;
+    try {
+      final status = await File('/proc/self/status').readAsLines();
+      for (final line in status) {
+        if (line.startsWith('Threads:')) {
+          threadCount = int.tryParse(line.split(RegExp(r'\s+')).last);
+        }
+        if (line.startsWith('VmSwap:')) {
+          final parts = line.split(RegExp(r'\s+'));
+          if (parts.length > 1) {
+            swapBytes = (int.tryParse(parts[1]) ?? 0) * 1024;
+          }
+        }
+      }
+    } catch (_) {}
+    int? fileHandleCount;
+    try {
+      fileHandleCount = Directory('/proc/self/fd').listSync().length;
+    } catch (_) {}
+    return _ProcessDiagnostics(
+      threadCount: threadCount,
+      fileHandleCount: fileHandleCount,
+      swapBytes: swapBytes,
+    );
+  }
+
+  String _makeToken() {
+    final random = math.Random.secure();
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    return base64UrlEncode(bytes).replaceAll('=', '');
+  }
+
+  String _buildWebClientHtml() {
+    return _webClientHtml
+        .replaceAll('{{primary}}', _theme.primary)
+        .replaceAll('{{onPrimary}}', _theme.onPrimary)
+        .replaceAll('{{surface}}', _theme.surface)
+        .replaceAll('{{surfaceContainer}}', _theme.surfaceContainer)
+        .replaceAll('{{onSurface}}', _theme.onSurface)
+        .replaceAll('{{onSurfaceVariant}}', _theme.onSurfaceVariant)
+        .replaceAll('{{outline}}', _theme.outline)
+        .replaceAll('{{error}}', _theme.error);
+  }
+}
+
+class _AllowedWebModel {
+  const _AllowedWebModel({
+    required this.key,
+    required this.providerId,
+    required this.providerLabel,
+    required this.modelId,
+    required this.label,
+  });
+
+  final String key;
+  final String providerId;
+  final String providerLabel;
+  final String modelId;
+  final String label;
+}
+
+class _ParsedModelKey {
+  const _ParsedModelKey({required this.providerId, required this.modelId});
+
+  final String providerId;
+  final String modelId;
+}
+
+class _ProcessDiagnostics {
+  const _ProcessDiagnostics({
+    this.cpuPercent,
+    this.threadCount,
+    this.fileHandleCount,
+    this.swapBytes,
+  });
+
+  final double? cpuPercent;
+  final int? threadCount;
+  final int? fileHandleCount;
+  final int? swapBytes;
+}
+
+String _modelKey(String providerId, String modelId) => '$providerId::$modelId';
+
+_ParsedModelKey? _parseModelKey(String key) {
+  final parts = key.split('::');
+  if (parts.length != 2) return null;
+  final providerId = parts[0].trim();
+  final modelId = parts[1].trim();
+  if (providerId.isEmpty || modelId.isEmpty) return null;
+  return _ParsedModelKey(providerId: providerId, modelId: modelId);
+}
+
+class _WebGatewayAuthSession {
+  const _WebGatewayAuthSession({
+    required this.token,
+    required this.source,
+    required this.deviceId,
+    required this.deviceMacAddress,
+    required this.deviceName,
+    required this.devicePlatform,
+    required this.loginAt,
+    required this.remoteAddress,
+    required this.userAgent,
+  });
+
+  final String token;
+  final WebGatewayLoginSource source;
+  final String deviceId;
+  final String deviceMacAddress;
+  final String deviceName;
+  final String devicePlatform;
+  final DateTime loginAt;
+  final String remoteAddress;
+  final String userAgent;
+
+  Map<String, Object?> toMetadata() {
+    return <String, Object?>{
+      'login_source': source.storageValue,
+      'source': source.storageValue,
+      'device_id': deviceId,
+      'device_mac_address': deviceMacAddress,
+      'device_name': deviceName,
+      'device_platform': devicePlatform,
+      'login_at': loginAt.toUtc().toIso8601String(),
+      'login_os': devicePlatform,
+      'login_address': remoteAddress,
+      'remote_ip': remoteAddress,
+      'user_agent': userAgent,
+      'entrypoint': 'web_message_platform',
+    };
+  }
+}
+
+class _WebGatewayRotatingLogger {
+  final String directoryPath = p.join(
+    OpenHandPaths.defaultLogsDirectoryPath(),
+    'message_gateway',
+  );
+  String get filePath => p.join(directoryPath, 'web-platform.log');
+
+  int get currentSizeBytes {
+    try {
+      final file = File(filePath);
+      if (!file.existsSync()) return 0;
+      return file.lengthSync();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> write(
+    WebGatewayLogEntry entry,
+    WebGatewayLogConfig config,
+  ) async {
+    try {
+      final dir = Directory(directoryPath);
+      await dir.create(recursive: true);
+      await _rotateIfNeeded(config);
+      await File(
+        filePath,
+      ).writeAsString('${entry.toLogLine()}\n', mode: FileMode.append);
+    } catch (error, stack) {
+      silentLog('web_gateway_logger', 'write', error, stack);
+    }
+  }
+
+  Future<void> _rotateIfNeeded(WebGatewayLogConfig config) async {
+    final file = File(filePath);
+    if (!await file.exists()) return;
+    final stat = await file.stat();
+    final tooLarge = stat.size >= config.fileMaxBytes;
+    final tooOld =
+        DateTime.now().difference(stat.modified).inDays >= config.rotationDays;
+    if (!tooLarge && !tooOld) return;
+    final stamp = DateTime.now()
+        .toUtc()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    await file.rename(p.join(directoryPath, 'web-platform-$stamp.log'));
+    final logs =
+        Directory(directoryPath)
+            .listSync(followLinks: false)
+            .whereType<File>()
+            .where((item) => p.basename(item.path).startsWith('web-platform'))
+            .toList(growable: false)
+          ..sort(
+            (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+          );
+    for (final old in logs.skip(config.maxFiles)) {
+      try {
+        await old.delete();
+      } catch (_) {}
+    }
+  }
+}
+
+String _string(Object? value, String fallback) {
+  if (value == null) return fallback;
+  final text = '$value';
+  return text.isEmpty ? fallback : text;
+}
+
+String _truncate(String value, int maxChars) {
+  if (value.length <= maxChars) return value;
+  return '${value.substring(0, maxChars)}...';
+}
+
+String _safeFileName(String value) {
+  final sanitized = value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+  if (sanitized.isEmpty) return 'attachment.bin';
+  return sanitized.length > 120 ? sanitized.substring(0, 120) : sanitized;
+}
+
+int? _parseMacSwapBytes(String value) {
+  final match = RegExp(r'used\s*=\s*([0-9.]+)([MG]?)').firstMatch(value);
+  if (match == null) return null;
+  final number = double.tryParse(match.group(1) ?? '');
+  if (number == null) return null;
+  final unit = match.group(2) ?? '';
+  final multiplier = unit == 'G'
+      ? 1024 * 1024 * 1024
+      : unit == 'M'
+      ? 1024 * 1024
+      : 1;
+  return (number * multiplier).round();
+}
+
+const String _webClientHtml = r'''<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Web通用消息平台</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --primary: {{primary}};
+  --on-primary: {{onPrimary}};
+  --surface: {{surface}};
+  --surface-container: {{surfaceContainer}};
+  --on-surface: {{onSurface}};
+  --on-surface-variant: {{onSurfaceVariant}};
+  --outline: {{outline}};
+  --error: {{error}};
+  --shadow: rgba(18, 18, 18, .12);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--surface);
+  color: var(--on-surface);
+  overflow: hidden;
+}
+button, input, select, textarea { font: inherit; }
+button { border: 0; cursor: pointer; }
+.app { height: 100%; display: grid; grid-template-columns: minmax(280px, 360px) 1fr; }
+.sidebar { border-right: 1px solid var(--outline); background: color-mix(in srgb, var(--surface-container) 78%, var(--surface)); display: flex; flex-direction: column; min-width: 0; }
+.side-head { padding: 16px; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid var(--outline); }
+.brand { width: 38px; height: 38px; border-radius: 8px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; font-weight: 800; }
+.side-title { font-size: 17px; font-weight: 760; line-height: 1.2; }
+.side-subtitle { font-size: 12px; color: var(--on-surface-variant); }
+.toolbar { display: flex; gap: 8px; padding: 12px; border-bottom: 1px solid var(--outline); }
+.icon-btn, .text-btn { height: 40px; border-radius: 8px; color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.icon-btn { width: 40px; padding: 0; font-size: 20px; }
+.text-btn.primary { background: var(--primary); color: var(--on-primary); }
+.session-list { overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.session { text-align: left; padding: 12px; border-radius: 8px; background: transparent; color: var(--on-surface); border: 1px solid transparent; transition: background .18s ease, border-color .18s ease; }
+.session.active, .session:hover { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); border-color: color-mix(in srgb, var(--primary) 38%, var(--outline)); }
+.session-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-meta, .session-preview { color: var(--on-surface-variant); font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat { min-width: 0; display: flex; flex-direction: column; background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, var(--primary)), var(--surface)); }
+.topbar { height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 18px; border-bottom: 1px solid var(--outline); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(16px); }
+.topbar-main { flex: 1; min-width: 0; }
+.mobile-menu { display: none; }
+.thread-title { font-weight: 760; }
+.thread-subtitle { font-size: 12px; color: var(--on-surface-variant); }
+.messages { flex: 1; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.msg { max-width: min(760px, 86%); padding: 12px 14px; border-radius: 8px; box-shadow: 0 8px 22px var(--shadow); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.msg.user { align-self: flex-end; background: var(--primary); color: var(--on-primary); }
+.msg.assistant, .msg.tool, .msg.status { align-self: flex-start; background: var(--surface-container); color: var(--on-surface); }
+.msg .meta { margin-top: 8px; opacity: .72; font-size: 11px; }
+.composer { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: end; padding: 12px 16px 16px; border-top: 1px solid var(--outline); background: color-mix(in srgb, var(--surface) 94%, transparent); }
+textarea { min-height: 44px; max-height: 150px; resize: vertical; border: 1px solid var(--outline); border-radius: 8px; padding: 11px 12px; background: var(--surface); color: var(--on-surface); outline: none; }
+textarea:focus, input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent); }
+.empty { flex: 1; display: grid; place-items: center; color: var(--on-surface-variant); text-align: center; padding: 24px; }
+.login { height: 100%; display: grid; place-items: center; padding: 18px; }
+.panel { width: min(420px, 100%); border: 1px solid var(--outline); border-radius: 8px; padding: 22px; background: var(--surface); box-shadow: 0 18px 50px var(--shadow); }
+.panel h1 { margin: 0 0 8px; font-size: 22px; }
+.field { display: grid; gap: 6px; margin-top: 14px; }
+.field span { font-size: 12px; color: var(--on-surface-variant); }
+input, select { height: 42px; border: 1px solid var(--outline); border-radius: 8px; padding: 0 10px; background: var(--surface); color: var(--on-surface); }
+.modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.32); padding: 18px; z-index: 5; }
+.modal.open { display: grid; }
+.modal .panel { width: min(560px, 100%); }
+.modal .panel.wide { width: min(980px, 100%); max-height: min(780px, calc(100vh - 36px)); display: flex; flex-direction: column; }
+.file-layout { min-height: 0; display: grid; grid-template-columns: minmax(220px, 320px) 1fr; gap: 12px; margin-top: 12px; }
+.file-list { min-height: 320px; max-height: 58vh; overflow: auto; border: 1px solid var(--outline); border-radius: 8px; padding: 6px; }
+.file-row { width: 100%; min-height: 36px; border-radius: 8px; background: transparent; color: var(--on-surface); text-align: left; padding: 8px 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-row:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.file-editor { display: flex; min-height: 320px; flex-direction: column; gap: 8px; }
+.file-editor textarea { flex: 1; min-height: 320px; max-height: 58vh; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+.fab { position: fixed; right: 24px; bottom: 88px; width: 56px; height: 56px; border-radius: 16px; background: var(--primary); color: var(--on-primary); font-size: 28px; box-shadow: 0 18px 35px var(--shadow); }
+.toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: white; border-radius: 8px; padding: 10px 14px; opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 8; max-width: min(640px, calc(100vw - 32px)); }
+.toast.show { opacity: 1; }
+.hidden { display: none !important; }
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { position: fixed; inset: 0 auto 0 0; width: min(88vw, 360px); z-index: 3; transform: translateX(-105%); transition: transform .22s ease; box-shadow: 0 18px 50px var(--shadow); }
+  .sidebar.open { transform: translateX(0); }
+  .mobile-menu { display: inline-flex; }
+  .messages { padding: 12px; }
+  .msg { max-width: 94%; }
+  .composer { grid-template-columns: auto 1fr auto; padding: 10px; }
+  .file-layout { grid-template-columns: 1fr; }
+  .text-btn span { display: none; }
+  .fab { right: 16px; bottom: 82px; }
+}
+</style>
+</head>
+<body>
+<div id="login" class="login hidden">
+  <form class="panel" id="loginForm">
+    <h1>Web通用消息平台</h1>
+    <p class="side-subtitle">登录后继续访问此设备可见的 OpenHand 线程会话。</p>
+    <label class="field"><span>用户名</span><input id="username" autocomplete="username" value="openhand" /></label>
+    <label class="field"><span>密码</span><input id="password" type="password" autocomplete="current-password" /></label>
+    <button class="text-btn primary" style="width:100%;margin-top:18px" type="submit">登录</button>
+  </form>
+</div>
+<div id="app" class="app hidden">
+  <aside id="sidebar" class="sidebar">
+    <div class="side-head"><div class="brand">OH</div><div><div class="side-title">Web通用消息平台</div><div id="serviceLine" class="side-subtitle">连接中</div></div></div>
+    <div class="toolbar"><button id="refresh" class="icon-btn" title="刷新">↻</button><button id="loadMore" class="text-btn"><span>更多</span></button></div>
+    <div id="sessions" class="session-list"></div>
+  </aside>
+  <main class="chat">
+    <div class="topbar"><button id="menu" class="icon-btn mobile-menu">☰</button><div class="topbar-main"><div id="threadTitle" class="thread-title">选择一个线程</div><div id="threadSub" class="thread-subtitle">下拉刷新，上滑加载更多线程</div></div><button id="files" class="icon-btn" title="项目文件">▣</button></div>
+    <div id="messages" class="messages"><div class="empty">选择或新建一个线程会话。</div></div>
+    <form id="composer" class="composer"><input id="file" type="file" multiple hidden /><button id="attach" type="button" class="icon-btn" title="附件">＋</button><textarea id="input" placeholder="输入消息"></textarea><button class="text-btn primary" type="submit">发送</button></form>
+  </main>
+  <button id="newSession" class="fab" title="新建线程">＋</button>
+</div>
+<div id="newModal" class="modal"><form id="newForm" class="panel"><h1>新建线程</h1><label class="field"><span>线程名称</span><input id="newTitle" placeholder="新会话" /></label><label class="field"><span>线程模板</span><select id="template"></select></label><label class="field"><span>对话模式</span><select id="mode"></select></label><label class="field"><span>模型</span><select id="model"></select></label><div style="display:flex;gap:10px;margin-top:18px"><button type="button" id="cancelNew" class="text-btn">取消</button><button class="text-btn primary" style="flex:1" type="submit">创建</button></div></form></div>
+<div id="fileModal" class="modal"><div class="panel wide"><div style="display:flex;gap:10px;align-items:center"><h1 style="flex:1">项目文件</h1><button id="closeFiles" class="icon-btn">×</button></div><div class="field"><span>路径</span><input id="filePath" value="" /></div><div class="file-layout"><div id="fileList" class="file-list"></div><div class="file-editor"><input id="editingPath" readonly placeholder="选择文本文件" /><textarea id="fileContent" spellcheck="false"></textarea><div style="display:flex;gap:10px"><button id="saveFile" class="text-btn primary" style="flex:1">保存文件</button><button id="reloadFile" class="text-btn">重载</button></div></div></div></div></div>
+<div id="toast" class="toast"></div>
+<script>
+const state = { meta:null, token:localStorage.getItem('oh_token') || '', deviceId: localStorage.getItem('oh_device_id') || '', source:'WEB_PC', page:1, hasMore:true, sessions:[], active:null, poll:null, modelKey:'', filePath:'', editingPath:'' };
+if(!state.deviceId){ state.deviceId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(); localStorage.setItem('oh_device_id', state.deviceId); }
+function detectSource(){ const w = Math.min(innerWidth, screen.width || innerWidth); state.source = w < 760 ? 'WEB_MOBILE' : 'WEB_PC'; }
+function headers(){ const h = {'content-type':'application/json','x-openhand-device-id':state.deviceId,'x-openhand-source':state.source,'x-openhand-device-platform':navigator.platform || ''}; if(state.token) h.authorization = 'Bearer '+state.token; return h; }
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2200); }
+async function api(path, opts={}){ const res = await fetch(path,{...opts,headers:{...headers(),...(opts.headers||{})}}); const json = await res.json().catch(()=>({})); if(!res.ok) throw Object.assign(new Error(json.message||json.error||res.statusText),{status:res.status,json}); return json; }
+async function boot(){ detectSource(); state.meta = await api('/api/meta'); applyMeta(); if(state.meta.service.auth_enabled && !state.token){ showLogin(); } else { if(!state.token) await anonymousLogin(); showApp(); await loadSessions(true); } }
+function applyMeta(){ document.getElementById('serviceLine').textContent = state.meta.service.auth_enabled ? '鉴权已开启' : '免鉴权本地访问'; fill('template', state.meta.templates.map(t=>[t.id,t.name])); fill('mode', state.meta.conversation_modes.map(m=>[m,m])); fill('model', state.meta.models.map(m=>[m.key,m.label])); state.modelKey = state.meta.models[0]?.key || ''; }
+function fill(id, rows){ const el=document.getElementById(id); el.innerHTML=''; rows.forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; el.appendChild(o); }); }
+function showLogin(){ document.getElementById('login').classList.remove('hidden'); document.getElementById('app').classList.add('hidden'); }
+async function anonymousLogin(){ const j = await api('/api/login',{method:'POST',body:JSON.stringify(devicePayload())}); state.token=j.token; if(j.token !== 'anonymous') localStorage.setItem('oh_token',j.token); }
+function showApp(){ document.getElementById('login').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); }
+function devicePayload(){ return {source:state.source,device_id:state.deviceId,device_name:navigator.userAgent,device_platform:navigator.platform || '',device_mac_address:''}; }
+document.getElementById('loginForm').onsubmit = async e => { e.preventDefault(); try{ const j=await api('/api/login',{method:'POST',body:JSON.stringify({...devicePayload(),username:username.value,password:password.value})}); state.token=j.token; localStorage.setItem('oh_token',j.token); showApp(); await loadSessions(true); }catch(err){ toast('登录失败'); }};
+async function loadSessions(reset=false){ if(reset){state.page=1;state.sessions=[];state.hasMore=true;} if(!state.hasMore) return; const j=await api(`/api/sessions?page=${state.page}&page_size=10&source=${state.source}&device_id=${encodeURIComponent(state.deviceId)}`); state.sessions.push(...j.items); state.hasMore=j.has_more; state.page++; renderSessions(); }
+function renderSessions(){ const box=document.getElementById('sessions'); box.innerHTML=''; state.sessions.forEach(s=>{ const b=document.createElement('button'); b.className='session'+(state.active===s.id?' active':''); b.innerHTML=`<div class="session-title"></div><div class="session-preview"></div><div class="session-meta"></div>`; b.children[0].textContent=s.title; b.children[1].textContent=s.last_message_preview||'暂无消息'; b.children[2].textContent=`${s.template_name} · ${s.message_count} 条 · ${s.send_phase}`; b.onclick=()=>openSession(s.id); box.appendChild(b); }); }
+async function openSession(id){ state.active=id; document.getElementById('sidebar').classList.remove('open'); renderSessions(); await refreshThread(); clearInterval(state.poll); state.poll=setInterval(refreshThread,1800); }
+async function refreshThread(){ if(!state.active) return; try{ const s=await api('/api/sessions/'+state.active); document.getElementById('threadTitle').textContent=s.session.title; document.getElementById('threadSub').textContent=`${s.session.template_name} · ${s.runtime.send_phase}`; const j=await api('/api/sessions/'+state.active+'/messages?limit=120&offset=0'); renderMessages(j.items); }catch(err){ if(err.status===404){ toast('线程已在 APP 端删除'); state.active=null; clearInterval(state.poll); await loadSessions(true); document.getElementById('messages').innerHTML='<div class="empty">线程已删除，请选择其他会话。</div>'; } } }
+function renderMessages(items){ const box=document.getElementById('messages'); box.innerHTML=''; if(!items.length){ box.innerHTML='<div class="empty">还没有消息。</div>'; return; } items.forEach(m=>{ const div=document.createElement('div'); const cls=m.role==='user'?'user':(m.kind||'assistant'); div.className='msg '+cls; const text=document.createElement('div'); text.textContent=m.content||' '; const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${m.kind} · ${new Date(m.created_at).toLocaleString()}`; div.append(text,meta); box.appendChild(div); }); box.scrollTop=box.scrollHeight; }
+document.getElementById('refresh').onclick=()=>loadSessions(true).catch(e=>toast(e.message));
+document.getElementById('loadMore').onclick=()=>loadSessions(false).catch(e=>toast(e.message));
+document.getElementById('menu').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+document.getElementById('newSession').onclick=()=>document.getElementById('newModal').classList.add('open');
+document.getElementById('cancelNew').onclick=()=>document.getElementById('newModal').classList.remove('open');
+document.getElementById('newForm').onsubmit=async e=>{ e.preventDefault(); try{ const j=await api('/api/sessions',{method:'POST',body:JSON.stringify({title:newTitle.value,template_id:template.value,mode:mode.value==='normal'?'chat':'chat'})}); document.getElementById('newModal').classList.remove('open'); await loadSessions(true); await openSession(j.session.id); }catch(err){ toast(err.message); }};
+document.getElementById('files').onclick=()=>{ document.getElementById('fileModal').classList.add('open'); loadFiles(state.filePath).catch(e=>toast(e.message)); };
+document.getElementById('closeFiles').onclick=()=>document.getElementById('fileModal').classList.remove('open');
+document.getElementById('filePath').onkeydown=e=>{ if(e.key==='Enter') loadFiles(filePath.value).catch(err=>toast(err.message)); };
+document.getElementById('reloadFile').onclick=()=> state.editingPath ? readFile(state.editingPath).catch(e=>toast(e.message)) : loadFiles(state.filePath).catch(e=>toast(e.message));
+document.getElementById('saveFile').onclick=async()=>{ if(!state.editingPath) return toast('请选择文件'); try{ await api('/api/workspace/file',{method:'PUT',body:JSON.stringify({path:state.editingPath,content:fileContent.value})}); toast('文件已保存'); }catch(err){ toast(err.message); } };
+async function loadFiles(path=''){ const j=await api('/api/workspace/files?path='+encodeURIComponent(path||'')); state.filePath=j.path||''; filePath.value=state.filePath; renderFiles(j); }
+function parentPath(path){ const parts=String(path||'').split('/').filter(Boolean); parts.pop(); return parts.join('/'); }
+function renderFiles(data){ const box=document.getElementById('fileList'); box.innerHTML=''; if(data.path){ const up=document.createElement('button'); up.className='file-row'; up.textContent='..'; up.onclick=()=>loadFiles(parentPath(data.path)).catch(e=>toast(e.message)); box.appendChild(up); } data.items.forEach(item=>{ const b=document.createElement('button'); b.className='file-row'; b.textContent=(item.type==='directory'?'▸ ':'  ')+item.name; b.title=item.path; b.onclick=()=> item.type==='directory' ? loadFiles(item.path).catch(e=>toast(e.message)) : readFile(item.path).catch(e=>toast(e.message)); box.appendChild(b); }); }
+async function readFile(path){ const j=await api('/api/workspace/file?path='+encodeURIComponent(path)); state.editingPath=j.path; editingPath.value=j.path; fileContent.value=j.content||''; }
+document.getElementById('attach').onclick=()=>document.getElementById('file').click();
+document.getElementById('composer').onsubmit=async e=>{ e.preventDefault(); if(!state.active) return toast('请先选择线程'); const files=[...document.getElementById('file').files]; const attachments=[]; for(const f of files){ const data=await new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(String(r.result).split(',')[1]||''); r.onerror=reject; r.readAsDataURL(f); }); attachments.push({name:f.name,mime_type:f.type,data_base64:data}); } try{ await api('/api/sessions/'+state.active+'/messages',{method:'POST',body:JSON.stringify({content:input.value,attachments,mode:mode.value,model_key:model.value})}); input.value=''; file.value=''; await refreshThread(); }catch(err){ toast(err.message); }};
+addEventListener('resize', detectSource);
+boot().catch(err=>{ console.error(err); toast(err.message || '启动失败'); });
+</script>
+</body>
+</html>''';

@@ -2193,7 +2193,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsMessageGatewayDescription =>
-      'メッセージゲートウェイのルーティング、変換、スロットリングを設定します。具体的な項目は今後のバージョンで追加予定で、現状はプレースホルダーです。';
+      '内蔵 Web 汎用メッセージプラットフォームのリスナー、認証、セッション、Web チャット、ヘルスチェック、ログ、運用機能を設定します。';
 
   @override
   String get settingsMessageGatewayComingSoon => '近日公開';

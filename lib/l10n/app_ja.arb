@@ -997,7 +997,7 @@
   "settingsThreadSessionManagementSubtitle": "すべてのスレッドのタイトル、作成・更新時刻、ストレージ使用量、メッセージ構成、トークン統計を確認できます。ドラッグでの並べ替え、複数選択での削除、ダブルクリックまたは右クリックメニューでの名称変更・エクスポート・削除に対応します。ダイアログの開閉アニメーションはグローバル設定のダイアログアニメーションに従います。",
   "settingsThreadSessionManagementOpen": "管理画面を開く",
   "settingsMessageGatewayTitle": "メッセージゲートウェイ",
-  "settingsMessageGatewayDescription": "メッセージゲートウェイのルーティング、変換、スロットリングを設定します。具体的な項目は今後のバージョンで追加予定で、現状はプレースホルダーです。",
+  "settingsMessageGatewayDescription": "内蔵 Web 汎用メッセージプラットフォームのリスナー、認証、セッション、Web チャット、ヘルスチェック、ログ、運用機能を設定します。",
   "settingsMessageGatewayComingSoon": "近日公開",
   "settingsMessageGatewayComingSoonSubtitle": "メッセージゲートウェイの詳細設定は次のイテレーションで提供予定です。",
   "tsmRowUnknown": "不明",

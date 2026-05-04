@@ -2314,7 +2314,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsMessageGatewayDescription =>
-      'Konfigurieren Sie Routing, Transformationen und Drosselung des Nachrichten-Gateways. Konkrete Optionen folgen in einer späteren Version; dieser Abschnitt ist derzeit ein Platzhalter.';
+      'Konfigurieren Sie die integrierte allgemeine Web-Nachrichtenplattform mit Listener, Authentifizierung, Sitzungen, Web-Chat, Integritätsprüfungen, Protokollen und Betrieb.';
 
   @override
   String get settingsMessageGatewayComingSoon => 'Demnächst verfügbar';

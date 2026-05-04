@@ -4165,7 +4165,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsMessageGatewayDescription.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'管理消息网关的路由、转换与节流策略。具体配置项将在后续版本中开放，当前为预留入口。'**
+  /// **'管理内建 Web通用消息平台的监听、鉴权、会话、Web 聊天、健康检查、日志与运维能力。'**
   String get settingsMessageGatewayDescription;
 
   /// No description provided for @settingsMessageGatewayComingSoon.

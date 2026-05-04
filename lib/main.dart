@@ -31,6 +31,7 @@ import 'features/mcp/mcp_controller.dart';
 import 'features/mcp/service/mcp_tool_discovery_service.dart'
     show mcpStdioMirrorModeOverride;
 import 'features/memory/memory_controller.dart';
+import 'features/message_gateway/message_gateway_controller.dart';
 import 'features/skills/skills_controller.dart';
 import 'shared/data/database_service.dart';
 
@@ -156,13 +157,9 @@ Future<void> _bootstrap() async {
   developer.Timeline.finishSync();
   // 2026-05-03 — settings 加载完成后立刻把代理偏好同步给 resolver；
   // 后续设置变更通过 listener 同步，全程不需要重启。
-  SystemProxyResolver.instance.applyConfig(
-    settingsController.proxySettings,
-  );
+  SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
   settingsController.addListener(() {
-    SystemProxyResolver.instance.applyConfig(
-      settingsController.proxySettings,
-    );
+    SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
   });
   // 2026-05-04 — stdio MCP 镜像源模式（auto / forceOn / forceOff）。
   // 用一个简单 top-level 变量同步给 mcp_tool_discovery_service，
@@ -296,6 +293,17 @@ Future<void> _bootstrap() async {
   // any immediate scheduler tick post-init can dispatch correctly.
   unawaited(cronsController.initialize());
 
+  final messageGatewayController = MessageGatewayController.uninitialized(
+    sessionController: aiSessionController,
+    settingsController: settingsController,
+    skillsController: skillsController,
+    mcpController: mcpController,
+    memoryController: memoryController,
+    instructionsController: instructionsController,
+    appInfo: appInfo,
+  );
+  unawaited(messageGatewayController.initialize());
+
   // 2026-04-25 — 冷启动后异步触发一次 cron 历史清理（single-flight，
   // 永不抛异常，超时兜底 30s），不干扰主路径与 UI 启动。
   unawaited(
@@ -318,6 +326,9 @@ Future<void> _bootstrap() async {
         ChangeNotifierProvider<CronsController>.value(value: cronsController),
         ChangeNotifierProvider<InstructionsController>.value(
           value: instructionsController,
+        ),
+        ChangeNotifierProvider<MessageGatewayController>.value(
+          value: messageGatewayController,
         ),
         ChangeNotifierProvider<AiSessionController>.value(
           value: aiSessionController,

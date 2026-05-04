@@ -13,6 +13,8 @@ abstract final class OpenHandPaths {
       '~/.openhand/sessions/attachments';
   static const String defaultCacheDirectoryLabel = '~/.openhand/cache';
   static const String defaultLogsDirectoryLabel = '~/.openhand/logs';
+  static const String defaultMessageGatewayDirectoryLabel =
+      '~/.openhand/message_gateway';
   static const String defaultRootDirectoryLabel = '~/.openhand';
 
   static String homeDirectoryPath() {
@@ -87,6 +89,10 @@ abstract final class OpenHandPaths {
   /// absent on a fresh install.
   static String defaultCacheDirectoryPath() {
     return p.join(defaultRootDirectoryPath(), 'cache');
+  }
+
+  static String defaultMessageGatewayDirectoryPath() {
+    return p.join(defaultRootDirectoryPath(), 'message_gateway');
   }
 
   /// Logs directory used by background workers for opt-in disk logging.

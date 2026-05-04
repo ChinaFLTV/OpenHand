@@ -997,7 +997,7 @@
   "settingsThreadSessionManagementSubtitle": "檢視所有執行緒的標題、建立／更新時間、佔用大小、訊息構成與 Token 統計。支援拖曳排序、多選刪除，並可用按兩下或按右鍵叫出重新命名／匯出／刪除選單。對話框的進場與退場動畫會依全域設定的對話框動畫設定。",
   "settingsThreadSessionManagementOpen": "開啟管理視窗",
   "settingsMessageGatewayTitle": "訊息閘道",
-  "settingsMessageGatewayDescription": "設定訊息閘道的路由、轉換與節流策略。具體選項將於後續版本中釋出，目前為預留入口。",
+  "settingsMessageGatewayDescription": "管理內建 Web通用訊息平台的監聽、驗證、會話、Web 聊天、健康檢查、日誌與維運能力。",
   "settingsMessageGatewayComingSoon": "即將推出",
   "settingsMessageGatewayComingSoonSubtitle": "訊息閘道的詳細設定將於下一個迭代提供。",
   "tsmRowUnknown": "未知",

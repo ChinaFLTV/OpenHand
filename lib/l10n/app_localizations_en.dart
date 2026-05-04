@@ -2285,7 +2285,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsMessageGatewayDescription =>
-      'Configure message-gateway routing, transforms, and throttling. Concrete options will be added in a future release; this section is currently a placeholder entry.';
+      'Configure the built-in Web General Message Platform, including listener, auth, sessions, web chat, health checks, logs, and operations.';
 
   @override
   String get settingsMessageGatewayComingSoon => 'Coming soon';

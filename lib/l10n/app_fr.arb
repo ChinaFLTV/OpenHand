@@ -997,7 +997,7 @@
   "settingsThreadSessionManagementSubtitle": "Inspectez le titre, l'heure de création et de mise à jour, l'empreinte de stockage, la composition des messages et les statistiques de tokens de chaque fil. Prend en charge le glisser-déposer pour réorganiser, la suppression par sélection multiple, ainsi qu'un menu en double-clic ou clic droit pour renommer, exporter ou supprimer. L'animation d'entrée et de sortie de la boîte de dialogue suit la configuration globale d'animation des dialogues.",
   "settingsThreadSessionManagementOpen": "Ouvrir le gestionnaire",
   "settingsMessageGatewayTitle": "Passerelle de messages",
-  "settingsMessageGatewayDescription": "Configurez le routage, les transformations et la limitation de débit de la passerelle de messages. Les options détaillées seront ajoutées dans une prochaine version ; cette section n'est pour l'instant qu'un emplacement réservé.",
+  "settingsMessageGatewayDescription": "Configurez la plateforme Web générale de messages intégrée : écoute, authentification, sessions, chat Web, contrôles de santé, journaux et opérations.",
   "settingsMessageGatewayComingSoon": "Bientôt disponible",
   "settingsMessageGatewayComingSoonSubtitle": "La configuration détaillée de la passerelle de messages est prévue pour la prochaine itération.",
   "tsmRowUnknown": "inconnu",

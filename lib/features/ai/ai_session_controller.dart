@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, File, NetworkInterface, Platform;
 import 'dart:math' as math;
 
 import 'package:characters/characters.dart';
@@ -889,6 +889,7 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionRuntimeContext runtimeContext,
     AiSessionMode mode = AiSessionMode.chat,
     bool fullAccessPermission = false,
+    Map<String, Object?>? metadata,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
     if (isSending) {
@@ -897,6 +898,7 @@ class AiSessionController extends ChangeNotifier {
         runtimeContext: runtimeContext,
         mode: mode,
         fullAccessPermission: fullAccessPermission,
+        metadata: metadata,
       );
     }
     return _enqueueOperation(
@@ -905,6 +907,7 @@ class AiSessionController extends ChangeNotifier {
         runtimeContext: runtimeContext,
         mode: mode,
         fullAccessPermission: fullAccessPermission,
+        metadata: metadata,
       ),
     );
   }
@@ -934,12 +937,16 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionRuntimeContext runtimeContext,
     required AiSessionMode mode,
     required bool fullAccessPermission,
+    Map<String, Object?>? metadata,
   }) async {
     final template = _templateRepository.resolveTemplate(templateId);
     final now = _clock().toUtc();
     _lastErrorMessage = null;
     // 2026-04-14: 创建新会话时清理文件追踪器，避免跨会话的脏写检测误判
     _toolRuntimeService.fileTracker.clearAllTracking();
+    final sessionMetadata = metadata == null
+        ? await _buildDefaultSessionMetadata(runtimeContext)
+        : Map<String, Object?>.from(metadata);
     final session = AiSession(
       id: _idGenerator(),
       title: _defaultNewSessionTitle,
@@ -955,6 +962,7 @@ class AiSessionController extends ChangeNotifier {
       recentErrors: const <AiSessionErrorRecord>[],
       mode: mode,
       fullAccessPermission: fullAccessPermission,
+      metadata: sessionMetadata,
     );
     _deletedSessionIds.remove(session.id);
     final committed = await _commitSessionLocked(session);
@@ -966,6 +974,101 @@ class AiSessionController extends ChangeNotifier {
     await _emitSessionStartHook(session: session, source: 'startup');
     notifyListeners();
     return true;
+  }
+
+  Future<Map<String, Object?>> _buildDefaultSessionMetadata(
+    AiSessionRuntimeContext runtimeContext,
+  ) async {
+    final now = _clock().toUtc();
+    final deviceId = await _readOrCreateDeviceId();
+    final network = await _localNetworkSnapshot();
+    final source = _defaultAppLoginSource();
+    return <String, Object?>{
+      'web_gateway_context': <String, Object?>{
+        'login_source': source,
+        'source': source,
+        'device_id': deviceId,
+        'device_mac_address': '',
+        'device_mac_address_status': 'unavailable_in_dart_io',
+        'ip_addresses': network.ipAddresses,
+        'network_interfaces': network.interfaces,
+        'login_at': now.toIso8601String(),
+        'login_os': Platform.operatingSystem,
+        'login_os_version': Platform.operatingSystemVersion,
+        'login_address': 'local_app',
+        'entrypoint': 'openhand_app',
+        'platform_name': runtimeContext.platformName,
+        'locale_tag': runtimeContext.localeTag,
+        'working_directory': runtimeContext.workingDirectory,
+        'time_zone_name': runtimeContext.timeZoneName,
+        'app_version': runtimeContext.appVersion,
+        'app_build_number': runtimeContext.appBuildNumber,
+        'captured_at': now.toIso8601String(),
+      },
+    };
+  }
+
+  String _defaultAppLoginSource() {
+    if (Platform.isAndroid || Platform.isIOS) {
+      return 'APP_MOBILE';
+    }
+    return 'APP_PC';
+  }
+
+  Future<String> _readOrCreateDeviceId() async {
+    try {
+      final dir = Directory(OpenHandPaths.defaultRootDirectoryPath());
+      await dir.create(recursive: true);
+      final file = File('${dir.path}/device_id');
+      if (await file.exists()) {
+        final existing = (await file.readAsString()).trim();
+        if (existing.isNotEmpty) return existing;
+      }
+      final next = 'openhand-${_idGenerator()}';
+      await file.writeAsString('$next\n');
+      return next;
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'read/create device id', error, stack);
+      return 'openhand-${Platform.localHostname}';
+    }
+  }
+
+  Future<({List<String> ipAddresses, List<Map<String, Object?>> interfaces})>
+  _localNetworkSnapshot() async {
+    try {
+      final interfaces = await NetworkInterface.list().timeout(
+        const Duration(milliseconds: 900),
+      );
+      final ipAddresses = <String>{};
+      final interfaceRows = <Map<String, Object?>>[];
+      for (final iface in interfaces) {
+        final addresses = <String>[];
+        for (final address in iface.addresses) {
+          addresses.add(address.address);
+          ipAddresses.add(address.address);
+        }
+        interfaceRows.add(<String, Object?>{
+          'name': iface.name,
+          'index': iface.index,
+          'addresses': addresses,
+        });
+      }
+      return (
+        ipAddresses: ipAddresses.toList(growable: false),
+        interfaces: interfaceRows,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'local network snapshot',
+        error,
+        stack,
+      );
+      return (
+        ipAddresses: const <String>[],
+        interfaces: const <Map<String, Object?>>[],
+      );
+    }
   }
 
   Future<bool> updateSessionMode(String sessionId, AiSessionMode mode) async {
@@ -1959,6 +2062,7 @@ class AiSessionController extends ChangeNotifier {
     WriteCommandConfirmationCallback? confirmWriteCommand,
     List<String> additionalSystemReminders = const <String>[],
     Map<String, Object?>? selectedSkillMetadata,
+    Map<String, Object?>? userMessageMetadata,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
     final normalizedContent = content.trim();
@@ -2052,17 +2156,17 @@ class AiSessionController extends ChangeNotifier {
           );
           return false;
         }
-        final userMessageMetadata = <String, Object?>{};
+        final nextUserMessageMetadata = <String, Object?>{};
         if (creationRequest.isActive) {
-          userMessageMetadata[AiCreationRequest.metadataKey] = creationRequest
-              .toMetadata();
+          nextUserMessageMetadata[AiCreationRequest.metadataKey] =
+              creationRequest.toMetadata();
         }
         if (userHookResult.userFeedback.isNotEmpty) {
-          userMessageMetadata[aiUserPromptHookFeedbackMetadataKey] =
+          nextUserMessageMetadata[aiUserPromptHookFeedbackMetadataKey] =
               userHookResult.userFeedback;
         }
         if (userHookResult.systemReminders.isNotEmpty) {
-          userMessageMetadata[aiHookSystemRemindersMetadataKey] =
+          nextUserMessageMetadata[aiHookSystemRemindersMetadataKey] =
               userHookResult.systemReminders;
         }
         // Merge any caller-provided system reminders (e.g. user-selected
@@ -2077,13 +2181,13 @@ class AiSessionController extends ChangeNotifier {
         ];
         if (sanitizedExtraReminders.isNotEmpty) {
           final existing = List<String>.from(
-            (userMessageMetadata[aiHookSystemRemindersMetadataKey]
+            (nextUserMessageMetadata[aiHookSystemRemindersMetadataKey]
                         as List<Object?>?)
                     ?.map((e) => '$e') ??
                 const <String>[],
           );
           existing.addAll(sanitizedExtraReminders);
-          userMessageMetadata[aiHookSystemRemindersMetadataKey] = existing;
+          nextUserMessageMetadata[aiHookSystemRemindersMetadataKey] = existing;
         }
         // Persist a display-only copy of the user's explicit skill
         // selection (if any).  The transcript bubble reads this to render a
@@ -2091,8 +2195,11 @@ class AiSessionController extends ChangeNotifier {
         // prompt builder (the LLM-facing manifest arrives via
         // [aiHookSystemRemindersMetadataKey] above).
         if (selectedSkillMetadata != null && selectedSkillMetadata.isNotEmpty) {
-          userMessageMetadata[aiUserSkillSelectionMetadataKey] =
+          nextUserMessageMetadata[aiUserSkillSelectionMetadataKey] =
               Map<String, Object?>.from(selectedSkillMetadata);
+        }
+        if (userMessageMetadata != null && userMessageMetadata.isNotEmpty) {
+          nextUserMessageMetadata.addAll(userMessageMetadata);
         }
         if (_shouldResetPlanStateForNewTask(
           session: session,
@@ -2163,7 +2270,7 @@ class AiSessionController extends ChangeNotifier {
           model: model,
           runtimeContext: runtimeContext,
           attachmentFilePaths: normalizedAttachmentPaths,
-          userMessageMetadata: userMessageMetadata,
+          userMessageMetadata: nextUserMessageMetadata,
         );
         sendPreflightTimingsMs['prepare_user_turn'] =
             prepareUserTurnStopwatch.elapsedMilliseconds;

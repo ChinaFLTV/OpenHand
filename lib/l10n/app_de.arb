@@ -997,7 +997,7 @@
   "settingsThreadSessionManagementSubtitle": "Übersicht über Titel, Erstell- und Aktualisierungszeit, Speicherbedarf, Nachrichtenzusammensetzung sowie Token-Statistik aller Threads. Unterstützt Drag-and-Drop-Sortierung, Mehrfachauswahl-Löschen sowie Doppelklick- bzw. Rechtsklick-Menüs zum Umbenennen, Exportieren und Löschen. Die Ein- und Ausblendanimation des Dialogs folgt der globalen Dialoganimationskonfiguration.",
   "settingsThreadSessionManagementOpen": "Verwaltung öffnen",
   "settingsMessageGatewayTitle": "Nachrichten-Gateway",
-  "settingsMessageGatewayDescription": "Konfigurieren Sie Routing, Transformationen und Drosselung des Nachrichten-Gateways. Konkrete Optionen folgen in einer späteren Version; dieser Abschnitt ist derzeit ein Platzhalter.",
+  "settingsMessageGatewayDescription": "Konfigurieren Sie die integrierte allgemeine Web-Nachrichtenplattform mit Listener, Authentifizierung, Sitzungen, Web-Chat, Integritätsprüfungen, Protokollen und Betrieb.",
   "settingsMessageGatewayComingSoon": "Demnächst verfügbar",
   "settingsMessageGatewayComingSoonSubtitle": "Detaillierte Konfiguration des Nachrichten-Gateways ist für die nächste Iteration geplant.",
   "tsmRowUnknown": "unbekannt",

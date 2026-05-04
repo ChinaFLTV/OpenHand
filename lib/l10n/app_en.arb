@@ -997,7 +997,7 @@
   "settingsThreadSessionManagementSubtitle": "Inspect every thread's title, created/updated time, storage footprint, message breakdown, and token stats. Supports drag-reorder, multi-select delete, and a double-click / right-click menu for rename/export/delete. The dialog enter/exit animation follows the global dialog animation settings.",
   "settingsThreadSessionManagementOpen": "Open Manager",
   "settingsMessageGatewayTitle": "Message Gateway",
-  "settingsMessageGatewayDescription": "Configure message-gateway routing, transforms, and throttling. Concrete options will be added in a future release; this section is currently a placeholder entry.",
+  "settingsMessageGatewayDescription": "Configure the built-in Web General Message Platform, including listener, auth, sessions, web chat, health checks, logs, and operations.",
   "settingsMessageGatewayComingSoon": "Coming soon",
   "settingsMessageGatewayComingSoonSubtitle": "Detailed message-gateway configuration is planned for the next iteration.",
   "tsmRowUnknown": "unknown",

@@ -2329,7 +2329,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsMessageGatewayDescription =>
-      'Configurez le routage, les transformations et la limitation de débit de la passerelle de messages. Les options détaillées seront ajoutées dans une prochaine version ; cette section n\'est pour l\'instant qu\'un emplacement réservé.';
+      'Configurez la plateforme Web générale de messages intégrée : écoute, authentification, sessions, chat Web, contrôles de santé, journaux et opérations.';
 
   @override
   String get settingsMessageGatewayComingSoon => 'Bientôt disponible';

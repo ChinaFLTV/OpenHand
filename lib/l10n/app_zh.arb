@@ -997,7 +997,7 @@
   "settingsThreadSessionManagementSubtitle": "查看所有线程的标题、创建/更新时间、占用大小、消息构成和 token 统计。支持拖拽排序、多选删除、双击或右键打开重命名/导出/删除菜单。弹窗的进出场动画跟随全局设置中的弹窗动画配置。",
   "settingsThreadSessionManagementOpen": "打开管理弹窗",
   "settingsMessageGatewayTitle": "消息网关",
-  "settingsMessageGatewayDescription": "管理消息网关的路由、转换与节流策略。具体配置项将在后续版本中开放，当前为预留入口。",
+  "settingsMessageGatewayDescription": "管理内建 Web通用消息平台的监听、鉴权、会话、Web 聊天、健康检查、日志与运维能力。",
   "settingsMessageGatewayComingSoon": "即将推出",
   "settingsMessageGatewayComingSoonSubtitle": "消息网关详细配置将在下一个迭代中提供。",
   "tsmRowUnknown": "未知",

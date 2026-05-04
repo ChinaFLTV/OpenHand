@@ -2164,7 +2164,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsMessageGatewayDescription =>
-      '管理消息网关的路由、转换与节流策略。具体配置项将在后续版本中开放，当前为预留入口。';
+      '管理内建 Web通用消息平台的监听、鉴权、会话、Web 聊天、健康检查、日志与运维能力。';
 
   @override
   String get settingsMessageGatewayComingSoon => '即将推出';
@@ -6995,7 +6995,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsMessageGatewayDescription =>
-      '管理消息网关的路由、转换与节流策略。具体配置项将在后续版本中开放，当前为预留入口。';
+      '管理内建 Web通用消息平台的监听、鉴权、会话、Web 聊天、健康检查、日志与运维能力。';
 
   @override
   String get settingsMessageGatewayComingSoon => '即将推出';
@@ -11825,7 +11825,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsMessageGatewayDescription =>
-      '設定訊息閘道的路由、轉換與節流策略。具體選項將於後續版本中釋出，目前為預留入口。';
+      '管理內建 Web通用訊息平台的監聽、驗證、會話、Web 聊天、健康檢查、日誌與維運能力。';
 
   @override
   String get settingsMessageGatewayComingSoon => '即將推出';
