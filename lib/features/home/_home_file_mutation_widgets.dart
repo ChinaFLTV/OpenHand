@@ -193,10 +193,16 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     if (_bulkUndoBusy) return;
     final candidates = views.where((v) => v.canUndo).toList(growable: false);
     if (candidates.isEmpty) return;
-    // 按文件路径聚合（保留每条原始顺序——遵循 ledger 时间倒序撤销最佳实践）。
+    // 同一文件按时间倒序撤销，避免先撤旧记录导致后续记录失效。
     final groups = <String, List<FileMutationView>>{};
     for (final v in candidates) {
       groups.putIfAbsent(v.record.filePath, () => <FileMutationView>[]).add(v);
+    }
+    for (final group in groups.values) {
+      group.sort(
+        (left, right) =>
+            right.record.createdAt.compareTo(left.record.createdAt),
+      );
     }
     setState(() {
       _bulkUndoTotal = candidates.length;
@@ -2753,6 +2759,12 @@ class _RoundFileMutationSummaryCardState
       groups
           .putIfAbsent(r.view.record.filePath, () => <_RoundSummaryRow>[])
           .add(r);
+    }
+    for (final group in groups.values) {
+      group.sort(
+        (left, right) =>
+            right.view.record.createdAt.compareTo(left.view.record.createdAt),
+      );
     }
     setState(() {
       _bulkUndoTotal = candidates.length;
