@@ -110,7 +110,9 @@ List<_ToolGroup> _groupByServer(List<String> names) {
   ];
   if (misc.isNotEmpty) {
     misc.sort();
-    groups.add(_ToolGroup(server: null, names: List<String>.unmodifiable(misc)));
+    groups.add(
+      _ToolGroup(server: null, names: List<String>.unmodifiable(misc)),
+    );
   }
   return groups;
 }
@@ -128,6 +130,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   String _filterQuery = '';
   final TextEditingController _historyFilterController =
       TextEditingController();
+  final ScrollController _groupsScrollController = ScrollController();
+  final ScrollController _historyScrollController = ScrollController();
   String _historyFilterQuery = '';
   // null = 全部；其余值代表只看该来源。
   AiToolSearchLoadSource? _historySourceFilter;
@@ -136,6 +140,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   void dispose() {
     _filterController.dispose();
     _historyFilterController.dispose();
+    _groupsScrollController.dispose();
+    _historyScrollController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -249,8 +255,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     final payload = isCsv
         ? ToolSearchHistorySerializer.toCsv(entries)
         : isJson
-            ? ToolSearchHistorySerializer.toJson(entries)
-            : ToolSearchHistorySerializer.toMarkdown(entries);
+        ? ToolSearchHistorySerializer.toJson(entries)
+        : ToolSearchHistorySerializer.toMarkdown(entries);
     if (action.destination == _HistoryExportDestination.clipboard) {
       await Clipboard.setData(ClipboardData(text: payload));
       if (!mounted) return;
@@ -350,17 +356,20 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   Future<void> _revealInFileManager(String filePath) async {
     try {
       if (Platform.isMacOS) {
-        await runProcessWithTimeout('open', <String>['-R', filePath],
-            tag: 'tool_search_loaded_dialog.reveal');
+        await runProcessWithTimeout('open', <String>[
+          '-R',
+          filePath,
+        ], tag: 'tool_search_loaded_dialog.reveal');
       } else if (Platform.isWindows) {
-        await runProcessWithTimeout(
-            'explorer.exe', <String>['/select,$filePath'],
-            tag: 'tool_search_loaded_dialog.reveal');
+        await runProcessWithTimeout('explorer.exe', <String>[
+          '/select,$filePath',
+        ], tag: 'tool_search_loaded_dialog.reveal');
       } else {
         // Linux / others — open the containing directory.
         final dir = File(filePath).parent.path;
-        await runProcessWithTimeout('xdg-open', <String>[dir],
-            tag: 'tool_search_loaded_dialog.reveal');
+        await runProcessWithTimeout('xdg-open', <String>[
+          dir,
+        ], tag: 'tool_search_loaded_dialog.reveal');
       }
     } catch (error, stack) {
       silentLog(
@@ -446,10 +455,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     for (final g in groups) {
       final hit = g.names.where((n) => n.toLowerCase().contains(q)).toList();
       if (hit.isEmpty) continue;
-      filtered.add(_ToolGroup(
-        server: g.server,
-        names: List<String>.unmodifiable(hit),
-      ));
+      filtered.add(
+        _ToolGroup(server: g.server, names: List<String>.unmodifiable(hit)),
+      );
     }
     return filtered;
   }
@@ -559,12 +567,17 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 )
-              : Scrollbar(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: filtered.length,
-                    itemBuilder: (_, index) =>
-                        _buildGroup(context, filtered[index], l10n),
+              : PrimaryScrollController.none(
+                  child: Scrollbar(
+                    controller: _groupsScrollController,
+                    child: ListView.builder(
+                      controller: _groupsScrollController,
+                      primary: false,
+                      shrinkWrap: true,
+                      itemCount: filtered.length,
+                      itemBuilder: (_, index) =>
+                          _buildGroup(context, filtered[index], l10n),
+                    ),
                   ),
                 ),
         ),
@@ -631,8 +644,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   child: Tooltip(
                     message:
                         l10n.snackToolSearchLoadedHistoryExportMarkdownHint,
-                    child:
-                        Text(l10n.snackToolSearchLoadedHistoryExportMarkdown),
+                    child: Text(
+                      l10n.snackToolSearchLoadedHistoryExportMarkdown,
+                    ),
                   ),
                 ),
                 PopupMenuItem<_HistoryExportAction>(
@@ -647,8 +661,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   value: _HistoryExportAction.saveCsv,
                   child: Tooltip(
                     message: l10n.snackToolSearchLoadedHistoryExportCsvHint,
-                    child:
-                        Text(l10n.snackToolSearchLoadedHistoryExportSaveCsv),
+                    child: Text(l10n.snackToolSearchLoadedHistoryExportSaveCsv),
                   ),
                 ),
                 PopupMenuItem<_HistoryExportAction>(
@@ -727,13 +740,18 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 )
-              : Scrollbar(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (_, index) =>
-                        _buildHistoryEntry(context, l10n, filtered[index]),
+              : PrimaryScrollController.none(
+                  child: Scrollbar(
+                    controller: _historyScrollController,
+                    child: ListView.separated(
+                      controller: _historyScrollController,
+                      primary: false,
+                      shrinkWrap: true,
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (_, index) =>
+                          _buildHistoryEntry(context, l10n, filtered[index]),
+                    ),
                   ),
                 ),
         ),
@@ -1044,9 +1062,7 @@ class _ToolSearchHistoryImportPreviewDialog extends StatelessWidget {
         width: 520,
         height: 420,
         child: entries.isEmpty
-            ? Center(
-                child: Text(l10n.toolSearchLoadedHistoryImportDialogEmpty),
-              )
+            ? Center(child: Text(l10n.toolSearchLoadedHistoryImportDialogEmpty))
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

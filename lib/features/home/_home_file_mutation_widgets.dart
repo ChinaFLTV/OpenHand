@@ -1145,7 +1145,14 @@ class _InlineDiffPanel extends StatefulWidget {
 
 class _InlineDiffPanelState extends State<_InlineDiffPanel> {
   Future<({String? before, String? after})>? _future;
+  final ScrollController _scrollController = ScrollController();
   String? _key;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   String _keyOf(FileMutationView v) =>
       '${v.record.recordId}|${v.record.beforeSha ?? ''}|${v.record.afterSha ?? ''}';
@@ -1258,9 +1265,14 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
               ),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Scrollbar(
-              child: SingleChildScrollView(
-                child: SelectableText.rich(rootSpan),
+            child: PrimaryScrollController.none(
+              child: Scrollbar(
+                controller: _scrollController,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  primary: false,
+                  child: SelectableText.rich(rootSpan),
+                ),
               ),
             ),
           );

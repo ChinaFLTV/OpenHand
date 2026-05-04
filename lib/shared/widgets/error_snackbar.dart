@@ -30,12 +30,10 @@ void showFriendlyErrorSnackBar(
   messenger.hideCurrentSnackBar();
   messenger.showSnackBar(
     SnackBar(
-      content: Text(
-        headline,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      duration: hasDetails ? const Duration(seconds: 6) : const Duration(seconds: 4),
+      content: Text(headline, maxLines: 2, overflow: TextOverflow.ellipsis),
+      duration: hasDetails
+          ? const Duration(seconds: 6)
+          : const Duration(seconds: 4),
       action: hasDetails
           ? SnackBarAction(
               label: '详情 / Details',
@@ -59,9 +57,7 @@ void showFriendlyErrorDetailsDialog(
   _showErrorDetailsDialog(context, fullText: fullText);
 }
 
-void _showErrorDetailsDialog(
-  BuildContext context,
-  {required String fullText}) {
+void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
   showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) {
@@ -70,17 +66,7 @@ void _showErrorDetailsDialog(
         title: const Text('错误详情 / Error details'),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560, maxHeight: 480),
-          child: Scrollbar(
-            child: SingleChildScrollView(
-              child: SelectableText(
-                fullText,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  height: 1.5,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-          ),
+          child: _ErrorDetailsScrollBody(fullText: fullText, theme: theme),
         ),
         actions: <Widget>[
           TextButton.icon(
@@ -107,4 +93,45 @@ void _showErrorDetailsDialog(
       );
     },
   );
+}
+
+class _ErrorDetailsScrollBody extends StatefulWidget {
+  const _ErrorDetailsScrollBody({required this.fullText, required this.theme});
+
+  final String fullText;
+  final ThemeData theme;
+
+  @override
+  State<_ErrorDetailsScrollBody> createState() =>
+      _ErrorDetailsScrollBodyState();
+}
+
+class _ErrorDetailsScrollBodyState extends State<_ErrorDetailsScrollBody> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PrimaryScrollController.none(
+      child: Scrollbar(
+        controller: _scrollController,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          primary: false,
+          child: SelectableText(
+            widget.fullText,
+            style: widget.theme.textTheme.bodyMedium?.copyWith(
+              height: 1.5,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
