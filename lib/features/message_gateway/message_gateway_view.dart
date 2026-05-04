@@ -480,6 +480,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late final TextEditingController _workspaceFileMaxMbController;
   late final TextEditingController _workspaceFileExtensionsController;
   late final TextEditingController _uploadCacheRetentionDaysController;
+  late final TextEditingController _uploadCacheMaxMbController;
   late final TextEditingController _healthPathController;
   late final TextEditingController _healthMethodController;
   late final TextEditingController _healthTimeoutController;
@@ -543,6 +544,9 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _uploadCacheRetentionDaysController = TextEditingController(
       text: '${config.uploadCacheRetentionDays}',
     );
+    _uploadCacheMaxMbController = TextEditingController(
+      text: '${(config.uploadCacheMaxBytes / (1024 * 1024)).round()}',
+    );
     _healthPathController = TextEditingController(
       text: config.healthCheck.path,
     );
@@ -588,6 +592,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _workspaceFileMaxMbController.dispose();
     _workspaceFileExtensionsController.dispose();
     _uploadCacheRetentionDaysController.dispose();
+    _uploadCacheMaxMbController.dispose();
     _healthPathController.dispose();
     _healthMethodController.dispose();
     _healthTimeoutController.dispose();
@@ -850,6 +855,11 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                               controller: _uploadCacheRetentionDaysController,
                               keyboardType: TextInputType.number,
                             ),
+                            _TextFieldSpec(
+                              label: '上传缓存上限(MB)',
+                              controller: _uploadCacheMaxMbController,
+                              keyboardType: TextInputType.number,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 18),
@@ -992,6 +1002,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         _uploadCacheRetentionDaysController.text,
         7,
       ),
+      uploadCacheMaxBytes:
+          math.max(1, _int(_uploadCacheMaxMbController.text, 512)) *
+          1024 *
+          1024,
       healthCheck: WebGatewayHealthCheckConfig(
         path: _healthPathController.text.trim().isEmpty
             ? '/api/health'

@@ -11,6 +11,7 @@ void main() {
     expect(config.workspaceFileAllowedExtensions, isEmpty);
     expect(config.sessionManagementEnabled, isTrue);
     expect(config.uploadCacheRetentionDays, 7);
+    expect(config.uploadCacheMaxBytes, 512 * 1024 * 1024);
   });
 
   test('gateway operation policy round-trips through json', () {
@@ -21,6 +22,7 @@ void main() {
       workspaceFileMaxBytes: 2 * 1024 * 1024,
       workspaceFileAllowedExtensions: <String>['.dart', '.md'],
       uploadCacheRetentionDays: 14,
+      uploadCacheMaxBytes: 64 * 1024 * 1024,
     );
 
     final decoded = WebMessagePlatformConfig.fromJson(config.toJson());
@@ -31,18 +33,23 @@ void main() {
     expect(decoded.workspaceFileMaxBytes, 2 * 1024 * 1024);
     expect(decoded.workspaceFileAllowedExtensions, <String>['.dart', '.md']);
     expect(decoded.uploadCacheRetentionDays, 14);
+    expect(decoded.uploadCacheMaxBytes, 64 * 1024 * 1024);
   });
 
-  test('upload cache retention is clamped', () {
+  test('upload cache retention and size are clamped', () {
     final low = WebMessagePlatformConfig.fromJson(<String, Object?>{
       'upload_cache_retention_days': -1,
+      'upload_cache_max_bytes': 1,
     });
     final high = WebMessagePlatformConfig.fromJson(<String, Object?>{
       'upload_cache_retention_days': 365,
+      'upload_cache_max_bytes': 20 * 1024 * 1024 * 1024,
     });
 
     expect(low.uploadCacheRetentionDays, 1);
+    expect(low.uploadCacheMaxBytes, 1024 * 1024);
     expect(high.uploadCacheRetentionDays, 180);
+    expect(high.uploadCacheMaxBytes, 10 * 1024 * 1024 * 1024);
   });
 
   test('workspace file extensions are normalized and deduplicated', () {

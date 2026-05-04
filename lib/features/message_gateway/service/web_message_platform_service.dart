@@ -125,6 +125,7 @@ class WebGatewayHealthResult {
 
 class WebGatewayCleanupResult {
   const WebGatewayCleanupResult({
+    required this.timestamp,
     required this.target,
     required this.expiredOnly,
     required this.deletedFiles,
@@ -133,6 +134,7 @@ class WebGatewayCleanupResult {
     required this.memoryLogEntriesCleared,
   });
 
+  final DateTime timestamp;
   final String target;
   final bool expiredOnly;
   final int deletedFiles;
@@ -142,6 +144,7 @@ class WebGatewayCleanupResult {
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
+      'timestamp': timestamp.toUtc().toIso8601String(),
       'target': target,
       'expired_only': expiredOnly,
       'deleted_files': deletedFiles,
@@ -239,6 +242,7 @@ class WebMessagePlatformService {
     required AppInfo appInfo,
     String? cacheDirectoryPath,
     String? logsDirectoryPath,
+    String? workspaceDirectoryPath,
   }) : _sessionController = sessionController,
        _settingsController = settingsController,
        _skillsController = skillsController,
@@ -248,6 +252,8 @@ class WebMessagePlatformService {
        _appInfo = appInfo,
        _cacheDirectoryPath =
            cacheDirectoryPath ?? OpenHandPaths.defaultCacheDirectoryPath(),
+       _workspaceDirectoryPath =
+           workspaceDirectoryPath ?? OpenHandPaths.applicationDirectoryPath(),
        _fileLogger = _WebGatewayRotatingLogger(
          logsDirectoryPath: logsDirectoryPath,
        );
@@ -260,10 +266,13 @@ class WebMessagePlatformService {
   final InstructionsController _instructionsController;
   final AppInfo _appInfo;
   final String _cacheDirectoryPath;
+  final String _workspaceDirectoryPath;
   final _WebGatewayRotatingLogger _fileLogger;
   final StreamController<WebGatewayLogEntry> _logStreamController =
       StreamController<WebGatewayLogEntry>.broadcast();
   final List<WebGatewayLogEntry> _memoryLogs = <WebGatewayLogEntry>[];
+  final List<WebGatewayCleanupResult> _cleanupHistory =
+      <WebGatewayCleanupResult>[];
   final Map<String, _WebGatewayAuthSession> _authSessions =
       <String, _WebGatewayAuthSession>{};
 
@@ -512,6 +521,7 @@ class WebMessagePlatformService {
         ? 'uploads'
         : 'none';
     final result = WebGatewayCleanupResult(
+      timestamp: DateTime.now().toUtc(),
       target: target,
       expiredOnly: expiredOnly,
       deletedFiles: stats.deletedFiles,
@@ -520,6 +530,10 @@ class WebMessagePlatformService {
       memoryLogEntriesCleared: memoryLogEntriesCleared,
     );
     if (target != 'none') {
+      _cleanupHistory.add(result);
+      if (_cleanupHistory.length > 50) {
+        _cleanupHistory.removeRange(0, _cleanupHistory.length - 50);
+      }
       _log(
         WebGatewayLogLevel.warn,
         'CLEANUP',
@@ -684,6 +698,14 @@ class WebMessagePlatformService {
         (await runtimeSnapshotAsync()).toJson(),
       );
     }
+    if (path == '/api/ops/cleanup/history' && request.method == 'GET') {
+      if (!_config.opsEnabled) {
+        return _json(request, HttpStatus.forbidden, <String, Object?>{
+          'error': 'ops_disabled',
+        });
+      }
+      return _cleanupHistoryPayload(request);
+    }
     if (path == '/api/ops/cleanup' && request.method == 'POST') {
       if (!_config.opsEnabled) {
         return _json(request, HttpStatus.forbidden, <String, Object?>{
@@ -694,6 +716,9 @@ class WebMessagePlatformService {
     }
     if (path == '/api/logs' && request.method == 'GET') {
       return _listLogs(request);
+    }
+    if (path == '/api/logs/export' && request.method == 'GET') {
+      return _exportLogs(request);
     }
     if (path == '/api/workspace/files' && request.method == 'GET') {
       return _listWorkspaceFiles(request);
@@ -994,10 +1019,11 @@ class WebMessagePlatformService {
       });
     }
     final ok = await _sessionController.renameSession(session.id, title);
-    final updated = _sessionController.sessions.firstWhere(
+    final committed = _sessionController.sessions.firstWhere(
       (item) => item.id == session.id,
       orElse: () => session.copyWith(title: title),
     );
+    final updated = ok ? committed.copyWith(title: title) : committed;
     _log(
       WebGatewayLogLevel.info,
       'SESSION',
@@ -1229,6 +1255,37 @@ class WebMessagePlatformService {
     return _json(request, HttpStatus.ok, result.toJson());
   }
 
+  Future<int> _cleanupHistoryPayload(HttpRequest request) async {
+    return _json(request, HttpStatus.ok, <String, Object?>{
+      'items': _cleanupHistory.reversed
+          .map((entry) => entry.toJson())
+          .toList(growable: false),
+      'total': _cleanupHistory.length,
+      'max_items': 50,
+    });
+  }
+
+  Future<int> _exportLogs(HttpRequest request) async {
+    final payload = <String, Object?>{
+      'generated_at': DateTime.now().toUtc().toIso8601String(),
+      'service': webMessagePlatformBuiltinName,
+      'memory_logs': _memoryLogs.map((entry) => entry.toJson()).toList(),
+      'disk_logs': await _fileLogger.readBundle(),
+    };
+    final bytes = utf8.encode(jsonEncode(payload));
+    request.response.statusCode = HttpStatus.ok;
+    request.response.headers.contentType = ContentType.json;
+    request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+    request.response.headers.set(
+      'content-disposition',
+      'attachment; filename="openhand-web-gateway-logs.json"',
+    );
+    request.response.contentLength = bytes.length;
+    request.response.add(bytes);
+    await request.response.close();
+    return bytes.length;
+  }
+
   Future<int> _listWorkspaceFiles(HttpRequest request) async {
     if (!_config.workspaceFilesEnabled) {
       return _json(request, HttpStatus.forbidden, <String, Object?>{
@@ -1249,7 +1306,7 @@ class WebMessagePlatformService {
         'error': 'directory_not_found',
       });
     }
-    final root = OpenHandPaths.applicationDirectoryPath();
+    final root = _workspaceDirectoryPath;
     final entries = Directory(dir).listSync(followLinks: false)
       ..sort((a, b) {
         final aDir = a is Directory;
@@ -1706,6 +1763,46 @@ class WebMessagePlatformService {
         );
       }
     }
+    return stats + await _enforceUploadCacheMaxBytes();
+  }
+
+  Future<_CleanupStats> _enforceUploadCacheMaxBytes() async {
+    final root = Directory(_uploadCacheDirectoryPath);
+    if (!await root.exists()) return const _CleanupStats();
+    final files = <File>[];
+    var totalBytes = 0;
+    await for (final entity in root.list(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+      try {
+        final stat = await entity.stat();
+        totalBytes += stat.size;
+        files.add(entity);
+      } catch (_) {}
+    }
+    if (totalBytes <= _config.uploadCacheMaxBytes) {
+      return const _CleanupStats();
+    }
+    files.sort(
+      (a, b) => a.statSync().modified.compareTo(b.statSync().modified),
+    );
+    var stats = const _CleanupStats();
+    var remainingBytes = totalBytes;
+    for (final file in files) {
+      if (remainingBytes <= _config.uploadCacheMaxBytes) break;
+      try {
+        final stat = await file.stat();
+        await file.delete();
+        remainingBytes -= stat.size;
+        stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
+      } catch (error, stack) {
+        silentLog(
+          'web_message_platform_service',
+          'enforce upload cache max bytes',
+          error,
+          stack,
+        );
+      }
+    }
     return stats;
   }
 
@@ -1828,7 +1925,7 @@ class WebMessagePlatformService {
   }
 
   String? _resolveWorkspacePath(String rawPath) {
-    final root = OpenHandPaths.applicationDirectoryPath();
+    final root = _workspaceDirectoryPath;
     final normalizedInput = rawPath.trim().replaceAll('\\', '/');
     if (normalizedInput.startsWith('/')) return null;
     final resolved = p.normalize(p.join(root, normalizedInput));
@@ -1837,7 +1934,7 @@ class WebMessagePlatformService {
   }
 
   String _relativeWorkspacePath(String absolutePath) {
-    final root = OpenHandPaths.applicationDirectoryPath();
+    final root = _workspaceDirectoryPath;
     if (absolutePath == root) return '';
     return p.relative(absolutePath, from: root).replaceAll('\\', '/');
   }
@@ -2254,6 +2351,34 @@ class _WebGatewayRotatingLogger {
     return stats;
   }
 
+  Future<List<Map<String, Object?>>> readBundle() async {
+    final dir = Directory(directoryPath);
+    if (!await dir.exists()) return const <Map<String, Object?>>[];
+    final files =
+        dir
+            .listSync(followLinks: false)
+            .whereType<File>()
+            .where((item) => p.basename(item.path).startsWith('web-platform'))
+            .toList(growable: false)
+          ..sort(
+            (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+          );
+    final items = <Map<String, Object?>>[];
+    for (final file in files) {
+      try {
+        final stat = await file.stat();
+        final bytes = await file.readAsBytes();
+        items.add(<String, Object?>{
+          'name': p.basename(file.path),
+          'size': stat.size,
+          'modified_at': stat.modified.toUtc().toIso8601String(),
+          'content': utf8.decode(bytes, allowMalformed: true),
+        });
+      } catch (_) {}
+    }
+    return items;
+  }
+
   Future<void> _rotateIfNeeded(WebGatewayLogConfig config) async {
     final file = File(filePath);
     if (!await file.exists()) return;
@@ -2365,6 +2490,8 @@ button { border: 0; cursor: pointer; }
 .icon-btn, .text-btn { height: 40px; border-radius: 8px; color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .icon-btn { width: 40px; padding: 0; font-size: 20px; }
 .text-btn.primary { background: var(--primary); color: var(--on-primary); }
+.text-btn.danger { color: var(--error); background: color-mix(in srgb, var(--error) 12%, transparent); }
+.text-btn.danger.primary { color: white; background: var(--error); }
 .session-filters { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 0 12px 12px; border-bottom: 1px solid var(--outline); }
 .session-list { overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .session { text-align: left; padding: 12px; border-radius: 8px; background: transparent; color: var(--on-surface); border: 1px solid transparent; transition: background .18s ease, border-color .18s ease; }
@@ -2400,6 +2527,8 @@ input, select { height: 42px; border: 1px solid var(--outline); border-radius: 8
 .modal.open { display: grid; }
 .modal .panel { width: min(560px, 100%); }
 .modal .panel.wide { width: min(980px, 100%); max-height: min(780px, calc(100vh - 36px)); display: flex; flex-direction: column; }
+.dialog-message { margin: 10px 0 0; color: var(--on-surface-variant); line-height: 1.45; }
+.dialog-actions { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
 .file-tools { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) 140px; gap: 10px; }
 .file-layout { min-height: 0; display: grid; grid-template-columns: minmax(220px, 320px) 1fr; gap: 12px; margin-top: 12px; }
 .file-list { min-height: 320px; max-height: 58vh; overflow: auto; border: 1px solid var(--outline); border-radius: 8px; padding: 6px; }
@@ -2452,6 +2581,7 @@ input, select { height: 42px; border: 1px solid var(--outline); border-radius: 8
 </div>
 <div id="newModal" class="modal"><form id="newForm" class="panel"><h1>新建线程</h1><label class="field"><span>线程名称</span><input id="newTitle" placeholder="新会话" /></label><label class="field"><span>线程模板</span><select id="template"></select></label><label class="field"><span>对话模式</span><select id="mode"></select></label><label class="field"><span>模型</span><select id="model"></select></label><div style="display:flex;gap:10px;margin-top:18px"><button type="button" id="cancelNew" class="text-btn">取消</button><button class="text-btn primary" style="flex:1" type="submit">创建</button></div></form></div>
 <div id="fileModal" class="modal"><div class="panel wide"><div style="display:flex;gap:10px;align-items:center"><h1 style="flex:1">项目文件</h1><button id="closeFiles" class="icon-btn">×</button></div><div class="file-tools"><label class="field"><span>路径</span><input id="filePath" value="" /></label><label class="field"><span>搜索</span><input id="fileSearch" placeholder="文件名或相对路径" /></label><label class="field"><span>类型</span><select id="fileType"><option value="all">全部</option><option value="directory">文件夹</option><option value="file">文件</option></select></label></div><div id="filePolicy" class="side-subtitle" style="margin-top:8px"></div><div class="file-layout"><div id="fileList" class="file-list"></div><div class="file-editor"><input id="editingPath" readonly placeholder="选择文本文件" /><textarea id="fileContent" spellcheck="false"></textarea><div style="display:flex;gap:10px"><button id="saveFile" class="text-btn primary" style="flex:1">保存文件</button><button id="reloadFile" class="text-btn">重载</button></div></div></div></div></div>
+<div id="dialogModal" class="modal"><form id="dialogForm" class="panel"><h1 id="dialogTitle"></h1><p id="dialogMessage" class="dialog-message"></p><label id="dialogInputWrap" class="field hidden"><span id="dialogInputLabel"></span><input id="dialogInput" /></label><div class="dialog-actions"><button type="button" id="dialogCancel" class="text-btn">取消</button><button id="dialogOk" class="text-btn primary" type="submit">确认</button></div></form></div>
 <div id="toast" class="toast"></div>
 <script>
 const state = { meta:null, token:localStorage.getItem('oh_token') || '', deviceId: localStorage.getItem('oh_device_id') || '', source:'WEB_PC', sessionSource:'', sessionDevice:'', sessionManagement:true, page:1, hasMore:true, sessions:[], active:null, poll:null, modelKey:'', filePath:'', fileSearch:'', fileType:'all', editingPath:'', workspaceFiles:{enabled:true,write:true,maxBytes:1048576,allowedExtensions:[]} };
@@ -2459,6 +2589,7 @@ if(!state.deviceId){ state.deviceId = crypto.randomUUID ? crypto.randomUUID() : 
 function detectSource(){ const w = Math.min(innerWidth, screen.width || innerWidth); state.source = w < 760 ? 'WEB_MOBILE' : 'WEB_PC'; }
 function headers(){ const h = {'content-type':'application/json','x-openhand-device-id':state.deviceId,'x-openhand-source':state.source,'x-openhand-device-platform':navigator.platform || ''}; if(state.token) h.authorization = 'Bearer '+state.token; return h; }
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2200); }
+function openDialog(options){ return new Promise(resolve=>{ const modal=document.getElementById('dialogModal'); const form=document.getElementById('dialogForm'); const input=document.getElementById('dialogInput'); const wrap=document.getElementById('dialogInputWrap'); const ok=document.getElementById('dialogOk'); document.getElementById('dialogTitle').textContent=options.title||'确认'; document.getElementById('dialogMessage').textContent=options.message||''; document.getElementById('dialogInputLabel').textContent=options.inputLabel||''; input.value=options.value||''; input.placeholder=options.placeholder||''; wrap.classList.toggle('hidden',!options.input); ok.textContent=options.confirmText||'确认'; ok.className='text-btn primary'+(options.danger?' danger':''); const close=value=>{ modal.classList.remove('open'); form.onsubmit=null; document.getElementById('dialogCancel').onclick=null; resolve(value); }; document.getElementById('dialogCancel').onclick=()=>close(null); form.onsubmit=e=>{ e.preventDefault(); if(options.requiredText && input.value!==options.requiredText){ toast('请输入 '+options.requiredText+' 以确认'); input.focus(); return; } close(options.input?input.value:true); }; modal.classList.add('open'); setTimeout(()=> options.input ? input.focus() : ok.focus(), 0); }); }
 async function api(path, opts={}){ const res = await fetch(path,{...opts,headers:{...headers(),...(opts.headers||{})}}); const json = await res.json().catch(()=>({})); if(!res.ok) throw Object.assign(new Error(json.message||json.error||res.statusText),{status:res.status,json}); return json; }
 async function boot(){ detectSource(); state.meta = await api('/api/meta'); applyMeta(); if(state.meta.service.auth_enabled && !state.token){ showLogin(); } else { if(!state.token) await anonymousLogin(); showApp(); await loadSessions(true); } }
 function applyMeta(){ document.getElementById('serviceLine').textContent = state.meta.service.auth_enabled ? '鉴权已开启' : '免鉴权本地访问'; state.sessionManagement=state.meta.service.session_management_enabled!==false; const wf=state.meta.workspace_files||{}; state.workspaceFiles={enabled:wf.enabled!==false,write:wf.write_enabled!==false,maxBytes:wf.max_file_bytes||1048576,allowedExtensions:wf.allowed_extensions||[]}; const filesBtn=document.getElementById('files'); filesBtn.disabled=!state.workspaceFiles.enabled; fill('template', state.meta.templates.map(t=>[t.id,t.name])); fill('mode', state.meta.conversation_modes.map(m=>[m,m])); fill('model', state.meta.models.map(m=>[m.key,m.label])); state.modelKey = state.meta.models[0]?.key || ''; syncFilePolicy(); }
@@ -2470,8 +2601,8 @@ function devicePayload(){ return {source:state.source,device_id:state.deviceId,d
 document.getElementById('loginForm').onsubmit = async e => { e.preventDefault(); try{ const j=await api('/api/login',{method:'POST',body:JSON.stringify({...devicePayload(),username:username.value,password:password.value})}); state.token=j.token; localStorage.setItem('oh_token',j.token); showApp(); await loadSessions(true); }catch(err){ toast('登录失败'); }};
 async function loadSessions(reset=false){ if(reset){state.page=1;state.sessions=[];state.hasMore=true;} if(!state.hasMore) return; state.sessionSource=sourceFilter.value; state.sessionDevice=deviceFilter.value.trim(); const params=new URLSearchParams({page:String(state.page),page_size:'10'}); if(state.sessionSource) params.set('source',state.sessionSource); if(state.sessionDevice) params.set('device_id',state.sessionDevice); const j=await api('/api/sessions?'+params.toString()); state.sessions.push(...j.items); state.hasMore=j.has_more; state.page++; renderSessions(); }
 function renderSessions(){ const box=document.getElementById('sessions'); box.innerHTML=''; if(!state.sessions.length){ const empty=document.createElement('div'); empty.className='side-subtitle'; empty.style.padding='12px'; empty.textContent='没有匹配的线程'; box.appendChild(empty); return; } state.sessions.forEach(s=>{ const row=document.createElement('div'); row.className='session'+(state.active===s.id?' active':''); const main=document.createElement('button'); main.className='session-main'; main.innerHTML=`<div class="session-title"></div><div class="session-preview"></div><div class="session-meta"></div>`; main.children[0].textContent=s.title; main.children[1].textContent=s.last_message_preview||'暂无消息'; main.children[2].textContent=`${s.source||'UNKNOWN'} · ${s.device_id||'unknown'} · ${s.message_count} 条 · ${s.send_phase}`; main.onclick=()=>openSession(s.id); row.append(main); if(state.sessionManagement){ const actions=document.createElement('div'); actions.className='session-actions'; const rename=document.createElement('button'); rename.className='session-action'; rename.textContent='改名'; rename.onclick=()=>renameSession(s); const del=document.createElement('button'); del.className='session-action danger'; del.textContent='删除'; del.onclick=()=>deleteSession(s); actions.append(rename,del); row.append(actions); } box.appendChild(row); }); }
-async function renameSession(session){ const title=prompt('重命名线程',session.title||''); if(title===null) return; const next=title.trim(); if(!next) return toast('标题不能为空'); try{ const j=await api('/api/sessions/'+session.id,{method:'PATCH',body:JSON.stringify({title:next})}); const idx=state.sessions.findIndex(s=>s.id===session.id); if(idx>=0) state.sessions[idx]=j.session; if(state.active===session.id) document.getElementById('threadTitle').textContent=j.session.title; renderSessions(); toast('线程已重命名'); }catch(err){ toast(err.message); } }
-async function deleteSession(session){ const typed=prompt('删除线程「'+session.title+'」不可恢复。输入 DELETE 确认'); if(typed!=='DELETE') return; try{ await api('/api/sessions/'+session.id,{method:'DELETE'}); state.sessions=state.sessions.filter(s=>s.id!==session.id); if(state.active===session.id){ state.active=null; clearInterval(state.poll); document.getElementById('threadTitle').textContent='选择一个线程'; document.getElementById('threadSub').textContent='线程已删除'; document.getElementById('messages').innerHTML='<div class="empty">线程已删除，请选择其他会话。</div>'; } renderSessions(); toast('线程已删除'); }catch(err){ toast(err.message); } }
+async function renameSession(session){ const title=await openDialog({title:'重命名线程',message:'更新 Web 侧展示的线程标题。',input:true,inputLabel:'线程名称',value:session.title||'',confirmText:'保存'}); if(title===null) return; const next=title.trim(); if(!next) return toast('标题不能为空'); try{ const j=await api('/api/sessions/'+session.id,{method:'PATCH',body:JSON.stringify({title:next})}); const idx=state.sessions.findIndex(s=>s.id===session.id); if(idx>=0) state.sessions[idx]=j.session; if(state.active===session.id) document.getElementById('threadTitle').textContent=j.session.title; renderSessions(); toast('线程已重命名'); }catch(err){ toast(err.message); } }
+async function deleteSession(session){ const typed=await openDialog({title:'删除线程',message:'删除线程「'+session.title+'」不可恢复。输入 DELETE 确认。',input:true,inputLabel:'确认文本',placeholder:'DELETE',confirmText:'删除',requiredText:'DELETE',danger:true}); if(typed===null) return; try{ await api('/api/sessions/'+session.id,{method:'DELETE'}); state.sessions=state.sessions.filter(s=>s.id!==session.id); if(state.active===session.id){ state.active=null; clearInterval(state.poll); document.getElementById('threadTitle').textContent='选择一个线程'; document.getElementById('threadSub').textContent='线程已删除'; document.getElementById('messages').innerHTML='<div class="empty">线程已删除，请选择其他会话。</div>'; } renderSessions(); toast('线程已删除'); }catch(err){ toast(err.message); } }
 async function openSession(id){ state.active=id; document.getElementById('sidebar').classList.remove('open'); renderSessions(); await refreshThread(); clearInterval(state.poll); state.poll=setInterval(refreshThread,1800); }
 async function refreshThread(){ if(!state.active) return; try{ const s=await api('/api/sessions/'+state.active); document.getElementById('threadTitle').textContent=s.session.title; document.getElementById('threadSub').textContent=`${s.session.template_name} · ${s.runtime.send_phase}`; const j=await api('/api/sessions/'+state.active+'/messages?limit=120&offset=0'); renderMessages(j.items); }catch(err){ if(err.status===404){ toast('线程已在 APP 端删除'); state.active=null; clearInterval(state.poll); await loadSessions(true); document.getElementById('messages').innerHTML='<div class="empty">线程已删除，请选择其他会话。</div>'; } } }
 function renderMessages(items){ const box=document.getElementById('messages'); box.innerHTML=''; if(!items.length){ box.innerHTML='<div class="empty">还没有消息。</div>'; return; } items.forEach(m=>{ const div=document.createElement('div'); const cls=m.role==='user'?'user':(m.kind||'assistant'); div.className='msg '+cls; const text=document.createElement('div'); text.textContent=m.content||' '; const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${m.kind} · ${new Date(m.created_at).toLocaleString()}`; div.append(text,meta); box.appendChild(div); }); box.scrollTop=box.scrollHeight; }

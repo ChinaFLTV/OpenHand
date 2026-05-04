@@ -238,6 +238,7 @@ class WebMessagePlatformConfig {
     this.workspaceFileMaxBytes = 1024 * 1024,
     this.workspaceFileAllowedExtensions = const <String>[],
     this.uploadCacheRetentionDays = 7,
+    this.uploadCacheMaxBytes = 512 * 1024 * 1024,
     this.healthCheck = const WebGatewayHealthCheckConfig(),
     this.logConfig = const WebGatewayLogConfig(),
   });
@@ -317,6 +318,12 @@ class WebMessagePlatformConfig {
         1,
         180,
       ),
+      uploadCacheMaxBytes: _clampInt(
+        json['upload_cache_max_bytes'],
+        512 * 1024 * 1024,
+        1024 * 1024,
+        10 * 1024 * 1024 * 1024,
+      ),
       healthCheck: json['health_check'] is Map
           ? WebGatewayHealthCheckConfig.fromJson(
               Map<String, Object?>.from(json['health_check'] as Map),
@@ -361,6 +368,7 @@ class WebMessagePlatformConfig {
   final int workspaceFileMaxBytes;
   final List<String> workspaceFileAllowedExtensions;
   final int uploadCacheRetentionDays;
+  final int uploadCacheMaxBytes;
   final WebGatewayHealthCheckConfig healthCheck;
   final WebGatewayLogConfig logConfig;
 
@@ -395,6 +403,7 @@ class WebMessagePlatformConfig {
     int? workspaceFileMaxBytes,
     List<String>? workspaceFileAllowedExtensions,
     int? uploadCacheRetentionDays,
+    int? uploadCacheMaxBytes,
     WebGatewayHealthCheckConfig? healthCheck,
     WebGatewayLogConfig? logConfig,
   }) {
@@ -439,6 +448,7 @@ class WebMessagePlatformConfig {
           workspaceFileAllowedExtensions ?? this.workspaceFileAllowedExtensions,
       uploadCacheRetentionDays:
           uploadCacheRetentionDays ?? this.uploadCacheRetentionDays,
+      uploadCacheMaxBytes: uploadCacheMaxBytes ?? this.uploadCacheMaxBytes,
       healthCheck: healthCheck ?? this.healthCheck,
       logConfig: logConfig ?? this.logConfig,
     );
@@ -480,6 +490,7 @@ class WebMessagePlatformConfig {
       'workspace_file_max_bytes': workspaceFileMaxBytes,
       'workspace_file_allowed_extensions': workspaceFileAllowedExtensions,
       'upload_cache_retention_days': uploadCacheRetentionDays,
+      'upload_cache_max_bytes': uploadCacheMaxBytes,
       'health_check': healthCheck.toJson(),
       'log_config': logConfig.toJson(),
     };

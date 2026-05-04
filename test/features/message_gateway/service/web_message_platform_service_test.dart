@@ -64,6 +64,7 @@ void main() {
         listenPort: 0,
         opsEnabled: true,
         sessionManagementEnabled: false,
+        uploadCacheMaxBytes: 1024 * 1024,
       ),
     );
     final base = Uri.parse('${harness.service.boundUrl}/');
@@ -84,16 +85,42 @@ void main() {
       p.join(tempDir.path, 'cache', 'message_gateway', 'uploads', 'session-1'),
     );
     await uploadDir.create(recursive: true);
-    await File(p.join(uploadDir.path, 'attachment.txt')).writeAsString('cache');
+    await File(
+      p.join(uploadDir.path, 'old.bin'),
+    ).writeAsBytes(List<int>.filled(700 * 1024, 65));
+    await File(
+      p.join(uploadDir.path, 'new.bin'),
+    ).writeAsBytes(List<int>.filled(700 * 1024, 66));
 
     final cleanup = await _requestJson(
       base.resolve('/api/ops/cleanup'),
       method: 'POST',
-      body: <String, Object?>{'target': 'uploads'},
+      body: <String, Object?>{'target': 'uploads', 'expired_only': true},
     );
     expect(cleanup.statusCode, HttpStatus.ok);
     expect(cleanup.json['target'], 'uploads');
-    expect(cleanup.json['deleted_files'], 1);
+    expect(cleanup.json['deleted_files'], greaterThanOrEqualTo(1));
+
+    final history = await _requestJson(
+      base.resolve('/api/ops/cleanup/history'),
+    );
+    expect(history.statusCode, HttpStatus.ok);
+    expect(history.json['total'], greaterThanOrEqualTo(1));
+    final historyItems = history.json['items'] as List<Object?>;
+    expect((historyItems.first as Map<String, Object?>)['target'], 'uploads');
+
+    final export = await _requestJson(base.resolve('/api/logs/export'));
+    expect(export.statusCode, HttpStatus.ok);
+    expect(export.json['service'], webMessagePlatformBuiltinName);
+    expect(export.json['memory_logs'], isA<List<Object?>>());
+
+    final clearUploads = await _requestJson(
+      base.resolve('/api/ops/cleanup'),
+      method: 'POST',
+      body: <String, Object?>{'target': 'uploads'},
+    );
+    expect(clearUploads.statusCode, HttpStatus.ok);
+    expect(clearUploads.json['target'], 'uploads');
     expect(await uploadDir.exists(), isFalse);
 
     final rename = await _requestJson(
@@ -103,6 +130,110 @@ void main() {
     );
     expect(rename.statusCode, HttpStatus.forbidden);
     expect(rename.json['error'], 'session_management_disabled');
+  });
+
+  test(
+    'reads and writes workspace files inside the sandbox over HTTP',
+    () async {
+      await harness.service.start(
+        const WebMessagePlatformConfig(
+          enabled: true,
+          listenHost: '127.0.0.1',
+          listenPort: 0,
+          workspaceFileMaxBytes: 4096,
+          workspaceFileAllowedExtensions: <String>['.txt'],
+        ),
+      );
+      final base = Uri.parse('${harness.service.boundUrl}/');
+
+      final write = await _requestJson(
+        base.resolve('/api/workspace/file'),
+        method: 'PUT',
+        body: <String, Object?>{'path': 'notes/hello.txt', 'content': 'hello'},
+      );
+      expect(write.statusCode, HttpStatus.ok);
+      expect(write.json['path'], 'notes/hello.txt');
+
+      final read = await _requestJson(
+        base.resolve('/api/workspace/file?path=notes%2Fhello.txt'),
+      );
+      expect(read.statusCode, HttpStatus.ok);
+      expect(read.json['content'], 'hello');
+
+      final list = await _requestJson(
+        base.resolve('/api/workspace/files?path=notes&type=file&q=hello'),
+      );
+      expect(list.statusCode, HttpStatus.ok);
+      final items = list.json['items'] as List<Object?>;
+      expect(items, hasLength(1));
+
+      final disallowedExtension = await _requestJson(
+        base.resolve('/api/workspace/file'),
+        method: 'PUT',
+        body: <String, Object?>{'path': 'notes/hello.md', 'content': 'hello'},
+      );
+      expect(disallowedExtension.statusCode, HttpStatus.forbidden);
+      expect(disallowedExtension.json['error'], 'file_extension_not_allowed');
+
+      final outside = await _requestJson(
+        base.resolve('/api/workspace/file'),
+        method: 'PUT',
+        body: <String, Object?>{'path': '../escape.txt', 'content': 'nope'},
+      );
+      expect(outside.statusCode, HttpStatus.badRequest);
+      expect(outside.json['error'], 'path_outside_workspace');
+    },
+  );
+
+  test('creates renames and deletes sessions over HTTP', () async {
+    await harness.service.start(
+      const WebMessagePlatformConfig(
+        enabled: true,
+        listenHost: '127.0.0.1',
+        listenPort: 0,
+      ),
+    );
+    final base = Uri.parse('${harness.service.boundUrl}/');
+
+    final created = await _requestJson(
+      base.resolve('/api/sessions'),
+      method: 'POST',
+      body: <String, Object?>{
+        'title': 'Original title',
+        'template_id': 'default',
+      },
+    );
+    expect(created.statusCode, HttpStatus.created);
+    final session = created.json['session'] as Map<String, Object?>;
+    final sessionId = session['id'] as String;
+    expect(session['title'], 'Original title');
+
+    final listed = await _requestJson(base.resolve('/api/sessions'));
+    expect(listed.statusCode, HttpStatus.ok);
+    expect(listed.json['total'], 1);
+
+    final renamed = await _requestJson(
+      base.resolve('/api/sessions/$sessionId'),
+      method: 'PATCH',
+      body: <String, Object?>{'title': 'Renamed title'},
+    );
+    expect(renamed.statusCode, HttpStatus.ok);
+    expect(
+      (renamed.json['session'] as Map<String, Object?>)['title'],
+      'Renamed title',
+    );
+
+    final deleted = await _requestJson(
+      base.resolve('/api/sessions/$sessionId'),
+      method: 'DELETE',
+    );
+    expect(deleted.statusCode, HttpStatus.ok);
+    expect(deleted.json['deleted_session_id'], sessionId);
+
+    final missing = await _requestJson(
+      base.resolve('/api/sessions/$sessionId'),
+    );
+    expect(missing.statusCode, HttpStatus.notFound);
   });
 }
 
@@ -165,6 +296,7 @@ class _ServiceHarness {
       appInfo: AppInfo.fallback(),
       cacheDirectoryPath: p.join(tempDir.path, 'cache'),
       logsDirectoryPath: p.join(tempDir.path, 'logs'),
+      workspaceDirectoryPath: p.join(tempDir.path, 'workspace'),
     );
     return _ServiceHarness(
       service: service,
