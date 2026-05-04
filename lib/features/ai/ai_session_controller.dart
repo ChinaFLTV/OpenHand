@@ -2156,18 +2156,6 @@ class AiSessionController extends ChangeNotifier {
           await Future<void>.delayed(Duration.zero);
         }
 
-        if (!_supportsAttachmentsForSession(
-          model: model,
-          session: session,
-          newAttachmentPaths: normalizedAttachmentPaths,
-        )) {
-          _setLastSendErrorMessage(
-            session.id,
-            'The selected model does not support file attachments for this conversation.',
-          );
-          return false;
-        }
-
         final prepareUserTurnStopwatch = Stopwatch()..start();
         final preparedUserTurn = await _prepareUserTurn(
           session: session,
@@ -2294,25 +2282,6 @@ class AiSessionController extends ChangeNotifier {
       normalized.add(path);
     }
     return normalized;
-  }
-
-  bool _supportsAttachmentsForSession({
-    required AiModelConfig model,
-    required AiSession session,
-    required List<String> newAttachmentPaths,
-  }) {
-    final hasNewAttachments = newAttachmentPaths.isNotEmpty;
-    final hasExistingAttachments = session.activeConversationMessages.any(
-      (message) => AiMessageAttachment.listFromMetadata(
-        message.metadata[aiSessionMessageAttachmentsMetadataKey],
-      ).isNotEmpty,
-    );
-    if (!hasNewAttachments && !hasExistingAttachments) {
-      return true;
-    }
-    // Even when a model does not support native image parts, the prompt builder
-    // can still include attachment summaries/text extracts safely.
-    return true;
   }
 
   int _characterCountForMessageContent(
