@@ -234,9 +234,11 @@ class _FileMutationCardState extends State<_FileMutationCard> {
               failure++;
               if (r.errorMessage.isNotEmpty) lastError = r.errorMessage;
             }
-          } catch (e) {
+          } catch (e, stack) {
             failure++;
             lastError = e.toString();
+            // 统一走 silentLog：snackbar 只显示最后一条 message，原始 stack 不能丢。
+            silentLog('file_mutation_card', '_undoAll worker', e, stack);
           } finally {
             if (mounted) setState(() => _bulkUndoDone++);
           }
@@ -1515,7 +1517,10 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
         _afterContent = afterContent;
         _loading = false;
       });
-    } catch (e) {
+    } catch (e, stack) {
+      // _friendlyFileDiffError 只把异常翻译成用户文案；原始 error/stack
+      // 必须走 silentLog 才能在 debug 期被 console 看到。
+      silentLog('file_diff_dialog', '_loadDiff', e, stack);
       if (!mounted) return;
       setState(() {
         _error = _friendlyFileDiffError(e, isZh: widget.isZh);
