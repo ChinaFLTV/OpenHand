@@ -70,7 +70,10 @@ class FileMutationRecord {
     'after_size': afterSize,
   };
 
-  static FileMutationRecord? tryFromJson(Map<String, Object?> json, {required String sessionId}) {
+  static FileMutationRecord? tryFromJson(
+    Map<String, Object?> json, {
+    required String sessionId,
+  }) {
     final id = json['id'] as String?;
     if (id == null || id.isEmpty) return null;
     final kindName = '${json['kind'] ?? 'modify'}';
@@ -85,7 +88,9 @@ class FileMutationRecord {
       toolName: '${json['tool_name'] ?? ''}',
       filePath: '${json['path'] ?? ''}',
       kind: kind,
-      createdAt: DateTime.tryParse('${json['ts'] ?? ''}')?.toUtc() ?? DateTime.now().toUtc(),
+      createdAt:
+          DateTime.tryParse('${json['ts'] ?? ''}')?.toUtc() ??
+          DateTime.now().toUtc(),
       beforeSha: json['before_sha'] as String?,
       afterSha: json['after_sha'] as String?,
       beforeSize: (json['before_size'] as num?)?.toInt() ?? 0,
@@ -124,7 +129,8 @@ class FileMutationView {
 class FileMutationOutcome {
   const FileMutationOutcome._({required this.success, this.errorMessage = ''});
   const FileMutationOutcome.ok() : this._(success: true);
-  const FileMutationOutcome.fail(String message) : this._(success: false, errorMessage: message);
+  const FileMutationOutcome.fail(String message)
+    : this._(success: false, errorMessage: message);
 
   final bool success;
   final String errorMessage;
@@ -177,12 +183,11 @@ class LedgerConfig {
     int? maxVersionsPerFile,
     int? autoCleanupDays,
     int? miniDiffMaxBytes,
-  }) =>
-      LedgerConfig(
-        maxVersionsPerFile: maxVersionsPerFile ?? this.maxVersionsPerFile,
-        autoCleanupDays: autoCleanupDays ?? this.autoCleanupDays,
-        miniDiffMaxBytes: miniDiffMaxBytes ?? this.miniDiffMaxBytes,
-      );
+  }) => LedgerConfig(
+    maxVersionsPerFile: maxVersionsPerFile ?? this.maxVersionsPerFile,
+    autoCleanupDays: autoCleanupDays ?? this.autoCleanupDays,
+    miniDiffMaxBytes: miniDiffMaxBytes ?? this.miniDiffMaxBytes,
+  );
 
   Map<String, Object?> toJson() => <String, Object?>{
     'max_versions_per_file': maxVersionsPerFile,
@@ -191,19 +196,24 @@ class LedgerConfig {
   };
 
   static LedgerConfig fromJson(Map<String, Object?> json) {
-    final maxV = (json['max_versions_per_file'] as num?)?.toInt() ??
+    final maxV =
+        (json['max_versions_per_file'] as num?)?.toInt() ??
         defaultMaxVersionsPerFile;
-    final days = (json['auto_cleanup_days'] as num?)?.toInt() ??
-        defaultAutoCleanupDays;
-    final mini = (json['mini_diff_max_bytes'] as num?)?.toInt() ??
+    final days =
+        (json['auto_cleanup_days'] as num?)?.toInt() ?? defaultAutoCleanupDays;
+    final mini =
+        (json['mini_diff_max_bytes'] as num?)?.toInt() ??
         defaultMiniDiffMaxBytes;
     return LedgerConfig(
-      maxVersionsPerFile:
-          maxV.clamp(minMaxVersionsPerFile, maxMaxVersionsPerFile).toInt(),
-      autoCleanupDays:
-          days.clamp(minAutoCleanupDays, maxAutoCleanupDays).toInt(),
-      miniDiffMaxBytes:
-          mini.clamp(minMiniDiffMaxBytes, maxMiniDiffMaxBytes).toInt(),
+      maxVersionsPerFile: maxV
+          .clamp(minMaxVersionsPerFile, maxMaxVersionsPerFile)
+          .toInt(),
+      autoCleanupDays: days
+          .clamp(minAutoCleanupDays, maxAutoCleanupDays)
+          .toInt(),
+      miniDiffMaxBytes: mini
+          .clamp(minMiniDiffMaxBytes, maxMiniDiffMaxBytes)
+          .toInt(),
     );
   }
 }
@@ -247,8 +257,8 @@ String unifiedDiffLineSummary(
   final b = after.split('\n');
   final maxLen = a.length > b.length ? a.length : b.length;
   // 阶段 ⑫d：中间区间走 mini-diff（仅 +/-）。
-  final compact = before.length > miniDiffMaxBytes ||
-      after.length > miniDiffMaxBytes;
+  final compact =
+      before.length > miniDiffMaxBytes || after.length > miniDiffMaxBytes;
   if (compact) {
     final out = StringBuffer();
     var emitted = 0;
@@ -286,18 +296,25 @@ class AiFileMutationLedger {
   AiFileMutationLedger({String? rootDirectoryOverride})
     : _rootOverride = rootDirectoryOverride;
 
+  static final RegExp _sha256HexPattern = RegExp(r'^[0-9a-f]{64}$');
+  static const Duration _staleAtomicArtifactAge = Duration(days: 1);
+
   final String? _rootOverride;
   final Random _rand = Random.secure();
   bool _migratedLegacy = false;
 
   String get _root =>
-      _rootOverride ?? p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history');
+      _rootOverride ??
+      p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history');
 
   Directory _blobsDir() => Directory(p.join(_root, 'blobs'));
   Directory _sessionsDir() => Directory(p.join(_root, 'sessions'));
-  Directory _sessionDir(String sessionId) => Directory(p.join(_sessionsDir().path, _safeSessionId(sessionId)));
-  File _ledgerFile(String sessionId) => File(p.join(_sessionDir(sessionId).path, 'ledger.jsonl'));
-  File _stateFile(String sessionId) => File(p.join(_sessionDir(sessionId).path, 'state.json'));
+  Directory _sessionDir(String sessionId) =>
+      Directory(p.join(_sessionsDir().path, _safeSessionId(sessionId)));
+  File _ledgerFile(String sessionId) =>
+      File(p.join(_sessionDir(sessionId).path, 'ledger.jsonl'));
+  File _stateFile(String sessionId) =>
+      File(p.join(_sessionDir(sessionId).path, 'state.json'));
 
   /// 阶段 ⑩a：暴露给 UI 用——「点击卡片 header」要把 ledger.jsonl 在系统
   /// 文件管理器里高亮。返回的文件可能尚未存在（会话尚未发生过 mutation）。
@@ -380,7 +397,9 @@ class AiFileMutationLedger {
   /// 影响主流程，旧目录最终被删除。
   Future<void> _migrateLegacyTempStorage() async {
     try {
-      final legacyDir = Directory(p.join(Directory.systemTemp.path, '.openhand-file-history'));
+      final legacyDir = Directory(
+        p.join(Directory.systemTemp.path, '.openhand-file-history'),
+      );
       if (!await legacyDir.exists()) return;
       // 旧布局：<hash>/<versionId>.{content,meta.json}
       await for (final entity in legacyDir.list()) {
@@ -458,7 +477,11 @@ class AiFileMutationLedger {
       try {
         final cfg = await loadConfig();
         if (cfg.maxVersionsPerFile > 0) {
-          await _trimSessionFileVersions(sessionId, record.filePath, cfg.maxVersionsPerFile);
+          await _trimSessionFileVersions(
+            sessionId,
+            record.filePath,
+            cfg.maxVersionsPerFile,
+          );
         }
       } catch (error, stack) {
         silentLog('ai_file_mutation_ledger', 'post-record trim', error, stack);
@@ -483,10 +506,18 @@ class AiFileMutationLedger {
         if (trimmed.isEmpty) continue;
         try {
           final json = jsonDecode(trimmed) as Map<String, Object?>;
-          final record = FileMutationRecord.tryFromJson(json, sessionId: sessionId);
+          final record = FileMutationRecord.tryFromJson(
+            json,
+            sessionId: sessionId,
+          );
           if (record != null) records.add(record);
         } catch (error, stack) {
-          silentLog('ai_file_mutation_ledger', 'parse ledger line', error, stack);
+          silentLog(
+            'ai_file_mutation_ledger',
+            'parse ledger line',
+            error,
+            stack,
+          );
         }
       }
     } catch (error, stack) {
@@ -584,7 +615,9 @@ class AiFileMutationLedger {
     try {
       final all = await recordsForSession(sessionId);
       final target = all.where((r) => r.recordId == recordId).firstOrNull;
-      if (target == null) return const FileMutationOutcome.fail('record-not-found');
+      if (target == null) {
+        return const FileMutationOutcome.fail('record-not-found');
+      }
 
       // 恢复磁盘：before 为 null 表示这是 create，撤销 = 删除磁盘文件。
       final outFile = File(target.filePath);
@@ -636,7 +669,9 @@ class AiFileMutationLedger {
     try {
       final all = await recordsForSession(sessionId);
       final target = all.where((r) => r.recordId == recordId).firstOrNull;
-      if (target == null) return const FileMutationOutcome.fail('record-not-found');
+      if (target == null) {
+        return const FileMutationOutcome.fail('record-not-found');
+      }
 
       final outFile = File(target.filePath);
       if (target.afterSha == null) {
@@ -696,16 +731,25 @@ class AiFileMutationLedger {
             final lines = await ledgerFile.readAsLines();
             recordCount += lines.where((l) => l.trim().isNotEmpty).length;
           } catch (error, stack) {
-            silentLog('ai_file_mutation_ledger', 'statsSnapshot.session',
-                error, stack);
+            silentLog(
+              'ai_file_mutation_ledger',
+              'statsSnapshot.session',
+              error,
+              stack,
+            );
           }
         }
       }
       final blobsRoot = Directory(p.join(_root, 'blobs'));
       if (await blobsRoot.exists()) {
-        await for (final entity
-            in blobsRoot.list(recursive: true, followLinks: false)) {
-          if (entity is File) blobCount += 1;
+        await for (final entity in blobsRoot.list(
+          recursive: true,
+          followLinks: false,
+        )) {
+          if (entity is File &&
+              _blobShaFromFile(blob: entity, shard: entity.parent) != null) {
+            blobCount += 1;
+          }
         }
       }
     } catch (error, stack) {
@@ -724,10 +768,17 @@ class AiFileMutationLedger {
     try {
       final root = Directory(_root);
       if (!await root.exists()) return 0;
-      await for (final entity in root.list(recursive: true, followLinks: false)) {
+      await for (final entity in root.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File) {
           try {
-            total += await entity.length();
+            total += (await entity.stat()).size;
+          } on FileSystemException catch (error, stack) {
+            if (!_isMissingFileSystemException(error)) {
+              silentLog('ai_file_mutation_ledger', 'size single', error, stack);
+            }
           } catch (error, stack) {
             silentLog('ai_file_mutation_ledger', 'size single', error, stack);
           }
@@ -775,7 +826,12 @@ class AiFileMutationLedger {
           await entity.delete(recursive: true);
           removed++;
         } catch (error, stack) {
-          silentLog('ai_file_mutation_ledger', 'clearSessionsExcept', error, stack);
+          silentLog(
+            'ai_file_mutation_ledger',
+            'clearSessionsExcept',
+            error,
+            stack,
+          );
         }
       }
     } catch (error, stack) {
@@ -823,7 +879,10 @@ class AiFileMutationLedger {
     final sameFile = records.where((r) => r.filePath == filePath).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     if (sameFile.length <= maxVersionsPerFile) return;
-    final keepIds = sameFile.take(maxVersionsPerFile).map((r) => r.recordId).toSet();
+    final keepIds = sameFile
+        .take(maxVersionsPerFile)
+        .map((r) => r.recordId)
+        .toSet();
     final survivors = <FileMutationRecord>[];
     for (final r in records) {
       if (r.filePath != filePath || keepIds.contains(r.recordId)) {
@@ -870,7 +929,9 @@ class AiFileMutationLedger {
             keepIds.add(r.recordId);
           }
         });
-        final survivors = records.where((r) => keepIds.contains(r.recordId)).toList();
+        final survivors = records
+            .where((r) => keepIds.contains(r.recordId))
+            .toList();
         removed += records.length - survivors.length;
         // 重写 ledger
         final ledger = _ledgerFile(sessionId);
@@ -889,7 +950,12 @@ class AiFileMutationLedger {
         await _saveUndoneSet(sessionId, undone);
       }
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', 'pruneToMaxVersionsPerFile', error, stack);
+      silentLog(
+        'ai_file_mutation_ledger',
+        'pruneToMaxVersionsPerFile',
+        error,
+        stack,
+      );
     }
     await gcUnreferencedBlobs();
     return removed;
@@ -919,13 +985,25 @@ class AiFileMutationLedger {
         if (shard is! Directory) continue;
         await for (final blob in shard.list()) {
           if (blob is! File) continue;
-          final basename = p.basenameWithoutExtension(blob.path);
-          if (!referenced.contains(basename)) {
+          final sha = _blobShaFromFile(blob: blob, shard: shard);
+          if (sha == null) {
+            final bytes = await _deleteStaleAtomicBlobArtifact(blob);
+            if (bytes > 0) {
+              removed += 1;
+              bytesFreed += bytes;
+            }
+            continue;
+          }
+          if (!referenced.contains(sha)) {
             try {
-              final size = await blob.length();
+              final stat = await blob.stat();
               await blob.delete();
               removed += 1;
-              bytesFreed += size;
+              bytesFreed += stat.size;
+            } on FileSystemException catch (error, stack) {
+              if (!_isMissingFileSystemException(error)) {
+                silentLog('ai_file_mutation_ledger', 'gc blob', error, stack);
+              }
             } catch (error, stack) {
               silentLog('ai_file_mutation_ledger', 'gc blob', error, stack);
             }
@@ -936,6 +1014,61 @@ class AiFileMutationLedger {
       silentLog('ai_file_mutation_ledger', 'gcUnreferencedBlobs', error, stack);
     }
     return (removed: removed, bytesFreed: bytesFreed);
+  }
+
+  String? _blobShaFromFile({required File blob, required Directory shard}) {
+    final fileName = p.basename(blob.path);
+    if (!fileName.endsWith('.txt')) {
+      return null;
+    }
+    final sha = fileName.substring(0, fileName.length - '.txt'.length);
+    if (!_sha256HexPattern.hasMatch(sha)) {
+      return null;
+    }
+    if (p.basename(shard.path) != sha.substring(0, 2)) {
+      return null;
+    }
+    return sha;
+  }
+
+  Future<int> _deleteStaleAtomicBlobArtifact(File file) async {
+    final fileName = p.basename(file.path);
+    final isAtomicArtifact =
+        fileName.endsWith('.txt.tmp') || fileName.endsWith('.txt.bak');
+    if (!isAtomicArtifact) {
+      return 0;
+    }
+    try {
+      final stat = await file.stat();
+      final age = DateTime.now().difference(stat.modified);
+      if (age < _staleAtomicArtifactAge) {
+        return 0;
+      }
+      await file.delete();
+      return stat.size;
+    } on FileSystemException catch (error, stack) {
+      if (!_isMissingFileSystemException(error)) {
+        silentLog(
+          'ai_file_mutation_ledger',
+          'gc stale atomic blob artifact',
+          error,
+          stack,
+        );
+      }
+      return 0;
+    } catch (error, stack) {
+      silentLog(
+        'ai_file_mutation_ledger',
+        'gc stale atomic blob artifact',
+        error,
+        stack,
+      );
+      return 0;
+    }
+  }
+
+  bool _isMissingFileSystemException(FileSystemException error) {
+    return error.osError?.errorCode == 2;
   }
 
   // ───────────────────────── 内部工具 ─────────────────────────
@@ -1000,7 +1133,10 @@ class AiFileMutationLedger {
 
   String _randomSuffix() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    return List<String>.generate(6, (_) => chars[_rand.nextInt(chars.length)]).join();
+    return List<String>.generate(
+      6,
+      (_) => chars[_rand.nextInt(chars.length)],
+    ).join();
   }
 
   String _safeSessionId(String raw) {
@@ -1042,9 +1178,7 @@ class AiFileMutationLedger {
         ? await listSessionIds()
         : sessionIds.toList();
     final kindSet = kinds?.toSet();
-    final toolSet = toolNames
-        ?.map((s) => s.toLowerCase())
-        .toSet();
+    final toolSet = toolNames?.map((s) => s.toLowerCase()).toSet();
     final pathNeedle = pathContains?.trim().toLowerCase();
     final out = <FileMutationView>[];
     for (final sid in ids) {
@@ -1077,9 +1211,7 @@ class AiFileMutationLedger {
 
   /// 导出指定会话（默认全部）的 ledger 为 JSON bundle，包含所有引用过的
   /// blob（base64 编码）。可被 [importBundleJson] 还原。
-  Future<String> exportBundleJson({
-    Iterable<String>? sessionIds,
-  }) async {
+  Future<String> exportBundleJson({Iterable<String>? sessionIds}) async {
     final ids = sessionIds == null
         ? await listSessionIds()
         : sessionIds.toList();
@@ -1167,8 +1299,7 @@ class AiFileMutationLedger {
       silentLog('ai_file_mutation_ledger', 'importBundle parse', error, stack);
       return 0;
     }
-    if ('${parsed['kind'] ?? ''}' !=
-        'openhand.file_mutation_ledger.bundle') {
+    if ('${parsed['kind'] ?? ''}' != 'openhand.file_mutation_ledger.bundle') {
       return 0;
     }
     // 1) 先恢复 blob — 之后的 record 才有指向。
@@ -1244,5 +1375,3 @@ class AiFileMutationLedger {
     return imported;
   }
 }
-
-
