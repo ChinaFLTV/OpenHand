@@ -2448,13 +2448,18 @@ class AiSessionController extends ChangeNotifier {
         'stream_round_start round=${toolRoundCount + 1} awaiting_plan_approval=${workingSession.awaitingPlanApproval} plan_mode=${workingSession.mode.storageValue} execution_approved=$planModeExecutionApprovedForSend recovery_inspection_required=$planModeRecoveryInspectionRequired tools=${toolsForRound.length}',
       );
       final promptBuildStopwatch = Stopwatch()..start();
+      final promptHistoryStopwatch = Stopwatch()..start();
+      final sessionMessagesForPrompt =
+          workingSession.activeConversationMessagesForPrompt;
+      preRequestTimingsMs['prompt_history_build'] =
+          promptHistoryStopwatch.elapsedMilliseconds;
       final promptResult = _promptBuilder.buildSessionPrompt(
         templateBundle: templateBundle,
         session: workingSession,
         model: model,
         runtimeContext: runtimeContext,
         memoryEntries: runtimeContext.memoryEntries,
-        sessionMessages: workingSession.activeConversationMessagesForPrompt,
+        sessionMessages: sessionMessagesForPrompt,
         latestUserMessageId: activeLatestUserMessageId,
         availableTools: toolsForRound,
         resolvedToolsByName: toolCatalogForRound.toolsByName,
