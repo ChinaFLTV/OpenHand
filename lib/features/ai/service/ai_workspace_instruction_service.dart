@@ -20,6 +20,8 @@ class AiWorkspaceInstructionService {
   final Duration _cacheTtl;
   final Map<String, _CachedWorkspaceInstructions> _cache =
       <String, _CachedWorkspaceInstructions>{};
+  final Map<String, Future<List<AiWorkspaceInstructionDocument>>> _inFlight =
+      <String, Future<List<AiWorkspaceInstructionDocument>>>{};
 
   Future<List<AiWorkspaceInstructionDocument>> loadDocuments({
     required String startDirectory,
@@ -37,6 +39,27 @@ class AiWorkspaceInstructionService {
     if (cachedDocuments != null) {
       return cachedDocuments;
     }
+    final inFlight = _inFlight[cacheKey];
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final loadFuture =
+        _loadDocumentsUncached(
+          normalizedStart: normalizedStart,
+          normalizedHome: normalizedHome,
+          cacheKey: cacheKey,
+        ).whenComplete(() {
+          _inFlight.remove(cacheKey);
+        });
+    _inFlight[cacheKey] = loadFuture;
+    return loadFuture;
+  }
+
+  Future<List<AiWorkspaceInstructionDocument>> _loadDocumentsUncached({
+    required String normalizedStart,
+    required String? normalizedHome,
+    required String cacheKey,
+  }) async {
     final seenPaths = <String>{};
     final documents = <AiWorkspaceInstructionDocument>[];
 
