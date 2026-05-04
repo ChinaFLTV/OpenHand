@@ -4996,25 +4996,51 @@ class AiSessionController extends ChangeNotifier {
   }) async {
     if (roundToolCallIds.isEmpty) return null;
     final ledger = _toolRuntimeService.mutationLedger;
+    final orderedToolCallIds = <String>[];
+    final seenToolCallIds = <String>{};
+    for (final toolCallId in roundToolCallIds) {
+      final normalizedId = toolCallId.trim();
+      if (normalizedId.isNotEmpty && seenToolCallIds.add(normalizedId)) {
+        orderedToolCallIds.add(normalizedId);
+      }
+    }
+    if (orderedToolCallIds.isEmpty) return null;
+
+    final sourceMessageIdsByToolCallId = <String, String>{};
+    for (final message in session.messages) {
+      if (message.kind != AiSessionMessageKind.toolCall) continue;
+      final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
+      if (toolCallId.isNotEmpty && seenToolCallIds.contains(toolCallId)) {
+        sourceMessageIdsByToolCallId[toolCallId] = message.id;
+      }
+    }
+
+    final mutationCounts = await Future.wait(
+      orderedToolCallIds.map((toolCallId) async {
+        try {
+          final views = await ledger.viewsForToolCall(
+            sessionId: session.id,
+            toolCallId: toolCallId,
+          );
+          return MapEntry<String, int>(toolCallId, views.length);
+        } catch (error, stack) {
+          silentLog(
+            'ai_session_controller',
+            '_maybeEmitRoundFileMutationSummary',
+            error,
+            stack,
+          );
+          return MapEntry<String, int>(toolCallId, 0);
+        }
+      }),
+    );
+
     final affectedToolCallIds = <String>[];
     var totalRecords = 0;
-    for (final toolCallId in roundToolCallIds) {
-      try {
-        final views = await ledger.viewsForToolCall(
-          sessionId: session.id,
-          toolCallId: toolCallId,
-        );
-        if (views.isNotEmpty) {
-          affectedToolCallIds.add(toolCallId);
-          totalRecords += views.length;
-        }
-      } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          '_maybeEmitRoundFileMutationSummary',
-          error,
-          stack,
-        );
+    for (final entry in mutationCounts) {
+      if (entry.value > 0) {
+        affectedToolCallIds.add(entry.key);
+        totalRecords += entry.value;
       }
     }
     if (affectedToolCallIds.isEmpty) return null;
@@ -5028,6 +5054,11 @@ class AiSessionController extends ChangeNotifier {
         'round_summary_tool_call_ids': List<String>.unmodifiable(
           affectedToolCallIds,
         ),
+        'round_summary_source_message_ids': <String, String>{
+          for (final toolCallId in affectedToolCallIds)
+            if (sourceMessageIdsByToolCallId[toolCallId] != null)
+              toolCallId: sourceMessageIdsByToolCallId[toolCallId]!,
+        },
         if (anchorUserMessageId != null && anchorUserMessageId.isNotEmpty)
           'round_summary_anchor_user_id': anchorUserMessageId,
         'round_summary_record_count': totalRecords,

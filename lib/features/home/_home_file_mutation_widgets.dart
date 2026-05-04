@@ -132,9 +132,13 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       if (!mounted) return;
       if (!r.success) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(content: Text(r.errorMessage.isNotEmpty
-              ? r.errorMessage
-              : AppLocalizations.of(context)!.fileMutationUndoFailed)),
+          SnackBar(
+            content: Text(
+              r.errorMessage.isNotEmpty
+                  ? r.errorMessage
+                  : AppLocalizations.of(context)!.fileMutationUndoFailed,
+            ),
+          ),
         );
       } else {
         _pulseSignal.value += 1;
@@ -159,9 +163,13 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       if (!mounted) return;
       if (!r.success) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(content: Text(r.errorMessage.isNotEmpty
-              ? r.errorMessage
-              : AppLocalizations.of(context)!.fileMutationRedoFailed)),
+          SnackBar(
+            content: Text(
+              r.errorMessage.isNotEmpty
+                  ? r.errorMessage
+                  : AppLocalizations.of(context)!.fileMutationRedoFailed,
+            ),
+          ),
         );
       } else {
         _pulseSignal.value += 1;
@@ -230,8 +238,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       }
     }
 
-    final workerCount =
-        paths.length < concurrency ? paths.length : concurrency;
+    final workerCount = paths.length < concurrency ? paths.length : concurrency;
     await Future.wait(List.generate(workerCount, (_) => worker()));
 
     if (!mounted) return;
@@ -312,16 +319,19 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     final target = await file.exists() ? file.path : file.parent.path;
     try {
       if (Platform.isMacOS) {
-        await runProcessWithTimeout('open', <String>['-R', target],
-            tag: 'file_mutation_card.reveal');
+        await runProcessWithTimeout('open', <String>[
+          '-R',
+          target,
+        ], tag: 'file_mutation_card.reveal');
       } else if (Platform.isWindows) {
-        await runProcessWithTimeout(
-            'explorer.exe', <String>['/select,$target'],
-            tag: 'file_mutation_card.reveal');
+        await runProcessWithTimeout('explorer.exe', <String>[
+          '/select,$target',
+        ], tag: 'file_mutation_card.reveal');
       } else {
         final dir = await file.exists() ? file.parent.path : target;
-        await runProcessWithTimeout('xdg-open', <String>[dir],
-            tag: 'file_mutation_card.reveal');
+        await runProcessWithTimeout('xdg-open', <String>[
+          dir,
+        ], tag: 'file_mutation_card.reveal');
       }
     } catch (error, stack) {
       silentLog('file_mutation_card', '_revealLedgerFile', error, stack);
@@ -398,14 +408,19 @@ class _FileMutationCardState extends State<_FileMutationCard> {
         children: [
           Row(
             children: [
-              Icon(Icons.difference_rounded,
-                  size: 14, color: cs.onSurfaceVariant),
+              Icon(
+                Icons.difference_rounded,
+                size: 14,
+                color: cs.onSurfaceVariant,
+              ),
               const SizedBox(width: 6),
               Text(
-                AppLocalizations.of(context)!
-                    .fileMutationFilesChanged(paths.length),
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                AppLocalizations.of(
+                  context,
+                )!.fileMutationFilesChanged(paths.length),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -415,12 +430,14 @@ class _FileMutationCardState extends State<_FileMutationCard> {
               borderRadius: const BorderRadius.all(Radius.circular(12)),
               onTap: () => _showLegacyDiff(p, mutKind),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 4, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 child: Row(
                   children: [
-                    Icon(Icons.insert_drive_file_outlined,
-                        size: 14, color: cs.onSurfaceVariant),
+                    Icon(
+                      Icons.insert_drive_file_outlined,
+                      size: 14,
+                      color: cs.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -433,9 +450,11 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                         ),
                       ),
                     ),
-                    Icon(Icons.chevron_right_rounded,
-                        size: 16,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.45)),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                    ),
                   ],
                 ),
               ),
@@ -477,10 +496,13 @@ class _FileMutationCardState extends State<_FileMutationCard> {
             const _UndoLastIntent(),
         const SingleActivator(LogicalKeyboardKey.keyZ, control: true):
             const _UndoLastIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyZ,
-            meta: true, shift: true): const _RedoLastIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyZ,
-            control: true, shift: true): const _RedoLastIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true):
+            const _RedoLastIntent(),
+        const SingleActivator(
+          LogicalKeyboardKey.keyZ,
+          control: true,
+          shift: true,
+        ): const _RedoLastIntent(),
       },
       actions: <Type, Action<Intent>>{
         _UndoLastIntent: CallbackAction<_UndoLastIntent>(
@@ -499,196 +521,220 @@ class _FileMutationCardState extends State<_FileMutationCard> {
         ),
       },
       child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow.withValues(alpha: 0.85),
-        borderRadius: const BorderRadius.all(Radius.circular(16)),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.55),
-          width: 0.6,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        clipBehavior: Clip.none,
         children: [
-          // Header
-          Tooltip(
-            message: AppLocalizations.of(context)!.fileMutationRevealLedger,
-            waitDuration: const Duration(milliseconds: 600),
-            child: InkWell(
-              onTap: _revealLedgerFile,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
+          Container(
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLow.withValues(alpha: 0.85),
+              borderRadius: const BorderRadius.all(Radius.circular(16)),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.55),
+                width: 0.6,
               ),
-              child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
-            child: Row(
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.difference_rounded,
-                    size: 16, color: cs.primary),
-                const SizedBox(width: 8),
-                Text(
-                  AppLocalizations.of(context)!.fileMutationSection,
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(width: 8),
-                _StatPill(
-                  label: AppLocalizations.of(context)!
-                      .fileMutationFilesCount(views.length),
-                  color: cs.onSurfaceVariant,
-                  bg: cs.surfaceContainerHighest.withValues(alpha: 0.65),
-                ),
-                if (totalAdded > 0) ...[
-                  const SizedBox(width: 6),
-                  _StatPill(
-                    label: '+$totalAdded',
-                    color: const Color(0xFF2E7D32),
-                    bg: const Color(0xFF2E7D32).withValues(alpha: 0.12),
-                  ),
-                ],
-                if (totalRemoved > 0) ...[
-                  const SizedBox(width: 6),
-                  _StatPill(
-                    label: '-$totalRemoved',
-                    color: cs.error,
-                    bg: cs.errorContainer.withValues(alpha: 0.55),
-                  ),
-                ],
-                // 阶段 ⑨b：批量撤销进度 chip。
-                if (_bulkUndoBusy) ...[
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.6,
-                      value: _bulkUndoTotal == 0
-                          ? null
-                          : _bulkUndoDone / _bulkUndoTotal,
+                // Header
+                Tooltip(
+                  message: AppLocalizations.of(
+                    context,
+                  )!.fileMutationRevealLedger,
+                  waitDuration: const Duration(milliseconds: 600),
+                  child: InkWell(
+                    onTap: _revealLedgerFile,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.difference_rounded,
+                            size: 16,
+                            color: cs.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            AppLocalizations.of(context)!.fileMutationSection,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _StatPill(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.fileMutationFilesCount(views.length),
+                            color: cs.onSurfaceVariant,
+                            bg: cs.surfaceContainerHighest.withValues(
+                              alpha: 0.65,
+                            ),
+                          ),
+                          if (totalAdded > 0) ...[
+                            const SizedBox(width: 6),
+                            _StatPill(
+                              label: '+$totalAdded',
+                              color: const Color(0xFF2E7D32),
+                              bg: const Color(
+                                0xFF2E7D32,
+                              ).withValues(alpha: 0.12),
+                            ),
+                          ],
+                          if (totalRemoved > 0) ...[
+                            const SizedBox(width: 6),
+                            _StatPill(
+                              label: '-$totalRemoved',
+                              color: cs.error,
+                              bg: cs.errorContainer.withValues(alpha: 0.55),
+                            ),
+                          ],
+                          // 阶段 ⑨b：批量撤销进度 chip。
+                          if (_bulkUndoBusy) ...[
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.6,
+                                value: _bulkUndoTotal == 0
+                                    ? null
+                                    : _bulkUndoDone / _bulkUndoTotal,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$_bulkUndoDone/$_bulkUndoTotal',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          if (anyUndoable && !_bulkUndoBusy)
+                            _IconActionButton(
+                              icon: Icons.undo_rounded,
+                              tooltip: AppLocalizations.of(
+                                context,
+                              )!.fileMutationUndoAll,
+                              onTap: () => _undoAll(views),
+                            ),
+                          if (anyRedoable)
+                            _IconActionButton(
+                              icon: Icons.refresh_rounded,
+                              tooltip: AppLocalizations.of(
+                                context,
+                              )!.fileMutationRefresh,
+                              onTap: _refresh,
+                            ),
+                          _IconActionButton(
+                            icon: Icons.copy_all_rounded,
+                            tooltip: AppLocalizations.of(
+                              context,
+                            )!.fileMutationCopyAllDiff,
+                            onTap: () => _copyAllDiff(views),
+                          ),
+                          // 阶段 ⑪a：把当前会话所有 ledger 记录（含其他卡未展示的）
+                          // 在 dialog 里按文件分组俯瞰，便于跨 toolCall 排查。
+                          _IconActionButton(
+                            icon: Icons.history_rounded,
+                            tooltip: AppLocalizations.of(
+                              context,
+                            )!.fileMutationHistoryInspector,
+                            onTap: () => _openHistoryInspector(),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '$_bulkUndoDone/$_bulkUndoTotal',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                ],
-                const Spacer(),
-                if (anyUndoable && !_bulkUndoBusy)
-                  _IconActionButton(
-                    icon: Icons.undo_rounded,
-                    tooltip: AppLocalizations.of(context)!.fileMutationUndoAll,
-                    onTap: () => _undoAll(views),
-                  ),
-                if (anyRedoable)
-                  _IconActionButton(
-                    icon: Icons.refresh_rounded,
-                    tooltip: AppLocalizations.of(context)!.fileMutationRefresh,
-                    onTap: _refresh,
-                  ),
-                _IconActionButton(
-                  icon: Icons.copy_all_rounded,
-                  tooltip:
-                      AppLocalizations.of(context)!.fileMutationCopyAllDiff,
-                  onTap: () => _copyAllDiff(views),
                 ),
-                // 阶段 ⑪a：把当前会话所有 ledger 记录（含其他卡未展示的）
-                // 在 dialog 里按文件分组俯瞰，便于跨 toolCall 排查。
-                _IconActionButton(
-                  icon: Icons.history_rounded,
-                  tooltip: AppLocalizations.of(context)!
-                      .fileMutationHistoryInspector,
-                  onTap: () => _openHistoryInspector(),
+                Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(alpha: 0.45),
                 ),
+                // 阶段 ⑪e：渐进式展开。views 多时只构造前 _revealedCount 条，
+                // 余下用一行「展开剩余 N 条」按钮兜底，按需 +30 / 全展开。
+                // 阶段 ⑮b：≥6 行时给主卡首批行加一次 60ms 步进的 drip-in
+                // 入场，与 inspector 同源 _DelayedAppear；reduceMotion 下退化。
+                for (int i = 0; i < views.length && i < _revealedCount; i++)
+                  Builder(
+                    builder: (rowCtx) {
+                      final reduceMotion =
+                          MediaQuery.maybeDisableAnimationsOf(rowCtx) ?? false;
+                      final shouldDrip = !reduceMotion && views.length >= 6;
+                      final row = _FileMutationCardRow(
+                        view: views[i],
+                        expanded: _expandedRecordIds.contains(
+                          views[i].record.recordId,
+                        ),
+                        busy: _busyRecordIds.contains(views[i].record.recordId),
+                        onToggleExpand: () =>
+                            _toggleExpand(views[i].record.recordId),
+                        onUndo: () => _undo(views[i]),
+                        onRedo: () => _redo(views[i]),
+                        onOpenLegacyDialog: () => _showLegacyDiff(
+                          views[i].record.filePath,
+                          _fileMutationKind(widget.message),
+                        ),
+                        onRevealLedger: _revealLedgerFile,
+                        onCopyDiff: () => _copyAllDiff([views[i]]),
+                        onOpenInspector: _openHistoryInspector,
+                      );
+                      if (!shouldDrip) return row;
+                      return _DelayedAppear(
+                        delay: Duration(milliseconds: (i * 60).clamp(0, 720)),
+                        child: row,
+                      );
+                    },
+                  ),
+                if (views.length > _revealedCount)
+                  _RevealMoreRow(
+                    remaining: views.length - _revealedCount,
+                    onRevealStep: () => setState(() {
+                      _revealedCount = (_revealedCount + _kRevealStep).clamp(
+                        0,
+                        views.length,
+                      );
+                    }),
+                    onRevealAll: () =>
+                        setState(() => _revealedCount = views.length),
+                  ),
               ],
             ),
           ),
+          // 阶段 ⑦e：每次 undo/redo 成功在卡顶发一次温和的 highlight pulse；
+          // HighlightPulse 自带 reduceMotion 守门，不需要我们再 gate。
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
+          ),
+          // 阶段 ⑬b：批量 undo 进行中——卡片整体覆 BackdropFilter blur 6px
+          // + primary 色 tinted glow，进度环居中。AnimatedSwitcher 220ms 淡入
+          // 淡出，reduceMotion 时退化为 0ms。
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !_bulkUndoBusy,
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                child: _bulkUndoBusy
+                    ? _BulkUndoOverlay(
+                        key: const ValueKey('bulk-undo-overlay'),
+                        done: _bulkUndoDone,
+                        total: _bulkUndoTotal,
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey('bulk-undo-overlay-hidden'),
+                      ),
+              ),
             ),
           ),
-          Divider(
-            height: 1,
-            color: cs.outlineVariant.withValues(alpha: 0.45),
-          ),
-          // 阶段 ⑪e：渐进式展开。views 多时只构造前 _revealedCount 条，
-          // 余下用一行「展开剩余 N 条」按钮兜底，按需 +30 / 全展开。
-          // 阶段 ⑮b：≥6 行时给主卡首批行加一次 60ms 步进的 drip-in
-          // 入场，与 inspector 同源 _DelayedAppear；reduceMotion 下退化。
-          for (int i = 0; i < views.length && i < _revealedCount; i++)
-            Builder(builder: (rowCtx) {
-              final reduceMotion =
-                  MediaQuery.maybeDisableAnimationsOf(rowCtx) ?? false;
-              final shouldDrip = !reduceMotion && views.length >= 6;
-              final row = _FileMutationCardRow(
-                view: views[i],
-                expanded:
-                    _expandedRecordIds.contains(views[i].record.recordId),
-                busy: _busyRecordIds.contains(views[i].record.recordId),
-                onToggleExpand: () => _toggleExpand(views[i].record.recordId),
-                onUndo: () => _undo(views[i]),
-                onRedo: () => _redo(views[i]),
-                onOpenLegacyDialog: () => _showLegacyDiff(
-                  views[i].record.filePath,
-                  _fileMutationKind(widget.message),
-                ),
-                onRevealLedger: _revealLedgerFile,
-                onCopyDiff: () => _copyAllDiff([views[i]]),
-                onOpenInspector: _openHistoryInspector,
-              );
-              if (!shouldDrip) return row;
-              return _DelayedAppear(
-                delay: Duration(milliseconds: (i * 60).clamp(0, 720)),
-                child: row,
-              );
-            }),
-          if (views.length > _revealedCount)
-            _RevealMoreRow(
-              remaining: views.length - _revealedCount,
-              onRevealStep: () => setState(() {
-                _revealedCount = (_revealedCount + _kRevealStep)
-                    .clamp(0, views.length);
-              }),
-              onRevealAll: () =>
-                  setState(() => _revealedCount = views.length),
-            ),
         ],
       ),
-    ),
-        // 阶段 ⑦e：每次 undo/redo 成功在卡顶发一次温和的 highlight pulse；
-        // HighlightPulse 自带 reduceMotion 守门，不需要我们再 gate。
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
-        ),
-        // 阶段 ⑬b：批量 undo 进行中——卡片整体覆 BackdropFilter blur 6px
-        // + primary 色 tinted glow，进度环居中。AnimatedSwitcher 220ms 淡入
-        // 淡出，reduceMotion 时退化为 0ms。
-        Positioned.fill(
-          child: IgnorePointer(
-            ignoring: !_bulkUndoBusy,
-            child: AnimatedSwitcher(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 220),
-              child: _bulkUndoBusy
-                  ? _BulkUndoOverlay(
-                      key: const ValueKey('bulk-undo-overlay'),
-                      done: _bulkUndoDone,
-                      total: _bulkUndoTotal,
-                    )
-                  : const SizedBox.shrink(
-                      key: ValueKey('bulk-undo-overlay-hidden'),
-                    ),
-            ),
-          ),
-        ),
-      ],
-    ),
     );
   }
 
@@ -716,8 +762,10 @@ class _StatPill extends StatelessWidget {
       decoration: BoxDecoration(color: bg, borderRadius: _borderRadius999),
       child: Text(
         label,
-        style: theme.textTheme.labelSmall
-            ?.copyWith(color: color, fontWeight: FontWeight.w700),
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -805,7 +853,8 @@ class _FileMutationCardRow extends StatelessWidget {
   }) async {
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final box = context.findRenderObject() as RenderBox?;
-    final origin = position ??
+    final origin =
+        position ??
         (box?.localToGlobal(box.size.center(Offset.zero)) ?? Offset.zero);
     final l10n = AppLocalizations.of(context)!;
     final selected = await showMenu<String>(
@@ -817,44 +866,59 @@ class _FileMutationCardRow extends StatelessWidget {
       items: [
         PopupMenuItem<String>(
           value: 'reveal',
-          child: Row(children: [
-            const Icon(Icons.folder_open_outlined, size: 16),
-            const SizedBox(width: 8),
-            Text(l10n.fileMutationRevealLedger),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.folder_open_outlined, size: 16),
+              const SizedBox(width: 8),
+              Text(l10n.fileMutationRevealLedger),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'copyPath',
-          child: Row(children: [
-            const Icon(Icons.content_copy_rounded, size: 16),
-            const SizedBox(width: 8),
-            Text(l10n.fileMutationCopyPath),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.content_copy_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(l10n.fileMutationCopyPath),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'copyDiff',
-          child: Row(children: [
-            const Icon(Icons.difference_rounded, size: 16),
-            const SizedBox(width: 8),
-            Text(l10n.fileMutationCopyAllDiff),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.difference_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(l10n.fileMutationCopyAllDiff),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'inspector',
-          child: Row(children: [
-            const Icon(Icons.history_rounded, size: 16),
-            const SizedBox(width: 8),
-            Text(l10n.fileMutationHistoryInspector),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.history_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(l10n.fileMutationHistoryInspector),
+            ],
+          ),
         ),
         PopupMenuItem<String>(
           value: 'diff',
-          child: Row(children: [
-            const Icon(Icons.open_in_new_rounded, size: 16),
-            const SizedBox(width: 8),
-            Text(_localizedTextStatic(context,
-                zh: '打开 diff 对话框', en: 'Open diff dialog')),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.open_in_new_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                _localizedTextStatic(
+                  context,
+                  zh: '打开 diff 对话框',
+                  en: 'Open diff dialog',
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -903,152 +967,169 @@ class _FileMutationCardRow extends StatelessWidget {
         curve: Curves.easeOutBack,
         offset: Offset(view.cascadeUndone ? 0.025 : 0.0, 0.0),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 阶段 ⑫a：键盘导航——
-          // - Up/Down 在 row 间走 Directional focus；
-          // - Space 切换 expand；
-          // - Enter 打开 legacy diff dialog。
-          FocusableActionDetector(
-            shortcuts: const <ShortcutActivator, Intent>{
-              SingleActivator(LogicalKeyboardKey.space):
-                  ActivateIntent(),
-              SingleActivator(LogicalKeyboardKey.enter):
-                  _OpenLegacyDialogIntent(),
-              SingleActivator(LogicalKeyboardKey.numpadEnter):
-                  _OpenLegacyDialogIntent(),
-              SingleActivator(LogicalKeyboardKey.arrowUp):
-                  DirectionalFocusIntent(TraversalDirection.up),
-              SingleActivator(LogicalKeyboardKey.arrowDown):
-                  DirectionalFocusIntent(TraversalDirection.down),
-            },
-            actions: <Type, Action<Intent>>{
-              ActivateIntent: CallbackAction<ActivateIntent>(
-                onInvoke: (_) {
-                  onToggleExpand();
-                  return null;
-                },
-              ),
-              _OpenLegacyDialogIntent:
-                  CallbackAction<_OpenLegacyDialogIntent>(
-                onInvoke: (_) {
-                  onOpenLegacyDialog();
-                  return null;
-                },
-              ),
-            },
-            child: InkWell(
-              onTap: onToggleExpand,
-              onDoubleTap: onOpenLegacyDialog,
-              onLongPress: () => _showRowContextMenu(context),
-              onSecondaryTapDown: (d) =>
-                  _showRowContextMenu(context, position: d.globalPosition),
-              // 阶段 ⑩c：row hover 背景轻微高亮，让指针落点更清晰。
-              hoverColor: cs.primary.withValues(alpha: 0.05),
-              splashColor: cs.primary.withValues(alpha: 0.10),
-              highlightColor: cs.primary.withValues(alpha: 0.06),
-              focusColor: cs.primary.withValues(alpha: 0.12),
-              child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Opacity(
-                opacity: greyOut ? 0.55 : 1.0,
-                child: Row(
-                  children: [
-                    AnimatedRotation(
-                      duration: reduceMotion
-                          ? Duration.zero
-                          : const Duration(milliseconds: 180),
-                      turns: expanded ? 0.25 : 0,
-                      child: Icon(Icons.chevron_right_rounded,
-                          size: 18, color: cs.onSurfaceVariant),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 阶段 ⑫a：键盘导航——
+            // - Up/Down 在 row 间走 Directional focus；
+            // - Space 切换 expand；
+            // - Enter 打开 legacy diff dialog。
+            FocusableActionDetector(
+              shortcuts: const <ShortcutActivator, Intent>{
+                SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+                SingleActivator(LogicalKeyboardKey.enter):
+                    _OpenLegacyDialogIntent(),
+                SingleActivator(LogicalKeyboardKey.numpadEnter):
+                    _OpenLegacyDialogIntent(),
+                SingleActivator(LogicalKeyboardKey.arrowUp):
+                    DirectionalFocusIntent(TraversalDirection.up),
+                SingleActivator(LogicalKeyboardKey.arrowDown):
+                    DirectionalFocusIntent(TraversalDirection.down),
+              },
+              actions: <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    onToggleExpand();
+                    return null;
+                  },
+                ),
+                _OpenLegacyDialogIntent:
+                    CallbackAction<_OpenLegacyDialogIntent>(
+                      onInvoke: (_) {
+                        onOpenLegacyDialog();
+                        return null;
+                      },
                     ),
-                    const SizedBox(width: 6),
-                    Icon(_kindIcon, size: 14, color: _kindColor(cs)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      // 阶段 ⑩b：hover 显示完整路径，右键 / Ctrl-长按复制路径。
-                      child: Tooltip(
-                        message: view.record.filePath,
-                        waitDuration: const Duration(milliseconds: 500),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onSecondaryTap: () => _copyPathToClipboard(
-                              context, view.record.filePath),
-                          onLongPress: () => _copyPathToClipboard(
-                              context, view.record.filePath),
-                          child: Text(
-                            _FileMutationCard
-                                ._shortenFilePath(view.record.filePath),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
-                              color: cs.onSurface,
-                              decoration: greyOut
-                                  ? TextDecoration.lineThrough
-                                  : TextDecoration.none,
-                              decorationColor: cs.onSurfaceVariant,
+              },
+              child: InkWell(
+                onTap: onToggleExpand,
+                onDoubleTap: onOpenLegacyDialog,
+                onLongPress: () => _showRowContextMenu(context),
+                onSecondaryTapDown: (d) =>
+                    _showRowContextMenu(context, position: d.globalPosition),
+                // 阶段 ⑩c：row hover 背景轻微高亮，让指针落点更清晰。
+                hoverColor: cs.primary.withValues(alpha: 0.05),
+                splashColor: cs.primary.withValues(alpha: 0.10),
+                highlightColor: cs.primary.withValues(alpha: 0.06),
+                focusColor: cs.primary.withValues(alpha: 0.12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Opacity(
+                    opacity: greyOut ? 0.55 : 1.0,
+                    child: Row(
+                      children: [
+                        AnimatedRotation(
+                          duration: reduceMotion
+                              ? Duration.zero
+                              : const Duration(milliseconds: 180),
+                          turns: expanded ? 0.25 : 0,
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(_kindIcon, size: 14, color: _kindColor(cs)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          // 阶段 ⑩b：hover 显示完整路径，右键 / Ctrl-长按复制路径。
+                          child: Tooltip(
+                            message: view.record.filePath,
+                            waitDuration: const Duration(milliseconds: 500),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onSecondaryTap: () => _copyPathToClipboard(
+                                context,
+                                view.record.filePath,
+                              ),
+                              onLongPress: () => _copyPathToClipboard(
+                                context,
+                                view.record.filePath,
+                              ),
+                              child: Text(
+                                _FileMutationCard._shortenFilePath(
+                                  view.record.filePath,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontFamily: 'monospace',
+                                  color: cs.onSurface,
+                                  decoration: greyOut
+                                      ? TextDecoration.lineThrough
+                                      : TextDecoration.none,
+                                  decorationColor: cs.onSurfaceVariant,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        if (view.directlyUndone && !view.cascadeUndone) ...[
+                          const SizedBox(width: 6),
+                          _StatPill(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.fileMutationUndone,
+                            color: cs.onSurfaceVariant,
+                            bg: cs.surfaceContainerHighest.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ],
+                        if (view.cascadeUndone) ...[
+                          const SizedBox(width: 6),
+                          _StatPill(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.fileMutationCascadeUndone,
+                            color: cs.tertiary,
+                            bg: cs.tertiaryContainer.withValues(alpha: 0.55),
+                          ),
+                        ],
+                        const SizedBox(width: 8),
+                        if (busy)
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.6),
+                          )
+                        else if (view.canUndo)
+                          _IconActionButton(
+                            icon: Icons.undo_rounded,
+                            tooltip: AppLocalizations.of(
+                              context,
+                            )!.fileMutationUndoThis,
+                            onTap: onUndo,
+                          )
+                        else if (view.canRedo)
+                          _IconActionButton(
+                            icon: Icons.redo_rounded,
+                            tooltip: AppLocalizations.of(
+                              context,
+                            )!.fileMutationRedo,
+                            onTap: onRedo,
+                          ),
+                      ],
                     ),
-                    if (view.directlyUndone && !view.cascadeUndone) ...[
-                      const SizedBox(width: 6),
-                      _StatPill(
-                        label: AppLocalizations.of(context)!.fileMutationUndone,
-                        color: cs.onSurfaceVariant,
-                        bg: cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                      ),
-                    ],
-                    if (view.cascadeUndone) ...[
-                      const SizedBox(width: 6),
-                      _StatPill(
-                        label: AppLocalizations.of(context)!
-                            .fileMutationCascadeUndone,
-                        color: cs.tertiary,
-                        bg: cs.tertiaryContainer.withValues(alpha: 0.55),
-                      ),
-                    ],
-                    const SizedBox(width: 8),
-                    if (busy)
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.6),
-                      )
-                    else if (view.canUndo)
-                      _IconActionButton(
-                        icon: Icons.undo_rounded,
-                        tooltip:
-                            AppLocalizations.of(context)!.fileMutationUndoThis,
-                        onTap: onUndo,
-                      )
-                    else if (view.canRedo)
-                      _IconActionButton(
-                        icon: Icons.redo_rounded,
-                        tooltip: AppLocalizations.of(context)!.fileMutationRedo,
-                        onTap: onRedo,
-                      ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-          ),
-          AnimatedSize(
-            duration: reduceMotion
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: expanded
-                ? _InlineDiffPanel(view: view)
-                : const SizedBox.shrink(),
-          ),
-        ],
-      ),
+            AnimatedSize(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: expanded
+                  ? _InlineDiffPanel(view: view)
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1099,8 +1180,9 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
           if (before.isEmpty && after.isEmpty) {
             return Text(
               AppLocalizations.of(context)!.fileMutationSnapshotUnavailable,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             );
           }
           final diff = _computeUnifiedDiffLines(before, after);
@@ -1110,7 +1192,8 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
           final brightness = theme.brightness;
           final isDark = brightness == Brightness.dark;
           final lang = _languageFromFilePath(widget.view.record.filePath);
-          final baseStyle = theme.textTheme.bodySmall?.copyWith(
+          final baseStyle =
+              theme.textTheme.bodySmall?.copyWith(
                 fontFamily: 'monospace',
                 height: 1.5,
                 fontSize: 11.5,
@@ -1186,9 +1269,11 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
     );
   }
 
-  Future<({String? before, String? after})> _load(
-      FileMutationView v) async {
-    final ledger = context.read<AiSessionController>().toolRuntimeService.mutationLedger;
+  Future<({String? before, String? after})> _load(FileMutationView v) async {
+    final ledger = context
+        .read<AiSessionController>()
+        .toolRuntimeService
+        .mutationLedger;
     final before = v.record.beforeSha == null
         ? null
         : await ledger.readBlob(v.record.beforeSha!);
@@ -1717,9 +1802,7 @@ class _FileMutationHistoryInspectorDialogState
     final cs = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720, maxHeight: 640),
         child: Column(
@@ -1742,8 +1825,9 @@ class _FileMutationHistoryInspectorDialogState
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded, size: 18),
-                    tooltip: MaterialLocalizations.of(context)
-                        .closeButtonTooltip,
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).closeButtonTooltip,
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                 ],
@@ -1769,12 +1853,16 @@ class _FileMutationHistoryInspectorDialogState
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: InputChip(
-                  avatar: Icon(Icons.center_focus_strong_rounded,
-                      size: 14, color: cs.primary),
+                  avatar: Icon(
+                    Icons.center_focus_strong_rounded,
+                    size: 14,
+                    color: cs.primary,
+                  ),
                   label: Text(
                     _zoomedPath!,
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(fontFamily: 'monospace'),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontFamily: 'monospace',
+                    ),
                   ),
                   deleteIcon: const Icon(Icons.close_rounded, size: 14),
                   onDeleted: () => setState(() => _zoomedPath = null),
@@ -1801,24 +1889,27 @@ class _FileMutationHistoryInspectorDialogState
                   final filtered = _filter.isEmpty
                       ? all
                       : all
-                          .where((v) => v.record.filePath
-                              .toLowerCase()
-                              .contains(_filter.toLowerCase()))
-                          .toList(growable: false);
+                            .where(
+                              (v) => v.record.filePath.toLowerCase().contains(
+                                _filter.toLowerCase(),
+                              ),
+                            )
+                            .toList(growable: false);
                   // 阶段 ⑫b：zoom 模式 → 只保留该路径
                   final visible = _zoomedPath == null
                       ? filtered
                       : filtered
-                          .where((v) => v.record.filePath == _zoomedPath)
-                          .toList(growable: false);
+                            .where((v) => v.record.filePath == _zoomedPath)
+                            .toList(growable: false);
                   if (visible.isEmpty) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
                           l10n.fileMutationHistoryInspectorEmpty,
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -1837,8 +1928,7 @@ class _FileMutationHistoryInspectorDialogState
                   final paths = groups.keys.toList()..sort();
                   // 阶段 ⑬a：分组 staggered AppearOnce——
                   // 80ms/张，封顶 1.2s（reduceMotion 跳过）。
-                  final reduceMotion =
-                      MediaQuery.disableAnimationsOf(context);
+                  final reduceMotion = MediaQuery.disableAnimationsOf(context);
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: paths.length,
@@ -1875,8 +1965,9 @@ class _FileMutationHistoryInspectorDialogState
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    child: Text(MaterialLocalizations.of(context)
-                        .closeButtonLabel),
+                    child: Text(
+                      MaterialLocalizations.of(context).closeButtonLabel,
+                    ),
                   ),
                 ],
               ),
@@ -1928,8 +2019,11 @@ class _HistoryInspectorGroup extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.insert_drive_file_outlined,
-                        size: 14, color: cs.primary),
+                    Icon(
+                      Icons.insert_drive_file_outlined,
+                      size: 14,
+                      color: cs.primary,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Tooltip(
@@ -1976,67 +2070,76 @@ class _HistoryInspectorGroup extends StatelessWidget {
                       }
                       final pieces = <Widget>[];
                       if (added > 0) {
-                        pieces.add(Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2E7D32)
-                                .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '+${_compactBytes(added)}',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: const Color(0xFF2E7D32),
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
+                        pieces.add(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF2E7D32,
+                              ).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '+${_compactBytes(added)}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: const Color(0xFF2E7D32),
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
                             ),
                           ),
-                        ));
+                        );
                       }
                       if (removed > 0) {
                         if (pieces.isNotEmpty) {
                           pieces.add(const SizedBox(width: 4));
                         }
-                        pieces.add(Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: cs.error.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '-${_compactBytes(removed)}',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: cs.error,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
+                        pieces.add(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.error.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '-${_compactBytes(removed)}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.error,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
                             ),
                           ),
-                        ));
+                        );
                       }
                       if (pieces.isEmpty) return const SizedBox.shrink();
                       return Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ...pieces,
-                          const SizedBox(width: 6),
-                        ],
+                        children: [...pieces, const SizedBox(width: 6)],
                       );
                     }(),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: cs.primary.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         l10n.fileMutationFilesCount(entries.length),
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: cs.primary),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.primary,
+                        ),
                       ),
                     ),
                   ],
@@ -2047,8 +2150,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
               height: 1,
               color: cs.outlineVariant.withValues(alpha: 0.35),
             ),
-            for (final v in entries)
-              _InspectorEntryRow(view: v),
+            for (final v in entries) _InspectorEntryRow(view: v),
           ],
         ),
       ),
@@ -2116,9 +2218,7 @@ class _InspectorEntryRow extends StatelessWidget {
         );
       }
     } else if (selected == 'copy_id') {
-      await Clipboard.setData(
-        ClipboardData(text: view.record.recordId),
-      );
+      await Clipboard.setData(ClipboardData(text: view.record.recordId));
       if (context.mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
@@ -2141,8 +2241,7 @@ class _InspectorEntryRow extends StatelessWidget {
         final pos = box?.localToGlobal(Offset.zero) ?? Offset.zero;
         _showRecordMenu(context, pos + const Offset(20, 20));
       },
-      onSecondaryTapDown: (d) =>
-          _showRecordMenu(context, d.globalPosition),
+      onSecondaryTapDown: (d) => _showRecordMenu(context, d.globalPosition),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
@@ -2167,14 +2266,20 @@ class _InspectorEntryRow extends StatelessWidget {
             if (view.directlyUndone)
               Tooltip(
                 message: l10n.fileMutationUndone,
-                child: Icon(Icons.undo_rounded,
-                    size: 14, color: cs.onSurfaceVariant),
+                child: Icon(
+                  Icons.undo_rounded,
+                  size: 14,
+                  color: cs.onSurfaceVariant,
+                ),
               )
             else if (view.cascadeUndone)
               Tooltip(
                 message: l10n.fileMutationCascadeUndone,
-                child: Icon(Icons.link_off_rounded,
-                    size: 14, color: cs.onSurfaceVariant),
+                child: Icon(
+                  Icons.link_off_rounded,
+                  size: 14,
+                  color: cs.onSurfaceVariant,
+                ),
               ),
           ],
         ),
@@ -2196,11 +2301,7 @@ class _RecordKindBadge extends StatelessWidget {
         cs.primary,
         'create',
       ),
-      FileMutationKind.modify => (
-        Icons.edit_outlined,
-        cs.tertiary,
-        'modify',
-      ),
+      FileMutationKind.modify => (Icons.edit_outlined, cs.tertiary, 'modify'),
       FileMutationKind.delete => (
         Icons.delete_outline_rounded,
         cs.error,
@@ -2275,8 +2376,7 @@ class _HoverElevateBoxState extends State<_HoverElevateBox> {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion =
-        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final dur = reduceMotion
         ? Duration.zero
         : const Duration(milliseconds: 200);
@@ -2349,11 +2449,7 @@ class _DelayedAppearState extends State<_DelayedAppear> {
 /// tinted glow 渐变背景 + 圆形进度环 + 「N/M」百分比文案。淡入淡出由
 /// 外层 AnimatedSwitcher 控制。
 class _BulkUndoOverlay extends StatelessWidget {
-  const _BulkUndoOverlay({
-    super.key,
-    required this.done,
-    required this.total,
-  });
+  const _BulkUndoOverlay({super.key, required this.done, required this.total});
   final int done;
   final int total;
 
@@ -2388,8 +2484,7 @@ class _BulkUndoOverlay extends StatelessWidget {
                   strokeWidth: 2.4,
                   value: ratio,
                   color: cs.primary,
-                  backgroundColor:
-                      cs.primary.withValues(alpha: 0.15),
+                  backgroundColor: cs.primary.withValues(alpha: 0.15),
                 ),
               ),
               const SizedBox(height: 8),
@@ -2411,8 +2506,11 @@ class _BulkUndoOverlay extends StatelessWidget {
 
 /// 阶段 ⑬d：part 文件内简易 zh/en 文案选择器（避免给 5 个 ⑬d 文案
 /// 单独跑一轮 ARB → gen_l10n）。
-String _localizedTextStatic(BuildContext context,
-    {required String zh, required String en}) {
+String _localizedTextStatic(
+  BuildContext context, {
+  required String zh,
+  required String en,
+}) {
   final lang = Localizations.localeOf(context).languageCode;
   return lang == 'zh' ? zh : en;
 }
@@ -2504,6 +2602,17 @@ class _RoundFileMutationSummaryCardState
     return const <String>[];
   }
 
+  Map<String, String> get _sourceMessageIdsByToolCallId {
+    final raw = widget.message.metadata['round_summary_source_message_ids'];
+    if (raw is! Map) return const <String, String>{};
+    return <String, String>{
+      for (final entry in raw.entries)
+        if ('${entry.key}'.trim().isNotEmpty &&
+            '${entry.value}'.trim().isNotEmpty)
+          '${entry.key}'.trim(): '${entry.value}'.trim(),
+    };
+  }
+
   Future<List<_RoundSummaryRow>> _load(BuildContext ctx) async {
     developer.Timeline.startSync(
       'openhand.round_summary.load',
@@ -2516,28 +2625,41 @@ class _RoundFileMutationSummaryCardState
       final ledger = ctrl.toolRuntimeService.mutationLedger;
       // 反向索引 toolCallId → 对应 toolCall message.id（用于跳转）。
       final session = ctrl.currentSession;
-      final toolCallMessageIdByCallId = <String, String>{};
+      final toolCallMessageIdByCallId = <String, String>{
+        ..._sourceMessageIdsByToolCallId,
+      };
       if (session != null) {
         for (final m in session.messages) {
           if (m.kind != AiSessionMessageKind.toolCall) continue;
           final id = '${m.metadata['tool_call_id'] ?? ''}'.trim();
-          if (id.isNotEmpty) toolCallMessageIdByCallId[id] = m.id;
+          if (id.isNotEmpty) {
+            toolCallMessageIdByCallId.putIfAbsent(id, () => m.id);
+          }
         }
       }
       final ids = _toolCallIds;
       final rows = <_RoundSummaryRow>[];
       final seen = <String>{}; // (filePath|toolCallId) dedup
-      for (final tcId in ids) {
-        List<FileMutationView> views;
-        try {
-          views = await ledger.viewsForToolCall(
-            sessionId: sessionId,
-            toolCallId: tcId,
-          );
-        } catch (error, stack) {
-          silentLog('round_summary_card', 'viewsForToolCall', error, stack);
-          continue;
-        }
+      final entries = await Future.wait(
+        ids.map((tcId) async {
+          try {
+            final views = await ledger.viewsForToolCall(
+              sessionId: sessionId,
+              toolCallId: tcId,
+            );
+            return MapEntry<String, List<FileMutationView>>(tcId, views);
+          } catch (error, stack) {
+            silentLog('round_summary_card', 'viewsForToolCall', error, stack);
+            return MapEntry<String, List<FileMutationView>>(
+              tcId,
+              const <FileMutationView>[],
+            );
+          }
+        }),
+      );
+      for (final entry in entries) {
+        final tcId = entry.key;
+        final views = entry.value;
         // 同 toolCall + 同文件 多次 ⇒ 取最后一条（最终态）。
         final byPath = <String, FileMutationView>{};
         for (final v in views) {
@@ -2556,8 +2678,9 @@ class _RoundFileMutationSummaryCardState
         }
       }
       // 时间升序排列：早→晚，符合执行轨迹直觉。
-      rows.sort((a, b) =>
-          a.view.record.createdAt.compareTo(b.view.record.createdAt));
+      rows.sort(
+        (a, b) => a.view.record.createdAt.compareTo(b.view.record.createdAt),
+      );
       return rows;
     } finally {
       developer.Timeline.finishSync();
@@ -2591,9 +2714,11 @@ class _RoundFileMutationSummaryCardState
         SnackBar(
           duration: const Duration(milliseconds: 2200),
           content: Text(
-            _localizedTextStatic(context,
-                zh: '未能定位来源消息（可能已被删除）。',
-                en: 'Could not locate source message (may have been deleted).'),
+            _localizedTextStatic(
+              context,
+              zh: '未能定位来源消息（可能已被删除）。',
+              en: 'Could not locate source message (may have been deleted).',
+            ),
           ),
         ),
       );
@@ -2606,18 +2731,23 @@ class _RoundFileMutationSummaryCardState
   /// 单次 reload + highlight pulse；任意失败 SnackBar 报最后一次错误。
   Future<void> _undoAllRound(List<_RoundSummaryRow> rows) async {
     if (_bulkUndoBusy) return;
-    final candidates = rows.where((r) => r.view.canUndo).toList(growable: false);
+    final candidates = rows
+        .where((r) => r.view.canUndo)
+        .toList(growable: false);
     if (candidates.isEmpty) return;
     final groups = <String, List<_RoundSummaryRow>>{};
     for (final r in candidates) {
-      groups.putIfAbsent(r.view.record.filePath, () => <_RoundSummaryRow>[])
+      groups
+          .putIfAbsent(r.view.record.filePath, () => <_RoundSummaryRow>[])
           .add(r);
     }
     setState(() {
       _bulkUndoTotal = candidates.length;
       _bulkUndoDone = 0;
     });
-    final ledger = context.read<AiSessionController>().toolRuntimeService
+    final ledger = context
+        .read<AiSessionController>()
+        .toolRuntimeService
         .mutationLedger;
     String? lastError;
     const concurrency = 4;
@@ -2660,9 +2790,9 @@ class _RoundFileMutationSummaryCardState
     });
     _pulseSignal.value += 1;
     if (lastError != null) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(lastError!)),
-      );
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(lastError!)));
     }
   }
 
@@ -2671,7 +2801,8 @@ class _RoundFileMutationSummaryCardState
   /// sourceMessageId 让外部审计/对账能完整反查。
   Future<void> _exportRoundJson(List<_RoundSummaryRow> rows) async {
     final payload = <String, Object?>{
-      'session_id': widget.message.metadata['session_id'] ??
+      'session_id':
+          widget.message.metadata['session_id'] ??
           context.read<AiSessionController>().currentSession?.id,
       'round_summary_message_id': widget.message.id,
       'anchor_user_message_id':
@@ -2695,9 +2826,11 @@ class _RoundFileMutationSummaryCardState
       SnackBar(
         duration: const Duration(milliseconds: 1800),
         content: Text(
-          _localizedTextStatic(context,
-              zh: '本轮文件变动 JSON 已复制到剪贴板',
-              en: 'Round mutations JSON copied to clipboard'),
+          _localizedTextStatic(
+            context,
+            zh: '本轮文件变动 JSON 已复制到剪贴板',
+            en: 'Round mutations JSON copied to clipboard',
+          ),
         ),
       ),
     );
@@ -2711,104 +2844,114 @@ class _RoundFileMutationSummaryCardState
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return AppearOnce(
       child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainer.withValues(alpha: 0.92),
-        borderRadius: const BorderRadius.all(Radius.circular(18)),
-        border: Border.all(
-          color: cs.primary.withValues(alpha: 0.28),
-          width: 0.8,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(18)),
-        child: FutureBuilder<List<_RoundSummaryRow>>(
-          future: _rowsFuture,
-          builder: (context, snap) {
-            final rows = snap.data ?? const <_RoundSummaryRow>[];
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(theme, cs, rows),
-                if (rows.isEmpty && snap.connectionState != ConnectionState.done)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.6,
-                            color: cs.primary,
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: cs.surfaceContainer.withValues(alpha: 0.92),
+              borderRadius: const BorderRadius.all(Radius.circular(18)),
+              border: Border.all(
+                color: cs.primary.withValues(alpha: 0.28),
+                width: 0.8,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.all(Radius.circular(18)),
+              child: FutureBuilder<List<_RoundSummaryRow>>(
+                future: _rowsFuture,
+                builder: (context, snap) {
+                  final rows = snap.data ?? const <_RoundSummaryRow>[];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildHeader(theme, cs, rows),
+                      if (rows.isEmpty &&
+                          snap.connectionState != ConnectionState.done)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.6,
+                                  color: cs.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _localizedTextStatic(
+                                  context,
+                                  zh: '正在汇总本轮文件变动…',
+                                  en: 'Aggregating round mutations…',
+                                ),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (rows.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                          child: Text(
+                            _localizedTextStatic(
+                              context,
+                              zh: '本轮无文件变动。',
+                              en: 'No file mutations this round.',
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                          child: _buildGroupedBody(
+                            theme,
+                            cs,
+                            rows,
+                            reduceMotion,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _localizedTextStatic(context,
-                              zh: '正在汇总本轮文件变动…',
-                              en: 'Aggregating round mutations…'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (rows.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
-                    child: Text(
-                      _localizedTextStatic(context,
-                          zh: '本轮无文件变动。',
-                          en: 'No file mutations this round.'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                    child: _buildGroupedBody(theme, cs, rows, reduceMotion),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    ),
-        // HighlightPulse: undo / export 成功后温和高亮顶边。
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
-        ),
-        // Bulk-undo overlay：blur + 进度环。
-        Positioned.fill(
-          child: IgnorePointer(
-            ignoring: !_bulkUndoBusy,
-            child: AnimatedSwitcher(
-              duration: reduceMotion
-                  ? Duration.zero
-                  : const Duration(milliseconds: 220),
-              child: _bulkUndoBusy
-                  ? _BulkUndoOverlay(
-                      key: const ValueKey('round-bulk-undo-overlay'),
-                      done: _bulkUndoDone,
-                      total: _bulkUndoTotal,
-                    )
-                  : const SizedBox.shrink(
-                      key: ValueKey('round-bulk-undo-overlay-hidden'),
-                    ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
-        ),
-      ],
-    ),
+          // HighlightPulse: undo / export 成功后温和高亮顶边。
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
+          ),
+          // Bulk-undo overlay：blur + 进度环。
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !_bulkUndoBusy,
+              child: AnimatedSwitcher(
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                child: _bulkUndoBusy
+                    ? _BulkUndoOverlay(
+                        key: const ValueKey('round-bulk-undo-overlay'),
+                        done: _bulkUndoDone,
+                        total: _bulkUndoTotal,
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey('round-bulk-undo-overlay-hidden'),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2852,13 +2995,14 @@ class _RoundFileMutationSummaryCardState
       ),
       child: Row(
         children: [
-          Icon(Icons.auto_awesome_motion_rounded,
-              size: 18, color: cs.primary),
+          Icon(Icons.auto_awesome_motion_rounded, size: 18, color: cs.primary),
           const SizedBox(width: 8),
           Text(
-            _localizedTextStatic(context,
-                zh: '本轮文件变动汇总',
-                en: 'Round File Mutations'),
+            _localizedTextStatic(
+              context,
+              zh: '本轮文件变动汇总',
+              en: 'Round File Mutations',
+            ),
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
               color: cs.onSurface,
@@ -2867,8 +3011,9 @@ class _RoundFileMutationSummaryCardState
           const SizedBox(width: 10),
           if (rows.isNotEmpty)
             _StatPill(
-              label: AppLocalizations.of(context)!
-                  .fileMutationFilesCount(rows.length),
+              label: AppLocalizations.of(
+                context,
+              )!.fileMutationFilesCount(rows.length),
               color: cs.onSurfaceVariant,
               bg: cs.surfaceContainerHighest.withValues(alpha: 0.65),
             ),
@@ -2901,9 +3046,11 @@ class _RoundFileMutationSummaryCardState
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: Tooltip(
-                message: _localizedTextStatic(context,
-                    zh: '字节增减估算（基于文件大小）',
-                    en: 'Byte delta (file-size estimate)'),
+                message: _localizedTextStatic(
+                  context,
+                  zh: '字节增减估算（基于文件大小）',
+                  en: 'Byte delta (file-size estimate)',
+                ),
                 child: Text(
                   '${totalAdded > 0 ? '+${_compactBytes(totalAdded)}' : ''}'
                   '${totalAdded > 0 && totalRemoved > 0 ? ' ' : ''}'
@@ -2922,8 +3069,9 @@ class _RoundFileMutationSummaryCardState
               height: 12,
               child: CircularProgressIndicator(
                 strokeWidth: 1.6,
-                value:
-                    _bulkUndoTotal == 0 ? null : _bulkUndoDone / _bulkUndoTotal,
+                value: _bulkUndoTotal == 0
+                    ? null
+                    : _bulkUndoDone / _bulkUndoTotal,
               ),
             ),
             const SizedBox(width: 6),
@@ -2937,25 +3085,35 @@ class _RoundFileMutationSummaryCardState
           ],
           // 阶段⑰c/⑰d：右侧动作组（按 reduceMotion 透明度逐个淡入由
           // 上层 HighlightPulse 提供反馈，无需在此再加入场动画）。
-          if (rows.isNotEmpty && rows.any((r) => r.view.canUndo) &&
+          if (rows.isNotEmpty &&
+              rows.any((r) => r.view.canUndo) &&
               !_bulkUndoBusy)
             _IconActionButton(
               icon: Icons.undo_rounded,
-              tooltip: _localizedTextStatic(context,
-                  zh: '撤销本轮全部变动', en: 'Undo all round mutations'),
+              tooltip: _localizedTextStatic(
+                context,
+                zh: '撤销本轮全部变动',
+                en: 'Undo all round mutations',
+              ),
               onTap: () => _undoAllRound(rows),
             ),
           if (rows.isNotEmpty)
             _IconActionButton(
               icon: Icons.data_object_rounded,
-              tooltip: _localizedTextStatic(context,
-                  zh: '导出本轮 JSON', en: 'Export round as JSON'),
+              tooltip: _localizedTextStatic(
+                context,
+                zh: '导出本轮 JSON',
+                en: 'Export round as JSON',
+              ),
               onTap: () => _exportRoundJson(rows),
             ),
           _IconActionButton(
             icon: Icons.refresh_rounded,
-            tooltip: _localizedTextStatic(context,
-                zh: '刷新汇总', en: 'Refresh summary'),
+            tooltip: _localizedTextStatic(
+              context,
+              zh: '刷新汇总',
+              en: 'Refresh summary',
+            ),
             onTap: () => setState(() => _rowsFuture = _load(context)),
           ),
         ],
@@ -2975,9 +3133,7 @@ class _RoundFileMutationSummaryCardState
     // 保留首次出现顺序 — LinkedHashMap 默认行为。
     final groups = <String, List<_RoundSummaryRow>>{};
     for (final r in rows) {
-      final key = r.view.record.toolName.isEmpty
-          ? '_'
-          : r.view.record.toolName;
+      final key = r.view.record.toolName.isEmpty ? '_' : r.view.record.toolName;
       groups.putIfAbsent(key, () => <_RoundSummaryRow>[]).add(r);
     }
     final msgKey = widget.message.id;
@@ -2994,8 +3150,9 @@ class _RoundFileMutationSummaryCardState
             ? Duration(milliseconds: (idx * 55).clamp(0, 660).toInt())
             : Duration.zero,
         onJump: () => _jumpToSourceMessage(r.sourceMessageId),
-        isDiffExpanded:
-            _expandedDiffRows.contains(_diffKey(r.view.record.recordId)),
+        isDiffExpanded: _expandedDiffRows.contains(
+          _diffKey(r.view.record.recordId),
+        ),
         onToggleDiff: () => _toggleDiffExpanded(r),
       );
     }
@@ -3004,7 +3161,9 @@ class _RoundFileMutationSummaryCardState
 
     // 单组：扁平输出（仍受路径子分组与 cap 影响）。
     if (groups.length <= 1) {
-      final only = groups.values.isEmpty ? const <_RoundSummaryRow>[] : groups.values.first;
+      final only = groups.values.isEmpty
+          ? const <_RoundSummaryRow>[]
+          : groups.values.first;
       final toolName = groups.keys.isEmpty ? '_' : groups.keys.first;
       _emitRowsWithOptionalPathSubgroups(
         theme: theme,
@@ -3031,20 +3190,22 @@ class _RoundFileMutationSummaryCardState
         }
         final groupKey = _groupKey(entry.key);
         final collapsed = _collapsedGroups.contains(groupKey);
-        children.add(_GroupHeader(
-          toolName: entry.key,
-          count: entry.value.length,
-          collapsed: collapsed,
-          onToggle: () {
-            setState(() {
-              if (collapsed) {
-                _collapsedGroups.remove(groupKey);
-              } else {
-                _collapsedGroups.add(groupKey);
-              }
-            });
-          },
-        ));
+        children.add(
+          _GroupHeader(
+            toolName: entry.key,
+            count: entry.value.length,
+            collapsed: collapsed,
+            onToggle: () {
+              setState(() {
+                if (collapsed) {
+                  _collapsedGroups.remove(groupKey);
+                } else {
+                  _collapsedGroups.add(groupKey);
+                }
+              });
+            },
+          ),
+        );
         if (collapsed) {
           globalIndex += entry.value.length;
           continue;
@@ -3071,56 +3232,69 @@ class _RoundFileMutationSummaryCardState
 
     if (truncated) {
       final remaining = rows.length - rendered;
-      children.add(Padding(
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              foregroundColor: cs.primary,
-              visualDensity: VisualDensity.compact,
-            ),
-            icon: const Icon(Icons.unfold_more_rounded, size: 16),
-            label: Text(
-              _localizedTextStatic(context,
+      children.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                foregroundColor: cs.primary,
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.unfold_more_rounded, size: 16),
+              label: Text(
+                _localizedTextStatic(
+                  context,
                   zh: '展开剩余 $remaining 行',
-                  en: 'Show $remaining more'),
-              style: theme.textTheme.labelMedium,
+                  en: 'Show $remaining more',
+                ),
+                style: theme.textTheme.labelMedium,
+              ),
+              onPressed: () {
+                setState(() => _expandedFullList.add(msgKey));
+              },
             ),
-            onPressed: () {
-              setState(() => _expandedFullList.add(msgKey));
-            },
           ),
         ),
-      ));
+      );
     } else if (showAll && rows.length > _virtualRowCap) {
-      children.add(Padding(
-        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              foregroundColor: cs.onSurfaceVariant,
-              visualDensity: VisualDensity.compact,
+      children.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                foregroundColor: cs.onSurfaceVariant,
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.unfold_less_rounded, size: 16),
+              label: Text(
+                _localizedTextStatic(context, zh: '收起', en: 'Collapse'),
+                style: theme.textTheme.labelMedium,
+              ),
+              onPressed: () {
+                setState(() => _expandedFullList.remove(msgKey));
+              },
             ),
-            icon: const Icon(Icons.unfold_less_rounded, size: 16),
-            label: Text(
-              _localizedTextStatic(context, zh: '收起', en: 'Collapse'),
-              style: theme.textTheme.labelMedium,
-            ),
-            onPressed: () {
-              setState(() => _expandedFullList.remove(msgKey));
-            },
           ),
         ),
-      ));
+      );
     }
 
     return AnimatedSize(
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: Column(
@@ -3173,20 +3347,22 @@ class _RoundFileMutationSummaryCardState
       if (capReached()) return;
       final pathKey = _pathGroupKey(toolName, entry.key);
       final pathCollapsed = _collapsedPathGroups.contains(pathKey);
-      children.add(_PathSubGroupHeader(
-        dir: entry.key,
-        count: entry.value.length,
-        collapsed: pathCollapsed,
-        onToggle: () {
-          setState(() {
-            if (pathCollapsed) {
-              _collapsedPathGroups.remove(pathKey);
-            } else {
-              _collapsedPathGroups.add(pathKey);
-            }
-          });
-        },
-      ));
+      children.add(
+        _PathSubGroupHeader(
+          dir: entry.key,
+          count: entry.value.length,
+          collapsed: pathCollapsed,
+          onToggle: () {
+            setState(() {
+              if (pathCollapsed) {
+                _collapsedPathGroups.remove(pathKey);
+              } else {
+                _collapsedPathGroups.add(pathKey);
+              }
+            });
+          },
+        ),
+      );
       if (pathCollapsed) continue;
       for (final r in entry.value) {
         if (capReached()) return;
@@ -3313,60 +3489,27 @@ class _RoundSummaryRowTile extends StatelessWidget {
           ],
           const SizedBox(width: 6),
           if (row.sourceMessageId != null)
-            Tooltip(
-              message: _localizedTextStatic(context,
-                  zh: '跳转到产生该变动的工具调用',
-                  en: 'Jump to source tool-call message'),
-              child: MicroPressFeedback(
-                child: InkWell(
-                  onTap: onJump,
-                  borderRadius:
-                      const BorderRadius.all(Radius.circular(999)),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.12),
-                      borderRadius:
-                          const BorderRadius.all(Radius.circular(999)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.my_location_rounded,
-                            size: 12, color: cs.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          _localizedTextStatic(context,
-                              zh: '跳转', en: 'Jump'),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            _RoundSummarySourceJumpButton(onTap: onJump),
           // 阶段⑰d：modify 类记录支持 inline Diff 预览（前后均有 blob 才显示）。
           if (row.view.record.kind == FileMutationKind.modify &&
               row.view.record.beforeSha != null &&
               row.view.record.afterSha != null) ...[
             const SizedBox(width: 4),
             Tooltip(
-              message: _localizedTextStatic(context,
-                  zh: '展开 / 收起 Diff 预览',
-                  en: 'Expand / collapse diff preview'),
+              message: _localizedTextStatic(
+                context,
+                zh: '展开 / 收起 Diff 预览',
+                en: 'Expand / collapse diff preview',
+              ),
               child: MicroPressFeedback(
                 child: InkWell(
                   onTap: onToggleDiff,
-                  borderRadius:
-                      const BorderRadius.all(Radius.circular(999)),
+                  borderRadius: const BorderRadius.all(Radius.circular(999)),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 2),
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
                     child: AnimatedRotation(
                       turns: isDiffExpanded ? 0.5 : 0.0,
                       duration: const Duration(milliseconds: 200),
@@ -3405,6 +3548,36 @@ class _RoundSummaryRowTile extends StatelessWidget {
     );
     if (entranceDelay == Duration.zero) return wrapped;
     return _DelayedAppear(delay: entranceDelay, child: wrapped);
+  }
+}
+
+class _RoundSummarySourceJumpButton extends StatelessWidget {
+  const _RoundSummarySourceJumpButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: _localizedTextStatic(
+        context,
+        zh: '跳转到产生该变动的工具调用',
+        en: 'Jump to source tool-call message',
+      ),
+      child: MicroPressFeedback(
+        child: InkResponse(
+          onTap: onTap,
+          radius: 18,
+          containedInkWell: true,
+          borderRadius: _borderRadius999,
+          child: SizedBox.square(
+            dimension: 28,
+            child: Icon(Icons.my_location_rounded, size: 15, color: cs.primary),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -3639,8 +3812,11 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    _localizedTextStatic(context,
-                        zh: '加载 Diff…', en: 'Loading diff…'),
+                    _localizedTextStatic(
+                      context,
+                      zh: '加载 Diff…',
+                      en: 'Loading diff…',
+                    ),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -3651,9 +3827,11 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
             final raw = (snap.data ?? '').trim();
             if (raw.isEmpty) {
               return Text(
-                _localizedTextStatic(context,
-                    zh: '内容相同或不可对比。',
-                    en: 'No textual diff available.'),
+                _localizedTextStatic(
+                  context,
+                  zh: '内容相同或不可对比。',
+                  en: 'No textual diff available.',
+                ),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
@@ -3673,9 +3851,11 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      _localizedTextStatic(context,
-                          zh: '… 还有 ${lines.length - maxLines} 行，复制全部 Diff 查看完整内容。',
-                          en: '… ${lines.length - maxLines} more lines; copy full diff to inspect.'),
+                      _localizedTextStatic(
+                        context,
+                        zh: '… 还有 ${lines.length - maxLines} 行，复制全部 Diff 查看完整内容。',
+                        en: '… ${lines.length - maxLines} more lines; copy full diff to inspect.',
+                      ),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.onSurfaceVariant,
                         fontStyle: FontStyle.italic,
@@ -3699,9 +3879,7 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
       bg = isDark
           ? const Color(0xFF66BB6A).withValues(alpha: 0.16)
           : const Color(0xFF2E7D32).withValues(alpha: 0.10);
-      fg = isDark
-          ? const Color(0xFFA5D6A7)
-          : const Color(0xFF1B5E20);
+      fg = isDark ? const Color(0xFFA5D6A7) : const Color(0xFF1B5E20);
     } else if (line.startsWith('-')) {
       bg = cs.error.withValues(alpha: isDark ? 0.18 : 0.10);
       fg = isDark ? cs.error.withValues(alpha: 0.95) : cs.error;
@@ -3752,4 +3930,3 @@ String _runDiffSummaryInIsolate(_DiffComputeArgs args) {
     miniDiffMaxBytes: args.miniDiffMaxBytes,
   );
 }
-
