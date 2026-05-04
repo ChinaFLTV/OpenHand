@@ -149,7 +149,24 @@ class WebMessagePlatformService {
       _startedAt = DateTime.now().toUtc();
       _state = WebGatewayRuntimeState.running;
       _log(WebGatewayLogLevel.success, 'BOOT', 'Web 服务已监听 $boundUrl');
-      unawaited(cleanupArtifacts(logs: true, uploads: true, expiredOnly: true));
+      // 启动后顺手做一次过期清理；失败不应阻塞 boot 流程，但要走 silentLog
+      // 防止 Future error 被 unawaited 静默吞掉。
+      unawaited(() async {
+        try {
+          await cleanupArtifacts(
+            logs: true,
+            uploads: true,
+            expiredOnly: true,
+          );
+        } catch (error, stack) {
+          silentLog(
+            'web_message_platform_service',
+            'start cleanupArtifacts',
+            error,
+            stack,
+          );
+        }
+      }());
     } catch (error, stack) {
       _state = WebGatewayRuntimeState.crashed;
       _crashCount++;
