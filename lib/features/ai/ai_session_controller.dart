@@ -1987,19 +1987,25 @@ class AiSessionController extends ChangeNotifier {
       _resetLastSendOutcome(session.id);
       _lastErrorMessage = null;
       notifyListeners();
+      final sendPreflightStopwatch = Stopwatch()..start();
+      final sendPreflightTimingsMs = <String, int>{};
 
       try {
         final previousEnvironment = session.environment;
         final previousPromptMetadata = session.lastPromptMetadata;
+        final compatibilityHooksStopwatch = Stopwatch()..start();
         await _emitRuntimeCompatibilityHooks(
           sessionId: session.id,
           runtimeContext: runtimeContext,
           previousEnvironment: previousEnvironment,
           previousPromptMetadata: previousPromptMetadata,
         );
+        sendPreflightTimingsMs['runtime_compatibility_hooks'] =
+            compatibilityHooksStopwatch.elapsedMilliseconds;
         session = session.copyWith(
           environment: _environmentFromRuntime(runtimeContext),
         );
+        final userPromptHooksStopwatch = Stopwatch()..start();
         final userHookResult = await _hookService.runHooks(
           eventName: 'UserPromptSubmit',
           sessionId: session.id,
@@ -2016,6 +2022,8 @@ class AiSessionController extends ChangeNotifier {
           sessionId: session.id,
           payload: <String, Object?>{'prompt': normalizedContent},
         );
+        sendPreflightTimingsMs['user_prompt_hooks'] =
+            userPromptHooksStopwatch.elapsedMilliseconds;
         // Re-read session since _safeRunUserHook may have committed hook messages.
         session = _sessionById(session.id) ?? session;
         if (userHookResult.blocked) {
@@ -2124,11 +2132,14 @@ class AiSessionController extends ChangeNotifier {
           _setSessionSendPhase(session.id, AiSendPhase.compressing);
           notifyListeners();
         }
+        final compressionStopwatch = Stopwatch()..start();
         final compressedSession = await _compressIfNeeded(
           session: session,
           model: model,
           runtimeContext: runtimeContext,
         );
+        sendPreflightTimingsMs['compression'] =
+            compressionStopwatch.elapsedMilliseconds;
         session = compressedSession;
         if (shouldCompress) {
           _setSessionSendPhase(session.id, AiSendPhase.sendingMessage);
@@ -2148,6 +2159,7 @@ class AiSessionController extends ChangeNotifier {
           return false;
         }
 
+        final prepareUserTurnStopwatch = Stopwatch()..start();
         final preparedUserTurn = await _prepareUserTurn(
           session: session,
           content: normalizedContent,
@@ -2156,7 +2168,25 @@ class AiSessionController extends ChangeNotifier {
           attachmentFilePaths: normalizedAttachmentPaths,
           userMessageMetadata: userMessageMetadata,
         );
+        sendPreflightTimingsMs['prepare_user_turn'] =
+            prepareUserTurnStopwatch.elapsedMilliseconds;
         session = preparedUserTurn.session;
+        session = _upsertMessage(
+          session,
+          messageId: preparedUserTurn.userMessage.id,
+          create: () => preparedUserTurn.userMessage,
+          update: (message) => message.copyWith(
+            metadata: <String, Object?>{
+              ...message.metadata,
+              'send_preflight_timings_ms': Map<String, int>.from(
+                sendPreflightTimingsMs,
+              ),
+              'send_preflight_elapsed_ms':
+                  sendPreflightStopwatch.elapsedMilliseconds,
+              'send_preflight_compression_needed': shouldCompress,
+            },
+          ),
+        );
         final userCommitted = await _commitSessionLocked(session);
         if (!userCommitted) {
           if (preparedUserTurn.importedAttachments) {
@@ -2321,6 +2351,8 @@ class AiSessionController extends ChangeNotifier {
       'assistant_conversation_start model=${model.modelId} latest_user_message_id=${latestUserMessageId ?? ''}',
     );
     _truncationContinuationCount = 0;
+    final assistantBootstrapStopwatch = Stopwatch()..start();
+    final preRequestTimingsMs = <String, int>{};
     final templateBundleFuture = _templateRepository.loadBundle(
       session.templateId,
     );
@@ -2340,6 +2372,8 @@ class AiSessionController extends ChangeNotifier {
       templateBundleFuture,
       fullCatalogFuture,
     ]);
+    preRequestTimingsMs['template_and_tool_catalog'] =
+        assistantBootstrapStopwatch.elapsedMilliseconds;
     final templateBundle = bootstrapResults[0] as AiPromptTemplateBundle;
     final fullCatalog = bootstrapResults[1] as AiResolvedToolCatalog;
     final toolCatalog = McpLazyLoadingApplier.apply(
@@ -2374,6 +2408,7 @@ class AiSessionController extends ChangeNotifier {
       1,
       runtimeContext.sequentialToolRoundLimit,
     );
+    final docsPrefetchStopwatch = Stopwatch()..start();
     final primedSession = await _maybePrefetchClaudeCodeDocs(
       session: workingSession,
       model: model,
@@ -2383,6 +2418,8 @@ class AiSessionController extends ChangeNotifier {
       requireWriteCommandConfirmation: requireWriteCommandConfirmation,
       confirmWriteCommand: confirmWriteCommand,
     );
+    preRequestTimingsMs['claude_docs_prefetch'] =
+        docsPrefetchStopwatch.elapsedMilliseconds;
     if (primedSession == null) {
       return false;
     }
@@ -2413,6 +2450,7 @@ class AiSessionController extends ChangeNotifier {
         workingSession.id,
         'stream_round_start round=${toolRoundCount + 1} awaiting_plan_approval=${workingSession.awaitingPlanApproval} plan_mode=${workingSession.mode.storageValue} execution_approved=$planModeExecutionApprovedForSend recovery_inspection_required=$planModeRecoveryInspectionRequired tools=${toolsForRound.length}',
       );
+      final promptBuildStopwatch = Stopwatch()..start();
       final promptResult = _promptBuilder.buildSessionPrompt(
         templateBundle: templateBundle,
         session: workingSession,
@@ -2427,6 +2465,10 @@ class AiSessionController extends ChangeNotifier {
             toolCatalogForRound.mcpServerInstructionsByName,
         useDsmlToolCalls: !supportsNativeToolCalls,
       );
+      preRequestTimingsMs['prompt_build'] =
+          promptBuildStopwatch.elapsedMilliseconds;
+      preRequestTimingsMs['assistant_pre_request_elapsed'] =
+          assistantBootstrapStopwatch.elapsedMilliseconds;
       var preStreamTelemetryPreviewed = false;
       if (activeLatestUserMessageId != null) {
         final nextSession = _applyPreStreamTelemetryToUserMessage(
@@ -2434,6 +2476,7 @@ class AiSessionController extends ChangeNotifier {
           model: model,
           runtimeContext: runtimeContext,
           promptResult: promptResult,
+          preRequestTimingsMs: preRequestTimingsMs,
           userMessageId: activeLatestUserMessageId,
         );
         if (!identical(nextSession, workingSession)) {
@@ -2452,6 +2495,11 @@ class AiSessionController extends ChangeNotifier {
           model: model,
           runtimeContext: runtimeContext,
           telemetry: telemetry,
+          preRequestTimingsMs: <String, int>{
+            ...preRequestTimingsMs,
+            'request_started_elapsed':
+                assistantBootstrapStopwatch.elapsedMilliseconds,
+          },
           userMessageId: userMessageId,
         );
         if (identical(nextSession, workingSession)) {
@@ -7939,6 +7987,7 @@ $trimmedSummary''';
   Map<String, Object?> _buildRequestStartTelemetryMetadata({
     required AiChatRequestTelemetry telemetry,
     required AiSessionRuntimeContext runtimeContext,
+    Map<String, int> preRequestTimingsMs = const <String, int>{},
   }) {
     if (!runtimeContext.telemetryDebugEnabled) {
       return const <String, Object?>{};
@@ -7950,6 +7999,11 @@ $trimmedSummary''';
       'telemetry_captured_at': _clock().toUtc().toIso8601String(),
       'started_at': startedAt.toIso8601String(),
       'request_started_at': startedAt.toIso8601String(),
+      if (preRequestTimingsMs.isNotEmpty)
+        'pre_request_timings_ms': Map<String, int>.from(preRequestTimingsMs),
+      if (preRequestTimingsMs['request_started_elapsed'] != null)
+        'request_start_elapsed_ms':
+            preRequestTimingsMs['request_started_elapsed'],
       if (telemetry.requestUrl != null) 'request_url': telemetry.requestUrl,
       if (telemetry.requestMethod != null)
         'request_method': telemetry.requestMethod,
@@ -7975,11 +8029,13 @@ $trimmedSummary''';
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     required AiChatRequestTelemetry telemetry,
+    Map<String, int> preRequestTimingsMs = const <String, int>{},
     required String userMessageId,
   }) {
     final metadata = _buildRequestStartTelemetryMetadata(
       telemetry: telemetry,
       runtimeContext: runtimeContext,
+      preRequestTimingsMs: preRequestTimingsMs,
     );
     if (metadata.isEmpty || userMessageId.isEmpty) {
       return session;
@@ -8016,6 +8072,7 @@ $trimmedSummary''';
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     required AiPromptBuildResult promptResult,
+    Map<String, int> preRequestTimingsMs = const <String, int>{},
     required String userMessageId,
   }) {
     if (!runtimeContext.telemetryDebugEnabled) {
@@ -8059,6 +8116,11 @@ $trimmedSummary''';
       'estimated_total_tokens': estimatedPromptTokens,
       'prompt_system_message_count': promptResult.systemMessageCount,
       'prompt_history_message_count': promptResult.historyMessageCount,
+      if (preRequestTimingsMs.isNotEmpty)
+        'pre_request_timings_ms': Map<String, int>.from(preRequestTimingsMs),
+      if (preRequestTimingsMs['assistant_pre_request_elapsed'] != null)
+        'pre_request_elapsed_ms':
+            preRequestTimingsMs['assistant_pre_request_elapsed'],
       // Mark a timestamp so the audit dialog knows data was captured.
       'telemetry_captured_at': _clock().toUtc().toIso8601String(),
     };

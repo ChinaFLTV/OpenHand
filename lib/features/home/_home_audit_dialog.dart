@@ -580,6 +580,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
     final relatedMessage = _auditRelatedTelemetryMessage(session, message);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final size = MediaQuery.sizeOf(context);
     final maxWidth = size.width * 0.88;
     final maxHeight = size.height * 0.88;
@@ -617,6 +618,24 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
       relatedMetadata['error'],
       relatedMetadata['error_message'],
       if (relatedTelemetry is Map) relatedTelemetry['error'],
+    ]);
+    final sendPreflightElapsedMs = _auditFirstInt([
+      metadata['send_preflight_elapsed_ms'],
+      relatedMetadata['send_preflight_elapsed_ms'],
+    ]);
+    final preRequestElapsedMs = _auditFirstInt([
+      metadata['request_start_elapsed_ms'],
+      metadata['pre_request_elapsed_ms'],
+      relatedMetadata['request_start_elapsed_ms'],
+      relatedMetadata['pre_request_elapsed_ms'],
+    ]);
+    final sendPreflightTimings = _auditFirstMap([
+      metadata['send_preflight_timings_ms'],
+      relatedMetadata['send_preflight_timings_ms'],
+    ]);
+    final preRequestTimings = _auditFirstMap([
+      metadata['pre_request_timings_ms'],
+      relatedMetadata['pre_request_timings_ms'],
     ]);
     final requestUrl = _auditFirstString([
       metadata['request_url'],
@@ -808,6 +827,32 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           label: AppLocalizations.of(context)!.auditDurationMs,
                           value: durationMs == null ? '—' : '$durationMs',
                         ),
+                      if (sendPreflightElapsedMs != null)
+                        _AuditKvRow(
+                          label: isZh ? '发送前耗时 (ms)' : 'Send Preflight (ms)',
+                          value: '$sendPreflightElapsedMs',
+                        ),
+                      if (preRequestElapsedMs != null)
+                        _AuditKvRow(
+                          label: isZh ? '请求前耗时 (ms)' : 'Pre-request (ms)',
+                          value: '$preRequestElapsedMs',
+                        ),
+                      if (sendPreflightTimings != null &&
+                          sendPreflightTimings.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        _AuditJsonBlock(
+                          label: isZh ? '发送前阶段耗时' : 'Send Preflight Timings',
+                          json: sendPreflightTimings,
+                        ),
+                      ],
+                      if (preRequestTimings != null &&
+                          preRequestTimings.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        _AuditJsonBlock(
+                          label: isZh ? '请求前阶段耗时' : 'Pre-request Timings',
+                          json: preRequestTimings,
+                        ),
+                      ],
                     ],
                   ),
                 ),
