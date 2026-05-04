@@ -6,6 +6,9 @@ import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SessionsPage } from './pages/SessionsPage';
 import { SessionDetailPage } from './pages/SessionDetailPage';
+import { FilesPage } from './pages/FilesPage';
+import { OpsPage } from './pages/OpsPage';
+import { LogsPage } from './pages/LogsPage';
 import { t } from './i18n';
 
 /// 鉴权守卫：service.auth_enabled=true 且无 token 时强制跳 /login。
@@ -68,6 +71,24 @@ const SessionDetailRoute = () => (
   </RequireAuth>
 );
 
+const FilesRoute = () => (
+  <RequireAuth>
+    <FilesPage />
+  </RequireAuth>
+);
+
+const OpsRoute = () => (
+  <RequireAuth>
+    <OpsPage />
+  </RequireAuth>
+);
+
+const LogsRoute = () => (
+  <RequireAuth>
+    <LogsPage />
+  </RequireAuth>
+);
+
 export function App() {
   return (
     <LocationProvider>
@@ -78,6 +99,9 @@ export function App() {
         <Route path="/threads/:id" component={SessionDetailRoute} />
         {/* /thread 旧路径：保持后向兼容，跳到列表 */}
         <Route path="/thread" component={SessionsRoute} />
+        <Route path="/files" component={FilesRoute} />
+        <Route path="/ops" component={OpsRoute} />
+        <Route path="/logs" component={LogsRoute} />
         <Route default component={NotFound} />
       </Router>
     </LocationProvider>

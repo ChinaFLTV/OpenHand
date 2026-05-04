@@ -59,7 +59,7 @@ export function HomePage() {
               Stage 3：会话列表 + 单会话视图（消息发送留待 Stage 4）
             </p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap justify-end">
             <button
               type="button"
               onClick={() => location.route('/threads')}
@@ -71,6 +71,42 @@ export function HomePage() {
               }}
             >
               {t('home.openSessions', '进入会话列表')}
+            </button>
+            <button
+              type="button"
+              onClick={() => location.route('/files')}
+              class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
+              style={{
+                color: 'var(--m3-on-surface)',
+                border: '1px solid var(--m3-outline)',
+                backgroundColor: 'transparent',
+              }}
+            >
+              {t('home.openFiles', '工作区文件')}
+            </button>
+            <button
+              type="button"
+              onClick={() => location.route('/ops')}
+              class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
+              style={{
+                color: 'var(--m3-on-surface)',
+                border: '1px solid var(--m3-outline)',
+                backgroundColor: 'transparent',
+              }}
+            >
+              {t('home.openOps', 'Ops')}
+            </button>
+            <button
+              type="button"
+              onClick={() => location.route('/logs')}
+              class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
+              style={{
+                color: 'var(--m3-on-surface)',
+                border: '1px solid var(--m3-outline)',
+                backgroundColor: 'transparent',
+              }}
+            >
+              {t('home.openLogs', '日志')}
             </button>
             {auth.authRequired && (
               <button
