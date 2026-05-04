@@ -617,6 +617,12 @@ class WebMessagePlatformService {
       if (segments.length == 3 && request.method == 'GET') {
         return _getSession(request, auth, sessionId);
       }
+      if (segments.length == 3 && request.method == 'PATCH') {
+        return _renameSession(request, auth, sessionId);
+      }
+      if (segments.length == 3 && request.method == 'DELETE') {
+        return _deleteSession(request, auth, sessionId);
+      }
       if (segments.length == 4 && segments[3] == 'messages') {
         if (request.method == 'GET') {
           return _listMessages(request, auth, sessionId);
@@ -744,14 +750,15 @@ class WebMessagePlatformService {
         int.tryParse(request.uri.queryParameters['page_size'] ?? '') ?? 10,
       ),
     );
-    final source =
-        request.uri.queryParameters['source']?.trim().isNotEmpty == true
-        ? request.uri.queryParameters['source']!.trim()
-        : auth.source.storageValue;
-    final deviceId =
-        request.uri.queryParameters['device_id']?.trim().isNotEmpty == true
-        ? request.uri.queryParameters['device_id']!.trim()
-        : auth.deviceId;
+    final canAccessAll = _authCanAccessAllSessions(auth);
+    final sourceQuery = request.uri.queryParameters['source']?.trim() ?? '';
+    final deviceQuery = request.uri.queryParameters['device_id']?.trim() ?? '';
+    final source = canAccessAll
+        ? sourceQuery
+        : (sourceQuery.isEmpty ? auth.source.storageValue : sourceQuery);
+    final deviceId = canAccessAll
+        ? deviceQuery
+        : (deviceQuery.isEmpty ? auth.deviceId : deviceQuery);
     final filtered =
         _sessionController.sessions
             .where((session) {
@@ -786,6 +793,7 @@ class WebMessagePlatformService {
       'total': filtered.length,
       'has_more': end < filtered.length,
       'sort': 'updated_at_desc,id_desc',
+      'scope': canAccessAll ? 'authenticated_all' : 'current_device',
     });
   }
 
@@ -863,6 +871,67 @@ class WebMessagePlatformService {
         'last_error': _sessionController.lastErrorMessageForSession(session.id),
       },
     });
+  }
+
+  Future<int> _renameSession(
+    HttpRequest request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(request, HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final body = await _readJsonBody(request);
+    final title = _string(body['title'], '').trim();
+    if (title.isEmpty) {
+      return _json(request, HttpStatus.badRequest, <String, Object?>{
+        'error': 'title_required',
+      });
+    }
+    final ok = await _sessionController.renameSession(session.id, title);
+    final updated = _sessionController.sessions.firstWhere(
+      (item) => item.id == session.id,
+      orElse: () => session.copyWith(title: title),
+    );
+    _log(
+      WebGatewayLogLevel.info,
+      'SESSION',
+      'Web 重命名会话 ${session.id}',
+      <String, Object?>{'title': title, 'device_id': auth.deviceId},
+    );
+    return _json(
+      request,
+      ok ? HttpStatus.ok : HttpStatus.conflict,
+      <String, Object?>{'ok': ok, 'session': _sessionSummary(updated)},
+    );
+  }
+
+  Future<int> _deleteSession(
+    HttpRequest request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(request, HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final ok = await _sessionController.deleteSession(session.id);
+    _log(
+      WebGatewayLogLevel.warn,
+      'SESSION',
+      'Web 删除会话 ${session.id}',
+      <String, Object?>{'title': session.title, 'device_id': auth.deviceId},
+    );
+    return _json(
+      request,
+      ok ? HttpStatus.ok : HttpStatus.conflict,
+      <String, Object?>{'ok': ok, 'deleted_session_id': session.id},
+    );
   }
 
   Future<int> _listMessages(
@@ -1229,6 +1298,7 @@ class WebMessagePlatformService {
   ) {
     for (final session in _sessionController.sessions) {
       if (session.id != sessionId) continue;
+      if (_authCanAccessAllSessions(auth)) return session;
       final context = _webContext(session.metadata);
       if (_string(context['device_id'], '') != auth.deviceId) return null;
       if (_string(context['login_source'], '') != auth.source.storageValue) {
@@ -1237,6 +1307,10 @@ class WebMessagePlatformService {
       return session;
     }
     return null;
+  }
+
+  bool _authCanAccessAllSessions(_WebGatewayAuthSession auth) {
+    return _config.authEnabled && auth.token != 'anonymous';
   }
 
   Map<String, Object?> _metadataForRequest(
@@ -1518,7 +1592,7 @@ class WebMessagePlatformService {
     response.headers.set(HttpHeaders.accessControlAllowOriginHeader, '*');
     response.headers.set(
       HttpHeaders.accessControlAllowMethodsHeader,
-      'GET,POST,PUT,OPTIONS',
+      'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     );
     response.headers.set(
       HttpHeaders.accessControlAllowHeadersHeader,
@@ -2015,9 +2089,14 @@ button { border: 0; cursor: pointer; }
 .icon-btn, .text-btn { height: 40px; border-radius: 8px; color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .icon-btn { width: 40px; padding: 0; font-size: 20px; }
 .text-btn.primary { background: var(--primary); color: var(--on-primary); }
+.session-filters { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 0 12px 12px; border-bottom: 1px solid var(--outline); }
 .session-list { overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .session { text-align: left; padding: 12px; border-radius: 8px; background: transparent; color: var(--on-surface); border: 1px solid transparent; transition: background .18s ease, border-color .18s ease; }
 .session.active, .session:hover { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); border-color: color-mix(in srgb, var(--primary) 38%, var(--outline)); }
+.session-main { width: 100%; padding: 0; border-radius: 0; background: transparent; color: inherit; text-align: left; }
+.session-actions { display: flex; gap: 6px; margin-top: 8px; }
+.session-action { height: 30px; min-width: 42px; border-radius: 8px; color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.session-action.danger { color: var(--error); background: color-mix(in srgb, var(--error) 10%, transparent); }
 .session-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .session-meta, .session-preview { color: var(--on-surface-variant); font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat { min-width: 0; display: flex; flex-direction: column; background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, var(--primary)), var(--surface)); }
@@ -2085,6 +2164,7 @@ input, select { height: 42px; border: 1px solid var(--outline); border-radius: 8
   <aside id="sidebar" class="sidebar">
     <div class="side-head"><div class="brand">OH</div><div><div class="side-title">Web通用消息平台</div><div id="serviceLine" class="side-subtitle">连接中</div></div></div>
     <div class="toolbar"><button id="refresh" class="icon-btn" title="刷新">↻</button><button id="loadMore" class="text-btn"><span>更多</span></button></div>
+    <div class="session-filters"><select id="sourceFilter"><option value="">全部来源</option><option value="WEB_PC">WEB_PC</option><option value="WEB_MOBILE">WEB_MOBILE</option><option value="APP_PC">APP_PC</option><option value="APP_MOBILE">APP_MOBILE</option><option value="APP_TABLET">APP_TABLET</option></select><input id="deviceFilter" placeholder="设备 ID 过滤" /></div>
     <div id="sessions" class="session-list"></div>
   </aside>
   <main class="chat">
@@ -2098,7 +2178,7 @@ input, select { height: 42px; border: 1px solid var(--outline); border-radius: 8
 <div id="fileModal" class="modal"><div class="panel wide"><div style="display:flex;gap:10px;align-items:center"><h1 style="flex:1">项目文件</h1><button id="closeFiles" class="icon-btn">×</button></div><div class="file-tools"><label class="field"><span>路径</span><input id="filePath" value="" /></label><label class="field"><span>搜索</span><input id="fileSearch" placeholder="文件名或相对路径" /></label><label class="field"><span>类型</span><select id="fileType"><option value="all">全部</option><option value="directory">文件夹</option><option value="file">文件</option></select></label></div><div id="filePolicy" class="side-subtitle" style="margin-top:8px"></div><div class="file-layout"><div id="fileList" class="file-list"></div><div class="file-editor"><input id="editingPath" readonly placeholder="选择文本文件" /><textarea id="fileContent" spellcheck="false"></textarea><div style="display:flex;gap:10px"><button id="saveFile" class="text-btn primary" style="flex:1">保存文件</button><button id="reloadFile" class="text-btn">重载</button></div></div></div></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const state = { meta:null, token:localStorage.getItem('oh_token') || '', deviceId: localStorage.getItem('oh_device_id') || '', source:'WEB_PC', page:1, hasMore:true, sessions:[], active:null, poll:null, modelKey:'', filePath:'', fileSearch:'', fileType:'all', editingPath:'', workspaceFiles:{enabled:true,write:true,maxBytes:1048576,allowedExtensions:[]} };
+const state = { meta:null, token:localStorage.getItem('oh_token') || '', deviceId: localStorage.getItem('oh_device_id') || '', source:'WEB_PC', sessionSource:'', sessionDevice:'', page:1, hasMore:true, sessions:[], active:null, poll:null, modelKey:'', filePath:'', fileSearch:'', fileType:'all', editingPath:'', workspaceFiles:{enabled:true,write:true,maxBytes:1048576,allowedExtensions:[]} };
 if(!state.deviceId){ state.deviceId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(); localStorage.setItem('oh_device_id', state.deviceId); }
 function detectSource(){ const w = Math.min(innerWidth, screen.width || innerWidth); state.source = w < 760 ? 'WEB_MOBILE' : 'WEB_PC'; }
 function headers(){ const h = {'content-type':'application/json','x-openhand-device-id':state.deviceId,'x-openhand-source':state.source,'x-openhand-device-platform':navigator.platform || ''}; if(state.token) h.authorization = 'Bearer '+state.token; return h; }
@@ -2112,13 +2192,17 @@ async function anonymousLogin(){ const j = await api('/api/login',{method:'POST'
 function showApp(){ document.getElementById('login').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); }
 function devicePayload(){ return {source:state.source,device_id:state.deviceId,device_name:navigator.userAgent,device_platform:navigator.platform || '',device_mac_address:''}; }
 document.getElementById('loginForm').onsubmit = async e => { e.preventDefault(); try{ const j=await api('/api/login',{method:'POST',body:JSON.stringify({...devicePayload(),username:username.value,password:password.value})}); state.token=j.token; localStorage.setItem('oh_token',j.token); showApp(); await loadSessions(true); }catch(err){ toast('登录失败'); }};
-async function loadSessions(reset=false){ if(reset){state.page=1;state.sessions=[];state.hasMore=true;} if(!state.hasMore) return; const j=await api(`/api/sessions?page=${state.page}&page_size=10&source=${state.source}&device_id=${encodeURIComponent(state.deviceId)}`); state.sessions.push(...j.items); state.hasMore=j.has_more; state.page++; renderSessions(); }
-function renderSessions(){ const box=document.getElementById('sessions'); box.innerHTML=''; state.sessions.forEach(s=>{ const b=document.createElement('button'); b.className='session'+(state.active===s.id?' active':''); b.innerHTML=`<div class="session-title"></div><div class="session-preview"></div><div class="session-meta"></div>`; b.children[0].textContent=s.title; b.children[1].textContent=s.last_message_preview||'暂无消息'; b.children[2].textContent=`${s.template_name} · ${s.message_count} 条 · ${s.send_phase}`; b.onclick=()=>openSession(s.id); box.appendChild(b); }); }
+async function loadSessions(reset=false){ if(reset){state.page=1;state.sessions=[];state.hasMore=true;} if(!state.hasMore) return; state.sessionSource=sourceFilter.value; state.sessionDevice=deviceFilter.value.trim(); const params=new URLSearchParams({page:String(state.page),page_size:'10'}); if(state.sessionSource) params.set('source',state.sessionSource); if(state.sessionDevice) params.set('device_id',state.sessionDevice); const j=await api('/api/sessions?'+params.toString()); state.sessions.push(...j.items); state.hasMore=j.has_more; state.page++; renderSessions(); }
+function renderSessions(){ const box=document.getElementById('sessions'); box.innerHTML=''; if(!state.sessions.length){ const empty=document.createElement('div'); empty.className='side-subtitle'; empty.style.padding='12px'; empty.textContent='没有匹配的线程'; box.appendChild(empty); return; } state.sessions.forEach(s=>{ const row=document.createElement('div'); row.className='session'+(state.active===s.id?' active':''); const main=document.createElement('button'); main.className='session-main'; main.innerHTML=`<div class="session-title"></div><div class="session-preview"></div><div class="session-meta"></div>`; main.children[0].textContent=s.title; main.children[1].textContent=s.last_message_preview||'暂无消息'; main.children[2].textContent=`${s.source||'UNKNOWN'} · ${s.device_id||'unknown'} · ${s.message_count} 条 · ${s.send_phase}`; main.onclick=()=>openSession(s.id); const actions=document.createElement('div'); actions.className='session-actions'; const rename=document.createElement('button'); rename.className='session-action'; rename.textContent='改名'; rename.onclick=()=>renameSession(s); const del=document.createElement('button'); del.className='session-action danger'; del.textContent='删除'; del.onclick=()=>deleteSession(s); actions.append(rename,del); row.append(main,actions); box.appendChild(row); }); }
+async function renameSession(session){ const title=prompt('重命名线程',session.title||''); if(title===null) return; const next=title.trim(); if(!next) return toast('标题不能为空'); try{ const j=await api('/api/sessions/'+session.id,{method:'PATCH',body:JSON.stringify({title:next})}); const idx=state.sessions.findIndex(s=>s.id===session.id); if(idx>=0) state.sessions[idx]=j.session; if(state.active===session.id) document.getElementById('threadTitle').textContent=j.session.title; renderSessions(); toast('线程已重命名'); }catch(err){ toast(err.message); } }
+async function deleteSession(session){ if(!confirm('删除线程「'+session.title+'」？')) return; try{ await api('/api/sessions/'+session.id,{method:'DELETE'}); state.sessions=state.sessions.filter(s=>s.id!==session.id); if(state.active===session.id){ state.active=null; clearInterval(state.poll); document.getElementById('threadTitle').textContent='选择一个线程'; document.getElementById('threadSub').textContent='线程已删除'; document.getElementById('messages').innerHTML='<div class="empty">线程已删除，请选择其他会话。</div>'; } renderSessions(); toast('线程已删除'); }catch(err){ toast(err.message); } }
 async function openSession(id){ state.active=id; document.getElementById('sidebar').classList.remove('open'); renderSessions(); await refreshThread(); clearInterval(state.poll); state.poll=setInterval(refreshThread,1800); }
 async function refreshThread(){ if(!state.active) return; try{ const s=await api('/api/sessions/'+state.active); document.getElementById('threadTitle').textContent=s.session.title; document.getElementById('threadSub').textContent=`${s.session.template_name} · ${s.runtime.send_phase}`; const j=await api('/api/sessions/'+state.active+'/messages?limit=120&offset=0'); renderMessages(j.items); }catch(err){ if(err.status===404){ toast('线程已在 APP 端删除'); state.active=null; clearInterval(state.poll); await loadSessions(true); document.getElementById('messages').innerHTML='<div class="empty">线程已删除，请选择其他会话。</div>'; } } }
 function renderMessages(items){ const box=document.getElementById('messages'); box.innerHTML=''; if(!items.length){ box.innerHTML='<div class="empty">还没有消息。</div>'; return; } items.forEach(m=>{ const div=document.createElement('div'); const cls=m.role==='user'?'user':(m.kind||'assistant'); div.className='msg '+cls; const text=document.createElement('div'); text.textContent=m.content||' '; const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${m.kind} · ${new Date(m.created_at).toLocaleString()}`; div.append(text,meta); box.appendChild(div); }); box.scrollTop=box.scrollHeight; }
 document.getElementById('refresh').onclick=()=>loadSessions(true).catch(e=>toast(e.message));
 document.getElementById('loadMore').onclick=()=>loadSessions(false).catch(e=>toast(e.message));
+document.getElementById('sourceFilter').onchange=()=>loadSessions(true).catch(e=>toast(e.message));
+document.getElementById('deviceFilter').onkeydown=e=>{ if(e.key==='Enter') loadSessions(true).catch(err=>toast(err.message)); };
 document.getElementById('menu').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
 document.getElementById('newSession').onclick=()=>document.getElementById('newModal').classList.add('open');
 document.getElementById('cancelNew').onclick=()=>document.getElementById('newModal').classList.remove('open');
