@@ -2,6 +2,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../instructions/model/user_instruction_entry.dart';
 import '../../mcp/model/mcp_lazy_loading_mode.dart';
 import '../../mcp/model/mcp_server.dart';
+import '../../mcp/model/mcp_tool.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../../skills/model/local_skill.dart';
 import 'ai_allow_command_rule.dart';
@@ -148,6 +149,7 @@ class AiSessionRuntimeContext {
     this.allowCommandRules = const <AiAllowCommandRule>[],
     this.availableSkills = const <LocalSkill>[],
     this.availableMcpServers = const <McpServer>[],
+    this.mcpToolCatalogsByServerName = const <String, McpToolCatalog>{},
     this.mcpLazyLoadingMode = McpLazyLoadingMode.auto,
     this.mcpLazyLoadingThresholdTokens = 80000,
     this.builtinToolConfigs = const <AiBuiltinToolConfig>[],
@@ -323,6 +325,7 @@ class AiSessionRuntimeContext {
   final List<AiAllowCommandRule> allowCommandRules;
   final List<LocalSkill> availableSkills;
   final List<McpServer> availableMcpServers;
+  final Map<String, McpToolCatalog> mcpToolCatalogsByServerName;
 
   /// 2026-05-03 — MCP 工具懒加载模式（disabled / auto / enabled）。
   final McpLazyLoadingMode mcpLazyLoadingMode;
@@ -358,8 +361,7 @@ class AiSessionRuntimeContext {
       'tool_result_compression_enabled': toolResultCompressionEnabled,
       'tool_result_compression_head_tail_window_chars':
           toolResultCompressionHeadTailWindowChars,
-      'tool_result_compression_max_path_hits':
-          toolResultCompressionMaxPathHits,
+      'tool_result_compression_max_path_hits': toolResultCompressionMaxPathHits,
       'write_tool_summary_max_chars': writeToolSummaryMaxChars,
       'ai_input_cache_enabled': aiInputCacheEnabled,
       'ai_input_cache_update_mode': aiInputCacheUpdateMode,
@@ -382,7 +384,8 @@ class AiSessionRuntimeContext {
       'web_fetch_max_response_bytes': webFetchMaxResponseBytes,
       'web_fetch_max_redirects': webFetchMaxRedirects,
       'web_fetch_max_cache_entries': webFetchMaxCacheEntries,
-      'attachment_max_inline_image_dimension': attachmentMaxInlineImageDimension,
+      'attachment_max_inline_image_dimension':
+          attachmentMaxInlineImageDimension,
       'attachment_max_text_raw_bytes': attachmentMaxTextRawBytes,
       'attachment_max_pdf_raw_bytes': attachmentMaxPdfRawBytes,
       'attachment_max_image_raw_bytes': attachmentMaxImageRawBytes,
@@ -416,6 +419,10 @@ class AiSessionRuntimeContext {
       'available_mcp_server_names': availableMcpServers
           .map((item) => item.name)
           .toList(growable: false),
+      'mcp_tool_catalog_snapshot_count': mcpToolCatalogsByServerName.length,
+      'mcp_tool_catalog_ready_count': mcpToolCatalogsByServerName.values
+          .where((catalog) => catalog.status == McpToolCatalogStatus.ready)
+          .length,
       'mcp_lazy_loading_mode': mcpLazyLoadingMode.storageValue,
       'mcp_lazy_loading_threshold_tokens': mcpLazyLoadingThresholdTokens,
       'workspace_instruction_document_count':

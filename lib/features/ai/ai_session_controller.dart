@@ -53,6 +53,8 @@ typedef WriteCommandConfirmationCallback =
     Future<bool> Function(BashCommandApprovalRequest request);
 
 const int _minRetainedCompressionTextMessages = 5;
+const int _maxClaudeCodeDocsPrefetchTargets = 2;
+const Duration _claudeCodeDocsPrefetchTargetTimeout = Duration(seconds: 12);
 
 @visibleForTesting
 List<List<AiSessionMessage>> groupSessionMessagesForCompression(
@@ -2319,8 +2321,12 @@ class AiSessionController extends ChangeNotifier {
       'assistant_conversation_start model=${model.modelId} latest_user_message_id=${latestUserMessageId ?? ''}',
     );
     _truncationContinuationCount = 0;
-    final templateBundle = await _templateRepository.loadBundle(
+    final templateBundleFuture = _templateRepository.loadBundle(
       session.templateId,
+    );
+    final fullCatalogFuture = _toolRuntimeService.resolveCatalog(
+      runtimeContext: runtimeContext,
+      templateId: session.templateId,
     );
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     final supportsNativeToolCalls = adapter.supportsToolCalls;
@@ -2330,10 +2336,12 @@ class AiSessionController extends ChangeNotifier {
     // (see `useDsmlToolCalls` below). This prevents weak models from inventing
     // bogus envelopes (`##TOOL_CALL##`, `u_TodoWrite`, etc.) when they have no
     // explicit guidance on how to call tools.
-    final fullCatalog = await _toolRuntimeService.resolveCatalog(
-      runtimeContext: runtimeContext,
-      templateId: session.templateId,
-    );
+    final bootstrapResults = await Future.wait<Object>(<Future<Object>>[
+      templateBundleFuture,
+      fullCatalogFuture,
+    ]);
+    final templateBundle = bootstrapResults[0] as AiPromptTemplateBundle;
+    final fullCatalog = bootstrapResults[1] as AiResolvedToolCatalog;
     final toolCatalog = McpLazyLoadingApplier.apply(
       catalog: fullCatalog,
       runtimeContext: runtimeContext,
@@ -3927,6 +3935,7 @@ class AiSessionController extends ChangeNotifier {
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
+    Future<void>? cancelSignal,
     void Function(BashToolExecutionUpdate update)? onUpdate,
   }) async {
     try {
@@ -3943,7 +3952,7 @@ class AiSessionController extends ChangeNotifier {
             ? false
             : requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
-        cancelSignal: _stopSignalForSession(sessionId),
+        cancelSignal: cancelSignal ?? _stopSignalForSession(sessionId),
         onBashUpdate: onUpdate,
       );
     } catch (error) {
@@ -4151,10 +4160,25 @@ class AiSessionController extends ChangeNotifier {
     var workingSession = session;
     final docsTargets = _claudeCodeDocsTargetsForQuestion(
       latestUserMessage.content,
-    );
+    ).take(_maxClaudeCodeDocsPrefetchTargets).toList(growable: false);
     final readFilePaths = _readFileHistory(session);
     for (var index = 0; index < docsTargets.length; index++) {
       final target = docsTargets[index];
+      var prefetchTimedOut = false;
+      final prefetchTimeoutSignal = Completer<void>();
+      final prefetchTimer = Timer(_claudeCodeDocsPrefetchTargetTimeout, () {
+        prefetchTimedOut = true;
+        if (!prefetchTimeoutSignal.isCompleted) {
+          prefetchTimeoutSignal.complete();
+        }
+      });
+      final sessionStopSignal = _stopSignalForSession(workingSession.id);
+      final prefetchCancelSignal = sessionStopSignal == null
+          ? prefetchTimeoutSignal.future
+          : Future.any<void>(<Future<void>>[
+              sessionStopSignal,
+              prefetchTimeoutSignal.future,
+            ]);
       final toolCall = AiToolCall(
         id: 'claude-docs-prefetch-$userMessageId-$index',
         name: 'WebFetch',
@@ -4164,16 +4188,48 @@ class AiSessionController extends ChangeNotifier {
               'Summarize only the official Claude Code documentation details that are relevant to the following user question. Focus on documented behavior, supported workflows, and exact terminology.\n\nUser question:\n${latestUserMessage.content.trim()}\n\nCurrent documentation focus: ${target.label}',
         }),
       );
-      final result = await _executeSingleToolCall(
-        sessionId: workingSession.id,
-        toolCall: toolCall,
-        model: model,
-        toolCatalog: toolCatalog,
-        readFilePaths: readFilePaths,
-        denyCommandRules: denyCommandRules,
-        requireWriteCommandConfirmation: requireWriteCommandConfirmation,
-        confirmWriteCommand: confirmWriteCommand,
-      );
+      final result =
+          await _executeSingleToolCall(
+            sessionId: workingSession.id,
+            toolCall: toolCall,
+            model: model,
+            toolCatalog: toolCatalog,
+            readFilePaths: readFilePaths,
+            denyCommandRules: denyCommandRules,
+            requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+            confirmWriteCommand: confirmWriteCommand,
+            cancelSignal: prefetchCancelSignal,
+          ).timeout(
+            _claudeCodeDocsPrefetchTargetTimeout + const Duration(seconds: 2),
+            onTimeout: () {
+              prefetchTimedOut = true;
+              if (!prefetchTimeoutSignal.isCompleted) {
+                prefetchTimeoutSignal.complete();
+              }
+              return AiToolExecutionResult(
+                status: BashToolExecutionStatus.timedOut,
+                command: 'WebFetch ${target.url}',
+                workingDirectory: OpenHandPaths.applicationDirectoryPath(),
+                stdout: '',
+                stderr:
+                    'Claude Code documentation prefetch exceeded '
+                    '${_claudeCodeDocsPrefetchTargetTimeout.inSeconds}s and was skipped.',
+                durationMs: _claudeCodeDocsPrefetchTargetTimeout.inMilliseconds,
+                resultText:
+                    'status: timed_out\nerror: documentation prefetch skipped to keep chat responsive',
+              );
+            },
+          );
+      prefetchTimer.cancel();
+      if (prefetchTimedOut ||
+          result.status == BashToolExecutionStatus.timedOut ||
+          result.status == BashToolExecutionStatus.cancelled) {
+        _debugSessionLog(
+          workingSession.id,
+          'claude_docs_prefetch_skipped url=${target.url} status=${result.status.storageValue}',
+        );
+        return workingSession;
+      }
       final messageId = _resolveToolCallMessageId(workingSession, toolCall);
       workingSession = _syncToolCallExecutionMessage(
         session: workingSession,

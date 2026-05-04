@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 
 import '../../../app/support/silent_log.dart';
@@ -25,6 +27,8 @@ class AiPromptTemplateRepository {
   }) : _loader = loader ?? rootBundle.loadString;
 
   final Future<String> Function(String assetPath) _loader;
+  final Map<String, Future<AiPromptTemplateBundle>> _bundleCache =
+      <String, Future<AiPromptTemplateBundle>>{};
 
   static const List<AiThreadTemplate> _templates = <AiThreadTemplate>[
     AiThreadTemplate(
@@ -86,6 +90,27 @@ class AiPromptTemplateRepository {
   }
 
   Future<AiPromptTemplateBundle> loadBundle(String templateId) async {
+    final resolvedTemplateId = resolveTemplate(templateId).id;
+    final cached = _bundleCache[resolvedTemplateId];
+    if (cached != null) {
+      return cached;
+    }
+    final future = _loadBundleUncached(resolvedTemplateId);
+    _bundleCache[resolvedTemplateId] = future;
+    unawaited(
+      future.then<void>(
+        (_) {},
+        onError: (Object _, StackTrace stackTrace) {
+          if (identical(_bundleCache[resolvedTemplateId], future)) {
+            _bundleCache.remove(resolvedTemplateId);
+          }
+        },
+      ),
+    );
+    return future;
+  }
+
+  Future<AiPromptTemplateBundle> _loadBundleUncached(String templateId) async {
     final template = resolveTemplate(templateId);
     final assetDirectory = template.promptAssetDirectory;
     final String systemFallback;

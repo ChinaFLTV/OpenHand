@@ -355,6 +355,13 @@ class AiToolRuntimeService {
     required AiSessionRuntimeContext runtimeContext,
     String? templateId,
   }) async {
+    if (runtimeContext.mcpToolCatalogsByServerName.isNotEmpty) {
+      return resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: runtimeContext,
+        mcpToolCatalogsByServerName: runtimeContext.mcpToolCatalogsByServerName,
+        templateId: templateId,
+      );
+    }
     final definitions = <AiToolDefinition>[];
     final toolsByName = <String, AiResolvedTool>{};
     final notices = <String>[];

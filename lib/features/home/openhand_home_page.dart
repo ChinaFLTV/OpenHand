@@ -3200,6 +3200,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final gitSnapshot = await _gitSnapshotService.loadSnapshot(
       workingDirectory: effectiveWorkingDirectory,
     );
+    final mcpToolCatalogsByServerName = <String, McpToolCatalog>{
+      for (final server in mcpController.servers)
+        server.name: mcpController.toolCatalogFor(server.name),
+    };
     final now = DateTime.now().toLocal();
     return AiSessionRuntimeContext(
       localeTag: settingsController.locale.toLanguageTag(),
@@ -3284,6 +3288,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       allowCommandRules: settingsController.aiAllowCommandRules,
       availableSkills: skillsController.skills,
       availableMcpServers: mcpController.servers,
+      mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
       builtinToolConfigs: settingsController.builtinToolConfigs,
       workspaceInstructionDocuments: (() {
         // Group E: 同步工作区指令文档字符上限。
@@ -3535,6 +3540,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           allowCommandRules ?? settingsController.aiAllowCommandRules,
       availableSkills: availableSkills ?? skillsController.skills,
       availableMcpServers: availableMcpServers ?? mcpController.servers,
+      mcpToolCatalogsByServerName: <String, McpToolCatalog>{
+        for (final server in availableMcpServers ?? mcpController.servers)
+          server.name: mcpController.toolCatalogFor(server.name),
+      },
       builtinToolConfigs:
           builtinToolConfigs ?? settingsController.builtinToolConfigs,
     );
