@@ -182,10 +182,22 @@ class WebMessagePlatformService {
       _server = server;
       _startedAt = DateTime.now().toUtc();
       _state = WebGatewayRuntimeState.running;
-      // 启动后立刻探测一次主机 IP 列表，便于 UI 第一时间展示 LAN 访问 URL；
-      // TTL 由 _refreshLocalAddressesIfStale 自行管理。失败仅 silentLog。
-      unawaited(_refreshLocalAddressesIfStale(ttl: Duration.zero));
-      _log(WebGatewayLogLevel.success, 'BOOT', 'Web 服务已监听 $boundUrl');
+      // 启动后立刻探测一次主机 IP 列表，使 BOOT 日志可同时打出 LAN URL；
+      // NetworkInterface.list 内部毫秒级，且失败仅 silentLog，不阻塞 boot。
+      await _refreshLocalAddressesIfStale(ttl: Duration.zero);
+      final urls = accessibleUrls;
+      final logSummary = urls.length <= 1
+          ? boundUrl
+          : '$boundUrl  (LAN: ${urls.where((u) => u != boundUrl).join(", ")})';
+      _log(
+        WebGatewayLogLevel.success,
+        'BOOT',
+        'Web 服务已监听 $logSummary',
+        <String, Object?>{
+          'bound_url': boundUrl,
+          'accessible_urls': urls,
+        },
+      );
       // 启动后顺手做一次过期清理；失败不应阻塞 boot 流程，但要走 silentLog
       // 防止 Future error 被 unawaited 静默吞掉。
       unawaited(() async {
