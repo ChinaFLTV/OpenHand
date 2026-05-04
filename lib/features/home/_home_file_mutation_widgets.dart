@@ -2708,6 +2708,7 @@ class _RoundFileMutationSummaryCardState
     final ok = await _TranscriptScrollDispatcher.instance.scrollToMessage(
       sessionId,
       messageId,
+      highlight: true,
     );
     if (!ok && mounted) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(

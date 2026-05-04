@@ -32,10 +32,14 @@ class _TranscriptScrollDispatcher {
     }
   }
 
-  Future<bool> scrollToMessage(String sessionId, String messageId) async {
+  Future<bool> scrollToMessage(
+    String sessionId,
+    String messageId, {
+    bool highlight = false,
+  }) async {
     final state = _statesBySession[sessionId];
     if (state == null) return false;
-    return state._scrollToMessageId(messageId);
+    return state._scrollToMessageId(messageId, highlight: highlight);
   }
 }
 
@@ -178,6 +182,8 @@ class _SessionTranscript extends StatefulWidget {
 
 class _SessionTranscriptState extends State<_SessionTranscript> {
   String? _selectedMessageId;
+  String? _highlightedMessageId;
+  Timer? _highlightTimer;
   String? _visibleErrorId;
   String? _pendingPresentedErrorId;
   final Set<String> _dismissedErrorIds = <String>{};
@@ -567,6 +573,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
     _dripTimer?.cancel();
     _dripTimer = null;
+    _highlightTimer?.cancel();
+    _highlightTimer = null;
     super.dispose();
   }
 
@@ -575,13 +583,26 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   /// 早于 `_windowStartIndex`（被「Load earlier」窗口剪掉），就
   /// 循环 reveal-older 一段一段把窗口往前推开，直到目标进入物化
   /// 范围再丝滑滚到 alignment=0.18。返回是否成功。
-  Future<bool> _scrollToMessageId(String messageId) async {
+  Future<bool> _scrollToMessageId(
+    String messageId, {
+    bool highlight = false,
+  }) async {
     if (!mounted) return false;
     final reduceMotion =
         MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     Duration smoothDuration = reduceMotion
         ? Duration.zero
         : const Duration(milliseconds: 520);
+    void flashTarget() {
+      if (!highlight || !mounted) return;
+      _highlightTimer?.cancel();
+      setState(() => _highlightedMessageId = messageId);
+      _highlightTimer = Timer(const Duration(milliseconds: 1400), () {
+        if (!mounted || _highlightedMessageId != messageId) return;
+        setState(() => _highlightedMessageId = null);
+      });
+    }
+
     Future<bool> tryEnsureVisible() async {
       final ctx = _MessageBubbleObjectKey(messageId).currentContext;
       if (ctx == null) return false;
@@ -591,6 +612,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         duration: smoothDuration,
         curve: Curves.easeOutCubic,
       );
+      flashTarget();
       return true;
     }
 
@@ -1021,6 +1043,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             ),
                         onLayoutChanged: widget.onLayoutChanged,
                         isSelected: isSelected,
+                        isScrollHighlighted:
+                            _highlightedMessageId == message.id,
                         onSelect: () {
                           if (_selectedMessageId == message.id) {
                             return;

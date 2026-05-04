@@ -10,6 +10,7 @@ class _MessageBubble extends StatefulWidget {
     required this.trackLayoutChanges,
     required this.onLayoutChanged,
     required this.isSelected,
+    required this.isScrollHighlighted,
     required this.onSelect,
     required this.onDeselect,
     required this.onCopy,
@@ -26,6 +27,7 @@ class _MessageBubble extends StatefulWidget {
   final bool trackLayoutChanges;
   final VoidCallback onLayoutChanged;
   final bool isSelected;
+  final bool isScrollHighlighted;
   final VoidCallback onSelect;
   final VoidCallback onDeselect;
   final Future<void> Function() onCopy;
@@ -228,6 +230,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : null;
     final effectiveContent = heAnnotation?.strippedContent ?? message.content;
 
+    final isScrollHighlighted = widget.isScrollHighlighted;
+    final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
     final bubbleBody = Column(
       crossAxisAlignment: isUser
           ? CrossAxisAlignment.end
@@ -235,11 +239,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
       children: [
         if (heAnnotation != null && heAnnotation.hasAnnotations)
           _HardnessAnnotationCapsuleRow(annotation: heAnnotation),
-        DecoratedBox(
+        AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: borderRadius,
-            border: isToolCall
+            border: isScrollHighlighted
+                ? Border.all(color: highlightBorderColor, width: 1.8)
+                : isToolCall
                 ? Border.all(color: colorScheme.secondary, width: 1.2)
                 : widget.isSelected
                 ? Border.all(
@@ -252,6 +262,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     ),
                   ),
             boxShadow: [
+              if (isScrollHighlighted)
+                BoxShadow(
+                  color: colorScheme.primary.withValues(alpha: 0.22),
+                  blurRadius: 24,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 4),
+                ),
               BoxShadow(
                 color: colorScheme.shadow.withValues(
                   alpha: theme.brightness == Brightness.dark ? 0.06 : 0.04,
