@@ -2039,61 +2039,11 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
         controller: _menuController,
         alignmentOffset: const Offset(0, 8),
         menuChildren: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420, maxHeight: 360),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                    child: Row(
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => widget.onChanged(
-                            widget.emptyMeansAll
-                                ? <T>{}
-                                : widget.options
-                                      .map((option) => option.value)
-                                      .toSet(),
-                          ),
-                          icon: const Icon(Icons.done_all_rounded, size: 18),
-                          label: Text(widget.emptyMeansAll ? '全部' : '全选'),
-                        ),
-                        const SizedBox(width: 8),
-                        TextButton.icon(
-                          onPressed: () {
-                            if (widget.emptyMeansAll) {
-                              widget.onChanged(<T>{});
-                              return;
-                            }
-                            if (widget.selected.length > 1) {
-                              widget.onChanged({widget.selected.first});
-                            }
-                          },
-                          icon: const Icon(Icons.clear_all_rounded, size: 18),
-                          label: Text(widget.emptyMeansAll ? '清空限制' : '保留一项'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  for (final option in widget.options)
-                    CheckboxListTile(
-                      dense: true,
-                      value: widget.emptyMeansAll && widget.selected.isEmpty
-                          ? true
-                          : widget.selected.contains(option.value),
-                      onChanged: (_) => _toggle(option.value),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(
-                        option.label,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          _MultiSelectDropdownMenu<T>(
+            options: widget.options,
+            selected: widget.selected,
+            emptyMeansAll: widget.emptyMeansAll,
+            onChanged: widget.onChanged,
           ),
         ],
         builder: (context, controller, child) {
@@ -2126,17 +2076,6 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
     );
   }
 
-  void _toggle(T value) {
-    final next = Set<T>.from(widget.selected);
-    if (next.contains(value)) {
-      next.remove(value);
-    } else {
-      next.add(value);
-    }
-    if (!widget.emptyMeansAll && next.isEmpty) return;
-    widget.onChanged(next);
-  }
-
   String _summary() {
     if (widget.emptyMeansAll && widget.selected.isEmpty) return '全部可用';
     if (widget.selected.isEmpty) return '未选择';
@@ -2146,6 +2085,161 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
         .toList(growable: false);
     if (labels.length <= 2) return labels.join('、');
     return '${labels.take(2).join('、')} 等 ${labels.length} 项';
+  }
+}
+
+class _MultiSelectDropdownMenu<T> extends StatefulWidget {
+  const _MultiSelectDropdownMenu({
+    required this.options,
+    required this.selected,
+    required this.emptyMeansAll,
+    required this.onChanged,
+  });
+
+  final List<_SelectOption<T>> options;
+  final Set<T> selected;
+  final bool emptyMeansAll;
+  final ValueChanged<Set<T>> onChanged;
+
+  @override
+  State<_MultiSelectDropdownMenu<T>> createState() =>
+      _MultiSelectDropdownMenuState<T>();
+}
+
+class _MultiSelectDropdownMenuState<T>
+    extends State<_MultiSelectDropdownMenu<T>> {
+  final TextEditingController _searchController = TextEditingController();
+  late Set<T> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<T>.from(widget.selected);
+    _searchController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void didUpdateWidget(covariant _MultiSelectDropdownMenu<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selected != widget.selected) {
+      _selected = Set<T>.from(widget.selected);
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _searchController.text.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? widget.options
+        : widget.options
+              .where((option) => option.label.toLowerCase().contains(query))
+              .toList(growable: false);
+    return SizedBox(
+      width: 420,
+      height: 360,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                hintText: '搜索',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: '清空搜索',
+                        onPressed: _searchController.clear,
+                        icon: const Icon(Icons.clear_rounded, size: 18),
+                      ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+            child: Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () => _emit(
+                    widget.emptyMeansAll
+                        ? <T>{}
+                        : widget.options.map((option) => option.value).toSet(),
+                  ),
+                  icon: const Icon(Icons.done_all_rounded, size: 18),
+                  label: Text(widget.emptyMeansAll ? '全部' : '全选'),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    if (widget.emptyMeansAll) {
+                      _emit(<T>{});
+                      return;
+                    }
+                    if (_selected.length > 1) {
+                      _emit({_selected.first});
+                    }
+                  },
+                  icon: const Icon(Icons.clear_all_rounded, size: 18),
+                  label: Text(widget.emptyMeansAll ? '清空限制' : '保留一项'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: filtered.isEmpty
+                ? const Center(child: Text('没有匹配项'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final option = filtered[index];
+                      final isImplicitAll =
+                          widget.emptyMeansAll && _selected.isEmpty;
+                      return CheckboxListTile(
+                        dense: true,
+                        value:
+                            isImplicitAll || _selected.contains(option.value),
+                        onChanged: (_) => _toggle(option.value),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(
+                          option.label,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggle(T value) {
+    final next = Set<T>.from(_selected);
+    if (next.contains(value)) {
+      next.remove(value);
+    } else {
+      next.add(value);
+    }
+    if (!widget.emptyMeansAll && next.isEmpty) return;
+    _emit(next);
+  }
+
+  void _emit(Set<T> next) {
+    setState(() => _selected = next);
+    widget.onChanged(next);
   }
 }
 
@@ -2279,6 +2373,12 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
       final providerLabel = option.label.split(' / ').first;
       (grouped[providerLabel] ??= <WebGatewayModelOption>[]).add(option);
     }
+    final rows = <Object>[];
+    for (final entry in grouped.entries) {
+      rows
+        ..add(entry.key)
+        ..addAll(entry.value);
+    }
     return Dialog(
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
@@ -2332,39 +2432,41 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
             Expanded(
               child: filtered.isEmpty
                   ? const Center(child: Text('没有匹配的模型'))
-                  : ListView(
+                  : ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      children: [
-                        for (final entry in grouped.entries) ...[
-                          Padding(
+                      itemCount: rows.length,
+                      itemBuilder: (context, index) {
+                        final row = rows[index];
+                        if (row is String) {
+                          return Padding(
                             padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
                             child: Text(
-                              entry.key,
+                              row,
                               style: theme.textTheme.labelMedium?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
+                          );
+                        }
+                        final option = row as WebGatewayModelOption;
+                        return CheckboxListTile(
+                          dense: true,
+                          value: widget.emptyMeansAll && _selected.isEmpty
+                              ? true
+                              : _selected.contains(option.key),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(
+                            option.modelId,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          for (final option in entry.value)
-                            CheckboxListTile(
-                              dense: true,
-                              value: widget.emptyMeansAll && _selected.isEmpty
-                                  ? true
-                                  : _selected.contains(option.key),
-                              controlAffinity: ListTileControlAffinity.leading,
-                              title: Text(
-                                option.modelId,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                option.providerId,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              onChanged: (_) => _toggle(option.key),
-                            ),
-                        ],
-                      ],
+                          subtitle: Text(
+                            option.providerId,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onChanged: (_) => _toggle(option.key),
+                        );
+                      },
                     ),
             ),
             const Divider(height: 1),
