@@ -297,6 +297,8 @@ class WebMessagePlatformService {
   Stream<WebGatewayLogEntry> get logStream => _logStreamController.stream;
   List<WebGatewayLogEntry> get logs =>
       List<WebGatewayLogEntry>.unmodifiable(_memoryLogs);
+  List<WebGatewayCleanupResult> get cleanupHistory =>
+      List<WebGatewayCleanupResult>.unmodifiable(_cleanupHistory);
   WebGatewayRuntimeState get state => _state;
   bool get isRunning =>
       _server != null && _state == WebGatewayRuntimeState.running;
@@ -542,6 +544,11 @@ class WebMessagePlatformService {
       );
     }
     return result;
+  }
+
+  Future<String> exportLogBundleJson() async {
+    const encoder = JsonEncoder.withIndent('  ');
+    return encoder.convert(await _logBundlePayload());
   }
 
   Future<void> _serve(HttpServer server) async {
@@ -1266,13 +1273,7 @@ class WebMessagePlatformService {
   }
 
   Future<int> _exportLogs(HttpRequest request) async {
-    final payload = <String, Object?>{
-      'generated_at': DateTime.now().toUtc().toIso8601String(),
-      'service': webMessagePlatformBuiltinName,
-      'memory_logs': _memoryLogs.map((entry) => entry.toJson()).toList(),
-      'disk_logs': await _fileLogger.readBundle(),
-    };
-    final bytes = utf8.encode(jsonEncode(payload));
+    final bytes = utf8.encode(await exportLogBundleJson());
     request.response.statusCode = HttpStatus.ok;
     request.response.headers.contentType = ContentType.json;
     request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
@@ -1284,6 +1285,15 @@ class WebMessagePlatformService {
     request.response.add(bytes);
     await request.response.close();
     return bytes.length;
+  }
+
+  Future<Map<String, Object?>> _logBundlePayload() async {
+    return <String, Object?>{
+      'generated_at': DateTime.now().toUtc().toIso8601String(),
+      'service': webMessagePlatformBuiltinName,
+      'memory_logs': _memoryLogs.map((entry) => entry.toJson()).toList(),
+      'disk_logs': await _fileLogger.readBundle(),
+    };
   }
 
   Future<int> _listWorkspaceFiles(HttpRequest request) async {

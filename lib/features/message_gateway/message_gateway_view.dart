@@ -1133,6 +1133,11 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                     icon: const Icon(Icons.save_alt_rounded),
                   ),
                   IconButton(
+                    tooltip: '导出日志包到剪贴板',
+                    onPressed: _copyLogBundle,
+                    icon: const Icon(Icons.archive_outlined),
+                  ),
+                  IconButton(
                     tooltip: '关闭',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
@@ -1197,6 +1202,15 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       context,
     ).showSnackBar(const SnackBar(content: Text('日志已保存到剪贴板')));
   }
+
+  Future<void> _copyLogBundle() async {
+    final bundle = await widget.controller.exportLogBundleJson();
+    await Clipboard.setData(ClipboardData(text: bundle));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('日志包已保存到剪贴板')));
+  }
 }
 
 class _WebGatewayOpsDialog extends StatefulWidget {
@@ -1241,6 +1255,9 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
     final snapshot = _trend.isEmpty
         ? widget.controller.runtimeSnapshot()
         : _trend.last;
+    final cleanupHistory = widget.controller.cleanupHistory.reversed
+        .take(6)
+        .toList(growable: false);
     final mediaSize = MediaQuery.sizeOf(context);
     return Dialog(
       insetPadding: const EdgeInsets.all(18),
@@ -1437,6 +1454,13 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                           .map((snapshot) => snapshot.totalRequests)
                           .toList(growable: false),
                     ),
+                    if (cleanupHistory.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      const _SectionTitle('清理历史'),
+                      ...cleanupHistory.map(
+                        (entry) => _CleanupHistoryLine(entry: entry),
+                      ),
+                    ],
                     if (snapshot.lastError.isNotEmpty) ...[
                       const SizedBox(height: 18),
                       const _SectionTitle('最近错误'),
@@ -1872,6 +1896,46 @@ class _LogLine extends StatelessWidget {
   }
 }
 
+class _CleanupHistoryLine extends StatelessWidget {
+  const _CleanupHistoryLine({required this.entry});
+
+  final WebGatewayCleanupResult entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .52),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cleaning_services_outlined, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '${_cleanupTargetLabel(entry.target)} · ${entry.expiredOnly ? '保留策略' : '手动清理'} · ${_formatDateTime(entry.timestamp)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '${entry.deletedFiles} 文件 / ${_bytes(entry.bytesFreed)}',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TrendStrip extends StatelessWidget {
   const _TrendStrip({required this.values});
   final List<int> values;
@@ -1964,6 +2028,23 @@ String _formatDuration(int ms) {
   if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
   if (d.inMinutes > 0) return '${d.inMinutes}m ${d.inSeconds.remainder(60)}s';
   return '${d.inSeconds}s';
+}
+
+String _formatDateTime(DateTime value) {
+  return value
+      .toLocal()
+      .toIso8601String()
+      .replaceFirst('T', ' ')
+      .substring(0, 19);
+}
+
+String _cleanupTargetLabel(String target) {
+  return switch (target) {
+    'logs' => '日志',
+    'uploads' => '上传缓存',
+    'all' => '全部资源',
+    _ => target,
+  };
 }
 
 String _bytes(int bytes) {

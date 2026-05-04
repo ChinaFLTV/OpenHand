@@ -186,6 +186,17 @@ void main() {
   );
 
   test('creates renames and deletes sessions over HTTP', () async {
+    await harness.settingsController.saveAiModel(
+      const AiModelConfig(
+        id: 'test-provider',
+        name: 'Test Provider',
+        baseUrl: 'http://localhost/v1',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'test-model',
+        protocolType: AiProtocolType.openai,
+      ),
+    );
     await harness.service.start(
       const WebMessagePlatformConfig(
         enabled: true,
@@ -221,6 +232,29 @@ void main() {
     expect(
       (renamed.json['session'] as Map<String, Object?>)['title'],
       'Renamed title',
+    );
+
+    final sent = await _requestJson(
+      base.resolve('/api/sessions/$sessionId/messages'),
+      method: 'POST',
+      body: <String, Object?>{
+        'content': 'hello from web',
+        'model_key': 'test-provider::test-model',
+      },
+    );
+    expect(sent.statusCode, HttpStatus.accepted);
+    expect(sent.json['ok'], isTrue);
+
+    final messages = await _requestJson(
+      base.resolve('/api/sessions/$sessionId/messages'),
+    );
+    expect(messages.statusCode, HttpStatus.ok);
+    final items = messages.json['items'] as List<Object?>;
+    expect(
+      items.whereType<Map<String, Object?>>().any(
+        (item) => item['content'] == 'hello from web',
+      ),
+      isTrue,
     );
 
     final deleted = await _requestJson(

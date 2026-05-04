@@ -85,6 +85,7 @@ class MessageGatewayController extends ChangeNotifier {
   bool get isRunning => _service.isRunning;
   String get webUrl => _service.boundUrl;
   List<WebGatewayLogEntry> get logs => _service.logs;
+  List<WebGatewayCleanupResult> get cleanupHistory => _service.cleanupHistory;
   WebGatewayRuntimeSnapshot runtimeSnapshot() => _service.runtimeSnapshot();
   Future<WebGatewayRuntimeSnapshot> refreshRuntimeSnapshot() async {
     final snapshot = await _service.runtimeSnapshotAsync();
@@ -219,6 +220,10 @@ class MessageGatewayController extends ChangeNotifier {
     );
     notifyListeners();
     return result;
+  }
+
+  Future<String> exportLogBundleJson() async {
+    return _service.exportLogBundleJson();
   }
 
   void updateTheme(ThemeData theme) {
