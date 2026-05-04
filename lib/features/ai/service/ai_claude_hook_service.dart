@@ -63,17 +63,25 @@ class AiClaudeHookService {
     String Function()? applicationDirectoryPath,
     String Function()? homeDirectoryPath,
     Duration? commandTimeout,
+    Duration configPresenceCacheTtl = const Duration(seconds: 3),
+    DateTime Function()? clock,
   }) : _applicationDirectoryPath =
            applicationDirectoryPath ?? OpenHandPaths.applicationDirectoryPath,
        _homeDirectoryPath =
            homeDirectoryPath ?? OpenHandPaths.homeDirectoryPath,
-       _commandTimeout = commandTimeout ?? const Duration(seconds: 12);
+       _commandTimeout = commandTimeout ?? const Duration(seconds: 12),
+       _configPresenceCacheTtl = configPresenceCacheTtl,
+       _clock = clock ?? DateTime.now;
 
   int maxHookTextCharacters = 4000;
 
   final String Function() _applicationDirectoryPath;
   final String Function() _homeDirectoryPath;
   final Duration _commandTimeout;
+  final Duration _configPresenceCacheTtl;
+  final DateTime Function() _clock;
+  final Map<String, _AiCachedHookConfigPresence> _configPresenceCache =
+      <String, _AiCachedHookConfigPresence>{};
 
   Future<AiClaudeHookInvocationResult> runHooks({
     required String eventName,
@@ -85,6 +93,9 @@ class AiClaudeHookService {
     final workingDirectory = _normalizeDirectory(
       cwd ?? _applicationDirectoryPath(),
     );
+    if (!await _hasAnyHookConfigFile(workingDirectory)) {
+      return const AiClaudeHookInvocationResult();
+    }
     final configuredHooks = await _loadHooks(
       eventName: eventName,
       matcherValue: matcherValue,
@@ -147,6 +158,32 @@ class AiClaudeHookService {
       executedCommands: executedCommands,
       loadedConfigPaths: configuredHooks.loadedConfigPaths,
     );
+  }
+
+  Future<bool> _hasAnyHookConfigFile(String cwd) async {
+    if (_configPresenceCacheTtl > Duration.zero) {
+      final cached = _configPresenceCache[cwd];
+      if (cached != null &&
+          _clock().toUtc().difference(cached.cachedAt) <=
+              _configPresenceCacheTtl) {
+        return cached.hasConfig;
+      }
+      _configPresenceCache.remove(cwd);
+    }
+    var hasConfig = false;
+    for (final filePath in _candidateConfigPaths(cwd)) {
+      if (await File(filePath).exists()) {
+        hasConfig = true;
+        break;
+      }
+    }
+    if (_configPresenceCacheTtl > Duration.zero) {
+      _configPresenceCache[cwd] = _AiCachedHookConfigPresence(
+        hasConfig: hasConfig,
+        cachedAt: _clock().toUtc(),
+      );
+    }
+    return hasConfig;
   }
 
   Future<_AiHookCommandResult> _runCommand({
@@ -550,6 +587,16 @@ class _AiLoadedHooks {
 
   final List<_AiConfiguredHookEntry> entries;
   final List<String> loadedConfigPaths;
+}
+
+class _AiCachedHookConfigPresence {
+  const _AiCachedHookConfigPresence({
+    required this.hasConfig,
+    required this.cachedAt,
+  });
+
+  final bool hasConfig;
+  final DateTime cachedAt;
 }
 
 class _AiConfiguredHookEntry {

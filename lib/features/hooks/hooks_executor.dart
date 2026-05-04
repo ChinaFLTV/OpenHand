@@ -88,6 +88,10 @@ class HooksExecutor {
 
   final HooksController _controller;
 
+  bool hasEnabledHooksForEvent(HookEvent event) {
+    return _controller.enabledHooksForEvent(event).isNotEmpty;
+  }
+
   /// Maximum age of files left behind in the hooks temp directory. Files
   /// older than this are removed on startup to prevent unbounded growth from
   /// truncated-output saves and context files that leaked due to crashes.

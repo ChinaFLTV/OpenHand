@@ -1950,6 +1950,7 @@ class AiSessionController extends ChangeNotifier {
     required String content,
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
+    Map<String, int> callerPreflightTimingsMs = const <String, int>{},
     List<String> attachmentFilePaths = const <String>[],
     List<String> responseModalities = const <String>[],
     AiCreationRequest creationRequest = AiCreationRequest.none,
@@ -1996,7 +1997,7 @@ class AiSessionController extends ChangeNotifier {
       _lastErrorMessage = null;
       notifyListeners();
       final sendPreflightStopwatch = Stopwatch()..start();
-      final sendPreflightTimingsMs = <String, int>{};
+      final sendPreflightTimingsMs = <String, int>{...callerPreflightTimingsMs};
 
       try {
         final previousEnvironment = session.environment;
@@ -6649,6 +6650,7 @@ $trimmedSummary''';
   }) async {
     final executor = _userHooksExecutor;
     if (executor == null) return;
+    if (!executor.hasEnabledHooksForEvent(event)) return;
 
     // Build rich context payload for the hook script.
     final session = _sessionById(sessionId);

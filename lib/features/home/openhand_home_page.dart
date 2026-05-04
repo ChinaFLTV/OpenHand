@@ -3799,6 +3799,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     MachineExpertDialogResult? machineExpertConfig;
     AiSessionRuntimeContext? runtimeContext;
+    final submitPreflightTimingsMs = <String, int>{};
     if (sessionController.currentSession == null) {
       final templateId = await _showThreadTemplateDialog();
       if (!mounted || templateId == null) {
@@ -3844,10 +3845,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           return;
         }
       }
+      final runtimeContextStopwatch = Stopwatch()..start();
       runtimeContext = await _buildRuntimeContext(
         workingDirectory: peConfig?.projectRoot,
         skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
       );
+      submitPreflightTimingsMs['runtime_context_build'] =
+          runtimeContextStopwatch.elapsedMilliseconds;
       if (!mounted) {
         return;
       }
@@ -3943,6 +3947,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       runtimeContext: runtimeContext,
       responseModalities: responseModalities,
       creationRequest: creationRequest,
+      callerPreflightTimingsMs: submitPreflightTimingsMs,
       additionalSystemReminders: additionalSystemReminders,
       selectedSkillMetadata: skillDisplayMetadata,
     );
@@ -4039,6 +4044,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     String prompt,
     List<_ComposerAttachmentDraft> pendingAttachments, {
     AiSessionRuntimeContext? runtimeContext,
+    Map<String, int> callerPreflightTimingsMs = const <String, int>{},
     List<String> responseModalities = const <String>[],
     AiCreationRequest creationRequest = AiCreationRequest.none,
     List<String> additionalSystemReminders = const <String>[],
@@ -4070,14 +4076,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
     _scheduleScrollToBottom(force: true);
     try {
+      final submitPreflightTimingsMs = <String, int>{
+        ...callerPreflightTimingsMs,
+      };
       if (runtimeContext == null) {
         // For Programming Expert sessions, use the project root as the
         // working directory so tool calls resolve against the loaded project.
         final peProjectRoot = _programmingExpertProjectRoot(initialSession);
+        final runtimeContextStopwatch = Stopwatch()..start();
         runtimeContext = await _buildRuntimeContext(
           workingDirectory: peProjectRoot,
           skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
         );
+        submitPreflightTimingsMs['runtime_context_build'] =
+            runtimeContextStopwatch.elapsedMilliseconds;
       }
       if (!mounted) {
         return;
@@ -4087,6 +4099,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         content: prompt,
         model: selectedModel,
         runtimeContext: runtimeContext,
+        callerPreflightTimingsMs: submitPreflightTimingsMs,
         responseModalities: responseModalities,
         creationRequest: creationRequest,
         attachmentFilePaths: pendingAttachments
