@@ -356,6 +356,13 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 ),
               ],
             ),
+            // 监听通配符地址（0.0.0.0 / ::）时由 service.accessibleUrls 列出
+            // 全部可访问 URL（含 LAN IP），点 chip 即拷贝。仅当 URL 数量 >1
+            // 时渲染，避免与上方"已运行单 URL"的 InfoChip 重复。
+            if (isRunning && controller.webUrls.length > 1) ...[
+              const SizedBox(height: 12),
+              _AccessibleUrlsBar(urls: controller.webUrls),
+            ],
             const SizedBox(height: 16),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -1867,6 +1874,77 @@ class _InfoChip extends StatelessWidget {
       label: Text(label, overflow: TextOverflow.ellipsis),
       backgroundColor: theme.colorScheme.surfaceContainerHighest,
       side: BorderSide(color: theme.colorScheme.outlineVariant),
+    );
+  }
+}
+
+/// 监听通配符地址（0.0.0.0 / ::）时展示全部可访问 URL 的横向胶囊条。
+/// 点击任意一项 → 拷贝该 URL 并 SnackBar 提示。视觉与 _InfoChip 同源
+/// 但使用 ActionChip + primary tint，提示"可点"且与状态 chip 区分开。
+class _AccessibleUrlsBar extends StatelessWidget {
+  const _AccessibleUrlsBar({required this.urls});
+
+  final List<String> urls;
+
+  Future<void> _copy(BuildContext context, String url) async {
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已复制 $url')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.lan_outlined,
+              size: 16,
+              color: cs.onSurfaceVariant,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '可访问 URL（点击复制）',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final url in urls)
+              ActionChip(
+                avatar: Icon(
+                  Icons.content_copy_rounded,
+                  size: 14,
+                  color: cs.primary,
+                ),
+                label: Text(
+                  url,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                onPressed: () => _copy(context, url),
+                backgroundColor: cs.primaryContainer.withValues(alpha: 0.42),
+                side: BorderSide(
+                  color: cs.primary.withValues(alpha: 0.32),
+                  width: 0.6,
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
