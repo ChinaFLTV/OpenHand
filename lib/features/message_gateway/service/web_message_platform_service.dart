@@ -497,6 +497,8 @@ class WebMessagePlatformService {
         _withAuth(r, (req, auth) => _listMessages(req, auth, sessionId)));
     router.post('/api/sessions/<sessionId>/messages', (shelf.Request r, String sessionId) =>
         _withAuth(r, (req, auth) => _sendMessage(req, auth, sessionId)));
+    router.post('/api/sessions/<sessionId>/stop', (shelf.Request r, String sessionId) =>
+        _withAuth(r, (req, auth) => _stopSendMessage(req, auth, sessionId)));
 
     router.get('/api/ops', (shelf.Request r) => _withAuth(r, (_, _) => _opsSnapshot()));
     router.get('/api/ops/cleanup/history', (shelf.Request r) => _withAuth(r, (_, _) => _cleanupHistoryPayload()));
@@ -1113,6 +1115,43 @@ class WebMessagePlatformService {
       },
     );
     return _json(HttpStatus.accepted, <String, Object?>{
+      'ok': true,
+      'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+    });
+  }
+
+  /// 主动中断当前会话的助手回复（对应桌面端「停止响应」按钮）。
+  ///
+  /// 返回值：
+  /// - 200 {ok:true, send_phase:'idle'} 中断成功，下一轮 listMessages 会拿到 finalize 后的内容；
+  /// - 200 {ok:false, send_phase:<当前>} 当前会话无可中断的回复（idle 等）；
+  /// - 404 会话不存在或当前 token 无权访问。
+  Future<shelf.Response> _stopSendMessage(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    if (!_sessionController.canStopResponding(session.id)) {
+      return _json(HttpStatus.ok, <String, Object?>{
+        'ok': false,
+        'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+        'reason': 'not_running',
+      });
+    }
+    await _sessionController.stopResponding(session.id);
+    _log(
+      WebGatewayLogLevel.warn,
+      'MESSAGE',
+      'Web 主动中断会话 ${session.id} 的助手回复',
+      <String, Object?>{'device_id': auth.deviceId},
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
     });

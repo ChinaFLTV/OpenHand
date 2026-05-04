@@ -158,3 +158,56 @@ export function listMessages(
     `/api/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`,
   );
 }
+
+/// 与 service `_sendMessage` 协议一一对齐：
+/// - mode: 与 meta.conversation_modes 之一对齐（normal/plan/image/video/audio）；
+/// - model_key: 必须命中 meta.models[*].key；
+/// - attachments[]: 浏览器 File API 读出来的 base64（不含 data: 前缀）。
+export interface SendMessageInput {
+  content: string;
+  modelKey: string;
+  mode?: string;
+  attachments?: SendMessageAttachment[];
+}
+
+export interface SendMessageAttachment {
+  name: string;
+  /// base64 字符串，不含 `data:` 前缀。
+  data_base64: string;
+}
+
+export interface SendMessageResponse {
+  ok: boolean;
+  send_phase: string;
+}
+
+export function sendMessage(
+  sessionId: string,
+  input: SendMessageInput,
+): Promise<SendMessageResponse> {
+  return apiRequest<SendMessageResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages`,
+    {
+      method: 'POST',
+      body: {
+        content: input.content,
+        mode: input.mode ?? 'normal',
+        model_key: input.modelKey,
+        attachments: input.attachments ?? [],
+      },
+    },
+  );
+}
+
+export interface StopMessageResponse {
+  ok: boolean;
+  send_phase: string;
+  reason?: string;
+}
+
+export function stopMessage(sessionId: string): Promise<StopMessageResponse> {
+  return apiRequest<StopMessageResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/stop`,
+    { method: 'POST', body: {} },
+  );
+}
