@@ -351,6 +351,10 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   label: '单会话 ${config.maxMessagesPerSession} 条',
                 ),
                 _InfoChip(
+                  icon: Icons.manage_accounts_outlined,
+                  label: config.sessionManagementEnabled ? '会话可管理' : '会话只读',
+                ),
+                _InfoChip(
                   icon: Icons.folder_open_rounded,
                   label: config.workspaceFilesEnabled
                       ? (config.workspaceFileWriteEnabled ? '文件读写' : '文件只读')
@@ -459,6 +463,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late bool _loggingEnabled;
   late bool _opsEnabled;
   late bool _planModeEnabled;
+  late bool _sessionManagementEnabled;
   late bool _workspaceFilesEnabled;
   late bool _workspaceFileWriteEnabled;
   late final TextEditingController _descriptionController;
@@ -474,6 +479,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late final TextEditingController _logMaxFilesController;
   late final TextEditingController _workspaceFileMaxMbController;
   late final TextEditingController _workspaceFileExtensionsController;
+  late final TextEditingController _uploadCacheRetentionDaysController;
   late final TextEditingController _healthPathController;
   late final TextEditingController _healthMethodController;
   late final TextEditingController _healthTimeoutController;
@@ -501,6 +507,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _loggingEnabled = config.loggingEnabled;
     _opsEnabled = config.opsEnabled;
     _planModeEnabled = config.planModeEnabled;
+    _sessionManagementEnabled = config.sessionManagementEnabled;
     _workspaceFilesEnabled = config.workspaceFilesEnabled;
     _workspaceFileWriteEnabled = config.workspaceFileWriteEnabled;
     _descriptionController = TextEditingController(text: config.description);
@@ -532,6 +539,9 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     );
     _workspaceFileExtensionsController = TextEditingController(
       text: config.workspaceFileAllowedExtensions.join(', '),
+    );
+    _uploadCacheRetentionDaysController = TextEditingController(
+      text: '${config.uploadCacheRetentionDays}',
     );
     _healthPathController = TextEditingController(
       text: config.healthCheck.path,
@@ -577,6 +587,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _logMaxFilesController.dispose();
     _workspaceFileMaxMbController.dispose();
     _workspaceFileExtensionsController.dispose();
+    _uploadCacheRetentionDaysController.dispose();
     _healthPathController.dispose();
     _healthMethodController.dispose();
     _healthTimeoutController.dispose();
@@ -664,6 +675,12 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                               value: _planModeEnabled,
                               onChanged: (v) =>
                                   setState(() => _planModeEnabled = v),
+                            ),
+                            _SwitchTile(
+                              label: '是否允许 Web 会话管理',
+                              value: _sessionManagementEnabled,
+                              onChanged: (v) =>
+                                  setState(() => _sessionManagementEnabled = v),
                             ),
                             _SwitchTile(
                               label: '是否开放项目文件',
@@ -828,6 +845,11 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                               label: '允许扩展名(空=全部文本)',
                               controller: _workspaceFileExtensionsController,
                             ),
+                            _TextFieldSpec(
+                              label: '上传缓存保留天数',
+                              controller: _uploadCacheRetentionDaysController,
+                              keyboardType: TextInputType.number,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 18),
@@ -955,6 +977,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       planModeEnabled: _planModeEnabled,
       singleMessageTokenLimit: _int(_singleMessageController.text, 2000),
       maxMessagesPerSession: _int(_maxMessagesController.text, 100),
+      sessionManagementEnabled: _sessionManagementEnabled,
       workspaceFilesEnabled: _workspaceFilesEnabled,
       workspaceFileWriteEnabled:
           _workspaceFilesEnabled && _workspaceFileWriteEnabled,
@@ -964,6 +987,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
           1024,
       workspaceFileAllowedExtensions: _parseExtensions(
         _workspaceFileExtensionsController.text,
+      ),
+      uploadCacheRetentionDays: _int(
+        _uploadCacheRetentionDaysController.text,
+        7,
       ),
       healthCheck: WebGatewayHealthCheckConfig(
         path: _healthPathController.text.trim().isEmpty
@@ -1170,6 +1197,7 @@ class _WebGatewayOpsDialog extends StatefulWidget {
 class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
   Timer? _timer;
   final List<WebGatewayRuntimeSnapshot> _trend = <WebGatewayRuntimeSnapshot>[];
+  bool _isCleaning = false;
 
   @override
   void initState() {
@@ -1269,6 +1297,41 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                           onPressed: widget.controller.runHealthCheck,
                           icon: const Icon(Icons.monitor_heart_outlined),
                           label: const Text('健康诊断'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _isCleaning
+                              ? null
+                              : () => _runCleanup(
+                                  label: '过期资源',
+                                  action:
+                                      widget.controller.cleanupExpiredArtifacts,
+                                ),
+                          icon: const Icon(Icons.cleaning_services_outlined),
+                          label: const Text('清理过期'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _isCleaning
+                              ? null
+                              : () => _confirmAndCleanup(
+                                  title: '清空日志',
+                                  message: '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
+                                  label: '日志',
+                                  action: widget.controller.cleanupLogs,
+                                ),
+                          icon: const Icon(Icons.delete_sweep_outlined),
+                          label: const Text('清空日志'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _isCleaning
+                              ? null
+                              : () => _confirmAndCleanup(
+                                  title: '清空上传缓存',
+                                  message: '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
+                                  label: '上传缓存',
+                                  action: widget.controller.cleanupUploadCache,
+                                ),
+                          icon: const Icon(Icons.folder_delete_outlined),
+                          label: const Text('清空缓存'),
                         ),
                       ],
                     ),
@@ -1373,6 +1436,61 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmAndCleanup({
+    required String title,
+    required String message,
+    required String label,
+    required Future<WebGatewayCleanupResult> Function() action,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('确认清理'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _runCleanup(label: label, action: action);
+    }
+  }
+
+  Future<void> _runCleanup({
+    required String label,
+    required Future<WebGatewayCleanupResult> Function() action,
+  }) async {
+    if (_isCleaning) return;
+    setState(() => _isCleaning = true);
+    try {
+      final result = await action();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
+          ),
+        ),
+      );
+      await _tick();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$label清理失败: $error')));
+    } finally {
+      if (mounted) setState(() => _isCleaning = false);
+    }
   }
 }
 

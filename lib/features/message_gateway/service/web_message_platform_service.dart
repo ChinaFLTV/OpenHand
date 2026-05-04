@@ -123,6 +123,35 @@ class WebGatewayHealthResult {
   }
 }
 
+class WebGatewayCleanupResult {
+  const WebGatewayCleanupResult({
+    required this.target,
+    required this.expiredOnly,
+    required this.deletedFiles,
+    required this.deletedDirectories,
+    required this.bytesFreed,
+    required this.memoryLogEntriesCleared,
+  });
+
+  final String target;
+  final bool expiredOnly;
+  final int deletedFiles;
+  final int deletedDirectories;
+  final int bytesFreed;
+  final int memoryLogEntriesCleared;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'target': target,
+      'expired_only': expiredOnly,
+      'deleted_files': deletedFiles,
+      'deleted_directories': deletedDirectories,
+      'bytes_freed': bytesFreed,
+      'memory_log_entries_cleared': memoryLogEntriesCleared,
+    };
+  }
+}
+
 class WebGatewayRuntimeSnapshot {
   const WebGatewayRuntimeSnapshot({
     required this.state,
@@ -208,13 +237,20 @@ class WebMessagePlatformService {
     required MemoryController memoryController,
     required InstructionsController instructionsController,
     required AppInfo appInfo,
+    String? cacheDirectoryPath,
+    String? logsDirectoryPath,
   }) : _sessionController = sessionController,
        _settingsController = settingsController,
        _skillsController = skillsController,
        _mcpController = mcpController,
        _memoryController = memoryController,
        _instructionsController = instructionsController,
-       _appInfo = appInfo;
+       _appInfo = appInfo,
+       _cacheDirectoryPath =
+           cacheDirectoryPath ?? OpenHandPaths.defaultCacheDirectoryPath(),
+       _fileLogger = _WebGatewayRotatingLogger(
+         logsDirectoryPath: logsDirectoryPath,
+       );
 
   final AiSessionController _sessionController;
   final SettingsController _settingsController;
@@ -223,12 +259,13 @@ class WebMessagePlatformService {
   final MemoryController _memoryController;
   final InstructionsController _instructionsController;
   final AppInfo _appInfo;
+  final String _cacheDirectoryPath;
+  final _WebGatewayRotatingLogger _fileLogger;
   final StreamController<WebGatewayLogEntry> _logStreamController =
       StreamController<WebGatewayLogEntry>.broadcast();
   final List<WebGatewayLogEntry> _memoryLogs = <WebGatewayLogEntry>[];
   final Map<String, _WebGatewayAuthSession> _authSessions =
       <String, _WebGatewayAuthSession>{};
-  final _WebGatewayRotatingLogger _fileLogger = _WebGatewayRotatingLogger();
 
   HttpServer? _server;
   WebGatewayRuntimeState _state = WebGatewayRuntimeState.stopped;
@@ -288,6 +325,7 @@ class WebMessagePlatformService {
       _startedAt = DateTime.now().toUtc();
       _state = WebGatewayRuntimeState.running;
       _log(WebGatewayLogLevel.success, 'BOOT', 'Web 服务已监听 $boundUrl');
+      unawaited(cleanupArtifacts(logs: true, uploads: true, expiredOnly: true));
       unawaited(_serve(server));
     } catch (error, stack) {
       _state = WebGatewayRuntimeState.crashed;
@@ -447,6 +485,51 @@ class WebMessagePlatformService {
     }
   }
 
+  Future<WebGatewayCleanupResult> cleanupArtifacts({
+    required bool logs,
+    required bool uploads,
+    bool expiredOnly = false,
+  }) async {
+    var stats = const _CleanupStats();
+    var memoryLogEntriesCleared = 0;
+    if (logs) {
+      if (expiredOnly) {
+        stats += await _fileLogger.prune(_config.logConfig);
+      } else {
+        memoryLogEntriesCleared = _memoryLogs.length;
+        _memoryLogs.clear();
+        stats += await _fileLogger.clear();
+      }
+    }
+    if (uploads) {
+      stats += await _cleanupUploadCache(expiredOnly: expiredOnly);
+    }
+    final target = logs && uploads
+        ? 'all'
+        : logs
+        ? 'logs'
+        : uploads
+        ? 'uploads'
+        : 'none';
+    final result = WebGatewayCleanupResult(
+      target: target,
+      expiredOnly: expiredOnly,
+      deletedFiles: stats.deletedFiles,
+      deletedDirectories: stats.deletedDirectories,
+      bytesFreed: stats.bytesFreed,
+      memoryLogEntriesCleared: memoryLogEntriesCleared,
+    );
+    if (target != 'none') {
+      _log(
+        WebGatewayLogLevel.warn,
+        'CLEANUP',
+        expiredOnly ? '已执行过期资源清理' : '已执行资源清理',
+        result.toJson(),
+      );
+    }
+    return result;
+  }
+
   Future<void> _serve(HttpServer server) async {
     try {
       await for (final request in server) {
@@ -590,11 +673,24 @@ class WebMessagePlatformService {
       return _createSession(request, auth);
     }
     if (path == '/api/ops' && request.method == 'GET') {
+      if (!_config.opsEnabled) {
+        return _json(request, HttpStatus.forbidden, <String, Object?>{
+          'error': 'ops_disabled',
+        });
+      }
       return _json(
         request,
         HttpStatus.ok,
         (await runtimeSnapshotAsync()).toJson(),
       );
+    }
+    if (path == '/api/ops/cleanup' && request.method == 'POST') {
+      if (!_config.opsEnabled) {
+        return _json(request, HttpStatus.forbidden, <String, Object?>{
+          'error': 'ops_disabled',
+        });
+      }
+      return _cleanupOps(request);
     }
     if (path == '/api/logs' && request.method == 'GET') {
       return _listLogs(request);
@@ -649,6 +745,7 @@ class WebMessagePlatformService {
         'logging_enabled': _config.loggingEnabled,
         'ops_enabled': _config.opsEnabled,
         'plan_mode_enabled': _config.planModeEnabled,
+        'session_management_enabled': _config.sessionManagementEnabled,
         'single_message_token_limit': _config.singleMessageTokenLimit,
         'max_messages_per_session': _config.maxMessagesPerSession,
       },
@@ -878,6 +975,11 @@ class WebMessagePlatformService {
     _WebGatewayAuthSession auth,
     String sessionId,
   ) async {
+    if (!_config.sessionManagementEnabled) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'session_management_disabled',
+      });
+    }
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) {
       return _json(request, HttpStatus.notFound, <String, Object?>{
@@ -914,6 +1016,11 @@ class WebMessagePlatformService {
     _WebGatewayAuthSession auth,
     String sessionId,
   ) async {
+    if (!_config.sessionManagementEnabled) {
+      return _json(request, HttpStatus.forbidden, <String, Object?>{
+        'error': 'session_management_disabled',
+      });
+    }
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) {
       return _json(request, HttpStatus.notFound, <String, Object?>{
@@ -1101,6 +1208,25 @@ class WebMessagePlatformService {
       'total': _memoryLogs.length,
       'has_more': offset + slice.length < _memoryLogs.length,
     });
+  }
+
+  Future<int> _cleanupOps(HttpRequest request) async {
+    final body = await _readJsonBody(request);
+    final target = _string(body['target'], 'all').trim().toLowerCase();
+    final expiredOnly = body['expired_only'] as bool? ?? false;
+    final logs = target == 'logs' || target == 'all';
+    final uploads = target == 'uploads' || target == 'all';
+    if (!logs && !uploads) {
+      return _json(request, HttpStatus.badRequest, <String, Object?>{
+        'error': 'invalid_cleanup_target',
+      });
+    }
+    final result = await cleanupArtifacts(
+      logs: logs,
+      uploads: uploads,
+      expiredOnly: expiredOnly,
+    );
+    return _json(request, HttpStatus.ok, result.toJson());
   }
 
   Future<int> _listWorkspaceFiles(HttpRequest request) async {
@@ -1521,14 +1647,7 @@ class WebMessagePlatformService {
   ) async {
     if (raw is! List || raw.isEmpty) return const <String>[];
     final output = <String>[];
-    final dir = Directory(
-      p.join(
-        OpenHandPaths.defaultCacheDirectoryPath(),
-        'message_gateway',
-        'uploads',
-        sessionId,
-      ),
-    );
+    final dir = Directory(p.join(_uploadCacheDirectoryPath, sessionId));
     await dir.create(recursive: true);
     for (final item in raw) {
       if (item is! Map) continue;
@@ -1544,6 +1663,69 @@ class WebMessagePlatformService {
       output.add(file.path);
     }
     return output;
+  }
+
+  String get _uploadCacheDirectoryPath =>
+      p.join(_cacheDirectoryPath, 'message_gateway', 'uploads');
+
+  Future<_CleanupStats> _cleanupUploadCache({required bool expiredOnly}) async {
+    final root = Directory(_uploadCacheDirectoryPath);
+    if (!await root.exists()) return const _CleanupStats();
+    if (!expiredOnly) {
+      final stats = await _measureDirectory(root);
+      await root.delete(recursive: true);
+      return stats.copyWith(deletedDirectories: stats.deletedDirectories + 1);
+    }
+    final cutoff = DateTime.now().subtract(
+      Duration(days: _config.uploadCacheRetentionDays),
+    );
+    final entities = await root
+        .list(recursive: true, followLinks: false)
+        .toList();
+    entities.sort((a, b) => b.path.length.compareTo(a.path.length));
+    var stats = const _CleanupStats();
+    for (final entity in entities) {
+      try {
+        final stat = await entity.stat();
+        if (stat.modified.isAfter(cutoff)) continue;
+        if (entity is File) {
+          stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
+          await entity.delete();
+        } else if (entity is Directory) {
+          final isEmpty = await entity.list(followLinks: false).isEmpty;
+          if (!isEmpty) continue;
+          stats += const _CleanupStats(deletedDirectories: 1);
+          await entity.delete();
+        }
+      } catch (error, stack) {
+        silentLog(
+          'web_message_platform_service',
+          'cleanup upload cache',
+          error,
+          stack,
+        );
+      }
+    }
+    return stats;
+  }
+
+  Future<_CleanupStats> _measureDirectory(Directory directory) async {
+    var stats = const _CleanupStats();
+    if (!await directory.exists()) return stats;
+    await for (final entity in directory.list(
+      recursive: true,
+      followLinks: false,
+    )) {
+      try {
+        final stat = await entity.stat();
+        if (entity is File) {
+          stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
+        } else if (entity is Directory) {
+          stats += const _CleanupStats(deletedDirectories: 1);
+        }
+      } catch (_) {}
+    }
+    return stats;
   }
 
   Future<Map<String, Object?>> _readJsonBody(
@@ -1893,6 +2075,38 @@ class _LinuxCpuSample {
   final int totalTicks;
 }
 
+class _CleanupStats {
+  const _CleanupStats({
+    this.deletedFiles = 0,
+    this.deletedDirectories = 0,
+    this.bytesFreed = 0,
+  });
+
+  final int deletedFiles;
+  final int deletedDirectories;
+  final int bytesFreed;
+
+  _CleanupStats copyWith({
+    int? deletedFiles,
+    int? deletedDirectories,
+    int? bytesFreed,
+  }) {
+    return _CleanupStats(
+      deletedFiles: deletedFiles ?? this.deletedFiles,
+      deletedDirectories: deletedDirectories ?? this.deletedDirectories,
+      bytesFreed: bytesFreed ?? this.bytesFreed,
+    );
+  }
+
+  _CleanupStats operator +(_CleanupStats other) {
+    return _CleanupStats(
+      deletedFiles: deletedFiles + other.deletedFiles,
+      deletedDirectories: deletedDirectories + other.deletedDirectories,
+      bytesFreed: bytesFreed + other.bytesFreed,
+    );
+  }
+}
+
 String _modelKey(String providerId, String modelId) => '$providerId::$modelId';
 
 _ParsedModelKey? _parseModelKey(String key) {
@@ -1946,10 +2160,13 @@ class _WebGatewayAuthSession {
 }
 
 class _WebGatewayRotatingLogger {
-  final String directoryPath = p.join(
-    OpenHandPaths.defaultLogsDirectoryPath(),
-    'message_gateway',
-  );
+  _WebGatewayRotatingLogger({String? logsDirectoryPath})
+    : directoryPath = p.join(
+        logsDirectoryPath ?? OpenHandPaths.defaultLogsDirectoryPath(),
+        'message_gateway',
+      );
+
+  final String directoryPath;
   String get filePath => p.join(directoryPath, 'web-platform.log');
 
   int get currentSizeBytes {
@@ -1976,6 +2193,65 @@ class _WebGatewayRotatingLogger {
     } catch (error, stack) {
       silentLog('web_gateway_logger', 'write', error, stack);
     }
+  }
+
+  Future<_CleanupStats> clear() async {
+    final dir = Directory(directoryPath);
+    if (!await dir.exists()) return const _CleanupStats();
+    var stats = const _CleanupStats();
+    final files = dir
+        .listSync(followLinks: false)
+        .whereType<File>()
+        .where((item) => p.basename(item.path).startsWith('web-platform'));
+    for (final file in files) {
+      try {
+        final stat = await file.stat();
+        await file.delete();
+        stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
+      } catch (_) {}
+    }
+    return stats;
+  }
+
+  Future<_CleanupStats> prune(WebGatewayLogConfig config) async {
+    final dir = Directory(directoryPath);
+    if (!await dir.exists()) return const _CleanupStats();
+    final cutoff = DateTime.now().subtract(Duration(days: config.rotationDays));
+    var stats = const _CleanupStats();
+    final files =
+        dir
+            .listSync(followLinks: false)
+            .whereType<File>()
+            .where((item) => p.basename(item.path).startsWith('web-platform'))
+            .toList(growable: false)
+          ..sort(
+            (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+          );
+
+    Future<void> deleteFile(File file) async {
+      try {
+        final stat = await file.stat();
+        await file.delete();
+        stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
+      } catch (_) {}
+    }
+
+    final deleted = <String>{};
+    for (final file in files) {
+      if (p.equals(file.path, filePath)) continue;
+      if (file.statSync().modified.isBefore(cutoff)) {
+        await deleteFile(file);
+        deleted.add(file.path);
+      }
+    }
+    final remaining = files
+        .where((file) => !deleted.contains(file.path))
+        .toList(growable: false);
+    for (final old in remaining.skip(config.maxFiles)) {
+      if (p.equals(old.path, filePath)) continue;
+      await deleteFile(old);
+    }
+    return stats;
   }
 
   Future<void> _rotateIfNeeded(WebGatewayLogConfig config) async {
@@ -2178,14 +2454,14 @@ input, select { height: 42px; border: 1px solid var(--outline); border-radius: 8
 <div id="fileModal" class="modal"><div class="panel wide"><div style="display:flex;gap:10px;align-items:center"><h1 style="flex:1">项目文件</h1><button id="closeFiles" class="icon-btn">×</button></div><div class="file-tools"><label class="field"><span>路径</span><input id="filePath" value="" /></label><label class="field"><span>搜索</span><input id="fileSearch" placeholder="文件名或相对路径" /></label><label class="field"><span>类型</span><select id="fileType"><option value="all">全部</option><option value="directory">文件夹</option><option value="file">文件</option></select></label></div><div id="filePolicy" class="side-subtitle" style="margin-top:8px"></div><div class="file-layout"><div id="fileList" class="file-list"></div><div class="file-editor"><input id="editingPath" readonly placeholder="选择文本文件" /><textarea id="fileContent" spellcheck="false"></textarea><div style="display:flex;gap:10px"><button id="saveFile" class="text-btn primary" style="flex:1">保存文件</button><button id="reloadFile" class="text-btn">重载</button></div></div></div></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const state = { meta:null, token:localStorage.getItem('oh_token') || '', deviceId: localStorage.getItem('oh_device_id') || '', source:'WEB_PC', sessionSource:'', sessionDevice:'', page:1, hasMore:true, sessions:[], active:null, poll:null, modelKey:'', filePath:'', fileSearch:'', fileType:'all', editingPath:'', workspaceFiles:{enabled:true,write:true,maxBytes:1048576,allowedExtensions:[]} };
+const state = { meta:null, token:localStorage.getItem('oh_token') || '', deviceId: localStorage.getItem('oh_device_id') || '', source:'WEB_PC', sessionSource:'', sessionDevice:'', sessionManagement:true, page:1, hasMore:true, sessions:[], active:null, poll:null, modelKey:'', filePath:'', fileSearch:'', fileType:'all', editingPath:'', workspaceFiles:{enabled:true,write:true,maxBytes:1048576,allowedExtensions:[]} };
 if(!state.deviceId){ state.deviceId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(); localStorage.setItem('oh_device_id', state.deviceId); }
 function detectSource(){ const w = Math.min(innerWidth, screen.width || innerWidth); state.source = w < 760 ? 'WEB_MOBILE' : 'WEB_PC'; }
 function headers(){ const h = {'content-type':'application/json','x-openhand-device-id':state.deviceId,'x-openhand-source':state.source,'x-openhand-device-platform':navigator.platform || ''}; if(state.token) h.authorization = 'Bearer '+state.token; return h; }
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2200); }
 async function api(path, opts={}){ const res = await fetch(path,{...opts,headers:{...headers(),...(opts.headers||{})}}); const json = await res.json().catch(()=>({})); if(!res.ok) throw Object.assign(new Error(json.message||json.error||res.statusText),{status:res.status,json}); return json; }
 async function boot(){ detectSource(); state.meta = await api('/api/meta'); applyMeta(); if(state.meta.service.auth_enabled && !state.token){ showLogin(); } else { if(!state.token) await anonymousLogin(); showApp(); await loadSessions(true); } }
-function applyMeta(){ document.getElementById('serviceLine').textContent = state.meta.service.auth_enabled ? '鉴权已开启' : '免鉴权本地访问'; const wf=state.meta.workspace_files||{}; state.workspaceFiles={enabled:wf.enabled!==false,write:wf.write_enabled!==false,maxBytes:wf.max_file_bytes||1048576,allowedExtensions:wf.allowed_extensions||[]}; const filesBtn=document.getElementById('files'); filesBtn.disabled=!state.workspaceFiles.enabled; fill('template', state.meta.templates.map(t=>[t.id,t.name])); fill('mode', state.meta.conversation_modes.map(m=>[m,m])); fill('model', state.meta.models.map(m=>[m.key,m.label])); state.modelKey = state.meta.models[0]?.key || ''; syncFilePolicy(); }
+function applyMeta(){ document.getElementById('serviceLine').textContent = state.meta.service.auth_enabled ? '鉴权已开启' : '免鉴权本地访问'; state.sessionManagement=state.meta.service.session_management_enabled!==false; const wf=state.meta.workspace_files||{}; state.workspaceFiles={enabled:wf.enabled!==false,write:wf.write_enabled!==false,maxBytes:wf.max_file_bytes||1048576,allowedExtensions:wf.allowed_extensions||[]}; const filesBtn=document.getElementById('files'); filesBtn.disabled=!state.workspaceFiles.enabled; fill('template', state.meta.templates.map(t=>[t.id,t.name])); fill('mode', state.meta.conversation_modes.map(m=>[m,m])); fill('model', state.meta.models.map(m=>[m.key,m.label])); state.modelKey = state.meta.models[0]?.key || ''; syncFilePolicy(); }
 function fill(id, rows){ const el=document.getElementById(id); el.innerHTML=''; rows.forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; el.appendChild(o); }); }
 function showLogin(){ document.getElementById('login').classList.remove('hidden'); document.getElementById('app').classList.add('hidden'); }
 async function anonymousLogin(){ const j = await api('/api/login',{method:'POST',body:JSON.stringify(devicePayload())}); state.token=j.token; if(j.token !== 'anonymous') localStorage.setItem('oh_token',j.token); }
@@ -2193,9 +2469,9 @@ function showApp(){ document.getElementById('login').classList.add('hidden'); do
 function devicePayload(){ return {source:state.source,device_id:state.deviceId,device_name:navigator.userAgent,device_platform:navigator.platform || '',device_mac_address:''}; }
 document.getElementById('loginForm').onsubmit = async e => { e.preventDefault(); try{ const j=await api('/api/login',{method:'POST',body:JSON.stringify({...devicePayload(),username:username.value,password:password.value})}); state.token=j.token; localStorage.setItem('oh_token',j.token); showApp(); await loadSessions(true); }catch(err){ toast('登录失败'); }};
 async function loadSessions(reset=false){ if(reset){state.page=1;state.sessions=[];state.hasMore=true;} if(!state.hasMore) return; state.sessionSource=sourceFilter.value; state.sessionDevice=deviceFilter.value.trim(); const params=new URLSearchParams({page:String(state.page),page_size:'10'}); if(state.sessionSource) params.set('source',state.sessionSource); if(state.sessionDevice) params.set('device_id',state.sessionDevice); const j=await api('/api/sessions?'+params.toString()); state.sessions.push(...j.items); state.hasMore=j.has_more; state.page++; renderSessions(); }
-function renderSessions(){ const box=document.getElementById('sessions'); box.innerHTML=''; if(!state.sessions.length){ const empty=document.createElement('div'); empty.className='side-subtitle'; empty.style.padding='12px'; empty.textContent='没有匹配的线程'; box.appendChild(empty); return; } state.sessions.forEach(s=>{ const row=document.createElement('div'); row.className='session'+(state.active===s.id?' active':''); const main=document.createElement('button'); main.className='session-main'; main.innerHTML=`<div class="session-title"></div><div class="session-preview"></div><div class="session-meta"></div>`; main.children[0].textContent=s.title; main.children[1].textContent=s.last_message_preview||'暂无消息'; main.children[2].textContent=`${s.source||'UNKNOWN'} · ${s.device_id||'unknown'} · ${s.message_count} 条 · ${s.send_phase}`; main.onclick=()=>openSession(s.id); const actions=document.createElement('div'); actions.className='session-actions'; const rename=document.createElement('button'); rename.className='session-action'; rename.textContent='改名'; rename.onclick=()=>renameSession(s); const del=document.createElement('button'); del.className='session-action danger'; del.textContent='删除'; del.onclick=()=>deleteSession(s); actions.append(rename,del); row.append(main,actions); box.appendChild(row); }); }
+function renderSessions(){ const box=document.getElementById('sessions'); box.innerHTML=''; if(!state.sessions.length){ const empty=document.createElement('div'); empty.className='side-subtitle'; empty.style.padding='12px'; empty.textContent='没有匹配的线程'; box.appendChild(empty); return; } state.sessions.forEach(s=>{ const row=document.createElement('div'); row.className='session'+(state.active===s.id?' active':''); const main=document.createElement('button'); main.className='session-main'; main.innerHTML=`<div class="session-title"></div><div class="session-preview"></div><div class="session-meta"></div>`; main.children[0].textContent=s.title; main.children[1].textContent=s.last_message_preview||'暂无消息'; main.children[2].textContent=`${s.source||'UNKNOWN'} · ${s.device_id||'unknown'} · ${s.message_count} 条 · ${s.send_phase}`; main.onclick=()=>openSession(s.id); row.append(main); if(state.sessionManagement){ const actions=document.createElement('div'); actions.className='session-actions'; const rename=document.createElement('button'); rename.className='session-action'; rename.textContent='改名'; rename.onclick=()=>renameSession(s); const del=document.createElement('button'); del.className='session-action danger'; del.textContent='删除'; del.onclick=()=>deleteSession(s); actions.append(rename,del); row.append(actions); } box.appendChild(row); }); }
 async function renameSession(session){ const title=prompt('重命名线程',session.title||''); if(title===null) return; const next=title.trim(); if(!next) return toast('标题不能为空'); try{ const j=await api('/api/sessions/'+session.id,{method:'PATCH',body:JSON.stringify({title:next})}); const idx=state.sessions.findIndex(s=>s.id===session.id); if(idx>=0) state.sessions[idx]=j.session; if(state.active===session.id) document.getElementById('threadTitle').textContent=j.session.title; renderSessions(); toast('线程已重命名'); }catch(err){ toast(err.message); } }
-async function deleteSession(session){ if(!confirm('删除线程「'+session.title+'」？')) return; try{ await api('/api/sessions/'+session.id,{method:'DELETE'}); state.sessions=state.sessions.filter(s=>s.id!==session.id); if(state.active===session.id){ state.active=null; clearInterval(state.poll); document.getElementById('threadTitle').textContent='选择一个线程'; document.getElementById('threadSub').textContent='线程已删除'; document.getElementById('messages').innerHTML='<div class="empty">线程已删除，请选择其他会话。</div>'; } renderSessions(); toast('线程已删除'); }catch(err){ toast(err.message); } }
+async function deleteSession(session){ const typed=prompt('删除线程「'+session.title+'」不可恢复。输入 DELETE 确认'); if(typed!=='DELETE') return; try{ await api('/api/sessions/'+session.id,{method:'DELETE'}); state.sessions=state.sessions.filter(s=>s.id!==session.id); if(state.active===session.id){ state.active=null; clearInterval(state.poll); document.getElementById('threadTitle').textContent='选择一个线程'; document.getElementById('threadSub').textContent='线程已删除'; document.getElementById('messages').innerHTML='<div class="empty">线程已删除，请选择其他会话。</div>'; } renderSessions(); toast('线程已删除'); }catch(err){ toast(err.message); } }
 async function openSession(id){ state.active=id; document.getElementById('sidebar').classList.remove('open'); renderSessions(); await refreshThread(); clearInterval(state.poll); state.poll=setInterval(refreshThread,1800); }
 async function refreshThread(){ if(!state.active) return; try{ const s=await api('/api/sessions/'+state.active); document.getElementById('threadTitle').textContent=s.session.title; document.getElementById('threadSub').textContent=`${s.session.template_name} · ${s.runtime.send_phase}`; const j=await api('/api/sessions/'+state.active+'/messages?limit=120&offset=0'); renderMessages(j.items); }catch(err){ if(err.status===404){ toast('线程已在 APP 端删除'); state.active=null; clearInterval(state.poll); await loadSessions(true); document.getElementById('messages').innerHTML='<div class="empty">线程已删除，请选择其他会话。</div>'; } } }
 function renderMessages(items){ const box=document.getElementById('messages'); box.innerHTML=''; if(!items.length){ box.innerHTML='<div class="empty">还没有消息。</div>'; return; } items.forEach(m=>{ const div=document.createElement('div'); const cls=m.role==='user'?'user':(m.kind||'assistant'); div.className='msg '+cls; const text=document.createElement('div'); text.textContent=m.content||' '; const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${m.kind} · ${new Date(m.created_at).toLocaleString()}`; div.append(text,meta); box.appendChild(div); }); box.scrollTop=box.scrollHeight; }

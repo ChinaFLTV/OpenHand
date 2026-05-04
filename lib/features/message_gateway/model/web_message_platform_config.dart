@@ -232,10 +232,12 @@ class WebMessagePlatformConfig {
     this.planModeEnabled = false,
     this.singleMessageTokenLimit = 2000,
     this.maxMessagesPerSession = 100,
+    this.sessionManagementEnabled = true,
     this.workspaceFilesEnabled = true,
     this.workspaceFileWriteEnabled = true,
     this.workspaceFileMaxBytes = 1024 * 1024,
     this.workspaceFileAllowedExtensions = const <String>[],
+    this.uploadCacheRetentionDays = 7,
     this.healthCheck = const WebGatewayHealthCheckConfig(),
     this.logConfig = const WebGatewayLogConfig(),
   });
@@ -295,6 +297,8 @@ class WebMessagePlatformConfig {
         1,
         10000,
       ),
+      sessionManagementEnabled:
+          json['session_management_enabled'] as bool? ?? true,
       workspaceFilesEnabled: json['workspace_files_enabled'] as bool? ?? true,
       workspaceFileWriteEnabled:
           json['workspace_file_write_enabled'] as bool? ?? true,
@@ -306,6 +310,12 @@ class WebMessagePlatformConfig {
       ),
       workspaceFileAllowedExtensions: _extensionList(
         json['workspace_file_allowed_extensions'],
+      ),
+      uploadCacheRetentionDays: _clampInt(
+        json['upload_cache_retention_days'],
+        7,
+        1,
+        180,
       ),
       healthCheck: json['health_check'] is Map
           ? WebGatewayHealthCheckConfig.fromJson(
@@ -345,10 +355,12 @@ class WebMessagePlatformConfig {
   final bool planModeEnabled;
   final int singleMessageTokenLimit;
   final int maxMessagesPerSession;
+  final bool sessionManagementEnabled;
   final bool workspaceFilesEnabled;
   final bool workspaceFileWriteEnabled;
   final int workspaceFileMaxBytes;
   final List<String> workspaceFileAllowedExtensions;
+  final int uploadCacheRetentionDays;
   final WebGatewayHealthCheckConfig healthCheck;
   final WebGatewayLogConfig logConfig;
 
@@ -377,10 +389,12 @@ class WebMessagePlatformConfig {
     bool? planModeEnabled,
     int? singleMessageTokenLimit,
     int? maxMessagesPerSession,
+    bool? sessionManagementEnabled,
     bool? workspaceFilesEnabled,
     bool? workspaceFileWriteEnabled,
     int? workspaceFileMaxBytes,
     List<String>? workspaceFileAllowedExtensions,
+    int? uploadCacheRetentionDays,
     WebGatewayHealthCheckConfig? healthCheck,
     WebGatewayLogConfig? logConfig,
   }) {
@@ -413,6 +427,8 @@ class WebMessagePlatformConfig {
           singleMessageTokenLimit ?? this.singleMessageTokenLimit,
       maxMessagesPerSession:
           maxMessagesPerSession ?? this.maxMessagesPerSession,
+      sessionManagementEnabled:
+          sessionManagementEnabled ?? this.sessionManagementEnabled,
       workspaceFilesEnabled:
           workspaceFilesEnabled ?? this.workspaceFilesEnabled,
       workspaceFileWriteEnabled:
@@ -421,6 +437,8 @@ class WebMessagePlatformConfig {
           workspaceFileMaxBytes ?? this.workspaceFileMaxBytes,
       workspaceFileAllowedExtensions:
           workspaceFileAllowedExtensions ?? this.workspaceFileAllowedExtensions,
+      uploadCacheRetentionDays:
+          uploadCacheRetentionDays ?? this.uploadCacheRetentionDays,
       healthCheck: healthCheck ?? this.healthCheck,
       logConfig: logConfig ?? this.logConfig,
     );
@@ -456,10 +474,12 @@ class WebMessagePlatformConfig {
       'plan_mode_enabled': planModeEnabled,
       'single_message_token_limit': singleMessageTokenLimit,
       'max_messages_per_session': maxMessagesPerSession,
+      'session_management_enabled': sessionManagementEnabled,
       'workspace_files_enabled': workspaceFilesEnabled,
       'workspace_file_write_enabled': workspaceFileWriteEnabled,
       'workspace_file_max_bytes': workspaceFileMaxBytes,
       'workspace_file_allowed_extensions': workspaceFileAllowedExtensions,
+      'upload_cache_retention_days': uploadCacheRetentionDays,
       'health_check': healthCheck.toJson(),
       'log_config': logConfig.toJson(),
     };

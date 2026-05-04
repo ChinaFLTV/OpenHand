@@ -199,6 +199,28 @@ class MessageGatewayController extends ChangeNotifier {
     return result;
   }
 
+  Future<WebGatewayCleanupResult> cleanupLogs() async {
+    final result = await _service.cleanupArtifacts(logs: true, uploads: false);
+    notifyListeners();
+    return result;
+  }
+
+  Future<WebGatewayCleanupResult> cleanupUploadCache() async {
+    final result = await _service.cleanupArtifacts(logs: false, uploads: true);
+    notifyListeners();
+    return result;
+  }
+
+  Future<WebGatewayCleanupResult> cleanupExpiredArtifacts() async {
+    final result = await _service.cleanupArtifacts(
+      logs: true,
+      uploads: true,
+      expiredOnly: true,
+    );
+    notifyListeners();
+    return result;
+  }
+
   void updateTheme(ThemeData theme) {
     final colorScheme = theme.colorScheme;
     _service.updateTheme(
