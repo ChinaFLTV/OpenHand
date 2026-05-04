@@ -3139,7 +3139,13 @@ class _RoundFileMutationSummaryCardState
               zh: '刷新汇总',
               en: 'Refresh summary',
             ),
-            onTap: () => setState(() => _rowsFuture = _load(context)),
+            // 注意：_load 返回 Future，箭头函数 `() => x = _load(...)` 会把
+            // 这个 Future 作为 closure 的返回值传给 setState，被框架 assert 拦截
+            // （setState callback must not return Future）。这里要用 block，
+            // 让赋值表达式被 statement 吞掉，closure 返回 void。
+            onTap: () => setState(() {
+              _rowsFuture = _load(context);
+            }),
           ),
         ],
       ),
