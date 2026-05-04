@@ -26,6 +26,7 @@ import '../../mcp/model/mcp_tool.dart';
 import '../../memory/memory_controller.dart';
 import '../../skills/skills_controller.dart';
 import '../model/web_gateway_runtime.dart';
+import '../model/web_gateway_session_metadata.dart';
 import '../model/web_message_platform_config.dart';
 import 'web_message_platform_legacy_client_html.dart';
 
@@ -1306,16 +1307,13 @@ class WebMessagePlatformService {
     shelf.Request request,
     Map<String, Object?> extra,
   ) {
-    return <String, Object?>{
-      webGatewayMetadataKey: <String, Object?>{
-        ...auth.toMetadata(),
-        ...extra,
-        'request_id': _nextLogId,
-        'request_method': request.method,
-        'request_path': request.requestedUri.path,
-        'captured_at': DateTime.now().toUtc().toIso8601String(),
-      },
-    };
+    return buildLegacyWebGatewayRequestMetadata(
+      authMetadata: auth.toMetadata(),
+      requestMethod: request.method,
+      requestPath: request.requestedUri.path,
+      requestId: _nextLogId,
+      extras: extra,
+    );
   }
 
   Map<String, Object?> _webContext(Map<String, Object?> metadata) {

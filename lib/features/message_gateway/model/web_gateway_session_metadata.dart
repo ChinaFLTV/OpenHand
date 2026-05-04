@@ -171,3 +171,37 @@ String? _opt(Object? value) {
   final text = value.toString().trim();
   return text.isEmpty ? null : text;
 }
+
+/// 构造与 1.0 时期 Web 端会话写入完全一致的 metadata Map。
+///
+/// 设计动机：
+/// [WebGatewaySessionMetadata.wrapForSession] 出于强类型考量，序列化时会跳过
+/// 空字符串字段、并把 `remoteAddress` 标准化为新键 `ip_address`，与现网历史
+/// 会话的 metadata 字节布局存在细微差异。本函数保留旧布局——把 `auth.toMetadata()`
+/// 的输出原样合并、再叠加 caller 的 extras 与 4 项请求级字段——专门服务于
+/// `web_message_platform_service` 的 `_metadataForRequest` 写入路径，确保
+/// `web_gateway_context` 顶层 map 的字节级 1:1 兼容。
+///
+/// 与 view 端读取协议（`message_gateway_view.dart`）配套：view 历史上始终读到
+/// `device_id`/`device_mac_address`/`user_agent` 这些键即便其值为空，故迁移期
+/// 不引入跳过空字段的语义，避免静默回归。
+Map<String, Object?> buildLegacyWebGatewayRequestMetadata({
+  required Map<String, Object?> authMetadata,
+  required String requestMethod,
+  required String requestPath,
+  required int requestId,
+  required Map<String, Object?> extras,
+  DateTime? capturedAt,
+}) {
+  return <String, Object?>{
+    webGatewayMetadataKey: <String, Object?>{
+      ...authMetadata,
+      ...extras,
+      'request_id': requestId,
+      'request_method': requestMethod,
+      'request_path': requestPath,
+      'captured_at':
+          (capturedAt ?? DateTime.now().toUtc()).toIso8601String(),
+    },
+  };
+}
