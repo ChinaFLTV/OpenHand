@@ -28,6 +28,7 @@ import '../../skills/skills_controller.dart';
 import '../model/web_gateway_runtime.dart';
 import '../model/web_gateway_session_metadata.dart';
 import '../model/web_message_platform_config.dart';
+import 'web_gateway_accessible_urls.dart';
 import 'web_message_platform_legacy_client_html.dart';
 
 // 公共类型已抽到 model/web_gateway_runtime.dart，re-export 让 view 现有 import 继续生效。
@@ -125,28 +126,11 @@ class WebMessagePlatformService {
   /// - 监听通配符 (`0.0.0.0` / `::` / 空串) → 返回 `localhost` + `127.0.0.1`
   ///   + 所有非环回 IPv4 地址。`_localAddressesCache` 由 `_refreshLocalAddresses`
   ///   异步填充；服务未启动时返回空列表。
-  List<String> get accessibleUrls {
-    final server = _server;
-    if (server == null) return const <String>[];
-    final port = server.port;
-    final normalized = _config.listenHost.trim();
-    final isWildcard = normalized.isEmpty ||
-        normalized == '0.0.0.0' ||
-        normalized == '::' ||
-        normalized == '::0';
-    if (!isWildcard) {
-      return List<String>.unmodifiable(<String>['http://$normalized:$port']);
-    }
-    final urls = <String>{
-      'http://localhost:$port',
-      'http://127.0.0.1:$port',
-    };
-    for (final addr in _localAddressesCache) {
-      if (addr.isEmpty) continue;
-      urls.add('http://$addr:$port');
-    }
-    return List<String>.unmodifiable(urls);
-  }
+  List<String> get accessibleUrls => computeWebGatewayAccessibleUrls(
+        listenHost: _config.listenHost,
+        boundPort: _server?.port,
+        localIPv4Addresses: _localAddressesCache,
+      );
 
   void updateTheme(WebGatewayThemeSnapshot theme) {
     _theme = theme;
