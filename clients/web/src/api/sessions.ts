@@ -289,6 +289,9 @@ export interface ExportDownloadResult {
   filename: string;
 }
 
+export const EXPORT_SESSION_TIMEOUT_ERROR = 'EXPORT_SESSION_TIMEOUT';
+const EXPORT_SESSION_TIMEOUT_MS = 15_000;
+
 function filenameFromContentDisposition(value: string | null): string | null {
   if (!value) return null;
   const encoded = /filename\*=UTF-8''([^;]+)/i.exec(value);
@@ -316,11 +319,24 @@ export async function exportSessionDownload(
   };
   const token = readToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/export`, {
-    method: 'GET',
-    headers,
-    credentials: 'same-origin',
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), EXPORT_SESSION_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/export`, {
+      method: 'GET',
+      headers,
+      credentials: 'same-origin',
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(EXPORT_SESSION_TIMEOUT_ERROR);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   if (res.status === 401) {
     clearAuthStorage();
     throw new UnauthorizedError(null);

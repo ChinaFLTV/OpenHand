@@ -1810,8 +1810,7 @@ class WebMessagePlatformService {
   }
 
   /// 导出整会话为 JSON 附件下载。包含 session summary + 所有未删除消息。
-  /// 一次性 loadMessages(limit=超大上限) 拉全；超大会话页可结合 stream chunked 下载，
-  /// 但当前 service 端尚无 stream payload 通道，先按一次性方案落地。
+  /// 直接使用 controller 持有的会话快照，避免导出请求与持久层分页读取互相卡住。
   Future<shelf.Response> _exportSession(
     shelf.Request request,
     _WebGatewayAuthSession auth,
@@ -1823,24 +1822,10 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    // 拉全部消息：分页拉取，避免单次过大内存爆炸；100 条一页。
-    final messages = <Map<String, Object?>>[];
-    var offset = 0;
-    const pageSize = 100;
-    while (true) {
-      final page = await _sessionController.store.loadMessages(
-        session.id,
-        limit: pageSize,
-        offset: offset,
-      );
-      for (final m in page.messages) {
-        if (m.isDeleted) continue;
-        messages.add(_messageJson(m));
-      }
-      if (!page.hasMore) break;
-      offset += page.messages.length;
-      if (page.messages.isEmpty) break; // 安全栏：避免计数错乱无限循环
-    }
+    final messages = session.messages
+        .where((message) => !message.isDeleted)
+        .map(_messageJson)
+        .toList(growable: false);
     final payload = <String, Object?>{
       'export_version': 1,
       'exported_at': DateTime.now().toUtc().toIso8601String(),

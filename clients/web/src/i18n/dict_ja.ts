@@ -178,6 +178,7 @@ export const dict_ja: Record<string, string> = {
   'topbar.export': 'JSON をエクスポート',
   'topbar.copyId': 'セッション ID をコピー',
   'topbar.delete': 'セッション削除',
+  'topbar.export.timeout': 'セッションのエクスポートがタイムアウトしました。後でもう一度お試しください。',
   'topbar.deleteConfirm': 'このセッションを削除しますか? この操作は元に戻せません。',
   'topbar.audit': 'セッション監査',
   'topbar.tokens': 'Token 統計',

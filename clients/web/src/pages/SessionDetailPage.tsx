@@ -21,6 +21,7 @@ import {
   deleteMessage,
   deleteMessageCascade,
   deleteSession,
+  EXPORT_SESSION_TIMEOUT_ERROR,
   exportSessionDownload,
   getSession,
   listMessages,
@@ -1111,7 +1112,11 @@ export function SessionDetailPage() {
             } catch (e) {
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
-              const message = e instanceof Error ? e.message : String(e);
+              const message = e instanceof Error && e.message === EXPORT_SESSION_TIMEOUT_ERROR
+                ? t('topbar.export.timeout', '导出会话超时，请稍后重试')
+                : e instanceof Error
+                  ? e.message
+                  : String(e);
               setLastError(message);
               showSnackbar(`${t('topbar.export.failed', '导出会话失败')}：${message}`, { tone: 'error' });
             }

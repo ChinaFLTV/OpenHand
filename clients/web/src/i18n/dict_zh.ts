@@ -177,6 +177,7 @@ export const dict_zh: Record<string, string> = {
   'topbar.renameHint': '点击重命名',
   'topbar.rename': '重命名',
   'topbar.export': '导出 JSON',
+  'topbar.export.timeout': '导出会话超时，请稍后重试',
   'topbar.copyId': '复制会话 ID',
   'topbar.delete': '删除会话',
   'topbar.deleteConfirm': '确定删除该会话?此操作不可恢复',

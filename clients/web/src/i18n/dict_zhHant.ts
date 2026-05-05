@@ -178,6 +178,7 @@ export const dict_zhHant: Record<string, string> = {
   'topbar.export': '匯出 JSON',
   'topbar.copyId': '複製工作階段 ID',
   'topbar.delete': '刪除工作階段',
+  'topbar.export.timeout': '匯出工作階段逾時，請稍後再試',
   'topbar.deleteConfirm': '確定刪除此工作階段?此操作不可復原',
   'topbar.audit': '工作階段審計',
   'topbar.tokens': 'Token 統計',

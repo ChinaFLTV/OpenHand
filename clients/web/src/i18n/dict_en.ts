@@ -178,6 +178,7 @@ export const dict_en: Record<string, string> = {
   'topbar.renameHint': 'Click to rename',
   'topbar.rename': 'Rename',
   'topbar.export': 'Export JSON',
+  'topbar.export.timeout': 'Session export timed out. Please try again later.',
   'topbar.copyId': 'Copy session ID',
   'topbar.delete': 'Delete session',
   'topbar.deleteConfirm': 'Delete this session? This cannot be undone.',

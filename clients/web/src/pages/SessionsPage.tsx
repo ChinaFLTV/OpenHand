@@ -13,6 +13,7 @@ import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import {
   createSession,
   deleteSession,
+  EXPORT_SESSION_TIMEOUT_ERROR,
   exportSessionDownload,
   listSessions,
   renameSession,
@@ -238,7 +239,11 @@ export function SessionsPage() {
         location.route('/login', true);
         return;
       }
-      const message = e instanceof Error ? e.message : String(e);
+      const message = e instanceof Error && e.message === EXPORT_SESSION_TIMEOUT_ERROR
+        ? t('topbar.export.timeout', '导出会话超时，请稍后重试')
+        : e instanceof Error
+          ? e.message
+          : String(e);
       patchRow(item.id, {
         exporting: false,
         error: message,
