@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -1237,6 +1238,13 @@ class _WebGatewayConnectivityDialogState
                       ),
                     ),
                     IconButton(
+                      tooltip: '复制结果 JSON',
+                      onPressed: result == null
+                          ? null
+                          : () => _copyResult(result),
+                      icon: const Icon(Icons.content_copy_rounded),
+                    ),
+                    IconButton(
                       tooltip: '重新测试',
                       onPressed: _running ? null : _run,
                       icon: _running
@@ -1270,6 +1278,20 @@ class _WebGatewayConnectivityDialogState
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _copyResult(WebGatewayConnectivityTestResult result) async {
+    const encoder = JsonEncoder.withIndent('  ');
+    await Clipboard.setData(
+      ClipboardData(text: encoder.convert(result.toJson())),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('连通性测试结果已复制'),
+        duration: Duration(milliseconds: 1600),
       ),
     );
   }
