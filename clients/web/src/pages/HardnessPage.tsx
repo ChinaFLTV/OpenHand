@@ -1,0 +1,380 @@
+// HardnessPage —— 本机最近一次 Hardness Engineering 会话的只读浏览。
+//
+// App 端的 hardness_session_dashboard.dart 用 5 个折叠卡片串行展示
+// metaCollection → reading → planning → implementing → reviewing,
+// 每个 card 含: 阶段标题/状态徽章/角色 CLI+model 配置/输出日志(可折叠)/
+// 改动文件列表/审核结果。Web 端只读还原同样布局, 5 秒一次 polling。
+//
+// 与 ToolboxPage 一样: 一个页面打开后做 polling, 错误顶部红条但保留旧数据,
+// 避免抖动清空界面。
+
+import { useEffect, useState } from 'preact/hooks';
+import { TopBar } from '../components/TopBar';
+import { Appear } from '../components/Appear';
+import { ApiError } from '../api/client';
+import {
+  HardnessPhaseLogSnapshot,
+  HardnessPhaseStatus,
+  HardnessPhaseValue,
+  HardnessSessionRecord,
+  fetchHardnessSession,
+} from '../api/hardness';
+import { t, tDateTime } from '../i18n';
+
+const PHASE_ORDER: HardnessPhaseValue[] = [
+  'meta_collection',
+  'reading',
+  'planning',
+  'implementing',
+  'reviewing',
+];
+
+const PHASE_NAMES_ZH: Record<HardnessPhaseValue, string> = {
+  meta_collection: '元数据采集',
+  reading: '调查',
+  planning: '规划',
+  implementing: '实施',
+  reviewing: '验收',
+};
+
+function describeApiError(err: unknown): string {
+  if (err instanceof ApiError) {
+    const body = err.body as { error?: string } | null;
+    return `HTTP ${err.status}${body?.error ? ` (${body.error})` : ''}`;
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+function phaseStatusBadge(status: HardnessPhaseStatus): { color: string; bg: string; icon: string } {
+  switch (status) {
+    case 'running':
+      return { color: 'var(--m3-primary)', bg: 'rgba(99,102,241,0.10)', icon: '⟳' };
+    case 'completed':
+      return { color: '#16a34a', bg: 'rgba(22,163,74,0.10)', icon: '✓' };
+    case 'failed':
+      return { color: 'var(--m3-error)', bg: 'rgba(239,68,68,0.10)', icon: '✕' };
+    case 'skipped':
+      return { color: 'var(--m3-on-surface-variant)', bg: 'rgba(120,120,120,0.10)', icon: '↷' };
+    default:
+      return { color: 'var(--m3-on-surface-variant)', bg: 'rgba(120,120,120,0.06)', icon: '○' };
+  }
+}
+
+function overallStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    idle: '空闲',
+    running: '运行中',
+    completed: '已完成',
+    failed: '失败',
+    cancelled: '已取消',
+  };
+  return map[status] ?? status;
+}
+
+export function HardnessPage() {
+  const [record, setRecord] = useState<HardnessSessionRecord | null | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = async () => {
+      try {
+        const res = await fetchHardnessSession();
+        if (stop) return;
+        setRecord(res.record);
+        setError(null);
+      } catch (err) {
+        if (!stop) setError(describeApiError(err));
+      } finally {
+        if (!stop) timer = setTimeout(tick, 5000);
+      }
+    };
+    void tick();
+    return () => {
+      stop = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  return (
+    <main
+      class="min-h-screen"
+      style={{ background: 'var(--m3-background)', color: 'var(--m3-on-surface)' }}
+    >
+      <TopBar
+        title={t('hardness.title', 'Hardness Engineering')}
+        subtitle={t('hardness.subtitle', '查看本机最近一次工程化会话快照')}
+      />
+
+      <div class="max-w-6xl mx-auto px-4 py-6">
+        {error ? (
+          <div
+            class="rounded-m3-md px-3 py-2 text-sm mb-4"
+            style={{
+              background: 'rgba(239,68,68,0.08)',
+              color: 'var(--m3-error)',
+              border: '1px solid rgba(239,68,68,0.30)',
+            }}
+          >
+            {error}
+          </div>
+        ) : null}
+
+        {record === undefined ? (
+          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {t('common.loading', '加载中…')}
+          </p>
+        ) : record === null ? (
+          <Appear variant="up">
+            <div
+              class="rounded-m3-md px-4 py-8 text-sm text-center"
+              style={{
+                background: 'var(--m3-surface-container-low)',
+                color: 'var(--m3-on-surface-variant)',
+                border: '1px dashed var(--m3-outline-variant)',
+              }}
+            >
+              {t('hardness.empty', '本机尚未运行过 Hardness Engineering 会话')}
+            </div>
+          </Appear>
+        ) : (
+          <HardnessRecordView record={record} />
+        )}
+      </div>
+    </main>
+  );
+}
+
+function HardnessRecordView(props: { record: HardnessSessionRecord }) {
+  const r = props.record;
+  // 把日志按阶段建索引, 便于 5 个标准 phase 都展示, 即便还没跑也展示空卡片。
+  const logsByPhase = new Map<HardnessPhaseValue, HardnessPhaseLogSnapshot>();
+  for (const log of r.phase_logs) logsByPhase.set(log.phase, log);
+
+  return (
+    <>
+      <Appear variant="up">
+        <header
+          class="rounded-m3-md p-4 mb-4"
+          style={{
+            background: 'var(--m3-surface-container)',
+            border: '1px solid var(--m3-outline-variant)',
+          }}
+        >
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+              {r.title || r.id}
+            </h2>
+            <span
+              class="text-xs px-2 py-0.5 rounded-m3-xs"
+              style={{
+                color: r.status === 'failed' ? 'var(--m3-error)' :
+                       r.status === 'running' ? 'var(--m3-primary)' :
+                       r.status === 'completed' ? '#16a34a' : 'var(--m3-on-surface-variant)',
+                background: r.status === 'failed' ? 'rgba(239,68,68,0.10)' :
+                            r.status === 'running' ? 'rgba(99,102,241,0.10)' :
+                            r.status === 'completed' ? 'rgba(22,163,74,0.10)' : 'rgba(120,120,120,0.06)',
+              }}
+            >
+              {overallStatusLabel(r.status)}
+            </span>
+          </div>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <div>{t('hardness.createdAt', '创建于')}: {tDateTime(r.created_at)}</div>
+            <div>{t('hardness.updatedAt', '更新于')}: {tDateTime(r.updated_at)}</div>
+            {r.current_phase ? (
+              <div class="col-span-2">
+                {t('hardness.currentPhase', '当前阶段')}:{' '}
+                <code>{PHASE_NAMES_ZH[r.current_phase as HardnessPhaseValue] ?? r.current_phase}</code>
+              </div>
+            ) : null}
+            {r.error_message ? (
+              <div class="col-span-2 mt-1" style={{ color: 'var(--m3-error)' }}>
+                {r.error_message}
+              </div>
+            ) : null}
+          </div>
+          {r.manual_phase_input_requested ? (
+            <div
+              class="mt-2 rounded-m3-sm px-2 py-1.5 text-xs oh-pulse-soft"
+              style={{
+                background: 'rgba(245,158,11,0.10)',
+                color: '#d97706',
+                border: '1px solid rgba(245,158,11,0.30)',
+              }}
+            >
+              ⏸ {t('hardness.awaitingManualInput', '等待用户在 App 端补充人工反馈以继续')}
+            </div>
+          ) : null}
+        </header>
+      </Appear>
+
+      <ol class="space-y-3">
+        {PHASE_ORDER.map((phase, idx) => {
+          const log = logsByPhase.get(phase);
+          return (
+            <PhaseCard
+              key={phase}
+              index={idx}
+              phase={phase}
+              log={log}
+              isCurrent={r.current_phase === phase}
+            />
+          );
+        })}
+      </ol>
+    </>
+  );
+}
+
+function PhaseCard(props: {
+  index: number;
+  phase: HardnessPhaseValue;
+  log: HardnessPhaseLogSnapshot | undefined;
+  isCurrent: boolean;
+}) {
+  const { index, phase, log, isCurrent } = props;
+  const status: HardnessPhaseStatus = log?.status ?? 'pending';
+  const badge = phaseStatusBadge(status);
+  const [expanded, setExpanded] = useState(status === 'running' || status === 'failed');
+
+  const ringColor = isCurrent ? 'var(--m3-primary)' : 'var(--m3-outline-variant)';
+
+  return (
+    <Appear variant="up" index={index}>
+      <li
+        class="rounded-m3-md overflow-hidden"
+        style={{
+          background: 'var(--m3-surface-container)',
+          border: `1px solid ${ringColor}`,
+        }}
+      >
+        <button
+          type="button"
+          class="w-full flex items-center gap-3 px-4 py-3 oh-tap-press"
+          style={{ background: 'transparent', textAlign: 'left' }}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          <span
+            class="inline-flex items-center justify-center text-xs"
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              background: badge.bg,
+              color: badge.color,
+              flexShrink: 0,
+            }}
+          >
+            {badge.icon}
+          </span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-2 flex-wrap">
+              <span class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+                {index + 1}. {PHASE_NAMES_ZH[phase]}
+              </span>
+              <span class="text-[10px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                <code>{phase}</code>
+              </span>
+              {log?.exit_code != null ? (
+                <span
+                  class="text-[10px] px-1.5 py-0.5 rounded-m3-xs"
+                  style={{
+                    background: log.exit_code === 0 ? 'rgba(22,163,74,0.10)' : 'rgba(239,68,68,0.10)',
+                    color: log.exit_code === 0 ? '#16a34a' : 'var(--m3-error)',
+                  }}
+                >
+                  exit {log.exit_code}
+                </span>
+              ) : null}
+              {log?.review_verdict_fail ? (
+                <span
+                  class="text-[10px] px-1.5 py-0.5 rounded-m3-xs"
+                  style={{ background: 'rgba(239,68,68,0.10)', color: 'var(--m3-error)' }}
+                >
+                  REVIEW FAIL
+                </span>
+              ) : null}
+            </div>
+            {log?.changed_files && log.changed_files.length > 0 ? (
+              <div class="text-[11px] mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                {t('hardness.changedFiles', '改动文件')}: {log.changed_files.length}
+              </div>
+            ) : null}
+          </div>
+          <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {expanded ? '▾' : '▸'}
+          </span>
+        </button>
+
+        {expanded ? (
+          <div
+            class="px-4 pb-3 space-y-2 text-xs"
+            style={{ borderTop: '1px solid var(--m3-outline-variant)' }}
+          >
+            {log ? (
+              <>
+                {log.lines.length > 0 ? (
+                  <pre
+                    class="rounded-m3-sm p-2 overflow-x-auto"
+                    style={{
+                      maxHeight: 360,
+                      background: 'var(--m3-surface-container-high)',
+                      color: 'var(--m3-on-surface)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 12,
+                      lineHeight: '1.45',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {log.lines.join('\n')}
+                  </pre>
+                ) : (
+                  <p style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    {t('hardness.noOutput', '此阶段尚无输出')}
+                  </p>
+                )}
+                {log.changed_files.length > 0 ? (
+                  <ul class="space-y-0.5 mt-2">
+                    {log.changed_files.map((f) => (
+                      <li
+                        key={f.relative_path}
+                        class="flex items-baseline gap-2 text-[11px]"
+                        style={{ color: 'var(--m3-on-surface-variant)' }}
+                      >
+                        <span
+                          style={{
+                            color: f.change_type === 'added' ? '#16a34a' :
+                                   f.change_type === 'deleted' ? 'var(--m3-error)' : 'var(--m3-primary)',
+                            width: 14,
+                            display: 'inline-block',
+                          }}
+                        >
+                          {f.change_type === 'added' ? '+' : f.change_type === 'deleted' ? '−' : '±'}
+                        </span>
+                        <code>{f.relative_path}</code>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {log.saved_log_path ? (
+                  <p class="mt-1 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    {t('hardness.savedLog', '日志文件')}: <code>{log.saved_log_path}</code>
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <p style={{ color: 'var(--m3-on-surface-variant)' }}>
+                {t('hardness.phasePending', '此阶段尚未运行')}
+              </p>
+            )}
+          </div>
+        ) : null}
+      </li>
+    </Appear>
+  );
+}

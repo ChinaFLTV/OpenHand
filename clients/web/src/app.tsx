@@ -10,6 +10,7 @@ import { FilesPage } from './pages/FilesPage';
 import { OpsPage } from './pages/OpsPage';
 import { LogsPage } from './pages/LogsPage';
 import { ToolboxPage } from './pages/ToolboxPage';
+import { HardnessPage } from './pages/HardnessPage';
 import { Appear } from './components/Appear';
 import { t } from './i18n';
 
@@ -85,6 +86,12 @@ const ToolboxRoute = () => (
   </RequireAuth>
 );
 
+const HardnessRoute = () => (
+  <RequireAuth>
+    <Appear variant="page"><HardnessPage /></Appear>
+  </RequireAuth>
+);
+
 const OpsRoute = () => (
   <RequireAuth>
     <Appear variant="page"><OpsPage /></Appear>
@@ -109,6 +116,7 @@ export function App() {
         <Route path="/thread" component={SessionsRoute} />
         <Route path="/files" component={FilesRoute} />
         <Route path="/toolbox" component={ToolboxRoute} />
+        <Route path="/hardness" component={HardnessRoute} />
         <Route path="/ops" component={OpsRoute} />
         <Route path="/logs" component={LogsRoute} />
         <Route default component={NotFound} />

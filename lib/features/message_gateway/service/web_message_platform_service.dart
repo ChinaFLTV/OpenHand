@@ -22,6 +22,7 @@ import '../../ai/model/ai_session_message.dart';
 import '../../ai/model/ai_session_runtime_context.dart';
 import '../../ai/model/ai_thread_template.dart';
 import '../../crons/crons_controller.dart';
+import '../../hardness/hardness_session_store.dart';
 import '../../instructions/instructions_controller.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../mcp/model/mcp_tool.dart';
@@ -710,6 +711,7 @@ class WebMessagePlatformService {
     router.get('/api/skills', (shelf.Request r) => _withAuth(r, (_, _) => _listSkillsHandler()));
     router.get('/api/memories', (shelf.Request r) => _withAuth(r, (_, _) => _listMemoriesHandler()));
     router.get('/api/crons', (shelf.Request r) => _withAuth(r, (_, _) => _listCronsHandler()));
+    router.get('/api/hardness/session', (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()));
 
     return router;
   }
@@ -955,6 +957,25 @@ class WebMessagePlatformService {
             })
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  /// Toolbox: 持久化的 Hardness Engineering 会话快照 (单实例)。
+  /// App 同时只跑一个 hardness session, 持久化在 SQLite 的 hardness_sessions 表;
+  /// orchestrator 是 home page 内部状态, 不直接暴露到 service, 故 web 走 store
+  /// 的最近一次写入。返回 `{record: null}` 表示尚未运行过 hardness。
+  Future<shelf.Response> _hardnessSessionHandler() async {
+    try {
+      final record = await HardnessSessionStore().load();
+      return _json(HttpStatus.ok, <String, Object?>{
+        'record': record?.toJson(),
+      });
+    } catch (e, st) {
+      silentLog('web_gateway', 'hardness_session_load_failed', e, st);
+      return _json(HttpStatus.internalServerError, <String, Object?>{
+        'error': 'hardness_load_failed',
+        'message': e.toString(),
+      });
+    }
   }
 
   Map<String, Object?> _metaPayload() {
