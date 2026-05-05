@@ -180,4 +180,7 @@ export const dict_zh: Record<string, string> = {
   'logs.prev': '上一页',
   'logs.next': '下一页',
   'logs.empty': '没有匹配的日志',
+  'boot.missingMount': '找不到 #root 挂载点',
+  'error.meta.failed': '/api/meta 失败：HTTP {status}',
+  'ops.cleanup.result': '{target} · 删除 {files} 个文件 / {dirs} 个目录 · 释放 {bytes}',
 };

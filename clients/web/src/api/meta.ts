@@ -1,4 +1,5 @@
 import type { M3ThemeTokens } from '../theme/tokens';
+import { tFmt } from '../i18n';
 
 export interface ApiMetaService {
   bound_url?: string;
@@ -55,7 +56,7 @@ export interface ApiMetaResponse {
 export async function fetchApiMeta(signal?: AbortSignal): Promise<ApiMetaResponse> {
   const res = await fetch('/api/meta', { signal });
   if (!res.ok) {
-    throw new Error(`/api/meta 失败：HTTP ${res.status}`);
+    throw new Error(tFmt('error.meta.failed', { status: res.status }));
   }
   return (await res.json()) as ApiMetaResponse;
 }

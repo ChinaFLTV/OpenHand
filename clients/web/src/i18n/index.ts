@@ -83,6 +83,20 @@ export function t(key: string, fallback?: string): string {
   return fallback ?? key;
 }
 
+// 带占位符的翻译助手：词条中以 {name} 形式描述变量，
+// 调用时传入 params 同名键即可。例：
+//   t('ops.cleanup.result') === '{target} · 删除 {files} 个文件…'
+//   tFmt('ops.cleanup.result', { target: 'all', files: 12, dirs: 3, bytes: '4.2 MB' })
+// 同一占位可重复出现，所有同名位置都会被替换。
+export function tFmt(key: string, params: Record<string, string | number>, fallback?: string): string {
+  let template = t(key, fallback);
+  for (const [k, v] of Object.entries(params)) {
+    // 使用全局 split/join 避免 RegExp 转义 / 恶意输入带入的特殊字符。
+    template = template.split(`{${k}}`).join(String(v));
+  }
+  return template;
+}
+
 // Preact hook：在组件中订阅当前语言，语言切换后自动重渲染。
 export function useLang(): Lang {
   const [lang, setLangState] = useState<Lang>(currentLang);

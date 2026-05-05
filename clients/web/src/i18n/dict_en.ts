@@ -179,4 +179,7 @@ export const dict_en: Record<string, string> = {
   'logs.prev': 'Previous',
   'logs.next': 'Next',
   'logs.empty': 'No matching logs',
+  'boot.missingMount': 'Cannot find #root mount point',
+  'error.meta.failed': '/api/meta failed: HTTP {status}',
+  'ops.cleanup.result': '{target} · deleted {files} files / {dirs} directories · freed {bytes}',
 };

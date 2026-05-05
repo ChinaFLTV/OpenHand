@@ -15,7 +15,7 @@ import {
   getOpsSnapshot,
   runCleanup,
 } from '../api/ops';
-import { t } from '../i18n';
+import { t, tFmt } from '../i18n';
 
 const REFRESH_INTERVAL_MS = 5_000;
 
@@ -129,7 +129,12 @@ export function OpsPage() {
     try {
       const res = await runCleanup({ target: cleanupTarget, expired_only: expiredOnly });
       setCleanupOk(
-        `${res.target} · 删除 ${res.deleted_files} 个文件 / ${res.deleted_directories} 个目录 · 释放 ${fmtBytes(res.bytes_freed)}`,
+        tFmt('ops.cleanup.result', {
+          target: res.target,
+          files: res.deleted_files,
+          dirs: res.deleted_directories,
+          bytes: fmtBytes(res.bytes_freed),
+        }),
       );
       await refreshHistory();
       await refreshSnapshot();
