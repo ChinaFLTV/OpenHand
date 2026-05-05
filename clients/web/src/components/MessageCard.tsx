@@ -12,6 +12,7 @@
 
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
+import { Markdown } from './Markdown';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -217,17 +218,11 @@ export function MessageCard({ message, forceExpanded = false }: MessageCardProps
         </span>
         <span class="opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
       </header>
-      <pre
-        class="whitespace-pre-wrap break-words text-sm"
-        style={{
-          margin: 0,
-          fontFamily: style.mono
-            ? 'ui-monospace, SFMono-Regular, Menlo, monospace'
-            : 'inherit',
-        }}
-      >
-        {visibleContent}
-      </pre>
+      <Markdown
+        source={visibleContent}
+        raw={style.mono === true || message.kind === 'tool_call' || message.kind === 'tool' || message.kind === 'reasoning'}
+        mono={style.mono === true}
+      />
       {overflows ? (
         <p class="text-xs mt-2 opacity-70">
           {t('detail.collapsed.hint', '内容已折叠（超过 1200 字符），点击下方刷新或加载更早可在控制台查看完整正文。')}
