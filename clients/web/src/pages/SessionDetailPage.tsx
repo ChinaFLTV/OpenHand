@@ -55,6 +55,7 @@ import { PullIndicator } from '../components/PullIndicator';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
@@ -2064,14 +2065,15 @@ function MessageAuditDialog({
   onClose: () => void;
 }) {
   const json = JSON.stringify(message, null, 2);
+  const { closing, requestClose } = useDialogExitMotion(onClose);
   const node = (
     <div
-      class="oh-dialog-fade-in fixed inset-0 z-[2600] flex items-center justify-center p-4"
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 z-[2600] flex items-center justify-center p-4`}
       style={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
-      onClick={onClose}
+      onClick={requestClose}
     >
       <div
-        class="oh-dialog-pop-in rounded-m3-md p-4 max-w-2xl w-full flex flex-col"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-4 max-w-2xl w-full flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
@@ -2096,7 +2098,7 @@ function MessageAuditDialog({
               type="button"
               class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
               style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
-              onClick={onClose}
+              onClick={requestClose}
             >
               {t('common.close', '关闭')}
             </button>
@@ -2136,6 +2138,7 @@ function SessionMetadataDialog({
   onClose: () => void;
 }) {
   const session = detail.session;
+  const { closing, requestClose } = useDialogExitMotion(onClose);
   const latest = messages[messages.length - 1];
   const tokenRows = [
     [t('metadata.tokens.total', '总 Token'), `${session.total_tokens ?? 0}`],
@@ -2183,12 +2186,12 @@ function SessionMetadataDialog({
   ];
   const node = (
     <div
-      class="oh-dialog-fade-in fixed inset-0 flex items-center justify-center p-4"
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
       style={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
-      onClick={onClose}
+      onClick={requestClose}
     >
       <div
-        class="oh-dialog-pop-in rounded-m3-md p-4 max-w-4xl w-full flex flex-col"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-4 max-w-4xl w-full flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
@@ -2218,7 +2221,7 @@ function SessionMetadataDialog({
               type="button"
               class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
               style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
-              onClick={onClose}
+              onClick={requestClose}
             >
               {t('common.close', '关闭')}
             </button>
@@ -2297,6 +2300,7 @@ function SessionAuditDialog({
   onClose: () => void;
 }) {
   const session = detail.session;
+  const { closing, requestClose } = useDialogExitMotion(onClose);
   const json = JSON.stringify({
     session,
     runtime: detail.runtime,
@@ -2311,12 +2315,12 @@ function SessionAuditDialog({
   ];
   const node = (
     <div
-      class="oh-dialog-fade-in fixed inset-0 flex items-center justify-center p-4"
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
       style={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
-      onClick={onClose}
+      onClick={requestClose}
     >
       <div
-        class="oh-dialog-pop-in rounded-m3-md p-4 max-w-3xl w-full flex flex-col"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-4 max-w-3xl w-full flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
@@ -2346,7 +2350,7 @@ function SessionAuditDialog({
               type="button"
               class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
               style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
-              onClick={onClose}
+              onClick={requestClose}
             >
               {t('common.close', '关闭')}
             </button>
