@@ -1,21 +1,19 @@
-// 会话列表页：分页拉取 + 新建 + 重命名 + 删除。
+// 会话列表页：分页拉取 + 悬浮 FAB（先选模板再配参数） + 卡片三点菜单（重命名/删除/导出）。
+// 顶部条复用 TopBar；移除原本的"主题预览 / 可访问 URL"看板。
 //
-// 目标契约对齐 `web_message_platform_service.dart` 的：
+// 服务端契约：
 //   GET    /api/sessions?page=&page_size=
 //   POST   /api/sessions {template_id, mode, title?}
 //   PATCH  /api/sessions/:id {title}
 //   DELETE /api/sessions/:id
-//
-// 设计要点：
-// 1. 不引入 query 库；每次过滤/分页变更直接重新 fetch。
-// 2. 删除 / 重命名 / 创建后只刷新当前页，避免破坏用户正在浏览的位置。
-// 3. inline 重命名 / 删除确认放进同一行卡片，不弹模态，避免重叠 mobile-friendly。
+//   GET    /api/sessions/:id/export
 
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import {
   createSession,
   deleteSession,
+  exportSessionDownload,
   listSessions,
   renameSession,
   type CreateSessionInput,
@@ -24,9 +22,12 @@ import {
 } from '../api/sessions';
 import { ApiError, UnauthorizedError } from '../api/client';
 import { t } from '../i18n';
-import { MenuSelect } from '../components/MenuSelect';
 import { useAuth } from '../state/auth';
 import type { ApiMetaTemplate } from '../api/meta';
+import { TopBar } from '../components/TopBar';
+import { Appear } from '../components/Appear';
+import { PopMenu } from '../components/PopMenu';
+import { TemplateConfigDialog, TemplatePickerDialog } from '../components/TemplateDialogs';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -48,12 +49,11 @@ function modeLabel(mode: string): string {
 }
 
 interface RowState {
-  /// null 时不在编辑；否则是输入框文本
   draftTitle: string | null;
-  /// true 时显示「再次点击删除以确认」
   pendingDelete: boolean;
   busy: boolean;
   error?: string;
+  exporting?: boolean;
 }
 
 const emptyRow: RowState = { draftTitle: null, pendingDelete: false, busy: false };
@@ -68,32 +68,20 @@ export function SessionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
+
+  // 创建流程：先 picker（选模板），再 config（填参数）。
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [configTemplate, setConfigTemplate] = useState<ApiMetaTemplate | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [createTemplateId, setCreateTemplateId] = useState<string>('default');
-  const [createMode, setCreateMode] = useState<'chat' | 'plan'>('chat');
 
   const abortRef = useRef<AbortController | null>(null);
 
-  const templates = useMemo<ApiMetaTemplate[]>(
-    () => auth.meta?.templates ?? [],
-    [auth.meta],
-  );
-  const allowedModes = useMemo<string[]>(
-    () => auth.meta?.conversation_modes ?? ['chat'],
-    [auth.meta],
-  );
-  const planEnabled = Boolean(auth.meta?.service?.plan_mode_enabled) &&
-    allowedModes.includes('plan');
+  const templates: ApiMetaTemplate[] = auth.meta?.templates ?? [];
+  const allowedModes: string[] = auth.meta?.conversation_modes ?? ['chat'];
+  const planEnabled =
+    Boolean(auth.meta?.service?.plan_mode_enabled) && allowedModes.includes('plan');
   const sessionMgmtEnabled = auth.meta?.service?.session_management_enabled !== false;
-
-  // 模板列表加载完后，把默认模板补成第一项（避免后端裁掉了 'default'）。
-  useEffect(() => {
-    if (templates.length === 0) return;
-    if (!templates.some((tpl) => tpl.id === createTemplateId)) {
-      setCreateTemplateId(templates[0]!.id);
-    }
-  }, [templates]);
 
   function refresh(targetPage: number = page): void {
     abortRef.current?.abort();
@@ -106,7 +94,6 @@ export function SessionsPage() {
         if (ctrl.signal.aborted) return;
         setData(res);
         setLoading(false);
-        // 当前页已删空 → 自动回退一页
         if (res.items.length === 0 && targetPage > 1) {
           setPage(targetPage - 1);
         }
@@ -132,18 +119,36 @@ export function SessionsPage() {
     setRowStates((prev) => ({ ...prev, [id]: { ...emptyRow, ...prev[id], ...patch } }));
   }
 
-  async function handleCreate(ev: Event): Promise<void> {
-    ev.preventDefault();
-    if (creating) return;
+  function openPicker(): void {
+    setCreateError(null);
+    setPickerOpen(true);
+  }
+
+  function onPickTemplate(tpl: ApiMetaTemplate): void {
+    setPickerOpen(false);
+    setConfigTemplate(tpl);
+  }
+
+  async function onConfigSubmit(params: { mode: 'chat' | 'plan'; title: string; modelKey: string }): Promise<void> {
+    if (!configTemplate || creating) return;
     setCreating(true);
     setCreateError(null);
     try {
       const input: CreateSessionInput = {
-        templateId: createTemplateId,
-        mode: createMode,
+        templateId: configTemplate.id,
+        mode: params.mode,
+        title: params.title || undefined,
       };
       const res = await createSession(input);
-      // 直接跳到新会话详情页
+      // 模型偏好暂记 localStorage（服务端契约尚未承接 model_key），下次创建时复用。
+      if (params.modelKey) {
+        try {
+          window.localStorage.setItem('openhand.web.lastModelKey', params.modelKey);
+        } catch {
+          /* 隐私模式或 quota 满 → 忽略 */
+        }
+      }
+      setConfigTemplate(null);
       location.route(`/threads/${res.session.id}`);
     } catch (e: unknown) {
       if (e instanceof UnauthorizedError) {
@@ -180,10 +185,7 @@ export function SessionsPage() {
         location.route('/login', true);
         return;
       }
-      patchRow(item.id, {
-        busy: false,
-        error: e instanceof Error ? e.message : String(e),
-      });
+      patchRow(item.id, { busy: false, error: e instanceof Error ? e.message : String(e) });
     }
   }
 
@@ -191,7 +193,6 @@ export function SessionsPage() {
     const row = rowStates[item.id] ?? emptyRow;
     if (!row.pendingDelete) {
       patchRow(item.id, { pendingDelete: true });
-      // 4s 后自动撤销 pending 状态，避免误触
       setTimeout(() => {
         setRowStates((prev) => {
           const cur = prev[item.id];
@@ -219,108 +220,43 @@ export function SessionsPage() {
     }
   }
 
+  async function handleExport(item: SessionSummary): Promise<void> {
+    patchRow(item.id, { exporting: true, error: undefined });
+    try {
+      await exportSessionDownload(item.id, item.title || `session_${item.id}`);
+      patchRow(item.id, { exporting: false });
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message === 'UNAUTHORIZED') {
+        location.route('/login', true);
+        return;
+      }
+      patchRow(item.id, {
+        exporting: false,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;
   const items = data?.items ?? [];
 
   return (
-    <main class="min-h-screen px-6 py-10" style={{ background: 'var(--m3-surface)' }}>
+    <main class="min-h-screen px-6 py-8" style={{ background: 'var(--m3-surface)' }}>
       <div class="mx-auto max-w-3xl">
-        {/* 顶部条 */}
-        <div class="flex items-center justify-between gap-3 mb-6 flex-wrap">
-          <div>
-            <h1
-              class="text-2xl font-semibold"
-              style={{ color: 'var(--m3-on-surface)' }}
-            >
-              {t('sessions.title', '会话列表')}
-            </h1>
-            <p class="text-sm mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {data
-                ? t('sessions.subtitle.count', '共 ') + data.total + ' ' +
-                  t('sessions.subtitle.unit', '个会话') +
-                  (data.scope === 'current_device'
-                    ? ' · ' + t('sessions.subtitle.scopeDevice', '仅本设备可见')
-                    : '')
-                : t('sessions.subtitle.loading', '加载中…')}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => location.route('/')}
-            class="text-sm underline"
-            style={{ color: 'var(--m3-on-surface-variant)' }}
-          >
-            {t('sessions.backHome', '返回首页')}
-          </button>
-        </div>
-
-        {/* 新建会话表单 */}
-        <form
-          onSubmit={handleCreate}
-          class="rounded-xl p-5 mb-6"
-          style={{
-            background: 'var(--m3-surface-container)',
-            boxShadow: 'var(--m3-elev-1)',
-          }}
-        >
-          <h2
-            class="text-base font-medium mb-3"
-            style={{ color: 'var(--m3-on-surface)' }}
-          >
-            {t('sessions.create.title', '新建会话')}
-          </h2>
-          <div class="flex flex-wrap gap-3">
-            <label class="flex flex-col text-xs gap-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {t('sessions.create.template', '模板')}
-              <MenuSelect
-                value={createTemplateId}
-                onChange={setCreateTemplateId}
-                disabled={creating || templates.length === 0}
-                minWidth={200}
-                options={
-                  templates.length === 0
-                    ? [{ value: 'default', label: 'default' }]
-                    : templates.map((tpl) => ({ value: tpl.id, label: tpl.name || tpl.id }))
-                }
-              />
-            </label>
-            <label class="flex flex-col text-xs gap-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {t('sessions.create.mode', '模式')}
-              <MenuSelect
-                value={createMode}
-                onChange={(v) => setCreateMode(v as 'chat' | 'plan')}
-                disabled={creating}
-                minWidth={140}
-                options={[
-                  { value: 'chat', label: t('sessions.mode.chat', '对话') },
-                  ...(planEnabled
-                    ? [{ value: 'plan', label: t('sessions.mode.plan', 'Plan') }]
-                    : []),
-                ]}
-              />
-            </label>
-            <div class="flex items-end">
-              <button
-                type="submit"
-                disabled={creating}
-                class="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-60"
-                style={{
-                  background: 'var(--m3-primary)',
-                  color: 'var(--m3-on-primary)',
-                }}
-              >
-                {creating
-                  ? t('sessions.create.submitting', '正在创建…')
-                  : t('sessions.create.submit', '创建并进入')}
-              </button>
-            </div>
-          </div>
-          {createError ? (
-            <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
-              {createError}
-            </p>
-          ) : null}
-        </form>
+        <TopBar
+          title={t('app.brand')}
+          subtitle={
+            data
+              ? t('sessions.subtitle.count', '共 ') +
+                data.total +
+                ' ' +
+                t('sessions.subtitle.unit', '个会话') +
+                (data.scope === 'current_device'
+                  ? ' · ' + t('sessions.subtitle.scopeDevice', '仅本设备可见')
+                  : '')
+              : t('sessions.subtitle.loading', '加载中…')
+          }
+        />
 
         {/* 列表 */}
         {loading && !data ? (
@@ -333,150 +269,187 @@ export function SessionsPage() {
             style={{ background: 'var(--m3-surface-container)', color: 'var(--m3-error)' }}
           >
             {error}
-            <button
-              type="button"
-              onClick={() => refresh()}
-              class="ml-3 underline"
-            >
+            <button type="button" onClick={() => refresh()} class="ml-3 underline">
               {t('sessions.retry', '重试')}
             </button>
           </div>
         ) : items.length === 0 ? (
-          <p
-            class="text-center py-12 text-sm"
-            style={{ color: 'var(--m3-on-surface-variant)' }}
+          <div
+            class="text-center py-12 rounded-m3-md"
+            style={{
+              background: 'var(--m3-surface-container)',
+              color: 'var(--m3-on-surface-variant)',
+            }}
           >
-            {t('sessions.empty', '暂无会话，先在上方创建一个吧。')}
-          </p>
+            <p class="text-sm">
+              {t('sessions.empty', '暂无会话，点击右下角加号创建一个吧。')}
+            </p>
+          </div>
         ) : (
           <ul class="flex flex-col gap-3">
-            {items.map((item) => {
+            {items.map((item, idx) => {
               const row = rowStates[item.id] ?? emptyRow;
               const editing = row.draftTitle !== null;
               return (
-                <li
-                  key={item.id}
-                  class="rounded-xl p-4"
-                  style={{
-                    background: 'var(--m3-surface-container)',
-                    boxShadow: 'var(--m3-elev-1)',
-                  }}
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="flex-1 min-w-0">
-                      {editing ? (
-                        <div class="flex items-center gap-2">
-                          <input
-                            value={row.draftTitle ?? ''}
-                            onInput={(e) =>
-                              patchRow(item.id, {
-                                draftTitle: (e.currentTarget as HTMLInputElement).value,
-                              })
-                            }
-                            disabled={row.busy}
-                            class="flex-1 px-2 py-1 rounded-md text-sm"
-                            style={{
-                              background: 'var(--m3-surface)',
-                              color: 'var(--m3-on-surface)',
-                              border: '1px solid var(--m3-outline)',
-                            }}
-                            autoFocus
-                          />
+                <Appear as="li" key={item.id} variant="up" index={Math.min(idx + 1, 12)}>
+                  <div
+                    class="rounded-m3-md p-4 oh-tap-press"
+                    style={{
+                      background: 'var(--m3-surface-container)',
+                      boxShadow: 'var(--m3-elev-1)',
+                    }}
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="flex-1 min-w-0">
+                        {editing ? (
+                          <div class="flex items-center gap-2">
+                            <input
+                              value={row.draftTitle ?? ''}
+                              onInput={(e) =>
+                                patchRow(item.id, {
+                                  draftTitle: (e.currentTarget as HTMLInputElement).value,
+                                })
+                              }
+                              disabled={row.busy}
+                              class="flex-1 px-2 py-1 rounded-m3-sm text-sm"
+                              style={{
+                                background: 'var(--m3-surface)',
+                                color: 'var(--m3-on-surface)',
+                                border: '1px solid var(--m3-outline)',
+                              }}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  void handleRenameSubmit(item);
+                                } else if (e.key === 'Escape') {
+                                  patchRow(item.id, { draftTitle: null, error: undefined });
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRenameSubmit(item)}
+                              disabled={row.busy}
+                              class="text-xs px-2 py-1 rounded-m3-sm"
+                              style={{
+                                background: 'var(--m3-primary)',
+                                color: 'var(--m3-on-primary)',
+                              }}
+                            >
+                              {row.busy
+                                ? t('sessions.rename.saving', '保存中…')
+                                : t('sessions.rename.save', '保存')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                patchRow(item.id, { draftTitle: null, error: undefined })
+                              }
+                              disabled={row.busy}
+                              class="text-xs px-2 py-1"
+                              style={{ color: 'var(--m3-on-surface-variant)' }}
+                            >
+                              {t('common.cancel', '取消')}
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => handleRenameSubmit(item)}
-                            disabled={row.busy}
-                            class="text-xs px-2 py-1 rounded-md"
-                            style={{
-                              background: 'var(--m3-primary)',
-                              color: 'var(--m3-on-primary)',
-                            }}
+                            onClick={() => location.route(`/threads/${item.id}`)}
+                            class="text-base font-medium hover:underline text-left truncate block w-full"
+                            style={{ color: 'var(--m3-on-surface)' }}
                           >
-                            {row.busy
-                              ? t('sessions.rename.saving', '保存中…')
-                              : t('sessions.rename.save', '保存')}
+                            {item.title || t('sessions.untitled', '未命名会话')}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              patchRow(item.id, { draftTitle: null, error: undefined })
-                            }
-                            disabled={row.busy}
-                            class="text-xs px-2 py-1"
-                            style={{ color: 'var(--m3-on-surface-variant)' }}
-                          >
-                            {t('common.cancel', '取消')}
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => location.route(`/threads/${item.id}`)}
-                          class="text-base font-medium hover:underline text-left truncate block w-full"
-                          style={{ color: 'var(--m3-on-surface)' }}
-                        >
-                          {item.title || t('sessions.untitled', '未命名会话')}
-                        </button>
-                      )}
-                      <p
-                        class="text-xs mt-1 truncate"
-                        style={{ color: 'var(--m3-on-surface-variant)' }}
-                      >
-                        {item.last_message_preview ||
-                          t('sessions.previewEmpty', '尚无消息')}
-                      </p>
-                      <div
-                        class="text-xs mt-2 flex flex-wrap gap-x-3 gap-y-1"
-                        style={{ color: 'var(--m3-on-surface-variant)' }}
-                      >
-                        <span>{formatTimestamp(item.updated_at)}</span>
-                        <span>· {modeLabel(item.mode)}</span>
-                        <span>
-                          · {t('sessions.template.label', '模板：')}
-                          {item.template_name || item.template_id}
-                        </span>
-                        <span>
-                          · {item.message_count}{' '}
-                          {t('sessions.messageUnit', '条消息')}
-                        </span>
-                      </div>
-                      {row.error ? (
-                        <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
-                          {row.error}
-                        </p>
-                      ) : null}
-                    </div>
-                    {sessionMgmtEnabled && !editing ? (
-                      <div class="flex flex-col items-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            patchRow(item.id, { draftTitle: item.title, error: undefined })
-                          }
-                          class="text-xs underline"
+                        )}
+                        <p
+                          class="text-xs mt-1 truncate"
                           style={{ color: 'var(--m3-on-surface-variant)' }}
                         >
-                          {t('sessions.rename.action', '重命名')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item)}
-                          disabled={row.busy}
-                          class="text-xs underline"
-                          style={{
-                            color: row.pendingDelete ? 'var(--m3-error)' : 'var(--m3-on-surface-variant)',
-                          }}
+                          {item.last_message_preview ||
+                            t('sessions.previewEmpty', '尚无消息')}
+                        </p>
+                        <div
+                          class="text-xs mt-2 flex flex-wrap gap-x-3 gap-y-1"
+                          style={{ color: 'var(--m3-on-surface-variant)' }}
                         >
-                          {row.busy
-                            ? t('sessions.delete.deleting', '正在删除…')
-                            : row.pendingDelete
-                              ? t('sessions.delete.confirm', '再次点击确认删除')
-                              : t('sessions.delete.action', '删除')}
-                        </button>
+                          <span>{formatTimestamp(item.updated_at)}</span>
+                          <span>· {modeLabel(item.mode)}</span>
+                          <span>
+                            · {t('sessions.template.label', '模板：')}
+                            {item.template_name || item.template_id}
+                          </span>
+                          <span>
+                            · {item.message_count} {t('sessions.messageUnit', '条消息')}
+                          </span>
+                        </div>
+                        {row.error ? (
+                          <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
+                            {row.error}
+                          </p>
+                        ) : null}
                       </div>
-                    ) : null}
+                      {sessionMgmtEnabled && !editing ? (
+                        <PopMenu
+                          align="right"
+                          trigger={({ open, toggle }) => (
+                            <button
+                              type="button"
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                toggle();
+                              }}
+                              class="oh-tap-press w-8 h-8 rounded-full flex items-center justify-center text-base"
+                              style={{
+                                background: open
+                                  ? 'color-mix(in srgb, var(--m3-on-surface) 8%, transparent)'
+                                  : 'transparent',
+                                color: 'var(--m3-on-surface-variant)',
+                                border: '1px solid var(--m3-outline)',
+                              }}
+                              aria-haspopup="menu"
+                              aria-label={t('sessions.row.menu', '更多操作')}
+                              title={t('sessions.row.menu', '更多操作')}
+                            >
+                              ⋯
+                            </button>
+                          )}
+                          items={[
+                            {
+                              key: 'rename',
+                              label: t('sessions.rename.action', '重命名'),
+                              onClick: () =>
+                                patchRow(item.id, {
+                                  draftTitle: item.title,
+                                  error: undefined,
+                                }),
+                            },
+                            {
+                              key: 'export',
+                              label: row.exporting
+                                ? t('sessions.export.busy', '正在导出…')
+                                : t('sessions.export.action', '导出会话数据'),
+                              onClick: () => void handleExport(item),
+                              disabled: row.exporting,
+                            },
+                            {
+                              key: 'delete',
+                              label: row.busy
+                                ? t('sessions.delete.deleting', '正在删除…')
+                                : row.pendingDelete
+                                  ? t('sessions.delete.confirm', '再次点击确认删除')
+                                  : t('sessions.delete.action', '删除'),
+                              onClick: () => void handleDelete(item),
+                              variant: 'danger',
+                              disabled: row.busy,
+                            },
+                          ]}
+                        />
+                      ) : null}
+                    </div>
                   </div>
-                </li>
+                </Appear>
               );
             })}
           </ul>
@@ -489,7 +462,7 @@ export function SessionsPage() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1 || loading}
-              class="px-3 py-1.5 rounded-md disabled:opacity-50"
+              class="px-3 py-1.5 rounded-m3-sm disabled:opacity-50"
               style={{
                 border: '1px solid var(--m3-outline)',
                 color: 'var(--m3-on-surface)',
@@ -504,7 +477,7 @@ export function SessionsPage() {
               type="button"
               onClick={() => setPage((p) => p + 1)}
               disabled={!data.has_more || loading}
-              class="px-3 py-1.5 rounded-md disabled:opacity-50"
+              class="px-3 py-1.5 rounded-m3-sm disabled:opacity-50"
               style={{
                 border: '1px solid var(--m3-outline)',
                 color: 'var(--m3-on-surface)',
@@ -515,6 +488,58 @@ export function SessionsPage() {
           </div>
         ) : null}
       </div>
+
+      {/* FAB：右下角悬浮加号，触发模板选择弹窗 */}
+      {sessionMgmtEnabled ? (
+        <button
+          type="button"
+          class="oh-fab"
+          aria-label={t('sessions.fab.create', '新建会话')}
+          title={t('sessions.fab.create', '新建会话')}
+          onClick={openPicker}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden
+          >
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+      ) : null}
+
+      {/* 模板选择 / 配置弹窗 */}
+      {pickerOpen ? (
+        <TemplatePickerDialog
+          templates={templates}
+          onPick={onPickTemplate}
+          onClose={() => setPickerOpen(false)}
+        />
+      ) : null}
+      {configTemplate ? (
+        <TemplateConfigDialog
+          template={configTemplate}
+          models={auth.meta?.models ?? []}
+          allowedModes={allowedModes}
+          planEnabled={planEnabled}
+          busy={creating}
+          error={createError}
+          onSubmit={onConfigSubmit}
+          onClose={() => {
+            if (creating) return;
+            setConfigTemplate(null);
+            setCreateError(null);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

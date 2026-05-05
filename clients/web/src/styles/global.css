@@ -140,6 +140,75 @@ html, body, #root {
 }
 .oh-hover-lift:hover { transform: translateY(-2px); }
 
+/* 弹窗入场：遮罩 fade + 中央卡片 spring scale-in，对齐 Material 3 Expressive 的"触觉Q弹"。 */
+@keyframes oh-dialog-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes oh-dialog-pop-in {
+  0%   { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.94); }
+  60%  { opacity: 1; transform: translate3d(0, -2px, 0) scale(1.02); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+.oh-dialog-fade-in {
+  animation: oh-dialog-fade-in 220ms var(--oh-motion-emphasized) both;
+}
+.oh-dialog-pop-in {
+  animation: oh-dialog-pop-in 360ms var(--oh-motion-spring) both;
+  will-change: transform, opacity;
+}
+
+/* 悬浮加号按钮 (FAB)：常态轻浮 + hover 上抬 + active 下沉，外加循环极轻 idle 呼吸。 */
+@keyframes oh-fab-idle {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+.oh-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--m3-primary);
+  color: var(--m3-on-primary);
+  box-shadow:
+    0 8px 24px -6px color-mix(in srgb, var(--m3-primary) 55%, transparent),
+    0 4px 10px rgba(0, 0, 0, 0.16);
+  border: none;
+  cursor: pointer;
+  z-index: 40;
+  animation: oh-fab-idle 4.2s ease-in-out infinite;
+  transition:
+    transform 200ms var(--oh-motion-spring),
+    box-shadow 240ms var(--oh-motion-emphasized),
+    background-color 240ms var(--oh-motion-emphasized);
+}
+.oh-fab:hover {
+  transform: translateY(-3px) scale(1.04);
+  box-shadow:
+    0 14px 30px -8px color-mix(in srgb, var(--m3-primary) 65%, transparent),
+    0 6px 14px rgba(0, 0, 0, 0.20);
+}
+.oh-fab:active {
+  transform: translateY(0) scale(0.96);
+}
+
+/* PopMenu (三点菜单等) 入场：origin top-right，先扩展再回弹，给 Material You 弹性感。 */
+@keyframes oh-popmenu-pop {
+  0%   { opacity: 0; transform: scale(0.84); }
+  55%  { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.oh-popmenu-pop {
+  animation: oh-popmenu-pop 200ms var(--oh-motion-spring) both;
+  transform-origin: top right;
+  will-change: transform, opacity;
+}
+
 /* OS 级 + 应用级双重「降低动效」开关：任一开启即整树关闭动画。
    - prefers-reduced-motion: 系统设置
    - [data-motion='reduced']: 用户在 Flutter 应用设置里关「reduceMotion」时由 JS 写入
