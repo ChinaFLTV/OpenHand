@@ -17,6 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useRoute } from 'preact-iso';
+import { createPortal } from 'preact/compat';
 import {
   deleteMessage,
   deleteMessageCascade,
@@ -1870,7 +1871,7 @@ function MessageAuditDialog({
   onClose: () => void;
 }) {
   const json = JSON.stringify(message, null, 2);
-  return (
+  const node = (
     <div
       class="oh-dialog-fade-in fixed inset-0 z-[1100] flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.40)', zIndex: 1100 }}
@@ -1922,6 +1923,7 @@ function MessageAuditDialog({
       </div>
     </div>
   );
+  return typeof document === 'undefined' ? node : createPortal(node, document.body);
 }
 
 function SessionAuditDialog({
@@ -1946,7 +1948,7 @@ function SessionAuditDialog({
     `${session.tool_message_count ?? 0} tool`,
     `${session.compression_point_count ?? 0} compress`,
   ];
-  return (
+  const node = (
     <div
       class="oh-dialog-fade-in fixed inset-0 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.40)', zIndex: 1100 }}
@@ -2017,4 +2019,5 @@ function SessionAuditDialog({
       </div>
     </div>
   );
+  return typeof document === 'undefined' ? node : createPortal(node, document.body);
 }

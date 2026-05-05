@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
+import { createPortal } from 'preact/compat';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
 import { ModelPickerDialog } from './ModelPickerDialog';
@@ -122,6 +123,9 @@ export function SessionTopBar(props: SessionTopBarProps) {
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const modeMenuAnchorRef = useRef<HTMLDivElement | null>(null);
+  const permMenuAnchorRef = useRef<HTMLDivElement | null>(null);
+  const moreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showModeMenu, setShowModeMenu] = useState(false);
   const [showPermMenu, setShowPermMenu] = useState(false);
@@ -274,7 +278,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
       </div>
 
       {/* Mode chip */}
-      <div class="relative" data-topbar-menu>
+      <div ref={modeMenuAnchorRef} class="relative" data-topbar-menu>
         <Chip
           icon={modeIcon(mode)}
           label={modeLabel(mode)}
@@ -288,7 +292,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
           title={t('topbar.mode.title', '会话模式')}
         />
         {showModeMenu ? (
-          <Menu>
+          <Menu anchorRef={modeMenuAnchorRef}>
             {modes.map((m) => (
               <MenuItem
                 key={m}
@@ -317,7 +321,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
       />
 
       {/* Permission chip */}
-      <div class="relative" data-topbar-menu>
+      <div ref={permMenuAnchorRef} class="relative" data-topbar-menu>
         <Chip
           icon={permissionIcon(fullAccessPermission)}
           label={permissionLabel(fullAccessPermission)}
@@ -330,7 +334,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
           title={t('topbar.perm.title', '权限模式')}
         />
         {showPermMenu ? (
-          <Menu>
+          <Menu anchorRef={permMenuAnchorRef}>
             {[false, true].map((value) => (
               <MenuItem
                 key={value ? 'full' : 'default'}
@@ -374,7 +378,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
         </button>
       ) : null}
 
-      <div class="relative" data-topbar-menu>
+      <div ref={moreMenuAnchorRef} class="relative" data-topbar-menu>
         <button
           type="button"
           onClick={() => {
@@ -392,7 +396,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
           ⋯
         </button>
         {showMore ? (
-          <Menu>
+          <Menu anchorRef={moreMenuAnchorRef}>
             {onRename ? (
               <MenuItem onClick={() => { setShowMore(false); setEditing(true); }}>
                 ✎ {t('topbar.rename', '重命名')}
@@ -516,20 +520,92 @@ function Chip({
   );
 }
 
-function Menu({ children }: { children: ComponentChildren }) {
-  return (
+const MENU_MIN_WIDTH = 180;
+const MENU_VIEWPORT_GAP = 8;
+const MENU_OFFSET = 4;
+
+interface TopBarMenuPosition {
+  top: number;
+  left: number;
+}
+
+function computeTopBarMenuPosition(
+  anchor: HTMLElement | null,
+  menuWidth = MENU_MIN_WIDTH,
+  menuHeight = 0,
+): TopBarMenuPosition {
+  if (typeof window === 'undefined' || !anchor) {
+    return { top: MENU_VIEWPORT_GAP, left: MENU_VIEWPORT_GAP };
+  }
+  const rect = anchor.getBoundingClientRect();
+  const usableWidth = Math.max(MENU_MIN_WIDTH, window.innerWidth - MENU_VIEWPORT_GAP * 2);
+  const width = Math.min(Math.max(menuWidth, MENU_MIN_WIDTH), usableWidth);
+  let left = rect.right - width;
+  left = Math.max(MENU_VIEWPORT_GAP, Math.min(left, window.innerWidth - width - MENU_VIEWPORT_GAP));
+
+  let top = rect.bottom + MENU_OFFSET;
+  if (
+    menuHeight > 0 &&
+    top + menuHeight > window.innerHeight - MENU_VIEWPORT_GAP &&
+    rect.top - menuHeight - MENU_OFFSET >= MENU_VIEWPORT_GAP
+  ) {
+    top = rect.top - menuHeight - MENU_OFFSET;
+  } else if (menuHeight > 0) {
+    top = Math.min(top, window.innerHeight - menuHeight - MENU_VIEWPORT_GAP);
+    top = Math.max(MENU_VIEWPORT_GAP, top);
+  }
+  return { top, left };
+}
+
+function Menu({
+  children,
+  anchorRef,
+}: {
+  children: ComponentChildren;
+  anchorRef: { current: HTMLElement | null };
+}) {
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState<TopBarMenuPosition>(() => (
+    computeTopBarMenuPosition(anchorRef.current)
+  ));
+
+  useEffect(() => {
+    const update = () => {
+      setPosition(computeTopBarMenuPosition(
+        anchorRef.current,
+        menuRef.current?.offsetWidth ?? MENU_MIN_WIDTH,
+        menuRef.current?.offsetHeight ?? 0,
+      ));
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [anchorRef]);
+
+  const node = (
     <div
-      class="absolute right-0 mt-1 z-40 rounded-m3-sm py-1 oh-appear-up"
+      ref={menuRef}
+      data-topbar-menu
+      class="fixed rounded-m3-sm py-1 oh-appear-up"
       style={{
         background: 'var(--m3-surface)',
         boxShadow: 'var(--m3-elev-2)',
         border: '1px solid var(--m3-outline)',
         minWidth: '180px',
+        maxWidth: 'calc(100vw - 16px)',
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        zIndex: 2300,
       }}
     >
       {children}
     </div>
   );
+  return typeof document === 'undefined' ? node : createPortal(node, document.body);
 }
 
 function MenuItem({

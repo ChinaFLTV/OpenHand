@@ -23,6 +23,7 @@ import { MenuSelect } from '../components/MenuSelect';
 import { CodeEditor } from '../components/CodeEditor';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 function parentOf(path: string): string {
   const trimmed = path.replace(/\/+$/, '');
@@ -42,6 +43,7 @@ function describeApiError(err: unknown): string {
 
 export function FilesPage() {
   const location = useAnimatedLocation();
+  const reduceMotion = useReducedMotion();
 
   const [path, setPath] = useState('');
   const [pathInput, setPathInput] = useState('');
@@ -67,6 +69,7 @@ export function FilesPage() {
   const [createBusy, setCreateBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const reqIdRef = useRef(0);
+  const detailSectionRef = useRef<HTMLElement | null>(null);
 
   const refresh = async () => {
     setListLoading(true);
@@ -100,6 +103,14 @@ export function FilesPage() {
     }
     setSelected(item);
     void loadContent(item);
+    if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches) {
+      requestAnimationFrame(() => {
+        detailSectionRef.current?.scrollIntoView({
+          behavior: reduceMotion ? 'auto' : 'smooth',
+          block: 'start',
+        });
+      });
+    }
   };
 
   const loadContent = async (item: WorkspaceItem) => {
@@ -543,7 +554,7 @@ export function FilesPage() {
           </section>
 
           {/* 右：详情/编辑器 */}
-          <section class="oh-appear-up rounded-m3-md p-3 flex flex-col"
+          <section ref={detailSectionRef} class="oh-appear-up rounded-m3-md p-3 flex flex-col"
             style={{ backgroundColor: 'var(--m3-surface-container)', minHeight: '60vh' }}
           >
             {!selected ? (
