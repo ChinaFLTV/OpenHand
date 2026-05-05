@@ -1,184 +1,101 @@
-// Web 端最小化 i18n 骨架。Stage 2 仅引入框架与 zh-Hans 词表，后续阶段
-// 按需补充 en / 其他语言。t(key) 缺词时 fallback 到 key 本身，方便快速迭代。
+// Web 端 i18n 入口。Stage 7：引入 zh + en 双词表，运行时可切换并持久化到 localStorage。
+//
+// 设计要点：
+// - dict_zh / dict_en 拆分为独立模块，键集合一一对应。
+// - currentLang 维护在模块级，所有 t(key) 调用直接读取，无需 Context。
+// - subscribe / setLang 通过简单的发布订阅触发 Preact 组件重渲染（useLang hook）。
+// - 首次启动从 localStorage 读取，缺省时按浏览器 navigator.language 自动判断。
+// - dict[key] 缺词时回退顺序：当前语言 → zh → 调用方 fallback → key 本身。
 
-const dict: Record<string, string> = {
-  'app.title': 'Web 通用消息平台',
-  'app.brand': 'OpenHand · Web 通用消息平台',
-  'common.copy': '复制',
-  'common.copied': '已复制',
-  'common.loading': '加载中…',
-  'common.retry': '重试',
-  'common.cancel': '取消',
-  'common.confirm': '确定',
-  'common.logout': '退出登录',
-  'home.theme.source.api': '主题来源：与 OpenHand 主控制台同步',
-  'home.theme.source.default': '主题来源：默认 token',
-  'home.urls.title': '可访问 URL（点击复制）',
-  'home.urls.empty': '当前 service 未返回 accessible_urls。',
-  'home.next.stages': 'Web 通用消息平台全量能力已在顶部入口提供。',
-  'login.title': '登录 Web 通用消息平台',
-  'login.subtitle': 'OpenHand 主控制台已开启鉴权，请输入用户名与密码',
-  'login.username': '用户名',
-  'login.password': '密码',
-  'login.submit': '登录',
-  'login.submitting': '登录中…',
-  'login.error.empty': '用户名和密码不能为空',
-  'login.error.network': '网络异常，无法连接到 service',
-  'login.error.invalid': '用户名或密码错误',
-  'login.anonymous.notice': '当前 service 未启用鉴权，可直接进入首页',
-  'login.anonymous.enter': '直接进入',
-  'guard.checking': '检查鉴权状态…',
-  'guard.required': '需要先登录才能访问',
-  'home.openSessions': '进入会话列表',
-  // Stage 3：会话列表
-  'sessions.title': '会话列表',
-  'sessions.subtitle.count': '共 ',
-  'sessions.subtitle.unit': '个会话',
-  'sessions.subtitle.scopeDevice': '仅本设备可见',
-  'sessions.subtitle.loading': '加载中…',
-  'sessions.backHome': '返回首页',
-  'sessions.create.title': '新建会话',
-  'sessions.create.template': '模板',
-  'sessions.create.mode': '模式',
-  'sessions.create.submit': '创建并进入',
-  'sessions.create.submitting': '正在创建…',
-  'sessions.create.error.api': 'HTTP ',
-  'sessions.mode.chat': '对话',
-  'sessions.mode.plan': 'Plan',
-  'sessions.empty': '暂无会话，先在上方创建一个吧。',
-  'sessions.loading': '加载中…',
-  'sessions.retry': '重试',
-  'sessions.untitled': '未命名会话',
-  'sessions.previewEmpty': '尚无消息',
-  'sessions.template.label': '模板：',
-  'sessions.messageUnit': '条消息',
-  'sessions.rename.action': '重命名',
-  'sessions.rename.save': '保存',
-  'sessions.rename.saving': '保存中…',
-  'sessions.rename.empty': '标题不能为空',
-  'sessions.delete.action': '删除',
-  'sessions.delete.deleting': '正在删除…',
-  'sessions.delete.confirm': '再次点击确认删除',
-  'sessions.pager.prev': '上一页',
-  'sessions.pager.next': '下一页',
-  // Stage 3：会话详情
-  'detail.role.user': '用户',
-  'detail.role.assistant': '助手',
-  'detail.role.system': '系统',
-  'detail.role.tool': '工具',
-  'detail.phase.idle': '空闲',
-  'detail.phase.sending': '发送中',
-  'detail.phase.awaiting': '等待响应',
-  'detail.phase.streaming': '流式接收中',
-  'detail.phase.finalizing': '收尾中',
-  'detail.phase.label': '当前状态：',
-  'detail.lastError': '最近错误：',
-  'detail.missingId': '缺少会话 ID',
-  'detail.backToList': '返回会话列表',
-  'detail.refresh': '刷新',
-  'detail.refreshing': '刷新中…',
-  'detail.loading': '加载会话中…',
-  'detail.empty': '该会话尚无消息。',
-  'detail.loadOlder': '加载更早 ',
-  'detail.loadingOlder': '加载中…',
-  'detail.stage4Placeholder': 'Stage 4 即将上线：消息发送（多类型 + 流式）。',
-  // Stage 4：composer
-  'composer.model': '模型',
-  'composer.modelEmpty': '主控制台未配置模型',
-  'composer.mode': '模式',
-  'composer.mode.normal': '普通',
-  'composer.mode.plan': 'Plan',
-  'composer.mode.image': '图像',
-  'composer.mode.video': '视频',
-  'composer.mode.audio': '音频',
-  'composer.placeholder': '输入消息（Cmd/Ctrl + Enter 发送）',
-  'composer.attachment.add': '添加附件',
-  'composer.attachment.unit': '个附件',
-  'composer.attachment.tooLarge': '附件超过 ',
-  'composer.attachment.readFailed': '附件读取失败：',
-  'composer.error.empty': '请输入内容或添加附件',
-  'composer.error.textNotAllowed': '当前 service 禁用了文本消息',
-  'composer.error.attachmentNotAllowed': '当前 service 禁用了附件',
-  'composer.error.modelMissing': '请选择模型',
-  'composer.error.send': '发送失败：HTTP ',
-  'composer.send': '发送',
-  'composer.sending': '发送中…',
-  'composer.stop': '停止响应',
-  'composer.stopping': '正在停止…',
-  // Stage 5：通用 / Files / Ops / Logs
-  'common.refresh': '刷新',
-  'home.openFiles': '工作区文件',
-  'home.openOps': 'Ops',
-  'home.openLogs': '日志',
-  'files.title': '工作区文件',
-  'files.backHome': '返回首页',
-  'files.path.placeholder': '直接输入相对路径…',
-  'files.path.go': '跳转',
-  'files.search.placeholder': '按文件名搜索…',
-  'files.type.all': '全部',
-  'files.type.directory': '目录',
-  'files.type.file': '文件',
-  'files.parent': '上级目录',
-  'files.empty': '该目录暂无内容',
-  'files.writeEnabled': '可写入：',
-  'files.maxBytes': '单文件上限：',
-  'files.selectHint': '从左侧选择一个文件以查看 / 编辑',
-  'files.dirty': '未保存',
-  'files.saveOk': '已保存',
-  'files.writeDisabledHint': '该文件不可写入',
-  'files.save': '保存',
-  'files.saving': '保存中…',
-  'ops.title': 'Ops 运行时仪表盘',
-  'ops.backHome': '返回首页',
-  'ops.autoRefresh': '自动刷新 5s',
-  'ops.metric.startedAt': '启动时间',
-  'ops.metric.uptime': '运行时长',
-  'ops.metric.bound': '监听 URL',
-  'ops.metric.openSessions': '在线会话',
-  'ops.metric.activeReq': '正在处理',
-  'ops.metric.totalReq': '总请求',
-  'ops.metric.totalErr': '总错误',
-  'ops.metric.bytesIO': '字节 IN / OUT',
-  'ops.metric.crash': '崩溃 / 重启',
-  'ops.metric.rss': '当前 / 峰值 RSS',
-  'ops.metric.cpu': 'CPU %',
-  'ops.metric.thread': '线程 / 句柄',
-  'ops.metric.swap': 'Swap',
-  'ops.metric.diskLog': '磁盘日志',
-  'ops.metric.platform': '平台',
-  'ops.metric.pid': 'PID',
-  'ops.accessibleUrls': '可访问 URL',
-  'ops.cleanup.title': '资源清理',
-  'ops.cleanup.target': '目标',
-  'ops.cleanup.target.all': '全部',
-  'ops.cleanup.target.logs': '仅日志',
-  'ops.cleanup.target.uploads': '仅上传缓存',
-  'ops.cleanup.expiredOnly': '仅清理过期项',
-  'ops.cleanup.execute': '立即清理',
-  'ops.cleanup.running': '清理中…',
-  'ops.cleanup.history': '清理历史（最近 50 条）',
-  'ops.cleanup.empty': '暂无历史记录',
-  'ops.cleanup.col.time': '时间',
-  'ops.cleanup.col.target': '目标',
-  'ops.cleanup.col.expired': '仅过期',
-  'ops.cleanup.col.files': '文件',
-  'ops.cleanup.col.dirs': '目录',
-  'ops.cleanup.col.bytes': '释放',
-  'ops.cleanup.col.memLog': '内存日志',
-  'logs.title': '日志',
-  'logs.backHome': '返回首页',
-  'logs.stat.total': '总：',
-  'logs.stat.shown': '当前页：',
-  'logs.tail': 'Tail 模式 3s 自动',
-  'logs.level.all': '全部级别',
-  'logs.tag.placeholder': '按 tag / message 模糊过滤',
-  'logs.export': '导出 JSON',
-  'logs.exporting': '导出中…',
-  'logs.prev': '上一页',
-  'logs.next': '下一页',
-  'logs.empty': '没有匹配的日志',
+import { useEffect, useState } from 'preact/hooks';
+import { dict_zh } from './dict_zh';
+import { dict_en } from './dict_en';
+
+export type Lang = 'zh' | 'en';
+
+const STORAGE_KEY = 'openhand_web_lang';
+const dicts: Record<Lang, Record<string, string>> = {
+  zh: dict_zh,
+  en: dict_en,
 };
 
+function detectInitialLang(): Lang {
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored === 'zh' || stored === 'en') return stored;
+  } catch {
+    // localStorage 不可用（隐私模式 / SSR）：忽略，落入自动检测。
+  }
+  try {
+    const navLang = (navigator.language || '').toLowerCase();
+    if (navLang.startsWith('zh')) return 'zh';
+    if (navLang.startsWith('en')) return 'en';
+  } catch {
+    // 非浏览器环境：忽略。
+  }
+  return 'zh';
+}
+
+let currentLang: Lang = detectInitialLang();
+const listeners = new Set<(lang: Lang) => void>();
+
+export function getLang(): Lang {
+  return currentLang;
+}
+
+export function setLang(lang: Lang): void {
+  if (lang !== 'zh' && lang !== 'en') return;
+  if (lang === currentLang) return;
+  currentLang = lang;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, lang);
+  } catch {
+    // 持久化失败不影响内存切换。
+  }
+  // 同步设置 <html lang> 便于浏览器 / 屏幕阅读器识别。
+  try {
+    document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : 'en';
+  } catch {
+    // 忽略：非浏览器环境。
+  }
+  for (const fn of listeners) {
+    try {
+      fn(lang);
+    } catch {
+      // 单个订阅者抛错不应影响其他订阅者。
+    }
+  }
+}
+
+export function subscribeLang(fn: (lang: Lang) => void): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+
 export function t(key: string, fallback?: string): string {
-  return dict[key] ?? fallback ?? key;
+  const direct = dicts[currentLang][key];
+  if (direct !== undefined) return direct;
+  // 当前语言缺词：先回退到 zh（保证生产链路不出现裸 key）。
+  const zh = dicts.zh[key];
+  if (zh !== undefined) return zh;
+  return fallback ?? key;
+}
+
+// Preact hook：在组件中订阅当前语言，语言切换后自动重渲染。
+export function useLang(): Lang {
+  const [lang, setLangState] = useState<Lang>(currentLang);
+  useEffect(() => {
+    const off = subscribeLang((next) => setLangState(next));
+    return off;
+  }, []);
+  return lang;
+}
+
+// 启动时立刻同步 <html lang>，便于浏览器加载首屏时即生效。
+try {
+  document.documentElement.lang = currentLang === 'zh' ? 'zh-Hans' : 'en';
+} catch {
+  // 非浏览器环境：忽略。
 }

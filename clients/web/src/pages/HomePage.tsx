@@ -1,11 +1,12 @@
 import { useState } from 'preact/hooks';
 import { logout, useAuth } from '../state/auth';
 import { useLocation } from 'preact-iso';
-import { t } from '../i18n';
+import { setLang, t, useLang } from '../i18n';
 
 export function HomePage() {
   const auth = useAuth();
   const location = useLocation();
+  const lang = useLang();
   const [copied, setCopied] = useState<string | null>(null);
 
   const urls = auth.meta?.service?.accessible_urls ?? [];
@@ -56,10 +57,38 @@ export function HomePage() {
               {t('app.brand')}
             </h1>
             <p class="text-sm mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              Web 通用消息平台：会话 / 多类型消息 / 工作区文件 / Ops / 日志
+              {t('home.subtitle')}
             </p>
           </div>
           <div class="flex items-center gap-2 flex-wrap justify-end">
+            <div
+              role="group"
+              aria-label={t('common.lang.label')}
+              class="inline-flex rounded-m3-sm overflow-hidden"
+              style={{ border: '1px solid var(--m3-outline)' }}
+            >
+              {(['zh', 'en'] as const).map((opt) => {
+                const active = lang === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setLang(opt)}
+                    class="text-xs px-2.5 py-1.5 transition-colors"
+                    style={{
+                      color: active ? 'var(--m3-on-primary)' : 'var(--m3-on-surface-variant)',
+                      backgroundColor: active ? 'var(--m3-primary)' : 'transparent',
+                      minWidth: '36px',
+                      cursor: active ? 'default' : 'pointer',
+                    }}
+                    aria-pressed={active}
+                    title={t('common.lang.label')}
+                  >
+                    {opt === 'zh' ? t('common.lang.zh') : t('common.lang.en')}
+                  </button>
+                );
+              })}
+            </div>
             <button
               type="button"
               onClick={() => location.route('/threads')}
@@ -130,7 +159,7 @@ export function HomePage() {
             class="rounded-m3-sm px-4 py-2 text-sm mb-6"
             style={{ backgroundColor: 'var(--m3-surface)', color: 'var(--m3-on-surface-variant)' }}
           >
-            当前会话：<b style={{ color: 'var(--m3-on-surface)' }}>{profile.username}</b>
+            {t('home.profile.label')}<b style={{ color: 'var(--m3-on-surface)' }}>{profile.username}</b>
             {profile.device_name ? ` · ${profile.device_name}` : ''}
           </div>
         )}
@@ -205,7 +234,7 @@ export function HomePage() {
                       boxShadow: 'var(--m3-elev-1)',
                       border: copied === url ? '1px solid var(--m3-primary)' : 'none',
                     }}
-                    title={url === boundUrl ? '当前绑定 URL' : '局域网可访问 URL'}
+                    title={url === boundUrl ? t('home.urls.boundHint') : t('home.urls.lanHint')}
                   >
                     {url}
                     {copied === url ? `  ✓ ${t('common.copied')}` : ''}
