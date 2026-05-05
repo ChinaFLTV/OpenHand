@@ -70,6 +70,7 @@ export interface OpsRuntimeSnapshot {
   slowest_recent?: OpsRecentSlowRequest | null;
   last_error_at?: string | null;
   last_error_path?: string;
+  active_sse_subscriptions?: number;
 }
 
 export interface CleanupHistoryEntry {

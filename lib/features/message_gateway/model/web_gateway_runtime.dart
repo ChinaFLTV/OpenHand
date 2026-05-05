@@ -179,6 +179,7 @@ class WebGatewayRuntimeSnapshot {
     this.lastErrorPath = '',
     this.dartVersion = '',
     this.hostName = '',
+    this.activeSseSubscriptions = 0,
   });
 
   final WebGatewayRuntimeState state;
@@ -219,6 +220,9 @@ class WebGatewayRuntimeSnapshot {
   final String lastErrorPath;
   final String dartVersion;
   final String hostName;
+
+  /// 当前活跃的 SSE 长连接数（每个 `/api/sessions/<id>/events` 客户端 +1）。
+  final int activeSseSubscriptions;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -261,6 +265,7 @@ class WebGatewayRuntimeSnapshot {
       'slowest_recent': slowestRecent?.toJson(),
       'last_error_at': lastErrorAt?.toUtc().toIso8601String(),
       'last_error_path': lastErrorPath,
+      'active_sse_subscriptions': activeSseSubscriptions,
     };
   }
 }

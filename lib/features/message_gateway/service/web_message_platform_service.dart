@@ -138,6 +138,11 @@ class WebMessagePlatformService {
   DateTime? _processDiagnosticsAt;
   _LinuxCpuSample? _previousLinuxCpuSample;
 
+  /// 当前活跃的 SSE 订阅数（每个 `/api/sessions/<id>/events` 长连接 +1，
+  /// onCancel 时 -1）。Ops 面板用它判断"是否有人在看活跃流"，并辅助识别
+  /// 客户端泄漏（断网后未释放的悬挂连接）。
+  int _activeSseSubscriptions = 0;
+
   /// 缓存当前主机非环回 IPv4 地址列表，作为 `accessibleUrls` 在
   /// 监听 `0.0.0.0` / `::` 时枚举局域网 URL 的数据源。`start()` 后填充，
   /// `runtimeSnapshotAsync()` 触发时按 30s TTL 刷新。
@@ -338,6 +343,7 @@ class WebMessagePlatformService {
       lastErrorPath: _lastErrorPath,
       dartVersion: Platform.version,
       hostName: _safeHostName(),
+      activeSseSubscriptions: _activeSseSubscriptions,
     );
   }
 
@@ -1801,9 +1807,11 @@ class WebMessagePlatformService {
       if (!controller.isClosed) {
         controller.close();
       }
+      _activeSseSubscriptions = math.max(0, _activeSseSubscriptions - 1);
     }
 
     controller.onCancel = dispose;
+    _activeSseSubscriptions += 1;
 
     // 立即推送首帧，避免前端等待第一次 notifyListeners。
     Future<void>.microtask(() {

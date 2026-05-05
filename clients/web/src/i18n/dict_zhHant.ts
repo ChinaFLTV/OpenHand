@@ -170,6 +170,7 @@ export const dict_zhHant: Record<string, string> = {
   'ops.metric.bound': '監聽 URL',
   'ops.metric.openSessions': '線上工作階段',
   'ops.metric.activeReq': '處理中',
+  'ops.metric.activeSse': 'SSE 長連接',
   'ops.metric.totalReq': '總請求',
   'ops.metric.totalErr': '總錯誤',
   'ops.metric.bytesIO': '位元組 IN / OUT',

@@ -197,6 +197,10 @@ export function OpsPage() {
               <Metric label={t('ops.metric.bound', '监听 URL')} value={snapshot.bound_url || '—'} mono />
               <Metric label={t('ops.metric.openSessions', '在线会话')} value={String(snapshot.open_session_count)} />
               <Metric label={t('ops.metric.activeReq', '正在处理')} value={String(snapshot.active_requests)} />
+              {typeof snapshot.active_sse_subscriptions === 'number' && (
+                <Metric label={t('ops.metric.activeSse', 'SSE 长连接')}
+                  value={String(snapshot.active_sse_subscriptions)} />
+              )}
               <Metric label={t('ops.metric.totalReq', '总请求')} value={String(snapshot.total_requests)} />
               <Metric label={t('ops.metric.totalErr', '总错误')} value={String(snapshot.total_errors)} />
               <Metric label={t('ops.metric.bytesIO', '字节 IN / OUT')}

@@ -170,6 +170,7 @@ export const dict_ja: Record<string, string> = {
   'ops.metric.bound': 'バインド URL',
   'ops.metric.openSessions': 'オンラインセッション',
   'ops.metric.activeReq': '処理中リクエスト',
+  'ops.metric.activeSse': 'SSE 接続中',
   'ops.metric.totalReq': '総リクエスト',
   'ops.metric.totalErr': '総エラー',
   'ops.metric.bytesIO': 'バイト IN / OUT',

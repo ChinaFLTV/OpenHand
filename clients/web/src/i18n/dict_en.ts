@@ -172,6 +172,7 @@ export const dict_en: Record<string, string> = {
   'ops.metric.bound': 'Bound URL',
   'ops.metric.openSessions': 'Open sessions',
   'ops.metric.activeReq': 'Active requests',
+  'ops.metric.activeSse': 'Active SSE clients',
   'ops.metric.totalReq': 'Total requests',
   'ops.metric.totalErr': 'Total errors',
   'ops.metric.bytesIO': 'Bytes IN / OUT',
