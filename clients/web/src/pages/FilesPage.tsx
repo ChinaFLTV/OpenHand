@@ -21,6 +21,8 @@ import {
 import { t, tBytes, tDateTime } from '../i18n';
 import { MenuSelect } from '../components/MenuSelect';
 import { CodeEditor } from '../components/CodeEditor';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { showSnackbar } from '../components/Snackbar';
 
 function parentOf(path: string): string {
   const trimmed = path.replace(/\/+$/, '');
@@ -58,10 +60,8 @@ export function FilesPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
-  // 删除二次确认 + 创建弹出状态。pendingDelete 保存上次点击的 path，
-  // 4s 后自清；pendingDeleteAt 记时间戏避免误点。
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
-  const pendingDeleteTimerRef = useRef<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<WorkspaceItem | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [creating, setCreating] = useState<null | 'file' | 'directory'>(null);
   const [createName, setCreateName] = useState('');
   const [createBusy, setCreateBusy] = useState(false);
@@ -91,15 +91,6 @@ export function FilesPage() {
     void refresh();
     setPathInput(path);
   }, [path, query, typeFilter]);
-
-  // 卸载时清掉 pendingDelete 4s 定时器
-  useEffect(() => {
-    return () => {
-      if (pendingDeleteTimerRef.current != null) {
-        window.clearTimeout(pendingDeleteTimerRef.current);
-      }
-    };
-  }, []);
 
   const onOpenItem = (item: WorkspaceItem) => {
     if (item.type === 'directory') {
@@ -143,9 +134,12 @@ export function FilesPage() {
       setContentMeta({ size: res.size, modified_at: res.modified_at });
       setDirty(false);
       setSaveOk(true);
+      showSnackbar(`${t('files.saveOk', '已保存')}：${selected.path}`, { tone: 'success' });
       setTimeout(() => setSaveOk(false), 2000);
     } catch (err) {
-      setSaveError(describeApiError(err));
+      const message = describeApiError(err);
+      setSaveError(message);
+      showSnackbar(`${t('files.save.failed', '保存失败')}：${message}`, { tone: 'error' });
     } finally {
       setSaving(false);
     }
@@ -172,32 +166,27 @@ export function FilesPage() {
   const writeDisabled = !list?.write_enabled || !selected?.editable;
   const fileOperationsEnabled = Boolean(list?.operations_enabled ?? list?.write_enabled);
 
-  // 删除文件 / 空目录：first tap -> 进入 pending（4s 自动清），second tap -> 真删
-  const handleDelete = async (item: WorkspaceItem) => {
-    if (!fileOperationsEnabled) return;
-    if (pendingDelete !== item.path) {
-      setPendingDelete(item.path);
-      setActionError(null);
-      if (pendingDeleteTimerRef.current != null) {
-        window.clearTimeout(pendingDeleteTimerRef.current);
-      }
-      pendingDeleteTimerRef.current = window.setTimeout(() => {
-        setPendingDelete(null);
-        pendingDeleteTimerRef.current = null;
-      }, 4000) as unknown as number;
-      return;
-    }
+  const confirmDeleteTarget = async () => {
+    const item = deleteTarget;
+    if (!fileOperationsEnabled || !item || deleteBusy) return;
+    setDeleteBusy(true);
+    setActionError(null);
     try {
       await deleteWorkspaceFile(item.path);
-      setPendingDelete(null);
       if (selected?.path === item.path) {
         setSelected(null);
         setContent('');
         setContentMeta(null);
       }
+      setDeleteTarget(null);
+      showSnackbar(`${t('files.delete.ok', '已删除')}：${item.path}`, { tone: 'success' });
       await refresh();
     } catch (err) {
-      setActionError(describeApiError(err));
+      const message = describeApiError(err);
+      setActionError(message);
+      showSnackbar(`${t('files.delete.failed', '删除失败')}：${message}`, { tone: 'error' });
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -208,18 +197,29 @@ export function FilesPage() {
     if (!name) return;
     setCreateBusy(true);
     setActionError(null);
+    const createKind = creating;
     try {
       const targetPath = path ? `${path}/${name}` : name;
-      if (creating === 'directory') {
+      if (createKind === 'directory') {
         await createWorkspaceDirectory(targetPath);
       } else {
         await writeWorkspaceFile(targetPath, '');
       }
       setCreating(null);
       setCreateName('');
+      showSnackbar(
+        `${
+          createKind === 'directory'
+            ? t('files.create.dirOk', '已创建目录')
+            : t('files.create.fileOk', '已创建文件')
+        }：${targetPath}`,
+        { tone: 'success' },
+      );
       await refresh();
     } catch (err) {
-      setActionError(describeApiError(err));
+      const message = describeApiError(err);
+      setActionError(message);
+      showSnackbar(`${t('files.create.failed', '创建失败')}：${message}`, { tone: 'error' });
     } finally {
       setCreateBusy(false);
     }
@@ -480,7 +480,6 @@ export function FilesPage() {
             <ul class="flex flex-col gap-0.5 max-h-[60vh] overflow-y-auto">
               {list?.items.map((it) => {
                 const isActive = selected?.path === it.path;
-                const isPendingDelete = pendingDelete === it.path;
                 return (
                   <li key={it.path} class="flex items-center gap-1">
                     <button
@@ -507,20 +506,21 @@ export function FilesPage() {
                     {fileOperationsEnabled && (
                       <button
                         type="button"
-                        onClick={() => void handleDelete(it)}
-                        title={
-                          isPendingDelete
-                            ? t('files.delete.confirm', '再次点击确认删除')
-                            : t('files.delete', '删除')
-                        }
+                        onClick={() => {
+                          setActionError(null);
+                          setDeleteTarget(it);
+                        }}
+                        disabled={deleteBusy}
+                        title={t('files.delete', '删除')}
                         class="text-xs px-1.5 py-1 rounded-m3-sm shrink-0"
                         style={{
-                          color: isPendingDelete ? 'var(--m3-on-error)' : 'var(--m3-on-surface-variant)',
-                          backgroundColor: isPendingDelete ? 'var(--m3-error)' : 'transparent',
-                          border: isPendingDelete ? '1px solid var(--m3-error)' : '1px solid var(--m3-outline)',
+                          color: 'var(--m3-on-surface-variant)',
+                          backgroundColor: 'transparent',
+                          border: '1px solid var(--m3-outline)',
+                          opacity: deleteBusy ? 0.55 : 1,
                         }}
                       >
-                        {isPendingDelete ? '⚠ ' + t('files.delete.confirmShort', '确认') : '🗑'}
+                        🗑
                       </button>
                     )}
                   </li>
@@ -628,6 +628,20 @@ export function FilesPage() {
           </section>
         </div>
       </div>
+      {deleteTarget ? (
+        <ConfirmDialog
+          title={t('files.delete.confirmTitle', '删除此项目?')}
+          body={`${t('files.delete.confirmBody', '确定删除此文件或空目录?此操作不可恢复。')} ${deleteTarget.path}`}
+          danger
+          busy={deleteBusy}
+          confirmLabel={deleteBusy ? t('files.delete.deleting', '正在删除…') : t('common.delete', '删除')}
+          cancelLabel={t('common.cancel', '取消')}
+          onCancel={() => {
+            if (!deleteBusy) setDeleteTarget(null);
+          }}
+          onConfirm={confirmDeleteTarget}
+        />
+      ) : null}
     </main>
   );
 }
