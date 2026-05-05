@@ -8,8 +8,9 @@
 //
 // 设计参考：M3 Expressive Menu / Filled Outlined Select Spec
 
-import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 import type { JSX } from 'preact';
+import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 
 export interface MenuOption<T extends string = string> {
   value: T;
@@ -36,6 +37,21 @@ interface MenuSelectProps<T extends string = string> {
   disabled?: boolean;
 }
 
+interface MenuPosition {
+  top: number;
+  left: number;
+  minWidth: number;
+  maxHeight: number;
+  transformOrigin: string;
+}
+
+const VIEWPORT_GAP = 8;
+const MENU_OFFSET = 4;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
 export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>): JSX.Element {
   const {
     options, value, onChange, label, minWidth = 160, menuMaxHeight = 280,
@@ -46,17 +62,65 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
   const [highlight, setHighlight] = useState<number>(() =>
     Math.max(0, options.findIndex((o) => o.value === value)),
   );
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
 
   const current = useMemo(() => options.find((o) => o.value === value), [options, value]);
 
+  const computeMenuPosition = (measuredHeight?: number): MenuPosition | null => {
+    if (typeof window === 'undefined') return null;
+    const trigger = triggerRef.current;
+    if (!trigger) return null;
+    const rect = trigger.getBoundingClientRect();
+    const minMenuWidth = Math.max(minWidth, rect.width);
+    const maxLeft = window.innerWidth - minMenuWidth - VIEWPORT_GAP;
+    const left = clamp(rect.left, VIEWPORT_GAP, Math.max(VIEWPORT_GAP, maxLeft));
+    const below = window.innerHeight - rect.bottom - MENU_OFFSET - VIEWPORT_GAP;
+    const above = rect.top - MENU_OFFSET - VIEWPORT_GAP;
+    const openUp = below < 128 && above > below;
+    const available = Math.max(96, Math.min(menuMaxHeight, openUp ? above : below));
+    const visibleHeight = Math.min(measuredHeight ?? available, available);
+    return {
+      top: openUp
+        ? Math.max(VIEWPORT_GAP, rect.top - MENU_OFFSET - visibleHeight)
+        : Math.min(window.innerHeight - VIEWPORT_GAP, rect.bottom + MENU_OFFSET),
+      left,
+      minWidth: minMenuWidth,
+      maxHeight: available,
+      transformOrigin: openUp ? 'bottom center' : 'top center',
+    };
+  };
+
+  const updateMenuPosition = () => {
+    const measuredHeight = menuRef.current?.getBoundingClientRect().height;
+    setMenuPosition(computeMenuPosition(measuredHeight));
+  };
+
   useEffect(() => {
     if (!open) return;
     // 同步初始 highlight 到当前值。
     const idx = options.findIndex((o) => o.value === value);
     if (idx >= 0) setHighlight(idx);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    updateMenuPosition();
+    const frame = window.requestAnimationFrame(updateMenuPosition);
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+    };
+  }, [open, minWidth, menuMaxHeight, options.length]);
+
+  useEffect(() => {
+    if (open) return;
+    setMenuPosition(null);
   }, [open]);
 
   useEffect(() => {
@@ -126,6 +190,75 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
     };
   }, [open, highlight, options, onChange]);
 
+  const menuNode = open ? (
+    <div
+      ref={menuRef}
+      id={listboxId}
+      role="listbox"
+      tabIndex={-1}
+      class="oh-appear-pop fixed rounded-m3-md overflow-auto"
+      style={{
+        top: menuPosition ? `${menuPosition.top}px` : '-9999px',
+        left: menuPosition ? `${menuPosition.left}px` : '-9999px',
+        minWidth: menuPosition?.minWidth ?? minWidth,
+        maxWidth: `calc(100vw - ${VIEWPORT_GAP * 2}px)`,
+        maxHeight: menuPosition?.maxHeight ?? menuMaxHeight,
+        backgroundColor: 'var(--m3-surface)',
+        border: '1px solid var(--m3-outline)',
+        boxShadow: 'var(--m3-elev-3)',
+        transformOrigin: menuPosition?.transformOrigin ?? 'top center',
+        visibility: menuPosition ? 'visible' : 'hidden',
+        zIndex: 2200,
+      }}
+    >
+      {options.map((opt, idx) => {
+        const selected = opt.value === value;
+        const isHi = idx === highlight;
+        return (
+          <div
+            key={opt.value}
+            role="option"
+            aria-selected={selected}
+            aria-disabled={opt.disabled || undefined}
+            onMouseEnter={() => !opt.disabled && setHighlight(idx)}
+            onClick={() => {
+              if (opt.disabled) return;
+              onChange(opt.value);
+              setOpen(false);
+              triggerRef.current?.focus();
+            }}
+            class="px-3 py-2 text-sm flex items-center gap-2"
+            style={{
+              cursor: opt.disabled ? 'not-allowed' : 'pointer',
+              backgroundColor: isHi
+                ? 'var(--m3-surface-container)'
+                : selected
+                  ? 'var(--m3-surface-container)'
+                  : 'transparent',
+              color: opt.disabled ? 'var(--m3-on-surface-variant)' : 'var(--m3-on-surface)',
+              opacity: opt.disabled ? 0.5 : 1,
+              borderLeft: selected ? '3px solid var(--m3-primary)' : '3px solid transparent',
+              transition: 'background-color 160ms var(--oh-motion-emphasized)',
+            }}
+          >
+            <span class="flex-1 min-w-0">
+              <span class="block truncate">{opt.label}</span>
+              {opt.description && (
+                <span
+                  class="block text-xs truncate"
+                  style={{ color: 'var(--m3-on-surface-variant)' }}
+                >
+                  {opt.description}
+                </span>
+              )}
+            </span>
+            {selected && <Check />}
+          </div>
+        );
+      })}
+    </div>
+  ) : null;
+
   return (
     <div class={`relative inline-block ${className ?? ''}`} style={{ minWidth }}>
       <button
@@ -136,7 +269,11 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
         aria-label={ariaLabel ?? label ?? current?.label}
         aria-controls={open ? listboxId : undefined}
         disabled={disabled}
-        onClick={() => !disabled && setOpen((v) => !v)}
+        onClick={() => {
+          if (disabled) return;
+          if (!open) setMenuPosition(computeMenuPosition());
+          setOpen((v) => !v);
+        }}
         class="oh-tap-press w-full inline-flex items-center justify-between gap-2 px-3 py-2 rounded-m3-md text-sm"
         style={{
           backgroundColor: 'var(--m3-surface-container)',
@@ -155,69 +292,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
         </span>
         <Caret open={open} />
       </button>
-      {open && (
-        <div
-          ref={menuRef}
-          id={listboxId}
-          role="listbox"
-          tabIndex={-1}
-          class="oh-appear-pop absolute left-0 mt-1 z-50 rounded-m3-md overflow-auto"
-          style={{
-            minWidth: '100%',
-            maxHeight: menuMaxHeight,
-            backgroundColor: 'var(--m3-surface)',
-            border: '1px solid var(--m3-outline)',
-            boxShadow: 'var(--m3-elev-3)',
-            transformOrigin: 'top center',
-          }}
-        >
-          {options.map((opt, idx) => {
-            const selected = opt.value === value;
-            const isHi = idx === highlight;
-            return (
-              <div
-                key={opt.value}
-                role="option"
-                aria-selected={selected}
-                aria-disabled={opt.disabled || undefined}
-                onMouseEnter={() => !opt.disabled && setHighlight(idx)}
-                onClick={() => {
-                  if (opt.disabled) return;
-                  onChange(opt.value);
-                  setOpen(false);
-                  triggerRef.current?.focus();
-                }}
-                class="px-3 py-2 text-sm flex items-center gap-2"
-                style={{
-                  cursor: opt.disabled ? 'not-allowed' : 'pointer',
-                  backgroundColor: isHi
-                    ? 'var(--m3-surface-container)'
-                    : selected
-                      ? 'var(--m3-surface-container)'
-                      : 'transparent',
-                  color: opt.disabled ? 'var(--m3-on-surface-variant)' : 'var(--m3-on-surface)',
-                  opacity: opt.disabled ? 0.5 : 1,
-                  borderLeft: selected ? '3px solid var(--m3-primary)' : '3px solid transparent',
-                  transition: 'background-color 160ms var(--oh-motion-emphasized)',
-                }}
-              >
-                <span class="flex-1 min-w-0">
-                  <span class="block truncate">{opt.label}</span>
-                  {opt.description && (
-                    <span
-                      class="block text-xs truncate"
-                      style={{ color: 'var(--m3-on-surface-variant)' }}
-                    >
-                      {opt.description}
-                    </span>
-                  )}
-                </span>
-                {selected && <Check />}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {menuNode && (typeof document === 'undefined' ? menuNode : createPortal(menuNode, document.body))}
     </div>
   );
 }
