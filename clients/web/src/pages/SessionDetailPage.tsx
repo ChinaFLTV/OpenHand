@@ -102,6 +102,11 @@ export function SessionDetailPage() {
   const [composerModelKey, setComposerModelKey] = useState<string>('');
   const [composerAttachments, setComposerAttachments] =
     useState<SendMessageAttachment[]>([]);
+  // 附件预览 (image/* → dataURL); key 与 composerAttachments 同序
+  const [attachmentPreviews, setAttachmentPreviews] = useState<
+    { mime: string; dataUrl: string; size: number }[]
+  >([]);
+  const [dragOver, setDragOver] = useState<boolean>(false);
   const [composerSending, setComposerSending] = useState<boolean>(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [stopping, setStopping] = useState<boolean>(false);
@@ -332,7 +337,7 @@ export function SessionDetailPage() {
 
   async function readFileAsAttachment(
     file: File,
-  ): Promise<SendMessageAttachment> {
+  ): Promise<{ att: SendMessageAttachment; mime: string; dataUrl: string }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -347,20 +352,28 @@ export function SessionDetailPage() {
           reject(new Error('empty base64 payload'));
           return;
         }
-        resolve({ name: file.name, data_base64: data });
+        const mime = file.type || (idx > 0
+          ? result.substring(5, result.indexOf(';'))
+          : 'application/octet-stream');
+        resolve({
+          att: { name: file.name, data_base64: data },
+          mime,
+          dataUrl: result,
+        });
       };
       reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'));
       reader.readAsDataURL(file);
     });
   }
 
-  async function handleAttachmentInput(ev: Event): Promise<void> {
-    const input = ev.currentTarget as HTMLInputElement;
-    const files = input.files ? Array.from(input.files) : [];
-    input.value = '';
+  // 从 File[] 追加附件。共用与 file input / drag-drop / paste
+  async function appendFiles(files: File[]): Promise<void> {
     if (files.length === 0) return;
     setComposerError(null);
-    const next: SendMessageAttachment[] = [...composerAttachments];
+    const nextAtt: SendMessageAttachment[] = [...composerAttachments];
+    const nextPv: { mime: string; dataUrl: string; size: number }[] = [
+      ...attachmentPreviews,
+    ];
     for (const file of files) {
       if (file.size > ATTACHMENT_MAX_BYTES) {
         setComposerError(
@@ -371,7 +384,9 @@ export function SessionDetailPage() {
         continue;
       }
       try {
-        next.push(await readFileAsAttachment(file));
+        const r = await readFileAsAttachment(file);
+        nextAtt.push(r.att);
+        nextPv.push({ mime: r.mime, dataUrl: r.dataUrl, size: file.size });
       } catch (e: unknown) {
         setComposerError(
           t('composer.attachment.readFailed', '附件读取失败：') +
@@ -379,11 +394,20 @@ export function SessionDetailPage() {
         );
       }
     }
-    setComposerAttachments(next);
+    setComposerAttachments(nextAtt);
+    setAttachmentPreviews(nextPv);
+  }
+
+  async function handleAttachmentInput(ev: Event): Promise<void> {
+    const input = ev.currentTarget as HTMLInputElement;
+    const files = input.files ? Array.from(input.files) : [];
+    input.value = '';
+    await appendFiles(files);
   }
 
   function removeAttachmentAt(idx: number): void {
     setComposerAttachments((prev) => prev.filter((_, i) => i !== idx));
+    setAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function handleSend(): Promise<void> {
@@ -423,6 +447,7 @@ export function SessionDetailPage() {
       });
       setComposerText('');
       setComposerAttachments([]);
+      setAttachmentPreviews([]);
       setSendPhase(res.send_phase || 'sendingMessage');
       // SSE 通道在 service 端立即推送 user 消息落库；若 SSE 不可用，refresh()
       // 兜底拉一次让 user 消息出现在尾部。
@@ -731,11 +756,47 @@ export function SessionDetailPage() {
             </label>
           </div>
 
+          <div
+            class="relative"
+            onDragOver={(e) => {
+              if (!attachmentsAllowed) return;
+              if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) {
+                e.preventDefault();
+                if (!dragOver) setDragOver(true);
+              }
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget === e.target) setDragOver(false);
+            }}
+            onDrop={(e) => {
+              if (!attachmentsAllowed) return;
+              e.preventDefault();
+              setDragOver(false);
+              const files = Array.from(e.dataTransfer?.files ?? []);
+              if (files.length > 0) void appendFiles(files);
+            }}
+          >
           <textarea
             value={composerText}
             onInput={(e) =>
               setComposerText((e.currentTarget as HTMLTextAreaElement).value)
             }
+            onPaste={(e) => {
+              if (!attachmentsAllowed) return;
+              const items = e.clipboardData?.items;
+              if (!items) return;
+              const files: File[] = [];
+              for (const it of Array.from(items)) {
+                if (it.kind === 'file') {
+                  const f = it.getAsFile();
+                  if (f) files.push(f);
+                }
+              }
+              if (files.length > 0) {
+                e.preventDefault();
+                void appendFiles(files);
+              }
+            }}
             onKeyDown={(e) => {
               // Cmd/Ctrl + Enter 发送
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -755,6 +816,20 @@ export function SessionDetailPage() {
               fontFamily: 'inherit',
             }}
           />
+          {dragOver ? (
+            <div
+              class="absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up"
+              style={{
+                background: 'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
+                border: '2px dashed var(--m3-primary)',
+                color: 'var(--m3-primary)',
+                fontWeight: 600,
+              }}
+            >
+              {t('composer.attachment.drop', '松开即可添加附件')}
+            </div>
+          ) : null}
+          </div>
 
           {/* 附件 */}
           {attachmentsAllowed ? (
@@ -787,29 +862,65 @@ export function SessionDetailPage() {
               </div>
               {composerAttachments.length > 0 ? (
                 <ul class="flex flex-wrap gap-2">
-                  {composerAttachments.map((att, i) => (
-                    <li
-                      key={`${att.name}-${i}`}
-                      class="text-xs px-2 py-1 rounded-md flex items-center gap-2"
-                      style={{
-                        background: 'var(--m3-surface)',
-                        border: '1px solid var(--m3-outline)',
-                        color: 'var(--m3-on-surface)',
-                      }}
-                    >
-                      <span class="truncate max-w-[180px]">{att.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachmentAt(i)}
-                        disabled={composerSending}
-                        class="opacity-70 hover:opacity-100"
-                        style={{ color: 'var(--m3-error)' }}
-                        aria-label="remove attachment"
+                  {composerAttachments.map((att, i) => {
+                    const pv = attachmentPreviews[i];
+                    const isImage = (pv?.mime ?? '').startsWith('image/');
+                    const sizeKb = pv ? (pv.size / 1024).toFixed(1) : '';
+                    return (
+                      <li
+                        key={`${att.name}-${i}`}
+                        class="text-xs rounded-md flex items-center gap-2 overflow-hidden"
+                        style={{
+                          background: 'var(--m3-surface)',
+                          border: '1px solid var(--m3-outline)',
+                          color: 'var(--m3-on-surface)',
+                          padding: isImage ? '4px 6px 4px 4px' : '4px 8px',
+                        }}
                       >
-                        ×
-                      </button>
-                    </li>
-                  ))}
+                        {isImage && pv ? (
+                          <img
+                            src={pv.dataUrl}
+                            alt={att.name}
+                            decoding="async"
+                            loading="lazy"
+                            style={{
+                              width: '36px',
+                              height: '36px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              flex: 'none',
+                            }}
+                          />
+                        ) : (
+                          <span aria-hidden style={{ fontSize: '14px' }}>📎</span>
+                        )}
+                        <span class="flex flex-col min-w-0">
+                          <span class="truncate max-w-[160px]">{att.name}</span>
+                          {pv ? (
+                            <span
+                              class="truncate"
+                              style={{
+                                color: 'var(--m3-on-surface-variant)',
+                                fontSize: '10px',
+                              }}
+                            >
+                              {pv.mime || 'application/octet-stream'} · {sizeKb} KB
+                            </span>
+                          ) : null}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachmentAt(i)}
+                          disabled={composerSending}
+                          class="opacity-70 hover:opacity-100 px-1"
+                          style={{ color: 'var(--m3-error)' }}
+                          aria-label="remove attachment"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : null}
             </div>
