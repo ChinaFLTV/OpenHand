@@ -31,6 +31,99 @@ function describeApiError(err: unknown): string {
   return String(err);
 }
 
+interface OpsHealthSignal {
+  label: string;
+  value: string;
+  tone: 'ok' | 'warn' | 'error' | 'neutral';
+}
+
+interface OpsHealthSummary {
+  score: number;
+  label: string;
+  tone: 'ok' | 'warn' | 'error';
+  signals: OpsHealthSignal[];
+  recommendations: string[];
+}
+
+function percent(value: number): string {
+  return `${(value * 100).toFixed(value >= 0.1 ? 1 : 2)} %`;
+}
+
+function buildOpsHealth(snapshot: OpsRuntimeSnapshot): OpsHealthSummary {
+  let score = 100;
+  const recommendations: string[] = [];
+  const totalRequests = Math.max(snapshot.total_requests, 0);
+  const errorRate = totalRequests > 0 ? snapshot.total_errors / totalRequests : 0;
+  const saturation = snapshot.active_request_ratio ?? 0;
+  const p95 = snapshot.latency_stats?.p95_ms ?? 0;
+  const p99 = snapshot.latency_stats?.p99_ms ?? 0;
+  const errorsPerMinute = snapshot.errors_per_minute ?? 0;
+  const logErrors = snapshot.log_level_breakdown?.error ?? snapshot.log_level_breakdown?.ERROR ?? 0;
+
+  if (snapshot.state === 'crashed') {
+    score -= 45;
+    recommendations.push(t('ops.health.fixCrashed', '服务处于 crashed，优先查看最近错误和内存日志并重启服务。'));
+  } else if (snapshot.state !== 'running') {
+    score -= 20;
+    recommendations.push(t('ops.health.fixNotRunning', '服务未处于 running，确认监听端口、鉴权配置和启动日志。'));
+  }
+  if (errorRate >= 0.05) {
+    score -= 25;
+    recommendations.push(t('ops.health.fixErrorRateHigh', '错误率超过 5%，优先按最近错误路径定位 4xx/5xx 来源。'));
+  } else if (errorRate >= 0.01) {
+    score -= 12;
+    recommendations.push(t('ops.health.fixErrorRateWarn', '错误率超过 1%，建议核对请求来源、模型服务和文件权限。'));
+  }
+  if (errorsPerMinute > 0) {
+    score -= Math.min(15, 5 + errorsPerMinute * 2);
+    recommendations.push(t('ops.health.fixRecentErrors', '最近 1 分钟仍有错误增长，观察错误是否持续并检查对应路由。'));
+  }
+  if (saturation >= 0.85) {
+    score -= 20;
+    recommendations.push(t('ops.health.fixSaturationHigh', '并发水位接近上限，建议降低长连接/轮询压力或提高并发限制。'));
+  } else if (saturation >= 0.6) {
+    score -= 10;
+    recommendations.push(t('ops.health.fixSaturationWarn', '并发水位偏高，继续观察请求排队和 SSE 连接数。'));
+  }
+  if (p95 >= 3000) {
+    score -= 15;
+    recommendations.push(t('ops.health.fixLatencyHigh', 'P95 延迟超过 3s，建议检查慢路由、上游模型和文件 IO。'));
+  } else if (p95 >= 1000) {
+    score -= 8;
+    recommendations.push(t('ops.health.fixLatencyWarn', 'P95 延迟超过 1s，可结合 Top Routes 排查热点路径。'));
+  }
+  if (snapshot.crash_count > 0 || snapshot.restart_count > 0) {
+    score -= Math.min(12, snapshot.crash_count * 6 + snapshot.restart_count * 2);
+  }
+  if (logErrors > 0) {
+    score -= Math.min(10, logErrors);
+  }
+  if (recommendations.length === 0) {
+    recommendations.push(t('ops.health.keepWatch', '当前核心信号平稳，保持自动刷新并关注错误率、P95 延迟和并发水位。'));
+  }
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const tone: OpsHealthSummary['tone'] = score >= 85 ? 'ok' : score >= 65 ? 'warn' : 'error';
+  const label = tone === 'ok'
+    ? t('ops.health.good', '健康')
+    : tone === 'warn'
+      ? t('ops.health.watch', '需关注')
+      : t('ops.health.bad', '异常');
+  return {
+    score,
+    label,
+    tone,
+    recommendations: recommendations.slice(0, 4),
+    signals: [
+      { label: t('ops.health.signal.errorRate', '错误率'), value: percent(errorRate), tone: errorRate >= 0.05 ? 'error' : errorRate >= 0.01 ? 'warn' : 'ok' },
+      { label: t('ops.health.signal.p95', 'P95 延迟'), value: p95 > 0 ? `${p95} ms` : '—', tone: p95 >= 3000 ? 'error' : p95 >= 1000 ? 'warn' : 'ok' },
+      { label: t('ops.health.signal.p99', 'P99 延迟'), value: p99 > 0 ? `${p99} ms` : '—', tone: p99 >= 5000 ? 'error' : p99 >= 2000 ? 'warn' : 'ok' },
+      { label: t('ops.health.signal.saturation', '并发水位'), value: percent(saturation), tone: saturation >= 0.85 ? 'error' : saturation >= 0.6 ? 'warn' : 'ok' },
+      { label: t('ops.health.signal.errorsPerMin', '错误/min'), value: (snapshot.errors_per_minute ?? 0).toFixed(1), tone: errorsPerMinute > 0 ? 'warn' : 'ok' },
+      { label: t('ops.health.signal.sse', 'SSE'), value: String(snapshot.active_sse_subscriptions ?? 0), tone: 'neutral' },
+    ],
+  };
+}
+
 export function OpsPage() {
   const location = useAnimatedLocation();
   const [snapshot, setSnapshot] = useState<OpsRuntimeSnapshot | null>(null);
@@ -143,6 +236,7 @@ export function OpsPage() {
     };
     return { state, color: colorByState[state] ?? 'var(--m3-outline)' };
   }, [snapshot?.state]);
+  const health = useMemo(() => snapshot ? buildOpsHealth(snapshot) : null, [snapshot]);
 
   return (
     <main class="min-h-screen p-4 sm:p-6">
@@ -203,6 +297,8 @@ export function OpsPage() {
 
         {snapshot && (
           <>
+            {health && <OpsHealthPanel health={health} />}
+
             {/* 运行指标 */}
             <section class="oh-appear-up rounded-m3-md p-4 mb-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
               style={{ backgroundColor: 'var(--m3-surface-container)' }}
@@ -706,6 +802,71 @@ export function OpsPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function healthToneColor(tone: OpsHealthSignal['tone'] | OpsHealthSummary['tone']): string {
+  if (tone === 'ok') return '#15803d';
+  if (tone === 'warn') return '#b45309';
+  if (tone === 'error') return 'var(--m3-error)';
+  return 'var(--m3-on-surface-variant)';
+}
+
+function OpsHealthPanel({ health }: { health: OpsHealthSummary }) {
+  const color = healthToneColor(health.tone);
+  return (
+    <section
+      class="oh-appear-up rounded-m3-md p-4 mb-3"
+      style={{
+        backgroundColor: 'var(--m3-surface-container)',
+        border: `1px solid color-mix(in srgb, ${color} 32%, transparent)`,
+      }}
+    >
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p class="text-xs mb-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {t('ops.health.title', '运行健康度')}
+          </p>
+          <div class="flex items-baseline gap-2">
+            <strong class="text-3xl" style={{ color }}>{health.score}</strong>
+            <span class="text-sm font-semibold" style={{ color }}>{health.label}</span>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 justify-end">
+          {health.signals.map((signal) => {
+            const signalColor = healthToneColor(signal.tone);
+            return (
+              <span
+                key={signal.label}
+                class="text-xs px-2 py-1 rounded-m3-sm"
+                style={{
+                  color: signalColor,
+                  background: 'var(--m3-surface)',
+                  border: `1px solid color-mix(in srgb, ${signalColor} 28%, transparent)`,
+                }}
+              >
+                {signal.label}: <strong>{signal.value}</strong>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+      <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+        {health.recommendations.map((item) => (
+          <p
+            key={item}
+            class="text-xs rounded-m3-sm px-3 py-2"
+            style={{
+              color: 'var(--m3-on-surface)',
+              background: 'var(--m3-surface)',
+              border: '1px solid var(--m3-outline)',
+            }}
+          >
+            {item}
+          </p>
+        ))}
+      </div>
+    </section>
   );
 }
 

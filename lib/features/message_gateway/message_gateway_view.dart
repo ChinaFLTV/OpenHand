@@ -1681,6 +1681,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                       },
                     ),
                     const SizedBox(height: 18),
+                    _OpsHealthCard(snapshot: snapshot),
+                    const SizedBox(height: 18),
                     _OpsSummaryCard(snapshot: snapshot),
                     const SizedBox(height: 18),
                     LayoutBuilder(
@@ -2125,6 +2127,191 @@ class _SectionTitle extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 10),
     child: Text(text, style: Theme.of(context).textTheme.titleMedium),
   );
+}
+
+class _OpsHealthCard extends StatelessWidget {
+  const _OpsHealthCard({required this.snapshot});
+
+  final WebGatewayRuntimeSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final diagnosis = _OpsDiagnosis.from(snapshot);
+    final color = switch (diagnosis.tone) {
+      _OpsDiagnosisTone.ok => Colors.green.shade700,
+      _OpsDiagnosisTone.warn => Colors.orange.shade800,
+      _OpsDiagnosisTone.error => theme.colorScheme.error,
+    };
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _opsCardDecoration(
+        theme,
+      ).copyWith(border: Border.all(color: color.withValues(alpha: 0.42))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '运行健康度',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${diagnosis.score}',
+                          style: theme.textTheme.displaySmall?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 7),
+                          child: Text(
+                            diagnosis.label,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: color,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.health_and_safety_outlined, size: 24),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: diagnosis.signals
+                .map((signal) => _OpsPill(signal.label, signal.value))
+                .toList(growable: false),
+          ),
+          const SizedBox(height: 12),
+          ...diagnosis.recommendations.map((item) => _OpsKeyValue('建议', item)),
+        ],
+      ),
+    );
+  }
+}
+
+enum _OpsDiagnosisTone { ok, warn, error }
+
+class _OpsDiagnosisSignal {
+  const _OpsDiagnosisSignal(this.label, this.value);
+  final String label;
+  final String value;
+}
+
+class _OpsDiagnosis {
+  const _OpsDiagnosis({
+    required this.score,
+    required this.label,
+    required this.tone,
+    required this.signals,
+    required this.recommendations,
+  });
+
+  factory _OpsDiagnosis.from(WebGatewayRuntimeSnapshot snapshot) {
+    var score = 100;
+    final recommendations = <String>[];
+    final errorRate = snapshot.totalRequests <= 0
+        ? 0.0
+        : snapshot.totalErrors / snapshot.totalRequests;
+    final p95 = snapshot.latencyStats.p95Ms;
+    final p99 = snapshot.latencyStats.p99Ms;
+    final saturation = snapshot.activeRequestRatio;
+    final logErrors = snapshot.logLevelBreakdown['error'] ?? 0;
+
+    if (snapshot.state == WebGatewayRuntimeState.crashed) {
+      score -= 45;
+      recommendations.add('服务处于 crashed，优先查看最近错误和内存日志并重启服务。');
+    } else if (snapshot.state != WebGatewayRuntimeState.running) {
+      score -= 20;
+      recommendations.add('服务未处于 running，确认监听端口、鉴权配置和启动日志。');
+    }
+    if (errorRate >= 0.05) {
+      score -= 25;
+      recommendations.add('错误率超过 5%，优先按最近错误路径定位 4xx/5xx 来源。');
+    } else if (errorRate >= 0.01) {
+      score -= 12;
+      recommendations.add('错误率超过 1%，建议核对请求来源、模型服务和文件权限。');
+    }
+    if (snapshot.errorsPerMinute > 0) {
+      score -= math.min(15, 5 + (snapshot.errorsPerMinute * 2).round());
+      recommendations.add('最近 1 分钟仍有错误增长，观察错误是否持续并检查对应路由。');
+    }
+    if (saturation >= 0.85) {
+      score -= 20;
+      recommendations.add('并发水位接近上限，建议降低长连接/轮询压力或提高并发限制。');
+    } else if (saturation >= 0.6) {
+      score -= 10;
+      recommendations.add('并发水位偏高，继续观察请求排队和 SSE 连接数。');
+    }
+    if (p95 >= 3000) {
+      score -= 15;
+      recommendations.add('P95 延迟超过 3s，建议检查慢路由、上游模型和文件 IO。');
+    } else if (p95 >= 1000) {
+      score -= 8;
+      recommendations.add('P95 延迟超过 1s，可结合 Top Routes 排查热点路径。');
+    }
+    if (snapshot.crashCount > 0 || snapshot.restartCount > 0) {
+      score -= math.min(
+        12,
+        snapshot.crashCount * 6 + snapshot.restartCount * 2,
+      );
+    }
+    if (logErrors > 0) score -= math.min(10, logErrors);
+    if (recommendations.isEmpty) {
+      recommendations.add('当前核心信号平稳，保持自动刷新并关注错误率、P95 延迟和并发水位。');
+    }
+    score = score.clamp(0, 100).toInt();
+    final tone = score >= 85
+        ? _OpsDiagnosisTone.ok
+        : score >= 65
+        ? _OpsDiagnosisTone.warn
+        : _OpsDiagnosisTone.error;
+    final label = switch (tone) {
+      _OpsDiagnosisTone.ok => '健康',
+      _OpsDiagnosisTone.warn => '需关注',
+      _OpsDiagnosisTone.error => '异常',
+    };
+    return _OpsDiagnosis(
+      score: score,
+      label: label,
+      tone: tone,
+      recommendations: recommendations.take(4).toList(growable: false),
+      signals: [
+        _OpsDiagnosisSignal('错误率', _percent(errorRate)),
+        _OpsDiagnosisSignal('P95', p95 > 0 ? '${p95}ms' : '—'),
+        _OpsDiagnosisSignal('P99', p99 > 0 ? '${p99}ms' : '—'),
+        _OpsDiagnosisSignal('并发水位', _percent(saturation)),
+        _OpsDiagnosisSignal('错误/min', _rate(snapshot.errorsPerMinute)),
+        _OpsDiagnosisSignal('SSE', '${snapshot.activeSseSubscriptions}'),
+      ],
+    );
+  }
+
+  final int score;
+  final String label;
+  final _OpsDiagnosisTone tone;
+  final List<_OpsDiagnosisSignal> signals;
+  final List<String> recommendations;
 }
 
 class _OpsSummaryCard extends StatelessWidget {
