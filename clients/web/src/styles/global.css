@@ -217,6 +217,12 @@ html, body, #root {
   will-change: transform, opacity;
 }
 
+/* 通用旋转：用于下拉刷新指示等。 */
+@keyframes oh-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* OS 级 + 应用级双重「降低动效」开关：任一开启即整树关闭动画。
    - prefers-reduced-motion: 系统设置
    - [data-motion='reduced']: 用户在 Flutter 应用设置里关「reduceMotion」时由 JS 写入

@@ -28,6 +28,8 @@ import { TopBar } from '../components/TopBar';
 import { Appear } from '../components/Appear';
 import { PopMenu } from '../components/PopMenu';
 import { TemplateConfigDialog, TemplatePickerDialog } from '../components/TemplateDialogs';
+import { PullIndicator } from '../components/PullIndicator';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -240,9 +242,33 @@ export function SessionsPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;
   const items = data?.items ?? [];
 
+  // 下拉刷新挂在 <main> 上：触摸设备体验对齐 APP 端线程列表。
+  const mainRef = useRef<HTMLElement | null>(null);
+  const pull = usePullToRefresh(mainRef, {
+    onRefresh: async () => {
+      await new Promise<void>((resolve) => {
+        // refresh() 内部用 abort + Promise，调用即触发；用 setTimeout 给一个最小可见时长。
+        refresh(page);
+        setTimeout(resolve, 320);
+      });
+    },
+    activationDistance: 80,
+    maxDistance: 140,
+  });
+
   return (
-    <main class="min-h-screen px-6 py-8" style={{ background: 'var(--m3-surface)' }}>
+    <main
+      ref={mainRef as unknown as preact.RefObject<HTMLElement>}
+      class="min-h-screen px-6 py-8"
+      style={{ background: 'var(--m3-surface)' }}
+    >
       <div class="mx-auto max-w-3xl">
+        <PullIndicator
+          pulled={pull.pulled}
+          refreshing={pull.refreshing}
+          willRelease={pull.willRelease}
+          activationDistance={80}
+        />
         <TopBar
           title={t('app.brand')}
           subtitle={
@@ -297,6 +323,23 @@ export function SessionsPage() {
                     style={{
                       background: 'var(--m3-surface-container)',
                       boxShadow: 'var(--m3-elev-1)',
+                      cursor: editing ? 'default' : 'pointer',
+                    }}
+                    role={editing ? undefined : 'button'}
+                    tabIndex={editing ? undefined : 0}
+                    onClick={(ev) => {
+                      if (editing) return;
+                      // 点击操作菜单 / 输入框等已经 stopPropagation；这里只接管"卡片本体"点击。
+                      const target = ev.target as HTMLElement;
+                      if (target.closest('button,input,[role="menu"]')) return;
+                      location.route(`/threads/${item.id}`);
+                    }}
+                    onKeyDown={(ev) => {
+                      if (editing) return;
+                      if (ev.key === 'Enter' || ev.key === ' ') {
+                        ev.preventDefault();
+                        location.route(`/threads/${item.id}`);
+                      }
                     }}
                   >
                     <div class="flex items-start justify-between gap-3">
@@ -354,14 +397,12 @@ export function SessionsPage() {
                             </button>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => location.route(`/threads/${item.id}`)}
-                            class="text-base font-medium hover:underline text-left truncate block w-full"
+                          <span
+                            class="text-base font-medium text-left truncate block w-full"
                             style={{ color: 'var(--m3-on-surface)' }}
                           >
                             {item.title || t('sessions.untitled', '未命名会话')}
-                          </button>
+                          </span>
                         )}
                         <p
                           class="text-xs mt-1 truncate"
