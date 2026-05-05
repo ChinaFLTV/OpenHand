@@ -15,6 +15,7 @@ import { t } from '../i18n';
 import { Markdown } from './Markdown';
 import { MessageMedia } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
+import { ToolResultBody } from './ToolResultBody';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -181,7 +182,13 @@ export interface MessageCardProps {
 export function MessageCard({ message, forceExpanded = false, sessionId }: MessageCardProps) {
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
-  const overflows = style.collapsible && !forceExpanded && content.length > AUTO_COLLAPSE_CHAR_LIMIT;
+  const useToolBody =
+    message.kind === 'tool' ||
+    message.kind === 'tool_call' ||
+    message.kind === 'mcp' ||
+    message.kind === 'file_mutation_summary';
+  const overflows =
+    !useToolBody && style.collapsible && !forceExpanded && content.length > AUTO_COLLAPSE_CHAR_LIMIT;
   const visibleContent = overflows
     ? content.slice(0, AUTO_COLLAPSE_CHAR_LIMIT) + '…'
     : content;
@@ -223,12 +230,15 @@ export function MessageCard({ message, forceExpanded = false, sessionId }: Messa
         <span class="opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
       </header>
       <MessageToolMeta message={message} />
-      <Markdown
-        source={visibleContent}
-        raw={style.mono === true || message.kind === 'tool_call' || message.kind === 'tool' || message.kind === 'reasoning'}
-        mono={style.mono === true}
-      />
-      {sessionId ? <MessageMedia message={message} sessionId={sessionId} /> : null}
+      {useToolBody ? (
+        content.length > 0 ? <ToolResultBody content={content} /> : null
+      ) : (
+        <Markdown
+          source={visibleContent}
+          raw={style.mono === true || message.kind === 'reasoning'}
+          mono={style.mono === true}
+        />
+      )}      {sessionId ? <MessageMedia message={message} sessionId={sessionId} /> : null}
       {overflows ? (
         <p class="text-xs mt-2 opacity-70">
           {t('detail.collapsed.hint', '内容已折叠（超过 1200 字符），点击下方刷新或加载更早可在控制台查看完整正文。')}

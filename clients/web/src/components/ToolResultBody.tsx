@@ -1,0 +1,121 @@
+// ToolResultBody —— 工具结果 / 工具调用 / MCP 等 mono 消息体的富展示块
+//
+// 功能:
+// - 展开 / 折叠 (默认折叠到 600 字符以下不显示按钮; 超出则展示前 600 字符
+//   + 「展开全部 (N 字符)」按钮; 展开后变为「折叠」)
+// - 复制按钮 (一键 navigator.clipboard.writeText, 1.6s 文案变 ✓ 已复制)
+// - 错误行红色高亮: 行内匹配 (?i)error|exception|traceback|fail|panic 时,
+//   左竖条 + 文字偏红
+// - 仍保持 pre-wrap mono 字体, word-break:break-all (避免长 URL 撑爆)
+
+import { useMemo, useState } from 'preact/hooks';
+import { t } from '../i18n';
+
+const AUTO_COLLAPSE_CHARS = 600;
+const ERROR_LINE_PATTERN = /\b(error|exception|traceback|fail(?:ed|ure)?|panic|fatal)\b/i;
+
+interface ToolResultBodyProps {
+  content: string;
+}
+
+interface RenderedLine {
+  text: string;
+  isError: boolean;
+}
+
+function classifyLines(text: string): RenderedLine[] {
+  return text.split('\n').map((line) => ({
+    text: line,
+    isError: ERROR_LINE_PATTERN.test(line),
+  }));
+}
+
+export function ToolResultBody({ content }: ToolResultBodyProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const overflow = content.length > AUTO_COLLAPSE_CHARS;
+  const shown = !overflow || expanded ? content : content.slice(0, AUTO_COLLAPSE_CHARS) + '…';
+  const lines = useMemo(() => classifyLines(shown), [shown]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // 部分浏览器在非 secure context 下没有 clipboard API; 静默降级
+    }
+  };
+
+  return (
+    <div class="relative">
+      <pre
+        class="text-xs leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
+        style={{
+          background: 'var(--m3-surface)',
+          color: 'var(--m3-on-surface)',
+          border: '1px solid var(--m3-outline)',
+          wordBreak: 'break-word',
+          maxHeight: expanded ? undefined : '420px',
+          overflow: expanded ? 'visible' : 'auto',
+        }}
+      >
+        {lines.map((line, idx) => (
+          <div
+            key={idx}
+            style={{
+              borderLeft: line.isError
+                ? '3px solid var(--m3-error)'
+                : '3px solid transparent',
+              paddingLeft: '6px',
+              color: line.isError
+                ? 'color-mix(in srgb, var(--m3-error) 78%, var(--m3-on-surface))'
+                : undefined,
+              background: line.isError
+                ? 'color-mix(in srgb, var(--m3-error) 6%, transparent)'
+                : undefined,
+            }}
+          >
+            {line.text || '\u00A0'}
+          </div>
+        ))}
+      </pre>
+      <div class="flex items-center gap-2 mt-1.5 text-xs">
+        {overflow ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            class="px-2 py-0.5 rounded-m3-sm"
+            style={{
+              background: 'var(--m3-surface-container)',
+              color: 'var(--m3-on-surface-variant)',
+              border: '1px solid var(--m3-outline)',
+            }}
+          >
+            {expanded
+              ? t('detail.tool.body.collapse', '折叠')
+              : t('detail.tool.body.expand', '展开全部 ') + `(${content.length} ${t('detail.tool.body.chars', '字符')})`}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleCopy}
+          class="px-2 py-0.5 rounded-m3-sm ml-auto"
+          style={{
+            background: copied
+              ? 'color-mix(in srgb, #16a34a 18%, transparent)'
+              : 'var(--m3-surface-container)',
+            color: copied ? '#15803d' : 'var(--m3-on-surface-variant)',
+            border: '1px solid var(--m3-outline)',
+            fontWeight: copied ? 600 : 400,
+          }}
+        >
+          {copied
+            ? t('detail.tool.body.copied', '✓ 已复制')
+            : t('detail.tool.body.copy', '复制')}
+        </button>
+      </div>
+    </div>
+  );
+}
