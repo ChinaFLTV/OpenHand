@@ -33,15 +33,15 @@ function toneStyle(tone: SnackbarTone) {
   switch (tone) {
     case 'success':
       return {
-        border: '1px solid color-mix(in srgb, #16a34a 42%, transparent)',
-        color: '#166534',
-        background: 'color-mix(in srgb, #16a34a 14%, var(--m3-surface-container))',
+        border: '1px solid color-mix(in srgb, var(--m3-secondary) 42%, transparent)',
+        color: 'var(--m3-on-secondary-container)',
+        background: 'var(--m3-secondary-container)',
       };
     case 'warning':
       return {
-        border: '1px solid color-mix(in srgb, #f59e0b 46%, transparent)',
-        color: '#92400e',
-        background: 'color-mix(in srgb, #f59e0b 15%, var(--m3-surface-container))',
+        border: '1px solid color-mix(in srgb, var(--m3-tertiary) 46%, transparent)',
+        color: 'var(--m3-on-tertiary-container)',
+        background: 'var(--m3-tertiary-container)',
       };
     case 'error':
       return {

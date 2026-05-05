@@ -33,12 +33,31 @@ export interface ApiMetaPreferences {
 export interface ApiMetaThemeRaw {
   primary?: string;
   on_primary?: string;
+  primary_container?: string;
+  on_primary_container?: string;
+  secondary?: string;
+  on_secondary?: string;
+  secondary_container?: string;
+  on_secondary_container?: string;
+  tertiary?: string;
+  on_tertiary?: string;
+  tertiary_container?: string;
+  on_tertiary_container?: string;
   surface?: string;
+  surface_container_lowest?: string;
+  surface_container_low?: string;
   surface_container?: string;
+  surface_container_high?: string;
+  surface_container_highest?: string;
   on_surface?: string;
   on_surface_variant?: string;
   outline?: string;
+  outline_variant?: string;
+  inverse_surface?: string;
+  inverse_on_surface?: string;
   error?: string;
+  error_container?: string;
+  on_error_container?: string;
   brightness?: string;
 }
 
@@ -92,12 +111,31 @@ export function metaThemeToTokens(
   return {
     primary: raw?.primary ?? fallback.primary,
     onPrimary: raw?.on_primary ?? fallback.onPrimary,
+    primaryContainer: raw?.primary_container ?? fallback.primaryContainer,
+    onPrimaryContainer: raw?.on_primary_container ?? fallback.onPrimaryContainer,
+    secondary: raw?.secondary ?? fallback.secondary,
+    onSecondary: raw?.on_secondary ?? fallback.onSecondary,
+    secondaryContainer: raw?.secondary_container ?? fallback.secondaryContainer,
+    onSecondaryContainer: raw?.on_secondary_container ?? fallback.onSecondaryContainer,
+    tertiary: raw?.tertiary ?? fallback.tertiary,
+    onTertiary: raw?.on_tertiary ?? fallback.onTertiary,
+    tertiaryContainer: raw?.tertiary_container ?? fallback.tertiaryContainer,
+    onTertiaryContainer: raw?.on_tertiary_container ?? fallback.onTertiaryContainer,
     surface: raw?.surface ?? fallback.surface,
+    surfaceContainerLowest: raw?.surface_container_lowest ?? fallback.surfaceContainerLowest,
+    surfaceContainerLow: raw?.surface_container_low ?? fallback.surfaceContainerLow,
     surfaceContainer: raw?.surface_container ?? fallback.surfaceContainer,
+    surfaceContainerHigh: raw?.surface_container_high ?? fallback.surfaceContainerHigh,
+    surfaceContainerHighest: raw?.surface_container_highest ?? fallback.surfaceContainerHighest,
     onSurface: raw?.on_surface ?? fallback.onSurface,
     onSurfaceVariant: raw?.on_surface_variant ?? fallback.onSurfaceVariant,
     outline: raw?.outline ?? fallback.outline,
+    outlineVariant: raw?.outline_variant ?? fallback.outlineVariant,
+    inverseSurface: raw?.inverse_surface ?? fallback.inverseSurface,
+    inverseOnSurface: raw?.inverse_on_surface ?? fallback.inverseOnSurface,
     error: raw?.error ?? fallback.error,
+    errorContainer: raw?.error_container ?? fallback.errorContainer,
+    onErrorContainer: raw?.on_error_container ?? fallback.onErrorContainer,
     brightness,
   };
 }

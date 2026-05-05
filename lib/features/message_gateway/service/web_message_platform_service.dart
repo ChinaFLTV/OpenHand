@@ -1674,16 +1674,28 @@ class WebMessagePlatformService {
     final mode = requestedMode == 'plan' && _config.planModeEnabled
         ? AiSessionMode.plan
         : AiSessionMode.chat;
+    final requestedModelKey = _string(body['model_key'], '').trim();
+    final requestedModel = requestedModelKey.isEmpty
+        ? null
+        : _resolveModel(requestedModelKey);
+    if (requestedModelKey.isNotEmpty && requestedModel == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'model_not_configured',
+        'model_key': requestedModelKey,
+      });
+    }
     final metadata = _metadataForRequest(auth, request, <String, Object?>{
       'created_via': 'web_api',
       'requested_template_id': templateId,
       'requested_mode': mode.storageValue,
+      if (requestedModelKey.isNotEmpty) 'requested_model_key': requestedModelKey,
     });
     final ok = await _sessionController.createSession(
       templateId: templateId,
       runtimeContext: _buildRuntimeContext(templateId: templateId),
       mode: mode,
       metadata: metadata,
+      awaitStartHook: false,
     );
     if (!ok || _sessionController.currentSession == null) {
       return _json(HttpStatus.internalServerError, <String, Object?>{
@@ -1691,6 +1703,17 @@ class WebMessagePlatformService {
       });
     }
     var session = _sessionController.currentSession!;
+    if (requestedModel != null) {
+      await _sessionController.updateSessionLastUsedModel(
+        session.id,
+        providerConfigId: requestedModel.id,
+        modelId: requestedModel.modelId,
+      );
+      session = _sessionController.sessions.firstWhere(
+        (item) => item.id == session.id,
+        orElse: () => session,
+      );
+    }
     final title = _string(body['title'], '').trim();
     if (title.isNotEmpty) {
       await _sessionController.renameSession(session.id, title);
@@ -1707,6 +1730,7 @@ class WebMessagePlatformService {
         'template_id': templateId,
         'mode': mode.storageValue,
         'device_id': auth.deviceId,
+        if (requestedModelKey.isNotEmpty) 'model_key': requestedModelKey,
       },
     );
     return _json(HttpStatus.created, <String, Object?>{
@@ -2988,10 +3012,44 @@ class WebMessagePlatformService {
     return const <String, Object?>{};
   }
 
+  String? _allowedModelKeyFromValue(Object? value) {
+    if (value is! String) return null;
+    final key = value.trim();
+    if (key.isEmpty) return null;
+    for (final model in _allowedModels()) {
+      if (model.key == key) return key;
+    }
+    return null;
+  }
+
+  String? _lastModelKeyForSession(AiSession session) {
+    for (final message in session.displayMessages.reversed) {
+      final direct = _allowedModelKeyFromValue(message.metadata['model_key']);
+      if (direct != null) return direct;
+      final context = _webContext(message.metadata);
+      final nested = _allowedModelKeyFromValue(context['model_key']);
+      if (nested != null) return nested;
+    }
+    final context = _webContext(session.metadata);
+    final requested = _allowedModelKeyFromValue(context['requested_model_key']);
+    if (requested != null) return requested;
+    final providerId = session.lastUsedModelId;
+    final label = session.lastUsedModelLabel;
+    if (providerId == null || label == null) return null;
+    for (final model in _allowedModels()) {
+      if (model.providerId != providerId) continue;
+      if (model.modelId == label || model.label == label || model.key == label) {
+        return model.key;
+      }
+    }
+    return null;
+  }
+
   Map<String, Object?> _sessionSummary(AiSession session) {
     final context = _webContext(session.metadata);
     final displayMessages = session.displayMessages;
     final last = displayMessages.isEmpty ? null : displayMessages.last;
+    final lastModelKey = _lastModelKeyForSession(session);
     return <String, Object?>{
       'id': session.id,
       'title': session.title,
@@ -3002,6 +3060,9 @@ class WebMessagePlatformService {
       'updated_at': session.updatedAt.toUtc().toIso8601String(),
       'mode': session.mode.storageValue,
       'full_access_permission': session.fullAccessPermission,
+      'last_used_model_id': session.lastUsedModelId,
+      'last_used_model_label': session.lastUsedModelLabel,
+      'last_model_key': lastModelKey,
       'message_count': displayMessages.length,
       'statistics': session.statistics.toJson(),
       'total_tokens': session.statistics.totalTokens,

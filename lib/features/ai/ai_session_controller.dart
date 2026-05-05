@@ -911,6 +911,7 @@ class AiSessionController extends ChangeNotifier {
     AiSessionMode mode = AiSessionMode.chat,
     bool fullAccessPermission = false,
     Map<String, Object?>? metadata,
+    bool awaitStartHook = true,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
     if (isSending) {
@@ -920,6 +921,7 @@ class AiSessionController extends ChangeNotifier {
         mode: mode,
         fullAccessPermission: fullAccessPermission,
         metadata: metadata,
+        awaitStartHook: awaitStartHook,
       );
     }
     return _enqueueOperation(
@@ -929,6 +931,7 @@ class AiSessionController extends ChangeNotifier {
         mode: mode,
         fullAccessPermission: fullAccessPermission,
         metadata: metadata,
+        awaitStartHook: awaitStartHook,
       ),
     );
   }
@@ -959,6 +962,7 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionMode mode,
     required bool fullAccessPermission,
     Map<String, Object?>? metadata,
+    required bool awaitStartHook,
   }) async {
     final template = _templateRepository.resolveTemplate(templateId);
     final now = _clock().toUtc();
@@ -992,7 +996,19 @@ class AiSessionController extends ChangeNotifier {
     }
     _currentSessionId = session.id;
     _editingMessageId = null;
-    await _emitSessionStartHook(session: session, source: 'startup');
+    final startHookFuture = _emitSessionStartHook(
+      session: session,
+      source: 'startup',
+    );
+    if (awaitStartHook) {
+      await startHookFuture;
+    } else {
+      unawaited(
+        startHookFuture.catchError((Object error, StackTrace stack) {
+          silentLog('ai_session_controller', 'session start hook', error, stack);
+        }),
+      );
+    }
     notifyListeners();
     return true;
   }

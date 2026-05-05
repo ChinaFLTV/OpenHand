@@ -107,9 +107,9 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
           class="px-2 py-0.5 rounded-m3-sm ml-auto"
           style={{
             background: copied
-              ? 'color-mix(in srgb, #16a34a 18%, transparent)'
+              ? 'var(--m3-secondary-container)'
               : 'var(--m3-surface-container)',
-            color: copied ? '#15803d' : 'var(--m3-on-surface-variant)',
+            color: copied ? 'var(--m3-on-secondary-container)' : 'var(--m3-on-surface-variant)',
             border: '1px solid var(--m3-outline)',
             fontWeight: copied ? 600 : 400,
           }}

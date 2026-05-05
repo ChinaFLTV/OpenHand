@@ -28,7 +28,7 @@ export function LoginPage() {
             type="button"
             class="px-5 py-2 rounded-m3-md font-medium"
             style={{ backgroundColor: 'var(--m3-primary)', color: 'var(--m3-on-primary)', boxShadow: 'var(--m3-elev-1)' }}
-            onClick={() => location.route('/')}
+            onClick={() => location.route('/threads', true)}
           >
             {t('login.anonymous.enter')}
           </button>
@@ -49,7 +49,7 @@ export function LoginPage() {
     try {
       const res = await loginWithCredentials(username.trim(), password);
       markLoggedIn(res.profile);
-      location.route('/');
+      location.route('/threads', true);
     } catch (err: unknown) {
       if (err instanceof UnauthorizedError) {
         setError(t('login.error.invalid'));

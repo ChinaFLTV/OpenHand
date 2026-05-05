@@ -143,9 +143,20 @@ export function SessionsPage() {
         templateId: configTemplate.id,
         mode: params.mode,
         title: params.title || undefined,
+        modelKey: params.modelKey || undefined,
       };
       const res = await createSession(input);
-      // 模型偏好暂记 localStorage（服务端契约尚未承接 model_key），下次创建时复用。
+      setData((prev) => prev
+        ? {
+            ...prev,
+            items: [
+              res.session,
+              ...prev.items.filter((item) => item.id !== res.session.id),
+            ].slice(0, prev.page_size),
+            total: prev.total + (prev.items.some((item) => item.id === res.session.id) ? 0 : 1),
+          }
+        : prev);
+      // 模型偏好仍写一份本地缓存；服务端也会保存到会话 last-used model。
       if (params.modelKey) {
         try {
           window.localStorage.setItem('openhand.web.lastModelKey', params.modelKey);

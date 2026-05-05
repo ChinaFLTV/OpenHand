@@ -5,12 +5,31 @@
 :root {
   --m3-primary: #2D63B8;
   --m3-on-primary: #FFFFFF;
+  --m3-primary-container: #D8E2FF;
+  --m3-on-primary-container: #001A42;
+  --m3-secondary: #565F71;
+  --m3-on-secondary: #FFFFFF;
+  --m3-secondary-container: #DAE2F9;
+  --m3-on-secondary-container: #131C2B;
+  --m3-tertiary: #705575;
+  --m3-on-tertiary: #FFFFFF;
+  --m3-tertiary-container: #FAD8FD;
+  --m3-on-tertiary-container: #28132E;
   --m3-surface: #FDFCFF;
+  --m3-surface-container-lowest: #FFFFFF;
+  --m3-surface-container-low: #F7F9FF;
   --m3-surface-container: #EEF1F8;
+  --m3-surface-container-high: #E8ECF4;
+  --m3-surface-container-highest: #E2E6EE;
   --m3-on-surface: #1A1C1E;
   --m3-on-surface-variant: #43474E;
   --m3-outline: #73777F;
+  --m3-outline-variant: #C3C7D0;
+  --m3-inverse-surface: #2F3033;
+  --m3-inverse-on-surface: #F1F0F4;
   --m3-error: #B3261E;
+  --m3-error-container: #F9DEDC;
+  --m3-on-error-container: #410E0B;
 
   /* M3 Expressive 标志性圆角 + elevation + motion easing */
   --m3-radius-sm: 8px;
@@ -47,11 +66,22 @@ html, body, #root {
 @theme {
   --color-m3-primary: var(--m3-primary);
   --color-m3-on-primary: var(--m3-on-primary);
+  --color-m3-primary-container: var(--m3-primary-container);
+  --color-m3-on-primary-container: var(--m3-on-primary-container);
+  --color-m3-secondary: var(--m3-secondary);
+  --color-m3-on-secondary: var(--m3-on-secondary);
+  --color-m3-tertiary: var(--m3-tertiary);
+  --color-m3-on-tertiary: var(--m3-on-tertiary);
   --color-m3-surface: var(--m3-surface);
+  --color-m3-surface-container-lowest: var(--m3-surface-container-lowest);
+  --color-m3-surface-container-low: var(--m3-surface-container-low);
   --color-m3-surface-container: var(--m3-surface-container);
+  --color-m3-surface-container-high: var(--m3-surface-container-high);
+  --color-m3-surface-container-highest: var(--m3-surface-container-highest);
   --color-m3-on-surface: var(--m3-on-surface);
   --color-m3-on-surface-variant: var(--m3-on-surface-variant);
   --color-m3-outline: var(--m3-outline);
+  --color-m3-outline-variant: var(--m3-outline-variant);
   --color-m3-error: var(--m3-error);
   --radius-m3-sm: var(--m3-radius-sm);
   --radius-m3-md: var(--m3-radius-md);
@@ -115,8 +145,17 @@ html, body, #root {
   0%, 100% { opacity: 0.7; }
   50%      { opacity: 1; }
 }
+@keyframes oh-title-spring {
+  0%   { opacity: 0.72; transform: translate3d(0, 6px, 0) scale(0.985); }
+  62%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.012); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
 .oh-pulse-soft {
   animation: oh-pulse-soft 1.1s ease-in-out infinite;
+}
+.oh-title-spring {
+  animation: oh-title-spring 360ms var(--oh-motion-spring) both;
+  will-change: transform, opacity;
 }
 
 .oh-appear-up {
@@ -172,6 +211,58 @@ html, body, #root {
 .oh-session-topbar [role="button"] {
   position: relative;
   z-index: 1;
+}
+
+.oh-icon-button {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--m3-radius-sm);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.oh-session-title-block {
+  width: clamp(150px, 24vw, 260px);
+}
+
+.oh-session-capsule-rail {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+}
+.oh-session-capsule-rail::-webkit-scrollbar { display: none; }
+
+.oh-composer-body {
+  max-height: 520px;
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  overflow: hidden;
+  transition:
+    max-height 420ms var(--oh-motion-spring),
+    opacity 220ms var(--oh-motion-emphasized),
+    transform 320ms var(--oh-motion-spring);
+  will-change: max-height, opacity, transform;
+}
+.oh-composer-body[data-collapsed='true'] {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, -8px, 0) scale(0.985);
+}
+
+@media (max-width: 720px) {
+  .oh-session-topbar-row {
+    flex-wrap: wrap;
+  }
+  .oh-session-title-block {
+    width: calc(100% - 84px);
+  }
+  .oh-session-capsule-rail {
+    order: 10;
+    flex-basis: 100%;
+  }
 }
 
 /* 标签/按钮内文字小幅 hover 上移效果（不破坏布局）。 */

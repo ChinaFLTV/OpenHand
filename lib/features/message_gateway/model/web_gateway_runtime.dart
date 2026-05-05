@@ -12,35 +12,92 @@ class WebGatewayThemeSnapshot {
   const WebGatewayThemeSnapshot({
     this.primary = '#6750A4',
     this.onPrimary = '#FFFFFF',
+    this.primaryContainer = '#EADDFF',
+    this.onPrimaryContainer = '#21005D',
+    this.secondary = '#625B71',
+    this.onSecondary = '#FFFFFF',
+    this.secondaryContainer = '#E8DEF8',
+    this.onSecondaryContainer = '#1D192B',
+    this.tertiary = '#7D5260',
+    this.onTertiary = '#FFFFFF',
+    this.tertiaryContainer = '#FFD8E4',
+    this.onTertiaryContainer = '#31111D',
     this.surface = '#FFFBFE',
+    this.surfaceContainerLowest = '#FFFFFF',
+    this.surfaceContainerLow = '#F7F2FA',
     this.surfaceContainer = '#F3EDF7',
+    this.surfaceContainerHigh = '#ECE6F0',
+    this.surfaceContainerHighest = '#E6E0E9',
     this.onSurface = '#1D1B20',
     this.onSurfaceVariant = '#49454F',
     this.outline = '#CAC4D0',
+    this.outlineVariant = '#CAC4D0',
+    this.inverseSurface = '#322F35',
+    this.inverseOnSurface = '#F5EFF7',
     this.error = '#B3261E',
+    this.errorContainer = '#F9DEDC',
+    this.onErrorContainer = '#410E0B',
     this.brightness = 'light',
   });
 
   final String primary;
   final String onPrimary;
+  final String primaryContainer;
+  final String onPrimaryContainer;
+  final String secondary;
+  final String onSecondary;
+  final String secondaryContainer;
+  final String onSecondaryContainer;
+  final String tertiary;
+  final String onTertiary;
+  final String tertiaryContainer;
+  final String onTertiaryContainer;
   final String surface;
+  final String surfaceContainerLowest;
+  final String surfaceContainerLow;
   final String surfaceContainer;
+  final String surfaceContainerHigh;
+  final String surfaceContainerHighest;
   final String onSurface;
   final String onSurfaceVariant;
   final String outline;
+  final String outlineVariant;
+  final String inverseSurface;
+  final String inverseOnSurface;
   final String error;
+  final String errorContainer;
+  final String onErrorContainer;
   final String brightness;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'primary': primary,
       'on_primary': onPrimary,
+      'primary_container': primaryContainer,
+      'on_primary_container': onPrimaryContainer,
+      'secondary': secondary,
+      'on_secondary': onSecondary,
+      'secondary_container': secondaryContainer,
+      'on_secondary_container': onSecondaryContainer,
+      'tertiary': tertiary,
+      'on_tertiary': onTertiary,
+      'tertiary_container': tertiaryContainer,
+      'on_tertiary_container': onTertiaryContainer,
       'surface': surface,
+      'surface_container_lowest': surfaceContainerLowest,
+      'surface_container_low': surfaceContainerLow,
       'surface_container': surfaceContainer,
+      'surface_container_high': surfaceContainerHigh,
+      'surface_container_highest': surfaceContainerHighest,
       'on_surface': onSurface,
       'on_surface_variant': onSurfaceVariant,
       'outline': outline,
+      'outline_variant': outlineVariant,
+      'inverse_surface': inverseSurface,
+      'inverse_on_surface': inverseOnSurface,
       'error': error,
+      'error_container': errorContainer,
+      'on_error_container': onErrorContainer,
       'brightness': brightness,
     };
   }

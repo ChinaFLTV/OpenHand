@@ -1738,60 +1738,44 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                       const SizedBox(height: 18),
                       _OpsSummaryCard(snapshot: snapshot),
                       const SizedBox(height: 18),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final columns = constraints.maxWidth < 760 ? 1 : 2;
-                          return GridView.count(
-                            crossAxisCount: columns,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: columns == 1 ? 2.6 : 2.1,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            children: [
-                              _OpsBreakdownCard(
-                                title: 'HTTP 状态码分布',
-                                values: snapshot.statusCodeBreakdown,
-                              ),
-                              _OpsBreakdownCard(
-                                title: 'HTTP Method 分布',
-                                values: snapshot.methodBreakdown,
-                              ),
-                              _OpsBreakdownCard(
-                                title: '延迟桶',
-                                values: snapshot.latencyBuckets,
-                              ),
-                              _OpsBreakdownCard(
-                                title: '发送阶段分布',
-                                values: snapshot.sendPhaseBreakdown,
-                              ),
-                            ],
-                          );
-                        },
+                      _NaturalCardGrid(
+                        minTileWidth: 360,
+                        spacing: 12,
+                        maxColumns: 2,
+                        children: [
+                          _OpsBreakdownCard(
+                            title: 'HTTP 状态码分布',
+                            values: snapshot.statusCodeBreakdown,
+                          ),
+                          _OpsBreakdownCard(
+                            title: 'HTTP Method 分布',
+                            values: snapshot.methodBreakdown,
+                          ),
+                          _OpsBreakdownCard(
+                            title: '延迟桶',
+                            values: snapshot.latencyBuckets,
+                          ),
+                          _OpsBreakdownCard(
+                            title: '发送阶段分布',
+                            values: snapshot.sendPhaseBreakdown,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 18),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final columns = constraints.maxWidth < 760 ? 1 : 2;
-                          return GridView.count(
-                            crossAxisCount: columns,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: columns == 1 ? 2.3 : 1.75,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            children: [
-                              _TopRoutesCard(routes: snapshot.topRoutes),
-                              _RecentErrorsCard(errors: snapshot.recentErrors),
-                              _OpsBreakdownCard(
-                                title: '日志级别分布',
-                                values: snapshot.logLevelBreakdown,
-                                footer: '${snapshot.memoryLogCount} 条内存日志',
-                              ),
-                              _ResourceInventoryCard(snapshot: snapshot),
-                            ],
-                          );
-                        },
+                      _NaturalCardGrid(
+                        minTileWidth: 360,
+                        spacing: 12,
+                        maxColumns: 2,
+                        children: [
+                          _TopRoutesCard(routes: snapshot.topRoutes),
+                          _RecentErrorsCard(errors: snapshot.recentErrors),
+                          _OpsBreakdownCard(
+                            title: '日志级别分布',
+                            values: snapshot.logLevelBreakdown,
+                            footer: '${snapshot.memoryLogCount} 条内存日志',
+                          ),
+                          _ResourceInventoryCard(snapshot: snapshot),
+                        ],
                       ),
                       const SizedBox(height: 18),
                       const _SectionTitle('吞吐趋势'),
@@ -2241,6 +2225,39 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
+class _NaturalCardGrid extends StatelessWidget {
+  const _NaturalCardGrid({
+    required this.children,
+    this.minTileWidth = 320,
+    required this.spacing,
+    required this.maxColumns,
+  });
+
+  final List<Widget> children;
+  final double minTileWidth;
+  final double spacing;
+  final int maxColumns;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final possibleColumns = ((constraints.maxWidth + spacing) /
+              (minTileWidth + spacing))
+          .floor();
+      final columns = possibleColumns.clamp(1, maxColumns).toInt();
+      final tileWidth = (constraints.maxWidth - spacing * (columns - 1)) /
+          columns;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        children: [
+          for (final child in children) SizedBox(width: tileWidth, child: child),
+        ],
+      );
+    },
+  );
+}
+
 class _OpsHealthCard extends StatelessWidget {
   const _OpsHealthCard({required this.snapshot});
 
@@ -2597,7 +2614,7 @@ class _OpsBreakdownCard extends StatelessWidget {
                   ),
                 ),
           if (footer != null) ...[
-            const Spacer(),
+            const SizedBox(height: 12),
             Text(
               footer!,
               style: theme.textTheme.labelSmall?.copyWith(

@@ -79,7 +79,7 @@ function buildSteps(session: SessionSummary): {
 function statusVisual(s: StepState) {
   switch (s) {
     case 'completed':
-      return { color: '#16a34a', icon: '✓', bg: 'color-mix(in srgb, #16a34a 12%, transparent)' };
+      return { color: 'var(--m3-secondary)', icon: '✓', bg: 'var(--m3-secondary-container)' };
     case 'in_progress':
       return {
         color: 'var(--m3-primary)',
@@ -148,10 +148,10 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
       class="oh-appear-up rounded-m3-lg p-3 mb-3"
       style={{
         border: awaitingApproval
-          ? '1px solid color-mix(in srgb, #f59e0b 50%, transparent)'
+          ? '1px solid color-mix(in srgb, var(--m3-tertiary) 50%, transparent)'
           : '1px solid var(--m3-outline)',
         background: awaitingApproval
-          ? 'color-mix(in srgb, #f59e0b 7%, var(--m3-surface))'
+          ? 'color-mix(in srgb, var(--m3-tertiary-container) 42%, var(--m3-surface))'
           : 'var(--m3-surface-container-low)',
       }}
     >
@@ -172,8 +172,8 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
           <span
             class="text-xs px-1.5 py-0.5 rounded-m3-sm"
             style={{
-              background: 'color-mix(in srgb, #f59e0b 22%, transparent)',
-              color: '#b45309',
+              background: 'var(--m3-tertiary-container)',
+              color: 'var(--m3-on-tertiary-container)',
               fontWeight: 600,
             }}
           >
@@ -183,8 +183,8 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
           <span
             class="text-xs px-1.5 py-0.5 rounded-m3-sm"
             style={{
-              background: 'color-mix(in srgb, #16a34a 18%, transparent)',
-              color: '#15803d',
+              background: 'var(--m3-secondary-container)',
+              color: 'var(--m3-on-secondary-container)',
               fontWeight: 600,
             }}
           >

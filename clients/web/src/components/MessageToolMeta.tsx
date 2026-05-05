@@ -79,7 +79,7 @@ function statusVisual(status: string): { color: string; label: string; icon: str
   }
   if (s === 'success' || s === 'ok' || s === 'completed') {
     return {
-      color: '#16a34a',
+      color: 'var(--m3-secondary)',
       label: t('detail.tool.status.success', '成功'),
       icon: '✓',
     };
@@ -184,8 +184,8 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
         <span
           class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono"
           style={{
-            background: 'color-mix(in srgb, var(--m3-tertiary, #7c3aed) 14%, transparent)',
-            color: 'var(--m3-tertiary, #7c3aed)',
+            background: 'color-mix(in srgb, var(--m3-tertiary) 14%, transparent)',
+            color: 'var(--m3-tertiary)',
             fontWeight: 600,
           }}
           title={`MCP · ${ex.mcpServerName || '?'} / ${ex.mcpToolName || '?'}`}
@@ -272,8 +272,8 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
         <span
           class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
           style={{
-            background: 'color-mix(in srgb, #f59e0b 18%, transparent)',
-            color: '#b45309',
+            background: 'var(--m3-tertiary-container)',
+            color: 'var(--m3-on-tertiary-container)',
             fontWeight: 600,
           }}
         >
@@ -284,8 +284,8 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
         <span
           class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
           style={{
-            background: 'color-mix(in srgb, #16a34a 14%, transparent)',
-            color: '#15803d',
+            background: 'var(--m3-secondary-container)',
+            color: 'var(--m3-on-secondary-container)',
             fontWeight: 600,
           }}
         >

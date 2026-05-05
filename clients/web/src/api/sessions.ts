@@ -30,6 +30,9 @@ export interface SessionSummary {
   updated_at: string;
   mode: 'chat' | 'plan' | string;
   full_access_permission?: boolean;
+  last_used_model_id?: string | null;
+  last_used_model_label?: string | null;
+  last_model_key?: string | null;
   message_count: number;
   statistics?: Record<string, unknown>;
   total_tokens?: number | null;
@@ -122,6 +125,7 @@ export interface CreateSessionInput {
   templateId?: string;
   mode?: 'chat' | 'plan';
   title?: string;
+  modelKey?: string;
 }
 
 export function createSession(
@@ -133,6 +137,7 @@ export function createSession(
       template_id: input.templateId ?? 'default',
       mode: input.mode ?? 'chat',
       ...(input.title ? { title: input.title } : {}),
+      ...(input.modelKey ? { model_key: input.modelKey } : {}),
     },
   });
 }

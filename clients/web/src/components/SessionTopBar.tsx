@@ -148,156 +148,167 @@ export function SessionTopBar(props: SessionTopBarProps) {
 
   return (
     <header
-      class="oh-session-topbar rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap"
+      class="oh-session-topbar rounded-m3-md px-2.5 py-2"
       style={{
         background: 'var(--m3-surface-container)',
         boxShadow: 'var(--m3-elev-1)',
+        border: '1px solid var(--m3-outline-variant)',
       }}
     >
-      {onBack ? (
-        <button
-          type="button"
-          onClick={onBack}
-          class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm flex-none"
-          style={{
-            color: 'var(--m3-on-surface-variant)',
-            border: '1px solid var(--m3-outline)',
-          }}
-          title={t('detail.backToList', '返回会话列表')}
-        >
-          ←
-        </button>
-      ) : null}
-
-      <div class="flex-1 min-w-0">
-        {editing ? (
-          <input
-            ref={titleInputRef}
-            value={draftTitle}
-            onInput={(e) => setDraftTitle((e.currentTarget as HTMLInputElement).value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void commitRename();
-              if (e.key === 'Escape') {
-                setEditing(false);
-                setDraftTitle(title);
-              }
-            }}
-            class="w-full text-sm font-semibold px-2 py-1 rounded-md"
-            style={{
-              background: 'var(--m3-surface)',
-              color: 'var(--m3-on-surface)',
-              border: '1px solid var(--m3-primary)',
-            }}
-          />
-        ) : (
+      <div class="oh-session-topbar-row flex items-center gap-2 min-w-0">
+        {onBack ? (
           <button
             type="button"
-            onClick={() => onRename && setEditing(true)}
-            class="block w-full text-left truncate"
-            disabled={!onRename || renaming}
-            title={onRename ? t('topbar.renameHint', '点击重命名') : undefined}
+            onClick={onBack}
+            class="oh-tap-press oh-icon-button flex-none"
+            style={{
+              color: 'var(--m3-on-surface-variant)',
+              border: '1px solid var(--m3-outline-variant)',
+              background: 'var(--m3-surface)',
+            }}
+            title={t('detail.backToList', '返回会话列表')}
+          >
+            ←
+          </button>
+        ) : null}
+
+        <div class="oh-session-title-block min-w-0 flex-none">
+          {editing ? (
+            <input
+              ref={titleInputRef}
+              value={draftTitle}
+              onInput={(e) => setDraftTitle((e.currentTarget as HTMLInputElement).value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void commitRename();
+                if (e.key === 'Escape') {
+                  setEditing(false);
+                  setDraftTitle(title);
+                }
+              }}
+              class="w-full text-sm font-semibold px-2 py-1 rounded-m3-sm"
+              style={{
+                background: 'var(--m3-surface)',
+                color: 'var(--m3-on-surface)',
+                border: '1px solid var(--m3-primary)',
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => onRename && setEditing(true)}
+              class="block w-full text-left truncate"
+              disabled={!onRename || renaming}
+              title={onRename ? t('topbar.renameHint', '点击重命名') : undefined}
+            >
+              <span
+                key={title}
+                class="oh-title-spring block text-sm font-semibold truncate"
+                style={{ color: 'var(--m3-on-surface)' }}
+              >
+                {title}
+              </span>
+            </button>
+          )}
+          {subtitle ? (
+            <p
+              class="text-[11px] truncate mt-0.5"
+              style={{ color: 'var(--m3-on-surface-variant)' }}
+            >
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
+
+        {capsules.length > 0 ? (
+          <div class="oh-session-capsule-rail flex-1 min-w-0 overflow-x-auto">
+            <div class="flex items-center gap-1.5 w-max max-w-none pr-1 py-0.5">
+              {capsules.map((item) => (
+                <ToolbarCapsule key={item.key} capsule={item} />
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {isRunning && canStop && onStop ? (
+          <button
+            type="button"
+            onClick={onStop}
+            disabled={stopping}
+            class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm flex-none flex items-center gap-1.5 disabled:opacity-50"
+            style={{
+              border: '1px solid var(--m3-error)',
+              color: 'var(--m3-error)',
+              background: 'var(--m3-error-container)',
+            }}
+            title={t('composer.stop', '停止响应')}
           >
             <span
-              class="text-sm font-semibold"
-              style={{ color: 'var(--m3-on-surface)' }}
-            >
-              {title}
-            </span>
+              class="oh-pulse-soft inline-block"
+              aria-hidden
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: 'var(--m3-error)',
+              }}
+            />
+            {stopping ? t('composer.stopping', '正在停止…') : t('composer.stop', '停止')}
           </button>
-        )}
-        {capsules.length > 0 ? (
-          <div class="mt-1 flex items-center gap-1.5 flex-wrap pb-0.5">
-            {capsules.map((item) => (
-              <ToolbarCapsule key={item.key} capsule={item} />
-            ))}
-          </div>
-        ) : subtitle ? (
-          <p
-            class="text-xs truncate"
-            style={{ color: 'var(--m3-on-surface-variant)' }}
-          >
-            {subtitle}
-          </p>
         ) : null}
-      </div>
 
-      {isRunning && canStop && onStop ? (
-        <button
-          type="button"
-          onClick={onStop}
-          disabled={stopping}
-          class="oh-tap-press text-xs px-2.5 py-1 rounded-m3-sm flex-none flex items-center gap-1.5 disabled:opacity-50"
-          style={{
-            border: '1px solid var(--m3-error)',
-            color: 'var(--m3-error)',
-          }}
-          title={t('composer.stop', '停止响应')}
-        >
-          <span
-            class="oh-pulse-soft inline-block"
-            aria-hidden
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: 'var(--m3-error)',
+        <div ref={moreMenuAnchorRef} class="relative flex-none" data-topbar-menu>
+          <button
+            type="button"
+            onClick={() => {
+              setShowMore((v) => !v);
             }}
-          />
-          {stopping ? t('composer.stopping', '正在停止…') : t('composer.stop', '停止')}
-        </button>
-      ) : null}
+            class="oh-tap-press oh-icon-button"
+            style={{
+              color: 'var(--m3-on-surface-variant)',
+              border: '1px solid var(--m3-outline-variant)',
+              background: 'var(--m3-surface)',
+            }}
+            title={t('topbar.more', '更多')}
+          >
+            ⋯
+          </button>
+          {showMore ? (
+            <Menu anchorRef={moreMenuAnchorRef}>
+              {onRename ? (
+                <MenuItem onClick={() => { setShowMore(false); setEditing(true); }}>
+                  {t('topbar.rename', '重命名')}
+                </MenuItem>
+              ) : null}
+              {onExport ? (
+                <MenuItem onClick={() => { setShowMore(false); onExport(); }}>
+                  {t('topbar.export', '导出 JSON')}
+                </MenuItem>
+              ) : null}
+              {sessionId ? (
+                <MenuItem
+                  onClick={async () => {
+                    setShowMore(false);
+                    await copySessionId();
+                  }}
+                >
+                  {t('topbar.copyId', '复制会话 ID')}
+                </MenuItem>
+              ) : null}
+              {onDelete ? (
+                <MenuItem
+                  tone="danger"
+                  onClick={() => { setShowMore(false); onDelete(); }}
+                >
+                  {t('topbar.delete', '删除会话')}
+                </MenuItem>
+              ) : null}
+            </Menu>
+          ) : null}
+        </div>
 
-      <div ref={moreMenuAnchorRef} class="relative" data-topbar-menu>
-        <button
-          type="button"
-          onClick={() => {
-            setShowMore((v) => !v);
-          }}
-          class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm"
-          style={{
-            color: 'var(--m3-on-surface-variant)',
-            border: '1px solid var(--m3-outline)',
-          }}
-          title={t('topbar.more', '更多')}
-        >
-          ⋯
-        </button>
-        {showMore ? (
-          <Menu anchorRef={moreMenuAnchorRef}>
-            {onRename ? (
-              <MenuItem onClick={() => { setShowMore(false); setEditing(true); }}>
-                {t('topbar.rename', '重命名')}
-              </MenuItem>
-            ) : null}
-            {onExport ? (
-              <MenuItem onClick={() => { setShowMore(false); onExport(); }}>
-                {t('topbar.export', '导出 JSON')}
-              </MenuItem>
-            ) : null}
-            {sessionId ? (
-              <MenuItem
-                onClick={async () => {
-                  setShowMore(false);
-                  await copySessionId();
-                }}
-              >
-                {t('topbar.copyId', '复制会话 ID')}
-              </MenuItem>
-            ) : null}
-            {onDelete ? (
-              <MenuItem
-                tone="danger"
-                onClick={() => { setShowMore(false); onDelete(); }}
-              >
-                {t('topbar.delete', '删除会话')}
-              </MenuItem>
-            ) : null}
-          </Menu>
-        ) : null}
+        {trailing}
       </div>
-
-      {trailing}
 
     </header>
   );
@@ -307,15 +318,22 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
   const toneColor = capsule.tone === 'primary'
     ? 'var(--m3-primary)'
     : capsule.tone === 'warning'
-      ? '#b45309'
+      ? 'var(--m3-tertiary)'
       : capsule.tone === 'success'
-        ? '#15803d'
+        ? 'var(--m3-secondary)'
         : 'var(--m3-on-surface-variant)';
+  const toneBackground = capsule.tone === 'primary'
+    ? 'var(--m3-primary-container)'
+    : capsule.tone === 'warning'
+      ? 'var(--m3-tertiary-container)'
+      : capsule.tone === 'success'
+        ? 'var(--m3-secondary-container)'
+        : 'var(--m3-surface)';
   const baseClass = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] flex-none max-w-[240px]';
   const baseStyle = {
-    background: 'var(--m3-surface)',
+    background: toneBackground,
     color: toneColor,
-    border: `1px solid color-mix(in srgb, ${toneColor} 28%, transparent)`,
+    border: '1px solid var(--m3-outline-variant)',
     fontWeight: 600,
   };
   const children = (

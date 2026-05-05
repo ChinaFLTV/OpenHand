@@ -68,8 +68,8 @@ function styleForKind(kind: string, role: string): KindStyle {
   switch (kind) {
     case 'reasoning':
       return {
-        background: '#1f2024',
-        color: '#e8e8ec',
+        background: 'var(--m3-inverse-surface)',
+        color: 'var(--m3-inverse-on-surface)',
         label: t('detail.kind.reasoning', '思考'),
         icon: 'TH',
         badge: true,
@@ -98,9 +98,9 @@ function styleForKind(kind: string, role: string): KindStyle {
       };
     case 'mcp':
       return {
-        background: 'color-mix(in srgb, #6f4dff 12%, var(--m3-surface-container))',
+        background: 'color-mix(in srgb, var(--m3-primary-container) 70%, var(--m3-surface-container))',
         color: 'var(--m3-on-surface)',
-        border: '1px solid color-mix(in srgb, #6f4dff 40%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--m3-primary) 34%, transparent)',
         label: t('detail.kind.mcp', 'MCP'),
         icon: '⌬',
         badge: true,
@@ -108,27 +108,27 @@ function styleForKind(kind: string, role: string): KindStyle {
       };
     case 'skill':
       return {
-        background: 'color-mix(in srgb, #f5a623 14%, var(--m3-surface-container))',
+        background: 'color-mix(in srgb, var(--m3-tertiary-container) 66%, var(--m3-surface-container))',
         color: 'var(--m3-on-surface)',
-        border: '1px solid color-mix(in srgb, #f5a623 45%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--m3-tertiary) 36%, transparent)',
         label: t('detail.kind.skill', '技能'),
         icon: 'SK',
         badge: true,
       };
     case 'hook':
       return {
-        background: 'color-mix(in srgb, #00bcd4 12%, var(--m3-surface-container))',
+        background: 'color-mix(in srgb, var(--m3-secondary-container) 66%, var(--m3-surface-container))',
         color: 'var(--m3-on-surface)',
-        border: '1px solid color-mix(in srgb, #00bcd4 38%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--m3-secondary) 34%, transparent)',
         label: t('detail.kind.hook', 'Hook'),
         icon: 'HK',
         badge: true,
       };
     case 'self_learning':
       return {
-        background: 'color-mix(in srgb, #2ecc71 14%, var(--m3-surface-container))',
+        background: 'color-mix(in srgb, var(--m3-secondary-container) 76%, var(--m3-surface-container))',
         color: 'var(--m3-on-surface)',
-        border: '1px solid color-mix(in srgb, #2ecc71 40%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--m3-secondary) 36%, transparent)',
         label: t('detail.kind.selfLearning', '自学习'),
         icon: '↻',
         badge: true,

@@ -64,6 +64,9 @@ const PAGE_SIZE = 80;
 /// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
 
+/// SSE 正常时仍保留一个低频 phase guard，专门兜底最后一次 idle 状态丢失。
+const SSE_PHASE_GUARD_INTERVAL_MS = 2500;
+
 /// SSE 连续失败 N 次以上才彻底切到 polling，避免短暂网络抖动造成体验切换。
 const SSE_FAIL_THRESHOLD = 3;
 
@@ -147,8 +150,11 @@ function sendPhaseLabel(phase: string): string {
   switch (phase) {
     case 'idle':
       return t('detail.phase.idle', '空闲');
+    case 'sendingMessage':
     case 'sending':
       return t('detail.phase.sending', '发送中');
+    case 'responding':
+      return t('detail.phase.streaming', '流式接收中');
     case 'awaitingResponse':
     case 'awaiting_response':
       return t('detail.phase.awaiting', '等待响应');
@@ -242,6 +248,7 @@ export function SessionDetailPage() {
   //    若此时 composerText 非空 → 顶部黄色 banner 提示, 防止用户误以为自己刚发了。
   const isNearBottomRef = useRef<boolean>(true);
   const lastTailIdRef = useRef<string | null>(null);
+  const lastTailContentLengthRef = useRef<number>(0);
   const lastLocalSendAtRef = useRef<number>(0);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
@@ -253,6 +260,7 @@ export function SessionDetailPage() {
     message: SessionMessage;
     cascade: boolean;
   } | null>(null);
+  const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
   const [sessionDeleteBusy, setSessionDeleteBusy] = useState(false);
@@ -420,13 +428,16 @@ export function SessionDetailPage() {
   useEffect(() => {
     if (messages.length === 0) {
       lastTailIdRef.current = null;
+      lastTailContentLengthRef.current = 0;
       return;
     }
     const tail = messages[messages.length - 1];
+    const tailContentLength = tail.content?.length ?? tail.character_count ?? 0;
     if (lastTailIdRef.current === null) {
       // 首次进入会话：直接滚到底部，对齐 APP 端进入 Hardness Session 的体验。
       // 不走 smooth，避免冷启动时长列表"飞一段"；用 instant + 双 RAF 等渲染稳定。
       lastTailIdRef.current = tail.id;
+      lastTailContentLengthRef.current = tailContentLength;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           scrollMessagesToBottom('auto');
@@ -437,18 +448,24 @@ export function SessionDetailPage() {
       });
       return;
     }
-    if (tail.id === lastTailIdRef.current) return;
+    const tailChanged = tail.id !== lastTailIdRef.current;
+    const tailContentChanged = tailContentLength !== lastTailContentLengthRef.current;
+    if (!tailChanged && !tailContentChanged) return;
     lastTailIdRef.current = tail.id;
-    if (autoFollow && isNearBottomRef.current) {
+    lastTailContentLengthRef.current = tailContentLength;
+    if (autoFollow && (isNearBottomRef.current || !autoFollowPaused)) {
       // defer 一帧, 等 DOM 把新卡片画上
       requestAnimationFrame(() => {
         scrollMessagesToBottom(reduceMotion ? 'auto' : 'smooth');
+        isNearBottomRef.current = true;
+        setAutoFollowPaused(false);
+        setUnreadCount(0);
       });
     } else {
       if (autoFollow) setAutoFollowPaused(true);
-      setUnreadCount((n) => n + 1);
+      setUnreadCount((n) => (tailChanged ? n + 1 : Math.max(1, n)));
     }
-  }, [messages, autoFollow, reduceMotion]);
+  }, [messages, autoFollow, autoFollowPaused, reduceMotion]);
 
   // sendPhase 变化 → 远端冲突探测
   useEffect(() => {
@@ -508,7 +525,10 @@ export function SessionDetailPage() {
     setMessages([]);
     setWindowOffset(0);
     setTotalKnown(0);
+    setComposerModelKey('');
+    setComposerMode('normal');
     lastTailIdRef.current = null;
+    lastTailContentLengthRef.current = 0;
     Promise.all([
       getSession(sessionId),
       listMessages(sessionId, { limit: PAGE_SIZE, tail: true }),
@@ -643,6 +663,16 @@ export function SessionDetailPage() {
           messagesRef.current.length === 0 ? snapOffset : Math.min(prev, snapOffset)
         ));
         setTotalKnown(snap.session.message_count ?? snap.messages.length);
+        setDetail((prev) => {
+          const runtime = {
+            send_phase: snap.send_phase,
+            can_stop: snap.can_stop,
+            last_error: snap.last_error,
+          };
+          return prev
+            ? { ...prev, session: snap.session, runtime }
+            : { session: snap.session, runtime };
+        });
         setSendPhase(snap.send_phase);
         setLastError(snap.last_error);
         setPendingWriteApproval(snap.pending_write_approval ?? null);
@@ -693,10 +723,22 @@ export function SessionDetailPage() {
   const textAllowed = allowedMessageTypes.includes('text');
 
   useEffect(() => {
-    if (!composerModelKey && allowedModels.length > 0) {
-      setComposerModelKey(allowedModels[0]!.key);
-    }
-  }, [allowedModels]);
+    if (allowedModels.length === 0) return;
+    const sessionModelKey = detail?.session.last_model_key ?? '';
+    const sessionModelAllowed = sessionModelKey
+      ? allowedModels.some((model) => model.key === sessionModelKey)
+      : false;
+    setComposerModelKey((current) => {
+      const currentAllowed = current
+        ? allowedModels.some((model) => model.key === current)
+        : false;
+      if (sessionModelAllowed && (!currentAllowed || current === allowedModels[0]?.key)) {
+        return sessionModelKey;
+      }
+      if (!currentAllowed) return allowedModels[0]!.key;
+      return current;
+    });
+  }, [allowedModels, detail?.session.id, detail?.session.last_model_key]);
 
   useEffect(() => {
     if (modelAllowedModes.length > 0 && !modelAllowedModes.includes(composerMode)) {
@@ -704,18 +746,11 @@ export function SessionDetailPage() {
     }
   }, [modelAllowedModes, composerMode]);
 
-  // 轮询：仅作 SSE 兜底——若 SSE 实时通道存活则跳过；否则在助手回复期间
-  // 每 1.5s 拉一次最新一页 + send_phase，避免 SSE 故障下用户永远看不到更新。
+  // 轮询：SSE 故障时 1.5s 拉一次；SSE 存活时也保留低频 phase guard，
+  // 兜底最后一帧 idle 丢失导致按钮一直停在「等待响应中」。
   // 用 setTimeout 自驱动而非 setInterval，避免漂移与未完成请求叠加。
   useEffect(() => {
     if (auth.loading || !sessionId) return;
-    if (sseLive) {
-      if (pollTimerRef.current != null) {
-        window.clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-      return;
-    }
     const isRunning = sendPhase !== 'idle' && sendPhase !== '';
     if (!isRunning) {
       if (pollTimerRef.current != null) {
@@ -749,10 +784,16 @@ export function SessionDetailPage() {
         setLastError(e instanceof Error ? e.message : String(e));
       }
       if (!cancelled) {
-        pollTimerRef.current = window.setTimeout(tick, POLL_INTERVAL_MS);
+        pollTimerRef.current = window.setTimeout(
+          tick,
+          sseLive ? SSE_PHASE_GUARD_INTERVAL_MS : POLL_INTERVAL_MS,
+        );
       }
     }
-    pollTimerRef.current = window.setTimeout(tick, POLL_INTERVAL_MS);
+    pollTimerRef.current = window.setTimeout(
+      tick,
+      sseLive ? SSE_PHASE_GUARD_INTERVAL_MS : POLL_INTERVAL_MS,
+    );
     return () => {
       cancelled = true;
       if (pollTimerRef.current != null) {
@@ -962,6 +1003,20 @@ export function SessionDetailPage() {
   }
 
   const session = detail?.session;
+  async function applySessionMode(next: 'chat' | 'plan'): Promise<void> {
+    if (!sessionId) return;
+    try {
+      const res = await updateSessionMode(sessionId, next);
+      setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+      showSnackbar(t('topbar.mode.ok', '已更新会话模式'), { tone: 'success' });
+    } catch (e: unknown) {
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      setLastError(message);
+      showSnackbar(`${t('topbar.mode.failed', '更新会话模式失败')}：${message}`, { tone: 'error' });
+    }
+  }
   const remainingOlder = windowOffset;
   const sessionCapsules = useMemo<SessionToolbarCapsule[]>(() => {
     if (!session) return [];
@@ -986,16 +1041,7 @@ export function SessionDetailPage() {
         onClick: () => {
           const next = session.mode === 'plan' ? 'chat' : 'plan';
           if (!sessionModeOptions.includes(next)) return;
-          void updateSessionMode(sessionId, next).then((res) => {
-            setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
-            showSnackbar(t('topbar.mode.ok', '已更新会话模式'), { tone: 'success' });
-          }).catch((e: unknown) => {
-            if (handleAuthError(e)) return;
-            if (handleSessionGoneError(e)) return;
-            const message = e instanceof Error ? e.message : String(e);
-            setLastError(message);
-            showSnackbar(`${t('topbar.mode.failed', '更新会话模式失败')}：${message}`, { tone: 'error' });
-          });
+          void applySessionMode(next);
         },
       },
       {
@@ -1035,9 +1081,9 @@ export function SessionDetailPage() {
       },
       {
         key: 'metadata',
-        icon: t('topbar.capsule.messageIcon', '消息'),
+        icon: t('topbar.capsule.metadataIcon', '元'),
         label: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
-        onClick: () => setSessionAuditOpen(true),
+        onClick: () => setSessionMetadataOpen(true),
       },
       {
         key: 'audit',
@@ -1051,7 +1097,7 @@ export function SessionDetailPage() {
         icon: t('topbar.capsule.tokenIcon', 'Token'),
         label: tokens,
         title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
-        onClick: () => setSessionAuditOpen(true),
+        onClick: () => setSessionMetadataOpen(true),
       },
     ];
   }, [session, sendPhase, sseLive, totalKnown, selectedModel, composerModelKey, sessionModeOptions, sessionId]);
@@ -1146,17 +1192,7 @@ export function SessionDetailPage() {
           mode={session?.mode ?? 'chat'}
           onModeChange={async (next) => {
             if (next !== 'chat' && next !== 'plan') return;
-            try {
-              const res = await updateSessionMode(sessionId, next);
-              setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
-              showSnackbar(t('topbar.mode.ok', '已更新会话模式'), { tone: 'success' });
-            } catch (e) {
-              if (handleAuthError(e)) return;
-              if (handleSessionGoneError(e)) return;
-              const message = e instanceof Error ? e.message : String(e);
-              setLastError(message);
-              showSnackbar(`${t('topbar.mode.failed', '更新会话模式失败')}：${message}`, { tone: 'error' });
-            }
+            await applySessionMode(next);
           }}
           models={allowedModels}
           modelKey={composerModelKey}
@@ -1220,9 +1256,9 @@ export function SessionDetailPage() {
           <div
             class="rounded-md px-3 py-2 mb-4 text-xs flex items-start gap-2"
             style={{
-              background: 'rgba(245,158,11,0.10)',
-              color: '#b45309',
-              border: '1px solid rgba(245,158,11,0.35)',
+              background: 'var(--m3-tertiary-container)',
+              color: 'var(--m3-on-tertiary-container)',
+              border: '1px solid color-mix(in srgb, var(--m3-tertiary) 36%, transparent)',
             }}
           >
             <span>
@@ -1344,6 +1380,41 @@ export function SessionDetailPage() {
           }}
         >
           <div class="flex flex-wrap items-center gap-2 mb-3">
+            {sessionModeOptions.length > 1 ? (
+              <div
+                class="flex items-center gap-1 rounded-m3-sm p-0.5"
+                style={{
+                  background: 'var(--m3-surface)',
+                  border: '1px solid var(--m3-outline-variant)',
+                }}
+                aria-label={t('composer.sessionMode', '会话模式')}
+              >
+                {sessionModeOptions.map((item) => {
+                  const active = (session?.mode ?? 'chat') === item;
+                  const label = item === 'plan'
+                    ? t('sessions.mode.plan', '计划模式')
+                    : t('sessions.mode.chat', '聊天模式');
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => void applySessionMode(item as 'chat' | 'plan')}
+                      disabled={composerSending || active}
+                      class="oh-tap-press text-xs px-2.5 py-1 rounded-m3-sm disabled:opacity-90"
+                      style={{
+                        background: active ? 'var(--m3-primary-container)' : 'transparent',
+                        color: active ? 'var(--m3-on-primary-container)' : 'var(--m3-on-surface-variant)',
+                        fontWeight: active ? 700 : 500,
+                      }}
+                      title={label}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
             <button
               type="button"
               onClick={() => setShowComposerModelPicker(true)}
@@ -1389,8 +1460,9 @@ export function SessionDetailPage() {
                     disabled={composerSending || active}
                     class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm disabled:opacity-90"
                     style={{
-                      background: active ? 'var(--m3-inverse-surface)' : 'transparent',
-                      color: active ? 'var(--m3-inverse-on-surface)' : 'var(--m3-on-surface-variant)',
+                      background: active ? 'var(--m3-secondary-container)' : 'transparent',
+                      color: active ? 'var(--m3-on-secondary-container)' : 'var(--m3-on-surface-variant)',
+                      fontWeight: active ? 700 : 500,
                     }}
                     title={label}
                   >
@@ -1411,11 +1483,11 @@ export function SessionDetailPage() {
               class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
               style={{
                 border: session?.full_access_permission === true
-                  ? '1px solid color-mix(in srgb, #f59e0b 50%, transparent)'
+                  ? '1px solid color-mix(in srgb, var(--m3-tertiary) 50%, transparent)'
                   : '1px solid var(--m3-outline)',
-                color: session?.full_access_permission === true ? '#b45309' : 'var(--m3-on-surface-variant)',
+                color: session?.full_access_permission === true ? 'var(--m3-on-tertiary-container)' : 'var(--m3-on-surface-variant)',
                 background: session?.full_access_permission === true
-                  ? 'color-mix(in srgb, #f59e0b 14%, transparent)'
+                  ? 'var(--m3-tertiary-container)'
                   : 'transparent',
               }}
               title={t('topbar.perm.title', '权限模式')}
@@ -1441,10 +1513,10 @@ export function SessionDetailPage() {
               style={{
                 border: '1px solid var(--m3-outline)',
                 background: autoFollow || autoFollowPaused || unreadCount > 0
-                  ? 'var(--m3-inverse-surface)'
+                  ? 'var(--m3-primary-container)'
                   : 'transparent',
                 color: autoFollow || autoFollowPaused || unreadCount > 0
-                  ? 'var(--m3-inverse-on-surface)'
+                  ? 'var(--m3-on-primary-container)'
                   : 'var(--m3-on-surface-variant)',
               }}
               title={autoFollowPaused || unreadCount > 0
@@ -1471,7 +1543,12 @@ export function SessionDetailPage() {
             </button>
           </div>
 
-          {!composerCollapsed ? <div
+          <div
+            class="oh-composer-body"
+            data-collapsed={composerCollapsed ? 'true' : 'false'}
+            aria-hidden={composerCollapsed ? 'true' : undefined}
+          >
+          <div
             class="relative"
             onDragOver={(e) => {
               if (!attachmentsAllowed) return;
@@ -1544,7 +1621,7 @@ export function SessionDetailPage() {
               {t('composer.attachment.drop', '松开即可添加附件')}
             </div>
           ) : null}
-          </div> : null}
+          </div>
 
           {/* 附件 */}
           {attachmentsAllowed && composerAttachments.length > 0 ? (
@@ -1618,6 +1695,7 @@ export function SessionDetailPage() {
               {composerError}
             </p>
           ) : null}
+          </div>
 
           <div class="flex flex-wrap items-center gap-2 mt-3">
             {attachmentsAllowed ? (
@@ -1700,6 +1778,13 @@ export function SessionDetailPage() {
           detail={detail}
           messages={messages}
           onClose={() => setSessionAuditOpen(false)}
+        />
+      ) : null}
+      {sessionMetadataOpen && detail ? (
+        <SessionMetadataDialog
+          detail={detail}
+          messages={messages}
+          onClose={() => setSessionMetadataOpen(false)}
         />
       ) : null}
       {pendingDeleteAction ? (
@@ -2002,6 +2087,174 @@ function MessageAuditDialog({
         >
           {json}
         </pre>
+      </div>
+    </div>
+  );
+  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+}
+
+function formatDialogDate(value?: string | null): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function SessionMetadataDialog({
+  detail,
+  messages,
+  onClose,
+}: {
+  detail: SessionDetailResponse;
+  messages: SessionMessage[];
+  onClose: () => void;
+}) {
+  const session = detail.session;
+  const latest = messages[messages.length - 1];
+  const tokenRows = [
+    [t('metadata.tokens.total', '总 Token'), `${session.total_tokens ?? 0}`],
+    [t('metadata.tokens.prompt', 'Prompt'), `${session.total_prompt_tokens ?? 0}`],
+    [t('metadata.tokens.completion', 'Completion'), `${session.total_completion_tokens ?? 0}`],
+    [t('metadata.tokens.compress', '压缩点'), `${session.compression_point_count ?? 0}`],
+  ];
+  const sections: Array<{ title: string; rows: Array<[string, string]> }> = [
+    {
+      title: t('metadata.section.identity', '会话身份'),
+      rows: [
+        [t('metadata.id', '会话 ID'), session.id],
+        [t('metadata.title', '标题'), session.title || t('sessions.untitled', '未命名会话')],
+        [t('metadata.mode', '会话模式'), session.mode === 'plan' ? t('sessions.mode.plan', '计划模式') : t('sessions.mode.chat', '聊天模式')],
+        [t('metadata.permission', '权限'), session.full_access_permission ? t('topbar.perm.full', '完全访问权限') : t('topbar.perm.default', '默认权限')],
+      ],
+    },
+    {
+      title: t('metadata.section.template', '模板与模型'),
+      rows: [
+        [t('metadata.template', '线程模板'), session.template_name || session.template_id],
+        [t('metadata.templateId', '模板 ID'), session.template_id],
+        [t('metadata.templateVersion', '模板版本'), session.template_internal_version != null ? `v${session.template_internal_version}` : '—'],
+        [t('metadata.model', '最近模型'), session.last_used_model_label || session.last_used_model_id || '—'],
+      ],
+    },
+    {
+      title: t('metadata.section.runtime', '运行状态'),
+      rows: [
+        [t('metadata.sendPhase', '发送阶段'), sendPhaseLabel(detail.runtime.send_phase || session.send_phase || 'idle')],
+        [t('metadata.canStop', '可停止'), detail.runtime.can_stop ? t('common.yes', '是') : t('common.no', '否')],
+        [t('metadata.lastError', '最近错误'), detail.runtime.last_error || '—'],
+        [t('metadata.pendingPlan', '待批准计划'), session.awaiting_plan_approval ? t('common.yes', '是') : t('common.no', '否')],
+      ],
+    },
+    {
+      title: t('metadata.section.time', '时间与来源'),
+      rows: [
+        [t('metadata.createdAt', '创建时间'), formatDialogDate(session.created_at)],
+        [t('metadata.updatedAt', '更新时间'), formatDialogDate(session.updated_at)],
+        [t('metadata.source', '来源'), session.source || '—'],
+        [t('metadata.device', '设备'), session.device_id || '—'],
+      ],
+    },
+  ];
+  const node = (
+    <div
+      class="oh-dialog-fade-in fixed inset-0 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
+      onClick={onClose}
+    >
+      <div
+        class="oh-dialog-pop-in rounded-m3-md p-4 max-w-4xl w-full flex flex-col"
+        style={{
+          background: 'var(--m3-surface-container)',
+          color: 'var(--m3-on-surface)',
+          boxShadow: 'var(--m3-elev-3)',
+          border: '1px solid var(--m3-outline-variant)',
+          maxHeight: '84vh',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header class="flex items-center justify-between gap-3 mb-4">
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold truncate">{t('metadata.titleBar', '会话元数据')} · {session.title}</h2>
+            <p class="text-xs mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {session.message_count} {t('sessions.messageUnit', '条消息')} · {session.tool_message_count ?? 0} tool
+            </p>
+          </div>
+          <div class="flex items-center gap-2 flex-none">
+            <button
+              type="button"
+              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
+              onClick={() => void copyJsonWithFeedback(JSON.stringify({ session, runtime: detail.runtime }, null, 2))}
+            >
+              {t('common.copy', '复制')}
+            </button>
+            <button
+              type="button"
+              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
+              onClick={onClose}
+            >
+              {t('common.close', '关闭')}
+            </button>
+          </div>
+        </header>
+        <div class="grid gap-2 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+          {tokenRows.map(([label, value]) => (
+            <div
+              key={label}
+              class="rounded-m3-sm p-3"
+              style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+            >
+              <div class="text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</div>
+              <div class="text-base font-semibold mt-1">{value}</div>
+            </div>
+          ))}
+        </div>
+        <div class="overflow-auto pr-1 flex-1 min-h-0">
+          <div class="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+            {sections.map((section) => (
+              <section
+                key={section.title}
+                class="rounded-m3-sm p-3"
+                style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+              >
+                <h3 class="text-sm font-semibold mb-2">{section.title}</h3>
+                <dl class="space-y-2">
+                  {section.rows.map(([label, value]) => (
+                    <div key={label} class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
+                      <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</dt>
+                      <dd class="text-xs break-words">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ))}
+            <section
+              class="rounded-m3-sm p-3"
+              style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+            >
+              <h3 class="text-sm font-semibold mb-2">{t('metadata.section.latest', '最近加载消息')}</h3>
+              <dl class="space-y-2">
+                <div class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
+                  <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('metadata.loaded', '已加载')}</dt>
+                  <dd class="text-xs">{messages.length}</dd>
+                </div>
+                <div class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
+                  <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('metadata.latestRole', '最新角色')}</dt>
+                  <dd class="text-xs">{latest?.role || '—'}</dd>
+                </div>
+                <div class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
+                  <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('metadata.latestKind', '最新类型')}</dt>
+                  <dd class="text-xs">{latest?.kind || '—'}</dd>
+                </div>
+                <div class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
+                  <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('metadata.latestId', '最新 ID')}</dt>
+                  <dd class="text-xs break-all">{latest?.id || '—'}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+        </div>
       </div>
     </div>
   );
