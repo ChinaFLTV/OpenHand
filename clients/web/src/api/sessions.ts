@@ -10,6 +10,7 @@
 // 任何接口的 401 都会被 apiRequest 自动转成 UnauthorizedError + 清理本地 token。
 
 import { apiRequest } from './client';
+import { ensureDeviceId, readToken } from '../state/storage';
 
 export interface SessionSummary {
   id: string;
@@ -210,4 +211,45 @@ export function stopMessage(sessionId: string): Promise<StopMessageResponse> {
     `/api/sessions/${encodeURIComponent(sessionId)}/stop`,
     { method: 'POST', body: {} },
   );
+}
+
+/// 触发会话 JSON 导出下载。在 service 端附带 Content-Disposition: attachment，
+/// 这里直接抓 blob 后用 a[download] 触发浏览器保存对话框；不绕过鉴权（带上 token）。
+export async function exportSessionDownload(sessionId: string, fallbackName: string): Promise<void> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'x-openhand-device-id': ensureDeviceId(),
+    'x-openhand-source': 'WEB_PC',
+  };
+  const token = readToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/export`, {
+    method: 'GET',
+    headers,
+    credentials: 'same-origin',
+  });
+  if (res.status === 401) {
+    throw new Error('UNAUTHORIZED');
+  }
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  // 优先用响应里 Content-Disposition 的 filename；缺失时 fallback 到调用方给的名字。
+  let filename = `${fallbackName}.json`;
+  const cd = res.headers.get('Content-Disposition') ?? '';
+  const match = /filename="?([^";]+)"?/i.exec(cd);
+  if (match && match[1]) filename = match[1];
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    // 给浏览器一次机会发起下载，再回收 URL；500ms 经验值足够覆盖 click→保存路径。
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+  }
 }

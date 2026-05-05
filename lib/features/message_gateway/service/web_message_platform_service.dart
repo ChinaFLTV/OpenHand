@@ -650,6 +650,13 @@ class WebMessagePlatformService {
         _serveBundleAsset('assets/web/chunks/$path', _guessContentType(path)));
     router.get('/assets/<path|.+>', (shelf.Request _, String path) =>
         _serveBundleAsset('assets/web/assets/$path', _guessContentType(path)));
+    // public/ 拷贝到 assets/web/ 根的静态资源（logo、favicon 等）。Vite build
+    // 把 clients/web/public/* 平铺至产物根目录，Flutter pubspec 把整个目录纳入
+    // bundle，这里按白名单显式 expose 以避免被 SPA shell 路由 catch-all 截胡。
+    router.get('/openhand_logo.png', (shelf.Request _) =>
+        _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'));
+    router.get('/favicon.ico', (shelf.Request _) =>
+        _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'));
     router.get('/api/health', _apiHealth);
     router.get('/api/meta', _apiMeta);
     router.post('/api/login', _login);
@@ -668,6 +675,10 @@ class WebMessagePlatformService {
         _withAuth(r, (req, auth) => _sendMessage(req, auth, sessionId)));
     router.post('/api/sessions/<sessionId>/stop', (shelf.Request r, String sessionId) =>
         _withAuth(r, (req, auth) => _stopSendMessage(req, auth, sessionId)));
+    // 导出会话：返回 application/json + Content-Disposition attachment，
+    // 以便浏览器一键下载。包含 session 头信息 + 全量未删除消息（不分页）。
+    router.get('/api/sessions/<sessionId>/export', (shelf.Request r, String sessionId) =>
+        _withAuth(r, (req, auth) => _exportSession(req, auth, sessionId)));
 
     router.get('/api/ops', (shelf.Request r) => _withAuth(r, (_, _) => _opsSnapshot()));
     router.get('/api/ops/cleanup/history', (shelf.Request r) => _withAuth(r, (_, _) => _cleanupHistoryPayload()));
@@ -1190,6 +1201,59 @@ class WebMessagePlatformService {
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
       'last_error': _sessionController.lastErrorMessageForSession(session.id),
     });
+  }
+
+  /// 导出整会话为 JSON 附件下载。包含 session summary + 所有未删除消息。
+  /// 一次性 loadMessages(limit=超大上限) 拉全；超大会话页可结合 stream chunked 下载，
+  /// 但当前 service 端尚无 stream payload 通道，先按一次性方案落地。
+  Future<shelf.Response> _exportSession(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    // 拉全部消息：分页拉取，避免单次过大内存爆炸；100 条一页。
+    final messages = <Map<String, Object?>>[];
+    var offset = 0;
+    const pageSize = 100;
+    while (true) {
+      final page = await _sessionController.store.loadMessages(
+        session.id,
+        limit: pageSize,
+        offset: offset,
+      );
+      for (final m in page.messages) {
+        if (m.isDeleted) continue;
+        messages.add(_messageJson(m));
+      }
+      if (!page.hasMore) break;
+      offset += page.messages.length;
+      if (page.messages.isEmpty) break; // 安全栏：避免计数错乱无限循环
+    }
+    final payload = <String, Object?>{
+      'export_version': 1,
+      'exported_at': DateTime.now().toUtc().toIso8601String(),
+      'app_version': _appInfo.version,
+      'session': _sessionSummary(session),
+      'messages': messages,
+    };
+    final bodyText = const JsonEncoder.withIndent('  ').convert(payload);
+    final safeTitle = (session.title.isEmpty ? 'session' : session.title)
+        .replaceAll(RegExp(r'[^\w\u4e00-\u9fff\-\.]+'), '_');
+    final filename = '${safeTitle}_${session.id}.json';
+    return shelf.Response.ok(
+      bodyText,
+      headers: <String, String>{
+        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        'content-disposition': 'attachment; filename="$filename"',
+        HttpHeaders.cacheControlHeader: 'no-store',
+      },
+    );
   }
 
   Future<shelf.Response> _sendMessage(
