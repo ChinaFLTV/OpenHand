@@ -39,6 +39,7 @@ export interface ApiMetaModel {
   key: string;
   provider_id: string;
   provider: string;
+  protocol?: string;
   model_id: string;
   label: string;
 }

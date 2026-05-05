@@ -1113,6 +1113,7 @@ class WebMessagePlatformService {
               'key': item.key,
               'provider_id': item.providerId,
               'provider': item.providerLabel,
+              'protocol': item.protocolLabel,
               'model_id': item.modelId,
               'label': item.label,
             },
@@ -2393,6 +2394,7 @@ class WebMessagePlatformService {
             key: key,
             providerId: provider.id,
             providerLabel: provider.providerLabel,
+            protocolLabel: provider.protocolType.storageValue,
             modelId: modelId,
             label: '${provider.providerLabel} / $modelId',
           ),
@@ -2948,6 +2950,7 @@ class _AllowedWebModel {
     required this.key,
     required this.providerId,
     required this.providerLabel,
+    required this.protocolLabel,
     required this.modelId,
     required this.label,
   });
@@ -2955,6 +2958,7 @@ class _AllowedWebModel {
   final String key;
   final String providerId;
   final String providerLabel;
+  final String protocolLabel;
   final String modelId;
   final String label;
 }

@@ -55,7 +55,9 @@ export function ModelPickerDialog({
   onClose,
 }: ModelPickerDialogProps) {
   const [query, setQuery] = useState('');
+  const [highlightKey, setHighlightKey] = useState<string>(selectedKey);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -100,6 +102,38 @@ export function ModelPickerDialog({
       .slice(0, RECENT_MAX);
   }, [filtered, recentKeys, query]);
 
+  // 顺序：最近使用 → 各分组 (filtered)；用于键盘导航。
+  const orderedKeys = useMemo(() => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const m of recent) {
+      if (!seen.has(m.key)) {
+        out.push(m.key);
+        seen.add(m.key);
+      }
+    }
+    for (const [, items] of grouped) {
+      for (const m of items) {
+        if (!seen.has(m.key)) {
+          out.push(m.key);
+          seen.add(m.key);
+        }
+      }
+    }
+    return out;
+  }, [recent, grouped]);
+
+  // query 变化后高亮第一个候选；初始保持选中模型。
+  useEffect(() => {
+    if (!query.trim()) {
+      setHighlightKey(selectedKey);
+      return;
+    }
+    if (orderedKeys.length > 0 && !orderedKeys.includes(highlightKey)) {
+      setHighlightKey(orderedKeys[0]!);
+    }
+  }, [query, orderedKeys, selectedKey, highlightKey]);
+
   function handleSelect(key: string) {
     pushRecentModel(key);
     onSelect(key);
@@ -107,7 +141,27 @@ export function ModelPickerDialog({
   }
 
   function handleSubmit() {
-    if (filtered.length > 0) handleSelect(filtered[0]!.key);
+    const target = orderedKeys.includes(highlightKey)
+      ? highlightKey
+      : (orderedKeys[0] ?? '');
+    if (target) handleSelect(target);
+  }
+
+  function moveHighlight(delta: 1 | -1) {
+    if (orderedKeys.length === 0) return;
+    const cur = orderedKeys.indexOf(highlightKey);
+    const next =
+      cur < 0
+        ? (delta === 1 ? 0 : orderedKeys.length - 1)
+        : (cur + delta + orderedKeys.length) % orderedKeys.length;
+    const nextKey = orderedKeys[next]!;
+    setHighlightKey(nextKey);
+    requestAnimationFrame(() => {
+      const el = listRef.current?.querySelector<HTMLButtonElement>(
+        `[data-model-key="${CSS.escape(nextKey)}"]`,
+      );
+      el?.scrollIntoView({ block: 'nearest' });
+    });
   }
 
   return (
@@ -143,6 +197,12 @@ export function ModelPickerDialog({
               if (e.key === 'Enter') {
                 e.preventDefault();
                 handleSubmit();
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                moveHighlight(1);
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                moveHighlight(-1);
               }
             }}
             placeholder={t('modelPicker.search', '搜索模型…')}
@@ -163,7 +223,7 @@ export function ModelPickerDialog({
             </p>
           ) : null}
         </div>
-        <div class="flex-1 overflow-y-auto pb-2" style={{ minHeight: 0 }}>
+        <div class="flex-1 overflow-y-auto pb-2" style={{ minHeight: 0 }} ref={listRef}>
           {models.length === 0 ? (
             <p
               class="text-sm text-center py-12 px-6"
@@ -185,16 +245,20 @@ export function ModelPickerDialog({
                   label={t('modelPicker.recent', '最近使用')}
                   items={recent}
                   selectedKey={selectedKey}
+                  highlightKey={highlightKey}
                   onPick={handleSelect}
+                  onHover={setHighlightKey}
                 />
               ) : null}
               {grouped.map(([groupName, items]) => (
                 <Section
                   key={groupName}
-                  label={groupName}
+                  label={items[0]?.protocol ? `${groupName} · ${items[0].protocol}` : groupName}
                   items={items}
                   selectedKey={selectedKey}
+                  highlightKey={highlightKey}
                   onPick={handleSelect}
+                  onHover={setHighlightKey}
                 />
               ))}
             </>
@@ -225,12 +289,16 @@ function Section({
   label,
   items,
   selectedKey,
+  highlightKey,
   onPick,
+  onHover,
 }: {
   label: string;
   items: ApiMetaModel[];
   selectedKey: string;
+  highlightKey: string;
   onPick(key: string): void;
+  onHover(key: string): void;
 }) {
   return (
     <div>
@@ -246,16 +314,21 @@ function Section({
       </p>
       {items.map((m) => {
         const active = m.key === selectedKey;
+        const highlighted = m.key === highlightKey && !active;
         return (
           <button
             key={m.key}
             type="button"
+            data-model-key={m.key}
             onClick={() => onPick(m.key)}
+            onMouseEnter={() => onHover(m.key)}
             class="w-full text-left px-4 py-2 flex items-center gap-3 oh-tap-press"
             style={{
               background: active
                 ? 'color-mix(in srgb, var(--m3-primary) 12%, transparent)'
-                : 'transparent',
+                : highlighted
+                  ? 'color-mix(in srgb, var(--m3-primary) 6%, transparent)'
+                  : 'transparent',
               color: active ? 'var(--m3-primary)' : 'var(--m3-on-surface)',
               fontWeight: active ? 600 : 400,
             }}
@@ -286,13 +359,32 @@ function Section({
                 </span>
               ) : null}
             </span>
-            <span class="flex-1 truncate text-sm">{m.label || m.key}</span>
-            <span
-              class="text-xs flex-none"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
-            >
-              {m.provider}
+            <span class="flex-1 min-w-0">
+              <span class="block text-sm truncate" style={{ fontWeight: active ? 600 : 500 }}>
+                {m.model_id || m.label || m.key}
+              </span>
+              <span
+                class="block text-xs truncate"
+                style={{ color: 'var(--m3-on-surface-variant)', marginTop: 1 }}
+              >
+                {m.provider}
+                {m.protocol ? ` · ${m.protocol}` : ''}
+              </span>
             </span>
+            {m.protocol ? (
+              <span
+                class="text-[10px] flex-none px-1.5 py-0.5 rounded-md uppercase"
+                style={{
+                  background: 'color-mix(in srgb, var(--m3-primary) 10%, transparent)',
+                  color: 'var(--m3-primary)',
+                  letterSpacing: '0.04em',
+                  fontWeight: 600,
+                }}
+                aria-hidden
+              >
+                {m.protocol}
+              </span>
+            ) : null}
           </button>
         );
       })}
