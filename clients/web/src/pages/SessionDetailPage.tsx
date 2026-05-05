@@ -48,6 +48,7 @@ import {
 import { ModelPickerDialog, pushRecentModel } from '../components/ModelPickerDialog';
 import { PullIndicator } from '../components/PullIndicator';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 const PAGE_SIZE = 80;
 
@@ -166,6 +167,7 @@ interface RouteParams {
 export function SessionDetailPage() {
   const auth = useAuth();
   const location = useLocation();
+  const reduceMotion = useReducedMotion();
   const routeMatch = useRoute() as { params?: RouteParams } | undefined;
   const sessionId = routeMatch?.params?.id ?? '';
   const mainRef = useRef<HTMLElement | null>(null);
@@ -202,6 +204,7 @@ export function SessionDetailPage() {
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('ask');
   const [composerCollapsed, setComposerCollapsed] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
+  const [autoFollowPaused, setAutoFollowPaused] = useState(false);
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
 
   const detailAbortRef = useRef<AbortController | null>(null);
@@ -275,7 +278,10 @@ export function SessionDetailPage() {
     if (m.role !== 'user') return;
     setComposerText((cur) => (cur ? `${cur}\n${m.content ?? ''}` : (m.content ?? '')));
     if (typeof window !== 'undefined') {
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      });
     }
   };
   const handleAuditMessage = (m: SessionMessage) => {
@@ -288,7 +294,16 @@ export function SessionDetailPage() {
       const doc = document.documentElement;
       const dist = doc.scrollHeight - (window.scrollY + window.innerHeight);
       isNearBottomRef.current = dist <= 64;
-      if (isNearBottomRef.current && unreadCount !== 0) setUnreadCount(0);
+      if (!autoFollow) {
+        if (autoFollowPaused) setAutoFollowPaused(false);
+        return;
+      }
+      if (isNearBottomRef.current) {
+        if (unreadCount !== 0) setUnreadCount(0);
+        if (autoFollowPaused) setAutoFollowPaused(false);
+      } else if (!autoFollowPaused) {
+        setAutoFollowPaused(true);
+      }
     }
     recalc();
     window.addEventListener('scroll', recalc, { passive: true });
@@ -297,7 +312,7 @@ export function SessionDetailPage() {
       window.removeEventListener('scroll', recalc);
       window.removeEventListener('resize', recalc);
     };
-  }, [unreadCount]);
+  }, [autoFollow, autoFollowPaused, unreadCount]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -319,6 +334,8 @@ export function SessionDetailPage() {
           if (typeof window === 'undefined') return;
           window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
           isNearBottomRef.current = true;
+          setAutoFollowPaused(false);
+          setUnreadCount(0);
         });
       });
       return;
@@ -329,12 +346,16 @@ export function SessionDetailPage() {
       // defer 一帧, 等 DOM 把新卡片画上
       requestAnimationFrame(() => {
         if (typeof window === 'undefined') return;
-        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+        window.scrollTo({
+          top: document.documentElement.scrollHeight,
+          behavior: reduceMotion ? 'auto' : 'smooth',
+        });
       });
     } else {
+      if (autoFollow) setAutoFollowPaused(true);
       setUnreadCount((n) => n + 1);
     }
-  }, [messages, autoFollow]);
+  }, [messages, autoFollow, reduceMotion]);
 
   // sendPhase 变化 → 远端冲突探测
   useEffect(() => {
@@ -863,6 +884,22 @@ export function SessionDetailPage() {
     });
   }, [messages]);
 
+  const resumeToLatest = () => {
+    setAutoFollow(true);
+    setAutoFollowPaused(false);
+    setUnreadCount(0);
+    isNearBottomRef.current = true;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    requestAnimationFrame(() => {
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      });
+    });
+  };
+
+  const showResumePill = sortedMessages.length > 0 && (autoFollowPaused || unreadCount > 0);
+
   if (!sessionId) {
     return (
       <main class="min-h-screen flex items-center justify-center">
@@ -1106,6 +1143,28 @@ export function SessionDetailPage() {
           </>
         )}
 
+        {showResumePill ? (
+          <button
+            type="button"
+            onClick={resumeToLatest}
+            class="oh-tap-press oh-appear-pop fixed right-4 sm:right-8 bottom-24 z-40 text-sm px-3 py-2 rounded-full flex items-center gap-2"
+            style={{
+              background: 'var(--m3-primary)',
+              color: 'var(--m3-on-primary)',
+              boxShadow: 'var(--m3-elev-3)',
+            }}
+            aria-live="polite"
+            title={t('detail.resumeToLatest', '回到底部')}
+          >
+            <span aria-hidden>↓</span>
+            <span>
+              {unreadCount > 0
+                ? `${unreadCount} ${t('detail.newMessagesUnit', '条新消息')}`
+                : t('detail.resumeToLatest', '回到底部')}
+            </span>
+          </button>
+        ) : null}
+
         {/* Composer */}
         <section
           class="mt-6 rounded-xl p-4"
@@ -1195,15 +1254,34 @@ export function SessionDetailPage() {
 
             <button
               type="button"
-              onClick={() => setAutoFollow((v) => !v)}
+              onClick={() => {
+                if (!autoFollow || autoFollowPaused || unreadCount > 0) {
+                  resumeToLatest();
+                } else {
+                  setAutoFollow(false);
+                  setAutoFollowPaused(false);
+                }
+              }}
               class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
               style={{
                 border: '1px solid var(--m3-outline)',
-                color: autoFollow ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)',
+                color: autoFollowPaused || unreadCount > 0
+                  ? 'var(--m3-primary)'
+                  : autoFollow
+                    ? 'var(--m3-primary)'
+                    : 'var(--m3-on-surface-variant)',
               }}
-              title={t('composer.autoFollow', '自动跟随到底部')}
+              title={autoFollowPaused || unreadCount > 0
+                ? t('detail.resumeToLatest', '回到底部')
+                : t('composer.autoFollow', '自动跟随到底部')}
             >
-              ↓<span class="ml-1 hidden sm:inline">{autoFollow ? t('common.on', '开启') : t('common.off', '关闭')}</span>
+              ↓<span class="ml-1 hidden sm:inline">
+                {autoFollowPaused || unreadCount > 0
+                  ? t('detail.resumeToLatest', '回到底部')
+                  : autoFollow
+                    ? t('common.on', '开启')
+                    : t('common.off', '关闭')}
+              </span>
             </button>
 
             <button
