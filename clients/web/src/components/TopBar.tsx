@@ -146,6 +146,14 @@ export function TopBar(props: TopBarProps) {
             </button>
             <button
               type="button"
+              onClick={() => location.route('/settings')}
+              class={navBtnClass}
+              style={navBtnStyle}
+            >
+              {t('home.openSettings', '设置')}
+            </button>
+            <button
+              type="button"
               onClick={() => location.route('/ops')}
               class={navBtnClass}
               style={navBtnStyle}

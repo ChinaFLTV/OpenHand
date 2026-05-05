@@ -11,6 +11,7 @@ import { OpsPage } from './pages/OpsPage';
 import { LogsPage } from './pages/LogsPage';
 import { ToolboxPage } from './pages/ToolboxPage';
 import { HardnessPage } from './pages/HardnessPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { Appear } from './components/Appear';
 import { t } from './i18n';
 
@@ -92,6 +93,12 @@ const HardnessRoute = () => (
   </RequireAuth>
 );
 
+const SettingsRoute = () => (
+  <RequireAuth>
+    <Appear variant="page"><SettingsPage /></Appear>
+  </RequireAuth>
+);
+
 const OpsRoute = () => (
   <RequireAuth>
     <Appear variant="page"><OpsPage /></Appear>
@@ -117,6 +124,7 @@ export function App() {
         <Route path="/files" component={FilesRoute} />
         <Route path="/toolbox" component={ToolboxRoute} />
         <Route path="/hardness" component={HardnessRoute} />
+        <Route path="/settings" component={SettingsRoute} />
         <Route path="/ops" component={OpsRoute} />
         <Route path="/logs" component={LogsRoute} />
         <Route default component={NotFound} />

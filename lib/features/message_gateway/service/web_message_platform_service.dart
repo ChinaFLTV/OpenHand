@@ -10,6 +10,8 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
 import '../../../app/model/app_info.dart';
+import '../../../app/model/app_language.dart';
+import '../../../app/model/app_settings_snapshot.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
@@ -712,6 +714,8 @@ class WebMessagePlatformService {
     router.get('/api/memories', (shelf.Request r) => _withAuth(r, (_, _) => _listMemoriesHandler()));
     router.get('/api/crons', (shelf.Request r) => _withAuth(r, (_, _) => _listCronsHandler()));
     router.get('/api/hardness/session', (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()));
+    router.get('/api/settings/preferences', (shelf.Request r) => _withAuth(r, (_, _) => _getPreferencesHandler()));
+    router.put('/api/settings/preferences', (shelf.Request r) => _withAuth(r, (req, _) => _putPreferencesHandler(req)));
 
     return router;
   }
@@ -976,6 +980,69 @@ class WebMessagePlatformService {
         'message': e.toString(),
       });
     }
+  }
+
+  /// Settings: 暴露一组 Web 远程可读 / 可改的核心 prefs。
+  /// 字段精挑细选: reduce_motion (动画) / locale (UI 语言) /
+  /// memory_enabled (是否在 prompt 注入用户记忆) /
+  /// ai_message_compression_threshold_chars (单消息压缩阈值)。
+  /// 其余设置仍只能在 App 端修改 (避免 Web 误改影响本机正在跑的会话)。
+  Future<shelf.Response> _getPreferencesHandler() async {
+    return _json(HttpStatus.ok, <String, Object?>{
+      'reduce_motion': _settingsController.reduceMotion,
+      'locale': _settingsController.locale.toLanguageTag(),
+      'language_storage_value':
+          _settingsController.language.storageValue,
+      'memory_enabled': _settingsController.memoryEnabled,
+      'ai_message_compression_threshold_chars':
+          _settingsController.aiMessageCompressionThresholdChars,
+      'limits': <String, Object?>{
+        'ai_message_compression_threshold_chars_min':
+            AppSettingsSnapshot.minAiMessageCompressionThresholdChars,
+        'ai_message_compression_threshold_chars_max':
+            AppSettingsSnapshot.maxAiMessageCompressionThresholdChars,
+      },
+      'language_options': AppLanguage.values
+          .map((l) => l.storageValue)
+          .toList(growable: false),
+    });
+  }
+
+  Future<shelf.Response> _putPreferencesHandler(shelf.Request request) async {
+    final body = await _readJsonBody(request, maxBytes: 4 * 1024);
+    final updated = <String, Object?>{};
+    if (body.containsKey('reduce_motion')) {
+      final value = body['reduce_motion'] == true;
+      await _settingsController.updateReduceMotion(value);
+      updated['reduce_motion'] = _settingsController.reduceMotion;
+    }
+    if (body.containsKey('language_storage_value')) {
+      final raw = body['language_storage_value'];
+      if (raw is String && raw.isNotEmpty) {
+        final lang = appLanguageFromStorage(raw);
+        await _settingsController.updateLanguage(lang);
+        updated['language_storage_value'] =
+            _settingsController.language.storageValue;
+      }
+    }
+    if (body.containsKey('ai_message_compression_threshold_chars')) {
+      final raw = body['ai_message_compression_threshold_chars'];
+      if (raw is num) {
+        await _settingsController
+            .updateAiMessageCompressionThresholdChars(raw.toInt());
+        updated['ai_message_compression_threshold_chars'] =
+            _settingsController.aiMessageCompressionThresholdChars;
+      }
+    }
+    _log(WebGatewayLogLevel.warn, 'SETTINGS', 'Web 修改偏好设置', updated);
+    return _json(HttpStatus.ok, <String, Object?>{
+      'updated': updated,
+      'reduce_motion': _settingsController.reduceMotion,
+      'language_storage_value':
+          _settingsController.language.storageValue,
+      'ai_message_compression_threshold_chars':
+          _settingsController.aiMessageCompressionThresholdChars,
+    });
   }
 
   Map<String, Object?> _metaPayload() {

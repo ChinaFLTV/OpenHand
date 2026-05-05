@@ -40,6 +40,7 @@ export const dict_zh: Record<string, string> = {
   'home.openLogs': '日志',
   'home.openToolbox': '工具箱',
   'home.openHardness': 'Hardness',
+  'home.openSettings': '设置',
   'home.profile.label': '当前会话：',
   'login.title': '登录 Web 通用消息平台',
   'login.subtitle': 'OpenHand 主控制台已开启鉴权，请输入用户名与密码',

@@ -41,6 +41,7 @@ export const dict_en: Record<string, string> = {
   'home.openLogs': 'Logs',
   'home.openToolbox': 'Toolbox',
   'home.openHardness': 'Hardness',
+  'home.openSettings': 'Settings',
   'home.profile.label': 'Signed in as: ',
   'login.title': 'Sign in to Web Messaging Platform',
   'login.subtitle': 'Authentication is enabled on the OpenHand console. Please enter your credentials.',
