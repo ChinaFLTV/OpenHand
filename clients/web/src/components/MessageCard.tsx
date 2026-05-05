@@ -17,6 +17,8 @@ import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
 import { memo } from 'preact/compat';
 import { useState } from 'preact/hooks';
+import { showSnackbar } from './Snackbar';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -27,6 +29,15 @@ function formatTimestamp(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+async function copyPathWithFeedback(path: string): Promise<void> {
+  const ok = await copyTextToClipboard(path);
+  showSnackbar(ok
+    ? t('detail.fileMutation.copyPath.ok', '已复制文件路径')
+    : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+      tone: ok ? 'success' : 'error',
+    });
 }
 
 function roleLabel(role: string): string {
@@ -481,7 +492,7 @@ function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
                 style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  void navigator.clipboard?.writeText(path).catch(() => undefined);
+                  void copyPathWithFeedback(path);
                 }}
               >
                 {t('common.copy', '复制')}

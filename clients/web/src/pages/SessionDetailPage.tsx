@@ -55,6 +55,7 @@ import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 const PAGE_SIZE = 80;
 
@@ -68,31 +69,8 @@ const SSE_FAIL_THRESHOLD = 3;
 /// 真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 
-async function copyPlainText(text: string): Promise<boolean> {
-  if (!text) return false;
-  try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-    if (typeof document === 'undefined') return false;
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.setAttribute('readonly', 'true');
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    const ok = document.execCommand('copy');
-    textarea.remove();
-    return ok;
-  } catch {
-    return false;
-  }
-}
-
 async function copyJsonWithFeedback(json: string): Promise<void> {
-  const ok = await copyPlainText(json);
+  const ok = await copyTextToClipboard(json);
   showSnackbar(ok
     ? t('common.copied', '已复制')
     : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
@@ -282,7 +260,7 @@ export function SessionDetailPage() {
 
   const handleCopyMessage = async (m: SessionMessage) => {
     const text = m.content ?? '';
-    const ok = await copyPlainText(text);
+    const ok = await copyTextToClipboard(text);
     showSnackbar(ok
       ? t('detail.copy.ok', '已复制消息内容')
       : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
@@ -1786,10 +1764,13 @@ function ErrorBanner({
     hint = null;
   }
 
-  const copyText = () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      void navigator.clipboard.writeText(message).catch(() => {/*ignore*/});
-    }
+  const copyText = async () => {
+    const ok = await copyTextToClipboard(message);
+    showSnackbar(ok
+      ? t('detail.error.copy.ok', '已复制错误详情')
+      : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+        tone: ok ? 'success' : 'error',
+      });
   };
 
   return (
@@ -1844,7 +1825,7 @@ function ErrorBanner({
         <button
           type="button"
           class="oh-tap-press"
-          onClick={copyText}
+          onClick={() => void copyText()}
           style={{
             padding: '4px 10px',
             borderRadius: 999,

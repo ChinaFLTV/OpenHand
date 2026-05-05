@@ -10,6 +10,8 @@
 
 import { useMemo, useState } from 'preact/hooks';
 import { t } from '../i18n';
+import { showSnackbar } from './Snackbar';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 const AUTO_COLLAPSE_CHARS = 600;
 const ERROR_LINE_PATTERN = /\b(error|exception|traceback|fail(?:ed|ure)?|panic|fatal)\b/i;
@@ -39,12 +41,13 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
   const lines = useMemo(() => classifyLines(shown), [shown]);
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(content);
+    const ok = await copyTextToClipboard(content);
+    if (ok) {
       setCopied(true);
+      showSnackbar(t('detail.tool.body.copied', '已复制工具结果'), { tone: 'success' });
       window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      // 部分浏览器在非 secure context 下没有 clipboard API; 静默降级
+    } else {
+      showSnackbar(t('detail.tool.body.copyFailed', '复制工具结果失败'), { tone: 'error' });
     }
   };
 

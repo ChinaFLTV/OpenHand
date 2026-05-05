@@ -18,6 +18,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { SendMessageInput, SessionSummary, SessionTodoItem, sendMessage } from '../api/sessions';
 import { t } from '../i18n';
+import { showSnackbar } from './Snackbar';
 
 type StepState = 'completed' | 'in_progress' | 'failed' | 'pending';
 
@@ -121,7 +122,9 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
   const handleApprove = async () => {
     if (submitting) return;
     if (!modelKey) {
-      setError(t('detail.plan.noModel', '未选择模型'));
+      const message = t('detail.plan.noModel', '未选择模型');
+      setError(message);
+      showSnackbar(message, { tone: 'error' });
       return;
     }
     setSubmitting(true);
@@ -130,8 +133,11 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
       const payload: SendMessageInput = { content: '好', modelKey, mode: 'normal' };
       await sendMessage(session.id, payload);
       onApproved?.();
+      showSnackbar(t('detail.plan.approve.ok', '已批准计划'), { tone: 'success' });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      showSnackbar(`${t('detail.plan.approve.failed', '批准计划失败')}：${message}`, { tone: 'error' });
     } finally {
       setSubmitting(false);
     }
