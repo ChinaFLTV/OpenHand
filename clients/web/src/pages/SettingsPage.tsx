@@ -21,6 +21,7 @@ import {
 } from '../api/preferences';
 import { t, tNumber } from '../i18n';
 import { setRemoteReducedMotion } from '../hooks/useReducedMotion';
+import { showSnackbar } from '../components/Snackbar';
 
 const LANG_LABEL: Record<string, string> = {
   zh_Hans: '简体中文',
@@ -80,8 +81,11 @@ export function SettingsPage() {
       setRemoteReducedMotion(next.reduce_motion);
       setThresholdInput(String(next.ai_message_compression_threshold_chars));
       setSavedSignal((s) => s + 1);
+      showSnackbar(t('settings.saved', '已保存'), { tone: 'success' });
     } catch (err) {
-      setSaveError(describeApiError(err));
+      const message = describeApiError(err);
+      setSaveError(message);
+      showSnackbar(`${t('settings.save.failed', '保存设置失败')}：${message}`, { tone: 'error' });
     } finally {
       setSavingKey(null);
     }

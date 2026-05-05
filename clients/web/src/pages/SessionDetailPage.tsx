@@ -68,6 +68,38 @@ const SSE_FAIL_THRESHOLD = 3;
 /// 真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 
+async function copyPlainText(text: string): Promise<boolean> {
+  if (!text) return false;
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    if (typeof document === 'undefined') return false;
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand('copy');
+    textarea.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+async function copyJsonWithFeedback(json: string): Promise<void> {
+  const ok = await copyPlainText(json);
+  showSnackbar(ok
+    ? t('common.copied', '已复制')
+    : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+      tone: ok ? 'success' : 'error',
+    });
+}
+
 // 时间戳与角色标签现在由 MessageCard 内部处理，本页不再直接使用。
 
 /// 流式增量合并：保留与上一次 snapshot 相同的对象引用，仅替换发生变化的尾巴消息。
@@ -248,32 +280,9 @@ export function SessionDetailPage() {
     el.scrollTo({ top: el.scrollHeight, behavior });
   };
 
-  const copyText = async (text: string): Promise<boolean> => {
-    if (!text) return false;
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        return true;
-      }
-      if (typeof document === 'undefined') return false;
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.setAttribute('readonly', 'true');
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const ok = document.execCommand('copy');
-      textarea.remove();
-      return ok;
-    } catch {
-      return false;
-    }
-  };
-
   const handleCopyMessage = async (m: SessionMessage) => {
     const text = m.content ?? '';
-    const ok = await copyText(text);
+    const ok = await copyPlainText(text);
     showSnackbar(ok
       ? t('detail.copy.ok', '已复制消息内容')
       : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
@@ -1904,7 +1913,7 @@ function MessageAuditDialog({
               type="button"
               class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
               style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
-              onClick={() => void navigator.clipboard?.writeText(json).catch(() => undefined)}
+              onClick={() => void copyJsonWithFeedback(json)}
             >
               {t('common.copy', '复制')}
             </button>
@@ -1985,7 +1994,7 @@ function SessionAuditDialog({
               type="button"
               class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
               style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
-              onClick={() => void navigator.clipboard?.writeText(json).catch(() => undefined)}
+              onClick={() => void copyJsonWithFeedback(json)}
             >
               {t('common.copy', '复制')}
             </button>

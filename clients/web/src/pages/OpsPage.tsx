@@ -17,6 +17,8 @@ import {
 } from '../api/ops';
 import { t, tBytes, tDateTime, tDuration, tFmt, tPlural } from '../i18n';
 import { MenuSelect } from '../components/MenuSelect';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { showSnackbar } from '../components/Snackbar';
 
 const REFRESH_INTERVAL_MS = 5_000;
 
@@ -40,6 +42,7 @@ export function OpsPage() {
   const [cleanupTarget, setCleanupTarget] = useState<'all' | 'logs' | 'uploads'>('all');
   const [expiredOnly, setExpiredOnly] = useState(true);
   const [cleaning, setCleaning] = useState(false);
+  const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
   const [cleanupError, setCleanupError] = useState<string | null>(null);
   const [cleanupOk, setCleanupOk] = useState<string | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -93,29 +96,41 @@ export function OpsPage() {
   }, [autoRefresh]);
 
   const handleCleanup = async () => {
+    if (cleaning) return;
     setCleaning(true);
     setCleanupError(null);
     setCleanupOk(null);
     try {
+      showSnackbar(t('ops.cleanup.started', '正在执行资源清理…'));
       const res = await runCleanup({ target: cleanupTarget, expired_only: expiredOnly });
       // 默认模板使用 tPlural 拼装文件 / 目录单复数，
       // 字节量走 tBytes 以使用当前语言的千分位 / 小数点习惯。
-      setCleanupOk(
-        tFmt('ops.cleanup.result', {
-          target: res.target,
-          files: tPlural('ops.cleanup.files', res.deleted_files),
-          dirs: tPlural('ops.cleanup.dirs', res.deleted_directories),
-          bytes: tBytes(res.bytes_freed),
-        }),
-      );
+      const resultText = tFmt('ops.cleanup.result', {
+        target: res.target,
+        files: tPlural('ops.cleanup.files', res.deleted_files),
+        dirs: tPlural('ops.cleanup.dirs', res.deleted_directories),
+        bytes: tBytes(res.bytes_freed),
+      });
+      setCleanupOk(resultText);
+      showSnackbar(resultText, { tone: 'success' });
       await refreshHistory();
       await refreshSnapshot();
     } catch (err) {
-      setCleanupError(describeApiError(err));
+      const message = describeApiError(err);
+      setCleanupError(message);
+      showSnackbar(`${t('ops.cleanup.failed', '资源清理失败')}：${message}`, { tone: 'error' });
     } finally {
       setCleaning(false);
+      setCleanupConfirmOpen(false);
     }
   };
+
+  const cleanupTargetLabel =
+    cleanupTarget === 'logs'
+      ? t('ops.cleanup.target.logs', '仅日志')
+      : cleanupTarget === 'uploads'
+        ? t('ops.cleanup.target.uploads', '仅上传缓存')
+        : t('ops.cleanup.target.all', '全部');
 
   const stateBadge = useMemo(() => {
     const state = snapshot?.state ?? 'stopped';
@@ -588,7 +603,7 @@ export function OpsPage() {
             </label>
             <button
               type="button"
-              onClick={() => void handleCleanup()}
+              onClick={() => setCleanupConfirmOpen(true)}
               disabled={cleaning}
               class="text-sm px-3 py-1.5 rounded-m3-sm"
               style={{
@@ -611,6 +626,26 @@ export function OpsPage() {
             </p>
           )}
         </section>
+
+        {cleanupConfirmOpen ? (
+          <ConfirmDialog
+            title={t('ops.cleanup.confirmTitle', '执行资源清理?')}
+            body={tFmt('ops.cleanup.confirmBody', {
+              target: cleanupTargetLabel,
+              scope: expiredOnly
+                ? t('ops.cleanup.scope.expired', '仅过期项')
+                : t('ops.cleanup.scope.all', '全部匹配项'),
+            })}
+            danger={!expiredOnly || cleanupTarget === 'all'}
+            busy={cleaning}
+            confirmLabel={cleaning ? t('ops.cleanup.running', '清理中…') : t('ops.cleanup.execute', '立即清理')}
+            cancelLabel={t('common.cancel', '取消')}
+            onCancel={() => {
+              if (!cleaning) setCleanupConfirmOpen(false);
+            }}
+            onConfirm={handleCleanup}
+          />
+        ) : null}
 
         {/* 历史 */}
         <section class="oh-appear-up rounded-m3-md p-4"
