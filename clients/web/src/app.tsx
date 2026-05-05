@@ -59,6 +59,42 @@ function NotFound() {
   );
 }
 
+function FeatureUnavailable(props: { title: string; body: string }) {
+  return (
+    <main class="min-h-screen flex items-center justify-center px-5">
+      <div
+        class="oh-appear-pop w-full max-w-[420px] rounded-m3-xl p-5 text-center"
+        style={{
+          background: 'var(--m3-surface-container)',
+          border: '1px solid var(--m3-outline-variant)',
+          boxShadow: 'var(--m3-elev-2)',
+        }}
+      >
+        <p class="text-lg font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+          {props.title}
+        </p>
+        <p class="text-sm mt-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {props.body}
+        </p>
+      </div>
+    </main>
+  );
+}
+
+function RequireServiceFeature(props: {
+  feature: 'ops' | 'logs';
+  children: ComponentChildren;
+}) {
+  const auth = useAuth();
+  const enabled = props.feature === 'ops'
+    ? auth.meta?.service?.ops_enabled !== false
+    : auth.meta?.service?.logging_enabled !== false;
+  if (enabled) return <>{props.children}</>;
+  return props.feature === 'ops'
+    ? <FeatureUnavailable title="运维能力未开启" body="请在 OpenHand 桌面端的消息网关配置中开启运维能力后再访问。" />
+    : <FeatureUnavailable title="日志能力未开启" body="请在 OpenHand 桌面端的消息网关配置中开启日志记录后再访问。" />;
+}
+
 const HomeRoute = () => (
   <RequireAuth>
     <Appear variant="page"><HomePage /></Appear>
@@ -103,13 +139,17 @@ const SettingsRoute = () => (
 
 const OpsRoute = () => (
   <RequireAuth>
-    <Appear variant="page"><OpsPage /></Appear>
+    <RequireServiceFeature feature="ops">
+      <Appear variant="page"><OpsPage /></Appear>
+    </RequireServiceFeature>
   </RequireAuth>
 );
 
 const LogsRoute = () => (
   <RequireAuth>
-    <Appear variant="page"><LogsPage /></Appear>
+    <RequireServiceFeature feature="logs">
+      <Appear variant="page"><LogsPage /></Appear>
+    </RequireServiceFeature>
   </RequireAuth>
 );
 

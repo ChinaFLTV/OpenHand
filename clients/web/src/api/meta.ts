@@ -8,6 +8,8 @@ export interface ApiMetaService {
   telemetry_enabled?: boolean;
   logging_enabled?: boolean;
   ops_enabled?: boolean;
+  auto_start_on_launch?: boolean;
+  auto_reload_on_change?: boolean;
   plan_mode_enabled?: boolean;
   session_management_enabled?: boolean;
   single_message_token_limit?: number;
