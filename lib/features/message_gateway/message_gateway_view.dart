@@ -42,66 +42,21 @@ class _MessageGatewayViewState extends State<MessageGatewayView> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final stacked = constraints.maxWidth < 920;
-                final header = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.settingsMessageGatewayTitle,
-                      style: theme.textTheme.displaySmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.settingsMessageGatewayDescription,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                );
-                final actions = Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    FilledButton.tonalIcon(
-                      onPressed: controller.isLoading
-                          ? null
-                          : () => _copyEndpoint(context, controller),
-                      icon: const Icon(Icons.link_rounded),
-                      label: const Text('复制地址'),
-                    ),
-                    FilledButton.icon(
-                      onPressed: controller.isLoading
-                          ? null
-                          : () => _showEditor(context, controller),
-                      icon: const Icon(Icons.tune_rounded),
-                      label: const Text('编辑服务'),
-                    ),
-                  ],
-                );
-                if (stacked) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [header, const SizedBox(height: 18), actions],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: header),
-                    const SizedBox(width: 18),
-                    Flexible(
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: actions,
-                      ),
-                    ),
-                  ],
-                );
-              },
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.settingsMessageGatewayTitle,
+                  style: theme.textTheme.displaySmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.settingsMessageGatewayDescription,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             Expanded(child: _buildBody(context, controller)),
@@ -133,33 +88,6 @@ class _MessageGatewayViewState extends State<MessageGatewayView> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
       children: [_WebPlatformServiceCard(controller: controller)],
-    );
-  }
-
-  Future<void> _copyEndpoint(
-    BuildContext context,
-    MessageGatewayController controller,
-  ) async {
-    final text = controller.webUrl.isEmpty
-        ? 'http://${controller.config.listenHost}:${controller.config.listenPort}'
-        : controller.webUrl;
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('已复制 $text')));
-  }
-
-  Future<void> _showEditor(
-    BuildContext context,
-    MessageGatewayController controller,
-  ) async {
-    await showAnimatedDialog<void>(
-      context: context,
-      builder: (dialogContext) => _WebPlatformEditorDialog(
-        controller: controller,
-        initialConfig: controller.config,
-      ),
     );
   }
 }
@@ -259,6 +187,13 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       onPressed: () => _showLogs(context, controller),
                     ),
                     _FeatureIconButton(
+                      tooltip: isRunning ? '端口连通性测试' : '服务运行后可测试端口',
+                      enabled: isRunning,
+                      icon: Icons.network_check_rounded,
+                      onPressed: () =>
+                          _showConnectivityTest(context, controller),
+                    ),
+                    _FeatureIconButton(
                       tooltip: config.healthCheck.enabled
                           ? '健康检测'
                           : '开启健康检查后可使用',
@@ -321,6 +256,14 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.power_settings_new_rounded,
                   label: config.enabled ? '已启用' : '未启用',
+                ),
+                _InfoChip(
+                  icon: Icons.rocket_launch_outlined,
+                  label: config.autoStartOnLaunch ? '冷启动自启' : '冷启动不干预',
+                ),
+                _InfoChip(
+                  icon: Icons.sync_rounded,
+                  label: config.autoReloadOnChange ? '配置自动重载' : '配置重启生效',
                 ),
                 _InfoChip(
                   icon: Icons.link_rounded,
@@ -443,6 +386,16 @@ class _WebPlatformServiceCard extends StatelessWidget {
     );
   }
 
+  Future<void> _showConnectivityTest(
+    BuildContext context,
+    MessageGatewayController controller,
+  ) async {
+    await showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => _WebGatewayConnectivityDialog(controller: controller),
+    );
+  }
+
   Future<void> _showOps(
     BuildContext context,
     MessageGatewayController controller,
@@ -470,6 +423,8 @@ class _WebPlatformEditorDialog extends StatefulWidget {
 
 class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late bool _enabled;
+  late bool _autoStartOnLaunch;
+  late bool _autoReloadOnChange;
   late bool _authEnabled;
   late bool _telemetryEnabled;
   late bool _loggingEnabled;
@@ -515,6 +470,8 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     super.initState();
     final config = widget.initialConfig;
     _enabled = config.enabled;
+    _autoStartOnLaunch = config.autoStartOnLaunch;
+    _autoReloadOnChange = config.autoReloadOnChange;
     _authEnabled = config.authEnabled;
     _telemetryEnabled = config.telemetryEnabled;
     _loggingEnabled = config.loggingEnabled;
@@ -675,6 +632,18 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 label: '是否启用',
                                 value: _enabled,
                                 onChanged: (v) => setState(() => _enabled = v),
+                              ),
+                              _SwitchTile(
+                                label: '冷启动自动启动',
+                                value: _autoStartOnLaunch,
+                                onChanged: (value) =>
+                                    setState(() => _autoStartOnLaunch = value),
+                              ),
+                              _SwitchTile(
+                                label: '配置变更自动重载',
+                                value: _autoReloadOnChange,
+                                onChanged: (value) =>
+                                    setState(() => _autoReloadOnChange = value),
                               ),
                               _SwitchTile(
                                 label: '是否开启鉴权',
@@ -991,6 +960,8 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     setState(() => _saving = true);
     final config = WebMessagePlatformConfig(
       enabled: _enabled,
+      autoStartOnLaunch: _autoStartOnLaunch,
+      autoReloadOnChange: _autoReloadOnChange,
       description: _descriptionController.text.trim().isEmpty
           ? WebMessagePlatformConfig.defaultDescription
           : _descriptionController.text.trim(),
@@ -1067,6 +1038,417 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       ).showSnackBar(SnackBar(content: Text('保存失败: $error')));
       setState(() => _saving = false);
     }
+  }
+}
+
+class _WebGatewayConnectivityDialog extends StatefulWidget {
+  const _WebGatewayConnectivityDialog({required this.controller});
+
+  final MessageGatewayController controller;
+
+  @override
+  State<_WebGatewayConnectivityDialog> createState() =>
+      _WebGatewayConnectivityDialogState();
+}
+
+class _WebGatewayConnectivityDialogState
+    extends State<_WebGatewayConnectivityDialog> {
+  WebGatewayConnectivityTestResult? _result;
+  Object? _error;
+  bool _running = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_run());
+  }
+
+  Future<void> _run() async {
+    setState(() {
+      _running = true;
+      _error = null;
+      _result = null;
+    });
+    try {
+      final result = await widget.controller.runConnectivityTest();
+      if (!mounted) return;
+      setState(() => _result = result);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final mediaSize = MediaQuery.sizeOf(context);
+    final dialogMaxHeight = math.min(
+      700.0,
+      math.max(420.0, mediaSize.height - 120),
+    );
+    final result = _result;
+    final error = _error;
+
+    return SafeArea(
+      minimum: const EdgeInsets.all(18),
+      child: Dialog(
+        insetPadding: EdgeInsets.zero,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: math.min(mediaSize.width - 36, 920),
+            maxHeight: dialogMaxHeight,
+            minHeight: math.min(dialogMaxHeight, 480),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 14, 8, 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.network_check_rounded,
+                      color: result == null
+                          ? colorScheme.primary
+                          : result.ok
+                          ? const Color(0xFF16A34A)
+                          : colorScheme.error,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('端口连通性测试', style: theme.textTheme.titleMedium),
+                          const SizedBox(height: 2),
+                          Text(
+                            '逐一探测当前可用 IP + 端口入口的 /api/health',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '重新测试',
+                      onPressed: _running ? null : _run,
+                      icon: _running
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh_rounded),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: _motionDuration(context, 260),
+                  switchInCurve: Curves.easeOutBack,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: error != null
+                      ? _ConnectivityErrorView(error: error)
+                      : result == null
+                      ? const _ConnectivityLoadingView()
+                      : _ConnectivityResultView(result: result),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnectivityLoadingView extends StatelessWidget {
+  const _ConnectivityLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text('正在检测全部可访问入口', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 6),
+          Text(
+            '会按当前运行时 URL 顺序逐个探测并汇总结果',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConnectivityErrorView extends StatelessWidget {
+  const _ConnectivityErrorView({required this.error});
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          '测试启动失败: $error',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnectivityResultView extends StatelessWidget {
+  const _ConnectivityResultView({required this.result});
+
+  final WebGatewayConnectivityTestResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return SingleChildScrollView(
+      primary: false,
+      physics: const OpenHandBouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: (result.ok ? const Color(0xFF16A34A) : colorScheme.error)
+                  .withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: (result.ok ? const Color(0xFF16A34A) : colorScheme.error)
+                    .withValues(alpha: .35),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  result.ok
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.error_outline_rounded,
+                  color: result.ok
+                      ? const Color(0xFF16A34A)
+                      : colorScheme.error,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(result.summary, style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_formatDateTime(result.startedAt)} · 总耗时 ${result.durationMs}ms',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth < 720 ? 2 : 4;
+              return GridView.count(
+                crossAxisCount: columns,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: columns == 2 ? 2.6 : 2.8,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _MetricTile(label: '入口总数', value: '${result.targets.length}'),
+                  _MetricTile(label: '连通', value: '${result.successCount}'),
+                  _MetricTile(label: '失败', value: '${result.failureCount}'),
+                  _MetricTile(label: '总耗时', value: '${result.durationMs}ms'),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 18),
+          const _SectionTitle('入口探测结果'),
+          if (result.targets.isEmpty)
+            Text(
+              '当前服务没有可测试入口。请先启动 Web 通用消息平台服务。',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            for (var index = 0; index < result.targets.length; index++)
+              _ConnectivityTargetCard(
+                target: result.targets[index],
+                index: index,
+              ),
+          const SizedBox(height: 18),
+          const _SectionTitle('测试流程日志'),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF101218),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: SelectableText(
+              result.logs.isEmpty ? '暂无流程日志' : result.logs.join('\n'),
+              style: const TextStyle(
+                fontFamily: 'Menlo',
+                fontSize: 12,
+                height: 1.45,
+                color: Color(0xFFE5E7EB),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConnectivityTargetCard extends StatelessWidget {
+  const _ConnectivityTargetCard({required this.target, required this.index});
+
+  final WebGatewayConnectivityProbeResult target;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final stateColor = target.ok ? const Color(0xFF16A34A) : colorScheme.error;
+    final content = Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: .42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: stateColor.withValues(alpha: .32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                target.ok
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.error_outline_rounded,
+                size: 20,
+                color: stateColor,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  target.hostPort,
+                  style: theme.textTheme.titleSmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '${target.durationMs}ms',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SelectableText(
+            target.endpointUrl,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InfoChip(
+                icon: Icons.http_rounded,
+                label: 'HTTP ${target.statusCode}',
+              ),
+              _InfoChip(
+                icon: Icons.timer_outlined,
+                label: '${target.durationMs}ms',
+              ),
+              _InfoChip(icon: Icons.dns_outlined, label: target.baseUrl),
+            ],
+          ),
+          if (target.errorMessage.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              target.errorMessage,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.error,
+              ),
+            ),
+          ],
+          if (target.bodyPreview.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SelectableText(
+              target.bodyPreview,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+    if (MediaQuery.disableAnimationsOf(context)) return content;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: Duration(milliseconds: 220 + math.min(index, 6) * 30),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value.clamp(0.0, 1.0).toDouble(),
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 10),
+            child: child,
+          ),
+        );
+      },
+      child: content,
+    );
   }
 }
 

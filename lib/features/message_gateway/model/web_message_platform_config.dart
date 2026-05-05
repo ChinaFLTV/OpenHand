@@ -208,6 +208,8 @@ class WebGatewayLogConfig {
 class WebMessagePlatformConfig {
   const WebMessagePlatformConfig({
     this.enabled = false,
+    this.autoStartOnLaunch = true,
+    this.autoReloadOnChange = true,
     this.description = defaultDescription,
     this.listenHost = '0.0.0.0',
     this.listenPort = 8848,
@@ -251,6 +253,8 @@ class WebMessagePlatformConfig {
   factory WebMessagePlatformConfig.fromJson(Map<String, Object?> json) {
     return WebMessagePlatformConfig(
       enabled: json['enabled'] as bool? ?? false,
+      autoStartOnLaunch: json['auto_start_on_launch'] as bool? ?? true,
+      autoReloadOnChange: json['auto_reload_on_change'] as bool? ?? true,
       description: _nonEmptyString(json['description'], defaultDescription),
       listenHost: _nonEmptyString(json['listen_host'], '0.0.0.0'),
       listenPort: _clampInt(json['listen_port'], 8848, 1, 65535),
@@ -346,6 +350,8 @@ class WebMessagePlatformConfig {
       'OpenHand 内建的 Web 通用消息平台服务。它把本机 OpenHand 会话、安全策略、模型能力、MCP、技能、记忆和内建工具以受控 Web API 与响应式聊天页面开放给可信设备使用，适合在 PC、手机和平板上继续同一组线程会话。';
 
   final bool enabled;
+  final bool autoStartOnLaunch;
+  final bool autoReloadOnChange;
   final String description;
   final String listenHost;
   final int listenPort;
@@ -381,6 +387,8 @@ class WebMessagePlatformConfig {
 
   WebMessagePlatformConfig copyWith({
     bool? enabled,
+    bool? autoStartOnLaunch,
+    bool? autoReloadOnChange,
     String? description,
     String? listenHost,
     int? listenPort,
@@ -414,6 +422,8 @@ class WebMessagePlatformConfig {
   }) {
     return WebMessagePlatformConfig(
       enabled: enabled ?? this.enabled,
+      autoStartOnLaunch: autoStartOnLaunch ?? this.autoStartOnLaunch,
+      autoReloadOnChange: autoReloadOnChange ?? this.autoReloadOnChange,
       description: description ?? this.description,
       listenHost: listenHost ?? this.listenHost,
       listenPort: listenPort ?? this.listenPort,
@@ -464,6 +474,8 @@ class WebMessagePlatformConfig {
       'id': webMessagePlatformBuiltinId,
       'name': webMessagePlatformBuiltinName,
       'enabled': enabled,
+      'auto_start_on_launch': autoStartOnLaunch,
+      'auto_reload_on_change': autoReloadOnChange,
       'description': description,
       'listen_host': listenHost,
       'listen_port': listenPort,

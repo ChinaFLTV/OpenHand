@@ -168,6 +168,87 @@ class WebGatewayHealthResult {
   }
 }
 
+/// 单个 Web 网关 URL 的连通性探测结果。
+class WebGatewayConnectivityProbeResult {
+  const WebGatewayConnectivityProbeResult({
+    required this.baseUrl,
+    required this.endpointUrl,
+    required this.host,
+    required this.port,
+    required this.ok,
+    required this.statusCode,
+    required this.durationMs,
+    this.errorMessage = '',
+    this.bodyPreview = '',
+  });
+
+  final String baseUrl;
+  final String endpointUrl;
+  final String host;
+  final int port;
+  final bool ok;
+  final int statusCode;
+  final int durationMs;
+  final String errorMessage;
+  final String bodyPreview;
+
+  String get hostPort => '$host:$port';
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'base_url': baseUrl,
+      'endpoint_url': endpointUrl,
+      'host': host,
+      'port': port,
+      'ok': ok,
+      'status_code': statusCode,
+      'duration_ms': durationMs,
+      if (errorMessage.isNotEmpty) 'error_message': errorMessage,
+      if (bodyPreview.isNotEmpty) 'body_preview': bodyPreview,
+    };
+  }
+}
+
+/// Web 网关当前全部可访问 URL 的连通性探测汇总。
+class WebGatewayConnectivityTestResult {
+  const WebGatewayConnectivityTestResult({
+    required this.startedAt,
+    required this.finishedAt,
+    required this.targets,
+    required this.logs,
+  });
+
+  final DateTime startedAt;
+  final DateTime finishedAt;
+  final List<WebGatewayConnectivityProbeResult> targets;
+  final List<String> logs;
+
+  bool get ok => targets.isNotEmpty && targets.every((item) => item.ok);
+  int get successCount => targets.where((item) => item.ok).length;
+  int get failureCount => targets.length - successCount;
+  int get durationMs => finishedAt.difference(startedAt).inMilliseconds;
+  String get summary {
+    if (targets.isEmpty) return '没有可测试的 URL';
+    return ok
+        ? '全部 ${targets.length} 个入口连通'
+        : '$failureCount 个入口不可达 / ${targets.length} 个入口';
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'ok': ok,
+      'summary': summary,
+      'started_at': startedAt.toUtc().toIso8601String(),
+      'finished_at': finishedAt.toUtc().toIso8601String(),
+      'duration_ms': durationMs,
+      'success_count': successCount,
+      'failure_count': failureCount,
+      'targets': targets.map((item) => item.toJson()).toList(growable: false),
+      'logs': logs,
+    };
+  }
+}
+
 /// 资源清理结果，用于 OpenHand 设置面板的"数据清理"统计。
 class WebGatewayCleanupResult {
   const WebGatewayCleanupResult({

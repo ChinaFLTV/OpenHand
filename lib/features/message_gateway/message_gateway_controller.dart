@@ -142,8 +142,10 @@ class MessageGatewayController extends ChangeNotifier {
     try {
       final loaded = await _store.load();
       _config = _normalizeAgainstRuntimeOptions(loaded);
-      if (_config.enabled) {
-        await _service.start(_config);
+      if (_config.autoStartOnLaunch && !_service.isRunning) {
+        final startupConfig = _config.copyWith(enabled: true);
+        _config = startupConfig;
+        await _service.start(startupConfig);
       }
     } catch (error) {
       _errorMessage = '$error';
@@ -153,7 +155,10 @@ class MessageGatewayController extends ChangeNotifier {
     }
   }
 
-  Future<void> saveConfig(WebMessagePlatformConfig config) async {
+  Future<void> saveConfig(
+    WebMessagePlatformConfig config, {
+    bool forceRuntimeApply = false,
+  }) async {
     _isSaving = true;
     _errorMessage = null;
     notifyListeners();
@@ -162,7 +167,9 @@ class MessageGatewayController extends ChangeNotifier {
       await _store.save(normalized);
       final previous = _config;
       _config = normalized;
-      await _applyRuntimeConfig(previous, normalized);
+      if (forceRuntimeApply || normalized.autoReloadOnChange) {
+        await _applyRuntimeConfig(previous, normalized);
+      }
       saveSuccessSignal.value = saveSuccessSignal.value + 1;
     } catch (error) {
       _errorMessage = '$error';
@@ -174,11 +181,11 @@ class MessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> startService() async {
-    await saveConfig(_config.copyWith(enabled: true));
+    await saveConfig(_config.copyWith(enabled: true), forceRuntimeApply: true);
   }
 
   Future<void> stopService() async {
-    await saveConfig(_config.copyWith(enabled: false));
+    await saveConfig(_config.copyWith(enabled: false), forceRuntimeApply: true);
   }
 
   Future<void> restartService() async {
@@ -203,6 +210,12 @@ class MessageGatewayController extends ChangeNotifier {
   Future<WebGatewayHealthResult> runHealthCheck() async {
     final result = await _service.runHealthCheck();
     _lastHealthResult = result;
+    notifyListeners();
+    return result;
+  }
+
+  Future<WebGatewayConnectivityTestResult> runConnectivityTest() async {
+    final result = await _service.runConnectivityTest();
     notifyListeners();
     return result;
   }

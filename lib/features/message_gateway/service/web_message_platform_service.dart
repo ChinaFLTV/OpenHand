@@ -765,8 +765,140 @@ class WebMessagePlatformService {
       _log(WebGatewayLogLevel.error, 'HEALTH', result.summary);
       return result;
     } finally {
+      client.close();
+    }
+  }
+
+  Future<WebGatewayConnectivityTestResult> runConnectivityTest() async {
+    final startedAt = DateTime.now().toUtc();
+    final flowLogs = <String>[];
+    void addLog(String message) {
+      flowLogs.add('${DateTime.now().toUtc().toIso8601String()}  $message');
+    }
+
+    if (_server == null) {
+      addLog('服务未运行，跳过端口连通性测试。');
+      final result = WebGatewayConnectivityTestResult(
+        startedAt: startedAt,
+        finishedAt: DateTime.now().toUtc(),
+        targets: const <WebGatewayConnectivityProbeResult>[],
+        logs: List<String>.unmodifiable(flowLogs),
+      );
+      _log(WebGatewayLogLevel.warn, 'CONNECT', result.summary, result.toJson());
+      return result;
+    }
+
+    await _refreshLocalAddressesIfStale(ttl: Duration.zero);
+    final targets = <String>{...accessibleUrls}.toList(growable: false);
+    addLog('发现 ${targets.length} 个当前可访问入口。');
+    final timeoutMs = math.min(
+      10000,
+      math.max(500, _config.healthCheck.timeoutMs),
+    );
+    final client = HttpClient()
+      ..connectionTimeout = Duration(milliseconds: timeoutMs);
+    final results = <WebGatewayConnectivityProbeResult>[];
+
+    try {
+      for (final baseUrl in targets) {
+        final probeStarted = Stopwatch()..start();
+        Uri endpoint;
+        try {
+          final baseUri = Uri.parse(baseUrl);
+          endpoint = baseUri.replace(path: '/api/health');
+        } catch (error) {
+          probeStarted.stop();
+          addLog('URL 解析失败: $baseUrl · $error');
+          results.add(
+            WebGatewayConnectivityProbeResult(
+              baseUrl: baseUrl,
+              endpointUrl: baseUrl,
+              host: baseUrl,
+              port: 0,
+              ok: false,
+              statusCode: 0,
+              durationMs: probeStarted.elapsedMilliseconds,
+              errorMessage: '$error',
+            ),
+          );
+          continue;
+        }
+
+        addLog('开始探测 ${endpoint.host}:${endpoint.port} -> $endpoint');
+        try {
+          final request = await client
+              .getUrl(endpoint)
+              .timeout(Duration(milliseconds: timeoutMs));
+          request.followRedirects = false;
+          final response = await request.close().timeout(
+            Duration(milliseconds: timeoutMs),
+          );
+          final body = await utf8
+              .decodeStream(response)
+              .timeout(Duration(milliseconds: timeoutMs));
+          probeStarted.stop();
+          final ok =
+              response.statusCode == HttpStatus.ok && body.contains('ok');
+          addLog(
+            ok
+                ? '探测通过 ${endpoint.host}:${endpoint.port} · ${probeStarted.elapsedMilliseconds}ms'
+                : '探测未通过 ${endpoint.host}:${endpoint.port} · HTTP ${response.statusCode}',
+          );
+          results.add(
+            WebGatewayConnectivityProbeResult(
+              baseUrl: baseUrl,
+              endpointUrl: endpoint.toString(),
+              host: endpoint.host,
+              port: endpoint.port,
+              ok: ok,
+              statusCode: response.statusCode,
+              durationMs: probeStarted.elapsedMilliseconds,
+              bodyPreview: _truncate(body, 600),
+              errorMessage: ok ? '' : 'HTTP ${response.statusCode}',
+            ),
+          );
+        } catch (error, stack) {
+          probeStarted.stop();
+          silentLog(
+            'web_message_platform_service',
+            'connectivity probe',
+            error,
+            stack,
+          );
+          addLog(
+            '探测失败 ${endpoint.host}:${endpoint.port} · ${probeStarted.elapsedMilliseconds}ms · $error',
+          );
+          results.add(
+            WebGatewayConnectivityProbeResult(
+              baseUrl: baseUrl,
+              endpointUrl: endpoint.toString(),
+              host: endpoint.host,
+              port: endpoint.port,
+              ok: false,
+              statusCode: 0,
+              durationMs: probeStarted.elapsedMilliseconds,
+              errorMessage: '$error',
+            ),
+          );
+        }
+      }
+    } finally {
       client.close(force: true);
     }
+
+    final result = WebGatewayConnectivityTestResult(
+      startedAt: startedAt,
+      finishedAt: DateTime.now().toUtc(),
+      targets: List<WebGatewayConnectivityProbeResult>.unmodifiable(results),
+      logs: List<String>.unmodifiable(flowLogs),
+    );
+    _log(
+      result.ok ? WebGatewayLogLevel.success : WebGatewayLogLevel.warn,
+      'CONNECT',
+      result.summary,
+      result.toJson(),
+    );
+    return result;
   }
 
   Future<WebGatewayCleanupResult> cleanupArtifacts({
@@ -1471,6 +1603,8 @@ class WebMessagePlatformService {
         'description': _config.description,
         'bound_url': boundUrl,
         'accessible_urls': accessibleUrls,
+        'auto_start_on_launch': _config.autoStartOnLaunch,
+        'auto_reload_on_change': _config.autoReloadOnChange,
         'auth_enabled': _config.authEnabled,
         'telemetry_enabled': _config.telemetryEnabled,
         'logging_enabled': _config.loggingEnabled,
