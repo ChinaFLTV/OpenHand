@@ -854,12 +854,7 @@ export function SessionDetailPage() {
                 : t('detail.sse.fallback', '轮询')}</span>
             </span>
           </span>
-          {lastError ? (
-            <span style={{ color: 'var(--m3-error)' }}>
-              {t('detail.lastError', '最近错误：')}
-              {lastError}
-            </span>
-          ) : null}
+          {lastError ? <ErrorBanner message={lastError} onRetry={() => void refresh()} onDismiss={() => setLastError(null)} /> : null}
         </div>
 
         {remoteRunning ? (
@@ -1264,6 +1259,155 @@ export function SessionDetailPage() {
         />
       ) : null}
     </main>
+  );
+}
+
+/// 错误条带：自动识别 Connection refused / 网络断开 等常见错误，给出本地化解释 +
+/// [重试] [复制] [关闭] 三档操作。普通错误退化为单行 Material 错误样式。
+function ErrorBanner({
+  message,
+  onRetry,
+  onDismiss,
+}: {
+  message: string;
+  onRetry: () => void;
+  onDismiss: () => void;
+}) {
+  const lower = message.toLowerCase();
+  const isConnRefused =
+    lower.includes('connection refused') ||
+    lower.includes('econnrefused') ||
+    lower.includes('errno = 61') ||
+    lower.includes('errno = 111') ||
+    lower.includes('failed to connect');
+  const isNetwork =
+    !isConnRefused &&
+    (lower.includes('socketexception') ||
+      lower.includes('handshakeexception') ||
+      lower.includes('network is unreachable') ||
+      lower.includes('failed host lookup') ||
+      lower.includes('errno = 8') ||
+      lower.includes('errno = 65'));
+  const isTimeout =
+    !isConnRefused &&
+    !isNetwork &&
+    (lower.includes('timeout') || lower.includes('timed out'));
+
+  let title: string;
+  let hint: string | null;
+  if (isConnRefused) {
+    title = t('detail.error.connRefused.title', '无法连接到 AI 服务');
+    hint = t(
+      'detail.error.connRefused.hint',
+      '后端拒绝连接：请确认 Base URL 与端口可访问，确认代理（如 Clash）端口/规则正确，或切换至备用模型/服务商再试。',
+    );
+  } else if (isNetwork) {
+    title = t('detail.error.network.title', '网络异常');
+    hint = t(
+      'detail.error.network.hint',
+      '请求未能完成：检查本机网络连接、DNS 与代理设置；如使用专线/VPN 请确认隧道在线。',
+    );
+  } else if (isTimeout) {
+    title = t('detail.error.timeout.title', '请求超时');
+    hint = t(
+      'detail.error.timeout.hint',
+      '远端长时间未响应：可重试一次；若持续超时请尝试更小的输入或切换模型。',
+    );
+  } else {
+    title = t('detail.lastError', '最近错误：');
+    hint = null;
+  }
+
+  const copyText = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      void navigator.clipboard.writeText(message).catch(() => {/*ignore*/});
+    }
+  };
+
+  return (
+    <div
+      class="rounded-md px-3 py-2 text-xs flex flex-col gap-1.5"
+      style={{
+        background: 'color-mix(in srgb, var(--m3-error) 8%, transparent)',
+        color: 'var(--m3-on-surface)',
+        border: '1px solid color-mix(in srgb, var(--m3-error) 35%, transparent)',
+        maxWidth: '100%',
+      }}
+      role="alert"
+    >
+      <div class="flex items-start gap-2">
+        <span aria-hidden style={{ color: 'var(--m3-error)', fontWeight: 600 }}>
+          ⚠
+        </span>
+        <div class="flex-1 min-w-0">
+          <div style={{ color: 'var(--m3-error)', fontWeight: 600 }}>{title}</div>
+          {hint ? (
+            <div style={{ color: 'var(--m3-on-surface-variant)', marginTop: 2 }}>{hint}</div>
+          ) : null}
+          <div
+            style={{
+              marginTop: 4,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              wordBreak: 'break-all',
+              color: 'var(--m3-on-surface-variant)',
+            }}
+          >
+            {message}
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 self-end">
+        <button
+          type="button"
+          class="oh-tap-press"
+          onClick={onRetry}
+          style={{
+            padding: '4px 10px',
+            borderRadius: 999,
+            background: 'var(--m3-primary)',
+            color: 'var(--m3-on-primary)',
+            border: 'none',
+            fontSize: 12,
+            cursor: 'pointer',
+          }}
+        >
+          {t('common.retry', '重试')}
+        </button>
+        <button
+          type="button"
+          class="oh-tap-press"
+          onClick={copyText}
+          style={{
+            padding: '4px 10px',
+            borderRadius: 999,
+            background: 'transparent',
+            color: 'var(--m3-on-surface-variant)',
+            border: '1px solid var(--m3-outline)',
+            fontSize: 12,
+            cursor: 'pointer',
+          }}
+        >
+          {t('common.copy', '复制')}
+        </button>
+        <button
+          type="button"
+          class="oh-tap-press"
+          onClick={onDismiss}
+          aria-label={t('common.cancel', '取消')}
+          style={{
+            padding: '4px 10px',
+            borderRadius: 999,
+            background: 'transparent',
+            color: 'var(--m3-on-surface-variant)',
+            border: '1px solid transparent',
+            fontSize: 12,
+            cursor: 'pointer',
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
   );
 }
 
