@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../app/support/openhand_scroll_physics.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'message_gateway_controller.dart';
@@ -1199,11 +1200,9 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                           onPressed: _clearTerminal,
                           icon: const Icon(Icons.cleaning_services_outlined),
                         ),
-                        // 日志级别多选菜单：取代原来顶部的 FilterChip 条。
-                        // 菜单本身走 PopupMenuButton 默认进 / 退场动画，
-                        // 与全局 reduceMotion 设置默认联动（Flutter 框架级在
-                        // disableAnimations=true 时会自动跳过过渡）。
-                        PopupMenuButton<WebGatewayLogLevel>(
+                        // 日志级别多选菜单：取代原来顶部的 FilterChip 条，并走
+                        // OpenHand 共用菜单转场，让 App / Web 服务面板的进退场手感一致。
+                        AnimatedPopupMenuButton<WebGatewayLogLevel>(
                           tooltip: '日志级别筛选',
                           icon: const Icon(Icons.filter_list_rounded),
                           // 返回 null 代表点击了外部区域 / Esc，不需要响应。

@@ -1,4 +1,6 @@
 import { createPortal } from 'preact/compat';
+import { useEffect } from 'preact/hooks';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 
 export interface ConfirmDialogProps {
   title: string;
@@ -21,16 +23,27 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
+  const { closing, requestClose } = useDialogExitMotion(onCancel);
+
+  useEffect(() => {
+    if (busy || closing) return;
+    const handleKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [busy, closing, requestClose]);
+
   const node = (
     <div
-      class="oh-dialog-fade-in fixed inset-0 flex items-center justify-center p-4"
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
       style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
-      onClick={busy ? undefined : onCancel}
+      onClick={busy || closing ? undefined : requestClose}
     >
       <div
         role="dialog"
         aria-modal="true"
-        class="oh-dialog-pop-in w-full max-w-md rounded-m3-xl p-5"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-md rounded-m3-xl p-5`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
@@ -72,8 +85,8 @@ export function ConfirmDialog({
               border: '1px solid var(--m3-outline)',
               background: 'transparent',
             }}
-            disabled={busy}
-            onClick={onCancel}
+            disabled={busy || closing}
+            onClick={requestClose}
           >
             {cancelLabel}
           </button>
@@ -85,7 +98,7 @@ export function ConfirmDialog({
               background: danger ? 'var(--m3-error)' : 'var(--m3-primary)',
               border: '1px solid transparent',
             }}
-            disabled={busy}
+            disabled={busy || closing}
             onClick={onConfirm}
           >
             {confirmLabel}

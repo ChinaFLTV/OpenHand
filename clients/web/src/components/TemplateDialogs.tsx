@@ -17,6 +17,7 @@ import { MenuSelect } from './MenuSelect';
 import { ModelPickerDialog, pushRecentModel } from './ModelPickerDialog';
 import { Appear } from './Appear';
 import { t } from '../i18n';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 
 interface DialogShellProps {
   title: string;
@@ -26,31 +27,33 @@ interface DialogShellProps {
 }
 
 function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellProps) {
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+
   // ESC 关闭：在 dialog 挂载时挂全局键监听，卸载时清理。
   useEffect(() => {
     const handler = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') onClose();
+      if (ev.key === 'Escape') requestClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [requestClose]);
   const node = (
     <div
-      class="fixed inset-0 flex items-center justify-center px-4 oh-dialog-fade-in"
+      class={`fixed inset-0 flex items-center justify-center px-4 ${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'}`}
       style={{
         background: 'rgba(0,0,0,0.40)',
         backdropFilter: 'blur(2px)',
         zIndex: 2400,
       }}
       onClick={(ev) => {
-        if (ev.target === ev.currentTarget) onClose();
+        if (ev.target === ev.currentTarget) requestClose();
       }}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <section
-        class="oh-dialog-pop-in rounded-m3-xl w-full overflow-hidden flex flex-col"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-xl w-full overflow-hidden flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
@@ -68,7 +71,7 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
             style={{ color: 'var(--m3-on-surface-variant)' }}
             aria-label="close"

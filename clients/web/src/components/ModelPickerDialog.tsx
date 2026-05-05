@@ -9,6 +9,7 @@ import { createPortal } from 'preact/compat';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 
 const RECENT_KEY = 'openhand.web.recent_models';
 const RECENT_MAX = 6;
@@ -60,6 +61,7 @@ export function ModelPickerDialog({
   const [inputFocused, setInputFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const { closing, requestClose } = useDialogExitMotion(onClose);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -68,11 +70,11 @@ export function ModelPickerDialog({
   // ESC 关闭
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') requestClose();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [requestClose]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -141,7 +143,7 @@ export function ModelPickerDialog({
   function handleSelect(key: string) {
     pushRecentModel(key);
     onSelect(key);
-    onClose();
+    requestClose();
   }
 
   function handleSubmit() {
@@ -170,19 +172,20 @@ export function ModelPickerDialog({
 
   const node = (
     <div
-      class="fixed inset-0 flex items-center justify-center"
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center`}
       style={{
         background: 'rgba(0, 0, 0, 0.38)',
+        backdropFilter: 'blur(2px)',
         zIndex: 2800,
       }}
       onClick={(ev) => {
-        if (ev.target === ev.currentTarget) onClose();
+        if (ev.target === ev.currentTarget) requestClose();
       }}
     >
       <div
         role="dialog"
         aria-modal="true"
-        class="oh-appear-up flex flex-col"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} flex flex-col`}
         style={{
           width: 'min(420px, 92vw)',
           maxHeight: 'min(520px, 86vh)',
