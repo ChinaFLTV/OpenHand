@@ -71,6 +71,18 @@ export interface OpsRuntimeSnapshot {
   last_error_at?: string | null;
   last_error_path?: string;
   active_sse_subscriptions?: number;
+  recent_errors?: OpsRecentError[];
+  mcp_server_enabled_count?: number;
+  mcp_server_total_count?: number;
+}
+
+export interface OpsRecentError {
+  at: string;
+  method: string;
+  path: string;
+  status: number;
+  duration_ms: number;
+  message?: string;
 }
 
 export interface CleanupHistoryEntry {

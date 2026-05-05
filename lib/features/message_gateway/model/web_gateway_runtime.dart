@@ -180,6 +180,9 @@ class WebGatewayRuntimeSnapshot {
     this.dartVersion = '',
     this.hostName = '',
     this.activeSseSubscriptions = 0,
+    this.recentErrors = const <Map<String, Object?>>[],
+    this.mcpServerEnabledCount = 0,
+    this.mcpServerTotalCount = 0,
   });
 
   final WebGatewayRuntimeState state;
@@ -224,6 +227,14 @@ class WebGatewayRuntimeSnapshot {
   /// 当前活跃的 SSE 长连接数（每个 `/api/sessions/<id>/events` 客户端 +1）。
   final int activeSseSubscriptions;
 
+  /// 最近 N 条 4xx/5xx 请求环（限制 16 条，path/message 裁剪），按发生顺序追加。
+  /// 每条含：`at`(ISO8601) `method` `path` `status` `duration_ms` 可选 `message`。
+  final List<Map<String, Object?>> recentErrors;
+
+  /// MCP 服务器已启用 / 总数，为 Ops 面板提供快速合规指示。
+  final int mcpServerEnabledCount;
+  final int mcpServerTotalCount;
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'state': state.name,
@@ -266,6 +277,9 @@ class WebGatewayRuntimeSnapshot {
       'last_error_at': lastErrorAt?.toUtc().toIso8601String(),
       'last_error_path': lastErrorPath,
       'active_sse_subscriptions': activeSseSubscriptions,
+      'recent_errors': recentErrors,
+      'mcp_server_enabled_count': mcpServerEnabledCount,
+      'mcp_server_total_count': mcpServerTotalCount,
     };
   }
 }

@@ -201,6 +201,10 @@ export function OpsPage() {
                 <Metric label={t('ops.metric.activeSse', 'SSE 长连接')}
                   value={String(snapshot.active_sse_subscriptions)} />
               )}
+              {typeof snapshot.mcp_server_total_count === 'number' && (
+                <Metric label={t('ops.metric.mcpServers', 'MCP 启用 / 总数')}
+                  value={`${snapshot.mcp_server_enabled_count ?? 0} / ${snapshot.mcp_server_total_count}`} />
+              )}
               <Metric label={t('ops.metric.totalReq', '总请求')} value={String(snapshot.total_requests)} />
               <Metric label={t('ops.metric.totalErr', '总错误')} value={String(snapshot.total_errors)} />
               <Metric label={t('ops.metric.bytesIO', '字节 IN / OUT')}
@@ -396,6 +400,50 @@ export function OpsPage() {
                     </p>
                   </div>
                 )}
+              </section>
+            )}
+
+            {/* 最近错误环：倒序列出最近 4xx/5xx 请求，便于第一时间发现问题 */}
+            {snapshot.recent_errors && snapshot.recent_errors.length > 0 && (
+              <section
+                class="oh-appear-up rounded-m3-md p-4 mb-3"
+                style={{ backgroundColor: 'var(--m3-surface-container)' }}
+              >
+                <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  {t('ops.section.recentErrors', '最近错误')} · {snapshot.recent_errors.length}
+                </p>
+                <ul class="space-y-1.5">
+                  {[...snapshot.recent_errors].reverse().map((e, idx) => (
+                    <li
+                      key={`${e.at}-${idx}`}
+                      class="flex flex-wrap gap-x-2 gap-y-0.5 items-baseline text-xs font-mono px-2 py-1.5 rounded-m3-sm"
+                      style={{
+                        backgroundColor: 'var(--m3-surface)',
+                        borderLeft: `3px solid ${e.status >= 500 ? 'var(--m3-error)' : 'color-mix(in srgb, var(--m3-error) 55%, transparent)'}`,
+                      }}
+                    >
+                      <span
+                        class="px-1.5 rounded text-[10px] font-bold"
+                        style={{
+                          backgroundColor: e.status >= 500 ? 'var(--m3-error)' : 'color-mix(in srgb, var(--m3-error) 18%, transparent)',
+                          color: e.status >= 500 ? 'var(--m3-on-error)' : 'var(--m3-error)',
+                        }}
+                      >
+                        {e.status}
+                      </span>
+                      <span style={{ color: 'var(--m3-on-surface-variant)' }}>{e.method}</span>
+                      <span style={{ color: 'var(--m3-on-surface)' }}>{e.path}</span>
+                      <span class="ml-auto" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                        {e.duration_ms} ms · {tDateTime(e.at)}
+                      </span>
+                      {e.message && (
+                        <span class="basis-full pl-1" style={{ color: 'var(--m3-error)' }}>
+                          {e.message}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
 

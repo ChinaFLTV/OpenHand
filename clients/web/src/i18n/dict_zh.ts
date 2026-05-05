@@ -172,6 +172,8 @@ export const dict_zh: Record<string, string> = {
   'ops.metric.openSessions': '在线会话',
   'ops.metric.activeReq': '正在处理',
   'ops.metric.activeSse': 'SSE 长连接',
+  'ops.metric.mcpServers': 'MCP 启用 / 总数',
+  'ops.section.recentErrors': '最近错误',
   'ops.metric.totalReq': '总请求',
   'ops.metric.totalErr': '总错误',
   'ops.metric.bytesIO': '字节 IN / OUT',

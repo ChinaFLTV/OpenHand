@@ -143,6 +143,11 @@ class WebMessagePlatformService {
   /// 客户端泄漏（断网后未释放的悬挂连接）。
   int _activeSseSubscriptions = 0;
 
+  /// 最近 N 次 4xx/5xx 请求的环形缓冲。Ops 面板按时间倒序展示，便于"刚出错就能看到"。
+  /// 每条 ≤ 256B（path 截 80, error 截 160），整体内存占用上限 ≈ 5KB。
+  static const int _maxRecentErrors = 16;
+  final List<Map<String, Object?>> _recentErrors = <Map<String, Object?>>[];
+
   /// 缓存当前主机非环回 IPv4 地址列表，作为 `accessibleUrls` 在
   /// 监听 `0.0.0.0` / `::` 时枚举局域网 URL 的数据源。`start()` 后填充，
   /// `runtimeSnapshotAsync()` 触发时按 30s TTL 刷新。
@@ -344,6 +349,11 @@ class WebMessagePlatformService {
       dartVersion: Platform.version,
       hostName: _safeHostName(),
       activeSseSubscriptions: _activeSseSubscriptions,
+      recentErrors: List<Map<String, Object?>>.unmodifiable(
+          _recentErrors.map((e) => Map<String, Object?>.unmodifiable(e))),
+      mcpServerEnabledCount:
+          _mcpController.servers.where((s) => s.enabled).length,
+      mcpServerTotalCount: _mcpController.servers.length,
     );
   }
 
@@ -355,6 +365,7 @@ class WebMessagePlatformService {
     required int statusCode,
     required int durationMs,
     String? errorPath,
+    String? errorMessage,
   }) {
     try {
       // 状态码分桶：用首位数字定位。0 表示连接级异常未拿到上游 status code。
@@ -405,6 +416,22 @@ class WebMessagePlatformService {
       if (errorPath != null || statusCode >= 500) {
         _lastErrorAt = DateTime.now().toUtc();
         _lastErrorPath = errorPath ?? routeKey;
+      }
+      // 4xx/5xx 进入最近错误环（200/3xx 不污染缓冲）。
+      if (statusCode >= 400 || errorPath != null) {
+        final entry = <String, Object?>{
+          'at': DateTime.now().toUtc().toIso8601String(),
+          'method': methodKey,
+          'path': _truncate(errorPath ?? routeKey, 80),
+          'status': statusCode,
+          'duration_ms': durationMs,
+          if (errorMessage != null && errorMessage.isNotEmpty)
+            'message': _truncate(errorMessage, 160),
+        };
+        _recentErrors.add(entry);
+        if (_recentErrors.length > _maxRecentErrors) {
+          _recentErrors.removeRange(0, _recentErrors.length - _maxRecentErrors);
+        }
       }
     } catch (error, stack) {
       silentLog('web_message_platform_service', 'observe metrics', error, stack);
@@ -837,6 +864,7 @@ class WebMessagePlatformService {
             statusCode: statusCode,
             durationMs: stopwatch.elapsedMilliseconds,
             errorPath: errorText != null ? request.requestedUri.path : null,
+            errorMessage: errorText,
           );
           final connectionInfo = request.context['shelf.io.connection_info']
               as HttpConnectionInfo?;

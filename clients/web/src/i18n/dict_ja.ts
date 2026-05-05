@@ -171,6 +171,8 @@ export const dict_ja: Record<string, string> = {
   'ops.metric.openSessions': 'オンラインセッション',
   'ops.metric.activeReq': '処理中リクエスト',
   'ops.metric.activeSse': 'SSE 接続中',
+  'ops.metric.mcpServers': 'MCP 有効 / 合計',
+  'ops.section.recentErrors': '最近のエラー',
   'ops.metric.totalReq': '総リクエスト',
   'ops.metric.totalErr': '総エラー',
   'ops.metric.bytesIO': 'バイト IN / OUT',
