@@ -49,16 +49,34 @@ export function HomePage() {
         }}
       >
         <header class="flex items-start justify-between gap-4 mb-6">
-          <div>
-            <h1
-              class="text-3xl sm:text-4xl font-semibold tracking-tight"
-              style={{ color: 'var(--m3-on-surface)' }}
-            >
-              {t('app.brand')}
-            </h1>
-            <p class="text-sm mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {t('home.subtitle')}
-            </p>
+          <div class="flex items-center gap-3">
+            {/* OpenHand 应用 LOGO，与 Flutter 端 assets/branding 同源；通过 vite public/ 拷贝到 ./openhand_logo.png。 */}
+            <img
+              src="./openhand_logo.png"
+              alt={t('app.brand')}
+              width={56}
+              height={56}
+              decoding="async"
+              loading="eager"
+              class="rounded-m3-sm"
+              style={{
+                width: '56px',
+                height: '56px',
+                objectFit: 'contain',
+                boxShadow: 'var(--m3-elev-1)',
+              }}
+            />
+            <div>
+              <h1
+                class="text-3xl sm:text-4xl font-semibold tracking-tight"
+                style={{ color: 'var(--m3-on-surface)' }}
+              >
+                {t('app.brand')}
+              </h1>
+              <p class="text-sm mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                {t('home.subtitle')}
+              </p>
+            </div>
           </div>
           <div class="flex items-center gap-2 flex-wrap justify-end">
             <div

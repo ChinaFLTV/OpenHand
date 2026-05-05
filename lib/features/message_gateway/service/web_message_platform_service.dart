@@ -99,6 +99,34 @@ class WebMessagePlatformService {
   int _restartCount = 0;
   int _nextLogId = 1;
   String _lastError = '';
+  // 拓展运维指标。参考 Prometheus / OpenTelemetry HTTP 仪表盘出入参数：
+  // - 状态码 4 桶 (1xx/2xx/3xx/4xx/5xx) 便于验验错误环境
+  // - method 分布帮助识别异常调用模式
+  // - 路径计数 (top 32 过后 LRU 裁剩，避免被驶 ID 塑出的路径打爆)
+  // - 近 256 次请求的延迟环以计算 p50/p95/p99
+  // - 近 600s 请求时间戳环，用于推导在线 RPS
+  // 所有结构在进程内驻留，点班貃采集以避免接口变庞。
+  static const int _maxRouteEntries = 32;
+  static const int _maxLatencyBuffer = 256;
+  static const int _maxTimestampBuffer = 600;
+  final Map<String, int> _statusBuckets = <String, int>{
+    '1xx': 0,
+    '2xx': 0,
+    '3xx': 0,
+    '4xx': 0,
+    '5xx': 0,
+  };
+  final Map<String, int> _methodCounts = <String, int>{};
+  final Map<String, int> _routeCounts = <String, int>{};
+  final List<int> _latencyBuffer = <int>[];
+  final List<int> _recentRequestEpochMs = <int>[];
+  DateTime? _lastErrorAt;
+  String _lastErrorPath = '';
+  String _slowestRecentPath = '';
+  String _slowestRecentMethod = '';
+  int _slowestRecentDurationMs = 0;
+  int _slowestRecentStatus = 0;
+  DateTime? _slowestRecentAt;
   _ProcessDiagnostics _processDiagnostics = const _ProcessDiagnostics();
   DateTime? _processDiagnosticsAt;
   _LinuxCpuSample? _previousLinuxCpuSample;
@@ -284,7 +312,149 @@ class WebMessagePlatformService {
       logBytes: _fileLogger.currentSizeBytes,
       openSessionCount: _sessionController.sessions.length,
       lastError: _lastError,
+      // 扩展指标：将进程内观察到的 HTTP 流量切面向上传递给 UI / Web Ops。
+      statusCodeBreakdown: Map<String, int>.unmodifiable(_statusBuckets),
+      methodBreakdown: Map<String, int>.unmodifiable(_methodCounts),
+      topRoutes: _topRoutes(),
+      latencyStats: _computeLatencyStats(),
+      requestsPerMinute: _computeRequestsPerMinute(),
+      slowestRecent: _slowestRecentDurationMs > 0
+          ? WebGatewayRecentSlowRequest(
+              path: _slowestRecentPath,
+              method: _slowestRecentMethod,
+              statusCode: _slowestRecentStatus,
+              durationMs: _slowestRecentDurationMs,
+              at: _slowestRecentAt,
+            )
+          : null,
+      lastErrorAt: _lastErrorAt,
+      lastErrorPath: _lastErrorPath,
+      dartVersion: Platform.version,
+      hostName: _safeHostName(),
     );
+  }
+
+  /// 把刚结束的一次请求观察并入指标缓冲。任何失败都不影响主请求 — 静默吞掉即可，
+  /// 因为指标写入本身不应阻塞响应链路。
+  void _observeRequestMetrics({
+    required String method,
+    required String path,
+    required int statusCode,
+    required int durationMs,
+    String? errorPath,
+  }) {
+    try {
+      // 状态码分桶：用首位数字定位。0 表示连接级异常未拿到上游 status code。
+      final bucketKey = statusCode <= 0
+          ? '5xx'
+          : statusCode >= 500
+              ? '5xx'
+              : statusCode >= 400
+                  ? '4xx'
+                  : statusCode >= 300
+                      ? '3xx'
+                      : statusCode >= 200
+                          ? '2xx'
+                          : '1xx';
+      _statusBuckets[bucketKey] = (_statusBuckets[bucketKey] ?? 0) + 1;
+      // method 分布：MAX 8 个，超出走 OTHER。
+      final upperMethod = method.toUpperCase();
+      const knownMethods = <String>{'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'};
+      final methodKey = knownMethods.contains(upperMethod) ? upperMethod : 'OTHER';
+      _methodCounts[methodKey] = (_methodCounts[methodKey] ?? 0) + 1;
+      // 路由分布：保留前缀，规避 query string；超过容量后按计数最少裁剪一个，避免无界增长。
+      final routeKey = path.isEmpty ? '/' : path;
+      _routeCounts[routeKey] = (_routeCounts[routeKey] ?? 0) + 1;
+      if (_routeCounts.length > _maxRouteEntries) {
+        final smallest = _routeCounts.entries.reduce((a, b) => a.value <= b.value ? a : b);
+        _routeCounts.remove(smallest.key);
+      }
+      // 延迟环形缓冲：达到容量就 FIFO 出队。
+      _latencyBuffer.add(durationMs);
+      if (_latencyBuffer.length > _maxLatencyBuffer) {
+        _latencyBuffer.removeAt(0);
+      }
+      // RPS 时间戳环形缓冲：用 ms-epoch 节省内存；查询时按"最近 60s"过滤计算。
+      final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
+      _recentRequestEpochMs.add(nowMs);
+      if (_recentRequestEpochMs.length > _maxTimestampBuffer) {
+        _recentRequestEpochMs.removeAt(0);
+      }
+      // 慢请求记录：保留近期最慢的一次（不是历史最慢），便于发现新近退化。
+      if (durationMs >= _slowestRecentDurationMs) {
+        _slowestRecentDurationMs = durationMs;
+        _slowestRecentPath = routeKey;
+        _slowestRecentMethod = methodKey;
+        _slowestRecentStatus = statusCode;
+        _slowestRecentAt = DateTime.now().toUtc();
+      }
+      // 错误时间 / 路径快照：让面板显示"上次出错"上下文。
+      if (errorPath != null || statusCode >= 500) {
+        _lastErrorAt = DateTime.now().toUtc();
+        _lastErrorPath = errorPath ?? routeKey;
+      }
+    } catch (error, stack) {
+      silentLog('web_message_platform_service', 'observe metrics', error, stack);
+    }
+  }
+
+  // 取 routeCounts 排名前 [limit] 的条目，按计数降序。
+  List<MapEntry<String, int>> _topRoutes({int limit = 8}) {
+    final entries = _routeCounts.entries.toList(growable: false)
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (entries.length <= limit) return entries;
+    return entries.sublist(0, limit);
+  }
+
+  // 计算延迟分位数：拿环上一份排序拷贝，按线性插值取 p50/p95/p99。
+  // 缓冲长度 ≤256，CPU 成本可忽略；分位算法采用 Hyndman-Fan #7（Excel/numpy 默认）。
+  WebGatewayLatencyStats _computeLatencyStats() {
+    if (_latencyBuffer.isEmpty) {
+      return const WebGatewayLatencyStats();
+    }
+    final sorted = List<int>.from(_latencyBuffer)..sort();
+    final n = sorted.length;
+    final sum = sorted.fold<int>(0, (a, b) => a + b);
+    int pick(double q) {
+      if (n == 1) return sorted.first;
+      final pos = q * (n - 1);
+      final lo = pos.floor();
+      final hi = pos.ceil();
+      if (lo == hi) return sorted[lo];
+      final frac = pos - lo;
+      return (sorted[lo] + (sorted[hi] - sorted[lo]) * frac).round();
+    }
+    return WebGatewayLatencyStats(
+      sampleCount: n,
+      avgMs: (sum / n).round(),
+      p50Ms: pick(0.5),
+      p95Ms: pick(0.95),
+      p99Ms: pick(0.99),
+      maxMs: sorted.last,
+    );
+  }
+
+  // 估算"最近 60 秒"内 RPS（每分钟请求数）。
+  // 时间窗口固定 60s；落在窗口内的事件计数除以"实际窗口长度（秒）"再 ×60。
+  // 当只观测到极短窗口时（启动一两秒），仍能给出收敛较好的瞬时速率，避免长时间显示 0。
+  double _computeRequestsPerMinute() {
+    if (_recentRequestEpochMs.isEmpty) return 0;
+    final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
+    const windowMs = 60 * 1000;
+    final cutoff = nowMs - windowMs;
+    final inWindow = _recentRequestEpochMs.where((t) => t >= cutoff).toList(growable: false);
+    if (inWindow.isEmpty) return 0;
+    final spanMs = math.max(1, nowMs - inWindow.first);
+    final actualWindowMs = math.min(spanMs, windowMs);
+    return inWindow.length * (60 * 1000) / actualWindowMs;
+  }
+
+  String _safeHostName() {
+    try {
+      return Platform.localHostname;
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<WebGatewayRuntimeSnapshot> runtimeSnapshotAsync() async {
@@ -593,6 +763,14 @@ class WebMessagePlatformService {
           _activeRequests = math.max(0, _activeRequests - 1);
           stopwatch.stop();
           _totalBytesOut += responseBytes;
+          // 在 telemetry 写日志前更新指标，确保 snapshot 与日志同源（同一窗口同一观察者）。
+          _observeRequestMetrics(
+            method: request.method,
+            path: request.requestedUri.path,
+            statusCode: statusCode,
+            durationMs: stopwatch.elapsedMilliseconds,
+            errorPath: errorText != null ? request.requestedUri.path : null,
+          );
           final connectionInfo = request.context['shelf.io.connection_info']
               as HttpConnectionInfo?;
           final level = statusCode >= 500

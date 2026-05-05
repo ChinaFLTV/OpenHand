@@ -168,6 +168,17 @@ class WebGatewayRuntimeSnapshot {
     required this.logBytes,
     required this.openSessionCount,
     required this.lastError,
+    // 扩展观测维度（默认空，老调用方零侵入）。
+    this.statusCodeBreakdown = const <String, int>{},
+    this.methodBreakdown = const <String, int>{},
+    this.topRoutes = const <MapEntry<String, int>>[],
+    this.latencyStats = const WebGatewayLatencyStats(),
+    this.requestsPerMinute = 0,
+    this.slowestRecent,
+    this.lastErrorAt,
+    this.lastErrorPath = '',
+    this.dartVersion = '',
+    this.hostName = '',
   });
 
   final WebGatewayRuntimeState state;
@@ -197,6 +208,18 @@ class WebGatewayRuntimeSnapshot {
   final int openSessionCount;
   final String lastError;
 
+  // 扩展观测：HTTP 状态码 / method / 路由 / 延迟 / 速率 / 慢请求 / 错误上下文 / 进程身份。
+  final Map<String, int> statusCodeBreakdown;
+  final Map<String, int> methodBreakdown;
+  final List<MapEntry<String, int>> topRoutes;
+  final WebGatewayLatencyStats latencyStats;
+  final double requestsPerMinute;
+  final WebGatewayRecentSlowRequest? slowestRecent;
+  final DateTime? lastErrorAt;
+  final String lastErrorPath;
+  final String dartVersion;
+  final String hostName;
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'state': state.name,
@@ -222,9 +245,75 @@ class WebGatewayRuntimeSnapshot {
         'disk_log_bytes': logBytes,
         'platform': Platform.operatingSystem,
         'platform_version': Platform.operatingSystemVersion,
+        'dart_version': dartVersion,
+        'host_name': hostName,
       },
       'open_session_count': openSessionCount,
       'last_error': lastError,
+      // 扩展观测：snake_case，便于 Web ops.ts 直接同名 destructure。
+      'status_code_breakdown': statusCodeBreakdown,
+      'method_breakdown': methodBreakdown,
+      'top_routes': topRoutes
+          .map((e) => <String, Object?>{'path': e.key, 'count': e.value})
+          .toList(growable: false),
+      'latency_stats': latencyStats.toJson(),
+      'requests_per_minute': requestsPerMinute,
+      'slowest_recent': slowestRecent?.toJson(),
+      'last_error_at': lastErrorAt?.toUtc().toIso8601String(),
+      'last_error_path': lastErrorPath,
     };
   }
+}
+
+/// 请求延迟分位数快照，由近 256 次请求推导。
+class WebGatewayLatencyStats {
+  const WebGatewayLatencyStats({
+    this.sampleCount = 0,
+    this.avgMs = 0,
+    this.p50Ms = 0,
+    this.p95Ms = 0,
+    this.p99Ms = 0,
+    this.maxMs = 0,
+  });
+
+  final int sampleCount;
+  final int avgMs;
+  final int p50Ms;
+  final int p95Ms;
+  final int p99Ms;
+  final int maxMs;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'sample_count': sampleCount,
+        'avg_ms': avgMs,
+        'p50_ms': p50Ms,
+        'p95_ms': p95Ms,
+        'p99_ms': p99Ms,
+        'max_ms': maxMs,
+      };
+}
+
+/// 近期最慢一次请求的元信息。仅作为面板上的"故障线索"，不代表历史最慢。
+class WebGatewayRecentSlowRequest {
+  const WebGatewayRecentSlowRequest({
+    required this.path,
+    required this.method,
+    required this.statusCode,
+    required this.durationMs,
+    required this.at,
+  });
+
+  final String path;
+  final String method;
+  final int statusCode;
+  final int durationMs;
+  final DateTime? at;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'path': path,
+        'method': method,
+        'status_code': statusCode,
+        'duration_ms': durationMs,
+        'at': at?.toUtc().toIso8601String(),
+      };
 }

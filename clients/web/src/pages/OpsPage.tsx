@@ -213,7 +213,191 @@ export function OpsPage() {
               <Metric label={t('ops.metric.platform', '平台')}
                 value={`${snapshot.process.platform} (${snapshot.process.platform_version})`} mono />
               <Metric label={t('ops.metric.pid', 'PID')} value={String(snapshot.process.pid)} mono />
+              {(snapshot.process.dart_version || snapshot.process.host_name) && (
+                <>
+                  <Metric label={t('ops.metric.dartVersion', 'Dart 版本')}
+                    value={(snapshot.process.dart_version || '—').split(' ')[0]} mono />
+                  <Metric label={t('ops.metric.hostName', '主机名')}
+                    value={snapshot.process.host_name || '—'} mono />
+                </>
+              )}
+              {typeof snapshot.requests_per_minute === 'number' && (
+                <Metric label={t('ops.metric.rpm', '近 1 分钟 RPM')}
+                  value={snapshot.requests_per_minute.toFixed(1)} />
+              )}
+              {snapshot.total_requests > 0 && (
+                <Metric label={t('ops.metric.errorRate', '错误率')}
+                  value={`${((snapshot.total_errors / snapshot.total_requests) * 100).toFixed(2)} %`} />
+              )}
             </section>
+
+            {/* HTTP 状态码 / 方法分布 */}
+            {(snapshot.status_code_breakdown || snapshot.method_breakdown) && (
+              <section
+                class="rounded-m3-md p-4 mb-3 grid grid-cols-1 md:grid-cols-2 gap-4"
+                style={{ backgroundColor: 'var(--m3-surface-container)' }}
+              >
+                {snapshot.status_code_breakdown && (
+                  <div>
+                    <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      {t('ops.section.statusBreakdown', 'HTTP 状态码分布')}
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                      {Object.entries(snapshot.status_code_breakdown).map(([k, v]) => {
+                        const tone = k === '5xx'
+                          ? 'var(--m3-error)'
+                          : k === '4xx'
+                            ? 'var(--m3-tertiary)'
+                            : k === '2xx'
+                              ? 'var(--m3-primary)'
+                              : 'var(--m3-on-surface-variant)';
+                        return (
+                          <span
+                            key={k}
+                            class="text-xs font-mono px-2 py-1 rounded-m3-sm"
+                            style={{
+                              backgroundColor: 'var(--m3-surface)',
+                              color: tone,
+                              border: `1px solid ${tone}`,
+                            }}
+                          >
+                            {k} · {v}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {snapshot.method_breakdown && (
+                  <div>
+                    <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      {t('ops.section.methodBreakdown', 'HTTP Method 分布')}
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                      {Object.entries(snapshot.method_breakdown).map(([k, v]) => (
+                        <span
+                          key={k}
+                          class="text-xs font-mono px-2 py-1 rounded-m3-sm"
+                          style={{
+                            backgroundColor: 'var(--m3-surface)',
+                            color: 'var(--m3-on-surface)',
+                            border: '1px solid var(--m3-outline)',
+                          }}
+                        >
+                          {k} · {v}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* 延迟分位数 */}
+            {snapshot.latency_stats && snapshot.latency_stats.sample_count > 0 && (
+              <section
+                class="rounded-m3-md p-4 mb-3"
+                style={{ backgroundColor: 'var(--m3-surface-container)' }}
+              >
+                <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  {t('ops.section.latency', '请求延迟分位数')} · {t('ops.latency.sample', '样本')} {snapshot.latency_stats.sample_count}
+                </p>
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {([
+                    ['avg', snapshot.latency_stats.avg_ms],
+                    ['p50', snapshot.latency_stats.p50_ms],
+                    ['p95', snapshot.latency_stats.p95_ms],
+                    ['p99', snapshot.latency_stats.p99_ms],
+                    ['max', snapshot.latency_stats.max_ms],
+                  ] as const).map(([k, v]) => (
+                    <div
+                      key={k}
+                      class="px-3 py-2 rounded-m3-sm"
+                      style={{
+                        backgroundColor: 'var(--m3-surface)',
+                        border: '1px solid var(--m3-outline)',
+                      }}
+                    >
+                      <p class="text-[10px] uppercase tracking-wider" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                        {k}
+                      </p>
+                      <p class="font-mono text-sm" style={{ color: 'var(--m3-on-surface)' }}>{v} ms</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 热点路由 Top N */}
+            {snapshot.top_routes && snapshot.top_routes.length > 0 && (
+              <section
+                class="rounded-m3-md p-4 mb-3"
+                style={{ backgroundColor: 'var(--m3-surface-container)' }}
+              >
+                <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  {t('ops.section.topRoutes', '热点路由 Top')}
+                </p>
+                <div class="space-y-1">
+                  {(() => {
+                    const max = Math.max(...snapshot.top_routes!.map((r) => r.count), 1);
+                    return snapshot.top_routes!.map((r) => (
+                      <div key={r.path} class="flex items-center gap-2">
+                        <span class="font-mono text-xs flex-1 truncate" style={{ color: 'var(--m3-on-surface)' }}>
+                          {r.path}
+                        </span>
+                        <div
+                          class="h-2 rounded"
+                          style={{
+                            width: `${(r.count / max) * 100}%`,
+                            maxWidth: '60%',
+                            backgroundColor: 'var(--m3-primary)',
+                            opacity: 0.6,
+                          }}
+                        />
+                        <span class="font-mono text-xs w-12 text-right" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                          {r.count}
+                        </span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </section>
+            )}
+
+            {/* 近期最慢请求 + 上次错误 */}
+            {(snapshot.slowest_recent || snapshot.last_error_at) && (
+              <section
+                class="rounded-m3-md p-4 mb-3 grid grid-cols-1 md:grid-cols-2 gap-4"
+                style={{ backgroundColor: 'var(--m3-surface-container)' }}
+              >
+                {snapshot.slowest_recent && (
+                  <div>
+                    <p class="text-xs mb-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      {t('ops.section.slowestRecent', '近期最慢请求')}
+                    </p>
+                    <p class="font-mono text-sm" style={{ color: 'var(--m3-on-surface)' }}>
+                      {snapshot.slowest_recent.method} {snapshot.slowest_recent.path}
+                    </p>
+                    <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      {snapshot.slowest_recent.duration_ms} ms · HTTP {snapshot.slowest_recent.status_code} · {tDateTime(snapshot.slowest_recent.at)}
+                    </p>
+                  </div>
+                )}
+                {snapshot.last_error_at && (
+                  <div>
+                    <p class="text-xs mb-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      {t('ops.section.lastError', '上次错误')}
+                    </p>
+                    <p class="font-mono text-sm" style={{ color: 'var(--m3-error)' }}>
+                      {snapshot.last_error_path || '—'}
+                    </p>
+                    <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      {tDateTime(snapshot.last_error_at)}
+                    </p>
+                  </div>
+                )}
+              </section>
+            )}
 
             {snapshot.last_error && (
               <p
