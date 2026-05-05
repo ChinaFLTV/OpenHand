@@ -373,14 +373,34 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
   const result = asString(metadata['tool_execution_result'] ?? metadata['result_text']);
   const command = asString(metadata['tool_execution_command'] ?? metadata['command']);
   const workingDirectory = asString(metadata['tool_execution_working_directory'] ?? metadata['working_directory']);
-  const status = asString(metadata['tool_status'] ?? metadata['status']);
+  const status = asString(
+    metadata['tool_execution_status'] ??
+      metadata['tool_status'] ??
+      metadata['status'],
+  );
   const elapsedMs = asNumber(metadata['tool_execution_elapsed_ms'] ?? metadata['tool_execution_duration_ms']);
   const exitCode = asNumber(metadata['tool_execution_exit_code'] ?? metadata['exit_code']);
   const argumentsStreaming = asBool(metadata['tool_arguments_streaming']);
+  const statusLower = status.toLowerCase();
+  const terminalStatus =
+    statusLower === 'success' ||
+    statusLower === 'ok' ||
+    statusLower === 'completed' ||
+    statusLower === 'failed' ||
+    statusLower === 'failure' ||
+    statusLower === 'error' ||
+    statusLower === 'denied' ||
+    statusLower === 'rejected' ||
+    statusLower === 'timed_out' ||
+    statusLower === 'invalid_arguments' ||
+    statusLower === 'cancelled' ||
+    statusLower === 'canceled' ||
+    statusLower === 'aborted' ||
+    statusLower === 'blocked';
   const fallback = message.content ?? '';
   const hasStructuredOutput = stdout || stderr || result || command || workingDirectory;
   const constructing =
-    argumentsStreaming ||
+    (!terminalStatus && argumentsStreaming) ||
     (message.kind === 'tool_call' && !status && !hasStructuredOutput && fallback.trim().length === 0);
 
   return (

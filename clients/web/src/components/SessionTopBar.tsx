@@ -14,7 +14,14 @@ import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
 import { ModelPickerDialog } from './ModelPickerDialog';
 
-export type PermissionMode = 'normal' | 'ask' | 'auto';
+export interface SessionToolbarCapsule {
+  key: string;
+  icon: string;
+  label: string;
+  title?: string;
+  tone?: 'neutral' | 'primary' | 'warning' | 'success';
+  onClick?: () => void;
+}
 
 export interface SessionTopBarProps {
   title: string;
@@ -33,9 +40,9 @@ export interface SessionTopBarProps {
   modelKey: string;
   onModelChange(next: string): void;
 
-  // 权限模式 (App 端: normal=正常, ask=每次询问, auto=自动放行 — 与默认 ask 对齐)
-  permissionMode: PermissionMode;
-  onPermissionChange(next: PermissionMode): void;
+  // App 端 fullAccessPermission：默认权限 / 完全访问权限。
+  fullAccessPermission: boolean;
+  onFullAccessPermissionChange(next: boolean): void;
 
   // 状态
   sendPhase: string;
@@ -47,12 +54,14 @@ export interface SessionTopBarProps {
   onDelete?: () => void;
   onExport?: () => void;
   sessionId?: string;
+  capsules?: SessionToolbarCapsule[];
 
   trailing?: ComponentChildren;
 }
 
 function modeLabel(m: string): string {
   switch (m) {
+    case 'chat': return t('sessions.mode.chat', '对话');
     case 'normal': return t('composer.mode.normal', '普通');
     case 'plan': return t('composer.mode.plan', 'Plan');
     case 'image': return t('composer.mode.image', '图像');
@@ -64,6 +73,7 @@ function modeLabel(m: string): string {
 
 function modeIcon(m: string): string {
   switch (m) {
+    case 'chat': return '💬';
     case 'normal': return '💬';
     case 'plan': return '📋';
     case 'image': return '🖼';
@@ -73,20 +83,14 @@ function modeIcon(m: string): string {
   }
 }
 
-function permissionLabel(p: PermissionMode): string {
-  switch (p) {
-    case 'normal': return t('topbar.perm.normal', '正常');
-    case 'ask': return t('topbar.perm.ask', '每次询问');
-    case 'auto': return t('topbar.perm.auto', '自动放行');
-  }
+function permissionLabel(fullAccess: boolean): string {
+  return fullAccess
+    ? t('topbar.perm.full', '完全访问权限')
+    : t('topbar.perm.default', '默认权限');
 }
 
-function permissionIcon(p: PermissionMode): string {
-  switch (p) {
-    case 'normal': return '🛡';
-    case 'ask': return '❓';
-    case 'auto': return '⚡';
-  }
+function permissionIcon(fullAccess: boolean): string {
+  return fullAccess ? '⚠' : '🛡';
 }
 
 export function SessionTopBar(props: SessionTopBarProps) {
@@ -101,8 +105,8 @@ export function SessionTopBar(props: SessionTopBarProps) {
     models,
     modelKey,
     onModelChange,
-    permissionMode,
-    onPermissionChange,
+    fullAccessPermission,
+    onFullAccessPermissionChange,
     sendPhase,
     canStop,
     stopping,
@@ -110,6 +114,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
     onDelete,
     onExport,
     sessionId,
+    capsules = [],
     trailing,
   } = props;
 
@@ -163,7 +168,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
 
   return (
     <header
-      class="rounded-xl px-3 py-2 mb-4 flex items-center gap-2 flex-wrap"
+      class="rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap"
       style={{
         background: 'var(--m3-surface-container)',
         boxShadow: 'var(--m3-elev-1)',
@@ -221,7 +226,13 @@ export function SessionTopBar(props: SessionTopBarProps) {
             </span>
           </button>
         )}
-        {subtitle ? (
+        {capsules.length > 0 ? (
+          <div class="mt-1 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+            {capsules.map((item) => (
+              <ToolbarCapsule key={item.key} capsule={item} />
+            ))}
+          </div>
+        ) : subtitle ? (
           <p
             class="text-xs truncate"
             style={{ color: 'var(--m3-on-surface-variant)' }}
@@ -277,8 +288,8 @@ export function SessionTopBar(props: SessionTopBarProps) {
       {/* Permission chip */}
       <div class="relative" data-topbar-menu>
         <Chip
-          icon={permissionIcon(permissionMode)}
-          label={permissionLabel(permissionMode)}
+          icon={permissionIcon(fullAccessPermission)}
+          label={permissionLabel(fullAccessPermission)}
           tone="neutral"
           onClick={() => {
             setShowPermMenu((v) => !v);
@@ -289,17 +300,17 @@ export function SessionTopBar(props: SessionTopBarProps) {
         />
         {showPermMenu ? (
           <Menu>
-            {(['normal', 'ask', 'auto'] as PermissionMode[]).map((p) => (
+            {[false, true].map((value) => (
               <MenuItem
-                key={p}
-                active={p === permissionMode}
+                key={value ? 'full' : 'default'}
+                active={value === fullAccessPermission}
                 onClick={() => {
-                  onPermissionChange(p);
+                  onFullAccessPermissionChange(value);
                   setShowPermMenu(false);
                 }}
               >
-                <span class="mr-2" aria-hidden>{permissionIcon(p)}</span>
-                {permissionLabel(p)}
+                <span class="mr-2" aria-hidden>{permissionIcon(value)}</span>
+                {permissionLabel(value)}
               </MenuItem>
             ))}
           </Menu>
@@ -398,6 +409,43 @@ export function SessionTopBar(props: SessionTopBarProps) {
         />
       ) : null}
     </header>
+  );
+}
+
+function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
+  const toneColor = capsule.tone === 'primary'
+    ? 'var(--m3-primary)'
+    : capsule.tone === 'warning'
+      ? '#b45309'
+      : capsule.tone === 'success'
+        ? '#15803d'
+        : 'var(--m3-on-surface-variant)';
+  const content = (
+    <span
+      class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] flex-none max-w-[240px]"
+      style={{
+        background: 'var(--m3-surface)',
+        color: toneColor,
+        border: `1px solid color-mix(in srgb, ${toneColor} 28%, transparent)`,
+        fontWeight: 600,
+      }}
+      title={capsule.title ?? capsule.label}
+    >
+      <span aria-hidden>{capsule.icon}</span>
+      <span class="truncate">{capsule.label}</span>
+    </span>
+  );
+  if (!capsule.onClick) return content;
+  return (
+    <button
+      type="button"
+      class="oh-tap-press flex-none"
+      style={{ background: 'transparent', border: 'none', padding: 0 }}
+      onClick={capsule.onClick}
+      title={capsule.title ?? capsule.label}
+    >
+      {content}
+    </button>
   );
 }
 

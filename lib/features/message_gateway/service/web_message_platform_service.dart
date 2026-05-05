@@ -1643,23 +1643,79 @@ class WebMessagePlatformService {
       });
     }
     final body = await _readJsonBody(request);
-    final title = _string(body['title'], '').trim();
-    if (title.isEmpty) {
+    final hasTitle = body.containsKey('title');
+    final hasMode = body.containsKey('mode');
+    final hasFullAccess = body.containsKey('full_access_permission');
+    if (!hasTitle && !hasMode && !hasFullAccess) {
       return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'title_required',
+        'error': 'session_patch_empty',
       });
     }
-    final ok = await _sessionController.renameSession(session.id, title);
-    final committed = _sessionController.sessions.firstWhere(
-      (item) => item.id == session.id,
-      orElse: () => session.copyWith(title: title),
-    );
-    final updated = ok ? committed.copyWith(title: title) : committed;
+    var ok = true;
+    var updated = session;
+    final changed = <String, Object?>{};
+
+    if (hasTitle) {
+      final title = _string(body['title'], '').trim();
+      if (title.isEmpty) {
+        return _json(HttpStatus.badRequest, <String, Object?>{
+          'error': 'title_required',
+        });
+      }
+      final renamed = await _sessionController.renameSession(session.id, title);
+      ok = ok && renamed;
+      final committed = _sessionController.sessions.firstWhere(
+        (item) => item.id == session.id,
+        orElse: () => updated.copyWith(title: title),
+      );
+      updated = renamed ? committed.copyWith(title: title) : committed;
+      changed['title'] = title;
+    }
+
+    if (hasMode) {
+      final rawMode = _string(body['mode'], updated.mode.storageValue).trim();
+      if (rawMode != AiSessionMode.chat.storageValue &&
+          rawMode != AiSessionMode.plan.storageValue) {
+        return _json(HttpStatus.badRequest, <String, Object?>{
+          'error': 'session_mode_invalid',
+          'mode': rawMode,
+        });
+      }
+      final mode = AiSessionMode.fromStorage(rawMode);
+      if (mode == AiSessionMode.plan && !_config.planModeEnabled) {
+        return _json(HttpStatus.forbidden, <String, Object?>{
+          'error': 'plan_mode_disabled',
+        });
+      }
+      final updatedMode = await _sessionController.updateSessionMode(
+        session.id,
+        mode,
+      );
+      ok = ok && updatedMode;
+      updated = _sessionController.sessions.firstWhere(
+        (item) => item.id == session.id,
+        orElse: () => updated.copyWith(mode: mode),
+      );
+      changed['mode'] = mode.storageValue;
+    }
+
+    if (hasFullAccess) {
+      final raw = body['full_access_permission'];
+      final enabled = raw == true || raw == 'true' || raw == 1 || raw == '1';
+      final updatedPermission = await _sessionController
+          .updateSessionFullAccessPermission(session.id, enabled);
+      ok = ok && updatedPermission;
+      updated = _sessionController.sessions.firstWhere(
+        (item) => item.id == session.id,
+        orElse: () => updated.copyWith(fullAccessPermission: enabled),
+      );
+      changed['full_access_permission'] = enabled;
+    }
     _log(
       WebGatewayLogLevel.info,
       'SESSION',
-      'Web 重命名会话 ${session.id}',
-      <String, Object?>{'title': title, 'device_id': auth.deviceId},
+      'Web 更新会话 ${session.id}',
+      <String, Object?>{'device_id': auth.deviceId, ...changed},
     );
     return _json(ok ? HttpStatus.ok : HttpStatus.conflict, <String, Object?>{
       'ok': ok,
@@ -1911,7 +1967,9 @@ class WebMessagePlatformService {
             responseModalities: responseModalities,
             creationRequest: creationRequest,
             denyCommandRules: _settingsController.aiDenyCommandRules,
-            requireWriteCommandConfirmation: false,
+            requireWriteCommandConfirmation: session.fullAccessPermission
+                ? false
+                : _settingsController.aiWriteCommandConfirmationEnabled,
             userMessageMetadata:
                 _metadataForRequest(auth, request, <String, Object?>{
                   'sent_via': 'web_api',
@@ -2719,9 +2777,11 @@ class WebMessagePlatformService {
       'title': session.title,
       'template_id': session.templateId,
       'template_name': session.templateName,
+      'template_internal_version': session.templateInternalVersion,
       'created_at': session.createdAt.toUtc().toIso8601String(),
       'updated_at': session.updatedAt.toUtc().toIso8601String(),
       'mode': session.mode.storageValue,
+      'full_access_permission': session.fullAccessPermission,
       'message_count': displayMessages.length,
       'statistics': session.statistics.toJson(),
       'total_tokens': session.statistics.totalTokens,

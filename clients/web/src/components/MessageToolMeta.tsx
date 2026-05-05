@@ -45,7 +45,11 @@ function extract(meta: Record<string, unknown> | undefined): ExtractedMeta {
   const m = meta ?? {};
   return {
     toolName: asString(m['tool_name'] ?? m['name']),
-    status: asString(m['status'] ?? m['tool_execution_status']),
+    status: asString(
+      m['tool_execution_status'] ??
+        m['tool_status'] ??
+        m['status'],
+    ),
     filePath: asString(m['file_mutation_path'] ?? m['read_file_path']),
     mutationKind: asString(m['file_mutation_kind']),
     writeReason: asString(
@@ -80,6 +84,27 @@ function statusVisual(status: string): { color: string; label: string; icon: str
       icon: '✓',
     };
   }
+  if (s === 'timed_out') {
+    return {
+      color: 'var(--m3-error)',
+      label: t('detail.tool.status.timedOut', '已超时'),
+      icon: '⌛',
+    };
+  }
+  if (s === 'invalid_arguments') {
+    return {
+      color: 'var(--m3-error)',
+      label: t('detail.tool.status.invalidArguments', '参数错误'),
+      icon: '!',
+    };
+  }
+  if (s === 'denied' || s === 'rejected' || s === 'blocked') {
+    return {
+      color: 'var(--m3-error)',
+      label: t('detail.tool.status.blocked', '已拦截'),
+      icon: '⊘',
+    };
+  }
   if (s === 'error' || s === 'failed' || s === 'failure') {
     return {
       color: 'var(--m3-error)',
@@ -101,6 +126,26 @@ function statusVisual(status: string): { color: string; label: string; icon: str
   };
 }
 
+function isTerminalStatus(status: string): boolean {
+  const s = status.toLowerCase();
+  return (
+    s === 'success' ||
+    s === 'ok' ||
+    s === 'completed' ||
+    s === 'failed' ||
+    s === 'failure' ||
+    s === 'error' ||
+    s === 'denied' ||
+    s === 'rejected' ||
+    s === 'timed_out' ||
+    s === 'invalid_arguments' ||
+    s === 'cancelled' ||
+    s === 'canceled' ||
+    s === 'aborted' ||
+    s === 'blocked'
+  );
+}
+
 export function MessageToolMeta({ message }: { message: SessionMessage }) {
   const ex = extract(message.metadata as Record<string, unknown> | undefined);
   const kind = message.kind;
@@ -114,6 +159,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
   if (!showCard) return null;
 
   const sv = ex.status ? statusVisual(ex.status) : null;
+  const argumentsStreaming = ex.argumentsStreaming && !isTerminalStatus(ex.status);
   const isFileMutation = kind === 'file_mutation_summary';
 
   return (
@@ -159,7 +205,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           {ex.toolSource}
         </span>
       ) : null}
-      {ex.argumentsStreaming ? (
+      {argumentsStreaming ? (
         <span
           class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm oh-pulse-soft"
           style={{
@@ -171,7 +217,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           ⟳ {t('detail.tool.streaming', '构造中…')}
         </span>
       ) : null}
-      {sv && !ex.argumentsStreaming ? (
+      {sv && !argumentsStreaming ? (
         <span
           class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
           style={{

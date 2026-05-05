@@ -23,9 +23,11 @@ export interface SessionSummary {
   title: string;
   template_id: string;
   template_name?: string;
+  template_internal_version?: number;
   created_at: string;
   updated_at: string;
   mode: 'chat' | 'plan' | string;
+  full_access_permission?: boolean;
   message_count: number;
   statistics?: Record<string, unknown>;
   total_tokens?: number | null;
@@ -147,6 +149,32 @@ export function renameSession(
     {
       method: 'PATCH',
       body: { title },
+    },
+  );
+}
+
+export function updateSessionMode(
+  id: string,
+  mode: 'chat' | 'plan',
+): Promise<{ ok: boolean; session: SessionSummary }> {
+  return apiRequest<{ ok: boolean; session: SessionSummary }>(
+    `/api/sessions/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: { mode },
+    },
+  );
+}
+
+export function updateSessionFullAccessPermission(
+  id: string,
+  fullAccessPermission: boolean,
+): Promise<{ ok: boolean; session: SessionSummary }> {
+  return apiRequest<{ ok: boolean; session: SessionSummary }>(
+    `/api/sessions/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: { full_access_permission: fullAccessPermission },
     },
   );
 }

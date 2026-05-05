@@ -27,6 +27,8 @@ import {
   renameSession,
   sendMessage,
   stopMessage,
+  updateSessionFullAccessPermission,
+  updateSessionMode,
   type SendMessageAttachment,
   type SessionDetailResponse,
   type SessionMessage,
@@ -43,7 +45,7 @@ import { PlanTimeline } from '../components/PlanTimeline';
 import { notifyIfHidden } from '../services/pwa';
 import {
   SessionTopBar,
-  type PermissionMode,
+  type SessionToolbarCapsule,
 } from '../components/SessionTopBar';
 import { ModelPickerDialog, pushRecentModel } from '../components/ModelPickerDialog';
 import { PullIndicator } from '../components/PullIndicator';
@@ -201,11 +203,11 @@ export function SessionDetailPage() {
   const [composerSending, setComposerSending] = useState<boolean>(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [stopping, setStopping] = useState<boolean>(false);
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>('ask');
   const [composerCollapsed, setComposerCollapsed] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
   const [autoFollowPaused, setAutoFollowPaused] = useState(false);
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
+  const [permissionSaving, setPermissionSaving] = useState(false);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const messagesAbortRef = useRef<AbortController | null>(null);
@@ -225,64 +227,91 @@ export function SessionDetailPage() {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
 
-  // 消息操作栏：审计弹窗 + 删除友情提示。
+  // 消息操作栏：审计弹窗 + 删除确认。
   const [auditMessage, setAuditMessage] = useState<SessionMessage | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [sessionAuditOpen, setSessionAuditOpen] = useState(false);
+  const [pendingDeleteAction, setPendingDeleteAction] = useState<{
+    message: SessionMessage;
+    cascade: boolean;
+  } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  const handleCopyMessage = (m: SessionMessage) => {
+  const showToast = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => {
+      setToast((current) => (current === message ? null : current));
+    }, 1800);
+  };
+
+  const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
+    const el = mainRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  };
+
+  const copyText = async (text: string): Promise<boolean> => {
+    if (!text) return false;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      if (typeof document === 'undefined') return false;
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', 'true');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand('copy');
+      textarea.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCopyMessage = async (m: SessionMessage) => {
     const text = m.content ?? '';
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      void navigator.clipboard.writeText(text).catch(() => {
-        /* 复制失败：不阻塞 UI */
-      });
-    }
+    const ok = await copyText(text);
+    showToast(ok
+      ? t('detail.copy.ok', '已复制消息内容')
+      : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'));
   };
-  const handleDeleteMessage = async (m: SessionMessage) => {
-    if (!sessionId) return;
-    if (pendingDeleteId !== m.id) {
-      setPendingDeleteId(m.id);
-      window.setTimeout(() => {
-        setPendingDeleteId((cur) => (cur === m.id ? null : cur));
-      }, 4000);
-      return;
-    }
-    setPendingDeleteId(null);
+  const handleDeleteMessage = (m: SessionMessage) => {
+    setPendingDeleteAction({ message: m, cascade: false });
+  };
+  const handleDeleteMessageCascade = (m: SessionMessage) => {
+    setPendingDeleteAction({ message: m, cascade: true });
+  };
+  const confirmDeleteMessage = async () => {
+    if (!sessionId || !pendingDeleteAction || deleteBusy) return;
+    setDeleteBusy(true);
+    const { message, cascade } = pendingDeleteAction;
     try {
-      await deleteMessage(sessionId, m.id);
-      // SSE snapshot 会推一份新的列表过来，这里不主动 refresh。
+      if (cascade) {
+        await deleteMessageCascade(sessionId, message.id);
+      } else {
+        await deleteMessage(sessionId, message.id);
+      }
+      setPendingDeleteAction(null);
+      showToast(cascade
+        ? t('detail.deleteAfter.ok', '已删除此条及后续消息')
+        : t('detail.delete.ok', '已删除消息'));
     } catch (e) {
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-  const handleDeleteMessageCascade = async (m: SessionMessage) => {
-    if (!sessionId) return;
-    if (pendingDeleteId !== `${m.id}:cascade`) {
-      setPendingDeleteId(`${m.id}:cascade`);
-      window.setTimeout(() => {
-        setPendingDeleteId((cur) => (cur === `${m.id}:cascade` ? null : cur));
-      }, 4000);
-      return;
-    }
-    setPendingDeleteId(null);
-    try {
-      await deleteMessageCascade(sessionId, m.id);
-    } catch (e) {
-      if (handleAuthError(e)) return;
-      if (handleSessionGoneError(e)) return;
-      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleteBusy(false);
     }
   };
   const handleEditMessage = (m: SessionMessage) => {
     if (m.role !== 'user') return;
     setComposerText((cur) => (cur ? `${cur}\n${m.content ?? ''}` : (m.content ?? '')));
-    if (typeof window !== 'undefined') {
-      window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        behavior: reduceMotion ? 'auto' : 'smooth',
-      });
-    }
+    requestAnimationFrame(() => scrollMessagesToBottom(reduceMotion ? 'auto' : 'smooth'));
   };
   const handleAuditMessage = (m: SessionMessage) => {
     setAuditMessage(m);
@@ -290,9 +319,9 @@ export function SessionDetailPage() {
 
   useEffect(() => {
     function recalc() {
-      if (typeof window === 'undefined' || typeof document === 'undefined') return;
-      const doc = document.documentElement;
-      const dist = doc.scrollHeight - (window.scrollY + window.innerHeight);
+      const el = mainRef.current;
+      if (!el) return;
+      const dist = el.scrollHeight - (el.scrollTop + el.clientHeight);
       isNearBottomRef.current = dist <= 64;
       if (!autoFollow) {
         if (autoFollowPaused) setAutoFollowPaused(false);
@@ -306,10 +335,11 @@ export function SessionDetailPage() {
       }
     }
     recalc();
-    window.addEventListener('scroll', recalc, { passive: true });
+    const el = mainRef.current;
+    el?.addEventListener('scroll', recalc, { passive: true });
     window.addEventListener('resize', recalc);
     return () => {
-      window.removeEventListener('scroll', recalc);
+      el?.removeEventListener('scroll', recalc);
       window.removeEventListener('resize', recalc);
     };
   }, [autoFollow, autoFollowPaused, unreadCount]);
@@ -331,8 +361,7 @@ export function SessionDetailPage() {
       lastTailIdRef.current = tail.id;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          if (typeof window === 'undefined') return;
-          window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+          scrollMessagesToBottom('auto');
           isNearBottomRef.current = true;
           setAutoFollowPaused(false);
           setUnreadCount(0);
@@ -345,11 +374,7 @@ export function SessionDetailPage() {
     if (autoFollow && isNearBottomRef.current) {
       // defer 一帧, 等 DOM 把新卡片画上
       requestAnimationFrame(() => {
-        if (typeof window === 'undefined') return;
-        window.scrollTo({
-          top: document.documentElement.scrollHeight,
-          behavior: reduceMotion ? 'auto' : 'smooth',
-        });
+        scrollMessagesToBottom(reduceMotion ? 'auto' : 'smooth');
       });
     } else {
       if (autoFollow) setAutoFollowPaused(true);
@@ -467,10 +492,9 @@ export function SessionDetailPage() {
     if (loadingOlder) return;
     if (windowOffset <= 0) return;
     setLoadingOlder(true);
-    const beforeHeight = typeof document !== 'undefined'
-      ? document.documentElement.scrollHeight
-      : 0;
-    const beforeY = typeof window !== 'undefined' ? window.scrollY : 0;
+    const scroller = mainRef.current;
+    const beforeHeight = scroller?.scrollHeight ?? 0;
+    const beforeY = scroller?.scrollTop ?? 0;
     try {
       const offset = Math.max(0, windowOffset - PAGE_SIZE);
       const m = await listMessages(sessionId, {
@@ -487,9 +511,10 @@ export function SessionDetailPage() {
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
       requestAnimationFrame(() => {
-        if (typeof window === 'undefined' || typeof document === 'undefined') return;
-        const delta = document.documentElement.scrollHeight - beforeHeight;
-        window.scrollTo({ top: beforeY + delta, behavior: 'auto' });
+        const el = mainRef.current;
+        if (!el) return;
+        const delta = el.scrollHeight - beforeHeight;
+        el.scrollTo({ top: beforeY + delta, behavior: 'auto' });
       });
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
@@ -586,6 +611,10 @@ export function SessionDetailPage() {
   const allowedMessageTypes = useMemo<string[]>(
     () => meta?.message_types ?? ['text', 'attachment'],
     [meta],
+  );
+  const sessionModeOptions = useMemo<string[]>(
+    () => (meta?.service?.plan_mode_enabled ? ['chat', 'plan'] : ['chat']),
+    [meta?.service?.plan_mode_enabled],
   );
   const attachmentsAllowed =
     allowedMessageTypes.includes('attachment') && selectedModel?.supports_attachments !== false;
@@ -861,6 +890,59 @@ export function SessionDetailPage() {
 
   const session = detail?.session;
   const remainingOlder = windowOffset;
+  const sessionCapsules = useMemo<SessionToolbarCapsule[]>(() => {
+    if (!session) return [];
+    const running = sendPhase !== 'idle' && sendPhase !== '';
+    const templateLabel = session.template_name || session.template_id;
+    const templateVersion = session.template_internal_version != null
+      ? ` · v${session.template_internal_version}`
+      : '';
+    const tokens = session.total_tokens != null
+      ? `${session.total_tokens.toLocaleString()} tokens`
+      : t('topbar.tokens.empty', 'Token 暂无');
+    return [
+      {
+        key: 'mode',
+        icon: session.mode === 'plan' ? '📋' : '💬',
+        label: session.mode === 'plan'
+          ? t('sessions.mode.plan', 'Plan')
+          : t('sessions.mode.chat', '对话'),
+        tone: session.mode === 'plan' ? 'primary' : 'neutral',
+      },
+      {
+        key: 'runtime',
+        icon: running ? '●' : '○',
+        label: `${sendPhaseLabel(sendPhase)} · ${sseLive ? t('detail.sse.live', '实时') : t('detail.sse.fallback', '轮询')}`,
+        tone: running ? 'primary' : 'success',
+      },
+      {
+        key: 'template',
+        icon: '▣',
+        label: `${templateLabel}${templateVersion}`,
+        title: `${t('sessions.template.label', '模板：')}${templateLabel}${templateVersion}`,
+      },
+      {
+        key: 'metadata',
+        icon: '{}',
+        label: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
+        onClick: () => setSessionAuditOpen(true),
+      },
+      {
+        key: 'audit',
+        icon: '✓',
+        label: t('topbar.audit', '会话审计'),
+        tone: 'primary',
+        onClick: () => setSessionAuditOpen(true),
+      },
+      {
+        key: 'tokens',
+        icon: '◌',
+        label: tokens,
+        title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
+        onClick: () => setSessionAuditOpen(true),
+      },
+    ];
+  }, [session, sendPhase, sseLive, totalKnown]);
   const pull = usePullToRefresh(mainRef, {
     enabled: !loadingDetail && !loadingOlder,
     onRefresh: async () => {
@@ -889,12 +971,8 @@ export function SessionDetailPage() {
     setAutoFollowPaused(false);
     setUnreadCount(0);
     isNearBottomRef.current = true;
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
     requestAnimationFrame(() => {
-      window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        behavior: reduceMotion ? 'auto' : 'smooth',
-      });
+      scrollMessagesToBottom(reduceMotion ? 'auto' : 'smooth');
     });
   };
 
@@ -924,14 +1002,14 @@ export function SessionDetailPage() {
     : t('detail.loading', '加载会话中…');
 
   return (
-    <main ref={mainRef} class="min-h-screen px-6 py-8" style={{ background: 'var(--m3-surface)' }}>
+    <main class="h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col" style={{ background: 'var(--m3-surface)' }}>
       <PullIndicator
         pulled={pull.pulled}
         refreshing={pull.refreshing}
         willRelease={pull.willRelease}
         activationDistance={84}
       />
-      <div class="mx-auto max-w-3xl">
+      <div class="mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col gap-3">
         <SessionTopBar
           title={session?.title || t('sessions.untitled', '未命名会话')}
           subtitle={subtitle}
@@ -948,17 +1026,40 @@ export function SessionDetailPage() {
               setLastError(e instanceof Error ? e.message : String(e));
             }
           }}
-          modes={modelAllowedModes}
-          mode={composerMode}
-          onModeChange={setComposerMode}
+          modes={sessionModeOptions}
+          mode={session?.mode ?? 'chat'}
+          onModeChange={async (next) => {
+            if (next !== 'chat' && next !== 'plan') return;
+            try {
+              const res = await updateSessionMode(sessionId, next);
+              setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+            } catch (e) {
+              if (handleAuthError(e)) return;
+              if (handleSessionGoneError(e)) return;
+              setLastError(e instanceof Error ? e.message : String(e));
+            }
+          }}
           models={allowedModels}
           modelKey={composerModelKey}
           onModelChange={(k) => {
             setComposerModelKey(k);
             pushRecentModel(k);
           }}
-          permissionMode={permissionMode}
-          onPermissionChange={setPermissionMode}
+          fullAccessPermission={session?.full_access_permission === true}
+          onFullAccessPermissionChange={async (next) => {
+            if (permissionSaving) return;
+            setPermissionSaving(true);
+            try {
+              const res = await updateSessionFullAccessPermission(sessionId, next);
+              setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+            } catch (e) {
+              if (handleAuthError(e)) return;
+              if (handleSessionGoneError(e)) return;
+              setLastError(e instanceof Error ? e.message : String(e));
+            } finally {
+              setPermissionSaving(false);
+            }
+          }}
           sendPhase={sendPhase}
           canStop={detail?.runtime.can_stop ?? sendPhase !== 'idle'}
           stopping={stopping}
@@ -994,6 +1095,7 @@ export function SessionDetailPage() {
             }
           }}
           sessionId={sessionId}
+          capsules={sessionCapsules}
           trailing={
             <button
               type="button"
@@ -1011,41 +1113,9 @@ export function SessionDetailPage() {
           }
         />
 
-        {/* 状态条 */}
-        <div
-          class="rounded-md px-3 py-2 mb-4 text-xs flex items-center justify-between"
-          style={{
-            background: 'var(--m3-surface-container)',
-            color: 'var(--m3-on-surface-variant)',
-          }}
-        >
-          <span>
-            {t('detail.phase.label', '当前状态：')}
-            <strong style={{ color: 'var(--m3-on-surface)' }}>
-              {sendPhaseLabel(sendPhase)}
-            </strong>
-            <span
-              class="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
-              style={{
-                background: sseLive
-                  ? 'color-mix(in srgb, #2ecc71 18%, transparent)'
-                  : 'color-mix(in srgb, var(--m3-on-surface-variant) 14%, transparent)',
-                color: sseLive
-                  ? '#1e8e3e'
-                  : 'var(--m3-on-surface-variant)',
-              }}
-              title={sseLive
-                ? t('detail.sse.live.hint', '已接入实时事件流，无需轮询')
-                : t('detail.sse.fallback.hint', 'SSE 未连通，已退化为轮询')}
-            >
-              <span aria-hidden>{sseLive ? '●' : '○'}</span>
-              <span>{sseLive
-                ? t('detail.sse.live', '实时')
-                : t('detail.sse.fallback', '轮询')}</span>
-            </span>
-          </span>
-          {lastError ? <ErrorBanner message={lastError} onRetry={() => void refresh()} onDismiss={() => setLastError(null)} /> : null}
-        </div>
+        {lastError ? (
+          <ErrorBanner message={lastError} onRetry={() => void refresh()} onDismiss={() => setLastError(null)} />
+        ) : null}
 
         {remoteRunning ? (
           <div
@@ -1066,7 +1136,8 @@ export function SessionDetailPage() {
           </div>
         ) : null}
 
-        {/* 主区 */}
+        {/* 主区：只有这块滚动，顶部 TopBar / 底部 Composer 固定在视口内。 */}
+        <section ref={mainRef} class="relative flex-1 min-h-0 overflow-y-auto pr-1 pb-3">
         {loadingDetail ? (
           <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {t('detail.loading', '加载会话中…')}
@@ -1164,10 +1235,11 @@ export function SessionDetailPage() {
             </span>
           </button>
         ) : null}
+        </section>
 
         {/* Composer */}
         <section
-          class="mt-6 rounded-xl p-4"
+          class="rounded-xl p-4 flex-none"
           style={{
             background: 'var(--m3-surface-container)',
             boxShadow: 'var(--m3-elev-1)',
@@ -1236,19 +1308,38 @@ export function SessionDetailPage() {
             <button
               type="button"
               onClick={() => {
-                setPermissionMode((cur) => cur === 'ask' ? 'auto' : cur === 'auto' ? 'normal' : 'ask');
+                if (permissionSaving) return;
+                const next = session?.full_access_permission !== true;
+                setPermissionSaving(true);
+                updateSessionFullAccessPermission(sessionId, next)
+                  .then((res) => {
+                    setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+                  })
+                  .catch((e: unknown) => {
+                    if (handleAuthError(e)) return;
+                    if (handleSessionGoneError(e)) return;
+                    setLastError(e instanceof Error ? e.message : String(e));
+                  })
+                  .finally(() => setPermissionSaving(false));
               }}
+              disabled={permissionSaving}
               class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
-              style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)' }}
+              style={{
+                border: session?.full_access_permission === true
+                  ? '1px solid color-mix(in srgb, #f59e0b 50%, transparent)'
+                  : '1px solid var(--m3-outline)',
+                color: session?.full_access_permission === true ? '#b45309' : 'var(--m3-on-surface-variant)',
+                background: session?.full_access_permission === true
+                  ? 'color-mix(in srgb, #f59e0b 14%, transparent)'
+                  : 'transparent',
+              }}
               title={t('topbar.perm.title', '权限模式')}
             >
-              {permissionMode === 'ask' ? '❓' : permissionMode === 'auto' ? '⚡' : '🛡'}
+              {session?.full_access_permission === true ? '⚠' : '🛡'}
               <span class="ml-1 hidden sm:inline">
-                {permissionMode === 'ask'
-                  ? t('topbar.perm.ask', '每次询问')
-                  : permissionMode === 'auto'
-                    ? t('topbar.perm.auto', '自动放行')
-                    : t('topbar.perm.normal', '正常')}
+                {session?.full_access_permission === true
+                  ? t('topbar.perm.full', '完全访问权限')
+                  : t('topbar.perm.default', '默认权限')}
               </span>
             </button>
 
@@ -1351,7 +1442,7 @@ export function SessionDetailPage() {
               background: 'var(--m3-surface)',
               color: 'var(--m3-on-surface)',
               border: '1px solid var(--m3-outline)',
-              resize: 'vertical',
+              resize: 'none',
               fontFamily: 'inherit',
             }}
           />
@@ -1386,36 +1477,9 @@ export function SessionDetailPage() {
           )}
 
           {/* 附件 */}
-          {attachmentsAllowed ? (
+          {attachmentsAllowed && composerAttachments.length > 0 ? (
             <div class="mt-2">
-              <div class="flex items-center gap-2 mb-1">
-                <label
-                  class="text-xs px-2 py-1 rounded-md cursor-pointer"
-                  style={{
-                    border: '1px solid var(--m3-outline)',
-                    color: 'var(--m3-on-surface-variant)',
-                  }}
-                >
-                  {t('composer.attachment.add', '添加附件')}
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleAttachmentInput}
-                    style={{ display: 'none' }}
-                  />
-                </label>
-                {composerAttachments.length > 0 ? (
-                  <span
-                    class="text-xs"
-                    style={{ color: 'var(--m3-on-surface-variant)' }}
-                  >
-                    {composerAttachments.length}{' '}
-                    {t('composer.attachment.unit', '个附件')}
-                  </span>
-                ) : null}
-              </div>
-              {composerAttachments.length > 0 ? (
-                <ul class="flex flex-wrap gap-2">
+              <ul class="flex flex-wrap gap-2">
                   {composerAttachments.map((att, i) => {
                     const pv = attachmentPreviews[i];
                     const isImage = (pv?.mime ?? '').startsWith('image/');
@@ -1475,8 +1539,7 @@ export function SessionDetailPage() {
                       </li>
                     );
                   })}
-                </ul>
-              ) : null}
+              </ul>
             </div>
           ) : null}
 
@@ -1486,23 +1549,36 @@ export function SessionDetailPage() {
             </p>
           ) : null}
 
-          <div
-            class="flex items-center justify-between gap-2 mt-2 text-xs"
-            style={{ color: 'var(--m3-on-surface-variant)' }}
-          >
-            <span>
+          <div class="flex flex-wrap items-center gap-2 mt-3">
+            {attachmentsAllowed ? (
+              <label
+                class="oh-tap-press text-xs px-3 py-2 rounded-m3-sm cursor-pointer flex items-center gap-1.5"
+                style={{
+                  border: '1px solid var(--m3-outline)',
+                  color: 'var(--m3-on-surface-variant)',
+                  background: 'var(--m3-surface)',
+                }}
+              >
+                <span aria-hidden>＋</span>
+                {t('composer.attachment.add', '添加附件')}
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleAttachmentInput}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            ) : null}
+            <span class="text-xs flex-1 min-w-[160px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
               {composerText.length > 0
                 ? `${composerText.length.toLocaleString()} ${t('composer.charUnit', '字符')}`
                 : t('composer.shortcutHint', 'Cmd / Ctrl + Enter 发送')}
             </span>
             {composerAttachments.length > 0 ? (
-              <span>
+              <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
                 {composerAttachments.length} {t('composer.attachment.unit', '个附件')}
               </span>
             ) : null}
-          </div>
-
-          <div class="flex items-center justify-end gap-2 mt-3">
             {sendPhase !== 'idle' && sendPhase !== '' ? (
               <button
                 type="button"
@@ -1543,39 +1619,49 @@ export function SessionDetailPage() {
         </section>
       </div>
 
-      {unreadCount > 0 ? (
-        <button
-          type="button"
-          onClick={() => {
-            setUnreadCount(0);
-            if (typeof window !== 'undefined') {
-              window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-            }
-          }}
-          class="oh-tap-press oh-pulse-soft"
-          style={{
-            position: 'fixed',
-            right: 24,
-            bottom: 96,
-            zIndex: 50,
-            background: 'var(--m3-primary)',
-            color: 'var(--m3-on-primary)',
-            padding: '8px 14px',
-            borderRadius: 999,
-            fontSize: 12,
-            border: 'none',
-            boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
-            cursor: 'pointer',
-          }}
-        >
-          ↓ {unreadCount} {t('detail.unreadSuffix', '条新消息')}
-        </button>
-      ) : null}
       {auditMessage ? (
         <MessageAuditDialog
           message={auditMessage}
           onClose={() => setAuditMessage(null)}
         />
+      ) : null}
+      {sessionAuditOpen && detail ? (
+        <SessionAuditDialog
+          detail={detail}
+          messages={messages}
+          onClose={() => setSessionAuditOpen(false)}
+        />
+      ) : null}
+      {pendingDeleteAction ? (
+        <ConfirmDialog
+          title={pendingDeleteAction.cascade
+            ? t('detail.deleteAfter.confirmTitle', '删除此条及后续消息?')
+            : t('detail.delete.confirmTitle', '删除这条消息?')}
+          body={pendingDeleteAction.cascade
+            ? t('detail.deleteAfter.confirmBody', '此操作会删除当前消息以及它之后的所有消息，删除后不可恢复。')
+            : t('detail.delete.confirmBody', '此操作会删除当前消息，删除后不可恢复。')}
+          danger
+          busy={deleteBusy}
+          confirmLabel={deleteBusy ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
+          onCancel={() => {
+            if (!deleteBusy) setPendingDeleteAction(null);
+          }}
+          onConfirm={confirmDeleteMessage}
+        />
+      ) : null}
+      {toast ? (
+        <div
+          class="oh-appear-pop fixed left-1/2 bottom-6 z-[1200] -translate-x-1/2 rounded-full px-4 py-2 text-sm"
+          style={{
+            background: 'var(--m3-surface-container)',
+            color: 'var(--m3-on-surface)',
+            border: '1px solid var(--m3-outline)',
+            boxShadow: 'var(--m3-elev-3)',
+          }}
+          role="status"
+        >
+          {toast}
+        </div>
       ) : null}
       {showComposerModelPicker ? (
         <ModelPickerDialog
@@ -1767,32 +1853,43 @@ function MessageAuditDialog({
   return (
     <div
       class="oh-dialog-fade-in fixed inset-0 z-[1100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.4)' }}
+      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 1100 }}
       onClick={onClose}
     >
       <div
-        class="oh-dialog-pop-in rounded-m3-md p-4 max-w-2xl w-full"
+        class="oh-dialog-pop-in rounded-m3-md p-4 max-w-2xl w-full flex flex-col"
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
           boxShadow: 'var(--m3-elev-3)',
           maxHeight: '80vh',
+          border: '1px solid var(--m3-outline)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <header class="flex items-center justify-between gap-3 mb-3">
           <h2 class="text-base font-semibold">{t('common.audit', '审计')} · {message.id}</h2>
-          <button
-            type="button"
-            class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
-            style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
-            onClick={onClose}
-          >
-            {t('common.cancel', '取消')}
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
+              onClick={() => void navigator.clipboard?.writeText(json).catch(() => undefined)}
+            >
+              {t('common.copy', '复制')}
+            </button>
+            <button
+              type="button"
+              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
+              onClick={onClose}
+            >
+              {t('common.close', '关闭')}
+            </button>
+          </div>
         </header>
         <pre
-          class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap"
+          class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap flex-1 min-h-0"
           style={{
             background: 'var(--m3-surface)',
             border: '1px solid var(--m3-outline)',
@@ -1802,6 +1899,169 @@ function MessageAuditDialog({
         >
           {json}
         </pre>
+      </div>
+    </div>
+  );
+}
+
+function SessionAuditDialog({
+  detail,
+  messages,
+  onClose,
+}: {
+  detail: SessionDetailResponse;
+  messages: SessionMessage[];
+  onClose: () => void;
+}) {
+  const session = detail.session;
+  const json = JSON.stringify({
+    session,
+    runtime: detail.runtime,
+    loaded_message_count: messages.length,
+    loaded_message_ids: messages.map((item) => item.id),
+  }, null, 2);
+  const stats = [
+    `${session.message_count} ${t('sessions.messageUnit', '条消息')}`,
+    `${session.total_tokens ?? 0} tokens`,
+    `${session.tool_message_count ?? 0} tool`,
+    `${session.compression_point_count ?? 0} compress`,
+  ];
+  return (
+    <div
+      class="oh-dialog-fade-in fixed inset-0 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 1100 }}
+      onClick={onClose}
+    >
+      <div
+        class="oh-dialog-pop-in rounded-m3-md p-4 max-w-3xl w-full flex flex-col"
+        style={{
+          background: 'var(--m3-surface-container)',
+          color: 'var(--m3-on-surface)',
+          boxShadow: 'var(--m3-elev-3)',
+          border: '1px solid var(--m3-outline)',
+          maxHeight: '84vh',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header class="flex items-center justify-between gap-3 mb-3">
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold truncate">{t('topbar.audit', '会话审计')} · {session.title}</h2>
+            <p class="text-xs mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {session.id}
+            </p>
+          </div>
+          <div class="flex items-center gap-2 flex-none">
+            <button
+              type="button"
+              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
+              onClick={() => void navigator.clipboard?.writeText(json).catch(() => undefined)}
+            >
+              {t('common.copy', '复制')}
+            </button>
+            <button
+              type="button"
+              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
+              onClick={onClose}
+            >
+              {t('common.close', '关闭')}
+            </button>
+          </div>
+        </header>
+        <div class="flex flex-wrap gap-2 mb-3">
+          {stats.map((item) => (
+            <span
+              key={item}
+              class="text-xs px-2 py-1 rounded-full"
+              style={{
+                color: 'var(--m3-on-surface-variant)',
+                background: 'var(--m3-surface)',
+                border: '1px solid var(--m3-outline)',
+              }}
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+        <pre
+          class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap flex-1 min-h-0"
+          style={{
+            background: 'var(--m3-surface)',
+            border: '1px solid var(--m3-outline)',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          }}
+        >
+          {json}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  busy,
+  danger,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  busy?: boolean;
+  danger?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      class="oh-dialog-fade-in fixed inset-0 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.38)', zIndex: 1100 }}
+      onClick={busy ? undefined : onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        class="oh-dialog-pop-in rounded-m3-md p-4 w-full max-w-md"
+        style={{
+          background: 'var(--m3-surface-container)',
+          color: 'var(--m3-on-surface)',
+          boxShadow: 'var(--m3-elev-3)',
+          border: '1px solid var(--m3-outline)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 class="text-base font-semibold">{title}</h2>
+        <p class="text-sm mt-2 leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {body}
+        </p>
+        <div class="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            class="oh-tap-press text-sm px-3 py-2 rounded-m3-sm"
+            style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
+            disabled={busy}
+            onClick={onCancel}
+          >
+            {t('common.cancel', '取消')}
+          </button>
+          <button
+            type="button"
+            class="oh-tap-press text-sm px-3 py-2 rounded-m3-sm disabled:opacity-60"
+            style={{
+              color: danger ? '#fff' : 'var(--m3-on-primary)',
+              background: danger ? 'var(--m3-error)' : 'var(--m3-primary)',
+              border: '1px solid transparent',
+            }}
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -258,11 +258,10 @@ export function SessionsPage() {
 
   return (
     <main
-      ref={mainRef as unknown as preact.RefObject<HTMLElement>}
-      class="min-h-screen px-6 py-8"
+      class="h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col"
       style={{ background: 'var(--m3-surface)' }}
     >
-      <div class="mx-auto max-w-3xl">
+      <div class="mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col">
         <PullIndicator
           pulled={pull.pulled}
           refreshing={pull.refreshing}
@@ -284,7 +283,11 @@ export function SessionsPage() {
           }
         />
 
-        {/* 列表 */}
+        <section
+          ref={mainRef as unknown as preact.RefObject<HTMLElement>}
+          class="flex-1 min-h-0 overflow-y-auto pr-1 pb-24"
+        >
+          {/* 列表 */}
         {loading && !data ? (
           <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {t('sessions.loading', '加载中…')}
@@ -528,6 +531,7 @@ export function SessionsPage() {
             </button>
           </div>
         ) : null}
+        </section>
       </div>
 
       {/* FAB：右下角悬浮加号，触发模板选择弹窗 */}

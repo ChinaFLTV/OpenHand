@@ -56,6 +56,7 @@ export function ModelPickerDialog({
 }: ModelPickerDialogProps) {
   const [query, setQuery] = useState('');
   const [highlightKey, setHighlightKey] = useState<string>(selectedKey);
+  const [inputFocused, setInputFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -193,16 +194,26 @@ export function ModelPickerDialog({
           <div class="relative">
             <span
               aria-hidden
-              class="absolute left-3 top-1/2 -translate-y-1/2 text-sm"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+              class="absolute left-3 top-1/2 -translate-y-1/2 text-sm inline-flex items-center justify-center rounded-full"
+              style={{
+                width: 28,
+                height: 28,
+                color: inputFocused ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)',
+                background: inputFocused
+                  ? 'color-mix(in srgb, var(--m3-primary) 12%, transparent)'
+                  : 'color-mix(in srgb, var(--m3-on-surface-variant) 8%, transparent)',
+                transition: 'background-color 180ms var(--oh-motion-emphasized), color 180ms var(--oh-motion-emphasized)',
+              }}
             >
-              🔎
+              ⌕
             </span>
             <input
               ref={inputRef}
               type="text"
               value={query}
               onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -216,21 +227,34 @@ export function ModelPickerDialog({
                 }
               }}
               placeholder={t('modelPicker.search', '搜索模型…')}
-              class="w-full text-sm py-2 rounded-md"
+              class="w-full text-base py-3 rounded-m3-md"
               style={{
-                paddingLeft: '34px',
-                paddingRight: query.trim() ? '34px' : '12px',
-                background: 'var(--m3-surface)',
+                minHeight: 56,
+                paddingLeft: '48px',
+                paddingRight: query.trim() ? '44px' : '18px',
+                background: inputFocused
+                  ? 'var(--m3-surface)'
+                  : 'color-mix(in srgb, var(--m3-surface) 82%, var(--m3-surface-container))',
                 color: 'var(--m3-on-surface)',
-                border: '1px solid var(--m3-outline)',
+                border: inputFocused
+                  ? '2px solid var(--m3-primary)'
+                  : '1px solid color-mix(in srgb, var(--m3-outline) 72%, transparent)',
+                boxShadow: inputFocused
+                  ? '0 0 0 4px color-mix(in srgb, var(--m3-primary) 14%, transparent)'
+                  : 'inset 0 1px 0 rgba(255,255,255,0.42)',
+                outline: 'none',
+                transition: 'border-color 180ms var(--oh-motion-emphasized), box-shadow 220ms var(--oh-motion-emphasized), background-color 180ms var(--oh-motion-emphasized)',
               }}
             />
             {query.trim() ? (
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                class="oh-tap-press absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-m3-sm"
-                style={{ color: 'var(--m3-on-surface-variant)' }}
+                class="oh-tap-press absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full"
+                style={{
+                  color: 'var(--m3-on-surface-variant)',
+                  background: 'color-mix(in srgb, var(--m3-on-surface-variant) 10%, transparent)',
+                }}
                 aria-label={t('common.clear', '清空')}
               >
                 ✕
