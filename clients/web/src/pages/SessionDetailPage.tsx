@@ -685,6 +685,16 @@ export function SessionDetailPage() {
         setLastError(snap.last_error);
         setPendingWriteApproval(snap.pending_write_approval ?? null);
       },
+      onDeleted: () => {
+        sseCloseRef.current?.();
+        sseCloseRef.current = null;
+        if (pollTimerRef.current != null) {
+          window.clearTimeout(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
+        setSseLive(false);
+        setSessionGone(true);
+      },
       onError: () => {
         sseFailRef.current += 1;
         if (sseFailRef.current >= SSE_FAIL_THRESHOLD) {

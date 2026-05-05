@@ -39,8 +39,15 @@ export interface SessionEventSnapshot {
   served_at: string;
 }
 
+export interface SessionDeletedEvent {
+  error: 'session_deleted_or_not_found';
+  session_id: string;
+  served_at: string;
+}
+
 export interface SessionEventsHandlers {
   onSnapshot(snapshot: SessionEventSnapshot): void;
+  onDeleted?(event: SessionDeletedEvent): void;
   onError(err: Event): void;
   onOpen?(): void;
 }
@@ -68,6 +75,14 @@ export function subscribeSessionEvents(
     try {
       const data = JSON.parse((ev as MessageEvent).data) as SessionEventSnapshot;
       handlers.onSnapshot(data);
+    } catch (e) {
+      handlers.onError(new ErrorEvent('parse_error', { error: e }));
+    }
+  });
+  es.addEventListener('session_deleted', (ev) => {
+    try {
+      const data = JSON.parse((ev as MessageEvent).data) as SessionDeletedEvent;
+      handlers.onDeleted?.(data);
     } catch (e) {
       handlers.onError(new ErrorEvent('parse_error', { error: e }));
     }

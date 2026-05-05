@@ -1688,7 +1688,8 @@ class WebMessagePlatformService {
       'created_via': 'web_api',
       'requested_template_id': templateId,
       'requested_mode': mode.storageValue,
-      if (requestedModelKey.isNotEmpty) 'requested_model_key': requestedModelKey,
+      if (requestedModelKey.isNotEmpty)
+        'requested_model_key': requestedModelKey,
     });
     final ok = await _sessionController.createSession(
       templateId: templateId,
@@ -2294,11 +2295,7 @@ class WebMessagePlatformService {
     Timer? keepaliveTimer;
     var disposed = false;
 
-    Map<String, Object?> buildSnapshot() {
-      final live = _sessionController.sessions.firstWhere(
-        (s) => s.id == sessionId,
-        orElse: () => session,
-      );
+    Map<String, Object?> buildSnapshot(AiSession live) {
       final allMessages = live.displayMessages;
       final offset = math.max(0, allMessages.length - _sseMessageWindowSize);
       final messages = allMessages
@@ -2336,15 +2333,28 @@ class WebMessagePlatformService {
       }
     }
 
+    late void Function() dispose;
+
     void scheduleSnapshot() {
       if (disposed) return;
       throttleTimer?.cancel();
       throttleTimer = Timer(const Duration(milliseconds: 80), () {
         if (disposed) return;
         try {
-          final snapshot = buildSnapshot();
+          final live = _findAuthorizedSession(auth, sessionId);
+          if (live == null) {
+            emit('session_deleted', <String, Object?>{
+              'error': 'session_deleted_or_not_found',
+              'session_id': sessionId,
+              'served_at': DateTime.now().toUtc().toIso8601String(),
+            });
+            Future<void>.microtask(dispose);
+            return;
+          }
+          final snapshot = buildSnapshot(live);
+          final sessionPayload = snapshot['session'] as Map<String, Object?>;
           final hash =
-              '${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|${(snapshot['messages'] as List).map((m) {
+              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|${(snapshot['messages'] as List).map((m) {
                 final mm = m as Map<String, Object?>;
                 return '${mm['id']}:${(mm['content'] as String?)?.length ?? 0}';
               }).join(',')}';
@@ -2359,17 +2369,7 @@ class WebMessagePlatformService {
 
     void controllerListener() => scheduleSnapshot();
 
-    _sessionController.addListener(controllerListener);
-    keepaliveTimer = Timer.periodic(const Duration(seconds: 25), (_) {
-      if (disposed || controller.isClosed) return;
-      try {
-        controller.add(utf8.encode(':keepalive\n\n'));
-      } catch (error, stack) {
-        silentLog('WebGateway', 'sse.keepalive', error, stack);
-      }
-    });
-
-    void dispose() {
+    dispose = () {
       if (disposed) return;
       disposed = true;
       throttleTimer?.cancel();
@@ -2379,7 +2379,17 @@ class WebMessagePlatformService {
         controller.close();
       }
       _activeSseSubscriptions = math.max(0, _activeSseSubscriptions - 1);
-    }
+    };
+
+    _sessionController.addListener(controllerListener);
+    keepaliveTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (disposed || controller.isClosed) return;
+      try {
+        controller.add(utf8.encode(':keepalive\n\n'));
+      } catch (error, stack) {
+        silentLog('WebGateway', 'sse.keepalive', error, stack);
+      }
+    });
 
     controller.onCancel = dispose;
     _activeSseSubscriptions += 1;
@@ -3038,7 +3048,9 @@ class WebMessagePlatformService {
     if (providerId == null || label == null) return null;
     for (final model in _allowedModels()) {
       if (model.providerId != providerId) continue;
-      if (model.modelId == label || model.label == label || model.key == label) {
+      if (model.modelId == label ||
+          model.label == label ||
+          model.key == label) {
         return model.key;
       }
     }
