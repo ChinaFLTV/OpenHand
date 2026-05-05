@@ -9,6 +9,7 @@ import { SessionDetailPage } from './pages/SessionDetailPage';
 import { FilesPage } from './pages/FilesPage';
 import { OpsPage } from './pages/OpsPage';
 import { LogsPage } from './pages/LogsPage';
+import { Appear } from './components/Appear';
 import { t } from './i18n';
 
 /// 鉴权守卫：service.auth_enabled=true 且无 token 时强制跳 /login。
@@ -55,37 +56,37 @@ function NotFound() {
 
 const HomeRoute = () => (
   <RequireAuth>
-    <HomePage />
+    <Appear variant="page"><HomePage /></Appear>
   </RequireAuth>
 );
 
 const SessionsRoute = () => (
   <RequireAuth>
-    <SessionsPage />
+    <Appear variant="page"><SessionsPage /></Appear>
   </RequireAuth>
 );
 
 const SessionDetailRoute = () => (
   <RequireAuth>
-    <SessionDetailPage />
+    <Appear variant="page"><SessionDetailPage /></Appear>
   </RequireAuth>
 );
 
 const FilesRoute = () => (
   <RequireAuth>
-    <FilesPage />
+    <Appear variant="page"><FilesPage /></Appear>
   </RequireAuth>
 );
 
 const OpsRoute = () => (
   <RequireAuth>
-    <OpsPage />
+    <Appear variant="page"><OpsPage /></Appear>
   </RequireAuth>
 );
 
 const LogsRoute = () => (
   <RequireAuth>
-    <LogsPage />
+    <Appear variant="page"><LogsPage /></Appear>
   </RequireAuth>
 );
 

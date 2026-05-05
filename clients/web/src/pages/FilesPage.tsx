@@ -233,8 +233,7 @@ export function FilesPage() {
         {/* 列表 + 详情 */}
         <div class="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-3">
           {/* 左：列表 */}
-          <section
-            class="rounded-m3-md p-3"
+          <section class="oh-appear-up rounded-m3-md p-3"
             style={{ backgroundColor: 'var(--m3-surface-container)' }}
           >
             <div class="flex items-center gap-2 mb-3">
@@ -340,8 +339,7 @@ export function FilesPage() {
           </section>
 
           {/* 右：详情/编辑器 */}
-          <section
-            class="rounded-m3-md p-3 flex flex-col"
+          <section class="oh-appear-up rounded-m3-md p-3 flex flex-col"
             style={{ backgroundColor: 'var(--m3-surface-container)', minHeight: '60vh' }}
           >
             {!selected ? (

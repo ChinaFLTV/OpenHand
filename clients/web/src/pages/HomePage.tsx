@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { logout, useAuth } from '../state/auth';
 import { useLocation } from 'preact-iso';
 import { setLang, SUPPORTED_LANGS, t, useLang, type Lang } from '../i18n';
+import { Appear } from '../components/Appear';
 
 export function HomePage() {
   const auth = useAuth();
@@ -118,7 +119,7 @@ export function HomePage() {
             <button
               type="button"
               onClick={() => location.route('/threads')}
-              class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
+              class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
               style={{
                 color: 'var(--m3-on-primary)',
                 backgroundColor: 'var(--m3-primary)',
@@ -130,7 +131,7 @@ export function HomePage() {
             <button
               type="button"
               onClick={() => location.route('/files')}
-              class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
+              class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
               style={{
                 color: 'var(--m3-on-surface)',
                 border: '1px solid var(--m3-outline)',
@@ -142,7 +143,7 @@ export function HomePage() {
             <button
               type="button"
               onClick={() => location.route('/ops')}
-              class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
+              class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
               style={{
                 color: 'var(--m3-on-surface)',
                 border: '1px solid var(--m3-outline)',
@@ -154,7 +155,7 @@ export function HomePage() {
             <button
               type="button"
               onClick={() => location.route('/logs')}
-              class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
+              class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
               style={{
                 color: 'var(--m3-on-surface)',
                 border: '1px solid var(--m3-outline)',
@@ -167,7 +168,7 @@ export function HomePage() {
               <button
                 type="button"
                 onClick={onLogout}
-                class="text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
+                class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm transition-colors"
                 style={{
                   color: 'var(--m3-on-surface-variant)',
                   border: '1px solid var(--m3-outline)',
@@ -215,8 +216,8 @@ export function HomePage() {
                 ['surfaceContainer', auth.themeTokens.surfaceContainer],
                 ['outline', auth.themeTokens.outline],
               ] as const
-            ).map(([name, color]) => (
-              <div key={name} class="flex flex-col gap-1">
+            ).map(([name, color], idx) => (
+              <Appear key={name} variant="up" index={idx + 1} className="flex flex-col gap-1">
                 <div
                   class="h-12 rounded-m3-sm"
                   style={{ backgroundColor: color, border: '1px solid var(--m3-outline)' }}
@@ -227,7 +228,7 @@ export function HomePage() {
                 <span class="text-xs font-mono" style={{ color: 'var(--m3-on-surface)' }}>
                   {color}
                 </span>
-              </div>
+              </Appear>
             ))}
           </div>
         </div>
@@ -248,12 +249,12 @@ export function HomePage() {
             </p>
           ) : (
             <ul class="flex flex-wrap gap-2">
-              {urls.map((url) => (
-                <li key={url}>
+              {urls.map((url, idx) => (
+                <Appear as="li" key={url} variant="pop" index={idx + 1}>
                   <button
                     type="button"
                     onClick={() => void onCopy(url)}
-                    class="px-3 py-1.5 rounded-m3-sm text-sm font-mono transition-colors"
+                    class="oh-tap-press px-3 py-1.5 rounded-m3-sm text-sm font-mono transition-colors"
                     style={{
                       backgroundColor: copied === url ? 'var(--m3-on-primary)' : 'var(--m3-primary)',
                       color: copied === url ? 'var(--m3-primary)' : 'var(--m3-on-primary)',
@@ -265,7 +266,7 @@ export function HomePage() {
                     {url}
                     {copied === url ? `  ✓ ${t('common.copied')}` : ''}
                   </button>
-                </li>
+                </Appear>
               ))}
             </ul>
           )}

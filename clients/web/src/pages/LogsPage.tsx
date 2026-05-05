@@ -258,8 +258,7 @@ export function LogsPage() {
           </p>
         )}
 
-        <section
-          class="rounded-m3-md p-2"
+        <section class="oh-appear-up rounded-m3-md p-2"
           style={{
             backgroundColor: 'var(--m3-surface-container)',
             maxHeight: '70vh',

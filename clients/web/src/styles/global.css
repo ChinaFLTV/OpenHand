@@ -61,3 +61,104 @@ html, body, #root {
   --shadow-m3-2: var(--m3-elev-2);
   --shadow-m3-3: var(--m3-elev-3);
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Motion 系统：M3 Expressive 自然弹性曲线 + 进入/退出/列表错峰。
+   - 所有时长 / 缓动统一从 CSS 变量读，便于按 prefers-reduced-motion 一键关。
+   - reduce-motion 状态由 [data-motion='reduced'] 标志位（JS 在 root 上写入）。
+   - .oh-appear-up：220ms fade + translateY(8px → 0)，配合 .oh-appear-stagger-N 形成入场错峰（最多 12 阶，每阶 60ms）。
+   - .oh-page-fade：路由切换时整页 280ms fade，避免顶层闪烁。
+   - .oh-tap-press：可点击元素受压反馈，scale(0.97) 70ms。
+   - 任何作用于 transform / opacity 的动画都额外开 will-change，避免 layout/paint 抖动。 */
+:root {
+  --oh-motion-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --oh-motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --oh-motion-duration-fast: 160ms;
+  --oh-motion-duration-base: 240ms;
+  --oh-motion-duration-slow: 320ms;
+  --oh-motion-stagger-step: 60ms;
+}
+
+@keyframes oh-appear-up {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes oh-appear-pop {
+  0%   { opacity: 0; transform: scale(0.94); }
+  60%  { opacity: 1; transform: scale(1.015); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes oh-page-fade-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes oh-pulse-in {
+  0%   { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+.oh-appear-up {
+  animation: oh-appear-up var(--oh-motion-duration-base) var(--oh-motion-emphasized) both;
+  will-change: transform, opacity;
+}
+.oh-appear-pop {
+  animation: oh-appear-pop var(--oh-motion-duration-slow) var(--oh-motion-spring) both;
+  will-change: transform, opacity;
+}
+.oh-page-fade {
+  animation: oh-page-fade-in var(--oh-motion-duration-slow) var(--oh-motion-emphasized) both;
+}
+
+/* 列表错峰：用 nth-child / 显式 class 双轨。class 比 nth-child 优先（因 nth-child 仅支持
+   "前 N 个"，而错峰要求按渲染顺序累计，class 形式更精确），故先列出 1..12 阶 class。 */
+.oh-appear-stagger-1  { animation-delay: calc(var(--oh-motion-stagger-step) * 1); }
+.oh-appear-stagger-2  { animation-delay: calc(var(--oh-motion-stagger-step) * 2); }
+.oh-appear-stagger-3  { animation-delay: calc(var(--oh-motion-stagger-step) * 3); }
+.oh-appear-stagger-4  { animation-delay: calc(var(--oh-motion-stagger-step) * 4); }
+.oh-appear-stagger-5  { animation-delay: calc(var(--oh-motion-stagger-step) * 5); }
+.oh-appear-stagger-6  { animation-delay: calc(var(--oh-motion-stagger-step) * 6); }
+.oh-appear-stagger-7  { animation-delay: calc(var(--oh-motion-stagger-step) * 7); }
+.oh-appear-stagger-8  { animation-delay: calc(var(--oh-motion-stagger-step) * 8); }
+.oh-appear-stagger-9  { animation-delay: calc(var(--oh-motion-stagger-step) * 9); }
+.oh-appear-stagger-10 { animation-delay: calc(var(--oh-motion-stagger-step) * 10); }
+.oh-appear-stagger-11 { animation-delay: calc(var(--oh-motion-stagger-step) * 11); }
+.oh-appear-stagger-12 { animation-delay: calc(var(--oh-motion-stagger-step) * 12); }
+
+/* hover/press 微反馈：盖在按钮/卡片/可点击行上。 */
+.oh-tap-press {
+  transition:
+    transform var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    box-shadow var(--oh-motion-duration-base) var(--oh-motion-emphasized),
+    background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+.oh-tap-press:hover { transform: translateY(-1px); }
+.oh-tap-press:active { transform: scale(0.97); }
+
+/* 标签/按钮内文字小幅 hover 上移效果（不破坏布局）。 */
+.oh-hover-lift {
+  transition: transform var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+.oh-hover-lift:hover { transform: translateY(-2px); }
+
+/* OS 级 + 应用级双重「降低动效」开关：任一开启即整树关闭动画。
+   - prefers-reduced-motion: 系统设置
+   - [data-motion='reduced']: 用户在 Flutter 应用设置里关「reduceMotion」时由 JS 写入
+   关闭策略：把所有动画 / 过渡时长截断至 0.001ms（保留事件钩子，避免 onend 不触发）。 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}

@@ -188,8 +188,7 @@ export function OpsPage() {
         {snapshot && (
           <>
             {/* 运行指标 */}
-            <section
-              class="rounded-m3-md p-4 mb-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
+            <section class="oh-appear-up rounded-m3-md p-4 mb-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
               style={{ backgroundColor: 'var(--m3-surface-container)' }}
             >
               <Metric label={t('ops.metric.startedAt', '启动时间')} value={tDateTime(snapshot.started_at)} />
@@ -233,8 +232,7 @@ export function OpsPage() {
 
             {/* HTTP 状态码 / 方法分布 */}
             {(snapshot.status_code_breakdown || snapshot.method_breakdown) && (
-              <section
-                class="rounded-m3-md p-4 mb-3 grid grid-cols-1 md:grid-cols-2 gap-4"
+              <section class="oh-appear-up rounded-m3-md p-4 mb-3 grid grid-cols-1 md:grid-cols-2 gap-4"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
                 {snapshot.status_code_breakdown && (
@@ -295,8 +293,7 @@ export function OpsPage() {
 
             {/* 延迟分位数 */}
             {snapshot.latency_stats && snapshot.latency_stats.sample_count > 0 && (
-              <section
-                class="rounded-m3-md p-4 mb-3"
+              <section class="oh-appear-up rounded-m3-md p-4 mb-3"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
                 <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -330,8 +327,7 @@ export function OpsPage() {
 
             {/* 热点路由 Top N */}
             {snapshot.top_routes && snapshot.top_routes.length > 0 && (
-              <section
-                class="rounded-m3-md p-4 mb-3"
+              <section class="oh-appear-up rounded-m3-md p-4 mb-3"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
                 <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -366,8 +362,7 @@ export function OpsPage() {
 
             {/* 近期最慢请求 + 上次错误 */}
             {(snapshot.slowest_recent || snapshot.last_error_at) && (
-              <section
-                class="rounded-m3-md p-4 mb-3 grid grid-cols-1 md:grid-cols-2 gap-4"
+              <section class="oh-appear-up rounded-m3-md p-4 mb-3 grid grid-cols-1 md:grid-cols-2 gap-4"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
                 {snapshot.slowest_recent && (
@@ -413,8 +408,7 @@ export function OpsPage() {
             )}
 
             {snapshot.accessible_urls.length > 0 && (
-              <section
-                class="rounded-m3-md p-3 mb-3"
+              <section class="oh-appear-up rounded-m3-md p-3 mb-3"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
                 <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -437,8 +431,7 @@ export function OpsPage() {
         )}
 
         {/* 清理面板 */}
-        <section
-          class="rounded-m3-md p-4 mb-3"
+        <section class="oh-appear-up rounded-m3-md p-4 mb-3"
           style={{ backgroundColor: 'var(--m3-surface-container)' }}
         >
           <h2 class="text-base font-semibold mb-3" style={{ color: 'var(--m3-on-surface)' }}>
@@ -499,8 +492,7 @@ export function OpsPage() {
         </section>
 
         {/* 历史 */}
-        <section
-          class="rounded-m3-md p-4"
+        <section class="oh-appear-up rounded-m3-md p-4"
           style={{ backgroundColor: 'var(--m3-surface-container)' }}
         >
           <div class="flex items-center justify-between mb-3">
