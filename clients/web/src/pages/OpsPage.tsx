@@ -37,11 +37,19 @@ interface OpsHealthSignal {
   tone: 'ok' | 'warn' | 'error' | 'neutral';
 }
 
+interface OpsHealthAlert {
+  label: string;
+  threshold: string;
+  actual: string;
+  severity: 'warn' | 'error';
+}
+
 interface OpsHealthSummary {
   score: number;
   label: string;
   tone: 'ok' | 'warn' | 'error';
   signals: OpsHealthSignal[];
+  alerts: OpsHealthAlert[];
   recommendations: string[];
 }
 
@@ -52,6 +60,7 @@ function percent(value: number): string {
 function buildOpsHealth(snapshot: OpsRuntimeSnapshot): OpsHealthSummary {
   let score = 100;
   const recommendations: string[] = [];
+  const alerts: OpsHealthAlert[] = [];
   const totalRequests = Math.max(snapshot.total_requests, 0);
   const errorRate = totalRequests > 0 ? snapshot.total_errors / totalRequests : 0;
   const saturation = snapshot.active_request_ratio ?? 0;
@@ -62,41 +71,52 @@ function buildOpsHealth(snapshot: OpsRuntimeSnapshot): OpsHealthSummary {
 
   if (snapshot.state === 'crashed') {
     score -= 45;
+    alerts.push({ label: t('ops.alert.state', '服务状态'), threshold: 'running', actual: snapshot.state, severity: 'error' });
     recommendations.push(t('ops.health.fixCrashed', '服务处于 crashed，优先查看最近错误和内存日志并重启服务。'));
   } else if (snapshot.state !== 'running') {
     score -= 20;
+    alerts.push({ label: t('ops.alert.state', '服务状态'), threshold: 'running', actual: snapshot.state, severity: 'warn' });
     recommendations.push(t('ops.health.fixNotRunning', '服务未处于 running，确认监听端口、鉴权配置和启动日志。'));
   }
   if (errorRate >= 0.05) {
     score -= 25;
+    alerts.push({ label: t('ops.alert.errorRate', '错误率'), threshold: '>= 5 %', actual: percent(errorRate), severity: 'error' });
     recommendations.push(t('ops.health.fixErrorRateHigh', '错误率超过 5%，优先按最近错误路径定位 4xx/5xx 来源。'));
   } else if (errorRate >= 0.01) {
     score -= 12;
+    alerts.push({ label: t('ops.alert.errorRate', '错误率'), threshold: '>= 1 %', actual: percent(errorRate), severity: 'warn' });
     recommendations.push(t('ops.health.fixErrorRateWarn', '错误率超过 1%，建议核对请求来源、模型服务和文件权限。'));
   }
   if (errorsPerMinute > 0) {
     score -= Math.min(15, 5 + errorsPerMinute * 2);
+    alerts.push({ label: t('ops.alert.errorsPerMinute', '错误/min'), threshold: '> 0', actual: errorsPerMinute.toFixed(1), severity: 'warn' });
     recommendations.push(t('ops.health.fixRecentErrors', '最近 1 分钟仍有错误增长，观察错误是否持续并检查对应路由。'));
   }
   if (saturation >= 0.85) {
     score -= 20;
+    alerts.push({ label: t('ops.alert.saturation', '并发水位'), threshold: '>= 85 %', actual: percent(saturation), severity: 'error' });
     recommendations.push(t('ops.health.fixSaturationHigh', '并发水位接近上限，建议降低长连接/轮询压力或提高并发限制。'));
   } else if (saturation >= 0.6) {
     score -= 10;
+    alerts.push({ label: t('ops.alert.saturation', '并发水位'), threshold: '>= 60 %', actual: percent(saturation), severity: 'warn' });
     recommendations.push(t('ops.health.fixSaturationWarn', '并发水位偏高，继续观察请求排队和 SSE 连接数。'));
   }
   if (p95 >= 3000) {
     score -= 15;
+    alerts.push({ label: t('ops.alert.p95', 'P95 延迟'), threshold: '>= 3000 ms', actual: `${p95} ms`, severity: 'error' });
     recommendations.push(t('ops.health.fixLatencyHigh', 'P95 延迟超过 3s，建议检查慢路由、上游模型和文件 IO。'));
   } else if (p95 >= 1000) {
     score -= 8;
+    alerts.push({ label: t('ops.alert.p95', 'P95 延迟'), threshold: '>= 1000 ms', actual: `${p95} ms`, severity: 'warn' });
     recommendations.push(t('ops.health.fixLatencyWarn', 'P95 延迟超过 1s，可结合 Top Routes 排查热点路径。'));
   }
   if (snapshot.crash_count > 0 || snapshot.restart_count > 0) {
     score -= Math.min(12, snapshot.crash_count * 6 + snapshot.restart_count * 2);
+    alerts.push({ label: t('ops.alert.restart', '崩溃/重启'), threshold: '= 0', actual: `${snapshot.crash_count}/${snapshot.restart_count}`, severity: snapshot.crash_count > 0 ? 'error' : 'warn' });
   }
   if (logErrors > 0) {
     score -= Math.min(10, logErrors);
+    alerts.push({ label: t('ops.alert.logError', '错误日志'), threshold: '= 0', actual: String(logErrors), severity: 'warn' });
   }
   if (recommendations.length === 0) {
     recommendations.push(t('ops.health.keepWatch', '当前核心信号平稳，保持自动刷新并关注错误率、P95 延迟和并发水位。'));
@@ -113,6 +133,7 @@ function buildOpsHealth(snapshot: OpsRuntimeSnapshot): OpsHealthSummary {
     label,
     tone,
     recommendations: recommendations.slice(0, 4),
+    alerts,
     signals: [
       { label: t('ops.health.signal.errorRate', '错误率'), value: percent(errorRate), tone: errorRate >= 0.05 ? 'error' : errorRate >= 0.01 ? 'warn' : 'ok' },
       { label: t('ops.health.signal.p95', 'P95 延迟'), value: p95 > 0 ? `${p95} ms` : '—', tone: p95 >= 3000 ? 'error' : p95 >= 1000 ? 'warn' : 'ok' },
@@ -865,6 +886,37 @@ function OpsHealthPanel({ health }: { health: OpsHealthSummary }) {
             {item}
           </p>
         ))}
+      </div>
+      <div class="mt-3 rounded-m3-sm p-3" style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline)' }}>
+        <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {t('ops.alert.title', '阈值告警')}
+        </p>
+        {health.alerts.length === 0 ? (
+          <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {t('ops.alert.empty', '暂无触发阈值')}
+          </p>
+        ) : (
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {health.alerts.map((alert) => {
+              const alertColor = healthToneColor(alert.severity);
+              return (
+                <div
+                  key={`${alert.label}-${alert.threshold}`}
+                  class="rounded-m3-sm px-3 py-2 text-xs"
+                  style={{
+                    color: alertColor,
+                    background: 'color-mix(in srgb, currentColor 8%, transparent)',
+                    border: `1px solid color-mix(in srgb, ${alertColor} 35%, transparent)`,
+                  }}
+                >
+                  <strong>{alert.label}</strong>
+                  <span style={{ color: 'var(--m3-on-surface-variant)' }}> · {alert.threshold}</span>
+                  <span> · {alert.actual}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );

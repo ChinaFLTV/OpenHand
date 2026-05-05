@@ -2204,6 +2204,34 @@ class _OpsHealthCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           ...diagnosis.recommendations.map((item) => _OpsKeyValue('建议', item)),
+          const SizedBox(height: 4),
+          Text(
+            '阈值告警',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (diagnosis.alerts.isEmpty)
+            Text(
+              '暂无触发阈值',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: diagnosis.alerts
+                  .map(
+                    (alert) => _OpsPill(
+                      alert.label,
+                      '${alert.threshold} · ${alert.actual}',
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
         ],
       ),
     );
@@ -2218,18 +2246,27 @@ class _OpsDiagnosisSignal {
   final String value;
 }
 
+class _OpsDiagnosisAlert {
+  const _OpsDiagnosisAlert(this.label, this.threshold, this.actual);
+  final String label;
+  final String threshold;
+  final String actual;
+}
+
 class _OpsDiagnosis {
   const _OpsDiagnosis({
     required this.score,
     required this.label,
     required this.tone,
     required this.signals,
+    required this.alerts,
     required this.recommendations,
   });
 
   factory _OpsDiagnosis.from(WebGatewayRuntimeSnapshot snapshot) {
     var score = 100;
     final recommendations = <String>[];
+    final alerts = <_OpsDiagnosisAlert>[];
     final errorRate = snapshot.totalRequests <= 0
         ? 0.0
         : snapshot.totalErrors / snapshot.totalRequests;
@@ -2240,34 +2277,45 @@ class _OpsDiagnosis {
 
     if (snapshot.state == WebGatewayRuntimeState.crashed) {
       score -= 45;
+      alerts.add(_OpsDiagnosisAlert('服务状态', 'running', snapshot.state.name));
       recommendations.add('服务处于 crashed，优先查看最近错误和内存日志并重启服务。');
     } else if (snapshot.state != WebGatewayRuntimeState.running) {
       score -= 20;
+      alerts.add(_OpsDiagnosisAlert('服务状态', 'running', snapshot.state.name));
       recommendations.add('服务未处于 running，确认监听端口、鉴权配置和启动日志。');
     }
     if (errorRate >= 0.05) {
       score -= 25;
+      alerts.add(_OpsDiagnosisAlert('错误率', '>= 5%', _percent(errorRate)));
       recommendations.add('错误率超过 5%，优先按最近错误路径定位 4xx/5xx 来源。');
     } else if (errorRate >= 0.01) {
       score -= 12;
+      alerts.add(_OpsDiagnosisAlert('错误率', '>= 1%', _percent(errorRate)));
       recommendations.add('错误率超过 1%，建议核对请求来源、模型服务和文件权限。');
     }
     if (snapshot.errorsPerMinute > 0) {
       score -= math.min(15, 5 + (snapshot.errorsPerMinute * 2).round());
+      alerts.add(
+        _OpsDiagnosisAlert('错误/min', '> 0', _rate(snapshot.errorsPerMinute)),
+      );
       recommendations.add('最近 1 分钟仍有错误增长，观察错误是否持续并检查对应路由。');
     }
     if (saturation >= 0.85) {
       score -= 20;
+      alerts.add(_OpsDiagnosisAlert('并发水位', '>= 85%', _percent(saturation)));
       recommendations.add('并发水位接近上限，建议降低长连接/轮询压力或提高并发限制。');
     } else if (saturation >= 0.6) {
       score -= 10;
+      alerts.add(_OpsDiagnosisAlert('并发水位', '>= 60%', _percent(saturation)));
       recommendations.add('并发水位偏高，继续观察请求排队和 SSE 连接数。');
     }
     if (p95 >= 3000) {
       score -= 15;
+      alerts.add(_OpsDiagnosisAlert('P95 延迟', '>= 3000ms', '${p95}ms'));
       recommendations.add('P95 延迟超过 3s，建议检查慢路由、上游模型和文件 IO。');
     } else if (p95 >= 1000) {
       score -= 8;
+      alerts.add(_OpsDiagnosisAlert('P95 延迟', '>= 1000ms', '${p95}ms'));
       recommendations.add('P95 延迟超过 1s，可结合 Top Routes 排查热点路径。');
     }
     if (snapshot.crashCount > 0 || snapshot.restartCount > 0) {
@@ -2275,8 +2323,18 @@ class _OpsDiagnosis {
         12,
         snapshot.crashCount * 6 + snapshot.restartCount * 2,
       );
+      alerts.add(
+        _OpsDiagnosisAlert(
+          '崩溃/重启',
+          '= 0',
+          '${snapshot.crashCount}/${snapshot.restartCount}',
+        ),
+      );
     }
-    if (logErrors > 0) score -= math.min(10, logErrors);
+    if (logErrors > 0) {
+      score -= math.min(10, logErrors);
+      alerts.add(_OpsDiagnosisAlert('错误日志', '= 0', '$logErrors'));
+    }
     if (recommendations.isEmpty) {
       recommendations.add('当前核心信号平稳，保持自动刷新并关注错误率、P95 延迟和并发水位。');
     }
@@ -2296,6 +2354,7 @@ class _OpsDiagnosis {
       label: label,
       tone: tone,
       recommendations: recommendations.take(4).toList(growable: false),
+      alerts: alerts,
       signals: [
         _OpsDiagnosisSignal('错误率', _percent(errorRate)),
         _OpsDiagnosisSignal('P95', p95 > 0 ? '${p95}ms' : '—'),
@@ -2311,6 +2370,7 @@ class _OpsDiagnosis {
   final String label;
   final _OpsDiagnosisTone tone;
   final List<_OpsDiagnosisSignal> signals;
+  final List<_OpsDiagnosisAlert> alerts;
   final List<String> recommendations;
 }
 
