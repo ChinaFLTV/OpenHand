@@ -185,6 +185,8 @@ const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
 
 export interface MessageCardProps {
   message: SessionMessage;
+  /// 由详情页受控的点击选中态；只有选中的卡片显示操作栏。
+  active?: boolean;
   /// 默认 false；调用方可设为 true 强制展开。
   forceExpanded?: boolean;
   /// 媒体资产 URL 构造需要 sessionId; 缺省则不渲染媒体卡。
@@ -199,10 +201,12 @@ export interface MessageCardProps {
   onEdit?: (m: SessionMessage) => void;
   /// 打开消息审计弹窗（展示 metadata / 原始 JSON）。
   onAudit?: (m: SessionMessage) => void;
+  onActiveChange?: (m: SessionMessage, active: boolean) => void;
 }
 
 function MessageCardImpl({
   message,
+  active = false,
   forceExpanded = false,
   sessionId,
   onCopy,
@@ -210,6 +214,7 @@ function MessageCardImpl({
   onDeleteAfter,
   onEdit,
   onAudit,
+  onActiveChange,
 }: MessageCardProps) {
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
@@ -224,10 +229,8 @@ function MessageCardImpl({
     ? content.slice(0, AUTO_COLLAPSE_CHAR_LIMIT) + '…'
     : content;
 
-  // 点击卡片切换 action bar 展开。对齐 APP 端 _home_message_bubble.dart 的
-  // Listener-based onSelect/onDeselect：再次点击卡片或外部按钮可关闭。
-  const [actionsOpen, setActionsOpen] = useState(false);
   const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
+  const actionsVisible = hasAnyAction && active;
   const cardRef = useRef<HTMLElement | null>(null);
   const lastHeightRef = useRef<number | null>(null);
 
@@ -253,7 +256,7 @@ function MessageCardImpl({
     };
     animation.oncancel = animation.onfinish;
     return () => animation.cancel();
-  }, [visibleContent, content, actionsOpen, message.kind, message.metadata]);
+  }, [visibleContent, content, actionsVisible, message.kind, message.metadata]);
 
   return (
     <article
@@ -265,12 +268,8 @@ function MessageCardImpl({
         boxShadow: style.border ? 'none' : 'var(--m3-elev-1)',
         border: style.border,
         cursor: hasAnyAction ? 'pointer' : 'default',
-        outline: actionsOpen
-          ? '2px solid color-mix(in srgb, var(--m3-primary) 60%, transparent)'
-          : 'none',
-        outlineOffset: '2px',
         transformOrigin: 'center top',
-        transition: 'outline-color 180ms ease-out, box-shadow 220ms ease-out, border-color 220ms ease-out',
+        transition: 'box-shadow 220ms ease-out, border-color 220ms ease-out',
       }}
       onClick={(ev) => {
         if (!hasAnyAction) return;
@@ -280,7 +279,7 @@ function MessageCardImpl({
         // 双击代码块选中文本时也不切换。
         const sel = typeof window !== 'undefined' ? window.getSelection() : null;
         if (sel && sel.toString().length > 0) return;
-        setActionsOpen((v) => !v);
+        onActiveChange?.(message, !active);
       }}
     >
       <header class="flex items-center justify-between gap-3 text-xs mb-2 opacity-90">
@@ -328,7 +327,7 @@ function MessageCardImpl({
           {t('detail.collapsed.hint', '内容已折叠（超过 1200 字符），点击下方刷新或加载更早可在控制台查看完整正文。')}
         </p>
       ) : null}
-      {actionsOpen && hasAnyAction ? (
+      {actionsVisible ? (
         <div
           class="oh-appear-up mt-3 pt-3 flex flex-wrap items-center gap-2 text-xs"
           style={{
@@ -347,14 +346,12 @@ function MessageCardImpl({
           {onDelete ? (
             <ActionBtn
               label={t('common.delete')}
-              variant="danger"
               onClick={() => onDelete(message)}
             />
           ) : null}
           {onDeleteAfter ? (
             <ActionBtn
               label={t('common.deleteAfter')}
-              variant="danger"
               onClick={() => onDeleteAfter(message)}
             />
           ) : null}
@@ -367,11 +364,9 @@ function MessageCardImpl({
 function ActionBtn({
   label,
   onClick,
-  variant,
 }: {
   label: string;
   onClick: () => void;
-  variant?: 'danger';
 }) {
   return (
     <button
@@ -382,7 +377,7 @@ function ActionBtn({
       }}
       class="oh-tap-press px-2.5 py-1 rounded-m3-sm transition-colors"
       style={{
-        color: variant === 'danger' ? 'var(--m3-error)' : 'currentColor',
+        color: 'currentColor',
         border: '1px solid color-mix(in srgb, currentColor 28%, transparent)',
         background: 'transparent',
       }}

@@ -260,6 +260,7 @@ export function SessionDetailPage() {
     message: SessionMessage;
     cascade: boolean;
   } | null>(null);
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
@@ -424,6 +425,12 @@ export function SessionDetailPage() {
     messagesRef.current = messages;
   }, [messages]);
 
+  useEffect(() => {
+    if (activeMessageId == null) return;
+    if (messages.some((item) => item.id === activeMessageId)) return;
+    setActiveMessageId(null);
+  }, [messages, activeMessageId]);
+
   // messages 变化 → 自动跟随 / 累计未读
   useEffect(() => {
     if (messages.length === 0) {
@@ -525,6 +532,7 @@ export function SessionDetailPage() {
     setMessages([]);
     setWindowOffset(0);
     setTotalKnown(0);
+    setActiveMessageId(null);
     setComposerModelKey('');
     setComposerMode('normal');
     lastTailIdRef.current = null;
@@ -1134,8 +1142,6 @@ export function SessionDetailPage() {
     });
   };
 
-  const showResumePill = sortedMessages.length > 0 && (autoFollowPaused || unreadCount > 0);
-
   if (!sessionId) {
     return (
       <main class="min-h-screen flex items-center justify-center">
@@ -1333,7 +1339,11 @@ export function SessionDetailPage() {
                     <li key={m.id}>
                       <MessageCard
                         message={m}
+                        active={activeMessageId === m.id}
                         sessionId={sessionId}
+                        onActiveChange={(message, active) => {
+                          setActiveMessageId(active ? message.id : null);
+                        }}
                         onCopy={handleCopyMessage}
                         onDelete={handleDeleteMessage}
                         onDeleteAfter={handleDeleteMessageCascade}
@@ -1347,28 +1357,6 @@ export function SessionDetailPage() {
             )}
           </>
         )}
-
-        {showResumePill ? (
-          <button
-            type="button"
-            onClick={resumeToLatest}
-            class="oh-tap-press oh-appear-pop fixed right-4 sm:right-8 bottom-24 z-40 text-sm px-3 py-2 rounded-full flex items-center gap-2"
-            style={{
-              background: 'var(--m3-primary)',
-              color: 'var(--m3-on-primary)',
-              boxShadow: 'var(--m3-elev-3)',
-            }}
-            aria-live="polite"
-            title={t('detail.resumeToLatest', '回到底部')}
-          >
-            <span aria-hidden>↓</span>
-            <span>
-              {unreadCount > 0
-                ? `${unreadCount} ${t('detail.newMessagesUnit', '条新消息')}`
-                : t('detail.resumeToLatest', '回到底部')}
-            </span>
-          </button>
-        ) : null}
         </section>
 
         {/* Composer */}
