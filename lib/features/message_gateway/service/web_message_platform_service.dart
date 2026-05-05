@@ -681,6 +681,11 @@ class WebMessagePlatformService {
     // 合并即可，无需服务端 diff。
     router.get('/api/sessions/<sessionId>/events', (shelf.Request r, String sessionId) =>
         _sessionEventsHandler(r, sessionId));
+    // 媒体资产: 仅放行已被该会话消息 metadata.attachments[].path /
+    // generated_image_paths / generated_video_paths / generated_audio_paths
+    // 等白名单引用过的本地文件路径, 防止任意路径读取。
+    router.get('/api/sessions/<sessionId>/asset', (shelf.Request r, String sessionId) =>
+        _sessionAssetHandler(r, sessionId));
     // 导出会话：返回 application/json + Content-Disposition attachment，
     // 以便浏览器一键下载。包含 session 头信息 + 全量未删除消息（不分页）。
     router.get('/api/sessions/<sessionId>/export', (shelf.Request r, String sessionId) =>
@@ -1560,6 +1565,118 @@ class WebMessagePlatformService {
     );
   }
 
+  /// 媒体资产: 仅放行该会话消息 metadata 中显式引用过的本地文件路径,
+  /// 防止任意路径读取与跨会话越权。
+  Future<shelf.Response> _sessionAssetHandler(
+    shelf.Request request,
+    String sessionId,
+  ) async {
+    final auth = _authorizeFromRequestOrQuery(request);
+    if (auth == null) {
+      return _json(HttpStatus.unauthorized, <String, Object?>{
+        'error': 'unauthorized',
+      });
+    }
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final requested = request.requestedUri.queryParameters['path'] ?? '';
+    if (requested.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'missing_path',
+      });
+    }
+    final whitelist = _collectSessionAssetPaths(session);
+    if (!whitelist.contains(requested)) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'asset_not_in_whitelist',
+      });
+    }
+    final file = File(requested);
+    if (!await file.exists()) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'asset_missing',
+      });
+    }
+    final stat = await file.stat();
+    // 简单上限: 单文件 ≤ 64 MiB, 防止意外把超大视频塞进单次响应
+    const maxBytes = 64 * 1024 * 1024;
+    if (stat.size > maxBytes) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'asset_too_large',
+        'limit_bytes': maxBytes,
+      });
+    }
+    final bytes = await file.readAsBytes();
+    return shelf.Response.ok(
+      bytes,
+      headers: <String, String>{
+        'content-type': _guessContentType(requested),
+        'cache-control': 'private, max-age=300',
+        'content-length': bytes.length.toString(),
+      },
+    );
+  }
+
+  /// 收集 session 内所有消息的 metadata 中可能指向本地媒体文件的字段,
+  /// 形成白名单 (绝对路径集合)。
+  Set<String> _collectSessionAssetPaths(AiSession session) {
+    final out = <String>{};
+    void addCandidate(Object? raw) {
+      if (raw is String) {
+        final s = raw.trim();
+        if (s.isNotEmpty && !s.startsWith('http://') && !s.startsWith('https://')) {
+          out.add(s);
+        }
+      }
+    }
+    for (final msg in session.displayMessages) {
+      final meta = msg.metadata;
+      // 用户附件: [{kind, path}] 或 [{file_path}]
+      final atts = meta['attachments'];
+      if (atts is List) {
+        for (final entry in atts) {
+          if (entry is Map) {
+            addCandidate(entry['path']);
+            addCandidate(entry['file_path']);
+          } else if (entry is String) {
+            addCandidate(entry);
+          }
+        }
+      }
+      // 助手生成媒体: 兼容多种命名
+      for (final key in const [
+        'image_path',
+        'image_paths',
+        'video_path',
+        'video_paths',
+        'audio_path',
+        'audio_paths',
+        'generated_image_path',
+        'generated_image_paths',
+        'generated_video_path',
+        'generated_video_paths',
+        'generated_audio_path',
+        'generated_audio_paths',
+        'media_path',
+        'media_paths',
+      ]) {
+        final v = meta[key];
+        if (v is String) {
+          addCandidate(v);
+        } else if (v is List) {
+          for (final e in v) {
+            addCandidate(e);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
   /// 复用 _authorize，但允许从 query string 读取 token / device 信息，
   /// 兼容浏览器 EventSource 这种不能自定义 header 的场景。
   _WebGatewayAuthSession? _authorizeFromRequestOrQuery(shelf.Request request) {
@@ -2304,6 +2421,18 @@ class WebMessagePlatformService {
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
     if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.bmp')) return 'image/bmp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.mp4')) return 'video/mp4';
+    if (lower.endsWith('.webm')) return 'video/webm';
+    if (lower.endsWith('.mov')) return 'video/quicktime';
+    if (lower.endsWith('.mp3')) return 'audio/mpeg';
+    if (lower.endsWith('.wav')) return 'audio/wav';
+    if (lower.endsWith('.ogg')) return 'audio/ogg';
+    if (lower.endsWith('.m4a')) return 'audio/mp4';
+    if (lower.endsWith('.flac')) return 'audio/flac';
+    if (lower.endsWith('.pdf')) return 'application/pdf';
     if (lower.endsWith('.woff2')) return 'font/woff2';
     if (lower.endsWith('.woff')) return 'font/woff';
     if (lower.endsWith('.ttf')) return 'font/ttf';

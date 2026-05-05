@@ -13,6 +13,7 @@
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { Markdown } from './Markdown';
+import { MessageMedia } from './MessageMedia';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -172,9 +173,11 @@ export interface MessageCardProps {
   message: SessionMessage;
   /// 默认 false；调用方可设为 true 强制展开。
   forceExpanded?: boolean;
+  /// 媒体资产 URL 构造需要 sessionId; 缺省则不渲染媒体卡。
+  sessionId?: string;
 }
 
-export function MessageCard({ message, forceExpanded = false }: MessageCardProps) {
+export function MessageCard({ message, forceExpanded = false, sessionId }: MessageCardProps) {
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
   const overflows = style.collapsible && !forceExpanded && content.length > AUTO_COLLAPSE_CHAR_LIMIT;
@@ -223,6 +226,7 @@ export function MessageCard({ message, forceExpanded = false }: MessageCardProps
         raw={style.mono === true || message.kind === 'tool_call' || message.kind === 'tool' || message.kind === 'reasoning'}
         mono={style.mono === true}
       />
+      {sessionId ? <MessageMedia message={message} sessionId={sessionId} /> : null}
       {overflows ? (
         <p class="text-xs mt-2 opacity-70">
           {t('detail.collapsed.hint', '内容已折叠（超过 1200 字符），点击下方刷新或加载更早可在控制台查看完整正文。')}

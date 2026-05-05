@@ -694,7 +694,7 @@ export function SessionDetailPage() {
               <ul class="flex flex-col gap-3">
                 {sortedMessages.map((m) => (
                   <li key={m.id}>
-                    <MessageCard message={m} />
+                    <MessageCard message={m} sessionId={sessionId} />
                   </li>
                 ))}
               </ul>
