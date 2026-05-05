@@ -230,7 +230,7 @@ export function FilesPage() {
       <div class="max-w-7xl mx-auto">
         {/* 顶部 toolbar */}
         <header class="flex items-center justify-between gap-3 mb-4 flex-wrap">
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 min-w-0 flex-wrap">
             <button
               type="button"
               onClick={() => location.route('/')}
@@ -243,7 +243,11 @@ export function FilesPage() {
               {t('files.title', '工作区文件')}
             </h1>
             {list && (
-              <span class="text-xs font-mono" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <span
+                class="text-xs font-mono min-w-0 truncate max-w-full sm:max-w-[520px]"
+                style={{ color: 'var(--m3-on-surface-variant)' }}
+                title={`root: ${list.root}`}
+              >
                 root: {list.root}
               </span>
             )}
