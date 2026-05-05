@@ -1635,6 +1635,10 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                               value: '${snapshot.activeRequests}',
                             ),
                             _MetricTile(
+                              label: 'SSE 长连接',
+                              value: '${snapshot.activeSseSubscriptions}',
+                            ),
+                            _MetricTile(
                               label: '总请求',
                               value: '${snapshot.totalRequests}',
                             ),
