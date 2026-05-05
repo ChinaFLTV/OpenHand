@@ -241,7 +241,10 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     Flexible(
                       child: Align(
                         alignment: Alignment.topRight,
-                        child: actions,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 620),
+                          child: actions,
+                        ),
                       ),
                     ),
                   ],
@@ -1958,6 +1961,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
   bool _isCleaning = false;
   bool _isRefreshingSnapshot = false;
   bool _isServiceActing = false;
+  bool _isHealthChecking = false;
 
   @override
   void initState() {
@@ -2111,8 +2115,17 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                                 label: const Text('热修复'),
                               ),
                               FilledButton.icon(
-                                onPressed: widget.controller.runHealthCheck,
-                                icon: const Icon(Icons.monitor_heart_outlined),
+                                onPressed: _isHealthChecking
+                                    ? null
+                                    : _runOpsHealthCheck,
+                                icon: _isHealthChecking
+                                    ? const SizedBox.square(
+                                        dimension: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.monitor_heart_outlined),
                                 label: const Text('健康诊断'),
                               ),
                               FilledButton.tonalIcon(
@@ -2558,6 +2571,36 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       );
     } finally {
       if (mounted) setState(() => _isServiceActing = false);
+    }
+  }
+
+  Future<void> _runOpsHealthCheck() async {
+    if (_isHealthChecking) return;
+    setState(() => _isHealthChecking = true);
+    try {
+      final result = await widget.controller.runHealthCheck();
+      await _tick();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${result.summary} (${result.durationMs}ms)'),
+          backgroundColor: result.ok ? const Color(0xFF16A34A) : null,
+          duration: const Duration(milliseconds: 1800),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '健康诊断失败: $error',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isHealthChecking = false);
     }
   }
 
