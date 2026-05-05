@@ -38,6 +38,7 @@ import type { ApiMetaModel } from '../api/meta';
 import { TopBar } from '../components/TopBar';
 import { MessageCard } from '../components/MessageCard';
 import { PlanTimeline } from '../components/PlanTimeline';
+import { notifyIfHidden } from '../services/pwa';
 import {
   SessionTopBar,
   type PermissionMode,
@@ -335,6 +336,41 @@ export function SessionDetailPage() {
       }
     };
   }, [auth.loading, sessionId, sendPhase, sseLive]);
+
+  // 桌面通知: 当窗口隐藏时, 若收到新的 assistant 消息 (id 与上次不同),
+  // 通过 Service Worker / Notification API 弹一个通知。
+  // lastNotifiedAssistantIdRef 防止同一条多次重弹 (轮询 + SSE 双源刷新)。
+  const lastNotifiedAssistantIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (messages.length === 0) return;
+    // 找最后一条 assistant 消息
+    let assistant: SessionMessage | null = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') {
+        assistant = messages[i];
+        break;
+      }
+    }
+    if (!assistant) return;
+    if (lastNotifiedAssistantIdRef.current === assistant.id) return;
+    // 首屏加载时不要弹 (用户可能刚打开页面). 用 ref 初始化为 sentinel.
+    if (lastNotifiedAssistantIdRef.current === null) {
+      lastNotifiedAssistantIdRef.current = assistant.id;
+      return;
+    }
+    lastNotifiedAssistantIdRef.current = assistant.id;
+    const preview = assistant.content
+      .replace(/```[\s\S]*?```/g, '[code]')
+      .replace(/<[^>]+>/g, '')
+      .trim()
+      .slice(0, 140);
+    const title = detail?.session.title || t('home.untitledSession', '未命名会话');
+    notifyIfHidden({
+      title,
+      body: preview,
+      sessionId,
+    }).catch(() => undefined);
+  }, [messages, sessionId, detail?.session.title]);
 
   async function readFileAsAttachment(
     file: File,

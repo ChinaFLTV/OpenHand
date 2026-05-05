@@ -1,0 +1,20 @@
+{
+  "name": "OpenHand · 通用消息平台",
+  "short_name": "OpenHand",
+  "description": "OpenHand Web · 与 macOS App 单源打通的通用 AI 消息控制台",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101418",
+  "theme_color": "#2D63B8",
+  "lang": "zh-Hans",
+  "icons": [
+    {
+      "src": "./openhand_logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

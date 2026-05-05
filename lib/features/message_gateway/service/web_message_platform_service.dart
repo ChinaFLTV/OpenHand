@@ -664,6 +664,12 @@ class WebMessagePlatformService {
         _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'));
     router.get('/favicon.ico', (shelf.Request _) =>
         _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'));
+    // PWA: Service Worker 必须挂在站点根 scope, manifest.webmanifest 给浏览器
+    // 装机使用. 两者通过 vite public/ 目录被 Flutter rootBundle 一并打包。
+    router.get('/sw.js', (shelf.Request _) =>
+        _serveBundleAsset('assets/web/sw.js', 'application/javascript; charset=utf-8'));
+    router.get('/manifest.webmanifest', (shelf.Request _) =>
+        _serveBundleAsset('assets/web/manifest.webmanifest', 'application/manifest+json; charset=utf-8'));
     router.get('/api/health', _apiHealth);
     router.get('/api/meta', _apiMeta);
     router.post('/api/login', _login);
