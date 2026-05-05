@@ -82,6 +82,11 @@ class MessageGatewayController extends ChangeNotifier {
   WebMessagePlatformConfig get config => _config;
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
+  bool get isOperating =>
+      _isLoading ||
+      _isSaving ||
+      _service.state == WebGatewayRuntimeState.starting ||
+      _service.state == WebGatewayRuntimeState.stopping;
   String? get errorMessage => _errorMessage;
   WebGatewayHealthResult? get lastHealthResult => _lastHealthResult;
   WebGatewayRuntimeState get runtimeState => _service.state;

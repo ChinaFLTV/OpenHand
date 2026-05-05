@@ -213,7 +213,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       icon: const Icon(Icons.edit_rounded),
                     ),
                     FilledButton.icon(
-                      onPressed: controller.isSaving
+                      onPressed: controller.isOperating
                           ? null
                           : () => isRunning
                                 ? controller.stopService()
@@ -464,6 +464,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late Set<WebGatewayMessageType> _messageTypes;
   late Set<WebGatewayConversationMode> _modes;
   bool _saving = false;
+  String? _saveError;
 
   @override
   void initState() {
@@ -696,6 +697,25 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 ),
                               ),
                             ],
+                          ),
+                          AnimatedSwitcher(
+                            duration: _motionDuration(context, 220),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            child: _autoReloadOnChange
+                                ? const SizedBox.shrink(
+                                    key: ValueKey('auto-reload-on'),
+                                  )
+                                : const Padding(
+                                    key: ValueKey('auto-reload-off'),
+                                    padding: EdgeInsets.only(top: 10),
+                                    child: _EditorNotice(
+                                      icon: Icons.restart_alt_rounded,
+                                      title: '配置将等待重启生效',
+                                      body:
+                                          '自动重载关闭后，本次保存只写入配置文件；运行中的 Web 服务会继续使用旧配置，直到手动重启服务或应用冷启动。',
+                                    ),
+                                  ),
                           ),
                           const SizedBox(height: 18),
                           const _SectionTitle('基础信息'),
@@ -932,19 +952,41 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
               const Divider(height: 1),
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    OpenHandDialogActionButton.secondary(
-                      label: '取消',
-                      onPressed: _saving
-                          ? null
-                          : () => Navigator.of(context).pop(),
+                    AnimatedSwitcher(
+                      duration: _motionDuration(context, 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      child: _saveError == null
+                          ? const SizedBox.shrink(key: ValueKey('save-ok'))
+                          : Padding(
+                              key: const ValueKey('save-error'),
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _EditorNotice(
+                                icon: Icons.error_outline_rounded,
+                                title: '保存失败',
+                                body: _saveError!,
+                                error: true,
+                              ),
+                            ),
                     ),
-                    const SizedBox(width: 12),
-                    OpenHandDialogActionButton.primary(
-                      label: _saving ? '保存中' : '保存配置',
-                      onPressed: _saving ? null : _save,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OpenHandDialogActionButton.secondary(
+                          label: '取消',
+                          onPressed: _saving
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                        ),
+                        const SizedBox(width: 12),
+                        OpenHandDialogActionButton.primary(
+                          label: _saving ? '保存中' : '保存配置',
+                          onPressed: _saving ? null : _save,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -957,7 +999,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   }
 
   Future<void> _save() async {
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     final config = WebMessagePlatformConfig(
       enabled: _enabled,
       autoStartOnLaunch: _autoStartOnLaunch,
@@ -1036,8 +1081,62 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('保存失败: $error')));
-      setState(() => _saving = false);
+      setState(() {
+        _saveError = '$error';
+        _saving = false;
+      });
     }
+  }
+}
+
+class _EditorNotice extends StatelessWidget {
+  const _EditorNotice({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.error = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final color = error ? colorScheme.error : colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: .28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.labelLarge),
+                const SizedBox(height: 3),
+                Text(
+                  body,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
