@@ -40,6 +40,8 @@ export const dict_zhHant: Record<string, string> = {
   'home.openToolbox': '工具箱',
   'home.openHardness': 'Hardness',
   'home.openSettings': '設定',
+  'detail.remoteRunning': '另一處客戶端正在生成回覆。如本端正在編輯草稿, 建議等遠端結束後再發送, 避免順序混亂。',
+  'detail.unreadSuffix': '條新訊息',
   'home.profile.label': '目前工作階段：',
   'login.title': '登入 Web 通用訊息平台',
   'login.subtitle': 'OpenHand 主控台已啟用驗證，請輸入帳號與密碼',

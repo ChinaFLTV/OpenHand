@@ -41,6 +41,8 @@ export const dict_zh: Record<string, string> = {
   'home.openToolbox': '工具箱',
   'home.openHardness': 'Hardness',
   'home.openSettings': '设置',
+  'detail.remoteRunning': '另一处客户端正在生成回复。如本端正在编辑草稿, 建议等远端结束后再发送, 避免顺序混乱。',
+  'detail.unreadSuffix': '条新消息',
   'home.profile.label': '当前会话：',
   'login.title': '登录 Web 通用消息平台',
   'login.subtitle': 'OpenHand 主控制台已开启鉴权，请输入用户名与密码',

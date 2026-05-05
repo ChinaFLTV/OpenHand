@@ -118,6 +118,75 @@ export function SessionDetailPage() {
   const messagesAbortRef = useRef<AbortController | null>(null);
   const pollTimerRef = useRef<number | null>(null);
   const sseCloseRef = useRef<(() => void) | null>(null);
+
+  // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
+  // ---------------------------------------------------------------------
+  // 1) 自动跟随: 用户离底 ≤64px 视为「贴底」, 新消息追加时直接 scrollTo bottom;
+  //    否则在右下角浮一个「↓ N 条新消息」pill, 点击回到底部并清零。
+  // 2) 冲突警告: 本地 handleSend 触发会写 lastLocalSendAtRef. 当 sendPhase 转入
+  //    运行态且距离最近一次本地 send > 4s, 视为「另一处客户端在生成」,
+  //    若此时 composerText 非空 → 顶部黄色 banner 提示, 防止用户误以为自己刚发了。
+  const isNearBottomRef = useRef<boolean>(true);
+  const lastTailIdRef = useRef<string | null>(null);
+  const lastLocalSendAtRef = useRef<number>(0);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
+
+  useEffect(() => {
+    function recalc() {
+      if (typeof window === 'undefined' || typeof document === 'undefined') return;
+      const doc = document.documentElement;
+      const dist = doc.scrollHeight - (window.scrollY + window.innerHeight);
+      isNearBottomRef.current = dist <= 64;
+      if (isNearBottomRef.current && unreadCount !== 0) setUnreadCount(0);
+    }
+    recalc();
+    window.addEventListener('scroll', recalc, { passive: true });
+    window.addEventListener('resize', recalc);
+    return () => {
+      window.removeEventListener('scroll', recalc);
+      window.removeEventListener('resize', recalc);
+    };
+  }, [unreadCount]);
+
+  // messages 变化 → 自动跟随 / 累计未读
+  useEffect(() => {
+    if (messages.length === 0) {
+      lastTailIdRef.current = null;
+      return;
+    }
+    const tail = messages[messages.length - 1];
+    if (lastTailIdRef.current === null) {
+      lastTailIdRef.current = tail.id;
+      return;
+    }
+    if (tail.id === lastTailIdRef.current) return;
+    lastTailIdRef.current = tail.id;
+    if (isNearBottomRef.current) {
+      // defer 一帧, 等 DOM 把新卡片画上
+      requestAnimationFrame(() => {
+        if (typeof window === 'undefined') return;
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+      });
+    } else {
+      setUnreadCount((n) => n + 1);
+    }
+  }, [messages]);
+
+  // sendPhase 变化 → 远端冲突探测
+  useEffect(() => {
+    const running = sendPhase !== 'idle' && sendPhase !== '';
+    if (!running) {
+      if (remoteRunning) setRemoteRunning(false);
+      return;
+    }
+    const sinceLocal = Date.now() - lastLocalSendAtRef.current;
+    // > 4s 视为非本地触发的运行态
+    if (sinceLocal > 4000 && !remoteRunning) {
+      setRemoteRunning(true);
+    }
+  }, [sendPhase, remoteRunning]);
+
   const sseFailRef = useRef<number>(0);
   const [sseLive, setSseLive] = useState<boolean>(false);
 
@@ -475,6 +544,8 @@ export function SessionDetailPage() {
     }
     setComposerSending(true);
     setComposerError(null);
+    // 标记「这是本地刚刚发起的 send」, 抑制后续 sendPhase running 触发远端冲突 banner
+    lastLocalSendAtRef.current = Date.now();
     try {
       const res = await sendMessage(sessionId, {
         content: text,
@@ -674,6 +745,25 @@ export function SessionDetailPage() {
             </span>
           ) : null}
         </div>
+
+        {remoteRunning ? (
+          <div
+            class="rounded-md px-3 py-2 mb-4 text-xs flex items-start gap-2"
+            style={{
+              background: 'rgba(245,158,11,0.10)',
+              color: '#b45309',
+              border: '1px solid rgba(245,158,11,0.35)',
+            }}
+          >
+            <span aria-hidden>⚠</span>
+            <span>
+              {t(
+                'detail.remoteRunning',
+                '另一处客户端正在生成回复。如本端正在编辑草稿, 建议等远端结束后再发送, 避免顺序混乱。',
+              )}
+            </span>
+          </div>
+        ) : null}
 
         {/* 主区 */}
         {loadingDetail ? (
@@ -1014,6 +1104,35 @@ export function SessionDetailPage() {
           </div>
         </section>
       </div>
+
+      {unreadCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => {
+            setUnreadCount(0);
+            if (typeof window !== 'undefined') {
+              window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+            }
+          }}
+          class="oh-tap-press oh-pulse-soft"
+          style={{
+            position: 'fixed',
+            right: 24,
+            bottom: 96,
+            zIndex: 50,
+            background: 'var(--m3-primary)',
+            color: 'var(--m3-on-primary)',
+            padding: '8px 14px',
+            borderRadius: 999,
+            fontSize: 12,
+            border: 'none',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
+            cursor: 'pointer',
+          }}
+        >
+          ↓ {unreadCount} {t('detail.unreadSuffix', '条新消息')}
+        </button>
+      ) : null}
     </main>
   );
 }

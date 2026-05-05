@@ -42,6 +42,8 @@ export const dict_en: Record<string, string> = {
   'home.openToolbox': 'Toolbox',
   'home.openHardness': 'Hardness',
   'home.openSettings': 'Settings',
+  'detail.remoteRunning': 'Another client is generating a reply. If you are drafting locally, wait for it to finish before sending to avoid out-of-order messages.',
+  'detail.unreadSuffix': 'new',
   'home.profile.label': 'Signed in as: ',
   'login.title': 'Sign in to Web Messaging Platform',
   'login.subtitle': 'Authentication is enabled on the OpenHand console. Please enter your credentials.',

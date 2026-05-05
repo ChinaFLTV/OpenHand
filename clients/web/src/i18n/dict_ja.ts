@@ -40,6 +40,8 @@ export const dict_ja: Record<string, string> = {
   'home.openToolbox': 'ツールボックス',
   'home.openHardness': 'Hardness',
   'home.openSettings': '設定',
+  'detail.remoteRunning': '他のクライアントが応答を生成中です。草稿を編集中の場合は、順序の乱れを避けるため、完了を待って送信してください。',
+  'detail.unreadSuffix': '件の新着',
   'home.profile.label': 'ログイン中：',
   'login.title': 'Web メッセージングプラットフォームにログイン',
   'login.subtitle': 'OpenHand コンソールで認証が有効です。資格情報を入力してください。',
