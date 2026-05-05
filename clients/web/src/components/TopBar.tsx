@@ -1,6 +1,9 @@
-// 顶部公共导航条：LOGO + 标题 / 子标题 / 语言切换 + Ops/Files/Logs 入口 + 登出。
+// 顶部公共导航条：LOGO + 标题 / 子标题 / 语言切换 + 登出。
+// Web 端定位极简——只做线程会话聊天，因此 TopBar 不再暴露 工作区文件 / 工具箱 /
+// Hardness / 设置 / Ops / 日志 等服务端管理面入口；这些页面仍可通过直链访问，
+// 但默认入口仅保留语言切换与登出。
 // 在 SessionsPage / SessionDetailPage / OpsPage / FilesPage / LogsPage 之间共享，
-// 避免每页重复实现。仅在需要"次级页面"时由调用方用 `compact` 收缩样式。
+// 仅在需要"次级页面"时由调用方用 `compact` 收缩样式。
 
 import type { ComponentChildren } from 'preact';
 import { useLocation } from 'preact-iso';
@@ -16,7 +19,7 @@ export interface TopBarProps {
   compact?: boolean;
   /// 标题左侧右侧扩展槽（可选，例如详情页放"返回会话列表"）
   leadingSlot?: ComponentChildren;
-  /// 隐藏 Files/Ops/Logs/Logout 等通用导航按钮
+  /// 历史属性，向后兼容；当前已无次级导航按钮，传任何值都不会改变渲染。
   hideNav?: boolean;
 }
 
@@ -35,7 +38,7 @@ export function TopBar(props: TopBarProps) {
     compact ? 'px-2.5 py-1' : 'px-3 py-1.5'
   }`;
   const navBtnStyle = {
-    color: 'var(--m3-on-surface)',
+    color: 'var(--m3-on-surface-variant)',
     border: '1px solid var(--m3-outline)',
     backgroundColor: 'transparent',
   };
@@ -118,70 +121,15 @@ export function TopBar(props: TopBarProps) {
             );
           })}
         </div>
-        {!hideNav ? (
-          <>
-            <button
-              type="button"
-              onClick={() => location.route('/files')}
-              class={navBtnClass}
-              style={navBtnStyle}
-            >
-              {t('home.openFiles', '工作区文件')}
-            </button>
-            <button
-              type="button"
-              onClick={() => location.route('/toolbox')}
-              class={navBtnClass}
-              style={navBtnStyle}
-            >
-              {t('home.openToolbox', '工具箱')}
-            </button>
-            <button
-              type="button"
-              onClick={() => location.route('/hardness')}
-              class={navBtnClass}
-              style={navBtnStyle}
-            >
-              {t('home.openHardness', 'Hardness')}
-            </button>
-            <button
-              type="button"
-              onClick={() => location.route('/settings')}
-              class={navBtnClass}
-              style={navBtnStyle}
-            >
-              {t('home.openSettings', '设置')}
-            </button>
-            <button
-              type="button"
-              onClick={() => location.route('/ops')}
-              class={navBtnClass}
-              style={navBtnStyle}
-            >
-              {t('home.openOps', 'Ops')}
-            </button>
-            <button
-              type="button"
-              onClick={() => location.route('/logs')}
-              class={navBtnClass}
-              style={navBtnStyle}
-            >
-              {t('home.openLogs', '日志')}
-            </button>
-            {auth.authRequired ? (
-              <button
-                type="button"
-                onClick={onLogout}
-                class={navBtnClass}
-                style={{
-                  ...navBtnStyle,
-                  color: 'var(--m3-on-surface-variant)',
-                }}
-              >
-                {t('common.logout')}
-              </button>
-            ) : null}
-          </>
+        {!hideNav && auth.authRequired ? (
+          <button
+            type="button"
+            onClick={onLogout}
+            class={navBtnClass}
+            style={navBtnStyle}
+          >
+            {t('common.logout')}
+          </button>
         ) : null}
       </div>
     </header>
