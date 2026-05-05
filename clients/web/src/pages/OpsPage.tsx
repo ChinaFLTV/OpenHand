@@ -197,6 +197,12 @@ export function OpsPage() {
               <Metric label={t('ops.metric.bound', '监听 URL')} value={snapshot.bound_url || '—'} mono />
               <Metric label={t('ops.metric.openSessions', '在线会话')} value={String(snapshot.open_session_count)} />
               <Metric label={t('ops.metric.activeReq', '正在处理')} value={String(snapshot.active_requests)} />
+              {typeof snapshot.max_concurrent_requests === 'number' && snapshot.max_concurrent_requests > 0 && (
+                <Metric
+                  label={t('ops.metric.requestLimit', '并发上限 / 饱和度')}
+                  value={`${snapshot.max_concurrent_requests} / ${(((snapshot.active_request_ratio ?? 0) * 100)).toFixed(1)} %`}
+                />
+              )}
               {typeof snapshot.active_sse_subscriptions === 'number' && (
                 <Metric label={t('ops.metric.activeSse', 'SSE 长连接')}
                   value={String(snapshot.active_sse_subscriptions)} />
@@ -233,9 +239,37 @@ export function OpsPage() {
                 <Metric label={t('ops.metric.rpm', '近 1 分钟 RPM')}
                   value={snapshot.requests_per_minute.toFixed(1)} />
               )}
+              {typeof snapshot.errors_per_minute === 'number' && (
+                <Metric label={t('ops.metric.errPerMin', '近 1 分钟错误')}
+                  value={snapshot.errors_per_minute.toFixed(0)} />
+              )}
+              {(typeof snapshot.bytes_in_per_minute === 'number' || typeof snapshot.bytes_out_per_minute === 'number') && (
+                <Metric
+                  label={t('ops.metric.bytesPerMin', '近 1 分钟 IN / OUT')}
+                  value={`${tBytes(snapshot.bytes_in_per_minute ?? 0)} / ${tBytes(snapshot.bytes_out_per_minute ?? 0)}`}
+                />
+              )}
               {snapshot.total_requests > 0 && (
                 <Metric label={t('ops.metric.errorRate', '错误率')}
                   value={`${((snapshot.total_errors / snapshot.total_requests) * 100).toFixed(2)} %`} />
+              )}
+              {typeof snapshot.allowed_model_count === 'number' && (
+                <Metric
+                  label={t('ops.metric.models', '模型 / 服务商')}
+                  value={`${snapshot.allowed_model_count} / ${snapshot.model_provider_count ?? 0}`}
+                />
+              )}
+              {typeof snapshot.template_count === 'number' && (
+                <Metric label={t('ops.metric.templates', '模板')} value={String(snapshot.template_count)} />
+              )}
+              {typeof snapshot.cron_total_count === 'number' && (
+                <Metric
+                  label={t('ops.metric.crons', '定时任务启用 / 总数')}
+                  value={`${snapshot.cron_enabled_count ?? 0} / ${snapshot.cron_total_count}`}
+                />
+              )}
+              {typeof snapshot.memory_entry_count === 'number' && (
+                <Metric label={t('ops.metric.memoryEntries', '记忆条目')} value={String(snapshot.memory_entry_count)} />
               )}
             </section>
 
@@ -331,6 +365,49 @@ export function OpsPage() {
                     </div>
                   ))}
                 </div>
+                {snapshot.latency_buckets && Object.values(snapshot.latency_buckets).some((v) => v > 0) ? (
+                  <div class="mt-3">
+                    <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      {t('ops.section.latencyBuckets', '延迟分布桶')}
+                    </p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                      {Object.entries(snapshot.latency_buckets).map(([label, count]) => (
+                        <div
+                          key={label}
+                          class="px-2 py-1.5 rounded-m3-sm"
+                          style={{
+                            backgroundColor: 'var(--m3-surface)',
+                            border: '1px solid var(--m3-outline)',
+                          }}
+                        >
+                          <p class="text-[10px]" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</p>
+                          <p class="font-mono text-sm" style={{ color: 'var(--m3-on-surface)' }}>{count}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            )}
+
+            {/* 运行阶段 / 日志级别 */}
+            {(snapshot.send_phase_breakdown || snapshot.log_level_breakdown) && (
+              <section class="oh-appear-up rounded-m3-md p-4 mb-3 grid grid-cols-1 md:grid-cols-2 gap-4"
+                style={{ backgroundColor: 'var(--m3-surface-container)' }}
+              >
+                {snapshot.send_phase_breakdown && (
+                  <BreakdownBlock
+                    title={t('ops.section.sendPhaseBreakdown', '会话发送阶段分布')}
+                    data={snapshot.send_phase_breakdown}
+                  />
+                )}
+                {snapshot.log_level_breakdown && (
+                  <BreakdownBlock
+                    title={`${t('ops.section.logLevelBreakdown', '日志级别分布')} · ${snapshot.memory_log_count ?? 0}`}
+                    data={snapshot.log_level_breakdown}
+                    dangerKeys={['error', 'warn']}
+                  />
+                )}
               </section>
             )}
 
@@ -613,6 +690,49 @@ function Metric(props: { label: string; value: string; mono?: boolean }) {
       >
         {props.value}
       </p>
+    </div>
+  );
+}
+
+function BreakdownBlock({
+  title,
+  data,
+  dangerKeys = [],
+}: {
+  title: string;
+  data: Record<string, number>;
+  dangerKeys?: string[];
+}) {
+  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) {
+    return (
+      <div>
+        <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>{title}</p>
+        <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>—</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>{title}</p>
+      <div class="flex flex-wrap gap-2">
+        {entries.map(([key, value]) => {
+          const danger = dangerKeys.includes(key);
+          return (
+            <span
+              key={key}
+              class="text-xs font-mono px-2 py-1 rounded-m3-sm"
+              style={{
+                backgroundColor: 'var(--m3-surface)',
+                color: danger ? 'var(--m3-error)' : 'var(--m3-on-surface)',
+                border: `1px solid ${danger ? 'var(--m3-error)' : 'var(--m3-outline)'}`,
+              }}
+            >
+              {key} · {value}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -153,6 +153,8 @@ class WebGatewayRuntimeSnapshot {
     required this.boundUrl,
     required this.accessibleUrls,
     required this.activeRequests,
+    this.maxConcurrentRequests = 0,
+    this.activeRequestRatio = 0,
     required this.totalRequests,
     required this.totalErrors,
     required this.totalBytesIn,
@@ -173,7 +175,11 @@ class WebGatewayRuntimeSnapshot {
     this.methodBreakdown = const <String, int>{},
     this.topRoutes = const <MapEntry<String, int>>[],
     this.latencyStats = const WebGatewayLatencyStats(),
+    this.latencyBuckets = const <String, int>{},
     this.requestsPerMinute = 0,
+    this.errorsPerMinute = 0,
+    this.bytesInPerMinute = 0,
+    this.bytesOutPerMinute = 0,
     this.slowestRecent,
     this.lastErrorAt,
     this.lastErrorPath = '',
@@ -181,6 +187,15 @@ class WebGatewayRuntimeSnapshot {
     this.hostName = '',
     this.activeSseSubscriptions = 0,
     this.recentErrors = const <Map<String, Object?>>[],
+    this.logLevelBreakdown = const <String, int>{},
+    this.memoryLogCount = 0,
+    this.sendPhaseBreakdown = const <String, int>{},
+    this.allowedModelCount = 0,
+    this.modelProviderCount = 0,
+    this.templateCount = 0,
+    this.cronEnabledCount = 0,
+    this.cronTotalCount = 0,
+    this.memoryEntryCount = 0,
     this.mcpServerEnabledCount = 0,
     this.mcpServerTotalCount = 0,
   });
@@ -196,6 +211,8 @@ class WebGatewayRuntimeSnapshot {
   /// - 未启动时为空列表
   final List<String> accessibleUrls;
   final int activeRequests;
+  final int maxConcurrentRequests;
+  final double activeRequestRatio;
   final int totalRequests;
   final int totalErrors;
   final int totalBytesIn;
@@ -217,7 +234,11 @@ class WebGatewayRuntimeSnapshot {
   final Map<String, int> methodBreakdown;
   final List<MapEntry<String, int>> topRoutes;
   final WebGatewayLatencyStats latencyStats;
+  final Map<String, int> latencyBuckets;
   final double requestsPerMinute;
+  final double errorsPerMinute;
+  final double bytesInPerMinute;
+  final double bytesOutPerMinute;
   final WebGatewayRecentSlowRequest? slowestRecent;
   final DateTime? lastErrorAt;
   final String lastErrorPath;
@@ -231,6 +252,21 @@ class WebGatewayRuntimeSnapshot {
   /// 每条含：`at`(ISO8601) `method` `path` `status` `duration_ms` 可选 `message`。
   final List<Map<String, Object?>> recentErrors;
 
+  /// 进程内内存日志按级别统计，便于快速判断错误/警告是否在持续增长。
+  final Map<String, int> logLevelBreakdown;
+  final int memoryLogCount;
+
+  /// 当前所有会话按发送阶段分布。
+  final Map<String, int> sendPhaseBreakdown;
+
+  /// Web 服务可见资源规模。
+  final int allowedModelCount;
+  final int modelProviderCount;
+  final int templateCount;
+  final int cronEnabledCount;
+  final int cronTotalCount;
+  final int memoryEntryCount;
+
   /// MCP 服务器已启用 / 总数，为 Ops 面板提供快速合规指示。
   final int mcpServerEnabledCount;
   final int mcpServerTotalCount;
@@ -243,6 +279,8 @@ class WebGatewayRuntimeSnapshot {
       'bound_url': boundUrl,
       'accessible_urls': accessibleUrls,
       'active_requests': activeRequests,
+      'max_concurrent_requests': maxConcurrentRequests,
+      'active_request_ratio': activeRequestRatio,
       'total_requests': totalRequests,
       'total_errors': totalErrors,
       'total_bytes_in': totalBytesIn,
@@ -272,12 +310,25 @@ class WebGatewayRuntimeSnapshot {
           .map((e) => <String, Object?>{'path': e.key, 'count': e.value})
           .toList(growable: false),
       'latency_stats': latencyStats.toJson(),
+      'latency_buckets': latencyBuckets,
       'requests_per_minute': requestsPerMinute,
+      'errors_per_minute': errorsPerMinute,
+      'bytes_in_per_minute': bytesInPerMinute,
+      'bytes_out_per_minute': bytesOutPerMinute,
       'slowest_recent': slowestRecent?.toJson(),
       'last_error_at': lastErrorAt?.toUtc().toIso8601String(),
       'last_error_path': lastErrorPath,
       'active_sse_subscriptions': activeSseSubscriptions,
       'recent_errors': recentErrors,
+      'log_level_breakdown': logLevelBreakdown,
+      'memory_log_count': memoryLogCount,
+      'send_phase_breakdown': sendPhaseBreakdown,
+      'allowed_model_count': allowedModelCount,
+      'model_provider_count': modelProviderCount,
+      'template_count': templateCount,
+      'cron_enabled_count': cronEnabledCount,
+      'cron_total_count': cronTotalCount,
+      'memory_entry_count': memoryEntryCount,
       'mcp_server_enabled_count': mcpServerEnabledCount,
       'mcp_server_total_count': mcpServerTotalCount,
     };
@@ -303,13 +354,13 @@ class WebGatewayLatencyStats {
   final int maxMs;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'sample_count': sampleCount,
-        'avg_ms': avgMs,
-        'p50_ms': p50Ms,
-        'p95_ms': p95Ms,
-        'p99_ms': p99Ms,
-        'max_ms': maxMs,
-      };
+    'sample_count': sampleCount,
+    'avg_ms': avgMs,
+    'p50_ms': p50Ms,
+    'p95_ms': p95Ms,
+    'p99_ms': p99Ms,
+    'max_ms': maxMs,
+  };
 }
 
 /// 近期最慢一次请求的元信息。仅作为面板上的"故障线索"，不代表历史最慢。
@@ -329,10 +380,10 @@ class WebGatewayRecentSlowRequest {
   final DateTime? at;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'path': path,
-        'method': method,
-        'status_code': statusCode,
-        'duration_ms': durationMs,
-        'at': at?.toUtc().toIso8601String(),
-      };
+    'path': path,
+    'method': method,
+    'status_code': statusCode,
+    'duration_ms': durationMs,
+    'at': at?.toUtc().toIso8601String(),
+  };
 }

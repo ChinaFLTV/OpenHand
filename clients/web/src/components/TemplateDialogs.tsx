@@ -13,6 +13,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel, ApiMetaTemplate } from '../api/meta';
 import { MenuSelect } from './MenuSelect';
+import { ModelPickerDialog, pushRecentModel } from './ModelPickerDialog';
 import { Appear } from './Appear';
 import { t } from '../i18n';
 
@@ -160,7 +161,9 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
   const [title, setTitle] = useState<string>('');
   const [mode, setMode] = useState<'chat' | 'plan'>('chat');
   const [modelKey, setModelKey] = useState<string>(models[0]?.key ?? '');
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const titleRef = useRef<HTMLInputElement | null>(null);
+  const selectedModel = models.find((model) => model.key === modelKey);
 
   // 自动 focus 到标题输入框，键盘流畅创建。
   useEffect(() => {
@@ -223,20 +226,19 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
           </label>
           <label class="flex flex-col text-xs gap-1 flex-1 min-w-[220px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {t('composer.model', '模型')}
-            <MenuSelect
-              value={modelKey}
-              onChange={setModelKey}
+            <button
+              type="button"
+              onClick={() => setModelPickerOpen(true)}
               disabled={busy || models.length === 0}
-              minWidth={220}
-              options={
-                models.length === 0
-                  ? [{ value: '', label: t('composer.modelEmpty', '主控制台未配置模型') }]
-                  : [
-                      { value: '', label: t('sessions.templateConfig.modelDefault', '使用模板默认模型') },
-                      ...models.map((m) => ({ value: m.key, label: `${m.provider} · ${m.label}` })),
-                    ]
-              }
-            />
+              class="oh-tap-press text-left px-3 py-2 rounded-m3-sm text-sm disabled:opacity-60"
+              style={{
+                background: 'var(--m3-surface)',
+                color: selectedModel ? 'var(--m3-on-surface)' : 'var(--m3-on-surface-variant)',
+                border: '1px solid var(--m3-outline)',
+              }}
+            >
+              {selectedModel?.model_id || t('sessions.templateConfig.modelDefault', '使用模板默认模型')}
+            </button>
           </label>
         </div>
 
@@ -274,6 +276,17 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
           </button>
         </div>
       </form>
+      {modelPickerOpen ? (
+        <ModelPickerDialog
+          models={models}
+          selectedKey={modelKey}
+          onSelect={(key) => {
+            setModelKey(key);
+            pushRecentModel(key);
+          }}
+          onClose={() => setModelPickerOpen(false)}
+        />
+      ) : null}
     </DialogShell>
   );
 }

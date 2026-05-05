@@ -14,6 +14,13 @@ import type { SessionMessage, SessionSummary } from './sessions';
 export interface SessionEventSnapshot {
   session: SessionSummary;
   messages: SessionMessage[];
+  message_window?: {
+    offset: number;
+    limit: number;
+    total: number;
+    has_older?: boolean;
+    has_newer?: boolean;
+  };
   send_phase: string;
   last_error: string | null;
   can_stop: boolean;

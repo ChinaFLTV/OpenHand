@@ -23,6 +23,7 @@ import '../../ai/model/ai_session.dart';
 import '../../ai/model/ai_session_message.dart';
 import '../../ai/model/ai_session_runtime_context.dart';
 import '../../ai/model/ai_thread_template.dart';
+import '../../ai/service/ai_image_generation_service.dart';
 import '../../crons/crons_controller.dart';
 import '../../hardness/hardness_session_store.dart';
 import '../../instructions/instructions_controller.dart';
@@ -106,16 +107,14 @@ class WebMessagePlatformService {
   int _restartCount = 0;
   int _nextLogId = 1;
   String _lastError = '';
-  // 拓展运维指标。参考 Prometheus / OpenTelemetry HTTP 仪表盘出入参数：
-  // - 状态码 4 桶 (1xx/2xx/3xx/4xx/5xx) 便于验验错误环境
-  // - method 分布帮助识别异常调用模式
-  // - 路径计数 (top 32 过后 LRU 裁剩，避免被驶 ID 塑出的路径打爆)
-  // - 近 256 次请求的延迟环以计算 p50/p95/p99
-  // - 近 600s 请求时间戳环，用于推导在线 RPS
-  // 所有结构在进程内驻留，点班貃采集以避免接口变庞。
+  // 扩展运维指标。遵循 SRE 四黄金信号和 OpenTelemetry HTTP 指标思路：
+  // latency / traffic / errors / saturation 全部在进程内轻量采样，路由使用
+  // 低基数字段，避免被 query 或动态 ID 撑爆。
   static const int _maxRouteEntries = 32;
   static const int _maxLatencyBuffer = 256;
   static const int _maxTimestampBuffer = 600;
+  static const int _maxObservationBuffer = 600;
+  static const int _sseMessageWindowSize = 80;
   final Map<String, int> _statusBuckets = <String, int>{
     '1xx': 0,
     '2xx': 0,
@@ -127,6 +126,8 @@ class WebMessagePlatformService {
   final Map<String, int> _routeCounts = <String, int>{};
   final List<int> _latencyBuffer = <int>[];
   final List<int> _recentRequestEpochMs = <int>[];
+  final List<_RequestObservation> _recentRequestObservations =
+      <_RequestObservation>[];
   DateTime? _lastErrorAt;
   String _lastErrorPath = '';
   String _slowestRecentPath = '';
@@ -172,10 +173,10 @@ class WebMessagePlatformService {
   ///   + 所有非环回 IPv4 地址。`_localAddressesCache` 由 `_refreshLocalAddresses`
   ///   异步填充；服务未启动时返回空列表。
   List<String> get accessibleUrls => computeWebGatewayAccessibleUrls(
-        listenHost: _config.listenHost,
-        boundPort: _server?.port,
-        localIPv4Addresses: _localAddressesCache,
-      );
+    listenHost: _config.listenHost,
+    boundPort: _server?.port,
+    localIPv4Addresses: _localAddressesCache,
+  );
 
   void updateTheme(WebGatewayThemeSnapshot theme) {
     _theme = theme;
@@ -222,20 +223,13 @@ class WebMessagePlatformService {
         WebGatewayLogLevel.success,
         'BOOT',
         'Web 服务已监听 $logSummary',
-        <String, Object?>{
-          'bound_url': boundUrl,
-          'accessible_urls': urls,
-        },
+        <String, Object?>{'bound_url': boundUrl, 'accessible_urls': urls},
       );
       // 启动后顺手做一次过期清理；失败不应阻塞 boot 流程，但要走 silentLog
       // 防止 Future error 被 unawaited 静默吞掉。
       unawaited(() async {
         try {
-          await cleanupArtifacts(
-            logs: true,
-            uploads: true,
-            expiredOnly: true,
-          );
+          await cleanupArtifacts(logs: true, uploads: true, expiredOnly: true);
         } catch (error, stack) {
           silentLog(
             'web_message_platform_service',
@@ -314,6 +308,10 @@ class WebMessagePlatformService {
       boundUrl: boundUrl,
       accessibleUrls: accessibleUrls,
       activeRequests: _activeRequests,
+      maxConcurrentRequests: _config.maxConcurrentRequests,
+      activeRequestRatio: _config.maxConcurrentRequests <= 0
+          ? 0
+          : _activeRequests / _config.maxConcurrentRequests,
       totalRequests: _totalRequests,
       totalErrors: _totalErrors,
       totalBytesIn: _totalBytesIn,
@@ -334,7 +332,11 @@ class WebMessagePlatformService {
       methodBreakdown: Map<String, int>.unmodifiable(_methodCounts),
       topRoutes: _topRoutes(),
       latencyStats: _computeLatencyStats(),
+      latencyBuckets: _computeLatencyBuckets(),
       requestsPerMinute: _computeRequestsPerMinute(),
+      errorsPerMinute: _computeErrorsPerMinute(),
+      bytesInPerMinute: _computeBytesPerMinute((item) => item.requestBytes),
+      bytesOutPerMinute: _computeBytesPerMinute((item) => item.responseBytes),
       slowestRecent: _slowestRecentDurationMs > 0
           ? WebGatewayRecentSlowRequest(
               path: _slowestRecentPath,
@@ -350,9 +352,24 @@ class WebMessagePlatformService {
       hostName: _safeHostName(),
       activeSseSubscriptions: _activeSseSubscriptions,
       recentErrors: List<Map<String, Object?>>.unmodifiable(
-          _recentErrors.map((e) => Map<String, Object?>.unmodifiable(e))),
-      mcpServerEnabledCount:
-          _mcpController.servers.where((s) => s.enabled).length,
+        _recentErrors.map((e) => Map<String, Object?>.unmodifiable(e)),
+      ),
+      logLevelBreakdown: _computeLogLevelBreakdown(),
+      memoryLogCount: _memoryLogs.length,
+      sendPhaseBreakdown: _computeSendPhaseBreakdown(),
+      allowedModelCount: _allowedModels().length,
+      modelProviderCount: _settingsController.aiModels.length,
+      templateCount: _allowedTemplates().length,
+      cronEnabledCount: _cronsController.entries
+          .where((entry) => entry.enabled)
+          .length,
+      cronTotalCount: _cronsController.entries.length,
+      memoryEntryCount: _settingsController.memoryEnabled
+          ? _memoryController.entries.length
+          : 0,
+      mcpServerEnabledCount: _mcpController.servers
+          .where((s) => s.enabled)
+          .length,
       mcpServerTotalCount: _mcpController.servers.length,
     );
   }
@@ -364,6 +381,8 @@ class WebMessagePlatformService {
     required String path,
     required int statusCode,
     required int durationMs,
+    required int requestBytes,
+    required int responseBytes,
     String? errorPath,
     String? errorMessage,
   }) {
@@ -372,25 +391,37 @@ class WebMessagePlatformService {
       final bucketKey = statusCode <= 0
           ? '5xx'
           : statusCode >= 500
-              ? '5xx'
-              : statusCode >= 400
-                  ? '4xx'
-                  : statusCode >= 300
-                      ? '3xx'
-                      : statusCode >= 200
-                          ? '2xx'
-                          : '1xx';
+          ? '5xx'
+          : statusCode >= 400
+          ? '4xx'
+          : statusCode >= 300
+          ? '3xx'
+          : statusCode >= 200
+          ? '2xx'
+          : '1xx';
       _statusBuckets[bucketKey] = (_statusBuckets[bucketKey] ?? 0) + 1;
       // method 分布：MAX 8 个，超出走 OTHER。
       final upperMethod = method.toUpperCase();
-      const knownMethods = <String>{'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'};
-      final methodKey = knownMethods.contains(upperMethod) ? upperMethod : 'OTHER';
+      const knownMethods = <String>{
+        'GET',
+        'POST',
+        'PUT',
+        'PATCH',
+        'DELETE',
+        'HEAD',
+        'OPTIONS',
+      };
+      final methodKey = knownMethods.contains(upperMethod)
+          ? upperMethod
+          : 'OTHER';
       _methodCounts[methodKey] = (_methodCounts[methodKey] ?? 0) + 1;
       // 路由分布：保留前缀，规避 query string；超过容量后按计数最少裁剪一个，避免无界增长。
       final routeKey = path.isEmpty ? '/' : path;
       _routeCounts[routeKey] = (_routeCounts[routeKey] ?? 0) + 1;
       if (_routeCounts.length > _maxRouteEntries) {
-        final smallest = _routeCounts.entries.reduce((a, b) => a.value <= b.value ? a : b);
+        final smallest = _routeCounts.entries.reduce(
+          (a, b) => a.value <= b.value ? a : b,
+        );
         _routeCounts.remove(smallest.key);
       }
       // 延迟环形缓冲：达到容量就 FIFO 出队。
@@ -403,6 +434,23 @@ class WebMessagePlatformService {
       _recentRequestEpochMs.add(nowMs);
       if (_recentRequestEpochMs.length > _maxTimestampBuffer) {
         _recentRequestEpochMs.removeAt(0);
+      }
+      _recentRequestObservations.add(
+        _RequestObservation(
+          atMs: nowMs,
+          method: methodKey,
+          path: routeKey,
+          statusCode: statusCode,
+          durationMs: durationMs,
+          requestBytes: requestBytes,
+          responseBytes: responseBytes,
+        ),
+      );
+      if (_recentRequestObservations.length > _maxObservationBuffer) {
+        _recentRequestObservations.removeRange(
+          0,
+          _recentRequestObservations.length - _maxObservationBuffer,
+        );
       }
       // 慢请求记录：保留近期最慢的一次（不是历史最慢），便于发现新近退化。
       if (durationMs >= _slowestRecentDurationMs) {
@@ -434,7 +482,12 @@ class WebMessagePlatformService {
         }
       }
     } catch (error, stack) {
-      silentLog('web_message_platform_service', 'observe metrics', error, stack);
+      silentLog(
+        'web_message_platform_service',
+        'observe metrics',
+        error,
+        stack,
+      );
     }
   }
 
@@ -464,6 +517,7 @@ class WebMessagePlatformService {
       final frac = pos - lo;
       return (sorted[lo] + (sorted[hi] - sorted[lo]) * frac).round();
     }
+
     return WebGatewayLatencyStats(
       sampleCount: n,
       avgMs: (sum / n).round(),
@@ -482,11 +536,85 @@ class WebMessagePlatformService {
     final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
     const windowMs = 60 * 1000;
     final cutoff = nowMs - windowMs;
-    final inWindow = _recentRequestEpochMs.where((t) => t >= cutoff).toList(growable: false);
+    final inWindow = _recentRequestEpochMs
+        .where((t) => t >= cutoff)
+        .toList(growable: false);
     if (inWindow.isEmpty) return 0;
     final spanMs = math.max(1, nowMs - inWindow.first);
     final actualWindowMs = math.min(spanMs, windowMs);
     return inWindow.length * (60 * 1000) / actualWindowMs;
+  }
+
+  double _computeErrorsPerMinute() {
+    final items = _observationsInWindow(const Duration(minutes: 1));
+    if (items.isEmpty) return 0;
+    return items.where((item) => item.statusCode >= 400).length.toDouble();
+  }
+
+  double _computeBytesPerMinute(int Function(_RequestObservation) read) {
+    final items = _observationsInWindow(const Duration(minutes: 1));
+    if (items.isEmpty) return 0;
+    var total = 0;
+    for (final item in items) {
+      total += read(item);
+    }
+    return total.toDouble();
+  }
+
+  List<_RequestObservation> _observationsInWindow(Duration window) {
+    final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
+    final cutoff = nowMs - window.inMilliseconds;
+    return _recentRequestObservations
+        .where((item) => item.atMs >= cutoff)
+        .toList(growable: false);
+  }
+
+  Map<String, int> _computeLatencyBuckets() {
+    const labels = <String>[
+      '<=50ms',
+      '<=100ms',
+      '<=250ms',
+      '<=500ms',
+      '<=1s',
+      '<=2.5s',
+      '>2.5s',
+    ];
+    final buckets = <String, int>{for (final label in labels) label: 0};
+    for (final value in _latencyBuffer) {
+      final label = value <= 50
+          ? '<=50ms'
+          : value <= 100
+          ? '<=100ms'
+          : value <= 250
+          ? '<=250ms'
+          : value <= 500
+          ? '<=500ms'
+          : value <= 1000
+          ? '<=1s'
+          : value <= 2500
+          ? '<=2.5s'
+          : '>2.5s';
+      buckets[label] = (buckets[label] ?? 0) + 1;
+    }
+    return buckets;
+  }
+
+  Map<String, int> _computeLogLevelBreakdown() {
+    final out = <String, int>{};
+    for (final entry in _memoryLogs) {
+      final key = entry.level.name;
+      out[key] = (out[key] ?? 0) + 1;
+    }
+    return out;
+  }
+
+  Map<String, int> _computeSendPhaseBreakdown() {
+    final out = <String, int>{};
+    for (final session in _sessionController.sessions) {
+      final key = _sessionController.sendPhaseForSession(session.id).name;
+      out[key] = (out[key] ?? 0) + 1;
+    }
+    return out;
   }
 
   String _safeHostName() {
@@ -505,7 +633,9 @@ class WebMessagePlatformService {
 
   /// 刷新主机非环回 IPv4 地址列表，30 s TTL。失败不抛，仅 silentLog——
   /// 缓存保持上一次结果（启动期为空列表，UI 仍能显示 localhost/127.0.0.1）。
-  Future<void> _refreshLocalAddressesIfStale({Duration ttl = const Duration(seconds: 30)}) async {
+  Future<void> _refreshLocalAddressesIfStale({
+    Duration ttl = const Duration(seconds: 30),
+  }) async {
     final stamp = _localAddressesAt;
     if (stamp != null && DateTime.now().toUtc().difference(stamp) < ttl) {
       return;
@@ -679,48 +809,105 @@ class WebMessagePlatformService {
     router.get('/thread', (shelf.Request _) => _serveWebShell());
     router.get('/threads', (shelf.Request _) => _serveWebShell());
     // SPA 深路由：/threads/<id> 直接刷新或粘贴打开都能命中前端 Router。
-    router.get('/threads/<rest|.+>', (shelf.Request _, String rest) => _serveWebShell());
+    router.get(
+      '/threads/<rest|.+>',
+      (shelf.Request _, String rest) => _serveWebShell(),
+    );
     // Vite 产物里 index.html 引用 app.js / app.css 同级文件，直接出 bundle。
-    router.get('/app.js', (shelf.Request _) =>
-        _serveBundleAsset('assets/web/app.js', 'application/javascript; charset=utf-8'));
-    router.get('/app.css', (shelf.Request _) =>
-        _serveBundleAsset('assets/web/app.css', 'text/css; charset=utf-8'));
+    router.get(
+      '/app.js',
+      (shelf.Request _) => _serveBundleAsset(
+        'assets/web/app.js',
+        'application/javascript; charset=utf-8',
+      ),
+    );
+    router.get(
+      '/app.css',
+      (shelf.Request _) =>
+          _serveBundleAsset('assets/web/app.css', 'text/css; charset=utf-8'),
+    );
     // 通配子路径覆盖 chunks/*.js 与 assets/*.{png,svg,woff2,...}。
-    router.get('/chunks/<path|.+>', (shelf.Request _, String path) =>
-        _serveBundleAsset('assets/web/chunks/$path', _guessContentType(path)));
-    router.get('/assets/<path|.+>', (shelf.Request _, String path) =>
-        _serveBundleAsset('assets/web/assets/$path', _guessContentType(path)));
+    router.get(
+      '/chunks/<path|.+>',
+      (shelf.Request _, String path) =>
+          _serveBundleAsset('assets/web/chunks/$path', _guessContentType(path)),
+    );
+    router.get(
+      '/assets/<path|.+>',
+      (shelf.Request _, String path) =>
+          _serveBundleAsset('assets/web/assets/$path', _guessContentType(path)),
+    );
     // public/ 拷贝到 assets/web/ 根的静态资源（logo、favicon 等）。Vite build
     // 把 clients/web/public/* 平铺至产物根目录，Flutter pubspec 把整个目录纳入
     // bundle，这里按白名单显式 expose 以避免被 SPA shell 路由 catch-all 截胡。
-    router.get('/openhand_logo.png', (shelf.Request _) =>
-        _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'));
-    router.get('/favicon.ico', (shelf.Request _) =>
-        _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'));
+    router.get(
+      '/openhand_logo.png',
+      (shelf.Request _) =>
+          _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
+    );
+    router.get(
+      '/favicon.ico',
+      (shelf.Request _) =>
+          _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
+    );
     // PWA: Service Worker 必须挂在站点根 scope, manifest.webmanifest 给浏览器
     // 装机使用. 两者通过 vite public/ 目录被 Flutter rootBundle 一并打包。
-    router.get('/sw.js', (shelf.Request _) =>
-        _serveBundleAsset('assets/web/sw.js', 'application/javascript; charset=utf-8'));
-    router.get('/manifest.webmanifest', (shelf.Request _) =>
-        _serveBundleAsset('assets/web/manifest.webmanifest', 'application/manifest+json; charset=utf-8'));
+    router.get(
+      '/sw.js',
+      (shelf.Request _) => _serveBundleAsset(
+        'assets/web/sw.js',
+        'application/javascript; charset=utf-8',
+      ),
+    );
+    router.get(
+      '/manifest.webmanifest',
+      (shelf.Request _) => _serveBundleAsset(
+        'assets/web/manifest.webmanifest',
+        'application/manifest+json; charset=utf-8',
+      ),
+    );
     router.get('/api/health', _apiHealth);
     router.get('/api/meta', _apiMeta);
     router.post('/api/login', _login);
 
-    router.get('/api/sessions', (shelf.Request r) => _withAuth(r, _listSessions));
-    router.post('/api/sessions', (shelf.Request r) => _withAuth(r, _createSession));
-    router.get('/api/sessions/<sessionId>', (shelf.Request r, String sessionId) =>
-        _withAuth(r, (req, auth) => _getSession(req, auth, sessionId)));
-    router.patch('/api/sessions/<sessionId>', (shelf.Request r, String sessionId) =>
-        _withAuth(r, (req, auth) => _renameSession(req, auth, sessionId)));
-    router.delete('/api/sessions/<sessionId>', (shelf.Request r, String sessionId) =>
-        _withAuth(r, (req, auth) => _deleteSession(req, auth, sessionId)));
-    router.get('/api/sessions/<sessionId>/messages', (shelf.Request r, String sessionId) =>
-        _withAuth(r, (req, auth) => _listMessages(req, auth, sessionId)));
-    router.post('/api/sessions/<sessionId>/messages', (shelf.Request r, String sessionId) =>
-        _withAuth(r, (req, auth) => _sendMessage(req, auth, sessionId)));
-    router.post('/api/sessions/<sessionId>/stop', (shelf.Request r, String sessionId) =>
-        _withAuth(r, (req, auth) => _stopSendMessage(req, auth, sessionId)));
+    router.get(
+      '/api/sessions',
+      (shelf.Request r) => _withAuth(r, _listSessions),
+    );
+    router.post(
+      '/api/sessions',
+      (shelf.Request r) => _withAuth(r, _createSession),
+    );
+    router.get(
+      '/api/sessions/<sessionId>',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _getSession(req, auth, sessionId)),
+    );
+    router.patch(
+      '/api/sessions/<sessionId>',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _renameSession(req, auth, sessionId)),
+    );
+    router.delete(
+      '/api/sessions/<sessionId>',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _deleteSession(req, auth, sessionId)),
+    );
+    router.get(
+      '/api/sessions/<sessionId>/messages',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _listMessages(req, auth, sessionId)),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/messages',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _sendMessage(req, auth, sessionId)),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/stop',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _stopSendMessage(req, auth, sessionId)),
+    );
     // 删除单条消息（对齐 APP 端 _home_message_bubble.dart 长按菜单 → 删除）。
     router.delete(
       '/api/sessions/<sessionId>/messages/<messageId>',
@@ -741,37 +928,94 @@ class WebMessagePlatformService {
     // query string `?token=...`（匿名模式可省略）。该端点会推送整张
     // displayMessages 快照 + send_phase + last_error，前端按 message id 增量
     // 合并即可，无需服务端 diff。
-    router.get('/api/sessions/<sessionId>/events', (shelf.Request r, String sessionId) =>
-        _sessionEventsHandler(r, sessionId));
+    router.get(
+      '/api/sessions/<sessionId>/events',
+      (shelf.Request r, String sessionId) =>
+          _sessionEventsHandler(r, sessionId),
+    );
     // 媒体资产: 仅放行已被该会话消息 metadata.attachments[].path /
     // generated_image_paths / generated_video_paths / generated_audio_paths
     // 等白名单引用过的本地文件路径, 防止任意路径读取。
-    router.get('/api/sessions/<sessionId>/asset', (shelf.Request r, String sessionId) =>
-        _sessionAssetHandler(r, sessionId));
+    router.get(
+      '/api/sessions/<sessionId>/asset',
+      (shelf.Request r, String sessionId) => _sessionAssetHandler(r, sessionId),
+    );
     // 导出会话：返回 application/json + Content-Disposition attachment，
     // 以便浏览器一键下载。包含 session 头信息 + 全量未删除消息（不分页）。
-    router.get('/api/sessions/<sessionId>/export', (shelf.Request r, String sessionId) =>
-        _withAuth(r, (req, auth) => _exportSession(req, auth, sessionId)));
+    router.get(
+      '/api/sessions/<sessionId>/export',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _exportSession(req, auth, sessionId)),
+    );
 
-    router.get('/api/ops', (shelf.Request r) => _withAuth(r, (_, _) => _opsSnapshot()));
-    router.get('/api/ops/cleanup/history', (shelf.Request r) => _withAuth(r, (_, _) => _cleanupHistoryPayload()));
-    router.post('/api/ops/cleanup', (shelf.Request r) => _withAuth(r, (req, _) => _cleanupOps(req)));
-    router.get('/api/logs', (shelf.Request r) => _withAuth(r, (req, _) => _listLogs(req)));
-    router.get('/api/logs/export', (shelf.Request r) => _withAuth(r, (_, _) => _exportLogs()));
-    router.get('/api/workspace/files', (shelf.Request r) => _withAuth(r, (req, _) => _listWorkspaceFiles(req)));
-    router.get('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _readWorkspaceFile(req)));
-    router.put('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _writeWorkspaceFile(req)));
-    router.delete('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _deleteWorkspaceFile(req)));
+    router.get(
+      '/api/ops',
+      (shelf.Request r) => _withAuth(r, (_, _) => _opsSnapshot()),
+    );
+    router.get(
+      '/api/ops/cleanup/history',
+      (shelf.Request r) => _withAuth(r, (_, _) => _cleanupHistoryPayload()),
+    );
+    router.post(
+      '/api/ops/cleanup',
+      (shelf.Request r) => _withAuth(r, (req, _) => _cleanupOps(req)),
+    );
+    router.get(
+      '/api/logs',
+      (shelf.Request r) => _withAuth(r, (req, _) => _listLogs(req)),
+    );
+    router.get(
+      '/api/logs/export',
+      (shelf.Request r) => _withAuth(r, (_, _) => _exportLogs()),
+    );
+    router.get(
+      '/api/workspace/files',
+      (shelf.Request r) => _withAuth(r, (req, _) => _listWorkspaceFiles(req)),
+    );
+    router.get(
+      '/api/workspace/file',
+      (shelf.Request r) => _withAuth(r, (req, _) => _readWorkspaceFile(req)),
+    );
+    router.put(
+      '/api/workspace/file',
+      (shelf.Request r) => _withAuth(r, (req, _) => _writeWorkspaceFile(req)),
+    );
+    router.delete(
+      '/api/workspace/file',
+      (shelf.Request r) => _withAuth(r, (req, _) => _deleteWorkspaceFile(req)),
+    );
 
     // Toolbox: 只读列出 MCP 服务器 / 已安装技能 / 用户记忆 / 定时任务
     // App 端是这些资源的真权威 (增删改全在 GUI), Web 端只读消费即可。
-    router.get('/api/mcp/servers', (shelf.Request r) => _withAuth(r, (_, _) => _listMcpServersHandler()));
-    router.get('/api/skills', (shelf.Request r) => _withAuth(r, (_, _) => _listSkillsHandler()));
-    router.get('/api/memories', (shelf.Request r) => _withAuth(r, (_, _) => _listMemoriesHandler()));
-    router.get('/api/crons', (shelf.Request r) => _withAuth(r, (_, _) => _listCronsHandler()));
-    router.get('/api/hardness/session', (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()));
-    router.get('/api/settings/preferences', (shelf.Request r) => _withAuth(r, (_, _) => _getPreferencesHandler()));
-    router.put('/api/settings/preferences', (shelf.Request r) => _withAuth(r, (req, _) => _putPreferencesHandler(req)));
+    router.get(
+      '/api/mcp/servers',
+      (shelf.Request r) => _withAuth(r, (_, _) => _listMcpServersHandler()),
+    );
+    router.get(
+      '/api/skills',
+      (shelf.Request r) => _withAuth(r, (_, _) => _listSkillsHandler()),
+    );
+    router.get(
+      '/api/memories',
+      (shelf.Request r) => _withAuth(r, (_, _) => _listMemoriesHandler()),
+    );
+    router.get(
+      '/api/crons',
+      (shelf.Request r) => _withAuth(r, (_, _) => _listCronsHandler()),
+    );
+    router.get(
+      '/api/hardness/session',
+      (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()),
+    );
+    router.get(
+      '/api/settings/preferences',
+      (shelf.Request r) => _withAuth(r, (_, _) => _getPreferencesHandler()),
+    );
+    router.put(
+      '/api/settings/preferences',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _putPreferencesHandler(req)),
+    );
 
     return router;
   }
@@ -807,25 +1051,34 @@ class WebMessagePlatformService {
         _totalRequests++;
         final requestBytes = request.contentLength ?? 0;
         _totalBytesIn += requestBytes;
+        final stopwatch = Stopwatch()..start();
         if (_activeRequests >= _config.maxConcurrentRequests) {
           _totalErrors++;
-          _log(
-            WebGatewayLogLevel.warn,
-            'HTTP',
-            '请求被并发限制拒绝',
-            <String, Object?>{
-              'path': request.requestedUri.path,
-              'active_requests': _activeRequests,
-              'limit': _config.maxConcurrentRequests,
-            },
-          );
-          return _json(
+          stopwatch.stop();
+          final limited = _json(
             HttpStatus.tooManyRequests,
             const <String, Object?>{'error': 'too_many_requests'},
           );
+          final responseBytes = limited.contentLength ?? 0;
+          _totalBytesOut += responseBytes;
+          _observeRequestMetrics(
+            method: request.method,
+            path: request.requestedUri.path,
+            statusCode: HttpStatus.tooManyRequests,
+            durationMs: stopwatch.elapsedMilliseconds,
+            requestBytes: requestBytes,
+            responseBytes: responseBytes,
+            errorPath: request.requestedUri.path,
+            errorMessage: 'too_many_requests',
+          );
+          _log(WebGatewayLogLevel.warn, 'HTTP', '请求被并发限制拒绝', <String, Object?>{
+            'path': request.requestedUri.path,
+            'active_requests': _activeRequests,
+            'limit': _config.maxConcurrentRequests,
+          });
+          return limited;
         }
         _activeRequests++;
-        final stopwatch = Stopwatch()..start();
         var statusCode = 0;
         var responseBytes = 0;
         String? errorText;
@@ -847,10 +1100,7 @@ class WebMessagePlatformService {
           );
           final fallback = _json(
             HttpStatus.internalServerError,
-            <String, Object?>{
-              'error': 'internal_error',
-              'message': errorText,
-            },
+            <String, Object?>{'error': 'internal_error', 'message': errorText},
           );
           responseBytes = fallback.contentLength ?? 0;
           return fallback;
@@ -864,19 +1114,23 @@ class WebMessagePlatformService {
             path: request.requestedUri.path,
             statusCode: statusCode,
             durationMs: stopwatch.elapsedMilliseconds,
+            requestBytes: requestBytes,
+            responseBytes: responseBytes,
             errorPath: errorText != null ? request.requestedUri.path : null,
             errorMessage: errorText,
           );
-          final connectionInfo = request.context['shelf.io.connection_info']
-              as HttpConnectionInfo?;
+          final connectionInfo =
+              request.context['shelf.io.connection_info']
+                  as HttpConnectionInfo?;
           final level = statusCode >= 500
               ? WebGatewayLogLevel.error
               : statusCode >= 400
-                  ? WebGatewayLogLevel.warn
-                  : (_config.telemetryEnabled
-                      ? WebGatewayLogLevel.telemetry
-                      : WebGatewayLogLevel.info);
-          final shouldLog = _config.loggingEnabled ||
+              ? WebGatewayLogLevel.warn
+              : (_config.telemetryEnabled
+                    ? WebGatewayLogLevel.telemetry
+                    : WebGatewayLogLevel.info);
+          final shouldLog =
+              _config.loggingEnabled ||
               _config.telemetryEnabled ||
               statusCode >= 400;
           if (shouldLog) {
@@ -908,7 +1162,8 @@ class WebMessagePlatformService {
   /// 把 handler 包成「先鉴权后调用」的入口；401 时返回 JSON 错误。
   Future<shelf.Response> _withAuth(
     shelf.Request request,
-    Future<shelf.Response> Function(shelf.Request, _WebGatewayAuthSession) handler,
+    Future<shelf.Response> Function(shelf.Request, _WebGatewayAuthSession)
+    handler,
   ) async {
     final auth = _authorize(request);
     if (auth == null) {
@@ -944,19 +1199,21 @@ class WebMessagePlatformService {
   /// Toolbox: 列出当前已加载 MCP 服务器（含 enabled / type / 摘要）。
   Future<shelf.Response> _listMcpServersHandler() async {
     final items = _mcpController.servers
-        .map((server) => <String, Object?>{
-              'name': server.name,
-              'type': server.type.name,
-              'enabled': server.enabled,
-              'summary': server.summary,
-              'url': server.url,
-              'command': server.command,
-              'args': server.args,
-              'tool_count': _mcpController
-                  .toolCatalogFor(server.name)
-                  .tools
-                  .length,
-            })
+        .map(
+          (server) => <String, Object?>{
+            'name': server.name,
+            'type': server.type.name,
+            'enabled': server.enabled,
+            'summary': server.summary,
+            'url': server.url,
+            'command': server.command,
+            'args': server.args,
+            'tool_count': _mcpController
+                .toolCatalogFor(server.name)
+                .tools
+                .length,
+          },
+        )
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
@@ -964,15 +1221,16 @@ class WebMessagePlatformService {
   /// Toolbox: 列出已安装本地技能（来自 SkillsController）。
   Future<shelf.Response> _listSkillsHandler() async {
     final items = _skillsController.skills
-        .map((skill) => <String, Object?>{
-              'name': skill.name,
-              'description': skill.description,
-              'directory_path': skill.displayDirectoryPath,
-              'relative_directory_path': skill.relativeDirectoryPath,
-              'has_default_prompt':
-                  (skill.defaultPrompt ?? '').trim().isNotEmpty,
-              'emoji_icon': skill.emojiIcon,
-            })
+        .map(
+          (skill) => <String, Object?>{
+            'name': skill.name,
+            'description': skill.description,
+            'directory_path': skill.displayDirectoryPath,
+            'relative_directory_path': skill.relativeDirectoryPath,
+            'has_default_prompt': (skill.defaultPrompt ?? '').trim().isNotEmpty,
+            'emoji_icon': skill.emojiIcon,
+          },
+        )
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{
       'items': items,
@@ -984,16 +1242,18 @@ class WebMessagePlatformService {
   /// title / tags / created_at — 不暴露完整 content 以降低敏感信息泄露面。
   Future<shelf.Response> _listMemoriesHandler() async {
     final items = _memoryController.entries
-        .map((entry) => <String, Object?>{
-              'id': entry.id,
-              'type': entry.type,
-              'title': entry.displayTitle,
-              'preview': entry.preview,
-              'tags': entry.tags,
-              'created_at': entry.createdAtStorageValue,
-              'is_user_profile': entry.isUserProfile,
-              'is_auto_learned': entry.isAutoLearned,
-            })
+        .map(
+          (entry) => <String, Object?>{
+            'id': entry.id,
+            'type': entry.type,
+            'title': entry.displayTitle,
+            'preview': entry.preview,
+            'tags': entry.tags,
+            'created_at': entry.createdAtStorageValue,
+            'is_user_profile': entry.isUserProfile,
+            'is_auto_learned': entry.isAutoLearned,
+          },
+        )
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
@@ -1002,20 +1262,22 @@ class WebMessagePlatformService {
   /// 最近退出码 / 连续失败计数等，便于 Web 侧只读监控。
   Future<shelf.Response> _listCronsHandler() async {
     final items = _cronsController.entries
-        .map((entry) => <String, Object?>{
-              'id': entry.id,
-              'name': entry.name,
-              'description': entry.description,
-              'enabled': entry.enabled,
-              'status': entry.status.name,
-              'cron_expression': entry.cronExpression,
-              'script_type': entry.scriptType.name,
-              'tags': entry.tags,
-              'last_run_at': entry.lastRunAt?.toUtc().toIso8601String(),
-              'next_run_at': entry.nextRunAt?.toUtc().toIso8601String(),
-              'last_exit_code': entry.lastExitCode,
-              'consecutive_failures': entry.consecutiveFailures,
-            })
+        .map(
+          (entry) => <String, Object?>{
+            'id': entry.id,
+            'name': entry.name,
+            'description': entry.description,
+            'enabled': entry.enabled,
+            'status': entry.status.name,
+            'cron_expression': entry.cronExpression,
+            'script_type': entry.scriptType.name,
+            'tags': entry.tags,
+            'last_run_at': entry.lastRunAt?.toUtc().toIso8601String(),
+            'next_run_at': entry.nextRunAt?.toUtc().toIso8601String(),
+            'last_exit_code': entry.lastExitCode,
+            'consecutive_failures': entry.consecutiveFailures,
+          },
+        )
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
@@ -1048,8 +1310,7 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{
       'reduce_motion': _settingsController.reduceMotion,
       'locale': _settingsController.locale.toLanguageTag(),
-      'language_storage_value':
-          _settingsController.language.storageValue,
+      'language_storage_value': _settingsController.language.storageValue,
       'memory_enabled': _settingsController.memoryEnabled,
       'ai_message_compression_threshold_chars':
           _settingsController.aiMessageCompressionThresholdChars,
@@ -1085,8 +1346,9 @@ class WebMessagePlatformService {
     if (body.containsKey('ai_message_compression_threshold_chars')) {
       final raw = body['ai_message_compression_threshold_chars'];
       if (raw is num) {
-        await _settingsController
-            .updateAiMessageCompressionThresholdChars(raw.toInt());
+        await _settingsController.updateAiMessageCompressionThresholdChars(
+          raw.toInt(),
+        );
         updated['ai_message_compression_threshold_chars'] =
             _settingsController.aiMessageCompressionThresholdChars;
       }
@@ -1095,8 +1357,7 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{
       'updated': updated,
       'reduce_motion': _settingsController.reduceMotion,
-      'language_storage_value':
-          _settingsController.language.storageValue,
+      'language_storage_value': _settingsController.language.storageValue,
       'ai_message_compression_threshold_chars':
           _settingsController.aiMessageCompressionThresholdChars,
     });
@@ -1151,6 +1412,10 @@ class WebMessagePlatformService {
               'protocol': item.protocolLabel,
               'model_id': item.modelId,
               'label': item.label,
+              'supports_attachments': item.supportsAttachments,
+              'supports_image_generation': item.supportsImageGeneration,
+              'supports_video_generation': item.supportsVideoGeneration,
+              'supports_audio_generation': item.supportsAudioGeneration,
             },
           )
           .toList(growable: false),
@@ -1175,7 +1440,11 @@ class WebMessagePlatformService {
         _log(WebGatewayLogLevel.warn, 'AUTH', '登录失败', <String, Object?>{
           'username': username,
           'device_id': deviceId,
-          'remote_ip': (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)?.remoteAddress.address,
+          'remote_ip':
+              (request.context['shelf.io.connection_info']
+                      as HttpConnectionInfo?)
+                  ?.remoteAddress
+                  .address,
         });
         return _json(HttpStatus.unauthorized, <String, Object?>{
           'error': 'invalid_credentials',
@@ -1191,7 +1460,11 @@ class WebMessagePlatformService {
       deviceName: _string(body['device_name'], ''),
       devicePlatform: _string(body['device_platform'], ''),
       loginAt: DateTime.now().toUtc(),
-      remoteAddress: (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)?.remoteAddress.address ?? '',
+      remoteAddress:
+          (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
+              ?.remoteAddress
+              .address ??
+          '',
       userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
     );
     _authSessions[token] = session;
@@ -1215,12 +1488,15 @@ class WebMessagePlatformService {
       50,
       math.max(
         1,
-        int.tryParse(request.requestedUri.queryParameters['page_size'] ?? '') ?? 10,
+        int.tryParse(request.requestedUri.queryParameters['page_size'] ?? '') ??
+            10,
       ),
     );
     final canAccessAll = _authCanAccessAllSessions(auth);
-    final sourceQuery = request.requestedUri.queryParameters['source']?.trim() ?? '';
-    final deviceQuery = request.requestedUri.queryParameters['device_id']?.trim() ?? '';
+    final sourceQuery =
+        request.requestedUri.queryParameters['source']?.trim() ?? '';
+    final deviceQuery =
+        request.requestedUri.queryParameters['device_id']?.trim() ?? '';
     final source = canAccessAll
         ? sourceQuery
         : (sourceQuery.isEmpty ? auth.source.storageValue : sourceQuery);
@@ -1376,9 +1652,10 @@ class WebMessagePlatformService {
       'Web 重命名会话 ${session.id}',
       <String, Object?>{'title': title, 'device_id': auth.deviceId},
     );
-    return _json(ok ? HttpStatus.ok : HttpStatus.conflict,
-      <String, Object?>{'ok': ok, 'session': _sessionSummary(updated)},
-    );
+    return _json(ok ? HttpStatus.ok : HttpStatus.conflict, <String, Object?>{
+      'ok': ok,
+      'session': _sessionSummary(updated),
+    });
   }
 
   Future<shelf.Response> _deleteSession(
@@ -1404,9 +1681,10 @@ class WebMessagePlatformService {
       'Web 删除会话 ${session.id}',
       <String, Object?>{'title': session.title, 'device_id': auth.deviceId},
     );
-    return _json(ok ? HttpStatus.ok : HttpStatus.conflict,
-      <String, Object?>{'ok': ok, 'deleted_session_id': session.id},
-    );
+    return _json(ok ? HttpStatus.ok : HttpStatus.conflict, <String, Object?>{
+      'ok': ok,
+      'deleted_session_id': session.id,
+    });
   }
 
   Future<shelf.Response> _listMessages(
@@ -1427,10 +1705,21 @@ class WebMessagePlatformService {
         int.tryParse(request.requestedUri.queryParameters['limit'] ?? '') ?? 80,
       ),
     );
-    final offset = math.max(
+    final rawOffset = math.max(
       0,
       int.tryParse(request.requestedUri.queryParameters['offset'] ?? '') ?? 0,
     );
+    final tail =
+        _truthy(request.requestedUri.queryParameters['tail']) ||
+        request.requestedUri.queryParameters['window'] == 'tail';
+    var offset = rawOffset;
+    if (tail) {
+      final probe = await _sessionController.store.loadMessages(
+        session.id,
+        limit: 1,
+      );
+      offset = math.max(0, probe.totalCount - limit);
+    }
     final page = await _sessionController.store.loadMessages(
       session.id,
       limit: limit,
@@ -1444,7 +1733,10 @@ class WebMessagePlatformService {
       'offset': offset,
       'limit': limit,
       'total': page.totalCount,
-      'has_more': page.hasMore,
+      'has_more': tail ? offset > 0 : page.hasMore,
+      'has_older': offset > 0,
+      'has_newer': offset + page.messages.length < page.totalCount,
+      'window': tail ? 'tail' : 'offset',
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
       'last_error': _sessionController.lastErrorMessageForSession(session.id),
     });
@@ -1563,6 +1855,15 @@ class WebMessagePlatformService {
       });
     }
     final creationRequest = _creationRequestFor(conversationMode);
+    if (!_modelSupportsConversationMode(model, conversationMode)) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'model_mode_not_supported',
+        'mode': conversationMode.storageValue,
+        'model_id': model.modelId,
+        'message':
+            '当前模型 ${model.modelId} 不支持 ${conversationMode.storageValue} 模式，请切换到具备对应生成能力的模型。',
+      });
+    }
     final responseModalities = switch (conversationMode) {
       WebGatewayConversationMode.image => const <String>['image'],
       WebGatewayConversationMode.video => const <String>['video'],
@@ -1594,30 +1895,24 @@ class WebMessagePlatformService {
             sessionId: session.id,
             content: content,
             model: model,
-            runtimeContext: _buildRuntimeContext(templateId: session.templateId),
+            runtimeContext: _buildRuntimeContext(
+              templateId: session.templateId,
+            ),
             attachmentFilePaths: attachments,
             responseModalities: responseModalities,
             creationRequest: creationRequest,
             denyCommandRules: _settingsController.aiDenyCommandRules,
             requireWriteCommandConfirmation: false,
-            userMessageMetadata: _metadataForRequest(
-              auth,
-              request,
-              <String, Object?>{
-                'sent_via': 'web_api',
-                'conversation_mode': conversationMode.storageValue,
-                'model_key': _modelKey(model.id, model.modelId),
-                'attachment_count': attachments.length,
-              },
-            ),
+            userMessageMetadata:
+                _metadataForRequest(auth, request, <String, Object?>{
+                  'sent_via': 'web_api',
+                  'conversation_mode': conversationMode.storageValue,
+                  'model_key': _modelKey(model.id, model.modelId),
+                  'attachment_count': attachments.length,
+                }),
           )
           .catchError((Object error, StackTrace stack) {
-            silentLog(
-              'WebGateway',
-              'sendMessage.async',
-              error,
-              stack,
-            );
+            silentLog('WebGateway', 'sendMessage.async', error, stack);
             return false;
           }),
     );
@@ -1687,10 +1982,9 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    final ok = await _sessionController.deleteMessages(
-      <String>[messageId],
-      sessionId: session.id,
-    );
+    final ok = await _sessionController.deleteMessages(<String>[
+      messageId,
+    ], sessionId: session.id);
     _log(
       WebGatewayLogLevel.info,
       'MESSAGE',
@@ -1768,12 +2062,22 @@ class WebMessagePlatformService {
         (s) => s.id == sessionId,
         orElse: () => session,
       );
-      final messages = live.displayMessages
+      final allMessages = live.displayMessages;
+      final offset = math.max(0, allMessages.length - _sseMessageWindowSize);
+      final messages = allMessages
+          .skip(offset)
           .map(_messageJson)
           .toList(growable: false);
       return <String, Object?>{
         'session': _sessionSummary(live),
         'messages': messages,
+        'message_window': <String, Object?>{
+          'offset': offset,
+          'limit': _sseMessageWindowSize,
+          'total': allMessages.length,
+          'has_older': offset > 0,
+          'has_newer': false,
+        },
         'send_phase': _sessionController.sendPhaseForSession(sessionId).name,
         'last_error': _sessionController.lastErrorMessageForSession(sessionId),
         'can_stop': _sessionController.canStopResponding(sessionId),
@@ -1803,9 +2107,9 @@ class WebMessagePlatformService {
           final snapshot = buildSnapshot();
           final hash =
               '${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['messages'] as List).map((m) {
-            final mm = m as Map<String, Object?>;
-            return '${mm['id']}:${(mm['content'] as String?)?.length ?? 0}';
-          }).join(',')}';
+                final mm = m as Map<String, Object?>;
+                return '${mm['id']}:${(mm['content'] as String?)?.length ?? 0}';
+              }).join(',')}';
           if (hash == lastSnapshotHash) return;
           lastSnapshotHash = hash;
           emit('snapshot', snapshot);
@@ -1922,11 +2226,14 @@ class WebMessagePlatformService {
     void addCandidate(Object? raw) {
       if (raw is String) {
         final s = raw.trim();
-        if (s.isNotEmpty && !s.startsWith('http://') && !s.startsWith('https://')) {
+        if (s.isNotEmpty &&
+            !s.startsWith('http://') &&
+            !s.startsWith('https://')) {
           out.add(s);
         }
       }
     }
+
     for (final msg in session.displayMessages) {
       final meta = msg.metadata;
       // 用户附件: [{kind, path}] 或 [{file_path}]
@@ -1988,8 +2295,8 @@ class WebMessagePlatformService {
         deviceName: 'OpenHand Web',
         devicePlatform: 'web',
         loginAt: DateTime.now().toUtc(),
-        remoteAddress: (request.context['shelf.io.connection_info']
-                    as HttpConnectionInfo?)
+        remoteAddress:
+            (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
                 ?.remoteAddress
                 .address ??
             '',
@@ -2082,7 +2389,9 @@ class WebMessagePlatformService {
       });
     }
     final relative = request.requestedUri.queryParameters['path'] ?? '';
-    final query = (request.requestedUri.queryParameters['q'] ?? '').trim().toLowerCase();
+    final query = (request.requestedUri.queryParameters['q'] ?? '')
+        .trim()
+        .toLowerCase();
     final typeFilter = (request.requestedUri.queryParameters['type'] ?? 'all')
         .trim()
         .toLowerCase();
@@ -2279,18 +2588,20 @@ class WebMessagePlatformService {
       }
       await Directory(resolved).delete();
     } else {
-      if (!_workspaceExtensionAllowed(resolved, _workspaceAllowedExtensions())) {
+      if (!_workspaceExtensionAllowed(
+        resolved,
+        _workspaceAllowedExtensions(),
+      )) {
         return _json(HttpStatus.forbidden, <String, Object?>{
           'error': 'file_extension_not_allowed',
         });
       }
       await File(resolved).delete();
     }
-    _log(WebGatewayLogLevel.warn, 'FILES', 'Web 删除项目文件',
-        <String, Object?>{
-          'path': _relativeWorkspacePath(resolved),
-          'kind': type.toString(),
-        });
+    _log(WebGatewayLogLevel.warn, 'FILES', 'Web 删除项目文件', <String, Object?>{
+      'path': _relativeWorkspacePath(resolved),
+      'kind': type.toString(),
+    });
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
       'path': _relativeWorkspacePath(resolved),
@@ -2309,15 +2620,17 @@ class WebMessagePlatformService {
         deviceId: deviceId,
         deviceMacAddress: request.headers['x-openhand-device-mac'] ?? '',
         deviceName: request.headers['x-openhand-device-name'] ?? '',
-        devicePlatform:
-            request.headers['x-openhand-device-platform'] ?? '',
+        devicePlatform: request.headers['x-openhand-device-platform'] ?? '',
         loginAt: DateTime.now().toUtc(),
-        remoteAddress: (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)?.remoteAddress.address ?? '',
+        remoteAddress:
+            (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
+                ?.remoteAddress
+                .address ??
+            '',
         userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
       );
     }
-    final authHeader =
-        request.headers[HttpHeaders.authorizationHeader] ?? '';
+    final authHeader = request.headers[HttpHeaders.authorizationHeader] ?? '';
     if (!authHeader.startsWith('Bearer ')) return null;
     final token = authHeader.substring('Bearer '.length).trim();
     if (token.isEmpty) return null;
@@ -2378,6 +2691,12 @@ class WebMessagePlatformService {
       'updated_at': session.updatedAt.toUtc().toIso8601String(),
       'mode': session.mode.storageValue,
       'message_count': displayMessages.length,
+      'statistics': session.statistics.toJson(),
+      'total_tokens': session.statistics.totalTokens,
+      'total_prompt_tokens': session.statistics.totalPromptTokens,
+      'total_completion_tokens': session.statistics.totalCompletionTokens,
+      'tool_message_count': session.statistics.toolMessageCount,
+      'compression_point_count': session.statistics.compressionPointCount,
       'last_message_preview': last == null
           ? ''
           : _truncate(last.content.replaceAll('\n', ' '), 160),
@@ -2486,6 +2805,7 @@ class WebMessagePlatformService {
             !_config.allowedModelKeys.contains(key)) {
           continue;
         }
+        final resolved = provider.copyWith(modelId: modelId);
         result.add(
           _AllowedWebModel(
             key: key,
@@ -2494,6 +2814,19 @@ class WebMessagePlatformService {
             protocolLabel: provider.protocolType.storageValue,
             modelId: modelId,
             label: '${provider.providerLabel} / $modelId',
+            supportsAttachments: resolved.resolvedSupportsAttachments,
+            supportsImageGeneration:
+                AiImageGenerationService.supportsImageGenerationForModel(
+                  resolved,
+                ),
+            supportsVideoGeneration:
+                AiImageGenerationService.supportsVideoGenerationForModel(
+                  resolved,
+                ),
+            supportsAudioGeneration:
+                AiImageGenerationService.supportsAudioGenerationForModel(
+                  resolved,
+                ),
           ),
         );
       }
@@ -2551,6 +2884,22 @@ class WebMessagePlatformService {
         mode: AiCreationMode.deepResearch,
       ),
       WebGatewayConversationMode.normal => AiCreationRequest.none,
+    };
+  }
+
+  bool _modelSupportsConversationMode(
+    AiModelConfig model,
+    WebGatewayConversationMode mode,
+  ) {
+    return switch (mode) {
+      WebGatewayConversationMode.normal ||
+      WebGatewayConversationMode.deepResearch => true,
+      WebGatewayConversationMode.image =>
+        AiImageGenerationService.supportsImageGenerationForModel(model),
+      WebGatewayConversationMode.video =>
+        AiImageGenerationService.supportsVideoGenerationForModel(model),
+      WebGatewayConversationMode.audio =>
+        AiImageGenerationService.supportsAudioGenerationForModel(model),
     };
   }
 
@@ -2733,7 +3082,12 @@ class WebMessagePlatformService {
       final html = await rootBundle.loadString('assets/web/index.html');
       return _html(html);
     } catch (e, stack) {
-      silentLog('web_gateway_service', '_serveWebShell.missing_bundle', e, stack);
+      silentLog(
+        'web_gateway_service',
+        '_serveWebShell.missing_bundle',
+        e,
+        stack,
+      );
       return _html(_missingBundleHtml(), status: HttpStatus.serviceUnavailable);
     }
   }
@@ -2752,7 +3106,10 @@ class WebMessagePlatformService {
   /// 静态资源（app.js / app.css / chunks/* / assets/*）从 rootBundle 取，
   /// 缺失或读取失败 → 404。`Cache-Control: max-age=0,must-revalidate` 保证
   /// 重新构建后旧浏览器拿到的是新版本（文件名是确定性的，没有 hash）。
-  Future<shelf.Response> _serveBundleAsset(String key, String contentType) async {
+  Future<shelf.Response> _serveBundleAsset(
+    String key,
+    String contentType,
+  ) async {
     try {
       final data = await rootBundle.load(key);
       final bytes = data.buffer.asUint8List(
@@ -3039,7 +3396,31 @@ class WebMessagePlatformService {
     final bytes = List<int>.generate(32, (_) => random.nextInt(256));
     return base64UrlEncode(bytes).replaceAll('=', '');
   }
+}
 
+bool _truthy(String? raw) {
+  final value = raw?.trim().toLowerCase() ?? '';
+  return value == '1' || value == 'true' || value == 'yes' || value == 'tail';
+}
+
+class _RequestObservation {
+  const _RequestObservation({
+    required this.atMs,
+    required this.method,
+    required this.path,
+    required this.statusCode,
+    required this.durationMs,
+    required this.requestBytes,
+    required this.responseBytes,
+  });
+
+  final int atMs;
+  final String method;
+  final String path;
+  final int statusCode;
+  final int durationMs;
+  final int requestBytes;
+  final int responseBytes;
 }
 
 class _AllowedWebModel {
@@ -3050,6 +3431,10 @@ class _AllowedWebModel {
     required this.protocolLabel,
     required this.modelId,
     required this.label,
+    required this.supportsAttachments,
+    required this.supportsImageGeneration,
+    required this.supportsVideoGeneration,
+    required this.supportsAudioGeneration,
   });
 
   final String key;
@@ -3058,6 +3443,10 @@ class _AllowedWebModel {
   final String protocolLabel;
   final String modelId;
   final String label;
+  final bool supportsAttachments;
+  final bool supportsImageGeneration;
+  final bool supportsVideoGeneration;
+  final bool supportsAudioGeneration;
 }
 
 class _ParsedModelKey {
@@ -3104,5 +3493,3 @@ String _normalizeWorkspaceExtension(String value) {
   final safe = withoutLeadingDot.replaceAll(RegExp(r'[^a-z0-9_+-]'), '');
   return safe.isEmpty ? '' : '.$safe';
 }
-
-

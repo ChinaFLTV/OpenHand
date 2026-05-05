@@ -1,8 +1,8 @@
 // 单会话详情页：会话头 / 消息分页 / Composer 发送（Stage 4 接入）。
 //
 // 设计要点：
-// 1. 首屏拿最新一页（offset=0, limit=80）；列表按 created_at 升序展示。
-// 2. 「加载更早」按钮：以当前已加载条数为 offset 增量拉一页，append 到顶部。
+// 1. 首屏拿最新一页（tail=1, limit=80）；列表按 created_at 升序展示。
+// 2. 「加载更早」按钮 / 下拉：按当前已加载窗口 offset 拉取更早一页，prepend 到顶部。
 // 3. 发送：POST /api/sessions/:id/messages 形成 user 消息；service 自身维护流式，
 //    前端进入 1.2s 轮询循环刷新最新一页，直到 send_phase == idle。
 // 4. 停止：POST /api/sessions/:id/stop（service 内部调用 AiSessionController.stopResponding）。
@@ -11,7 +11,7 @@
 //
 // 服务端契约：
 //   GET   /api/sessions/:id
-//   GET   /api/sessions/:id/messages?limit=&offset= → {items, offset, limit, total, has_more, send_phase, last_error}
+//   GET   /api/sessions/:id/messages?limit=&offset=&tail= → {items, offset, limit, total, has_more, send_phase, last_error}
 //   POST  /api/sessions/:id/messages  body {content, mode, model_key, attachments}
 //   POST  /api/sessions/:id/stop     body {}
 
@@ -36,10 +36,8 @@ import { subscribeSessionEvents } from '../api/session_events';
 import { listSessions } from '../api/sessions';
 import { SessionGoneDialog } from '../components/SessionGoneDialog';
 import { t } from '../i18n';
-import { MenuSelect } from '../components/MenuSelect';
 import { useAuth } from '../state/auth';
 import type { ApiMetaModel } from '../api/meta';
-import { TopBar } from '../components/TopBar';
 import { MessageCard } from '../components/MessageCard';
 import { PlanTimeline } from '../components/PlanTimeline';
 import { notifyIfHidden } from '../services/pwa';
@@ -47,7 +45,9 @@ import {
   SessionTopBar,
   type PermissionMode,
 } from '../components/SessionTopBar';
-import { pushRecentModel } from '../components/ModelPickerDialog';
+import { ModelPickerDialog, pushRecentModel } from '../components/ModelPickerDialog';
+import { PullIndicator } from '../components/PullIndicator';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 const PAGE_SIZE = 80;
 
@@ -97,6 +97,22 @@ function mergeStream(
   return identical ? prev : out;
 }
 
+function mergeLatestWindow(
+  prev: SessionMessage[],
+  latest: SessionMessage[],
+): SessionMessage[] {
+  if (prev.length === 0) return latest;
+  if (latest.length === 0) return prev;
+  const firstIndex = prev.findIndex((item) => item.id === latest[0]!.id);
+  if (firstIndex >= 0) {
+    const prefix = prev.slice(0, firstIndex);
+    return [...prefix, ...mergeStream(prev.slice(firstIndex), latest)];
+  }
+  const latestIds = new Set(latest.map((item) => item.id));
+  const retained = prev.filter((item) => !latestIds.has(item.id));
+  return [...retained, ...latest];
+}
+
 function sameMetadata(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (a == null || b == null) return false;
@@ -126,6 +142,23 @@ function sendPhaseLabel(phase: string): string {
   }
 }
 
+function modelSupportsMode(model: ApiMetaModel | undefined, mode: string): boolean {
+  if (!model) return mode === 'normal' || mode === 'deep_research';
+  switch (mode) {
+    case 'normal':
+    case 'deep_research':
+      return true;
+    case 'image':
+      return model.supports_image_generation !== false;
+    case 'video':
+      return model.supports_video_generation !== false;
+    case 'audio':
+      return model.supports_audio_generation !== false;
+    default:
+      return true;
+  }
+}
+
 interface RouteParams {
   id?: string;
 }
@@ -135,10 +168,13 @@ export function SessionDetailPage() {
   const location = useLocation();
   const routeMatch = useRoute() as { params?: RouteParams } | undefined;
   const sessionId = routeMatch?.params?.id ?? '';
+  const mainRef = useRef<HTMLElement | null>(null);
+  const messagesRef = useRef<SessionMessage[]>([]);
 
   const [detail, setDetail] = useState<SessionDetailResponse | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
-  // total - 已加载条数 = 还能往「更早」加载多少条
+  // 当前本地 messages[0] 在服务端 oldest-first 序列里的 offset；0 表示历史已加载到头。
+  const [windowOffset, setWindowOffset] = useState(0);
   const [totalKnown, setTotalKnown] = useState(0);
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -164,6 +200,9 @@ export function SessionDetailPage() {
   const [composerError, setComposerError] = useState<string | null>(null);
   const [stopping, setStopping] = useState<boolean>(false);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('ask');
+  const [composerCollapsed, setComposerCollapsed] = useState(false);
+  const [autoFollow, setAutoFollow] = useState(true);
+  const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const messagesAbortRef = useRef<AbortController | null>(null);
@@ -260,6 +299,10 @@ export function SessionDetailPage() {
     };
   }, [unreadCount]);
 
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // messages 变化 → 自动跟随 / 累计未读
   useEffect(() => {
     if (messages.length === 0) {
@@ -282,7 +325,7 @@ export function SessionDetailPage() {
     }
     if (tail.id === lastTailIdRef.current) return;
     lastTailIdRef.current = tail.id;
-    if (isNearBottomRef.current) {
+    if (autoFollow && isNearBottomRef.current) {
       // defer 一帧, 等 DOM 把新卡片画上
       requestAnimationFrame(() => {
         if (typeof window === 'undefined') return;
@@ -291,7 +334,7 @@ export function SessionDetailPage() {
     } else {
       setUnreadCount((n) => n + 1);
     }
-  }, [messages]);
+  }, [messages, autoFollow]);
 
   // sendPhase 变化 → 远端冲突探测
   useEffect(() => {
@@ -345,14 +388,19 @@ export function SessionDetailPage() {
     detailAbortRef.current = ctrl;
     setLoadingDetail(true);
     setError(null);
+    setMessages([]);
+    setWindowOffset(0);
+    setTotalKnown(0);
+    lastTailIdRef.current = null;
     Promise.all([
       getSession(sessionId),
-      listMessages(sessionId, { limit: PAGE_SIZE, offset: 0 }),
+      listMessages(sessionId, { limit: PAGE_SIZE, tail: true }),
     ])
       .then(([d, m]) => {
         if (ctrl.signal.aborted) return;
         setDetail(d);
         setMessages([...m.items]);
+        setWindowOffset(m.offset);
         setTotalKnown(m.total);
         setSendPhase(m.send_phase || d.runtime.send_phase || 'idle');
         setLastError(m.last_error ?? d.runtime.last_error ?? null);
@@ -374,8 +422,11 @@ export function SessionDetailPage() {
     if (!sessionId || refreshing) return;
     setRefreshing(true);
     try {
-      const m = await listMessages(sessionId, { limit: PAGE_SIZE, offset: 0 });
-      setMessages([...m.items]);
+      const m = await listMessages(sessionId, { limit: PAGE_SIZE, tail: true });
+      setMessages((prev) => mergeLatestWindow(prev, m.items));
+      setWindowOffset((prev) => (
+        messagesRef.current.length === 0 ? m.offset : Math.min(prev, m.offset)
+      ));
       setTotalKnown(m.total);
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
@@ -390,17 +441,32 @@ export function SessionDetailPage() {
 
   async function loadOlder(): Promise<void> {
     if (loadingOlder) return;
-    if (messages.length >= totalKnown) return;
+    if (windowOffset <= 0) return;
     setLoadingOlder(true);
+    const beforeHeight = typeof document !== 'undefined'
+      ? document.documentElement.scrollHeight
+      : 0;
+    const beforeY = typeof window !== 'undefined' ? window.scrollY : 0;
     try {
+      const offset = Math.max(0, windowOffset - PAGE_SIZE);
       const m = await listMessages(sessionId, {
-        limit: PAGE_SIZE,
-        offset: messages.length,
+        limit: Math.max(1, windowOffset - offset),
+        offset,
       });
-      setMessages((prev) => [...m.items, ...prev]);
+      setMessages((prev) => {
+        const existing = new Set(prev.map((item) => item.id));
+        const incoming = m.items.filter((item) => !existing.has(item.id));
+        return [...incoming, ...prev];
+      });
+      setWindowOffset(m.offset);
       setTotalKnown(m.total);
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
+      requestAnimationFrame(() => {
+        if (typeof window === 'undefined' || typeof document === 'undefined') return;
+        const delta = document.documentElement.scrollHeight - beforeHeight;
+        window.scrollTo({ top: beforeY + delta, behavior: 'auto' });
+      });
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
@@ -448,7 +514,14 @@ export function SessionDetailPage() {
         // 这是 #9 "感觉不像流式" 的关键修复：之前 setMessages([...snap.messages]) 把
         // 整个数组的 reference 全换了，所有 MessageCard 重建一遍 markdown / 高亮，
         // 80ms 一次的 SSE snapshot 就形成肉眼可见的"分段抖动"。
-        setMessages((prev) => mergeStream(prev, snap.messages));
+        const snapOffset = snap.message_window?.offset ?? Math.max(
+          0,
+          (snap.session.message_count ?? snap.messages.length) - snap.messages.length,
+        );
+        setMessages((prev) => mergeLatestWindow(prev, snap.messages));
+        setWindowOffset((prev) => (
+          messagesRef.current.length === 0 ? snapOffset : Math.min(prev, snapOffset)
+        ));
         setTotalKnown(snap.session.message_count ?? snap.messages.length);
         setSendPhase(snap.send_phase);
         setLastError(snap.last_error);
@@ -478,11 +551,20 @@ export function SessionDetailPage() {
     () => meta?.conversation_modes ?? ['normal'],
     [meta],
   );
+  const selectedModel = useMemo(
+    () => allowedModels.find((model) => model.key === composerModelKey),
+    [allowedModels, composerModelKey],
+  );
+  const modelAllowedModes = useMemo(() => {
+    const filtered = allowedModes.filter((mode) => modelSupportsMode(selectedModel, mode));
+    return filtered.length > 0 ? filtered : ['normal'];
+  }, [allowedModes, selectedModel]);
   const allowedMessageTypes = useMemo<string[]>(
     () => meta?.message_types ?? ['text', 'attachment'],
     [meta],
   );
-  const attachmentsAllowed = allowedMessageTypes.includes('attachment');
+  const attachmentsAllowed =
+    allowedMessageTypes.includes('attachment') && selectedModel?.supports_attachments !== false;
   const textAllowed = allowedMessageTypes.includes('text');
 
   useEffect(() => {
@@ -492,10 +574,10 @@ export function SessionDetailPage() {
   }, [allowedModels]);
 
   useEffect(() => {
-    if (allowedModes.length > 0 && !allowedModes.includes(composerMode)) {
-      setComposerMode(allowedModes[0]!);
+    if (modelAllowedModes.length > 0 && !modelAllowedModes.includes(composerMode)) {
+      setComposerMode(modelAllowedModes[0]!);
     }
-  }, [allowedModes]);
+  }, [modelAllowedModes, composerMode]);
 
   // 轮询：仅作 SSE 兜底——若 SSE 实时通道存活则跳过；否则在助手回复期间
   // 每 1.5s 拉一次最新一页 + send_phase，避免 SSE 故障下用户永远看不到更新。
@@ -522,16 +604,15 @@ export function SessionDetailPage() {
       try {
         const m = await listMessages(sessionId, {
           limit: PAGE_SIZE,
-          offset: 0,
+          tail: true,
         });
         if (cancelled) return;
-        // 只覆盖最新一页；不动「加载更早」拉过来的尾巴。
-        setMessages((prev) => {
-          if (prev.length <= m.items.length) return [...m.items];
-          // 已加载更多历史 → 用旧的前缀 + 最新一页
-          const tail = prev.slice(0, prev.length - m.items.length);
-          return [...tail, ...m.items];
-        });
+        const offset = m.offset ?? Math.max(0, m.total - m.items.length);
+        // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
+        setMessages((prev) => mergeLatestWindow(prev, m.items));
+        setWindowOffset((prev) => (
+          messagesRef.current.length === 0 ? offset : Math.min(prev, offset)
+        ));
         setTotalKnown(m.total);
         setSendPhase(m.send_phase);
         setLastError(m.last_error);
@@ -691,6 +772,12 @@ export function SessionDetailPage() {
       setComposerError(t('composer.error.modelMissing', '请选择模型'));
       return;
     }
+    if (!modelSupportsMode(selectedModel, composerMode)) {
+      setComposerError(
+        t('composer.error.modeUnsupported', '当前模型不支持所选模式，请切换模型或模式后再发送'),
+      );
+      return;
+    }
     setComposerSending(true);
     setComposerError(null);
     // 标记「这是本地刚刚发起的 send」, 抑制后续 sendPhase running 触发远端冲突 banner
@@ -713,11 +800,12 @@ export function SessionDetailPage() {
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       if (e instanceof ApiError) {
-        const body = e.body as { error?: string } | null;
+        const body = e.body as { error?: string; message?: string } | null;
         setComposerError(
-          t('composer.error.send', '发送失败：HTTP ') +
-            String(e.status) +
-            (body?.error ? ` (${body.error})` : ''),
+          body?.message ||
+            t('composer.error.send', '发送失败：HTTP ') +
+              String(e.status) +
+              (body?.error ? ` (${body.error})` : ''),
         );
       } else {
         setComposerError(
@@ -748,7 +836,18 @@ export function SessionDetailPage() {
   }
 
   const session = detail?.session;
-  const remainingOlder = Math.max(0, totalKnown - messages.length);
+  const remainingOlder = windowOffset;
+  const pull = usePullToRefresh(mainRef, {
+    enabled: !loadingDetail && !loadingOlder,
+    onRefresh: async () => {
+      if (remainingOlder > 0) {
+        await loadOlder();
+      } else {
+        await refresh();
+      }
+    },
+    activationDistance: 84,
+  });
 
   // 注意：服务端按 created_at 升序返回（store loadMessages 默认升序），
   // 直接渲染即是「上旧下新」。如果出现倒序问题，这里做一次按 created_at 排序兜底。
@@ -772,18 +871,27 @@ export function SessionDetailPage() {
   }
 
   const subtitle = session
-    ? `${session.template_name || session.template_id} · ${
+    ? [
+        session.template_name || session.template_id,
         session.mode === 'plan'
           ? t('sessions.mode.plan', 'Plan')
-          : t('sessions.mode.chat', '对话')
-      } · ${totalKnown} ${t('sessions.messageUnit', '条消息')}`
+          : t('sessions.mode.chat', '对话'),
+        `${totalKnown} ${t('sessions.messageUnit', '条消息')}`,
+        session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : '',
+        session.tool_message_count ? `${session.tool_message_count} tool` : '',
+        session.compression_point_count ? `${session.compression_point_count} compress` : '',
+      ].filter(Boolean).join(' · ')
     : t('detail.loading', '加载会话中…');
 
   return (
-    <main class="min-h-screen px-6 py-8" style={{ background: 'var(--m3-surface)' }}>
+    <main ref={mainRef} class="min-h-screen px-6 py-8" style={{ background: 'var(--m3-surface)' }}>
+      <PullIndicator
+        pulled={pull.pulled}
+        refreshing={pull.refreshing}
+        willRelease={pull.willRelease}
+        activationDistance={84}
+      />
       <div class="mx-auto max-w-3xl">
-        {/* 全局 TopBar (品牌/语言/导航) — 独立于会话操作 */}
-        <TopBar compact subtitle="" />
         <SessionTopBar
           title={session?.title || t('sessions.untitled', '未命名会话')}
           subtitle={subtitle}
@@ -800,7 +908,7 @@ export function SessionDetailPage() {
               setLastError(e instanceof Error ? e.message : String(e));
             }
           }}
-          modes={allowedModes}
+          modes={modelAllowedModes}
           mode={composerMode}
           onModeChange={setComposerMode}
           models={allowedModels}
@@ -1003,53 +1111,110 @@ export function SessionDetailPage() {
             boxShadow: 'var(--m3-elev-1)',
           }}
         >
-          <div class="flex flex-wrap gap-3 mb-2">
-            <label
-              class="flex flex-col text-xs gap-1"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => setShowComposerModelPicker(true)}
+              disabled={composerSending || allowedModels.length === 0}
+              class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm flex items-center gap-1.5 disabled:opacity-50 min-w-0"
+              style={{
+                border: '1px solid var(--m3-outline)',
+                color: 'var(--m3-on-surface)',
+                background: 'var(--m3-surface)',
+                maxWidth: '260px',
+              }}
+              title={t('composer.model', '模型')}
             >
-              {t('composer.model', '模型')}
-              <MenuSelect
-                value={composerModelKey}
-                onChange={setComposerModelKey}
-                disabled={composerSending || allowedModels.length === 0}
-                minWidth={240}
-                options={
-                  allowedModels.length === 0
-                    ? [{ value: '', label: t('composer.modelEmpty', '主控制台未配置模型') }]
-                    : allowedModels.map((m) => ({ value: m.key, label: `${m.provider} · ${m.label}` }))
-                }
-              />
-            </label>
-            <label
-              class="flex flex-col text-xs gap-1"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+              <span aria-hidden>✦</span>
+              <span class="truncate">
+                {selectedModel?.model_id || selectedModel?.label || t('composer.modelEmpty', '主控制台未配置模型')}
+              </span>
+            </button>
+
+            <div
+              class="flex items-center gap-1 rounded-m3-sm p-0.5"
+              style={{
+                background: 'var(--m3-surface)',
+                border: '1px solid var(--m3-outline)',
+              }}
+              aria-label={t('composer.mode', '模式')}
             >
-              {t('composer.mode', '模式')}
-              <MenuSelect
-                value={composerMode}
-                onChange={setComposerMode}
-                disabled={composerSending}
-                minWidth={160}
-                options={allowedModes.map((m) => ({
-                  value: m,
-                  label: m === 'normal'
-                    ? t('composer.mode.normal', '普通')
-                    : m === 'plan'
-                      ? t('composer.mode.plan', 'Plan')
-                      : m === 'image'
-                        ? t('composer.mode.image', '图像')
-                        : m === 'video'
-                          ? t('composer.mode.video', '视频')
-                          : m === 'audio'
-                            ? t('composer.mode.audio', '音频')
-                            : m,
-                }))}
-              />
-            </label>
+              {modelAllowedModes.map((m) => {
+                const active = m === composerMode;
+                const label = m === 'normal'
+                  ? t('composer.mode.normal', '普通')
+                  : m === 'image'
+                    ? t('composer.mode.image', '图像')
+                    : m === 'video'
+                      ? t('composer.mode.video', '视频')
+                      : m === 'audio'
+                        ? t('composer.mode.audio', '音频')
+                        : m;
+                const icon = m === 'image' ? '🖼' : m === 'video' ? '🎬' : m === 'audio' ? '🎙' : '💬';
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setComposerMode(m)}
+                    disabled={composerSending || active}
+                    class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm disabled:opacity-90"
+                    style={{
+                      background: active ? 'var(--m3-primary)' : 'transparent',
+                      color: active ? 'var(--m3-on-primary)' : 'var(--m3-on-surface-variant)',
+                    }}
+                    title={label}
+                  >
+                    <span aria-hidden>{icon}</span>
+                    <span class="ml-1 hidden sm:inline">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPermissionMode((cur) => cur === 'ask' ? 'auto' : cur === 'auto' ? 'normal' : 'ask');
+              }}
+              class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
+              style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)' }}
+              title={t('topbar.perm.title', '权限模式')}
+            >
+              {permissionMode === 'ask' ? '❓' : permissionMode === 'auto' ? '⚡' : '🛡'}
+              <span class="ml-1 hidden sm:inline">
+                {permissionMode === 'ask'
+                  ? t('topbar.perm.ask', '每次询问')
+                  : permissionMode === 'auto'
+                    ? t('topbar.perm.auto', '自动放行')
+                    : t('topbar.perm.normal', '正常')}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAutoFollow((v) => !v)}
+              class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
+              style={{
+                border: '1px solid var(--m3-outline)',
+                color: autoFollow ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)',
+              }}
+              title={t('composer.autoFollow', '自动跟随到底部')}
+            >
+              ↓<span class="ml-1 hidden sm:inline">{autoFollow ? t('common.on', '开启') : t('common.off', '关闭')}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setComposerCollapsed((v) => !v)}
+              class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm ml-auto"
+              style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)' }}
+              title={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
+            >
+              {composerCollapsed ? '▴' : '▾'}
+            </button>
           </div>
 
-          <div
+          {!composerCollapsed ? <div
             class="relative"
             onDragOver={(e) => {
               if (!attachmentsAllowed) return;
@@ -1122,7 +1287,22 @@ export function SessionDetailPage() {
               {t('composer.attachment.drop', '松开即可添加附件')}
             </div>
           ) : null}
-          </div>
+          </div> : (
+            <button
+              type="button"
+              onClick={() => setComposerCollapsed(false)}
+              class="oh-tap-press w-full text-left text-sm px-3 py-2 rounded-m3-sm"
+              style={{
+                background: 'var(--m3-surface)',
+                color: 'var(--m3-on-surface-variant)',
+                border: '1px solid var(--m3-outline)',
+              }}
+            >
+              {composerText
+                ? composerText.slice(0, 96)
+                : t('composer.collapsedPlaceholder', '输入区已收起，点击展开')}
+            </button>
+          )}
 
           {/* 附件 */}
           {attachmentsAllowed ? (
@@ -1314,6 +1494,17 @@ export function SessionDetailPage() {
         <MessageAuditDialog
           message={auditMessage}
           onClose={() => setAuditMessage(null)}
+        />
+      ) : null}
+      {showComposerModelPicker ? (
+        <ModelPickerDialog
+          models={allowedModels}
+          selectedKey={composerModelKey}
+          onSelect={(key) => {
+            setComposerModelKey(key);
+            pushRecentModel(key);
+          }}
+          onClose={() => setShowComposerModelPicker(false)}
         />
       ) : null}
       {/* 服务端会话已被删除时的友好提示弹窗。返回前先 ping 一次会话列表 API

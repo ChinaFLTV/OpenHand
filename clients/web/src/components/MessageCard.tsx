@@ -7,8 +7,7 @@
 // - tool_call（解析 ```json``` 入参或纯文本）
 // - mcp / skill / hook / self_learning / file_mutation_summary / status / compression_point
 //
-// 不复刻：流式 partial 卡片渐变、tool_call 内嵌 stdin/stdout 折叠（需要更多 metadata 字段）。
-// 这些将在后续随服务端契约扩展再补。
+// Web 端不执行撤销/重做等本地文件 ledger 操作，只做只读审阅展示。
 
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
@@ -203,11 +202,11 @@ function MessageCardImpl({
 }: MessageCardProps) {
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
-  const useToolBody =
+  const useStructuredToolBody =
     message.kind === 'tool' ||
     message.kind === 'tool_call' ||
-    message.kind === 'mcp' ||
-    message.kind === 'file_mutation_summary';
+    message.kind === 'mcp';
+  const useToolBody = useStructuredToolBody || message.kind === 'file_mutation_summary';
   const overflows =
     !useToolBody && style.collapsible && !forceExpanded && content.length > AUTO_COLLAPSE_CHAR_LIMIT;
   const visibleContent = overflows
@@ -272,10 +271,11 @@ function MessageCardImpl({
         <span class="opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
       </header>
       <MessageToolMeta message={message} />
-      {message.kind === 'tool_call' || message.kind === 'mcp' ? (
-        <ToolArgumentsBlock metadata={message.metadata} />
-      ) : null}
-      {useToolBody ? (
+      {message.kind === 'file_mutation_summary' ? (
+        <FileMutationSummaryCard message={message} />
+      ) : useStructuredToolBody ? (
+        <ToolExecutionCard message={message} />
+      ) : useToolBody ? (
         content.length > 0 ? <ToolResultBody content={content} /> : null
       ) : (
         <Markdown
@@ -365,6 +365,247 @@ function ActionBtn({
 // 不再重做 markdown 解析 / 高亮 / 媒体解码，达到肉眼"逐字 / 逐 token 增长"。
 // 我们仅依赖父级 mergeStream 已经保证不变前缀的引用稳定，因此默认 shallow compare 已足够。
 export const MessageCard = memo(MessageCardImpl);
+
+function ToolExecutionCard({ message }: { message: SessionMessage }) {
+  const metadata = message.metadata ?? {};
+  const stdout = asString(metadata['tool_execution_stdout']);
+  const stderr = asString(metadata['tool_execution_stderr']);
+  const result = asString(metadata['tool_execution_result'] ?? metadata['result_text']);
+  const command = asString(metadata['tool_execution_command'] ?? metadata['command']);
+  const workingDirectory = asString(metadata['tool_execution_working_directory'] ?? metadata['working_directory']);
+  const status = asString(metadata['tool_status'] ?? metadata['status']);
+  const elapsedMs = asNumber(metadata['tool_execution_elapsed_ms'] ?? metadata['tool_execution_duration_ms']);
+  const exitCode = asNumber(metadata['tool_execution_exit_code'] ?? metadata['exit_code']);
+  const argumentsStreaming = asBool(metadata['tool_arguments_streaming']);
+  const fallback = message.content ?? '';
+  const hasStructuredOutput = stdout || stderr || result || command || workingDirectory;
+  const constructing =
+    argumentsStreaming ||
+    (message.kind === 'tool_call' && !status && !hasStructuredOutput && fallback.trim().length === 0);
+
+  return (
+    <div class="flex flex-col gap-2">
+      <div class="flex flex-wrap gap-1.5 text-[11px]">
+        {status ? <MetaChip label={status} tone={status.toLowerCase().includes('error') ? 'danger' : 'neutral'} /> : null}
+        {elapsedMs != null ? <MetaChip label={`${elapsedMs} ms`} /> : null}
+        {exitCode != null ? <MetaChip label={`exit ${exitCode}`} tone={exitCode === 0 ? 'ok' : 'danger'} /> : null}
+        {workingDirectory ? <MetaChip label={workingDirectory} mono /> : null}
+        {constructing ? <ConstructingBadge /> : null}
+      </div>
+      <ToolArgumentsBlock metadata={metadata} />
+      {command ? (
+        <ToolSection title={t('detail.tool.command', '执行命令')} content={command} defaultExpanded />
+      ) : null}
+      {stdout ? (
+        <ToolSection title={t('detail.tool.stdout', '标准输出 stdout')} content={stdout} />
+      ) : null}
+      {stderr ? (
+        <ToolSection title={t('detail.tool.stderr', '标准错误 stderr')} content={stderr} danger defaultExpanded />
+      ) : null}
+      {result ? (
+        <ToolSection title={t('detail.tool.result', '工具结果')} content={result} defaultExpanded={!stdout && !stderr} />
+      ) : null}
+      {!hasStructuredOutput && fallback.trim().length > 0 ? <ToolResultBody content={fallback} /> : null}
+    </div>
+  );
+}
+
+function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
+  const metadata = message.metadata ?? {};
+  const paths = collectMutationPaths(metadata);
+  const recordCount = asNumber(metadata['round_summary_record_count']);
+  const kind = asString(metadata['file_mutation_kind']);
+  const reason = asString(
+    metadata['file_mutation_write_reason'] ??
+      metadata['write_analysis_reason'] ??
+      metadata['tool_execution_write_analysis_reason'],
+  );
+  return (
+    <div
+      class="rounded-m3-sm p-3"
+      style={{
+        background: 'var(--m3-surface)',
+        border: '1px solid var(--m3-outline)',
+      }}
+    >
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span aria-hidden>🗎</span>
+          <span class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+            {t('detail.fileMutation.title', '文件变动')}
+          </span>
+          {kind ? <MetaChip label={kind} /> : null}
+        </div>
+        {recordCount != null ? (
+          <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {recordCount} {t('detail.fileMutation.records', '条记录')}
+          </span>
+        ) : null}
+      </div>
+      {paths.length > 0 ? (
+        <ul class="flex flex-col gap-1.5">
+          {paths.map((path) => (
+            <li
+              key={path}
+              class="flex items-center gap-2 text-xs rounded-m3-sm px-2 py-1.5"
+              style={{
+                background: 'var(--m3-surface-container)',
+                color: 'var(--m3-on-surface)',
+              }}
+            >
+              <span aria-hidden>{kind === 'delete' ? '−' : kind === 'write' ? '+' : '±'}</span>
+              <span class="font-mono truncate" title={path}>{path}</span>
+              <button
+                type="button"
+                class="oh-tap-press ml-auto text-[11px] px-1.5 py-0.5 rounded-m3-sm"
+                style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void navigator.clipboard?.writeText(path).catch(() => undefined);
+                }}
+              >
+                {t('common.copy', '复制')}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {recordCount != null
+            ? t('detail.fileMutation.summaryOnly', '本轮文件变动记录已归档，可在 App 端查看完整 diff 与撤销记录。')
+            : t('detail.fileMutation.empty', '暂无可展示的文件路径。')}
+        </p>
+      )}
+      {reason ? (
+        <p class="text-xs mt-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {reason}
+        </p>
+      ) : null}
+      {message.content.trim().length > 0 ? (
+        <div class="mt-2">
+          <ToolResultBody content={message.content} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ToolSection({
+  title,
+  content,
+  danger,
+  defaultExpanded = false,
+}: {
+  title: string;
+  content: string;
+  danger?: boolean;
+  defaultExpanded?: boolean;
+}) {
+  const long = content.length > 640 || content.split('\n').length > 10;
+  const [expanded, setExpanded] = useState(defaultExpanded || !long);
+  return (
+    <section>
+      <div class="flex items-center gap-2 mb-1 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <span style={{ fontWeight: 600, color: danger ? 'var(--m3-error)' : undefined }}>{title}</span>
+        {long ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+            class="px-1.5 py-0.5 rounded-m3-sm"
+            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)', background: 'var(--m3-surface)', fontSize: 10 }}
+          >
+            {expanded ? t('detail.tool.body.collapse', '折叠') : t('detail.tool.body.expand', '展开全部 ')}
+          </button>
+        ) : null}
+      </div>
+      <pre
+        class="text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
+        style={{
+          background: 'var(--m3-surface)',
+          color: danger ? 'var(--m3-error)' : 'var(--m3-on-surface)',
+          border: `1px solid ${danger ? 'color-mix(in srgb, var(--m3-error) 45%, transparent)' : 'var(--m3-outline)'}`,
+          wordBreak: 'break-word',
+          maxHeight: !expanded && long ? '160px' : undefined,
+          overflow: !expanded && long ? 'hidden' : 'auto',
+        }}
+      >
+        {content}
+      </pre>
+    </section>
+  );
+}
+
+function MetaChip({ label, tone = 'neutral', mono }: { label: string; tone?: 'neutral' | 'ok' | 'danger'; mono?: boolean }) {
+  const color = tone === 'danger' ? 'var(--m3-error)' : tone === 'ok' ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)';
+  return (
+    <span
+      class="inline-flex items-center px-1.5 py-0.5 rounded-m3-sm"
+      style={{
+        border: `1px solid color-mix(in srgb, ${color} 40%, transparent)`,
+        color,
+        background: 'color-mix(in srgb, currentColor 7%, transparent)',
+        fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined,
+        maxWidth: '220px',
+      }}
+      title={label}
+    >
+      <span class="truncate">{label}</span>
+    </span>
+  );
+}
+
+function ConstructingBadge() {
+  return (
+    <span
+      class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+      style={{
+        border: '1px solid var(--m3-outline)',
+        color: 'var(--m3-on-surface-variant)',
+        background: 'color-mix(in srgb, var(--m3-on-surface-variant) 7%, transparent)',
+      }}
+      title={t('detail.tool.constructing.hint', '模型仍在构造工具参数')}
+    >
+      <span class="oh-pulse-soft" aria-hidden style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
+      {t('detail.tool.constructing', '参数构造中')}
+    </span>
+  );
+}
+
+function collectMutationPaths(metadata: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  const add = (value: unknown) => {
+    if (typeof value !== 'string') return;
+    const trimmed = value.trim();
+    if (trimmed && !out.includes(trimmed)) out.push(trimmed);
+  };
+  add(metadata['file_mutation_path']);
+  add(metadata['read_file_path']);
+  const multi = metadata['file_mutation_paths'];
+  if (Array.isArray(multi)) {
+    for (const item of multi) add(item);
+  }
+  return out;
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function asBool(value: unknown): boolean {
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
 
 /// 工具入参展示块：将 metadata.tool_arguments 渲染为可折叠的 JSON 代码块。
 /// - 字符串 → 尝试 JSON.parse 后 pretty-print；解析失败按原文展示。

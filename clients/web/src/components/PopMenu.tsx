@@ -128,7 +128,7 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
             top: pos ? `${pos.top}px` : '-9999px',
             left: pos ? `${pos.left}px` : '-9999px',
             minWidth: pos ? `${pos.minWidth}px` : '160px',
-            zIndex: 1000,
+            zIndex: 2000,
             background: 'var(--m3-surface-container)',
             color: 'var(--m3-on-surface)',
             boxShadow: 'var(--m3-elev-3)',

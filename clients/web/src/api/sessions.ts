@@ -27,6 +27,12 @@ export interface SessionSummary {
   updated_at: string;
   mode: 'chat' | 'plan' | string;
   message_count: number;
+  statistics?: Record<string, unknown>;
+  total_tokens?: number | null;
+  total_prompt_tokens?: number | null;
+  total_completion_tokens?: number | null;
+  tool_message_count?: number;
+  compression_point_count?: number;
   last_message_preview: string;
   last_message_kind?: string;
   send_phase: string;
@@ -75,6 +81,9 @@ export interface SessionMessagesResponse {
   limit: number;
   total: number;
   has_more: boolean;
+  has_older?: boolean;
+  has_newer?: boolean;
+  window?: 'tail' | 'offset' | string;
   send_phase: string;
   last_error: string | null;
 }
@@ -154,6 +163,7 @@ export function deleteSession(
 export interface ListMessagesOptions {
   limit?: number;
   offset?: number;
+  tail?: boolean;
 }
 
 export function listMessages(
@@ -163,6 +173,7 @@ export function listMessages(
   const params = new URLSearchParams();
   if (options.limit != null) params.set('limit', String(options.limit));
   if (options.offset != null) params.set('offset', String(options.offset));
+  if (options.tail) params.set('tail', '1');
   const qs = params.toString();
   return apiRequest<SessionMessagesResponse>(
     `/api/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`,

@@ -52,6 +52,8 @@ export interface OpsRuntimeSnapshot {
   bound_url: string;
   accessible_urls: string[];
   active_requests: number;
+  max_concurrent_requests?: number;
+  active_request_ratio?: number;
   total_requests: number;
   total_errors: number;
   total_bytes_in: number;
@@ -66,12 +68,25 @@ export interface OpsRuntimeSnapshot {
   method_breakdown?: Record<string, number>;
   top_routes?: OpsTopRoute[];
   latency_stats?: OpsLatencyStats;
+  latency_buckets?: Record<string, number>;
   requests_per_minute?: number;
+  errors_per_minute?: number;
+  bytes_in_per_minute?: number;
+  bytes_out_per_minute?: number;
   slowest_recent?: OpsRecentSlowRequest | null;
   last_error_at?: string | null;
   last_error_path?: string;
   active_sse_subscriptions?: number;
   recent_errors?: OpsRecentError[];
+  log_level_breakdown?: Record<string, number>;
+  memory_log_count?: number;
+  send_phase_breakdown?: Record<string, number>;
+  allowed_model_count?: number;
+  model_provider_count?: number;
+  template_count?: number;
+  cron_enabled_count?: number;
+  cron_total_count?: number;
+  memory_entry_count?: number;
   mcp_server_enabled_count?: number;
   mcp_server_total_count?: number;
 }

@@ -42,6 +42,10 @@ export interface ApiMetaModel {
   protocol?: string;
   model_id: string;
   label: string;
+  supports_attachments?: boolean;
+  supports_image_generation?: boolean;
+  supports_video_generation?: boolean;
+  supports_audio_generation?: boolean;
 }
 
 export interface ApiMetaResponse {
