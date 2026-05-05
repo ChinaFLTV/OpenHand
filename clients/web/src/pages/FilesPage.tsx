@@ -12,6 +12,7 @@ import { ApiError } from '../api/client';
 import {
   WorkspaceItem,
   WorkspaceListResponse,
+  deleteWorkspaceFile,
   listWorkspaceFiles,
   readWorkspaceFile,
   writeWorkspaceFile,
@@ -55,6 +56,14 @@ export function FilesPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
+  // 删除二次确认 + 创建弹出状态。pendingDelete 保存上次点击的 path，
+  // 4s 后自清；pendingDeleteAt 记时间戏避免误点。
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const pendingDeleteTimerRef = useRef<number | null>(null);
+  const [creating, setCreating] = useState<null | 'file' | 'directory'>(null);
+  const [createName, setCreateName] = useState('');
+  const [createBusy, setCreateBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const reqIdRef = useRef(0);
 
   const refresh = async () => {
@@ -80,6 +89,15 @@ export function FilesPage() {
     void refresh();
     setPathInput(path);
   }, [path, query, typeFilter]);
+
+  // 卸载时清掉 pendingDelete 4s 定时器
+  useEffect(() => {
+    return () => {
+      if (pendingDeleteTimerRef.current != null) {
+        window.clearTimeout(pendingDeleteTimerRef.current);
+      }
+    };
+  }, []);
 
   const onOpenItem = (item: WorkspaceItem) => {
     if (item.type === 'directory') {
@@ -150,6 +168,60 @@ export function FilesPage() {
   }, [path]);
 
   const writeDisabled = !list?.write_enabled || !selected?.editable;
+
+  // 删除文件 / 空目录：first tap -> 进入 pending（4s 自动清），second tap -> 真删
+  const handleDelete = async (item: WorkspaceItem) => {
+    if (!list?.write_enabled) return;
+    if (pendingDelete !== item.path) {
+      setPendingDelete(item.path);
+      setActionError(null);
+      if (pendingDeleteTimerRef.current != null) {
+        window.clearTimeout(pendingDeleteTimerRef.current);
+      }
+      pendingDeleteTimerRef.current = window.setTimeout(() => {
+        setPendingDelete(null);
+        pendingDeleteTimerRef.current = null;
+      }, 4000) as unknown as number;
+      return;
+    }
+    try {
+      await deleteWorkspaceFile(item.path);
+      setPendingDelete(null);
+      if (selected?.path === item.path) {
+        setSelected(null);
+        setContent('');
+        setContentMeta(null);
+      }
+      await refresh();
+    } catch (err) {
+      setActionError(describeApiError(err));
+    }
+  };
+
+  // 创建文件 / 目录：复用 PUT（content='' for directory 用 placeholder file 形式）
+  // 目录创建走 "<dir>/.gitkeep" 兜底，避免后端没有专门 mkdir 端点
+  const handleCreate = async () => {
+    if (!list?.write_enabled || !creating) return;
+    const name = createName.trim();
+    if (!name) return;
+    setCreateBusy(true);
+    setActionError(null);
+    try {
+      const targetPath = path ? `${path}/${name}` : name;
+      if (creating === 'directory') {
+        await writeWorkspaceFile(`${targetPath}/.gitkeep`, '');
+      } else {
+        await writeWorkspaceFile(targetPath, '');
+      }
+      setCreating(null);
+      setCreateName('');
+      await refresh();
+    } catch (err) {
+      setActionError(describeApiError(err));
+    } finally {
+      setCreateBusy(false);
+    }
+  };
 
   return (
     <main class="min-h-screen p-4 sm:p-6">
@@ -263,6 +335,88 @@ export function FilesPage() {
               />
             </div>
 
+            {/* 创建行：仅在 write_enabled 时显示。先点选 [文件]/[目录]，再输入名字回车 */}
+            {list?.write_enabled && (
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreating(creating === 'file' ? null : 'file');
+                    setCreateName('');
+                    setActionError(null);
+                  }}
+                  class="text-xs px-2 py-1 rounded-m3-sm"
+                  style={{
+                    color: creating === 'file' ? 'var(--m3-on-primary)' : 'var(--m3-primary)',
+                    backgroundColor: creating === 'file' ? 'var(--m3-primary)' : 'transparent',
+                    border: '1px solid var(--m3-primary)',
+                  }}
+                >
+                  + {t('files.newFile', '新建文件')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreating(creating === 'directory' ? null : 'directory');
+                    setCreateName('');
+                    setActionError(null);
+                  }}
+                  class="text-xs px-2 py-1 rounded-m3-sm"
+                  style={{
+                    color: creating === 'directory' ? 'var(--m3-on-primary)' : 'var(--m3-primary)',
+                    backgroundColor: creating === 'directory' ? 'var(--m3-primary)' : 'transparent',
+                    border: '1px solid var(--m3-primary)',
+                  }}
+                >
+                  + {t('files.newDir', '新建目录')}
+                </button>
+                {creating && (
+                  <form
+                    onSubmit={(ev) => {
+                      ev.preventDefault();
+                      void handleCreate();
+                    }}
+                    class="flex-1 flex items-center gap-1 min-w-[160px]"
+                  >
+                    <input
+                      type="text"
+                      value={createName}
+                      autoFocus
+                      onInput={(ev) => setCreateName((ev.target as HTMLInputElement).value)}
+                      placeholder={
+                        creating === 'file'
+                          ? t('files.newFile.placeholder', '新文件名…')
+                          : t('files.newDir.placeholder', '新目录名…')
+                      }
+                      class="flex-1 text-xs px-2 py-1 rounded-m3-sm"
+                      style={{
+                        backgroundColor: 'var(--m3-surface)',
+                        border: '1px solid var(--m3-outline)',
+                        color: 'var(--m3-on-surface)',
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={createBusy || !createName.trim()}
+                      class="text-xs px-2 py-1 rounded-m3-sm"
+                      style={{
+                        color: 'var(--m3-on-primary)',
+                        backgroundColor: 'var(--m3-primary)',
+                        opacity: createBusy || !createName.trim() ? 0.5 : 1,
+                      }}
+                    >
+                      {createBusy ? t('files.creating', '创建中…') : t('files.create', '创建')}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+            {actionError && (
+              <p class="text-xs mb-2" style={{ color: 'var(--m3-error)' }}>
+                {actionError}
+              </p>
+            )}
+
             {path && (
               <button
                 type="button"
@@ -296,12 +450,13 @@ export function FilesPage() {
             <ul class="flex flex-col gap-0.5 max-h-[60vh] overflow-y-auto">
               {list?.items.map((it) => {
                 const isActive = selected?.path === it.path;
+                const isPendingDelete = pendingDelete === it.path;
                 return (
-                  <li key={it.path}>
+                  <li key={it.path} class="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => onOpenItem(it)}
-                      class="w-full text-left px-2 py-1.5 rounded-m3-sm text-sm flex items-center gap-2"
+                      class="flex-1 min-w-0 text-left px-2 py-1.5 rounded-m3-sm text-sm flex items-center gap-2"
                       style={{
                         backgroundColor: isActive ? 'var(--m3-primary)' : 'transparent',
                         color: isActive ? 'var(--m3-on-primary)' : 'var(--m3-on-surface)',
@@ -319,6 +474,25 @@ export function FilesPage() {
                         {it.type === 'file' ? tBytes(it.size) : ''}
                       </span>
                     </button>
+                    {list?.write_enabled && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(it)}
+                        title={
+                          isPendingDelete
+                            ? t('files.delete.confirm', '再次点击确认删除')
+                            : t('files.delete', '删除')
+                        }
+                        class="text-xs px-1.5 py-1 rounded-m3-sm shrink-0"
+                        style={{
+                          color: isPendingDelete ? 'var(--m3-on-error)' : 'var(--m3-on-surface-variant)',
+                          backgroundColor: isPendingDelete ? 'var(--m3-error)' : 'transparent',
+                          border: isPendingDelete ? '1px solid var(--m3-error)' : '1px solid var(--m3-outline)',
+                        }}
+                      >
+                        {isPendingDelete ? '⚠ ' + t('files.delete.confirmShort', '确认') : '🗑'}
+                      </button>
+                    )}
                   </li>
                 );
               })}

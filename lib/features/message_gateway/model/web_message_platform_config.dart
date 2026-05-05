@@ -234,7 +234,7 @@ class WebMessagePlatformConfig {
     this.maxMessagesPerSession = 100,
     this.sessionManagementEnabled = true,
     this.workspaceFilesEnabled = true,
-    this.workspaceFileWriteEnabled = true,
+    this.workspaceFileWriteEnabled = false,
     this.workspaceFileMaxBytes = 1024 * 1024,
     this.workspaceFileAllowedExtensions = const <String>[],
     this.uploadCacheRetentionDays = 7,
@@ -302,7 +302,7 @@ class WebMessagePlatformConfig {
           json['session_management_enabled'] as bool? ?? true,
       workspaceFilesEnabled: json['workspace_files_enabled'] as bool? ?? true,
       workspaceFileWriteEnabled:
-          json['workspace_file_write_enabled'] as bool? ?? true,
+          json['workspace_file_write_enabled'] as bool? ?? false,
       workspaceFileMaxBytes: _clampInt(
         json['workspace_file_max_bytes'],
         1024 * 1024,

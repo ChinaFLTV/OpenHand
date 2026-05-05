@@ -761,6 +761,7 @@ class WebMessagePlatformService {
     router.get('/api/workspace/files', (shelf.Request r) => _withAuth(r, (req, _) => _listWorkspaceFiles(req)));
     router.get('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _readWorkspaceFile(req)));
     router.put('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _writeWorkspaceFile(req)));
+    router.delete('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _deleteWorkspaceFile(req)));
 
     // Toolbox: 只读列出 MCP 服务器 / 已安装技能 / 用户记忆 / 定时任务
     // App 端是这些资源的真权威 (增删改全在 GUI), Web 端只读消费即可。
@@ -2233,6 +2234,66 @@ class WebMessagePlatformService {
       'path': _relativeWorkspacePath(filePath),
       'size': stat.size,
       'modified_at': stat.modified.toUtc().toIso8601String(),
+    });
+  }
+
+  /// 删除 workspace 内的单个文件或空目录。受 `workspaceFileWriteEnabled` 闸门保护，
+  /// 必须 query `?path=...`，路径校验复用 `_resolveWorkspacePath` 防穿越。
+  /// 目录非空时返回 `directory_not_empty`；不递归删，避免误删大批数据。
+  Future<shelf.Response> _deleteWorkspaceFile(shelf.Request request) async {
+    if (!_config.workspaceFilesEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'workspace_files_disabled',
+      });
+    }
+    if (!_config.workspaceFileWriteEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'workspace_file_write_disabled',
+      });
+    }
+    final relative = request.requestedUri.queryParameters['path'] ?? '';
+    if (relative.trim().isEmpty || relative == '.' || relative == '/') {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'path_required',
+      });
+    }
+    final resolved = _resolveWorkspacePath(relative);
+    if (resolved == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'path_outside_workspace',
+      });
+    }
+    final type = await FileSystemEntity.type(resolved, followLinks: false);
+    if (type == FileSystemEntityType.notFound) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'not_found',
+      });
+    }
+    if (type == FileSystemEntityType.directory) {
+      // 不递归：让用户明确清空再删（避免一次误调清掉整棵子树）。
+      final entries = Directory(resolved).listSync(followLinks: false);
+      if (entries.isNotEmpty) {
+        return _json(HttpStatus.conflict, <String, Object?>{
+          'error': 'directory_not_empty',
+        });
+      }
+      await Directory(resolved).delete();
+    } else {
+      if (!_workspaceExtensionAllowed(resolved, _workspaceAllowedExtensions())) {
+        return _json(HttpStatus.forbidden, <String, Object?>{
+          'error': 'file_extension_not_allowed',
+        });
+      }
+      await File(resolved).delete();
+    }
+    _log(WebGatewayLogLevel.warn, 'FILES', 'Web 删除项目文件',
+        <String, Object?>{
+          'path': _relativeWorkspacePath(resolved),
+          'kind': type.toString(),
+        });
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'path': _relativeWorkspacePath(resolved),
     });
   }
 
