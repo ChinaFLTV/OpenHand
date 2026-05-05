@@ -210,6 +210,7 @@ export function SessionDetailPage() {
       // SSE snapshot 会推一份新的列表过来，这里不主动 refresh。
     } catch (e) {
       if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
     }
   };
@@ -227,6 +228,7 @@ export function SessionDetailPage() {
       await deleteMessageCascade(sessionId, m.id);
     } catch (e) {
       if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
     }
   };
@@ -536,6 +538,7 @@ export function SessionDetailPage() {
       } catch (e: unknown) {
         if (cancelled) return;
         if (handleAuthError(e)) return;
+        if (handleSessionGoneError(e)) return;
         setLastError(e instanceof Error ? e.message : String(e));
       }
       if (!cancelled) {
@@ -793,6 +796,7 @@ export function SessionDetailPage() {
               );
             } catch (e) {
               if (handleAuthError(e)) return;
+              if (handleSessionGoneError(e)) return;
               setLastError(e instanceof Error ? e.message : String(e));
             }
           }}
@@ -821,6 +825,11 @@ export function SessionDetailPage() {
               location.route('/threads');
             } catch (e) {
               if (handleAuthError(e)) return;
+              // 用户主动删除时若服务端已先删 (race) → 也直接跳走，不再弹 SessionGoneDialog
+              if (e instanceof ApiError && e.status === 404) {
+                location.route('/threads');
+                return;
+              }
               setLastError(e instanceof Error ? e.message : String(e));
             }
           }}
@@ -832,6 +841,7 @@ export function SessionDetailPage() {
               );
             } catch (e) {
               if (handleAuthError(e)) return;
+              if (handleSessionGoneError(e)) return;
               setLastError(e instanceof Error ? e.message : String(e));
             }
           }}
