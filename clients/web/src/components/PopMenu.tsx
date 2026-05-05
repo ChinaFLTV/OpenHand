@@ -1,9 +1,16 @@
 // 通用 popover 菜单：触发器 + 弹出菜单项。点击外部 / Esc 自动关闭。
-// 用 absolute 定位，相对最近 `position: relative` 的祖先；调用方负责确保父级
-// 正确定位（通常是会话卡片右上角的小三点按钮）。
+//
+// 实现要点：
+// - 菜单项通过 `createPortal` 直接挂到 `document.body`，并使用 `position: fixed`
+//   配合触发器的 `getBoundingClientRect()` 计算坐标，避免被祖先 transform / overflow
+//   截断（之前用 `position: absolute` + z-30 在 `Appear` 包裹的 translateY 容器里
+//   会被下一张卡片或 ListView 裁掉，导致菜单看起来"被遮挡"）。
+// - 监听 scroll / resize / 卡片重新布局，让菜单坐标实时跟随触发器。
+// - 默认 align='right' 时菜单右对齐到触发器右边，并在视口内自动收边避免溢出。
 
+import { createPortal } from 'preact/compat';
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 
 export interface PopMenuItem {
   key: string;
@@ -23,17 +30,30 @@ export interface PopMenuProps {
   align?: 'left' | 'right';
 }
 
+interface MenuPos {
+  top: number;
+  left: number;
+  minWidth: number;
+}
+
+const VIEWPORT_PADDING = 8;
+const MENU_GAP = 4;
+
 export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<MenuPos | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
+  // 关闭：点击外部 / Esc。
   useEffect(() => {
     if (!open) return;
     const onDown = (ev: MouseEvent) => {
-      if (!wrapRef.current) return;
-      if (!wrapRef.current.contains(ev.target as Node)) {
-        setOpen(false);
-      }
+      const target = ev.target as Node | null;
+      if (!target) return;
+      if (wrapRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape') setOpen(false);
@@ -46,21 +66,78 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
     };
   }, [open]);
 
-  return (
-    <div ref={wrapRef} class="relative inline-block">
-      {trigger({ open, toggle: () => setOpen((v) => !v) })}
-      {open ? (
+  // 计算菜单坐标：fixed 定位 + 视口内夹紧。
+  const recompute = () => {
+    const trig = wrapRef.current;
+    if (!trig) return;
+    const r = trig.getBoundingClientRect();
+    const menuEl = menuRef.current;
+    const menuRect = menuEl?.getBoundingClientRect();
+    const menuWidth = menuRect?.width ?? 180;
+    const menuHeight = menuRect?.height ?? 160;
+    const minWidth = Math.max(r.width, 160);
+    let left = align === 'right' ? r.right - menuWidth : r.left;
+    let top = r.bottom + MENU_GAP;
+    // 右侧夹紧。
+    const maxLeft = window.innerWidth - menuWidth - VIEWPORT_PADDING;
+    if (left > maxLeft) left = maxLeft;
+    if (left < VIEWPORT_PADDING) left = VIEWPORT_PADDING;
+    // 底部不够时翻到触发器上方。
+    if (top + menuHeight > window.innerHeight - VIEWPORT_PADDING) {
+      const above = r.top - menuHeight - MENU_GAP;
+      if (above >= VIEWPORT_PADDING) top = above;
+    }
+    setPos({ top, left, minWidth });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    recompute();
+    const onScrollOrResize = () => recompute();
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // 第一次渲染拿到菜单实际尺寸后再校准一次（避免 minWidth 估算偏差）。
+  useLayoutEffect(() => {
+    if (!open || !pos || !menuRef.current) return;
+    const r = menuRef.current.getBoundingClientRect();
+    const desiredLeft = align === 'right'
+      ? (wrapRef.current?.getBoundingClientRect().right ?? 0) - r.width
+      : pos.left;
+    if (Math.abs(desiredLeft - pos.left) > 1) {
+      setPos((prev) => (prev ? { ...prev, left: Math.max(VIEWPORT_PADDING, desiredLeft) } : prev));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pos?.minWidth]);
+
+  const menuNode = open && typeof document !== 'undefined'
+    ? createPortal(
         <div
-          class="oh-popmenu-pop absolute z-30 mt-1 min-w-[160px] py-1 rounded-m3-md"
+          ref={menuRef}
+          class="oh-popmenu-pop fixed py-1 rounded-m3-md"
           style={{
+            top: pos ? `${pos.top}px` : '-9999px',
+            left: pos ? `${pos.left}px` : '-9999px',
+            minWidth: pos ? `${pos.minWidth}px` : '160px',
+            zIndex: 1000,
             background: 'var(--m3-surface-container)',
             color: 'var(--m3-on-surface)',
             boxShadow: 'var(--m3-elev-3)',
             border: '1px solid var(--m3-outline)',
-            top: '100%',
-            ...(align === 'right' ? { right: 0 } : { left: 0 }),
+            visibility: pos ? 'visible' : 'hidden',
           }}
           role="menu"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           {items.map((item) => (
             <button
@@ -68,7 +145,8 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
               key={item.key}
               role="menuitem"
               disabled={item.disabled}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (item.disabled) return;
                 setOpen(false);
                 item.onClick();
@@ -91,8 +169,23 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
               {item.label}
             </button>
           ))}
-        </div>
-      ) : null}
+        </div>,
+        document.body,
+      )
+    : null;
+
+  return (
+    <div
+      ref={wrapRef}
+      class="relative inline-block"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {trigger({
+        open,
+        toggle: () => setOpen((v) => !v),
+      })}
+      {menuNode}
     </div>
   );
 }
