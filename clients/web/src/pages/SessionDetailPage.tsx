@@ -33,6 +33,8 @@ import {
 } from '../api/sessions';
 import { ApiError, UnauthorizedError } from '../api/client';
 import { subscribeSessionEvents } from '../api/session_events';
+import { listSessions } from '../api/sessions';
+import { SessionGoneDialog } from '../components/SessionGoneDialog';
 import { t } from '../i18n';
 import { MenuSelect } from '../components/MenuSelect';
 import { useAuth } from '../state/auth';
@@ -144,6 +146,8 @@ export function SessionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [sendPhase, setSendPhase] = useState<string>('idle');
   const [lastError, setLastError] = useState<string | null>(null);
+  // 服务端返回会话被删 (404 + body.error === 'session_deleted_or_not_found') 时拍起弹窗
+  const [sessionGone, setSessionGone] = useState(false);
 
   // Composer state
   const [composerText, setComposerText] = useState<string>('');
@@ -312,6 +316,26 @@ export function SessionDetailPage() {
     return false;
   }
 
+  // 当 API 返回 404 + body.error === 'session_deleted_or_not_found' 时，
+  // 切换到 SessionGoneDialog 流程；返回 true 让调用方跳过常规错误展示。
+  function handleSessionGoneError(e: unknown): boolean {
+    if (e instanceof ApiError && e.status === 404) {
+      const body = e.body as { error?: string } | null;
+      if (body?.error === 'session_deleted_or_not_found') {
+        // 主动断开 SSE / 终止轮询，避免后续噪声错误覆盖弹窗
+        sseCloseRef.current?.();
+        sseCloseRef.current = null;
+        if (pollTimerRef.current != null) {
+          window.clearTimeout(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
+        setSessionGone(true);
+        return true;
+      }
+    }
+    return false;
+  }
+
   function loadDetail(): void {
     if (!sessionId) return;
     detailAbortRef.current?.abort();
@@ -335,6 +359,10 @@ export function SessionDetailPage() {
       .catch((e: unknown) => {
         if (ctrl.signal.aborted) return;
         if (handleAuthError(e)) return;
+        if (handleSessionGoneError(e)) {
+          setLoadingDetail(false);
+          return;
+        }
         setError(e instanceof Error ? e.message : String(e));
         setLoadingDetail(false);
       });
@@ -351,6 +379,7 @@ export function SessionDetailPage() {
       setLastError(m.last_error);
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setRefreshing(false);
@@ -372,6 +401,7 @@ export function SessionDetailPage() {
       setLastError(m.last_error);
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoadingOlder(false);
@@ -678,6 +708,7 @@ export function SessionDetailPage() {
       if (!sseLive) void refresh();
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
       if (e instanceof ApiError) {
         const body = e.body as { error?: string } | null;
         setComposerError(
@@ -706,6 +737,7 @@ export function SessionDetailPage() {
       void refresh();
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
       setLastError(e instanceof Error ? e.message : String(e));
     } finally {
       setStopping(false);
@@ -1274,6 +1306,19 @@ export function SessionDetailPage() {
           onClose={() => setAuditMessage(null)}
         />
       ) : null}
+      {/* 服务端会话已被删除时的友好提示弹窗。返回前先 ping 一次会话列表 API
+          预热缓存 / 触发 store 刷新（当前列表页自身亦会重新拉，这里的 await 仅
+          为了在弹窗关闭瞬间用户跳转过去看到的就是最新数据）。 */}
+      <SessionGoneDialog
+        open={sessionGone}
+        onBeforeNavigate={async () => {
+          try {
+            await listSessions({ page: 1, pageSize: 20 });
+          } catch {
+            // 静默：列表刷新失败也不影响导航
+          }
+        }}
+      />
     </main>
   );
 }
