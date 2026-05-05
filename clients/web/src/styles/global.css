@@ -349,9 +349,18 @@ html, body, #root {
   55%  { opacity: 1; transform: scale(1.03); }
   100% { opacity: 1; transform: scale(1); }
 }
+@keyframes oh-menu-pop-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.96); }
+}
 .oh-popmenu-pop {
   animation: oh-popmenu-pop 200ms var(--oh-motion-spring) both;
   transform-origin: top right;
+  will-change: transform, opacity;
+}
+.oh-menu-pop-out {
+  animation: oh-menu-pop-out 180ms var(--oh-motion-emphasized) both;
+  pointer-events: none;
   will-change: transform, opacity;
 }
 

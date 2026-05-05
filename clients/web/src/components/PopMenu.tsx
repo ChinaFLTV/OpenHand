@@ -41,22 +41,50 @@ const MENU_GAP = 4;
 
 export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const menuVisible = open || closing;
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current == null) return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  };
+
+  const openMenu = () => {
+    clearCloseTimer();
+    setClosing(false);
+    setOpen(true);
+  };
+
+  const requestClose = () => {
+    if (!open || closing) return;
+    setClosing(true);
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+      closeTimerRef.current = null;
+    }, 180);
+  };
+
+  useEffect(() => () => clearCloseTimer(), []);
 
   // 关闭：点击外部 / Esc。
   useEffect(() => {
-    if (!open) return;
+    if (!open || closing) return;
     const onDown = (ev: MouseEvent) => {
       const target = ev.target as Node | null;
       if (!target) return;
       if (wrapRef.current?.contains(target)) return;
       if (menuRef.current?.contains(target)) return;
-      setOpen(false);
+      requestClose();
     };
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') setOpen(false);
+      if (ev.key === 'Escape') requestClose();
     };
     window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey);
@@ -64,7 +92,7 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, closing]);
 
   // 计算菜单坐标：fixed 定位 + 视口内夹紧。
   const recompute = () => {
@@ -91,7 +119,7 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
   };
 
   useLayoutEffect(() => {
-    if (!open) {
+    if (!menuVisible) {
       setPos(null);
       return;
     }
@@ -104,11 +132,11 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
       window.removeEventListener('resize', onScrollOrResize);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [menuVisible]);
 
   // 第一次渲染拿到菜单实际尺寸后再校准一次（避免 minWidth 估算偏差）。
   useLayoutEffect(() => {
-    if (!open || !pos || !menuRef.current) return;
+    if (!menuVisible || !pos || !menuRef.current) return;
     const r = menuRef.current.getBoundingClientRect();
     const desiredLeft = align === 'right'
       ? (wrapRef.current?.getBoundingClientRect().right ?? 0) - r.width
@@ -117,13 +145,13 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
       setPos((prev) => (prev ? { ...prev, left: Math.max(VIEWPORT_PADDING, desiredLeft) } : prev));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, pos?.minWidth]);
+  }, [menuVisible, pos?.minWidth]);
 
-  const menuNode = open && typeof document !== 'undefined'
+  const menuNode = menuVisible && typeof document !== 'undefined'
     ? createPortal(
         <div
           ref={menuRef}
-          class="oh-popmenu-pop fixed py-1 rounded-m3-md"
+          class={`${closing ? 'oh-menu-pop-out' : 'oh-popmenu-pop'} fixed py-1 rounded-m3-md`}
           style={{
             top: pos ? `${pos.top}px` : '-9999px',
             left: pos ? `${pos.left}px` : '-9999px',
@@ -134,6 +162,7 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
             boxShadow: 'var(--m3-elev-3)',
             border: '1px solid var(--m3-outline)',
             visibility: pos ? 'visible' : 'hidden',
+            transformOrigin: align === 'right' ? 'top right' : 'top left',
           }}
           role="menu"
           onMouseDown={(e) => e.stopPropagation()}
@@ -148,7 +177,7 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
               onClick={(e) => {
                 e.stopPropagation();
                 if (item.disabled) return;
-                setOpen(false);
+                requestClose();
                 item.onClick();
               }}
               class="w-full text-left px-3 py-2 text-sm transition-colors disabled:opacity-50"
@@ -182,8 +211,14 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
       onClick={(e) => e.stopPropagation()}
     >
       {trigger({
-        open,
-        toggle: () => setOpen((v) => !v),
+        open: open && !closing,
+        toggle: () => {
+          if (open && !closing) {
+            requestClose();
+          } else {
+            openMenu();
+          }
+        },
       })}
       {menuNode}
     </div>

@@ -59,13 +59,16 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
   } = props;
 
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [highlight, setHighlight] = useState<number>(() =>
     Math.max(0, options.findIndex((o) => o.value === value)),
   );
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
   const listboxId = useId();
+  const menuVisible = open || closing;
 
   const current = useMemo(() => options.find((o) => o.value === value), [options, value]);
 
@@ -98,15 +101,41 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
     setMenuPosition(computeMenuPosition(measuredHeight));
   };
 
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current == null) return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  };
+
+  const openMenu = () => {
+    clearCloseTimer();
+    setClosing(false);
+    setMenuPosition(computeMenuPosition());
+    setOpen(true);
+  };
+
+  const requestClose = () => {
+    if (!open || closing) return;
+    setClosing(true);
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+      closeTimerRef.current = null;
+    }, 180);
+  };
+
+  useEffect(() => () => clearCloseTimer(), []);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || closing) return;
     // 同步初始 highlight 到当前值。
     const idx = options.findIndex((o) => o.value === value);
     if (idx >= 0) setHighlight(idx);
-  }, [open]);
+  }, [open, closing]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!menuVisible) return;
     updateMenuPosition();
     const frame = window.requestAnimationFrame(updateMenuPosition);
     window.addEventListener('resize', updateMenuPosition);
@@ -116,25 +145,25 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
       window.removeEventListener('resize', updateMenuPosition);
       window.removeEventListener('scroll', updateMenuPosition, true);
     };
-  }, [open, minWidth, menuMaxHeight, options.length]);
+  }, [menuVisible, minWidth, menuMaxHeight, options.length]);
 
   useEffect(() => {
-    if (open) return;
+    if (menuVisible) return;
     setMenuPosition(null);
-  }, [open]);
+  }, [menuVisible]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || closing) return;
     const onDocClick = (ev: MouseEvent) => {
       const target = ev.target as Node | null;
       if (!target) return;
       if (triggerRef.current?.contains(target)) return;
       if (menuRef.current?.contains(target)) return;
-      setOpen(false);
+      requestClose();
     };
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape') {
-        setOpen(false);
+        requestClose();
         triggerRef.current?.focus();
         return;
       }
@@ -163,7 +192,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
         if (opt && !opt.disabled) {
           ev.preventDefault();
           onChange(opt.value);
-          setOpen(false);
+          requestClose();
           triggerRef.current?.focus();
         }
         return;
@@ -188,15 +217,15 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open, highlight, options, onChange]);
+  }, [open, closing, highlight, options, onChange]);
 
-  const menuNode = open ? (
+  const menuNode = menuVisible ? (
     <div
       ref={menuRef}
       id={listboxId}
       role="listbox"
       tabIndex={-1}
-      class="oh-appear-pop fixed rounded-m3-md overflow-auto"
+      class={`${closing ? 'oh-menu-pop-out' : 'oh-appear-pop'} fixed rounded-m3-md overflow-auto`}
       style={{
         top: menuPosition ? `${menuPosition.top}px` : '-9999px',
         left: menuPosition ? `${menuPosition.left}px` : '-9999px',
@@ -224,7 +253,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
             onClick={() => {
               if (opt.disabled) return;
               onChange(opt.value);
-              setOpen(false);
+              requestClose();
               triggerRef.current?.focus();
             }}
             class="px-3 py-2 text-sm flex items-center gap-2"
@@ -265,21 +294,24 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
         ref={triggerRef}
         type="button"
         aria-haspopup="listbox"
-        aria-expanded={open}
+        aria-expanded={open && !closing}
         aria-label={ariaLabel ?? label ?? current?.label}
-        aria-controls={open ? listboxId : undefined}
+        aria-controls={open && !closing ? listboxId : undefined}
         disabled={disabled}
         onClick={() => {
           if (disabled) return;
-          if (!open) setMenuPosition(computeMenuPosition());
-          setOpen((v) => !v);
+          if (open && !closing) {
+            requestClose();
+          } else {
+            openMenu();
+          }
         }}
         class="oh-tap-press w-full inline-flex items-center justify-between gap-2 px-3 py-2 rounded-m3-md text-sm"
         style={{
           backgroundColor: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
-          border: open ? '1.5px solid var(--m3-primary)' : '1px solid var(--m3-outline)',
-          boxShadow: open ? 'var(--m3-elev-2)' : 'var(--m3-elev-1)',
+          border: open && !closing ? '1.5px solid var(--m3-primary)' : '1px solid var(--m3-outline)',
+          boxShadow: open && !closing ? 'var(--m3-elev-2)' : 'var(--m3-elev-1)',
           opacity: disabled ? 0.5 : 1,
           cursor: disabled ? 'not-allowed' : 'pointer',
         }}
@@ -290,7 +322,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
           )}
           <span class="truncate">{current?.label ?? '—'}</span>
         </span>
-        <Caret open={open} />
+        <Caret open={open && !closing} />
       </button>
       {menuNode && (typeof document === 'undefined' ? menuNode : createPortal(menuNode, document.body))}
     </div>
