@@ -27,6 +27,7 @@ import {
   getSession,
   listMessages,
   renameSession,
+  respondWriteApproval,
   sendMessage,
   stopMessage,
   updateSessionFullAccessPermission,
@@ -36,7 +37,7 @@ import {
   type SessionMessage,
 } from '../api/sessions';
 import { ApiError, UnauthorizedError } from '../api/client';
-import { subscribeSessionEvents } from '../api/session_events';
+import { subscribeSessionEvents, type PendingWriteApproval } from '../api/session_events';
 import { listSessions } from '../api/sessions';
 import { SessionGoneDialog } from '../components/SessionGoneDialog';
 import { t } from '../i18n';
@@ -223,6 +224,9 @@ export function SessionDetailPage() {
   const [autoFollowPaused, setAutoFollowPaused] = useState(false);
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
   const [permissionSaving, setPermissionSaving] = useState(false);
+  const [pendingFullAccess, setPendingFullAccess] = useState<boolean | null>(null);
+  const [pendingWriteApproval, setPendingWriteApproval] = useState<PendingWriteApproval | null>(null);
+  const [writeApprovalBusy, setWriteApprovalBusy] = useState(false);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const messagesAbortRef = useRef<AbortController | null>(null);
@@ -318,6 +322,58 @@ export function SessionDetailPage() {
     } finally {
       setSessionDeleteBusy(false);
       setPendingSessionDelete(false);
+    }
+  };
+
+  const applyFullAccessPermission = async (next: boolean) => {
+    if (permissionSaving) return;
+    setPermissionSaving(true);
+    try {
+      const res = await updateSessionFullAccessPermission(sessionId, next);
+      setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+      showSnackbar(t('topbar.perm.ok', '已更新权限设置'), { tone: 'success' });
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      setLastError(message);
+      showSnackbar(`${t('topbar.perm.failed', '更新权限设置失败')}：${message}`, { tone: 'error' });
+    } finally {
+      setPermissionSaving(false);
+      setPendingFullAccess(null);
+    }
+  };
+
+  const requestFullAccessPermissionChange = (next: boolean) => {
+    if (permissionSaving) return;
+    if (next && detail?.session.full_access_permission !== true) {
+      setPendingFullAccess(true);
+      return;
+    }
+    void applyFullAccessPermission(next);
+  };
+
+  const handleWriteApproval = async (approved: boolean) => {
+    if (!pendingWriteApproval || writeApprovalBusy) return;
+    setWriteApprovalBusy(true);
+    try {
+      await respondWriteApproval(sessionId, pendingWriteApproval.id, approved);
+      setPendingWriteApproval(null);
+      showSnackbar(
+        approved
+          ? t('detail.writeApproval.approved', '已批准写操作')
+          : t('detail.writeApproval.rejected', '已拒绝写操作'),
+        { tone: approved ? 'success' : undefined },
+      );
+      void refresh();
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      setLastError(message);
+      showSnackbar(`${t('detail.writeApproval.failed', '处理写操作确认失败')}：${message}`, { tone: 'error' });
+    } finally {
+      setWriteApprovalBusy(false);
     }
   };
   const handleEditMessage = (m: SessionMessage) => {
@@ -465,6 +521,7 @@ export function SessionDetailPage() {
         setTotalKnown(m.total);
         setSendPhase(m.send_phase || d.runtime.send_phase || 'idle');
         setLastError(m.last_error ?? d.runtime.last_error ?? null);
+        setPendingWriteApproval(m.pending_write_approval ?? null);
         setLoadingDetail(false);
       })
       .catch((e: unknown) => {
@@ -491,6 +548,7 @@ export function SessionDetailPage() {
       setTotalKnown(m.total);
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
+      setPendingWriteApproval(m.pending_write_approval ?? null);
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
@@ -522,6 +580,7 @@ export function SessionDetailPage() {
       setTotalKnown(m.total);
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
+      setPendingWriteApproval(m.pending_write_approval ?? null);
       requestAnimationFrame(() => {
         const el = mainRef.current;
         if (!el) return;
@@ -586,6 +645,7 @@ export function SessionDetailPage() {
         setTotalKnown(snap.session.message_count ?? snap.messages.length);
         setSendPhase(snap.send_phase);
         setLastError(snap.last_error);
+        setPendingWriteApproval(snap.pending_write_approval ?? null);
       },
       onError: () => {
         sseFailRef.current += 1;
@@ -681,6 +741,7 @@ export function SessionDetailPage() {
         setTotalKnown(m.total);
         setSendPhase(m.send_phase);
         setLastError(m.last_error);
+        setPendingWriteApproval(m.pending_write_approval ?? null);
       } catch (e: unknown) {
         if (cancelled) return;
         if (handleAuthError(e)) return;
@@ -912,49 +973,88 @@ export function SessionDetailPage() {
     const tokens = session.total_tokens != null
       ? `${session.total_tokens.toLocaleString()} tokens`
       : t('topbar.tokens.empty', 'Token 暂无');
+    const modelLabel = selectedModel?.model_id || selectedModel?.label || composerModelKey || t('composer.model', '模型');
+    const fullAccess = session.full_access_permission === true;
     return [
       {
         key: 'mode',
-        icon: session.mode === 'plan' ? '📋' : '💬',
+        icon: t('topbar.capsule.modeIcon', '模式'),
         label: session.mode === 'plan'
-          ? t('sessions.mode.plan', 'Plan')
-          : t('sessions.mode.chat', '对话'),
+          ? t('sessions.mode.plan', '计划模式')
+          : t('sessions.mode.chat', '聊天模式'),
         tone: session.mode === 'plan' ? 'primary' : 'neutral',
+        onClick: () => {
+          const next = session.mode === 'plan' ? 'chat' : 'plan';
+          if (!sessionModeOptions.includes(next)) return;
+          void updateSessionMode(sessionId, next).then((res) => {
+            setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+            showSnackbar(t('topbar.mode.ok', '已更新会话模式'), { tone: 'success' });
+          }).catch((e: unknown) => {
+            if (handleAuthError(e)) return;
+            if (handleSessionGoneError(e)) return;
+            const message = e instanceof Error ? e.message : String(e);
+            setLastError(message);
+            showSnackbar(`${t('topbar.mode.failed', '更新会话模式失败')}：${message}`, { tone: 'error' });
+          });
+        },
       },
       {
         key: 'runtime',
-        icon: running ? '●' : '○',
+        icon: t('topbar.capsule.runtimeIcon', '运行'),
         label: `${sendPhaseLabel(sendPhase)} · ${sseLive ? t('detail.sse.live', '实时') : t('detail.sse.fallback', '轮询')}`,
         tone: running ? 'primary' : 'success',
       },
       {
+        key: 'model',
+        icon: t('topbar.capsule.modelIcon', '模型'),
+        label: modelLabel,
+        title: t('topbar.model.title', '点击选择模型'),
+        onClick: () => setShowComposerModelPicker(true),
+      },
+      {
+        key: 'permission',
+        icon: t('topbar.capsule.permissionIcon', '权限'),
+        label: fullAccess
+          ? t('topbar.perm.full', '完全访问权限')
+          : t('topbar.perm.default', '默认权限'),
+        tone: fullAccess ? 'warning' : 'neutral',
+        onClick: () => requestFullAccessPermissionChange(!fullAccess),
+      },
+      {
         key: 'template',
-        icon: '▣',
+        icon: t('topbar.capsule.templateIcon', '模板'),
         label: `${templateLabel}${templateVersion}`,
         title: `${t('sessions.template.label', '模板：')}${templateLabel}${templateVersion}`,
       },
       {
+        key: 'files',
+        icon: t('topbar.capsule.filesIcon', '文件'),
+        label: t('topbar.files', '项目文件'),
+        title: t('topbar.files.title', '打开项目文件'),
+        onClick: () => location.route('/files'),
+      },
+      {
         key: 'metadata',
-        icon: '{}',
+        icon: t('topbar.capsule.messageIcon', '消息'),
         label: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
         onClick: () => setSessionAuditOpen(true),
       },
       {
         key: 'audit',
-        icon: '✓',
+        icon: t('topbar.capsule.auditIcon', '审计'),
         label: t('topbar.audit', '会话审计'),
         tone: 'primary',
         onClick: () => setSessionAuditOpen(true),
       },
       {
         key: 'tokens',
-        icon: '◌',
+        icon: t('topbar.capsule.tokenIcon', 'Token'),
         label: tokens,
         title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
         onClick: () => setSessionAuditOpen(true),
       },
     ];
-  }, [session, sendPhase, sseLive, totalKnown]);
+  }, [session, sendPhase, sseLive, totalKnown, selectedModel, composerModelKey, sessionModeOptions, sessionId]);
   const pull = usePullToRefresh(mainRef, {
     enabled: !loadingDetail && !loadingOlder,
     onRefresh: async () => {
@@ -1065,23 +1165,7 @@ export function SessionDetailPage() {
             pushRecentModel(k);
           }}
           fullAccessPermission={session?.full_access_permission === true}
-          onFullAccessPermissionChange={async (next) => {
-            if (permissionSaving) return;
-            setPermissionSaving(true);
-            try {
-              const res = await updateSessionFullAccessPermission(sessionId, next);
-              setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
-              showSnackbar(t('topbar.perm.ok', '已更新权限设置'), { tone: 'success' });
-            } catch (e) {
-              if (handleAuthError(e)) return;
-              if (handleSessionGoneError(e)) return;
-              const message = e instanceof Error ? e.message : String(e);
-              setLastError(message);
-              showSnackbar(`${t('topbar.perm.failed', '更新权限设置失败')}：${message}`, { tone: 'error' });
-            } finally {
-              setPermissionSaving(false);
-            }
-          }}
+          onFullAccessPermissionChange={requestFullAccessPermissionChange}
           sendPhase={sendPhase}
           canStop={detail?.runtime.can_stop ?? sendPhase !== 'idle'}
           stopping={stopping}
@@ -1141,7 +1225,6 @@ export function SessionDetailPage() {
               border: '1px solid rgba(245,158,11,0.35)',
             }}
           >
-            <span aria-hidden>⚠</span>
             <span>
               {t(
                 'detail.remoteRunning',
@@ -1274,7 +1357,6 @@ export function SessionDetailPage() {
               }}
               title={t('composer.model', '模型')}
             >
-              <span aria-hidden>✦</span>
               <span class="truncate">
                 {selectedModel?.model_id || selectedModel?.label || t('composer.modelEmpty', '主控制台未配置模型')}
               </span>
@@ -1299,7 +1381,6 @@ export function SessionDetailPage() {
                       : m === 'audio'
                         ? t('composer.mode.audio', '音频')
                         : m;
-                const icon = m === 'image' ? '🖼' : m === 'video' ? '🎬' : m === 'audio' ? '🎙' : '💬';
                 return (
                   <button
                     key={m}
@@ -1308,13 +1389,12 @@ export function SessionDetailPage() {
                     disabled={composerSending || active}
                     class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm disabled:opacity-90"
                     style={{
-                      background: active ? 'var(--m3-primary)' : 'transparent',
-                      color: active ? 'var(--m3-on-primary)' : 'var(--m3-on-surface-variant)',
+                      background: active ? 'var(--m3-inverse-surface)' : 'transparent',
+                      color: active ? 'var(--m3-inverse-on-surface)' : 'var(--m3-on-surface-variant)',
                     }}
                     title={label}
                   >
-                    <span aria-hidden>{icon}</span>
-                    <span class="ml-1 hidden sm:inline">{label}</span>
+                    <span>{label}</span>
                   </button>
                 );
               })}
@@ -1325,20 +1405,7 @@ export function SessionDetailPage() {
               onClick={() => {
                 if (permissionSaving) return;
                 const next = session?.full_access_permission !== true;
-                setPermissionSaving(true);
-                updateSessionFullAccessPermission(sessionId, next)
-                  .then((res) => {
-                    setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
-                    showSnackbar(t('topbar.perm.ok', '已更新权限设置'), { tone: 'success' });
-                  })
-                  .catch((e: unknown) => {
-                    if (handleAuthError(e)) return;
-                    if (handleSessionGoneError(e)) return;
-                    const message = e instanceof Error ? e.message : String(e);
-                    setLastError(message);
-                    showSnackbar(`${t('topbar.perm.failed', '更新权限设置失败')}：${message}`, { tone: 'error' });
-                  })
-                  .finally(() => setPermissionSaving(false));
+                requestFullAccessPermissionChange(next);
               }}
               disabled={permissionSaving}
               class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
@@ -1353,8 +1420,7 @@ export function SessionDetailPage() {
               }}
               title={t('topbar.perm.title', '权限模式')}
             >
-              {session?.full_access_permission === true ? '⚠' : '🛡'}
-              <span class="ml-1 hidden sm:inline">
+              <span>
                 {session?.full_access_permission === true
                   ? t('topbar.perm.full', '完全访问权限')
                   : t('topbar.perm.default', '默认权限')}
@@ -1374,17 +1440,18 @@ export function SessionDetailPage() {
               class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
               style={{
                 border: '1px solid var(--m3-outline)',
-                color: autoFollowPaused || unreadCount > 0
-                  ? 'var(--m3-primary)'
-                  : autoFollow
-                    ? 'var(--m3-primary)'
-                    : 'var(--m3-on-surface-variant)',
+                background: autoFollow || autoFollowPaused || unreadCount > 0
+                  ? 'var(--m3-inverse-surface)'
+                  : 'transparent',
+                color: autoFollow || autoFollowPaused || unreadCount > 0
+                  ? 'var(--m3-inverse-on-surface)'
+                  : 'var(--m3-on-surface-variant)',
               }}
               title={autoFollowPaused || unreadCount > 0
                 ? t('detail.resumeToLatest', '回到底部')
                 : t('composer.autoFollow', '自动跟随到底部')}
             >
-              ↓<span class="ml-1 hidden sm:inline">
+              <span>
                 {autoFollowPaused || unreadCount > 0
                   ? t('detail.resumeToLatest', '回到底部')
                   : autoFollow
@@ -1477,22 +1544,7 @@ export function SessionDetailPage() {
               {t('composer.attachment.drop', '松开即可添加附件')}
             </div>
           ) : null}
-          </div> : (
-            <button
-              type="button"
-              onClick={() => setComposerCollapsed(false)}
-              class="oh-tap-press w-full text-left text-sm px-3 py-2 rounded-m3-sm"
-              style={{
-                background: 'var(--m3-surface)',
-                color: 'var(--m3-on-surface-variant)',
-                border: '1px solid var(--m3-outline)',
-              }}
-            >
-              {composerText
-                ? composerText.slice(0, 96)
-                : t('composer.collapsedPlaceholder', '输入区已收起，点击展开')}
-            </button>
-          )}
+          </div> : null}
 
           {/* 附件 */}
           {attachmentsAllowed && composerAttachments.length > 0 ? (
@@ -1528,7 +1580,7 @@ export function SessionDetailPage() {
                             }}
                           />
                         ) : (
-                          <span aria-hidden style={{ fontSize: '14px' }}>📎</span>
+                          <span aria-hidden style={{ fontSize: '12px', fontWeight: 700 }}>ATT</span>
                         )}
                         <span class="flex flex-col min-w-0">
                           <span class="truncate max-w-[160px]">{att.name}</span>
@@ -1681,6 +1733,39 @@ export function SessionDetailPage() {
           onConfirm={confirmDeleteSession}
         />
       ) : null}
+      {pendingFullAccess === true ? (
+        <ConfirmDialog
+          title={t('topbar.perm.fullConfirmTitle', '启用完全访问权限')}
+          body={t(
+            'topbar.perm.fullConfirmBody',
+            '启用后，Web 会话中的写文件、执行命令等高风险操作将按 APP 完全访问权限模式自动执行。请确认当前会话和浏览器设备可信。',
+          )}
+          danger
+          busy={permissionSaving}
+          confirmLabel={permissionSaving
+            ? t('common.saving', '保存中…')
+            : t('topbar.perm.enableFullAccess', '启用完全访问权限')}
+          cancelLabel={t('common.cancel', '取消')}
+          onCancel={() => {
+            if (!permissionSaving) setPendingFullAccess(null);
+          }}
+          onConfirm={() => void applyFullAccessPermission(true)}
+        />
+      ) : null}
+      {pendingWriteApproval ? (
+        <ConfirmDialog
+          title={t('detail.writeApproval.title', '确认写操作')}
+          body={`${t('detail.writeApproval.body', '当前默认权限模式需要确认后才会继续执行写文件或命令操作。')}\n\n${t('detail.writeApproval.cwd', '工作目录')}：${pendingWriteApproval.working_directory || '-'}\n${t('detail.writeApproval.command', '命令')}：${pendingWriteApproval.command}`}
+          danger
+          busy={writeApprovalBusy}
+          confirmLabel={writeApprovalBusy
+            ? t('common.processing', '处理中…')
+            : t('detail.writeApproval.approve', '允许执行')}
+          cancelLabel={t('detail.writeApproval.reject', '拒绝')}
+          onCancel={() => void handleWriteApproval(false)}
+          onConfirm={() => void handleWriteApproval(true)}
+        />
+      ) : null}
       {showComposerModelPicker ? (
         <ModelPickerDialog
           models={allowedModels}
@@ -1786,9 +1871,6 @@ function ErrorBanner({
       role="alert"
     >
       <div class="flex items-start gap-2">
-        <span aria-hidden style={{ color: 'var(--m3-error)', fontWeight: 600 }}>
-          ⚠
-        </span>
         <div class="flex-1 min-w-0">
           <div style={{ color: 'var(--m3-error)', fontWeight: 600 }}>{title}</div>
           {hint ? (
@@ -1873,8 +1955,8 @@ function MessageAuditDialog({
   const json = JSON.stringify(message, null, 2);
   const node = (
     <div
-      class="oh-dialog-fade-in fixed inset-0 z-[1100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 1100 }}
+      class="oh-dialog-fade-in fixed inset-0 z-[2600] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
       onClick={onClose}
     >
       <div
@@ -1951,7 +2033,7 @@ function SessionAuditDialog({
   const node = (
     <div
       class="oh-dialog-fade-in fixed inset-0 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 1100 }}
+      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
       onClick={onClose}
     >
       <div

@@ -3,6 +3,7 @@
 // JSON 请求 / 响应自动序列化；非 2xx 抛 ApiError(status, body)。
 
 import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
+import { clientEnvironmentHeaders } from '../utils/client_env';
 
 export class ApiError extends Error {
   constructor(public readonly status: number, public readonly body: unknown) {
@@ -30,9 +31,7 @@ export async function apiRequest<T = unknown>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     'x-openhand-device-id': ensureDeviceId(),
-    'x-openhand-source': 'WEB_PC',
-    'x-openhand-device-name': 'OpenHand Web',
-    'x-openhand-device-platform': navigator.platform || 'web',
+    ...clientEnvironmentHeaders(),
   };
 
   if (!opts.anonymous) {

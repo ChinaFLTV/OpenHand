@@ -16,7 +16,7 @@ import { MessageMedia } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
 import { memo } from 'preact/compat';
-import { useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 
@@ -71,7 +71,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         background: '#1f2024',
         color: '#e8e8ec',
         label: t('detail.kind.reasoning', '思考'),
-        icon: '💭',
+        icon: 'TH',
         badge: true,
         collapsible: true,
       };
@@ -81,7 +81,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, var(--m3-primary) 35%, transparent)',
         label: t('detail.kind.toolCall', '工具调用'),
-        icon: '⚙',
+        icon: 'TC',
         badge: true,
         mono: true,
       };
@@ -112,7 +112,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, #f5a623 45%, transparent)',
         label: t('detail.kind.skill', '技能'),
-        icon: '✦',
+        icon: 'SK',
         badge: true,
       };
     case 'hook':
@@ -121,7 +121,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, #00bcd4 38%, transparent)',
         label: t('detail.kind.hook', 'Hook'),
-        icon: '⚓',
+        icon: 'HK',
         badge: true,
       };
     case 'self_learning':
@@ -139,7 +139,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid var(--m3-outline)',
         label: t('detail.kind.fileMutation', '本轮文件变动汇总'),
-        icon: '🗎',
+        icon: 'FM',
         badge: true,
         mono: true,
       };
@@ -149,7 +149,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface-variant)',
         border: '1px dashed var(--m3-outline)',
         label: t('detail.kind.status', '状态'),
-        icon: 'ℹ',
+        icon: 'ST',
         badge: true,
       };
     case 'compression_point':
@@ -175,7 +175,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         background: 'var(--m3-surface-container)',
         color: 'var(--m3-on-surface)',
         label: t('detail.role.assistant', '助手'),
-        icon: '★',
+        icon: 'AI',
       };
   }
 }
@@ -228,9 +228,36 @@ function MessageCardImpl({
   // Listener-based onSelect/onDeselect：再次点击卡片或外部按钮可关闭。
   const [actionsOpen, setActionsOpen] = useState(false);
   const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
+  const cardRef = useRef<HTMLElement | null>(null);
+  const lastHeightRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el || typeof window === 'undefined') return;
+    const nextHeight = el.getBoundingClientRect().height;
+    const previousHeight = lastHeightRef.current;
+    lastHeightRef.current = nextHeight;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    if (reduceMotion || previousHeight == null || Math.abs(previousHeight - nextHeight) < 2) return;
+    el.style.overflow = 'clip';
+    const animation = el.animate([
+      { height: `${previousHeight}px`, transform: 'scale(0.998)' },
+      { height: `${nextHeight}px`, transform: 'scale(1.004)' },
+      { height: `${nextHeight}px`, transform: 'scale(1)' },
+    ], {
+      duration: 360,
+      easing: 'cubic-bezier(.2, .9, .2, 1)',
+    });
+    animation.onfinish = () => {
+      el.style.overflow = '';
+    };
+    animation.oncancel = animation.onfinish;
+    return () => animation.cancel();
+  }, [visibleContent, content, actionsOpen, message.kind, message.metadata]);
 
   return (
     <article
+      ref={cardRef}
       class="rounded-m3-md p-4 oh-appear-up"
       style={{
         background: style.background,
@@ -242,7 +269,8 @@ function MessageCardImpl({
           ? '2px solid color-mix(in srgb, var(--m3-primary) 60%, transparent)'
           : 'none',
         outlineOffset: '2px',
-        transition: 'outline-color 180ms ease-out',
+        transformOrigin: 'center top',
+        transition: 'outline-color 180ms ease-out, box-shadow 220ms ease-out, border-color 220ms ease-out',
       }}
       onClick={(ev) => {
         if (!hasAnyAction) return;
@@ -461,7 +489,6 @@ function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
     >
       <div class="flex items-center justify-between gap-2 mb-2">
         <div class="flex items-center gap-2 min-w-0">
-          <span aria-hidden>🗎</span>
           <span class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
             {t('detail.fileMutation.title', '文件变动')}
           </span>

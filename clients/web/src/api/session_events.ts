@@ -10,6 +10,17 @@
 
 import { ensureDeviceId, readToken } from '../state/storage';
 import type { SessionMessage, SessionSummary } from './sessions';
+import { collectClientEnvironment } from '../utils/client_env';
+
+export interface PendingWriteApproval {
+  id: string;
+  session_id: string;
+  command: string;
+  working_directory: string;
+  is_write_command: boolean;
+  created_at: string;
+  expires_at: string;
+}
 
 export interface SessionEventSnapshot {
   session: SessionSummary;
@@ -24,6 +35,7 @@ export interface SessionEventSnapshot {
   send_phase: string;
   last_error: string | null;
   can_stop: boolean;
+  pending_write_approval?: PendingWriteApproval | null;
   served_at: string;
 }
 
@@ -44,8 +56,9 @@ export function subscribeSessionEvents(
     return () => {};
   }
   const params = new URLSearchParams();
+  const env = collectClientEnvironment();
   params.set('device_id', ensureDeviceId());
-  params.set('source', 'WEB_PC');
+  params.set('source', env.source);
   const token = readToken();
   if (token) params.set('token', token);
   const url = `/api/sessions/${encodeURIComponent(sessionId)}/events?${params.toString()}`;

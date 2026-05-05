@@ -3526,9 +3526,9 @@ class _RoundSummaryRowTile extends StatelessWidget {
           const SizedBox(width: 6),
           if (row.sourceMessageId != null)
             _RoundSummarySourceJumpButton(onTap: onJump),
-          // 阶段⑰d：modify 类记录支持 inline Diff 预览（前后均有 blob 才显示）。
-          if (row.view.record.kind == FileMutationKind.modify &&
-              row.view.record.beforeSha != null &&
+          // 阶段⑰d：任意有快照的记录都支持 inline Diff 预览；create/delete
+          // 分别以空 before/after 参与 diff，与单个工具调用卡片保持一致。
+          if (row.view.record.beforeSha != null ||
               row.view.record.afterSha != null) ...[
             const SizedBox(width: 4),
             Tooltip(

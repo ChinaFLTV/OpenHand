@@ -7,6 +7,7 @@ import {
   ensureDeviceId,
   writeToken,
 } from '../state/storage';
+import { collectClientEnvironment } from '../utils/client_env';
 
 interface LoginRequestBody {
   username: string;
@@ -15,6 +16,15 @@ interface LoginRequestBody {
   source: string;
   device_name: string;
   device_platform: string;
+  os_name: string;
+  os_version: string;
+  browser_name: string;
+  browser_version: string;
+  web_client_version: string;
+  locale: string;
+  timezone: string;
+  screen_class: string;
+  user_agent: string;
 }
 
 interface LoginResponse {
@@ -27,13 +37,23 @@ export async function loginWithCredentials(
   username: string,
   password: string,
 ): Promise<LoginResponse> {
+  const env = collectClientEnvironment();
   const body: LoginRequestBody = {
     username,
     password,
     device_id: ensureDeviceId(),
-    source: 'WEB_PC',
-    device_name: 'OpenHand Web',
-    device_platform: navigator.platform || 'web',
+    source: env.source,
+    device_name: env.deviceName,
+    device_platform: env.devicePlatform,
+    os_name: env.osName,
+    os_version: env.osVersion,
+    browser_name: env.browserName,
+    browser_version: env.browserVersion,
+    web_client_version: env.webClientVersion,
+    locale: env.locale,
+    timezone: env.timezone,
+    screen_class: env.screenClass,
+    user_agent: env.userAgent,
   };
   const res = await apiRequest<LoginResponse>('/api/login', {
     method: 'POST',

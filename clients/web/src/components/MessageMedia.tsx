@@ -219,7 +219,7 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
                 class="text-xs truncate"
                 style={{ color: 'var(--m3-on-surface)' }}
               >
-                🎙 {item.name}
+                {item.name}
               </p>
               <audio
                 src={url}
@@ -246,7 +246,6 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
             }}
             title={item.path}
           >
-            <span aria-hidden>📎</span>
             <span class="truncate">{item.name}</span>
             {item.hintLabel ? (
               <span

@@ -206,7 +206,7 @@ function HardnessRecordView(props: { record: HardnessSessionRecord }) {
                 border: '1px solid rgba(245,158,11,0.30)',
               }}
             >
-              ⏸ {t('hardness.awaitingManualInput', '等待用户在 App 端补充人工反馈以继续')}
+              {t('hardness.awaitingManualInput', '等待用户在 App 端补充人工反馈以继续')}
             </div>
           ) : null}
         </header>

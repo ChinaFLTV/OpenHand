@@ -282,10 +282,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void didUpdateWidget(covariant _SessionTranscript oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.session.id != widget.session.id) {
-      _TranscriptScrollDispatcher.instance
-          .unregister(oldWidget.session.id, this);
-      _TranscriptScrollDispatcher.instance
-          .register(widget.session.id, this);
+      _TranscriptScrollDispatcher.instance.unregister(
+        oldWidget.session.id,
+        this,
+      );
+      _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
       // Switching sessions used to rebuild the full transcript synchronously
       // inside `didUpdateWidget`, which on large sessions blocked the frame
       // that paints the new toolbar / shell. We now reset to an empty list
@@ -472,7 +473,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           newAdditions++;
         }
       }
-      final dripInProgress = _dripTimer != null && _materializedTailLimit != null;
+      final dripInProgress =
+          _dripTimer != null && _materializedTailLimit != null;
       final shouldDrip =
           newAdditions >= _dripActivationThreshold ||
           (dripInProgress && newAdditions > 0);
@@ -588,8 +590,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     bool highlight = false,
   }) async {
     if (!mounted) return false;
-    final reduceMotion =
-        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     Duration smoothDuration = reduceMotion
         ? Duration.zero
         : const Duration(milliseconds: 520);
@@ -624,7 +625,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (targetIndex < 0) return false;
 
     // 反复 reveal-older 直到 _windowStartIndex 把目标囊括进来。
-    var safety = 32; // 兜底防御：极端情况下 reveal 失败避免死循环。
+    var safety = math.max(
+      32,
+      (display.length / _transcriptWindowIncrement).ceil() + 2,
+    ); // 兜底防御：极端情况下 reveal 失败避免死循环。
     while (mounted && targetIndex < _windowStartIndex && safety-- > 0) {
       await _revealOlderMessages(display.length);
       // reveal-older 会等待 16ms + 一个 post-frame；再让一帧给
@@ -1026,74 +1030,74 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       child: KeyedSubtree(
                         key: _MessageBubbleObjectKey(message.id),
                         child: _MessageBubble(
-                        key: ValueKey<String>(message.id),
-                        message: message,
-                        sessionTitle: session.title,
-                        sessionEnvironment: session.environment,
-                        showReasoningSweep:
-                            !entry.exiting &&
-                            widget.sendPhase == AiSendPhase.responding &&
-                            _isStreamingReasoningMessage(message),
-                        trackLayoutChanges:
-                            !entry.exiting &&
-                            _shouldTrackMessageLayout(
-                              message: message,
-                              sendPhase: widget.sendPhase,
-                              isLastVisibleMessage: isLastVisibleMessage,
-                            ),
-                        onLayoutChanged: widget.onLayoutChanged,
-                        isSelected: isSelected,
-                        isScrollHighlighted:
-                            _highlightedMessageId == message.id,
-                        onSelect: () {
-                          if (_selectedMessageId == message.id) {
-                            return;
-                          }
-                          setState(() {
-                            _selectedMessageId = message.id;
-                          });
-                        },
-                        onDeselect: () {
-                          if (_selectedMessageId != message.id) {
-                            return;
-                          }
-                          setState(() {
-                            _selectedMessageId = null;
-                          });
-                        },
-                        onEdit:
-                            !entry.exiting &&
-                                message.kind == AiSessionMessageKind.user
-                            ? () => widget.onEditMessage(message)
-                            : null,
-                        onCopy: () => widget.onCopyMessage(message),
-                        onDelete: () async {
-                          if (entry.exiting) {
-                            return;
-                          }
-                          await _runDeleteAction(
-                            message,
-                            widget.onDeleteMessage,
-                          );
-                        },
-                        onDeleteFromHere:
-                            !entry.exiting && hasLaterVisibleMessages
-                            ? () => _runDeleteAction(
-                                message,
-                                widget.onDeleteMessageFromHere,
-                              )
-                            : null,
-                        onAudit: telemetryDebugEnabled
-                            ? () {
-                                _showMessageAuditDialog(
-                                  context,
-                                  message: message,
-                                  session: session,
-                                  controller: aiSessionController,
-                                );
-                              }
-                            : null,
-                      ),
+                          key: ValueKey<String>(message.id),
+                          message: message,
+                          sessionTitle: session.title,
+                          sessionEnvironment: session.environment,
+                          showReasoningSweep:
+                              !entry.exiting &&
+                              widget.sendPhase == AiSendPhase.responding &&
+                              _isStreamingReasoningMessage(message),
+                          trackLayoutChanges:
+                              !entry.exiting &&
+                              _shouldTrackMessageLayout(
+                                message: message,
+                                sendPhase: widget.sendPhase,
+                                isLastVisibleMessage: isLastVisibleMessage,
+                              ),
+                          onLayoutChanged: widget.onLayoutChanged,
+                          isSelected: isSelected,
+                          isScrollHighlighted:
+                              _highlightedMessageId == message.id,
+                          onSelect: () {
+                            if (_selectedMessageId == message.id) {
+                              return;
+                            }
+                            setState(() {
+                              _selectedMessageId = message.id;
+                            });
+                          },
+                          onDeselect: () {
+                            if (_selectedMessageId != message.id) {
+                              return;
+                            }
+                            setState(() {
+                              _selectedMessageId = null;
+                            });
+                          },
+                          onEdit:
+                              !entry.exiting &&
+                                  message.kind == AiSessionMessageKind.user
+                              ? () => widget.onEditMessage(message)
+                              : null,
+                          onCopy: () => widget.onCopyMessage(message),
+                          onDelete: () async {
+                            if (entry.exiting) {
+                              return;
+                            }
+                            await _runDeleteAction(
+                              message,
+                              widget.onDeleteMessage,
+                            );
+                          },
+                          onDeleteFromHere:
+                              !entry.exiting && hasLaterVisibleMessages
+                              ? () => _runDeleteAction(
+                                  message,
+                                  widget.onDeleteMessageFromHere,
+                                )
+                              : null,
+                          onAudit: telemetryDebugEnabled
+                              ? () {
+                                  _showMessageAuditDialog(
+                                    context,
+                                    message: message,
+                                    session: session,
+                                    controller: aiSessionController,
+                                  );
+                                }
+                              : null,
+                        ),
                       ),
                     ),
                   ),
@@ -1280,8 +1284,9 @@ class _TranscriptAnimatedMessageEntryState
             translateY = -3 * eased;
           } else {
             final t = (exitProgress - anticipateEnd) / (1 - anticipateEnd);
-            final easedFold =
-                Curves.easeInOutCubicEmphasized.transform(t.clamp(0.0, 1.0));
+            final easedFold = Curves.easeInOutCubicEmphasized.transform(
+              t.clamp(0.0, 1.0),
+            );
             heightFactor = (1.0 - easedFold).clamp(0.0, 1.0);
             opacity = (1.0 - easedFold).clamp(0.0, 1.0);
             scale = 1.06 - 0.20 * easedFold;
@@ -1512,16 +1517,17 @@ class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText>
       _animatedOnce = true;
       _settledText = null;
       _scrambleSalt = DateTime.now().microsecondsSinceEpoch & 0x7fffffff;
-      _controller ??= AnimationController(
-        vsync: this,
-        duration: _sessionTitleRevealAnimationDuration,
-      )..addStatusListener((status) {
-        if (status == AnimationStatus.completed && mounted) {
-          setState(() {
-            _settledText = widget.text;
+      _controller ??=
+          AnimationController(
+            vsync: this,
+            duration: _sessionTitleRevealAnimationDuration,
+          )..addStatusListener((status) {
+            if (status == AnimationStatus.completed && mounted) {
+              setState(() {
+                _settledText = widget.text;
+              });
+            }
           });
-        }
-      });
       _controller!
         ..stop()
         ..forward(from: 0);
@@ -1625,7 +1631,8 @@ class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText>
     // Cheap deterministic shuffle keyed by salt + index + frame band so the
     // glyph changes ~10 times per second without expensive Random.
     final frameBand = (t * 18).floor();
-    final hash = (_scrambleSalt ^ (index * 2654435761) ^ (frameBand * 40503)) &
+    final hash =
+        (_scrambleSalt ^ (index * 2654435761) ^ (frameBand * 40503)) &
         0x7fffffff;
     final pick = hash % pool.length;
     return pool[pick];

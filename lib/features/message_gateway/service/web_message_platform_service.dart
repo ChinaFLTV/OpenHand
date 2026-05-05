@@ -23,6 +23,8 @@ import '../../ai/model/ai_session.dart';
 import '../../ai/model/ai_session_message.dart';
 import '../../ai/model/ai_session_runtime_context.dart';
 import '../../ai/model/ai_thread_template.dart';
+import '../../ai/service/ai_bash_tool_service.dart'
+    show BashCommandApprovalRequest;
 import '../../ai/service/ai_image_generation_service.dart';
 import '../../crons/crons_controller.dart';
 import '../../hardness/hardness_session_store.dart';
@@ -44,6 +46,40 @@ export '../model/web_gateway_session_metadata.dart';
 part 'web_message_platform_service_logger.part.dart';
 part 'web_message_platform_service_auth.part.dart';
 part 'web_message_platform_service_telemetry.part.dart';
+
+class _WebWriteApprovalRequest {
+  _WebWriteApprovalRequest({
+    required this.id,
+    required this.sessionId,
+    required this.command,
+    required this.workingDirectory,
+    required this.isWriteCommand,
+    required this.createdAt,
+    required this.expiresAt,
+    required this.completer,
+  });
+
+  final String id;
+  final String sessionId;
+  final String command;
+  final String workingDirectory;
+  final bool isWriteCommand;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final Completer<bool> completer;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'session_id': sessionId,
+      'command': command,
+      'working_directory': workingDirectory,
+      'is_write_command': isWriteCommand,
+      'created_at': createdAt.toUtc().toIso8601String(),
+      'expires_at': expiresAt.toUtc().toIso8601String(),
+    };
+  }
+}
 
 class WebMessagePlatformService {
   WebMessagePlatformService({
@@ -92,6 +128,9 @@ class WebMessagePlatformService {
       <WebGatewayCleanupResult>[];
   final Map<String, _WebGatewayAuthSession> _authSessions =
       <String, _WebGatewayAuthSession>{};
+  final Map<String, _WebWriteApprovalRequest> _pendingWriteApprovals =
+      <String, _WebWriteApprovalRequest>{};
+  int _nextWriteApprovalId = 1;
 
   HttpServer? _server;
   WebGatewayRuntimeState _state = WebGatewayRuntimeState.stopped;
@@ -908,6 +947,13 @@ class WebMessagePlatformService {
       (shelf.Request r, String sessionId) =>
           _withAuth(r, (req, auth) => _stopSendMessage(req, auth, sessionId)),
     );
+    router.post(
+      '/api/sessions/<sessionId>/write-approvals/<approvalId>',
+      (shelf.Request r, String sessionId, String approvalId) => _withAuth(
+        r,
+        (req, auth) => _respondWriteApproval(req, auth, sessionId, approvalId),
+      ),
+    );
     // 删除单条消息（对齐 APP 端 _home_message_bubble.dart 长按菜单 → 删除）。
     router.delete(
       '/api/sessions/<sessionId>/messages/<messageId>',
@@ -1034,7 +1080,7 @@ class WebMessagePlatformService {
       'access-control-allow-origin': '*',
       'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
       'access-control-allow-headers':
-          'authorization,content-type,x-openhand-device-id,x-openhand-source,x-openhand-device-mac,x-openhand-device-name,x-openhand-device-platform',
+          'authorization,content-type,x-openhand-device-id,x-openhand-source,x-openhand-device-mac,x-openhand-device-name,x-openhand-device-platform,x-openhand-os-name,x-openhand-os-version,x-openhand-browser-name,x-openhand-browser-version,x-openhand-web-client-version,x-openhand-locale,x-openhand-timezone,x-openhand-screen-class',
     };
     return (innerHandler) {
       return (shelf.Request request) async {
@@ -1470,6 +1516,14 @@ class WebMessagePlatformService {
       deviceMacAddress: _string(body['device_mac_address'], ''),
       deviceName: _string(body['device_name'], ''),
       devicePlatform: _string(body['device_platform'], ''),
+      osName: _string(body['os_name'], ''),
+      osVersion: _string(body['os_version'], ''),
+      browserName: _string(body['browser_name'], ''),
+      browserVersion: _string(body['browser_version'], ''),
+      webClientVersion: _string(body['web_client_version'], ''),
+      locale: _string(body['locale'], ''),
+      timezone: _string(body['timezone'], ''),
+      screenClass: _string(body['screen_class'], ''),
       loginAt: DateTime.now().toUtc(),
       remoteAddress:
           (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
@@ -1508,10 +1562,14 @@ class WebMessagePlatformService {
         request.requestedUri.queryParameters['source']?.trim() ?? '';
     final deviceQuery =
         request.requestedUri.queryParameters['device_id']?.trim() ?? '';
-    final source = canAccessAll
+    final scopeQuery =
+        request.requestedUri.queryParameters['scope']?.trim().toLowerCase() ??
+        '';
+    final useAllScope = canAccessAll && scopeQuery == 'all';
+    final source = useAllScope
         ? sourceQuery
         : (sourceQuery.isEmpty ? auth.source.storageValue : sourceQuery);
-    final deviceId = canAccessAll
+    final deviceId = useAllScope
         ? deviceQuery
         : (deviceQuery.isEmpty ? auth.deviceId : deviceQuery);
     final filtered =
@@ -1548,7 +1606,7 @@ class WebMessagePlatformService {
       'total': filtered.length,
       'has_more': end < filtered.length,
       'sort': 'updated_at_desc,id_desc',
-      'scope': canAccessAll ? 'authenticated_all' : 'current_device',
+      'scope': useAllScope ? 'authenticated_all' : 'current_device',
     });
   }
 
@@ -1806,6 +1864,7 @@ class WebMessagePlatformService {
       'window': tail ? 'tail' : 'offset',
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
       'last_error': _sessionController.lastErrorMessageForSession(session.id),
+      'pending_write_approval': _pendingWriteApprovalJson(session.id),
     });
   }
 
@@ -1841,7 +1900,7 @@ class WebMessagePlatformService {
       bodyText,
       headers: <String, String>{
         HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
-        'content-disposition': 'attachment; filename="$filename"',
+        'content-disposition': _attachmentContentDisposition(filename),
         HttpHeaders.cacheControlHeader: 'no-store',
       },
     );
@@ -1957,6 +2016,8 @@ class WebMessagePlatformService {
             requireWriteCommandConfirmation: session.fullAccessPermission
                 ? false
                 : _settingsController.aiWriteCommandConfirmationEnabled,
+            confirmWriteCommand: (request) =>
+                _confirmWebWriteCommand(session.id, request),
             userMessageMetadata:
                 _metadataForRequest(auth, request, <String, Object?>{
                   'sent_via': 'web_api',
@@ -2010,6 +2071,7 @@ class WebMessagePlatformService {
         'reason': 'not_running',
       });
     }
+    _resolvePendingWriteApprovals(session.id, approved: false);
     await _sessionController.stopResponding(session.id);
     _log(
       WebGatewayLogLevel.warn,
@@ -2020,6 +2082,45 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+    });
+  }
+
+  Future<shelf.Response> _respondWriteApproval(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+    String approvalId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final approval = _pendingWriteApprovals[approvalId];
+    if (approval == null || approval.sessionId != session.id) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'write_approval_not_found',
+      });
+    }
+    final body = await _readJsonBody(request);
+    final approved = body['approved'] == true;
+    if (!approval.completer.isCompleted) {
+      approval.completer.complete(approved);
+    }
+    _log(
+      approved ? WebGatewayLogLevel.success : WebGatewayLogLevel.warn,
+      'APPROVAL',
+      approved ? 'Web 批准写操作' : 'Web 拒绝写操作',
+      <String, Object?>{
+        'session_id': session.id,
+        'approval_id': approvalId,
+        'device_id': auth.deviceId,
+      },
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'approved': approved,
     });
   }
 
@@ -2135,6 +2236,7 @@ class WebMessagePlatformService {
         'send_phase': _sessionController.sendPhaseForSession(sessionId).name,
         'last_error': _sessionController.lastErrorMessageForSession(sessionId),
         'can_stop': _sessionController.canStopResponding(sessionId),
+        'pending_write_approval': _pendingWriteApprovalJson(sessionId),
         'served_at': DateTime.now().toUtc().toIso8601String(),
       };
     }
@@ -2160,7 +2262,7 @@ class WebMessagePlatformService {
         try {
           final snapshot = buildSnapshot();
           final hash =
-              '${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['messages'] as List).map((m) {
+              '${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|${(snapshot['messages'] as List).map((m) {
                 final mm = m as Map<String, Object?>;
                 return '${mm['id']}:${(mm['content'] as String?)?.length ?? 0}';
               }).join(',')}';
@@ -2348,6 +2450,14 @@ class WebMessagePlatformService {
         deviceMacAddress: '',
         deviceName: 'OpenHand Web',
         devicePlatform: 'web',
+        osName: qp['os_name'] ?? '',
+        osVersion: qp['os_version'] ?? '',
+        browserName: qp['browser_name'] ?? '',
+        browserVersion: qp['browser_version'] ?? '',
+        webClientVersion: qp['web_client_version'] ?? '',
+        locale: qp['locale'] ?? '',
+        timezone: qp['timezone'] ?? '',
+        screenClass: qp['screen_class'] ?? '',
         loginAt: DateTime.now().toUtc(),
         remoteAddress:
             (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
@@ -2698,6 +2808,15 @@ class WebMessagePlatformService {
         deviceMacAddress: request.headers['x-openhand-device-mac'] ?? '',
         deviceName: request.headers['x-openhand-device-name'] ?? '',
         devicePlatform: request.headers['x-openhand-device-platform'] ?? '',
+        osName: request.headers['x-openhand-os-name'] ?? '',
+        osVersion: request.headers['x-openhand-os-version'] ?? '',
+        browserName: request.headers['x-openhand-browser-name'] ?? '',
+        browserVersion: request.headers['x-openhand-browser-version'] ?? '',
+        webClientVersion:
+            request.headers['x-openhand-web-client-version'] ?? '',
+        locale: request.headers['x-openhand-locale'] ?? '',
+        timezone: request.headers['x-openhand-timezone'] ?? '',
+        screenClass: request.headers['x-openhand-screen-class'] ?? '',
         loginAt: DateTime.now().toUtc(),
         remoteAddress:
             (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
@@ -2729,6 +2848,62 @@ class WebMessagePlatformService {
       return session;
     }
     return null;
+  }
+
+  Map<String, Object?>? _pendingWriteApprovalJson(String sessionId) {
+    for (final approval in _pendingWriteApprovals.values) {
+      if (approval.sessionId == sessionId && !approval.completer.isCompleted) {
+        return approval.toJson();
+      }
+    }
+    return null;
+  }
+
+  Future<bool> _confirmWebWriteCommand(
+    String sessionId,
+    BashCommandApprovalRequest request,
+  ) async {
+    final createdAt = DateTime.now().toUtc();
+    final timeoutMs = _settingsController.aiWriteConfirmationTimeoutMs;
+    final completer = Completer<bool>();
+    final approval = _WebWriteApprovalRequest(
+      id: '${createdAt.microsecondsSinceEpoch}-${_nextWriteApprovalId++}',
+      sessionId: sessionId,
+      command: request.command,
+      workingDirectory: request.workingDirectory,
+      isWriteCommand: request.isWriteCommand,
+      createdAt: createdAt,
+      expiresAt: createdAt.add(Duration(milliseconds: timeoutMs)),
+      completer: completer,
+    );
+    _pendingWriteApprovals[approval.id] = approval;
+    _sessionController.setSessionAwaitingApproval(sessionId);
+    _log(WebGatewayLogLevel.warn, 'APPROVAL', 'Web 等待写操作确认', <String, Object?>{
+      'session_id': sessionId,
+      'approval_id': approval.id,
+      'working_directory': request.workingDirectory,
+    });
+    final timer = Timer(Duration(milliseconds: timeoutMs), () {
+      if (!completer.isCompleted) completer.complete(false);
+    });
+    try {
+      return await completer.future;
+    } finally {
+      timer.cancel();
+      _pendingWriteApprovals.remove(approval.id);
+      _sessionController.clearSessionAwaitingApproval(sessionId);
+    }
+  }
+
+  void _resolvePendingWriteApprovals(
+    String sessionId, {
+    required bool approved,
+  }) {
+    for (final approval in _pendingWriteApprovals.values.toList()) {
+      if (approval.sessionId == sessionId && !approval.completer.isCompleted) {
+        approval.completer.complete(approved);
+      }
+    }
   }
 
   bool _authCanAccessAllSessions(_WebGatewayAuthSession auth) {
@@ -3238,6 +3413,16 @@ class WebMessagePlatformService {
     if (lower.endsWith('.ttf')) return 'font/ttf';
     if (lower.endsWith('.map')) return 'application/json; charset=utf-8';
     return 'application/octet-stream';
+  }
+
+  String _attachmentContentDisposition(String filename) {
+    final ascii = filename
+        .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final fallback = ascii.isEmpty ? 'session.json' : ascii;
+    final encoded = Uri.encodeComponent(filename);
+    return 'attachment; filename="$fallback"; filename*=UTF-8\'\'$encoded';
   }
 
   void _log(

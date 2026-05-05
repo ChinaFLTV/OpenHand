@@ -19,6 +19,8 @@ class WebGatewaySessionMetadata {
     this.userAgent,
     this.osName,
     this.osVersion,
+    this.browserName,
+    this.browserVersion,
     this.locale,
     this.timezone,
     this.loginAt,
@@ -37,6 +39,8 @@ class WebGatewaySessionMetadata {
       'user_agent',
       'os_name',
       'os_version',
+      'browser_name',
+      'browser_version',
       'locale',
       'timezone',
       'login_at',
@@ -61,6 +65,8 @@ class WebGatewaySessionMetadata {
       userAgent: _opt(json['user_agent']),
       osName: _opt(json['os_name']),
       osVersion: _opt(json['os_version']),
+      browserName: _opt(json['browser_name']),
+      browserVersion: _opt(json['browser_version']),
       locale: _opt(json['locale']),
       timezone: _opt(json['timezone']),
       loginAt: loginAt,
@@ -77,6 +83,8 @@ class WebGatewaySessionMetadata {
   final String? userAgent;
   final String? osName;
   final String? osVersion;
+  final String? browserName;
+  final String? browserVersion;
   final String? locale;
   final String? timezone;
   final DateTime? loginAt;
@@ -102,6 +110,8 @@ class WebGatewaySessionMetadata {
     String? userAgent,
     String? osName,
     String? osVersion,
+    String? browserName,
+    String? browserVersion,
     String? locale,
     String? timezone,
     DateTime? loginAt,
@@ -117,6 +127,8 @@ class WebGatewaySessionMetadata {
       userAgent: userAgent ?? this.userAgent,
       osName: osName ?? this.osName,
       osVersion: osVersion ?? this.osVersion,
+      browserName: browserName ?? this.browserName,
+      browserVersion: browserVersion ?? this.browserVersion,
       locale: locale ?? this.locale,
       timezone: timezone ?? this.timezone,
       loginAt: loginAt ?? this.loginAt,
@@ -137,6 +149,10 @@ class WebGatewaySessionMetadata {
       if (userAgent != null && userAgent!.isNotEmpty) 'user_agent': userAgent,
       if (osName != null && osName!.isNotEmpty) 'os_name': osName,
       if (osVersion != null && osVersion!.isNotEmpty) 'os_version': osVersion,
+      if (browserName != null && browserName!.isNotEmpty)
+        'browser_name': browserName,
+      if (browserVersion != null && browserVersion!.isNotEmpty)
+        'browser_version': browserVersion,
       if (locale != null && locale!.isNotEmpty) 'locale': locale,
       if (timezone != null && timezone!.isNotEmpty) 'timezone': timezone,
       if (loginAt != null) 'login_at': loginAt!.toUtc().toIso8601String(),
@@ -158,9 +174,7 @@ class WebGatewaySessionMetadata {
   ) {
     final raw = sessionMetadata[webGatewayMetadataKey];
     if (raw is Map) {
-      return WebGatewaySessionMetadata.fromJson(
-        Map<String, Object?>.from(raw),
-      );
+      return WebGatewaySessionMetadata.fromJson(Map<String, Object?>.from(raw));
     }
     return null;
   }
@@ -200,8 +214,7 @@ Map<String, Object?> buildLegacyWebGatewayRequestMetadata({
       'request_id': requestId,
       'request_method': requestMethod,
       'request_path': requestPath,
-      'captured_at':
-          (capturedAt ?? DateTime.now().toUtc()).toIso8601String(),
+      'captured_at': (capturedAt ?? DateTime.now().toUtc()).toIso8601String(),
     },
   };
 }

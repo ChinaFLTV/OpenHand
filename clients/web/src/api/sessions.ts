@@ -11,6 +11,8 @@
 
 import { ApiError, UnauthorizedError, apiRequest } from './client';
 import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
+import type { PendingWriteApproval } from './session_events';
+import { clientEnvironmentHeaders } from '../utils/client_env';
 
 export interface SessionTodoItem {
   id: string;
@@ -88,6 +90,7 @@ export interface SessionMessagesResponse {
   window?: 'tail' | 'offset' | string;
   send_phase: string;
   last_error: string | null;
+  pending_write_approval?: PendingWriteApproval | null;
 }
 
 export interface ListSessionsOptions {
@@ -261,6 +264,17 @@ export function stopMessage(sessionId: string): Promise<StopMessageResponse> {
   );
 }
 
+export function respondWriteApproval(
+  sessionId: string,
+  approvalId: string,
+  approved: boolean,
+): Promise<{ ok: boolean; approved: boolean }> {
+  return apiRequest<{ ok: boolean; approved: boolean }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/write-approvals/${encodeURIComponent(approvalId)}`,
+    { method: 'POST', body: { approved } },
+  );
+}
+
 /// 删除单条消息（对齐 APP 端长按菜单）。返回 `{ok}`；ok=false 表示消息已不存在。
 export async function deleteMessage(
   sessionId: string,
@@ -315,7 +329,7 @@ export async function exportSessionDownload(
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'x-openhand-device-id': ensureDeviceId(),
-    'x-openhand-source': 'WEB_PC',
+    ...clientEnvironmentHeaders(),
   };
   const token = readToken();
   if (token) headers.Authorization = `Bearer ${token}`;

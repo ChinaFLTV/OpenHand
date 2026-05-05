@@ -507,7 +507,7 @@ export function FilesPage() {
                       }}
                       title={it.path}
                     >
-                      <span style={{ width: '16px' }}>{it.type === 'directory' ? '📁' : '📄'}</span>
+                      <span style={{ width: '26px', fontSize: '11px', fontWeight: 700 }}>{it.type === 'directory' ? 'DIR' : 'FILE'}</span>
                       <span class="flex-1 truncate font-mono">{it.name}</span>
                       <span
                         class="text-xs"
@@ -535,7 +535,7 @@ export function FilesPage() {
                           opacity: deleteBusy ? 0.55 : 1,
                         }}
                       >
-                        🗑
+                        {t('files.delete', '删除')}
                       </button>
                     )}
                   </li>
@@ -546,7 +546,7 @@ export function FilesPage() {
             {list && (
               <p class="mt-3 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
                 {t('files.writeEnabled', '可写入：')}
-                {fileOperationsEnabled ? '✅' : '❌'} ·{' '}
+                {fileOperationsEnabled ? t('common.on', '开启') : t('common.off', '关闭')} ·{' '}
                 {t('files.maxBytes', '单文件上限：')}
                 {tBytes(list.max_file_bytes)}
               </p>

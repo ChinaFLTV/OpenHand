@@ -88,7 +88,7 @@ function statusVisual(status: string): { color: string; label: string; icon: str
     return {
       color: 'var(--m3-error)',
       label: t('detail.tool.status.timedOut', '已超时'),
-      icon: '⌛',
+      icon: 'TO',
     };
   }
   if (s === 'invalid_arguments') {
@@ -177,7 +177,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           }}
           title={ex.toolName}
         >
-          ⚙ {ex.toolName}
+          {ex.toolName}
         </span>
       ) : null}
       {(ex.mcpServerName || ex.mcpToolName) ? (
@@ -253,7 +253,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           }}
           title={ex.filePath}
         >
-          📄 {ex.filePath}
+          {ex.filePath}
         </span>
       ) : null}
       {ex.mutationKind ? (
@@ -277,7 +277,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
             fontWeight: 600,
           }}
         >
-          ⚠ {t('detail.tool.awaitingApproval', '等待审批')}
+          {t('detail.tool.awaitingApproval', '等待审批')}
         </span>
       ) : null}
       {ex.approved ? (

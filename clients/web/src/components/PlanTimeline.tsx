@@ -177,7 +177,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
               fontWeight: 600,
             }}
           >
-            {t('detail.plan.awaiting', '⚠ 等待批准')}
+            {t('detail.plan.awaiting', '等待批准')}
           </span>
         ) : allDone ? (
           <span

@@ -167,6 +167,13 @@ html, body, #root {
 .oh-tap-press:hover { transform: translateY(-1px); }
 .oh-tap-press:active { transform: scale(0.97); }
 
+.oh-session-topbar button,
+.oh-session-topbar input,
+.oh-session-topbar [role="button"] {
+  position: relative;
+  z-index: 1;
+}
+
 /* 标签/按钮内文字小幅 hover 上移效果（不破坏布局）。 */
 .oh-hover-lift {
   transition: transform var(--oh-motion-duration-base) var(--oh-motion-emphasized);

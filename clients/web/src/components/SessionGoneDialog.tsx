@@ -84,7 +84,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
             }}
             aria-hidden="true"
           >
-            ⚠
+            !
           </span>
           <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
             {t('sessionGone.title', '会话已不存在')}

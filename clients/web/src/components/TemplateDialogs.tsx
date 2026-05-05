@@ -87,15 +87,15 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
 
 function templateIconGlyph(template: ApiMetaTemplate): string {
   const raw = `${template.icon ?? ''} ${template.id} ${template.name}`.toLowerCase();
-  if (template.icon && !template.icon.includes('_') && template.icon.length <= 3) {
+  if (template.icon && /^[A-Za-z0-9]{1,3}$/.test(template.icon)) {
     return template.icon;
   }
   if (raw.includes('program') || raw.includes('code')) return '</>';
-  if (raw.includes('machine') || raw.includes('expert')) return '⌘';
-  if (raw.includes('hardness') || raw.includes('engineering')) return '◇';
-  if (raw.includes('hermes') || raw.includes('talk')) return '✉';
-  if (raw.includes('default') || raw.includes('chat')) return '✦';
-  return '✦';
+  if (raw.includes('machine') || raw.includes('expert')) return 'OPS';
+  if (raw.includes('hardness') || raw.includes('engineering')) return 'ENG';
+  if (raw.includes('hermes') || raw.includes('talk')) return 'MSG';
+  if (raw.includes('default') || raw.includes('chat')) return 'AI';
+  return 'AI';
 }
 
 function TemplateIcon({ template }: { template: ApiMetaTemplate }) {

@@ -89,35 +89,34 @@ export function SessionsPage() {
     Boolean(auth.meta?.service?.plan_mode_enabled) && allowedModes.includes('plan');
   const sessionMgmtEnabled = auth.meta?.service?.session_management_enabled !== false;
 
-  function refresh(targetPage: number = page): void {
+  async function refresh(targetPage: number = page): Promise<void> {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     setError(null);
-    listSessions({ page: targetPage, pageSize })
-      .then((res) => {
-        if (ctrl.signal.aborted) return;
-        setData(res);
-        setLoading(false);
-        if (res.items.length === 0 && targetPage > 1) {
-          setPage(targetPage - 1);
-        }
-      })
-      .catch((e: unknown) => {
-        if (ctrl.signal.aborted) return;
-        if (e instanceof UnauthorizedError) {
-          location.route('/login', true);
-          return;
-        }
-        setError(e instanceof Error ? e.message : String(e));
-        setLoading(false);
-      });
+    try {
+      const res = await listSessions({ page: targetPage, pageSize });
+      if (ctrl.signal.aborted) return;
+      setData(res);
+      setLoading(false);
+      if (res.items.length === 0 && targetPage > 1) {
+        setPage(targetPage - 1);
+      }
+    } catch (e) {
+      if (ctrl.signal.aborted) return;
+      if (e instanceof UnauthorizedError) {
+        location.route('/login', true);
+        return;
+      }
+      setError(e instanceof Error ? e.message : String(e));
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     if (auth.loading) return;
-    refresh(page);
+    void refresh(page);
     return () => abortRef.current?.abort();
   }, [auth.loading, page]);
 
@@ -188,7 +187,7 @@ export function SessionsPage() {
       await renameSession(item.id, draft);
       patchRow(item.id, { draftTitle: null, busy: false });
       showSnackbar(t('topbar.rename.ok', '已重命名会话'), { tone: 'success' });
-      refresh();
+      void refresh();
     } catch (e: unknown) {
       if (e instanceof UnauthorizedError) {
         location.route('/login', true);
@@ -210,7 +209,7 @@ export function SessionsPage() {
       patchRow(item.id, { busy: false });
       setDeleteTarget(null);
       showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
-      refresh();
+      void refresh();
     } catch (e: unknown) {
       if (e instanceof UnauthorizedError) {
         location.route('/login', true);
@@ -261,8 +260,7 @@ export function SessionsPage() {
     onRefresh: async () => {
       await new Promise<void>((resolve) => {
         // refresh() 内部用 abort + Promise，调用即触发；用 setTimeout 给一个最小可见时长。
-        refresh(page);
-        setTimeout(resolve, 320);
+        void refresh(page).finally(() => setTimeout(resolve, 180));
       });
     },
     activationDistance: 80,
@@ -296,6 +294,23 @@ export function SessionsPage() {
           }
         />
 
+        <div class="mb-3 flex items-center justify-between gap-2 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <span>{t('sessions.refresh.hint', '下拉列表或点击刷新同步本设备会话')}</span>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading || pull.refreshing}
+            class="oh-tap-press px-3 py-1.5 rounded-m3-sm disabled:opacity-50"
+            style={{
+              border: '1px solid var(--m3-outline)',
+              background: 'var(--m3-surface-container)',
+              color: 'var(--m3-on-surface)',
+            }}
+          >
+            {loading || pull.refreshing ? t('sessions.refreshing', '刷新中…') : t('common.refresh', '刷新')}
+          </button>
+        </div>
+
         <section
           ref={mainRef as unknown as preact.RefObject<HTMLElement>}
           class="flex-1 min-h-0 overflow-y-auto pr-1 pb-24"
@@ -311,7 +326,7 @@ export function SessionsPage() {
             style={{ background: 'var(--m3-surface-container)', color: 'var(--m3-error)' }}
           >
             {error}
-            <button type="button" onClick={() => refresh()} class="ml-3 underline">
+            <button type="button" onClick={() => void refresh()} class="ml-3 underline">
               {t('sessions.retry', '重试')}
             </button>
           </div>

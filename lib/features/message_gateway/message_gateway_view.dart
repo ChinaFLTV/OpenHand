@@ -1457,7 +1457,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       insetPadding: const EdgeInsets.all(18),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: math.min(mediaSize.width - 36, 900),
+          maxWidth: math.min(mediaSize.width - 36, 1100),
           maxHeight: mediaSize.height - 36,
         ),
         child: Column(
@@ -1633,8 +1633,32 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                               value: '${snapshot.totalRequests}',
                             ),
                             _MetricTile(
+                              label: '请求/min',
+                              value: _rate(snapshot.requestsPerMinute),
+                            ),
+                            _MetricTile(
                               label: '错误数',
                               value: '${snapshot.totalErrors}',
+                            ),
+                            _MetricTile(
+                              label: '错误/min',
+                              value: _rate(snapshot.errorsPerMinute),
+                            ),
+                            _MetricTile(
+                              label: '入流量/min',
+                              value: _bytes(snapshot.bytesInPerMinute.round()),
+                            ),
+                            _MetricTile(
+                              label: '出流量/min',
+                              value: _bytes(snapshot.bytesOutPerMinute.round()),
+                            ),
+                            _MetricTile(
+                              label: '延迟 P95',
+                              value: '${snapshot.latencyStats.p95Ms}ms',
+                            ),
+                            _MetricTile(
+                              label: '延迟 P99',
+                              value: '${snapshot.latencyStats.p99Ms}ms',
                             ),
                             _MetricTile(
                               label: '崩溃数',
@@ -1648,6 +1672,68 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                               label: '线程会话',
                               value: '${snapshot.openSessionCount}',
                             ),
+                            _MetricTile(
+                              label: '并发水位',
+                              value: _percent(snapshot.activeRequestRatio),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    _OpsSummaryCard(snapshot: snapshot),
+                    const SizedBox(height: 18),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth < 760 ? 1 : 2;
+                        return GridView.count(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: columns == 1 ? 2.6 : 2.1,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _OpsBreakdownCard(
+                              title: 'HTTP 状态码分布',
+                              values: snapshot.statusCodeBreakdown,
+                            ),
+                            _OpsBreakdownCard(
+                              title: 'HTTP Method 分布',
+                              values: snapshot.methodBreakdown,
+                            ),
+                            _OpsBreakdownCard(
+                              title: '延迟桶',
+                              values: snapshot.latencyBuckets,
+                            ),
+                            _OpsBreakdownCard(
+                              title: '发送阶段分布',
+                              values: snapshot.sendPhaseBreakdown,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth < 760 ? 1 : 2;
+                        return GridView.count(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: columns == 1 ? 2.3 : 1.75,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _TopRoutesCard(routes: snapshot.topRoutes),
+                            _RecentErrorsCard(errors: snapshot.recentErrors),
+                            _OpsBreakdownCard(
+                              title: '日志级别分布',
+                              values: snapshot.logLevelBreakdown,
+                              footer: '${snapshot.memoryLogCount} 条内存日志',
+                            ),
+                            _ResourceInventoryCard(snapshot: snapshot),
                           ],
                         );
                       },
@@ -2040,6 +2126,375 @@ class _SectionTitle extends StatelessWidget {
     child: Text(text, style: Theme.of(context).textTheme.titleMedium),
   );
 }
+
+class _OpsSummaryCard extends StatelessWidget {
+  const _OpsSummaryCard({required this.snapshot});
+
+  final WebGatewayRuntimeSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final slow = snapshot.slowestRecent;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _opsCardDecoration(theme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.monitor_heart_outlined, size: 18),
+              const SizedBox(width: 8),
+              Text('Golden Signals', style: theme.textTheme.titleSmall),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _OpsPill(
+                'Traffic',
+                '${_rate(snapshot.requestsPerMinute)} req/min',
+              ),
+              _OpsPill('Errors', '${_rate(snapshot.errorsPerMinute)} err/min'),
+              _OpsPill(
+                'Latency',
+                'avg ${snapshot.latencyStats.avgMs}ms / p95 ${snapshot.latencyStats.p95Ms}ms / p99 ${snapshot.latencyStats.p99Ms}ms',
+              ),
+              _OpsPill(
+                'Saturation',
+                '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} active · ${_percent(snapshot.activeRequestRatio)}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _OpsKeyValue(
+            '绑定地址',
+            snapshot.boundUrl.isEmpty ? '未监听' : snapshot.boundUrl,
+          ),
+          _OpsKeyValue(
+            '可访问 URL',
+            snapshot.accessibleUrls.isEmpty
+                ? '暂无'
+                : snapshot.accessibleUrls.join(' / '),
+          ),
+          _OpsKeyValue(
+            '主机 / Dart',
+            '${snapshot.hostName.isEmpty ? 'unknown' : snapshot.hostName} · ${snapshot.dartVersion.isEmpty ? 'unknown' : snapshot.dartVersion}',
+          ),
+          if (slow != null)
+            _OpsKeyValue(
+              '近期最慢请求',
+              '${slow.method} ${slow.path} -> ${slow.statusCode} · ${slow.durationMs}ms${slow.at == null ? '' : ' · ${_dateTime(slow.at!)}'}',
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpsBreakdownCard extends StatelessWidget {
+  const _OpsBreakdownCard({
+    required this.title,
+    required this.values,
+    this.footer,
+  });
+
+  final String title;
+  final Map<String, int> values;
+  final String? footer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final entries = values.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final total = entries.fold<int>(0, (sum, entry) => sum + entry.value);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _opsCardDecoration(theme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: theme.textTheme.titleSmall),
+          const SizedBox(height: 10),
+          if (entries.isEmpty)
+            Text(
+              '暂无样本',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            ...entries
+                .take(8)
+                .map(
+                  (entry) => _OpsDistributionRow(
+                    label: entry.key,
+                    value: entry.value,
+                    total: total,
+                  ),
+                ),
+          if (footer != null) ...[
+            const Spacer(),
+            Text(
+              footer!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _OpsDistributionRow extends StatelessWidget {
+  const _OpsDistributionRow({
+    required this.label,
+    required this.value,
+    required this.total,
+  });
+
+  final String label;
+  final int value;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ratio = total <= 0 ? 0.0 : value / total;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('$value', style: theme.textTheme.labelMedium),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0.0, 1.0).toDouble(),
+              minHeight: 5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopRoutesCard extends StatelessWidget {
+  const _TopRoutesCard({required this.routes});
+
+  final List<MapEntry<String, int>> routes;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _opsCardDecoration(theme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Top Routes', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 10),
+          if (routes.isEmpty)
+            Text(
+              '暂无路由样本',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            ...routes
+                .take(8)
+                .map((entry) => _OpsKeyValue(entry.key, '${entry.value} 次')),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentErrorsCard extends StatelessWidget {
+  const _RecentErrorsCard({required this.errors});
+
+  final List<Map<String, Object?>> errors;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _opsCardDecoration(theme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('近期错误请求', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 10),
+          if (errors.isEmpty)
+            Text(
+              '暂无 4xx/5xx 请求',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            ...errors.reversed.take(6).map((entry) {
+              final method = entry['method']?.toString() ?? '';
+              final path = entry['path']?.toString() ?? '';
+              final status = entry['status']?.toString() ?? '';
+              final duration = entry['duration_ms']?.toString() ?? '';
+              return _OpsKeyValue('$method $path', '$status · ${duration}ms');
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResourceInventoryCard extends StatelessWidget {
+  const _ResourceInventoryCard({required this.snapshot});
+
+  final WebGatewayRuntimeSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _opsCardDecoration(theme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Web 可见资源', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _OpsPill('模型', '${snapshot.allowedModelCount}'),
+              _OpsPill('供应商', '${snapshot.modelProviderCount}'),
+              _OpsPill('模板', '${snapshot.templateCount}'),
+              _OpsPill(
+                'Crons',
+                '${snapshot.cronEnabledCount}/${snapshot.cronTotalCount}',
+              ),
+              _OpsPill('Memory', '${snapshot.memoryEntryCount}'),
+              _OpsPill(
+                'MCP',
+                '${snapshot.mcpServerEnabledCount}/${snapshot.mcpServerTotalCount}',
+              ),
+              _OpsPill('SSE', '${snapshot.activeSseSubscriptions}'),
+              _OpsPill('会话', '${snapshot.openSessionCount}'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpsPill extends StatelessWidget {
+  const _OpsPill(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.48,
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            TextSpan(
+              text: value,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OpsKeyValue extends StatelessWidget {
+  const _OpsKeyValue(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 112,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SelectableText(
+              value,
+              maxLines: 2,
+              style: theme.textTheme.labelMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+BoxDecoration _opsCardDecoration(ThemeData theme) => BoxDecoration(
+  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
+  borderRadius: BorderRadius.circular(8),
+  border: Border.all(color: theme.colorScheme.outlineVariant),
+);
 
 class _SwitchGrid extends StatelessWidget {
   const _SwitchGrid({required this.twoColumns, required this.children});
@@ -3142,6 +3597,17 @@ String _formatDateTime(DateTime value) {
       .replaceFirst('T', ' ')
       .substring(0, 19);
 }
+
+String _dateTime(DateTime value) => _formatDateTime(value);
+
+String _rate(double value) {
+  if (value >= 100) return value.toStringAsFixed(0);
+  if (value >= 10) return value.toStringAsFixed(1);
+  return value.toStringAsFixed(2);
+}
+
+String _percent(double value) =>
+    '${(value * 100).clamp(0, 999).toStringAsFixed(0)}%';
 
 String _cleanupTargetLabel(String target) {
   return switch (target) {

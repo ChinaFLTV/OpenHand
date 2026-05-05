@@ -113,7 +113,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
     if (isRoundFileMutationSummary) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: _RoundFileMutationSummaryCard(message: message),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: _RoundFileMutationSummaryCard(message: message),
+          ),
+        ),
       );
     }
     final attachments = AiMessageAttachment.listFromMetadata(
@@ -297,165 +303,168 @@ class _MessageBubbleState extends State<_MessageBubble> {
             child: ClipRect(
               child: AnimatedSize(
                 duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
+                    ? Duration.zero
+                    : const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
                 alignment: Alignment.topLeft,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                if (isCompressionPoint)
-                  _MessageMetaRow(
-                    icon: Icons.summarize_rounded,
-                    label: AppLocalizations.of(
-                      context,
-                    )!.threadCompressionCheckpointLabel,
-                    color: textColor,
-                  )
-                else if (isReasoning)
-                  _ReasoningMetaRow(
-                    message: message,
-                    color: textColor,
-                    showSweep: widget.showReasoningSweep,
-                    expanded: reasoningExpanded,
-                    onTap: () {
-                      final nextExpanded = !reasoningExpanded;
-                      setState(() {
-                        _reasoningExpandedOverride = nextExpanded;
-                      });
-                    },
-                  )
-                else if (isToolCall)
-                  _ToolCallMetaRow(
-                    data: _ToolCallStatusViewData.from(context, message),
-                    color: textColor,
-                  )
-                else if (isToolResult)
-                  _MessageMetaRow(
-                    icon: Icons.inventory_2_outlined,
-                    label: _localizedText(
-                      context,
-                      zh: '工具结果',
-                      en: 'Tool Result',
-                    ),
-                    color: textColor,
-                  )
-                else if (!isSelfLearning && message.modelLabel != null)
-                  Text(
-                    message.modelLabel!,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: isUser
-                          ? textColor.withValues(alpha: 0.86)
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                if (isCompressionPoint ||
-                    isReasoning ||
-                    isToolCall ||
-                    isToolResult ||
-                    (!isSelfLearning && message.modelLabel != null))
-                  const SizedBox(height: 10),
-                if (isCompressionPoint)
-                  _CompressionCheckpointBody(
-                    content: message.content,
-                    expanded: _compressionExpanded,
-                    onToggle: () {
-                      setState(() {
-                        _compressionExpanded = !_compressionExpanded;
-                      });
-                    },
-                    selectable: true,
-                    textColor: textColor,
-                    fadeColor: backgroundColor,
-                    styleSheet: markdownStyleSheet.styleSheet,
-                    builders: markdownBuilders,
-                    inlineSyntaxes: inlineSyntaxes,
-                    pathRoots: filePathRoots,
-                    parseKey: filePathParseKey,
-                  )
-                else if (isReasoning)
-                  _ReasoningBody(
-                    content: message.content,
-                    expanded: reasoningExpanded,
-                    streaming: isStreamingReasoning,
-                    selectable: true,
-                    textColor: textColor,
-                    fadeColor: backgroundColor,
-                    styleSheet: markdownStyleSheet.styleSheet,
-                    builders: markdownBuilders,
-                    inlineSyntaxes: inlineSyntaxes,
-                    pathRoots: filePathRoots,
-                    parseKey: filePathParseKey,
-                  )
-                else if (isToolCall)
-                  _ToolCallBody(message: message, selectable: true)
-                else if (isSelfLearning)
-                  // Wrap the self-learning card in an AnimatedSize so as the
-                  // dispatcher streams in tokens (and metadata grows), the
-                  // bubble height eases out with a Q-bouncy curve instead
-                  // of jumping. Mirrors the reasoning bubble behaviour.
-                  ClipRect(
-                    child: AnimatedSize(
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topLeft,
-                      child: _SelfLearningCard(message: message),
-                    ),
-                  )
-                else
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (attachments.isNotEmpty) ...[
-                        _MessageAttachmentSummaryBlock(
-                          attachments: attachments,
-                          textColor: textColor,
-                          backgroundColor: backgroundColor,
-                          onAttachmentTap: (attachment) =>
-                              _openAttachment(context, attachment),
+                    if (isCompressionPoint)
+                      _MessageMetaRow(
+                        icon: Icons.summarize_rounded,
+                        label: AppLocalizations.of(
+                          context,
+                        )!.threadCompressionCheckpointLabel,
+                        color: textColor,
+                      )
+                    else if (isReasoning)
+                      _ReasoningMetaRow(
+                        message: message,
+                        color: textColor,
+                        showSweep: widget.showReasoningSweep,
+                        expanded: reasoningExpanded,
+                        onTap: () {
+                          final nextExpanded = !reasoningExpanded;
+                          setState(() {
+                            _reasoningExpandedOverride = nextExpanded;
+                          });
+                        },
+                      )
+                    else if (isToolCall)
+                      _ToolCallMetaRow(
+                        data: _ToolCallStatusViewData.from(context, message),
+                        color: textColor,
+                      )
+                    else if (isToolResult)
+                      _MessageMetaRow(
+                        icon: Icons.inventory_2_outlined,
+                        label: _localizedText(
+                          context,
+                          zh: '工具结果',
+                          en: 'Tool Result',
                         ),
-                        const SizedBox(height: 10),
-                      ],
-                      _CollapsibleMessageMarkdownBody(
-                        data: effectiveContent.isEmpty ? ' ' : effectiveContent,
+                        color: textColor,
+                      )
+                    else if (!isSelfLearning && message.modelLabel != null)
+                      Text(
+                        message.modelLabel!,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: isUser
+                              ? textColor.withValues(alpha: 0.86)
+                              : colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    if (isCompressionPoint ||
+                        isReasoning ||
+                        isToolCall ||
+                        isToolResult ||
+                        (!isSelfLearning && message.modelLabel != null))
+                      const SizedBox(height: 10),
+                    if (isCompressionPoint)
+                      _CompressionCheckpointBody(
+                        content: message.content,
+                        expanded: _compressionExpanded,
+                        onToggle: () {
+                          setState(() {
+                            _compressionExpanded = !_compressionExpanded;
+                          });
+                        },
                         selectable: true,
-                        builders: markdownBuilders,
+                        textColor: textColor,
+                        fadeColor: backgroundColor,
                         styleSheet: markdownStyleSheet.styleSheet,
+                        builders: markdownBuilders,
                         inlineSyntaxes: inlineSyntaxes,
                         pathRoots: filePathRoots,
                         parseKey: filePathParseKey,
+                      )
+                    else if (isReasoning)
+                      _ReasoningBody(
+                        content: message.content,
+                        expanded: reasoningExpanded,
+                        streaming: isStreamingReasoning,
+                        selectable: true,
+                        textColor: textColor,
                         fadeColor: backgroundColor,
-                        collapseCharThreshold: isToolResult
-                            ? _toolResultMarkdownCollapseCharThreshold
-                            : _messageMarkdownCollapseCharThreshold,
-                        collapseLineThreshold: isToolResult
-                            ? _toolResultMarkdownCollapseLineThreshold
-                            : _messageMarkdownCollapseLineThreshold,
-                        previewMaxHeight: isToolResult ? 176 : 240,
+                        styleSheet: markdownStyleSheet.styleSheet,
+                        builders: markdownBuilders,
+                        inlineSyntaxes: inlineSyntaxes,
+                        pathRoots: filePathRoots,
+                        parseKey: filePathParseKey,
+                      )
+                    else if (isToolCall)
+                      _ToolCallBody(message: message, selectable: true)
+                    else if (isSelfLearning)
+                      // Wrap the self-learning card in an AnimatedSize so as the
+                      // dispatcher streams in tokens (and metadata grows), the
+                      // bubble height eases out with a Q-bouncy curve instead
+                      // of jumping. Mirrors the reasoning bubble behaviour.
+                      ClipRect(
+                        child: AnimatedSize(
+                          duration: const Duration(milliseconds: 240),
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.topLeft,
+                          child: _SelfLearningCard(message: message),
+                        ),
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (attachments.isNotEmpty) ...[
+                            _MessageAttachmentSummaryBlock(
+                              attachments: attachments,
+                              textColor: textColor,
+                              backgroundColor: backgroundColor,
+                              onAttachmentTap: (attachment) =>
+                                  _openAttachment(context, attachment),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          _CollapsibleMessageMarkdownBody(
+                            data: effectiveContent.isEmpty
+                                ? ' '
+                                : effectiveContent,
+                            selectable: true,
+                            builders: markdownBuilders,
+                            styleSheet: markdownStyleSheet.styleSheet,
+                            inlineSyntaxes: inlineSyntaxes,
+                            pathRoots: filePathRoots,
+                            parseKey: filePathParseKey,
+                            fadeColor: backgroundColor,
+                            collapseCharThreshold: isToolResult
+                                ? _toolResultMarkdownCollapseCharThreshold
+                                : _messageMarkdownCollapseCharThreshold,
+                            collapseLineThreshold: isToolResult
+                                ? _toolResultMarkdownCollapseLineThreshold
+                                : _messageMarkdownCollapseLineThreshold,
+                            previewMaxHeight: isToolResult ? 176 : 240,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                const SizedBox(height: 10),
-                Text(
-                  _formatDateTime(message.createdAt),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: textColor.withValues(alpha: 0.78),
-                  ),
-                ),
-                if (isUser)
-                  _CreationModeChip(
-                    request: AiCreationRequest.fromMetadata(
-                      message.metadata[AiCreationRequest.metadataKey],
+                    const SizedBox(height: 10),
+                    Text(
+                      _formatDateTime(message.createdAt),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: textColor.withValues(alpha: 0.78),
+                      ),
                     ),
-                    textColor: textColor,
-                  ),
-                if (isUser)
-                  _UserSkillSelectionChip(
-                    metadata: message.metadata[aiUserSkillSelectionMetadataKey],
-                    textColor: textColor,
-                  ),
-              ],
-            ),
+                    if (isUser)
+                      _CreationModeChip(
+                        request: AiCreationRequest.fromMetadata(
+                          message.metadata[AiCreationRequest.metadataKey],
+                        ),
+                        textColor: textColor,
+                      ),
+                    if (isUser)
+                      _UserSkillSelectionChip(
+                        metadata:
+                            message.metadata[aiUserSkillSelectionMetadataKey],
+                        textColor: textColor,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1158,8 +1167,8 @@ class _ImagePreviewDialog extends StatelessWidget {
           .getUrl(sourceUri)
           .timeout(const Duration(seconds: 20));
       final response = await request.close().timeout(
-            const Duration(seconds: 30),
-          );
+        const Duration(seconds: 30),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw HttpException(
           'HTTP ${response.statusCode} while downloading image.',
@@ -1534,9 +1543,8 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
                             // Decode at ~840px wide (covers 2x DPR) to
                             // avoid keeping full-resolution raster in memory.
                             cacheWidth: 840,
-                            errorBuilder: (_, _, _) => Container(
-                              color: Colors.black87,
-                            ),
+                            errorBuilder: (_, _, _) =>
+                                Container(color: Colors.black87),
                           )
                         else
                           DecoratedBox(
@@ -1828,9 +1836,11 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     // Stop any audio playback so closing the dialog never leaves a
     // ghost track playing while the WebView tears down.
     unawaited(
-      _controller.runJavaScript(
-        "try{var m=document.getElementById('media');if(m){try{m.pause();}catch(_){};try{m.muted=true;}catch(_){};try{m.removeAttribute('src');}catch(_){};try{while(m.firstChild)m.removeChild(m.firstChild);}catch(_){};try{m.load();}catch(_){};}}catch(_){}",
-      ).catchError((_) {}),
+      _controller
+          .runJavaScript(
+            "try{var m=document.getElementById('media');if(m){try{m.pause();}catch(_){};try{m.muted=true;}catch(_){};try{m.removeAttribute('src');}catch(_){};try{while(m.firstChild)m.removeChild(m.firstChild);}catch(_){};try{m.load();}catch(_){};}}catch(_){}",
+          )
+          .catchError((_) {}),
     );
     _dialogFocus.dispose();
     final tempPath = _tempHtmlPath;
@@ -1973,126 +1983,134 @@ $mediaTag
           focusNode: _dialogFocus,
           autofocus: true,
           child: Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: math.min(MediaQuery.sizeOf(context).width * 0.92, 960),
-          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
-              child: Row(
+            insetPadding: const EdgeInsets.all(24),
+            backgroundColor: colorScheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: math.min(
+                  MediaQuery.sizeOf(context).width * 0.92,
+                  960,
+                ),
+                maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    isVideo ? Icons.videocam_outlined : Icons.audiotrack,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  MicroPressFeedback(
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.open_in_new_rounded,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      tooltip: _localizedText(
-                        context,
-                        zh: '使用系统播放器打开',
-                        en: 'Open with System Player',
-                      ),
-                      onPressed: () => _openInSystemPlayer(context),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  if (isVideo) ...[
-                    MicroPressFeedback(
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.fullscreen_rounded,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isVideo ? Icons.videocam_outlined : Icons.audiotrack,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        tooltip: _localizedText(
-                          context,
-                          zh: '全屏沉浸播放',
-                          en: 'Fullscreen playback',
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium,
+                          ),
                         ),
-                        onPressed: () => _enterFullscreen(context),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  MicroPressFeedback(
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.download_rounded,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      tooltip: _localizedText(
-                        context,
-                        zh: '保存到本地',
-                        en: 'Save to disk',
-                      ),
-                      onPressed: () => _saveMediaAs(context),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.open_in_new_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '使用系统播放器打开',
+                              en: 'Open with System Player',
+                            ),
+                            onPressed: () => _openInSystemPlayer(context),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        if (isVideo) ...[
+                          MicroPressFeedback(
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.fullscreen_rounded,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              tooltip: _localizedText(
+                                context,
+                                zh: '全屏沉浸播放',
+                                en: 'Fullscreen playback',
+                              ),
+                              onPressed: () => _enterFullscreen(context),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.download_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '保存到本地',
+                              en: 'Save to disk',
+                            ),
+                            onPressed: () => _saveMediaAs(context),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  MicroPressFeedback(
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: colorScheme.onSurfaceVariant,
+                  const Divider(height: 1),
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SizedBox(
+                          height: mediaHeight,
+                          width: double.infinity,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Positioned.fill(
+                                child: WebViewWidget(controller: _controller),
+                              ),
+                              if (!_pageLoaded ||
+                                  (!_mediaReady && _loadError == null))
+                                const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.6,
+                                  ),
+                                ),
+                              if (_loadError != null)
+                                _MediaLoadFallback(
+                                  message: _loadError!,
+                                  onOpenExternal: () =>
+                                      _openInSystemPlayer(context),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
-                      onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1),
-            Flexible(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    height: mediaHeight,
-                    width: double.infinity,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Positioned.fill(
-                          child: WebViewWidget(controller: _controller),
-                        ),
-                        if (!_pageLoaded ||
-                            (!_mediaReady && _loadError == null))
-                          const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2.6),
-                          ),
-                        if (_loadError != null)
-                          _MediaLoadFallback(
-                            message: _loadError!,
-                            onOpenExternal: () => _openInSystemPlayer(context),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
           ),
         ),
       ),
@@ -2171,7 +2189,9 @@ $mediaTag
       if (messenger == null) return;
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
-        SnackBar(content: Text(_localizedText(context, zh: zh, en: en))),
+        SnackBar(
+          content: Text(_localizedText(context, zh: zh, en: en)),
+        ),
       );
     }
 
@@ -2220,8 +2240,10 @@ $mediaTag
     } on _MediaDownloadCancelled {
       showSnack('已取消保存。', 'Save cancelled.');
     } on TimeoutException catch (error) {
-      showSnack('保存超时：${error.message ?? ''}',
-          'Save timed out: ${error.message ?? ''}');
+      showSnack(
+        '保存超时：${error.message ?? ''}',
+        'Save timed out: ${error.message ?? ''}',
+      );
     } catch (error) {
       showSnack('保存失败：$error', 'Save failed: $error');
     } finally {
@@ -2827,10 +2849,7 @@ class _VideoThumbnailCaptureHostState
       _tempHtmlPath = tempFile.path;
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..addJavaScriptChannel(
-          'OpenHandThumb',
-          onMessageReceived: _onMessage,
-        );
+        ..addJavaScriptChannel('OpenHandThumb', onMessageReceived: _onMessage);
       if (!Platform.isMacOS) {
         controller.setBackgroundColor(Colors.transparent);
       }
@@ -3041,10 +3060,7 @@ setTimeout(function(){if(!captured){clearInterval(poll);post('error:timeout');}}
       width: 32,
       height: 32,
       child: IgnorePointer(
-        child: Opacity(
-          opacity: 0.01,
-          child: WebViewWidget(controller: ctrl),
-        ),
+        child: Opacity(opacity: 0.01, child: WebViewWidget(controller: ctrl)),
       ),
     );
   }
@@ -3118,7 +3134,9 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
       }
     } else if (value.startsWith('error')) {
       if (!mounted) return;
-      setState(() => _loadError = value.length > 6 ? value.substring(6) : value);
+      setState(
+        () => _loadError = value.length > 6 ? value.substring(6) : value,
+      );
     }
   }
 
@@ -3258,100 +3276,100 @@ v.addEventListener('seeked',sendTime);
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
-        shortcuts: const <ShortcutActivator, Intent>{
-          SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
-          SingleActivator(LogicalKeyboardKey.space): _MediaPlayPauseIntent(),
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+        SingleActivator(LogicalKeyboardKey.space): _MediaPlayPauseIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          DismissIntent: CallbackAction<DismissIntent>(
+            onInvoke: (_) {
+              _exit();
+              return null;
+            },
+          ),
+          _MediaPlayPauseIntent: CallbackAction<_MediaPlayPauseIntent>(
+            onInvoke: (_) {
+              _togglePlayPause();
+              return null;
+            },
+          ),
         },
-        child: Actions(
-          actions: <Type, Action<Intent>>{
-            DismissIntent: CallbackAction<DismissIntent>(
-              onInvoke: (_) {
-                _exit();
-                return null;
-              },
-            ),
-            _MediaPlayPauseIntent: CallbackAction<_MediaPlayPauseIntent>(
-              onInvoke: (_) {
-                _togglePlayPause();
-                return null;
-              },
-            ),
-          },
-          child: Focus(
-            focusNode: _focusNode,
-            autofocus: true,
-            child: Scaffold(
-              backgroundColor: Colors.black,
-              body: SafeArea(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Positioned.fill(
-                      child: WebViewWidget(controller: _controller),
+        child: Focus(
+          focusNode: _focusNode,
+          autofocus: true,
+          child: Scaffold(
+            backgroundColor: Colors.black,
+            body: SafeArea(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned.fill(
+                    child: WebViewWidget(controller: _controller),
+                  ),
+                  if (!_ready && _loadError == null)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.6,
+                        color: Colors.white70,
+                      ),
                     ),
-                    if (!_ready && _loadError == null)
-                      const Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.6,
-                          color: Colors.white70,
+                  if (_loadError != null)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          _loadError!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white70),
                         ),
                       ),
-                    if (_loadError != null)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            _loadError!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                        ),
+                    ),
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: _FullscreenChromeButton(
+                      icon: Icons.arrow_back_rounded,
+                      tooltip: _localizedText(
+                        context,
+                        zh: '返回（Esc）',
+                        en: 'Back (Esc)',
                       ),
+                      onPressed: _exit,
+                    ),
+                  ),
+                  if (widget.title.isNotEmpty)
                     Positioned(
-                      top: 12,
-                      left: 12,
-                      child: _FullscreenChromeButton(
-                        icon: Icons.arrow_back_rounded,
-                        tooltip: _localizedText(
-                          context,
-                          zh: '返回（Esc）',
-                          en: 'Back (Esc)',
-                        ),
-                        onPressed: _exit,
-                      ),
-                    ),
-                    if (widget.title.isNotEmpty)
-                      Positioned(
-                        top: 18,
-                        left: 64,
-                        right: 64,
-                        child: IgnorePointer(
-                          child: Text(
-                            widget.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black54,
-                                  blurRadius: 8,
-                                  offset: Offset(0, 1),
-                                ),
-                              ],
-                            ),
+                      top: 18,
+                      left: 64,
+                      right: 64,
+                      child: IgnorePointer(
+                        child: Text(
+                          widget.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black54,
+                                blurRadius: 8,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -3396,8 +3414,8 @@ class _FullscreenChromeButtonState extends State<_FullscreenChromeButton> {
           onTap: widget.onPressed,
           child: AnimatedContainer(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 140),
+                ? Duration.zero
+                : const Duration(milliseconds: 140),
             curve: Curves.easeOut,
             width: 38,
             height: 38,

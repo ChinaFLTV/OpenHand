@@ -13,7 +13,6 @@ import type { ComponentChildren } from 'preact';
 import { createPortal } from 'preact/compat';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
-import { ModelPickerDialog } from './ModelPickerDialog';
 import { showSnackbar } from './Snackbar';
 
 export interface SessionToolbarCapsule {
@@ -61,54 +60,12 @@ export interface SessionTopBarProps {
   trailing?: ComponentChildren;
 }
 
-function modeLabel(m: string): string {
-  switch (m) {
-    case 'chat': return t('sessions.mode.chat', '对话');
-    case 'normal': return t('composer.mode.normal', '普通');
-    case 'plan': return t('composer.mode.plan', 'Plan');
-    case 'image': return t('composer.mode.image', '图像');
-    case 'video': return t('composer.mode.video', '视频');
-    case 'audio': return t('composer.mode.audio', '音频');
-    default: return m;
-  }
-}
-
-function modeIcon(m: string): string {
-  switch (m) {
-    case 'chat': return '💬';
-    case 'normal': return '💬';
-    case 'plan': return '📋';
-    case 'image': return '🖼';
-    case 'video': return '🎬';
-    case 'audio': return '🎙';
-    default: return '·';
-  }
-}
-
-function permissionLabel(fullAccess: boolean): string {
-  return fullAccess
-    ? t('topbar.perm.full', '完全访问权限')
-    : t('topbar.perm.default', '默认权限');
-}
-
-function permissionIcon(fullAccess: boolean): string {
-  return fullAccess ? '⚠' : '🛡';
-}
-
 export function SessionTopBar(props: SessionTopBarProps) {
   const {
     title,
     subtitle,
     onBack,
     onRename,
-    modes,
-    mode,
-    onModeChange,
-    models,
-    modelKey,
-    onModelChange,
-    fullAccessPermission,
-    onFullAccessPermissionChange,
     sendPhase,
     canStop,
     stopping,
@@ -123,12 +80,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const modeMenuAnchorRef = useRef<HTMLDivElement | null>(null);
-  const permMenuAnchorRef = useRef<HTMLDivElement | null>(null);
   const moreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
-  const [showModelPicker, setShowModelPicker] = useState(false);
-  const [showModeMenu, setShowModeMenu] = useState(false);
-  const [showPermMenu, setShowPermMenu] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
@@ -142,18 +94,16 @@ export function SessionTopBar(props: SessionTopBarProps) {
 
   // 任意菜单打开时, 点击外部关闭
   useEffect(() => {
-    if (!showModeMenu && !showPermMenu && !showMore) return;
+    if (!showMore) return;
     function close(e: MouseEvent) {
       const t = e.target as HTMLElement;
       if (!t.closest('[data-topbar-menu]')) {
-        setShowModeMenu(false);
-        setShowPermMenu(false);
         setShowMore(false);
       }
     }
     window.addEventListener('mousedown', close);
     return () => window.removeEventListener('mousedown', close);
-  }, [showModeMenu, showPermMenu, showMore]);
+  }, [showMore]);
 
   async function commitRename() {
     if (renaming) return;
@@ -196,14 +146,9 @@ export function SessionTopBar(props: SessionTopBarProps) {
 
   const isRunning = sendPhase !== 'idle' && sendPhase !== '';
 
-  const selectedModel = models.find((m) => m.key === modelKey);
-  const modelLabel = selectedModel
-    ? `${selectedModel.label || selectedModel.key}`
-    : t('composer.model', '模型');
-
   return (
     <header
-      class="rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap"
+      class="oh-session-topbar rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap"
       style={{
         background: 'var(--m3-surface-container)',
         boxShadow: 'var(--m3-elev-1)',
@@ -262,7 +207,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
           </button>
         )}
         {capsules.length > 0 ? (
-          <div class="mt-1 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          <div class="mt-1 flex items-center gap-1.5 flex-wrap pb-0.5">
             {capsules.map((item) => (
               <ToolbarCapsule key={item.key} capsule={item} />
             ))}
@@ -274,81 +219,6 @@ export function SessionTopBar(props: SessionTopBarProps) {
           >
             {subtitle}
           </p>
-        ) : null}
-      </div>
-
-      {/* Mode chip */}
-      <div ref={modeMenuAnchorRef} class="relative" data-topbar-menu>
-        <Chip
-          icon={modeIcon(mode)}
-          label={modeLabel(mode)}
-          tone="primary"
-          onClick={() => {
-            setShowModeMenu((v) => !v);
-            setShowPermMenu(false);
-            setShowMore(false);
-          }}
-          disabled={isRunning}
-          title={t('topbar.mode.title', '会话模式')}
-        />
-        {showModeMenu ? (
-          <Menu anchorRef={modeMenuAnchorRef}>
-            {modes.map((m) => (
-              <MenuItem
-                key={m}
-                active={m === mode}
-                onClick={() => {
-                  onModeChange(m);
-                  setShowModeMenu(false);
-                }}
-              >
-                <span class="mr-2" aria-hidden>{modeIcon(m)}</span>
-                {modeLabel(m)}
-              </MenuItem>
-            ))}
-          </Menu>
-        ) : null}
-      </div>
-
-      {/* Model chip */}
-      <Chip
-        icon="✦"
-        label={modelLabel}
-        tone="neutral"
-        onClick={() => setShowModelPicker(true)}
-        disabled={isRunning || models.length === 0}
-        title={t('topbar.model.title', '点击选择模型')}
-      />
-
-      {/* Permission chip */}
-      <div ref={permMenuAnchorRef} class="relative" data-topbar-menu>
-        <Chip
-          icon={permissionIcon(fullAccessPermission)}
-          label={permissionLabel(fullAccessPermission)}
-          tone="neutral"
-          onClick={() => {
-            setShowPermMenu((v) => !v);
-            setShowModeMenu(false);
-            setShowMore(false);
-          }}
-          title={t('topbar.perm.title', '权限模式')}
-        />
-        {showPermMenu ? (
-          <Menu anchorRef={permMenuAnchorRef}>
-            {[false, true].map((value) => (
-              <MenuItem
-                key={value ? 'full' : 'default'}
-                active={value === fullAccessPermission}
-                onClick={() => {
-                  onFullAccessPermissionChange(value);
-                  setShowPermMenu(false);
-                }}
-              >
-                <span class="mr-2" aria-hidden>{permissionIcon(value)}</span>
-                {permissionLabel(value)}
-              </MenuItem>
-            ))}
-          </Menu>
         ) : null}
       </div>
 
@@ -383,8 +253,6 @@ export function SessionTopBar(props: SessionTopBarProps) {
           type="button"
           onClick={() => {
             setShowMore((v) => !v);
-            setShowModeMenu(false);
-            setShowPermMenu(false);
           }}
           class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm"
           style={{
@@ -399,12 +267,12 @@ export function SessionTopBar(props: SessionTopBarProps) {
           <Menu anchorRef={moreMenuAnchorRef}>
             {onRename ? (
               <MenuItem onClick={() => { setShowMore(false); setEditing(true); }}>
-                ✎ {t('topbar.rename', '重命名')}
+                {t('topbar.rename', '重命名')}
               </MenuItem>
             ) : null}
             {onExport ? (
               <MenuItem onClick={() => { setShowMore(false); onExport(); }}>
-                ⬇ {t('topbar.export', '导出 JSON')}
+                {t('topbar.export', '导出 JSON')}
               </MenuItem>
             ) : null}
             {sessionId ? (
@@ -414,7 +282,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
                   await copySessionId();
                 }}
               >
-                ⎘ {t('topbar.copyId', '复制会话 ID')}
+                {t('topbar.copyId', '复制会话 ID')}
               </MenuItem>
             ) : null}
             {onDelete ? (
@@ -422,7 +290,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
                 tone="danger"
                 onClick={() => { setShowMore(false); onDelete(); }}
               >
-                🗑 {t('topbar.delete', '删除会话')}
+                {t('topbar.delete', '删除会话')}
               </MenuItem>
             ) : null}
           </Menu>
@@ -431,14 +299,6 @@ export function SessionTopBar(props: SessionTopBarProps) {
 
       {trailing}
 
-      {showModelPicker ? (
-        <ModelPickerDialog
-          models={models}
-          selectedKey={modelKey}
-          onSelect={(k) => onModelChange(k)}
-          onClose={() => setShowModelPicker(false)}
-        />
-      ) : null}
     </header>
   );
 }
@@ -451,71 +311,35 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
       : capsule.tone === 'success'
         ? '#15803d'
         : 'var(--m3-on-surface-variant)';
-  const content = (
-    <span
-      class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] flex-none max-w-[240px]"
-      style={{
-        background: 'var(--m3-surface)',
-        color: toneColor,
-        border: `1px solid color-mix(in srgb, ${toneColor} 28%, transparent)`,
-        fontWeight: 600,
-      }}
-      title={capsule.title ?? capsule.label}
-    >
+  const baseClass = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] flex-none max-w-[240px]';
+  const baseStyle = {
+    background: 'var(--m3-surface)',
+    color: toneColor,
+    border: `1px solid color-mix(in srgb, ${toneColor} 28%, transparent)`,
+    fontWeight: 600,
+  };
+  const children = (
+    <>
       <span aria-hidden>{capsule.icon}</span>
       <span class="truncate">{capsule.label}</span>
-    </span>
+    </>
   );
-  if (!capsule.onClick) return content;
+  if (!capsule.onClick) {
+    return (
+      <span class={baseClass} style={baseStyle} title={capsule.title ?? capsule.label}>
+        {children}
+      </span>
+    );
+  }
   return (
     <button
       type="button"
-      class="oh-tap-press flex-none"
-      style={{ background: 'transparent', border: 'none', padding: 0 }}
+      class={`oh-tap-press ${baseClass}`}
+      style={baseStyle}
       onClick={capsule.onClick}
       title={capsule.title ?? capsule.label}
     >
-      {content}
-    </button>
-  );
-}
-
-function Chip({
-  icon,
-  label,
-  tone,
-  onClick,
-  disabled,
-  title,
-}: {
-  icon: string;
-  label: string;
-  tone: 'primary' | 'neutral';
-  onClick: () => void;
-  disabled?: boolean;
-  title?: string;
-}) {
-  const isPrimary = tone === 'primary';
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      class="oh-tap-press text-xs px-2.5 py-1 rounded-m3-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed flex-none"
-      style={{
-        background: isPrimary
-          ? 'color-mix(in srgb, var(--m3-primary) 12%, transparent)'
-          : 'transparent',
-        color: isPrimary ? 'var(--m3-primary)' : 'var(--m3-on-surface)',
-        border: `1px solid ${isPrimary
-          ? 'color-mix(in srgb, var(--m3-primary) 35%, transparent)'
-          : 'var(--m3-outline)'}`,
-        maxWidth: '220px',
-      }}
-    >
-      <span aria-hidden>{icon}</span>
-      <span class="truncate">{label}</span>
+      {children}
     </button>
   );
 }
