@@ -365,8 +365,11 @@ export function SessionDetailPage() {
   // 切换到 SessionGoneDialog 流程；返回 true 让调用方跳过常规错误展示。
   function handleSessionGoneError(e: unknown): boolean {
     if (e instanceof ApiError && e.status === 404) {
-      const body = e.body as { error?: string } | null;
-      if (body?.error === 'session_deleted_or_not_found') {
+      const body = e.body as { error?: string; message?: string } | string | null;
+      const marker = typeof body === 'string'
+        ? body
+        : `${body?.error ?? ''} ${body?.message ?? ''}`;
+      if (marker.includes('session_deleted_or_not_found')) {
         // 主动断开 SSE / 终止轮询，避免后续噪声错误覆盖弹窗
         sseCloseRef.current?.();
         sseCloseRef.current = null;

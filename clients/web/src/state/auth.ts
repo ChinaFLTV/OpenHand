@@ -8,6 +8,7 @@ import { fetchApiMeta, type ApiMetaResponse } from '../api/meta';
 import { applyThemeTokens, defaultThemeTokens, type M3ThemeTokens } from '../theme/tokens';
 import { metaThemeToTokens } from '../api/meta';
 import { clearAuthStorage, readProfile, readToken, type AuthProfile } from './storage';
+import { setRemoteReducedMotion } from '../hooks/useReducedMotion';
 
 export interface AuthState {
   meta: ApiMetaResponse | null;
@@ -48,6 +49,7 @@ function bootOnce(): Promise<void> {
       const meta = await fetchApiMeta();
       const tokens = metaThemeToTokens(meta.theme, defaultThemeTokens);
       applyThemeTokens(tokens);
+      setRemoteReducedMotion(Boolean(meta.preferences?.reduce_motion));
       const authRequired = Boolean(meta.service?.auth_enabled);
       const token = readToken();
       const profile = readProfile();

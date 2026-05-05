@@ -158,11 +158,26 @@ html, body, #root {
   60%  { opacity: 1; transform: translate3d(0, -2px, 0) scale(1.02); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
+@keyframes oh-dialog-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes oh-dialog-pop-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to   { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.97); }
+}
 .oh-dialog-fade-in {
   animation: oh-dialog-fade-in 220ms var(--oh-motion-emphasized) both;
 }
 .oh-dialog-pop-in {
   animation: oh-dialog-pop-in 360ms var(--oh-motion-spring) both;
+  will-change: transform, opacity;
+}
+.oh-dialog-fade-out {
+  animation: oh-dialog-fade-out 180ms var(--oh-motion-emphasized) both;
+}
+.oh-dialog-pop-out {
+  animation: oh-dialog-pop-out 180ms var(--oh-motion-emphasized) both;
   will-change: transform, opacity;
 }
 

@@ -356,9 +356,9 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 ),
                 _InfoChip(
                   icon: Icons.folder_open_rounded,
-                  label: config.workspaceFilesEnabled
-                      ? (config.workspaceFileWriteEnabled ? '文件读写' : '文件只读')
-                      : '文件关闭',
+                  label: config.workspaceFileWriteEnabled
+                      ? '文件浏览 / 可操作'
+                      : '文件浏览 / 只读',
                 ),
               ],
             ),
@@ -475,7 +475,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late bool _healthEnabled;
   late bool _planModeEnabled;
   late bool _sessionManagementEnabled;
-  late bool _workspaceFilesEnabled;
   late bool _workspaceFileWriteEnabled;
   late final TextEditingController _descriptionController;
   late final TextEditingController _hostController;
@@ -521,7 +520,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _healthEnabled = config.healthCheck.enabled;
     _planModeEnabled = config.planModeEnabled;
     _sessionManagementEnabled = config.sessionManagementEnabled;
-    _workspaceFilesEnabled = config.workspaceFilesEnabled;
     _workspaceFileWriteEnabled = config.workspaceFileWriteEnabled;
     _descriptionController = TextEditingController(text: config.description);
     _hostController = TextEditingController(text: config.listenHost);
@@ -706,13 +704,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                   setState(() => _sessionManagementEnabled = v),
                             ),
                             _SwitchTile(
-                              label: '是否开放项目文件',
-                              value: _workspaceFilesEnabled,
-                              onChanged: (v) =>
-                                  setState(() => _workspaceFilesEnabled = v),
-                            ),
-                            _SwitchTile(
-                              label: '是否允许写入文件',
+                              label: '是否支持操作文件',
                               value: _workspaceFileWriteEnabled,
                               onChanged: (v) => setState(
                                 () => _workspaceFileWriteEnabled = v,
@@ -1003,9 +995,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       singleMessageTokenLimit: _int(_singleMessageController.text, 2000),
       maxMessagesPerSession: _int(_maxMessagesController.text, 100),
       sessionManagementEnabled: _sessionManagementEnabled,
-      workspaceFilesEnabled: _workspaceFilesEnabled,
-      workspaceFileWriteEnabled:
-          _workspaceFilesEnabled && _workspaceFileWriteEnabled,
+      workspaceFileWriteEnabled: _workspaceFileWriteEnabled,
       workspaceFileMaxBytes:
           math.max(1, _int(_workspaceFileMaxMbController.text, 1)) *
           1024 *
@@ -1193,11 +1183,12 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                         // 点击任一项都在 onSelected 里进行反选。
                         itemBuilder: (menuContext) => WebGatewayLogLevel.values
                             .map(
-                              (level) => CheckedPopupMenuItem<WebGatewayLogLevel>(
-                                value: level,
-                                checked: !_hidden.contains(level),
-                                child: Text(level.name),
-                              ),
+                              (level) =>
+                                  CheckedPopupMenuItem<WebGatewayLogLevel>(
+                                    value: level,
+                                    checked: !_hidden.contains(level),
+                                    child: Text(level.name),
+                                  ),
                             )
                             .toList(growable: false),
                       ),
@@ -1245,8 +1236,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       _hidden.remove(level);
       return;
     }
-    final wouldHideAll =
-        _hidden.length + 1 >= WebGatewayLogLevel.values.length;
+    final wouldHideAll = _hidden.length + 1 >= WebGatewayLogLevel.values.length;
     if (wouldHideAll) return;
     _hidden.add(level);
   }
@@ -1946,9 +1936,9 @@ class _AccessibleUrlsBar extends StatelessWidget {
   Future<void> _copy(BuildContext context, String url) async {
     await Clipboard.setData(ClipboardData(text: url));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已复制 $url')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已复制 $url')));
   }
 
   @override
@@ -1960,11 +1950,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(
-              Icons.lan_outlined,
-              size: 16,
-              color: cs.onSurfaceVariant,
-            ),
+            Icon(Icons.lan_outlined, size: 16, color: cs.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(
               '可访问 URL（点击复制）',
@@ -2961,7 +2947,9 @@ class _TrendLinePainter extends CustomPainter {
       ..close();
     final visibleRight = chart.left + chart.width * progress.clamp(0.0, 1.0);
     canvas.save();
-    canvas.clipRect(Rect.fromLTRB(chart.left, chart.top, visibleRight, chart.bottom));
+    canvas.clipRect(
+      Rect.fromLTRB(chart.left, chart.top, visibleRight, chart.bottom),
+    );
     canvas.drawPath(
       fillPath,
       Paint()
@@ -2983,7 +2971,7 @@ class _TrendLinePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
-      canvas.restore();
+    canvas.restore();
   }
 
   void _paintLabel(

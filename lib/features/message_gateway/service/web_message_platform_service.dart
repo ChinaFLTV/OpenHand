@@ -980,6 +980,11 @@ class WebMessagePlatformService {
       '/api/workspace/file',
       (shelf.Request r) => _withAuth(r, (req, _) => _writeWorkspaceFile(req)),
     );
+    router.post(
+      '/api/workspace/directory',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _createWorkspaceDirectory(req)),
+    );
     router.delete(
       '/api/workspace/file',
       (shelf.Request r) => _withAuth(r, (req, _) => _deleteWorkspaceFile(req)),
@@ -1381,10 +1386,14 @@ class WebMessagePlatformService {
         'max_messages_per_session': _config.maxMessagesPerSession,
       },
       'workspace_files': <String, Object?>{
-        'enabled': _config.workspaceFilesEnabled,
+        'enabled': true,
+        'operations_enabled': _config.workspaceFileWriteEnabled,
         'write_enabled': _config.workspaceFileWriteEnabled,
         'max_file_bytes': _config.workspaceFileMaxBytes,
         'allowed_extensions': _config.workspaceFileAllowedExtensions,
+      },
+      'preferences': <String, Object?>{
+        'reduce_motion': _settingsController.reduceMotion,
       },
       'theme': _theme.toJson(),
       'templates': _allowedTemplates()
@@ -2383,11 +2392,6 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _listWorkspaceFiles(shelf.Request request) async {
-    if (!_config.workspaceFilesEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'workspace_files_disabled',
-      });
-    }
     final relative = request.requestedUri.queryParameters['path'] ?? '';
     final query = (request.requestedUri.queryParameters['q'] ?? '')
         .trim()
@@ -2451,6 +2455,7 @@ class WebMessagePlatformService {
       'items': items,
       'query': query,
       'type': typeFilter,
+      'operations_enabled': _config.workspaceFileWriteEnabled,
       'write_enabled': _config.workspaceFileWriteEnabled,
       'max_file_bytes': _config.workspaceFileMaxBytes,
       'allowed_extensions': _config.workspaceFileAllowedExtensions,
@@ -2458,11 +2463,6 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _readWorkspaceFile(shelf.Request request) async {
-    if (!_config.workspaceFilesEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'workspace_files_disabled',
-      });
-    }
     final relative = request.requestedUri.queryParameters['path'] ?? '';
     final filePath = _resolveWorkspacePath(relative);
     if (filePath == null || !await FileSystemEntity.isFile(filePath)) {
@@ -2497,14 +2497,10 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _writeWorkspaceFile(shelf.Request request) async {
-    if (!_config.workspaceFilesEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'workspace_files_disabled',
-      });
-    }
     if (!_config.workspaceFileWriteEnabled) {
       return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'workspace_file_write_disabled',
+        'error': 'workspace_file_operations_disabled',
+        'message': 'App 端未开启“是否支持操作文件”，Web 端只能浏览和读取项目文件。',
       });
     }
     final body = await _readJsonBody(
@@ -2546,18 +2542,54 @@ class WebMessagePlatformService {
     });
   }
 
+  Future<shelf.Response> _createWorkspaceDirectory(
+    shelf.Request request,
+  ) async {
+    if (!_config.workspaceFileWriteEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'workspace_file_operations_disabled',
+        'message': 'App 端未开启“是否支持操作文件”，Web 端只能浏览和读取项目文件。',
+      });
+    }
+    final body = await _readJsonBody(request, maxBytes: 16 * 1024);
+    final relative = _string(body['path'], '');
+    if (relative.trim().isEmpty || relative == '.' || relative == '/') {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'path_required',
+      });
+    }
+    final dirPath = _resolveWorkspacePath(relative);
+    if (dirPath == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'path_outside_workspace',
+      });
+    }
+    final type = await FileSystemEntity.type(dirPath, followLinks: false);
+    if (type == FileSystemEntityType.file) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'file_already_exists',
+      });
+    }
+    await Directory(dirPath).create(recursive: true);
+    final stat = await Directory(dirPath).stat();
+    _log(WebGatewayLogLevel.warn, 'FILES', 'Web 创建项目目录', <String, Object?>{
+      'path': _relativeWorkspacePath(dirPath),
+    });
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'path': _relativeWorkspacePath(dirPath),
+      'modified_at': stat.modified.toUtc().toIso8601String(),
+    });
+  }
+
   /// 删除 workspace 内的单个文件或空目录。受 `workspaceFileWriteEnabled` 闸门保护，
   /// 必须 query `?path=...`，路径校验复用 `_resolveWorkspacePath` 防穿越。
   /// 目录非空时返回 `directory_not_empty`；不递归删，避免误删大批数据。
   Future<shelf.Response> _deleteWorkspaceFile(shelf.Request request) async {
-    if (!_config.workspaceFilesEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'workspace_files_disabled',
-      });
-    }
     if (!_config.workspaceFileWriteEnabled) {
       return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'workspace_file_write_disabled',
+        'error': 'workspace_file_operations_disabled',
+        'message': 'App 端未开启“是否支持操作文件”，Web 端只能浏览和读取项目文件。',
       });
     }
     final relative = request.requestedUri.queryParameters['path'] ?? '';

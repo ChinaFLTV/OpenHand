@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { t } from '../i18n';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface SessionGoneDialogProps {
   open: boolean;
@@ -21,11 +22,14 @@ export interface SessionGoneDialogProps {
 
 export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogProps) {
   const location = useLocation();
+  const reduceMotion = useReducedMotion();
   const [navigating, setNavigating] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   // open 状态变更时把焦点尝试丢给主按钮 (a11y + 回车直接确认)
   useEffect(() => {
     if (!open) return;
+    setClosing(false);
     const id = window.requestAnimationFrame(() => {
       const btn = document.getElementById('oh-session-gone-back-btn');
       btn?.focus();
@@ -41,14 +45,17 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
     try {
       if (onBeforeNavigate) await onBeforeNavigate();
     } finally {
-      // 即便 refresh 失败也要导航走 — 用户已经被告知会话不存在了
-      location.route('/threads');
+      setClosing(true);
+      window.setTimeout(() => {
+        // 即便 refresh 失败也要导航走 — 用户已经被告知会话不存在了
+        location.route('/threads');
+      }, reduceMotion ? 0 : 180);
     }
   };
 
   return (
     <div
-      class="fixed inset-0 z-[60] flex items-center justify-center px-4 oh-dialog-fade-in"
+      class={`fixed inset-0 z-[60] flex items-center justify-center px-4 ${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'}`}
       style={{
         background: 'rgba(0,0,0,0.45)',
         backdropFilter: 'blur(2px)',
@@ -58,7 +65,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
       aria-label={t('sessionGone.title', '会话已不存在')}
     >
       <section
-        class="oh-dialog-pop-in rounded-m3-xl w-full max-w-[420px] flex flex-col"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-xl w-full max-w-[420px] flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',

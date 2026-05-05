@@ -1,9 +1,9 @@
-// FilesPage —— 工作区文件浏览 / 读取 / 编辑（受 service.workspaceFilesEnabled 控制）。
+// FilesPage —— 工作区文件浏览 / 读取 / 编辑。
 //
 // 一比一对齐 legacy SPA：
 // - 顶部面包屑 + 路径输入（手输跳转）
 // - 左侧文件列表（含搜索 + type 过滤），右侧详情/编辑器
-// - 写入需后端 write_enabled=true，否则保存按钮禁用
+// - 浏览 / 读取始终开放；创建 / 保存 / 删除需后端 write_enabled=true，否则按钮禁用
 // - 二进制 / 超大文件按 ApiError 文案优雅退化
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -12,6 +12,7 @@ import { ApiError } from '../api/client';
 import {
   WorkspaceItem,
   WorkspaceListResponse,
+  createWorkspaceDirectory,
   deleteWorkspaceFile,
   listWorkspaceFiles,
   readWorkspaceFile,
@@ -29,7 +30,8 @@ function parentOf(path: string): string {
 
 function describeApiError(err: unknown): string {
   if (err instanceof ApiError) {
-    const body = err.body as { error?: string } | null;
+    const body = err.body as { error?: string; message?: string } | null;
+    if (body?.message) return body.message;
     return `HTTP ${err.status}${body?.error ? ` (${body.error})` : ''}`;
   }
   if (err instanceof Error) return err.message;
@@ -168,10 +170,11 @@ export function FilesPage() {
   }, [path]);
 
   const writeDisabled = !list?.write_enabled || !selected?.editable;
+  const fileOperationsEnabled = Boolean(list?.operations_enabled ?? list?.write_enabled);
 
   // 删除文件 / 空目录：first tap -> 进入 pending（4s 自动清），second tap -> 真删
   const handleDelete = async (item: WorkspaceItem) => {
-    if (!list?.write_enabled) return;
+    if (!fileOperationsEnabled) return;
     if (pendingDelete !== item.path) {
       setPendingDelete(item.path);
       setActionError(null);
@@ -198,10 +201,9 @@ export function FilesPage() {
     }
   };
 
-  // 创建文件 / 目录：复用 PUT（content='' for directory 用 placeholder file 形式）
-  // 目录创建走 "<dir>/.gitkeep" 兜底，避免后端没有专门 mkdir 端点
+  // 创建文件 / 目录：文件复用 PUT，目录走专用 mkdir API，避免 placeholder 文件污染。
   const handleCreate = async () => {
-    if (!list?.write_enabled || !creating) return;
+    if (!fileOperationsEnabled || !creating) return;
     const name = createName.trim();
     if (!name) return;
     setCreateBusy(true);
@@ -209,7 +211,7 @@ export function FilesPage() {
     try {
       const targetPath = path ? `${path}/${name}` : name;
       if (creating === 'directory') {
-        await writeWorkspaceFile(`${targetPath}/.gitkeep`, '');
+        await createWorkspaceDirectory(targetPath);
       } else {
         await writeWorkspaceFile(targetPath, '');
       }
@@ -247,6 +249,20 @@ export function FilesPage() {
             )}
           </div>
           <div class="flex items-center gap-2">
+            {list ? (
+              <span
+                class="text-xs px-2 py-1 rounded-m3-sm"
+                style={{
+                  color: fileOperationsEnabled ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)',
+                  border: '1px solid var(--m3-outline)',
+                  background: 'var(--m3-surface)',
+                }}
+              >
+                {fileOperationsEnabled
+                  ? t('files.operations.enabled', '文件操作已开启')
+                  : t('files.operations.readOnly', '只读浏览')}
+              </span>
+            ) : null}
             <button
               type="button"
               onClick={() => void refresh()}
@@ -336,7 +352,7 @@ export function FilesPage() {
             </div>
 
             {/* 创建行：仅在 write_enabled 时显示。先点选 [文件]/[目录]，再输入名字回车 */}
-            {list?.write_enabled && (
+            {fileOperationsEnabled ? (
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <button
                   type="button"
@@ -410,7 +426,21 @@ export function FilesPage() {
                   </form>
                 )}
               </div>
-            )}
+            ) : list ? (
+              <div
+                class="mb-2 rounded-m3-sm px-3 py-2 text-xs leading-snug"
+                style={{
+                  backgroundColor: 'var(--m3-surface)',
+                  border: '1px solid var(--m3-outline)',
+                  color: 'var(--m3-on-surface-variant)',
+                }}
+              >
+                {t(
+                  'files.operations.disabledHint',
+                  '项目文件浏览与读取已开放；创建、保存、删除需要在 App 端 Web 通用消息平台里开启“是否支持操作文件”。',
+                )}
+              </div>
+            ) : null}
             {actionError && (
               <p class="text-xs mb-2" style={{ color: 'var(--m3-error)' }}>
                 {actionError}
@@ -474,7 +504,7 @@ export function FilesPage() {
                         {it.type === 'file' ? tBytes(it.size) : ''}
                       </span>
                     </button>
-                    {list?.write_enabled && (
+                    {fileOperationsEnabled && (
                       <button
                         type="button"
                         onClick={() => void handleDelete(it)}
@@ -501,7 +531,7 @@ export function FilesPage() {
             {list && (
               <p class="mt-3 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
                 {t('files.writeEnabled', '可写入：')}
-                {list.write_enabled ? '✅' : '❌'} ·{' '}
+                {fileOperationsEnabled ? '✅' : '❌'} ·{' '}
                 {t('files.maxBytes', '单文件上限：')}
                 {tBytes(list.max_file_bytes)}
               </p>

@@ -16,6 +16,18 @@ export interface ApiMetaService {
   description?: string;
 }
 
+export interface ApiMetaWorkspaceFiles {
+  enabled?: boolean;
+  operations_enabled?: boolean;
+  write_enabled?: boolean;
+  max_file_bytes?: number;
+  allowed_extensions?: string[];
+}
+
+export interface ApiMetaPreferences {
+  reduce_motion?: boolean;
+}
+
 export interface ApiMetaThemeRaw {
   primary?: string;
   on_primary?: string;
@@ -50,6 +62,8 @@ export interface ApiMetaModel {
 
 export interface ApiMetaResponse {
   service?: ApiMetaService;
+  workspace_files?: ApiMetaWorkspaceFiles;
+  preferences?: ApiMetaPreferences;
   theme?: ApiMetaThemeRaw;
   templates?: ApiMetaTemplate[];
   conversation_modes?: string[];

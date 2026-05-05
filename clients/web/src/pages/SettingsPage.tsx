@@ -20,6 +20,7 @@ import {
   updatePreferences,
 } from '../api/preferences';
 import { t, tNumber } from '../i18n';
+import { setRemoteReducedMotion } from '../hooks/useReducedMotion';
 
 const LANG_LABEL: Record<string, string> = {
   zh_Hans: '简体中文',
@@ -56,6 +57,7 @@ export function SettingsPage() {
       .then((p) => {
         if (stop) return;
         setPrefs(p);
+        setRemoteReducedMotion(p.reduce_motion);
         if (!thresholdInitialized.current) {
           setThresholdInput(String(p.ai_message_compression_threshold_chars));
           thresholdInitialized.current = true;
@@ -75,6 +77,7 @@ export function SettingsPage() {
     try {
       const next = await updatePreferences(update);
       setPrefs(next);
+      setRemoteReducedMotion(next.reduce_motion);
       setThresholdInput(String(next.ai_message_compression_threshold_chars));
       setSavedSignal((s) => s + 1);
     } catch (err) {

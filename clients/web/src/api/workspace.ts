@@ -2,6 +2,7 @@
 //   GET    /api/workspace/files?path=&q=&type=&extensions=
 //   GET    /api/workspace/file?path=
 //   PUT    /api/workspace/file body {path, content}    — 创建 / 覆写（受 write_enabled）
+//   POST   /api/workspace/directory body {path}         — 创建目录（受 write_enabled）
 //   DELETE /api/workspace/file?path=                    — 删除文件 / 空目录（受 write_enabled）
 //
 // 设计决定：
@@ -29,6 +30,7 @@ export interface WorkspaceListResponse {
   items: WorkspaceItem[];
   query: string;
   type: string;
+  operations_enabled?: boolean;
   write_enabled: boolean;
   max_file_bytes: number;
   allowed_extensions: string[];
@@ -45,6 +47,12 @@ export interface WorkspaceWriteResponse {
   ok: boolean;
   path: string;
   size: number;
+  modified_at: string;
+}
+
+export interface WorkspaceDirectoryResponse {
+  ok: boolean;
+  path: string;
   modified_at: string;
 }
 
@@ -84,6 +92,13 @@ export function writeWorkspaceFile(
   return apiRequest<WorkspaceWriteResponse>('/api/workspace/file', {
     method: 'PUT',
     body: { path, content },
+  });
+}
+
+export function createWorkspaceDirectory(path: string): Promise<WorkspaceDirectoryResponse> {
+  return apiRequest<WorkspaceDirectoryResponse>('/api/workspace/directory', {
+    method: 'POST',
+    body: { path },
   });
 }
 
