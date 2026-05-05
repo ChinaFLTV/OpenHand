@@ -53,7 +53,7 @@ class _MessageGatewayViewState extends State<MessageGatewayView> {
                     const SizedBox(height: 8),
                     Text(
                       l10n.settingsMessageGatewayDescription,
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: theme.textTheme.bodyLarge?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -195,35 +195,41 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 final title = Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Icon(
-                        Icons.language_rounded,
-                        color: theme.colorScheme.onPrimaryContainer,
-                      ),
+                    // 状态点采用与 MCP 服务同款布局：
+                    // 套在图标 Stack 里，用 Positioned(right:-2,bottom:-2) 顶出于右下角，
+                    // 带与 surface 同色的 3px 描边 + 软阴影，提供一致的“状态徽标”观感。
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Icon(
+                            Icons.language_rounded,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: _StatusDot(color: stateColor),
+                        ),
+                      ],
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  webMessagePlatformBuiltinName,
-                                  style: theme.textTheme.titleLarge,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              _StatusDot(color: stateColor),
-                            ],
+                          // 状态点已上移到图标右下角，标题行只留应用名。
+                          Text(
+                            webMessagePlatformBuiltinName,
+                            style: theme.textTheme.titleLarge,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -1166,6 +1172,35 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                         onPressed: _exportCurrentLog,
                         icon: const Icon(Icons.save_alt_rounded),
                       ),
+                      // 清空终端：仅清除当前弹窗内的渲染项，
+                      // 底层服务的日志环形缓冲与磁盘文件保持不变（类似 shell `clear`）。
+                      IconButton(
+                        tooltip: '清空终端（仅清除显示，不删除日志文件）',
+                        onPressed: _clearTerminal,
+                        icon: const Icon(Icons.cleaning_services_outlined),
+                      ),
+                      // 日志级别多选菜单：取代原来顶部的 FilterChip 条。
+                      // 菜单本身走 PopupMenuButton 默认进 / 退场动画，
+                      // 与全局 reduceMotion 设置默认联动（Flutter 框架级在
+                      // disableAnimations=true 时会自动跳过过渡）。
+                      PopupMenuButton<WebGatewayLogLevel>(
+                        tooltip: '日志级别筛选',
+                        icon: const Icon(Icons.filter_list_rounded),
+                        // 返回 null 代表点击了外部区域 / Esc，不需要响应。
+                        onSelected: (level) =>
+                            setState(() => _toggleLogLevel(level)),
+                        // 多选能力：在 itemBuilder 里手搽复选框，
+                        // 点击任一项都在 onSelected 里进行反选。
+                        itemBuilder: (menuContext) => WebGatewayLogLevel.values
+                            .map(
+                              (level) => CheckedPopupMenuItem<WebGatewayLogLevel>(
+                                value: level,
+                                checked: !_hidden.contains(level),
+                                child: Text(level.name),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
                       IconButton(
                         tooltip: '关闭',
                         onPressed: () => Navigator.of(context).pop(),
@@ -1177,31 +1212,6 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
               ),
             ),
             const Divider(height: 1),
-            Container(
-              width: double.infinity,
-              color: const Color(0xFF101218),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: WebGatewayLogLevel.values
-                    .map((level) {
-                      final selected = !_hidden.contains(level);
-                      return FilterChip(
-                        selected: selected,
-                        label: Text(level.name),
-                        onSelected: (_) => setState(() {
-                          if (selected) {
-                            _hidden.add(level);
-                          } else {
-                            _hidden.remove(level);
-                          }
-                        }),
-                      );
-                    })
-                    .toList(growable: false),
-              ),
-            ),
             Expanded(
               child: Container(
                 color: const Color(0xFF101218),
@@ -1226,6 +1236,31 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         ),
       ),
     );
+  }
+
+  // 在 _hidden 集合中切换一个级别的可见性。
+  // 保证至少保留一个级别可见，避免用户误操作后看到空列表。
+  void _toggleLogLevel(WebGatewayLogLevel level) {
+    if (_hidden.contains(level)) {
+      _hidden.remove(level);
+      return;
+    }
+    final wouldHideAll =
+        _hidden.length + 1 >= WebGatewayLogLevel.values.length;
+    if (wouldHideAll) return;
+    _hidden.add(level);
+  }
+
+  // 清空终端：仅清零当前弹窗内的渲染项。
+  // 使用 _anchorLogId = 当前最后一条日志的 id，以后只追加新增日志；
+  // _historyLimit 归 0，避免下一次渲染又把历史记录拉回来。
+  // 底层 service.logs 与磁盘日志文件都不动，效果类似 shell `clear`。
+  void _clearTerminal() {
+    final logs = widget.controller.logs;
+    setState(() {
+      _anchorLogId = logs.isEmpty ? 0 : logs.last.id;
+      _historyLimit = 0;
+    });
   }
 
   List<WebGatewayLogEntry> _visibleLogs(List<WebGatewayLogEntry> logs) {
@@ -1822,12 +1857,30 @@ class _GatewayStateCard extends StatelessWidget {
 class _StatusDot extends StatelessWidget {
   const _StatusDot({required this.color});
   final Color color;
+
   @override
-  Widget build(BuildContext context) => Container(
-    width: 10,
-    height: 10,
-    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-  );
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // 与 MCP `_McpHealthStatusDot` 对齐：16×16 + 3px surface 同色描边 + 32% 透明软阴影；
+    // 颜色变化走 AnimatedContainer，但若全局动画被禁用则 duration 归零，避免不必要重绘。
+    return AnimatedContainer(
+      duration: _motionDuration(context, 180),
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: colorScheme.surface, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.32),
+            blurRadius: 8,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _FeatureIconButton extends StatelessWidget {
