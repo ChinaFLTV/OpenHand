@@ -16,6 +16,15 @@ export const dict_zhHant: Record<string, string> = {
   'common.lang.zhHant': '繁',
   'common.lang.en': 'EN',
   'common.lang.ja': '日',
+  // 時長單位（tDuration 用）
+  'common.duration.day': '天',
+  'common.duration.hour': '時',
+  'common.duration.minute': '分',
+  'common.duration.second': '秒',
+  'common.duration.millisecond': '毫秒',
+  // 複數示例：清理結果中的檔案 / 目錄數量
+  'ops.cleanup.files.other': '{count} 個檔案',
+  'ops.cleanup.dirs.other': '{count} 個目錄',
   'home.subtitle': 'Web 通用訊息平台：工作階段 / 多型別訊息 / 工作區檔案 / Ops / 紀錄',
   'home.theme.source.api': '主題來源：與 OpenHand 主控台同步',
   'home.theme.source.default': '主題來源：預設 token',
@@ -183,5 +192,5 @@ export const dict_zhHant: Record<string, string> = {
   'logs.empty': '沒有相符的紀錄',
   'boot.missingMount': '找不到 #root 掛載點',
   'error.meta.failed': '/api/meta 失敗：HTTP {status}',
-  'ops.cleanup.result': '{target} · 刪除 {files} 個檔案 / {dirs} 個目錄 · 釋放 {bytes}',
+  'ops.cleanup.result': '{target} · 刪除 {files} / {dirs} · 釋放 {bytes}',
 };

@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { ApiError } from '../api/client';
 import { LogEntry, exportLogsBundle, listLogs } from '../api/logs';
-import { t } from '../i18n';
+import { t, tTime } from '../i18n';
 
 const PAGE_SIZE = 200;
 const TAIL_INTERVAL_MS = 3_000;
@@ -25,10 +25,11 @@ const LEVEL_COLORS: Record<LogEntry['level'], string> = {
   telemetry: '#5b6abf',
 };
 
+// 日志列表使用 24h 时:分:秒 + 毫秒，时间部分走 i18n 本地化，毫秒后缀显式拼接。
 function fmtTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleTimeString(undefined, { hour12: false }) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+  return `${tTime(d)}.${String(d.getMilliseconds()).padStart(3, '0')}`;
 }
 
 function describeApiError(err: unknown): string {

@@ -15,40 +15,9 @@ import {
   getOpsSnapshot,
   runCleanup,
 } from '../api/ops';
-import { t, tFmt } from '../i18n';
+import { t, tBytes, tDateTime, tDuration, tFmt, tPlural } from '../i18n';
 
 const REFRESH_INTERVAL_MS = 5_000;
-
-function fmtBytes(n: number | null | undefined): string {
-  if (n == null) return '—';
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
-
-function fmtDuration(ms: number): string {
-  if (ms < 1000) return `${ms} ms`;
-  let secs = Math.floor(ms / 1000);
-  const days = Math.floor(secs / 86400);
-  secs -= days * 86400;
-  const hrs = Math.floor(secs / 3600);
-  secs -= hrs * 3600;
-  const mins = Math.floor(secs / 60);
-  secs -= mins * 60;
-  const parts: string[] = [];
-  if (days) parts.push(`${days}d`);
-  if (hrs) parts.push(`${hrs}h`);
-  if (mins) parts.push(`${mins}m`);
-  parts.push(`${secs}s`);
-  return parts.join(' ');
-}
-
-function fmtTime(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
-}
 
 function describeApiError(err: unknown): string {
   if (err instanceof ApiError) {
@@ -128,12 +97,14 @@ export function OpsPage() {
     setCleanupOk(null);
     try {
       const res = await runCleanup({ target: cleanupTarget, expired_only: expiredOnly });
+      // 默认模板使用 tPlural 拼装文件 / 目录单复数，
+      // 字节量走 tBytes 以使用当前语言的千分位 / 小数点习惯。
       setCleanupOk(
         tFmt('ops.cleanup.result', {
           target: res.target,
-          files: res.deleted_files,
-          dirs: res.deleted_directories,
-          bytes: fmtBytes(res.bytes_freed),
+          files: tPlural('ops.cleanup.files', res.deleted_files),
+          dirs: tPlural('ops.cleanup.dirs', res.deleted_directories),
+          bytes: tBytes(res.bytes_freed),
         }),
       );
       await refreshHistory();
@@ -221,24 +192,24 @@ export function OpsPage() {
               class="rounded-m3-md p-4 mb-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
               style={{ backgroundColor: 'var(--m3-surface-container)' }}
             >
-              <Metric label={t('ops.metric.startedAt', '启动时间')} value={fmtTime(snapshot.started_at)} />
-              <Metric label={t('ops.metric.uptime', '运行时长')} value={fmtDuration(snapshot.uptime_ms)} />
+              <Metric label={t('ops.metric.startedAt', '启动时间')} value={tDateTime(snapshot.started_at)} />
+              <Metric label={t('ops.metric.uptime', '运行时长')} value={tDuration(snapshot.uptime_ms)} />
               <Metric label={t('ops.metric.bound', '监听 URL')} value={snapshot.bound_url || '—'} mono />
               <Metric label={t('ops.metric.openSessions', '在线会话')} value={String(snapshot.open_session_count)} />
               <Metric label={t('ops.metric.activeReq', '正在处理')} value={String(snapshot.active_requests)} />
               <Metric label={t('ops.metric.totalReq', '总请求')} value={String(snapshot.total_requests)} />
               <Metric label={t('ops.metric.totalErr', '总错误')} value={String(snapshot.total_errors)} />
               <Metric label={t('ops.metric.bytesIO', '字节 IN / OUT')}
-                value={`${fmtBytes(snapshot.total_bytes_in)} / ${fmtBytes(snapshot.total_bytes_out)}`} />
+                value={`${tBytes(snapshot.total_bytes_in)} / ${tBytes(snapshot.total_bytes_out)}`} />
               <Metric label={t('ops.metric.crash', '崩溃 / 重启')} value={`${snapshot.crash_count} / ${snapshot.restart_count}`} />
               <Metric label={t('ops.metric.rss', '当前 / 峰值 RSS')}
-                value={`${fmtBytes(snapshot.process.current_rss_bytes)} / ${fmtBytes(snapshot.process.max_rss_bytes)}`} />
+                value={`${tBytes(snapshot.process.current_rss_bytes)} / ${tBytes(snapshot.process.max_rss_bytes)}`} />
               <Metric label={t('ops.metric.cpu', 'CPU %')}
                 value={snapshot.process.cpu_percent != null ? `${snapshot.process.cpu_percent.toFixed(1)} %` : '—'} />
               <Metric label={t('ops.metric.thread', '线程 / 句柄')}
                 value={`${snapshot.process.thread_count ?? '—'} / ${snapshot.process.file_handle_count ?? '—'}`} />
-              <Metric label={t('ops.metric.swap', 'Swap')} value={fmtBytes(snapshot.process.swap_bytes)} />
-              <Metric label={t('ops.metric.diskLog', '磁盘日志')} value={fmtBytes(snapshot.process.disk_log_bytes)} />
+              <Metric label={t('ops.metric.swap', 'Swap')} value={tBytes(snapshot.process.swap_bytes)} />
+              <Metric label={t('ops.metric.diskLog', '磁盘日志')} value={tBytes(snapshot.process.disk_log_bytes)} />
               <Metric label={t('ops.metric.platform', '平台')}
                 value={`${snapshot.process.platform} (${snapshot.process.platform_version})`} mono />
               <Metric label={t('ops.metric.pid', 'PID')} value={String(snapshot.process.pid)} mono />
@@ -386,12 +357,12 @@ export function OpsPage() {
               <tbody>
                 {history.map((h, idx) => (
                   <tr key={idx} style={{ color: 'var(--m3-on-surface)' }}>
-                    <td class="py-1 px-2 font-mono text-xs">{fmtTime(h.timestamp)}</td>
+                    <td class="py-1 px-2 font-mono text-xs">{tDateTime(h.timestamp)}</td>
                     <td class="py-1 px-2">{h.target}</td>
                     <td class="py-1 px-2">{h.expired_only ? '✓' : '—'}</td>
                     <td class="py-1 px-2 text-right">{h.deleted_files}</td>
                     <td class="py-1 px-2 text-right">{h.deleted_directories}</td>
-                    <td class="py-1 px-2 text-right">{fmtBytes(h.bytes_freed)}</td>
+                    <td class="py-1 px-2 text-right">{tBytes(h.bytes_freed)}</td>
                     <td class="py-1 px-2 text-right">{h.memory_log_entries_cleared}</td>
                   </tr>
                 ))}

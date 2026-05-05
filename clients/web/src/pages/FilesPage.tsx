@@ -16,25 +16,12 @@ import {
   readWorkspaceFile,
   writeWorkspaceFile,
 } from '../api/workspace';
-import { t } from '../i18n';
+import { t, tBytes, tDateTime } from '../i18n';
 
 function parentOf(path: string): string {
   const trimmed = path.replace(/\/+$/, '');
   const idx = trimmed.lastIndexOf('/');
   return idx <= 0 ? '' : trimmed.slice(0, idx);
-}
-
-function fmtBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
-
-function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
 }
 
 function describeApiError(err: unknown): string {
@@ -334,7 +321,7 @@ export function FilesPage() {
                           color: isActive ? 'var(--m3-on-primary)' : 'var(--m3-on-surface-variant)',
                         }}
                       >
-                        {it.type === 'file' ? fmtBytes(it.size) : ''}
+                        {it.type === 'file' ? tBytes(it.size) : ''}
                       </span>
                     </button>
                   </li>
@@ -347,7 +334,7 @@ export function FilesPage() {
                 {t('files.writeEnabled', '可写入：')}
                 {list.write_enabled ? '✅' : '❌'} ·{' '}
                 {t('files.maxBytes', '单文件上限：')}
-                {fmtBytes(list.max_file_bytes)}
+                {tBytes(list.max_file_bytes)}
               </p>
             )}
           </section>
@@ -372,7 +359,7 @@ export function FilesPage() {
                     </p>
                     {contentMeta && (
                       <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-                        {fmtBytes(contentMeta.size)} · {fmtTime(contentMeta.modified_at)}
+                        {tBytes(contentMeta.size)} · {tDateTime(contentMeta.modified_at)}
                       </p>
                     )}
                   </div>

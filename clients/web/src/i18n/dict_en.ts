@@ -16,6 +16,17 @@ export const dict_en: Record<string, string> = {
   'common.lang.zhHant': '繁',
   'common.lang.en': 'EN',
   'common.lang.ja': '日',
+  // Duration units (used by tDuration)
+  'common.duration.day': 'd',
+  'common.duration.hour': 'h',
+  'common.duration.minute': 'm',
+  'common.duration.second': 's',
+  'common.duration.millisecond': 'ms',
+  // Plural example: cleanup result file / directory counts
+  'ops.cleanup.files.one': '{count} file',
+  'ops.cleanup.files.other': '{count} files',
+  'ops.cleanup.dirs.one': '{count} directory',
+  'ops.cleanup.dirs.other': '{count} directories',
   'home.subtitle': 'Web messaging platform: sessions / multi-type messages / workspace files / Ops / logs',
   'home.theme.source.api': 'Theme: synced from OpenHand console',
   'home.theme.source.default': 'Theme: built-in tokens',
@@ -183,5 +194,5 @@ export const dict_en: Record<string, string> = {
   'logs.empty': 'No matching logs',
   'boot.missingMount': 'Cannot find #root mount point',
   'error.meta.failed': '/api/meta failed: HTTP {status}',
-  'ops.cleanup.result': '{target} · deleted {files} files / {dirs} directories · freed {bytes}',
+  'ops.cleanup.result': '{target} · deleted {files} / {dirs} · freed {bytes}',
 };

@@ -16,6 +16,15 @@ export const dict_ja: Record<string, string> = {
   'common.lang.zhHant': '繁',
   'common.lang.en': 'EN',
   'common.lang.ja': '日',
+  // 時間単位（tDuration 用）
+  'common.duration.day': '日',
+  'common.duration.hour': '時',
+  'common.duration.minute': '分',
+  'common.duration.second': '秒',
+  'common.duration.millisecond': 'ミリ秒',
+  // 複数例：クリーンアップ結果のファイル / ディレクトリ件数（日本語は単複同形）
+  'ops.cleanup.files.other': '{count} ファイル',
+  'ops.cleanup.dirs.other': '{count} ディレクトリ',
   'home.subtitle': 'Web メッセージングプラットフォーム：セッション / 多種メッセージ / ワークスペースファイル / Ops / ログ',
   'home.theme.source.api': 'テーマ：OpenHand コンソールと同期',
   'home.theme.source.default': 'テーマ：既定トークン',
@@ -183,5 +192,5 @@ export const dict_ja: Record<string, string> = {
   'logs.empty': '一致するログなし',
   'boot.missingMount': '#root のマウントポイントが見つかりません',
   'error.meta.failed': '/api/meta 失敗：HTTP {status}',
-  'ops.cleanup.result': '{target} · {files} 件のファイル / {dirs} 件のディレクトリを削除 · {bytes} を解放',
+  'ops.cleanup.result': '{target} · {files} / {dirs} を削除 · {bytes} を解放',
 };

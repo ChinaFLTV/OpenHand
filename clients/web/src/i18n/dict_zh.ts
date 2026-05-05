@@ -17,6 +17,15 @@ export const dict_zh: Record<string, string> = {
   'common.lang.zhHant': '繁',
   'common.lang.en': 'EN',
   'common.lang.ja': '日',
+  // 时长单位（tDuration 用）
+  'common.duration.day': '天',
+  'common.duration.hour': '时',
+  'common.duration.minute': '分',
+  'common.duration.second': '秒',
+  'common.duration.millisecond': '毫秒',
+  // 复数示例：清理结果中的文件 / 目录数量
+  'ops.cleanup.files.other': '{count} 个文件',
+  'ops.cleanup.dirs.other': '{count} 个目录',
   'home.subtitle': 'Web 通用消息平台：会话 / 多类型消息 / 工作区文件 / Ops / 日志',
   'home.theme.source.api': '主题来源：与 OpenHand 主控制台同步',
   'home.theme.source.default': '主题来源：默认 token',
@@ -184,5 +193,5 @@ export const dict_zh: Record<string, string> = {
   'logs.empty': '没有匹配的日志',
   'boot.missingMount': '找不到 #root 挂载点',
   'error.meta.failed': '/api/meta 失败：HTTP {status}',
-  'ops.cleanup.result': '{target} · 删除 {files} 个文件 / {dirs} 个目录 · 释放 {bytes}',
+  'ops.cleanup.result': '{target} · 删除 {files} / {dirs} · 释放 {bytes}',
 };
