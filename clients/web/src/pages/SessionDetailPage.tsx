@@ -31,6 +31,8 @@ import { t } from '../i18n';
 import { MenuSelect } from '../components/MenuSelect';
 import { useAuth } from '../state/auth';
 import type { ApiMetaModel } from '../api/meta';
+import { TopBar } from '../components/TopBar';
+import { MessageCard } from '../components/MessageCard';
 
 const PAGE_SIZE = 80;
 
@@ -41,31 +43,7 @@ const POLL_INTERVAL_MS = 1200;
 /// 真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 
-function formatTimestamp(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  } catch {
-    return iso;
-  }
-}
-
-function roleLabel(role: string): string {
-  switch (role) {
-    case 'user':
-      return t('detail.role.user', '用户');
-    case 'assistant':
-      return t('detail.role.assistant', '助手');
-    case 'system':
-      return t('detail.role.system', '系统');
-    case 'tool':
-      return t('detail.role.tool', '工具');
-    default:
-      return role;
-  }
-}
+// 时间戳与角色标签现在由 MessageCard 内部处理，本页不再直接使用。
 
 function sendPhaseLabel(phase: string): string {
   switch (phase) {
@@ -436,44 +414,42 @@ export function SessionDetailPage() {
     );
   }
 
+  const subtitle = session
+    ? `${session.template_name || session.template_id} · ${
+        session.mode === 'plan'
+          ? t('sessions.mode.plan', 'Plan')
+          : t('sessions.mode.chat', '对话')
+      } · ${totalKnown} ${t('sessions.messageUnit', '条消息')}`
+    : t('detail.loading', '加载会话中…');
+
   return (
     <main class="min-h-screen px-6 py-8" style={{ background: 'var(--m3-surface)' }}>
       <div class="mx-auto max-w-3xl">
-        {/* 顶部条 */}
-        <div class="flex items-start justify-between mb-4 gap-3 flex-wrap">
-          <div class="flex-1 min-w-0">
+        <TopBar
+          compact
+          title={session?.title || t('sessions.untitled', '未命名会话')}
+          subtitle={subtitle}
+          leadingSlot={
             <button
               type="button"
               onClick={() => location.route('/threads')}
-              class="text-xs underline mb-2"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+              class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm"
+              style={{
+                color: 'var(--m3-on-surface-variant)',
+                border: '1px solid var(--m3-outline)',
+              }}
+              title={t('detail.backToList', '返回会话列表')}
             >
-              ← {t('detail.backToList', '返回会话列表')}
+              ←
             </button>
-            <h1
-              class="text-xl font-semibold truncate"
-              style={{ color: 'var(--m3-on-surface)' }}
-            >
-              {session?.title || t('sessions.untitled', '未命名会话')}
-            </h1>
-            {session ? (
-              <p
-                class="text-xs mt-1"
-                style={{ color: 'var(--m3-on-surface-variant)' }}
-              >
-                {session.template_name || session.template_id} ·{' '}
-                {session.mode === 'plan'
-                  ? t('sessions.mode.plan', 'Plan')
-                  : t('sessions.mode.chat', '对话')}{' '}
-                · {totalKnown} {t('sessions.messageUnit', '条消息')}
-              </p>
-            ) : null}
-          </div>
+          }
+        />
+        <div class="flex justify-end mb-4">
           <button
             type="button"
             onClick={refresh}
             disabled={refreshing || loadingDetail}
-            class="text-xs px-3 py-1.5 rounded-md disabled:opacity-50"
+            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm disabled:opacity-50"
             style={{
               border: '1px solid var(--m3-outline)',
               color: 'var(--m3-on-surface)',
@@ -559,41 +535,11 @@ export function SessionDetailPage() {
               </p>
             ) : (
               <ul class="flex flex-col gap-3">
-                {sortedMessages.map((m) => {
-                  const isUser = m.role === 'user';
-                  return (
-                    <li
-                      key={m.id}
-                      class="rounded-xl p-4"
-                      style={{
-                        background: isUser
-                          ? 'var(--m3-primary)'
-                          : 'var(--m3-surface-container)',
-                        color: isUser
-                          ? 'var(--m3-on-primary)'
-                          : 'var(--m3-on-surface)',
-                        boxShadow: 'var(--m3-elev-1)',
-                      }}
-                    >
-                      <div class="flex items-center justify-between text-xs mb-2 opacity-80">
-                        <span>
-                          {roleLabel(m.role)}
-                          {m.kind && m.kind !== 'text'
-                            ? ` · ${m.kind}`
-                            : ''}
-                          {m.model_label ? ` · ${m.model_label}` : ''}
-                        </span>
-                        <span>{formatTimestamp(m.created_at)}</span>
-                      </div>
-                      <pre
-                        class="whitespace-pre-wrap break-words text-sm font-sans"
-                        style={{ margin: 0 }}
-                      >
-                        {m.content}
-                      </pre>
-                    </li>
-                  );
-                })}
+                {sortedMessages.map((m) => (
+                  <li key={m.id}>
+                    <MessageCard message={m} />
+                  </li>
+                ))}
               </ul>
             )}
           </>
