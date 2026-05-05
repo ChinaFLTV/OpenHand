@@ -37,6 +37,7 @@ import { useAuth } from '../state/auth';
 import type { ApiMetaModel } from '../api/meta';
 import { TopBar } from '../components/TopBar';
 import { MessageCard } from '../components/MessageCard';
+import { PlanTimeline } from '../components/PlanTimeline';
 import {
   SessionTopBar,
   type PermissionMode,
@@ -691,13 +692,18 @@ export function SessionDetailPage() {
                 {t('detail.empty', '该会话尚无消息。')}
               </p>
             ) : (
-              <ul class="flex flex-col gap-3">
-                {sortedMessages.map((m) => (
-                  <li key={m.id}>
-                    <MessageCard message={m} sessionId={sessionId} />
-                  </li>
-                ))}
-              </ul>
+              <>
+                {detail?.session ? (
+                  <PlanTimeline session={detail.session} modelKey={composerModelKey} />
+                ) : null}
+                <ul class="flex flex-col gap-3">
+                  {sortedMessages.map((m) => (
+                    <li key={m.id}>
+                      <MessageCard message={m} sessionId={sessionId} />
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </>
         )}

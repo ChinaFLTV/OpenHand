@@ -2032,6 +2032,15 @@ class WebMessagePlatformService {
       'source': context['login_source'],
       'device_id': context['device_id'],
       'metadata': context,
+      // Plan-mode 字段：Web 端 PlanTimeline 直接消费这些字段渲染时间线
+      // + 「批准计划」按钮。todo_items 走 [{id,content,status}] 三元组，
+      // status 取值与 App 端一致：completed / in_progress / failed /
+      // blocked / cancelled / pending。
+      'awaiting_plan_approval': session.awaitingPlanApproval,
+      'pending_plan': session.pendingPlan,
+      'todo_items': session.todoItems
+          .map((item) => item.toJson())
+          .toList(growable: false),
     };
   }
 

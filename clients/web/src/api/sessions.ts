@@ -12,6 +12,12 @@
 import { apiRequest } from './client';
 import { ensureDeviceId, readToken } from '../state/storage';
 
+export interface SessionTodoItem {
+  id: string;
+  content: string;
+  status: string;
+}
+
 export interface SessionSummary {
   id: string;
   title: string;
@@ -27,6 +33,9 @@ export interface SessionSummary {
   source?: string;
   device_id?: string;
   metadata?: Record<string, unknown>;
+  awaiting_plan_approval?: boolean;
+  pending_plan?: string | null;
+  todo_items?: SessionTodoItem[];
 }
 
 export interface SessionListResponse {
