@@ -76,6 +76,7 @@ class MessageGatewayController extends ChangeNotifier {
   bool _isLoading = true;
   bool _isSaving = false;
   String? _errorMessage;
+  bool _hasPendingRuntimeConfig = false;
   WebGatewayHealthResult? _lastHealthResult;
   final ValueNotifier<int> saveSuccessSignal = ValueNotifier<int>(0);
 
@@ -87,6 +88,7 @@ class MessageGatewayController extends ChangeNotifier {
       _isSaving ||
       _service.state == WebGatewayRuntimeState.starting ||
       _service.state == WebGatewayRuntimeState.stopping;
+  bool get hasPendingRuntimeConfig => _hasPendingRuntimeConfig;
   String? get errorMessage => _errorMessage;
   WebGatewayHealthResult? get lastHealthResult => _lastHealthResult;
   WebGatewayRuntimeState get runtimeState => _service.state;
@@ -151,6 +153,7 @@ class MessageGatewayController extends ChangeNotifier {
         final startupConfig = _config.copyWith(enabled: true);
         _config = startupConfig;
         await _service.start(startupConfig);
+        _hasPendingRuntimeConfig = false;
       }
     } catch (error) {
       _errorMessage = '$error';
@@ -174,6 +177,9 @@ class MessageGatewayController extends ChangeNotifier {
       _config = normalized;
       if (forceRuntimeApply || normalized.autoReloadOnChange) {
         await _applyRuntimeConfig(previous, normalized);
+        _hasPendingRuntimeConfig = false;
+      } else {
+        _hasPendingRuntimeConfig = _service.isRunning;
       }
       saveSuccessSignal.value = saveSuccessSignal.value + 1;
     } catch (error) {
@@ -199,16 +205,19 @@ class MessageGatewayController extends ChangeNotifier {
       return;
     }
     await _service.restart(_config);
+    _hasPendingRuntimeConfig = false;
     notifyListeners();
   }
 
   Future<void> reloadConfig() async {
     await _service.reloadConfig(_config);
+    _hasPendingRuntimeConfig = false;
     notifyListeners();
   }
 
   Future<void> hotFix() async {
     await _service.reloadConfig(_config);
+    _hasPendingRuntimeConfig = false;
     notifyListeners();
   }
 

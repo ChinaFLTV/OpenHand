@@ -269,6 +269,11 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   icon: Icons.sync_rounded,
                   label: config.autoReloadOnChange ? '配置自动重载' : '配置重启生效',
                 ),
+                if (controller.hasPendingRuntimeConfig)
+                  const _InfoChip(
+                    icon: Icons.pending_actions_rounded,
+                    label: '待重启生效',
+                  ),
                 _InfoChip(
                   icon: Icons.link_rounded,
                   label: isRunning
