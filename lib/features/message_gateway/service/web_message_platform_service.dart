@@ -688,6 +688,22 @@ class WebMessagePlatformService {
         _withAuth(r, (req, auth) => _sendMessage(req, auth, sessionId)));
     router.post('/api/sessions/<sessionId>/stop', (shelf.Request r, String sessionId) =>
         _withAuth(r, (req, auth) => _stopSendMessage(req, auth, sessionId)));
+    // 删除单条消息（对齐 APP 端 _home_message_bubble.dart 长按菜单 → 删除）。
+    router.delete(
+      '/api/sessions/<sessionId>/messages/<messageId>',
+      (shelf.Request r, String sessionId, String messageId) => _withAuth(
+        r,
+        (req, auth) => _deleteMessage(req, auth, sessionId, messageId),
+      ),
+    );
+    // 删除该消息及其之后的全部消息（对齐 APP 端「删除此条及后续」）。
+    router.delete(
+      '/api/sessions/<sessionId>/messages/<messageId>/cascade',
+      (shelf.Request r, String sessionId, String messageId) => _withAuth(
+        r,
+        (req, auth) => _deleteMessageCascade(req, auth, sessionId, messageId),
+      ),
+    );
     // SSE 实时事件流：浏览器 EventSource 不支持自定义 header，因此 token 走
     // query string `?token=...`（匿名模式可省略）。该端点会推送整张
     // displayMessages 快照 + send_phase + last_error，前端按 message id 增量
@@ -1620,6 +1636,62 @@ class WebMessagePlatformService {
       'ok': true,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
     });
+  }
+
+  /// 删除单条消息（对齐 APP 端长按消息 → 删除）。返回最新一页消息便于前端立即刷新。
+  Future<shelf.Response> _deleteMessage(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+    String messageId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final ok = await _sessionController.deleteMessages(
+      <String>[messageId],
+      sessionId: session.id,
+    );
+    _log(
+      WebGatewayLogLevel.info,
+      'MESSAGE',
+      ok
+          ? 'Web 删除会话 ${session.id} 消息 $messageId'
+          : 'Web 删除会话 ${session.id} 消息 $messageId 未命中',
+      <String, Object?>{'device_id': auth.deviceId},
+    );
+    return _json(HttpStatus.ok, <String, Object?>{'ok': ok});
+  }
+
+  /// 删除该消息及之后所有消息（对齐 APP 端「删除此条及后续」）。
+  Future<shelf.Response> _deleteMessageCascade(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+    String messageId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final ok = await _sessionController.deleteMessagesFrom(
+      messageId,
+      sessionId: session.id,
+    );
+    _log(
+      WebGatewayLogLevel.info,
+      'MESSAGE',
+      ok
+          ? 'Web 级联删除会话 ${session.id} 自 $messageId 起的消息'
+          : 'Web 级联删除会话 ${session.id} 消息 $messageId 未命中',
+      <String, Object?>{'device_id': auth.deviceId},
+    );
+    return _json(HttpStatus.ok, <String, Object?>{'ok': ok});
   }
 
   /// SSE 实时事件流（与 polling 互为冗余，前端优先用 SSE）。

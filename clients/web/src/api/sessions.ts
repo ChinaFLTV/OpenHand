@@ -222,6 +222,28 @@ export function stopMessage(sessionId: string): Promise<StopMessageResponse> {
   );
 }
 
+/// 删除单条消息（对齐 APP 端长按菜单）。返回 `{ok}`；ok=false 表示消息已不存在。
+export async function deleteMessage(
+  sessionId: string,
+  messageId: string,
+): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+/// 删除该消息及之后所有消息。
+export async function deleteMessageCascade(
+  sessionId: string,
+  messageId: string,
+): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/cascade`,
+    { method: 'DELETE' },
+  );
+}
+
 /// 触发会话 JSON 导出下载。在 service 端附带 Content-Disposition: attachment，
 /// 这里直接抓 blob 后用 a[download] 触发浏览器保存对话框；不绕过鉴权（带上 token）。
 export async function exportSessionDownload(sessionId: string, fallbackName: string): Promise<void> {

@@ -16,6 +16,8 @@ import { Markdown } from './Markdown';
 import { MessageMedia } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
+import { memo } from 'preact/compat';
+import { useState } from 'preact/hooks';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -177,9 +179,28 @@ export interface MessageCardProps {
   forceExpanded?: boolean;
   /// 媒体资产 URL 构造需要 sessionId; 缺省则不渲染媒体卡。
   sessionId?: string;
+  /// 复制本条消息正文（必传时显示「复制」按钮）。
+  onCopy?: (m: SessionMessage) => void;
+  /// 删除本条消息（必传时显示「删除」按钮）。
+  onDelete?: (m: SessionMessage) => void;
+  /// 删除本条及之后所有消息（必传时显示「删除此条及后续」按钮）。
+  onDeleteAfter?: (m: SessionMessage) => void;
+  /// 编辑用户消息后重新发送（必传时显示「编辑」按钮）。
+  onEdit?: (m: SessionMessage) => void;
+  /// 打开消息审计弹窗（展示 metadata / 原始 JSON）。
+  onAudit?: (m: SessionMessage) => void;
 }
 
-export function MessageCard({ message, forceExpanded = false, sessionId }: MessageCardProps) {
+function MessageCardImpl({
+  message,
+  forceExpanded = false,
+  sessionId,
+  onCopy,
+  onDelete,
+  onDeleteAfter,
+  onEdit,
+  onAudit,
+}: MessageCardProps) {
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
   const useToolBody =
@@ -193,6 +214,11 @@ export function MessageCard({ message, forceExpanded = false, sessionId }: Messa
     ? content.slice(0, AUTO_COLLAPSE_CHAR_LIMIT) + '…'
     : content;
 
+  // 点击卡片切换 action bar 展开。对齐 APP 端 _home_message_bubble.dart 的
+  // Listener-based onSelect/onDeselect：再次点击卡片或外部按钮可关闭。
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
+
   return (
     <article
       class="rounded-m3-md p-4 oh-appear-up"
@@ -201,6 +227,22 @@ export function MessageCard({ message, forceExpanded = false, sessionId }: Messa
         color: style.color,
         boxShadow: style.border ? 'none' : 'var(--m3-elev-1)',
         border: style.border,
+        cursor: hasAnyAction ? 'pointer' : 'default',
+        outline: actionsOpen
+          ? '2px solid color-mix(in srgb, var(--m3-primary) 60%, transparent)'
+          : 'none',
+        outlineOffset: '2px',
+        transition: 'outline-color 180ms ease-out',
+      }}
+      onClick={(ev) => {
+        if (!hasAnyAction) return;
+        // 点击交互元素（按钮 / 链接 / 输入框）时不切换 selection。
+        const target = ev.target as HTMLElement;
+        if (target.closest('button,a,input,textarea,select,[role="button"]')) return;
+        // 双击代码块选中文本时也不切换。
+        const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+        if (sel && sel.toString().length > 0) return;
+        setActionsOpen((v) => !v);
       }}
     >
       <header class="flex items-center justify-between gap-3 text-xs mb-2 opacity-90">
@@ -244,6 +286,79 @@ export function MessageCard({ message, forceExpanded = false, sessionId }: Messa
           {t('detail.collapsed.hint', '内容已折叠（超过 1200 字符），点击下方刷新或加载更早可在控制台查看完整正文。')}
         </p>
       ) : null}
+      {actionsOpen && hasAnyAction ? (
+        <div
+          class="oh-appear-up mt-3 pt-3 flex flex-wrap items-center gap-2 text-xs"
+          style={{
+            borderTop: '1px solid color-mix(in srgb, currentColor 18%, transparent)',
+          }}
+        >
+          {onCopy ? (
+            <ActionBtn label={t('common.copy')} onClick={() => onCopy(message)} />
+          ) : null}
+          {onEdit && message.role === 'user' ? (
+            <ActionBtn label={t('common.edit')} onClick={() => onEdit(message)} />
+          ) : null}
+          {onAudit ? (
+            <ActionBtn label={t('common.audit')} onClick={() => onAudit(message)} />
+          ) : null}
+          {onDelete ? (
+            <ActionBtn
+              label={t('common.delete')}
+              variant="danger"
+              onClick={() => onDelete(message)}
+            />
+          ) : null}
+          {onDeleteAfter ? (
+            <ActionBtn
+              label={t('common.deleteAfter')}
+              variant="danger"
+              onClick={() => onDeleteAfter(message)}
+            />
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }
+
+function ActionBtn({
+  label,
+  onClick,
+  variant,
+}: {
+  label: string;
+  onClick: () => void;
+  variant?: 'danger';
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      class="oh-tap-press px-2.5 py-1 rounded-m3-sm transition-colors"
+      style={{
+        color: variant === 'danger' ? 'var(--m3-error)' : 'currentColor',
+        border: '1px solid color-mix(in srgb, currentColor 28%, transparent)',
+        background: 'transparent',
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.background =
+          'color-mix(in srgb, currentColor 8%, transparent)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.background = 'transparent';
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// 用 memo 包裹 MessageCard，跳过 props 等价时的重渲染——SSE 80ms snapshot 期间
+// 只有"流式增量的最后一条"会真正变更引用，其余卡片直接命中 memo 缓存，
+// 不再重做 markdown 解析 / 高亮 / 媒体解码，达到肉眼"逐字 / 逐 token 增长"。
+// 我们仅依赖父级 mergeStream 已经保证不变前缀的引用稳定，因此默认 shallow compare 已足够。
+export const MessageCard = memo(MessageCardImpl);

@@ -18,6 +18,8 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation, useRoute } from 'preact-iso';
 import {
+  deleteMessage,
+  deleteMessageCascade,
   deleteSession,
   exportSessionDownload,
   getSession,
@@ -58,6 +60,51 @@ const SSE_FAIL_THRESHOLD = 3;
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 
 // 时间戳与角色标签现在由 MessageCard 内部处理，本页不再直接使用。
+
+/// 流式增量合并：保留与上一次 snapshot 相同的对象引用，仅替换发生变化的尾巴消息。
+/// 使 `<MessageCard memo>` 在 SSE 80ms 推流期间跳过不变前缀的重新 diff，
+/// 让流式更新感觉真正像"逐字增长"而不是"全帧重排"。
+function mergeStream(
+  prev: SessionMessage[],
+  next: SessionMessage[],
+): SessionMessage[] {
+  if (prev === next) return prev;
+  if (prev.length === 0 || next.length === 0) return next;
+  // 长度变化或前缀 id 不一致 → 走完整替换；其他场景按 id+content+metadata 比较保留引用。
+  const out: SessionMessage[] = new Array(next.length);
+  let identical = prev.length === next.length;
+  for (let i = 0; i < next.length; i += 1) {
+    const a = i < prev.length ? prev[i] : undefined;
+    const b = next[i];
+    if (
+      a &&
+      a.id === b.id &&
+      a.content.length === b.content.length &&
+      a.kind === b.kind &&
+      a.role === b.role &&
+      a.character_count === b.character_count &&
+      a.created_at === b.created_at &&
+      sameMetadata(a.metadata, b.metadata)
+    ) {
+      out[i] = a;
+    } else {
+      out[i] = b;
+      identical = false;
+    }
+  }
+  return identical ? prev : out;
+}
+
+function sameMetadata(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  // metadata 是浅扁平 JSON 对象；用 JSON.stringify 比较即可，键顺序由 JSONparse 保留。
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
 
 function sendPhaseLabel(phase: string): string {
   switch (phase) {
@@ -132,6 +179,64 @@ export function SessionDetailPage() {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
 
+  // 消息操作栏：审计弹窗 + 删除友情提示。
+  const [auditMessage, setAuditMessage] = useState<SessionMessage | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const handleCopyMessage = (m: SessionMessage) => {
+    const text = m.content ?? '';
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      void navigator.clipboard.writeText(text).catch(() => {
+        /* 复制失败：不阻塞 UI */
+      });
+    }
+  };
+  const handleDeleteMessage = async (m: SessionMessage) => {
+    if (!sessionId) return;
+    if (pendingDeleteId !== m.id) {
+      setPendingDeleteId(m.id);
+      window.setTimeout(() => {
+        setPendingDeleteId((cur) => (cur === m.id ? null : cur));
+      }, 4000);
+      return;
+    }
+    setPendingDeleteId(null);
+    try {
+      await deleteMessage(sessionId, m.id);
+      // SSE snapshot 会推一份新的列表过来，这里不主动 refresh。
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const handleDeleteMessageCascade = async (m: SessionMessage) => {
+    if (!sessionId) return;
+    if (pendingDeleteId !== `${m.id}:cascade`) {
+      setPendingDeleteId(`${m.id}:cascade`);
+      window.setTimeout(() => {
+        setPendingDeleteId((cur) => (cur === `${m.id}:cascade` ? null : cur));
+      }, 4000);
+      return;
+    }
+    setPendingDeleteId(null);
+    try {
+      await deleteMessageCascade(sessionId, m.id);
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const handleEditMessage = (m: SessionMessage) => {
+    if (m.role !== 'user') return;
+    setComposerText((cur) => (cur ? `${cur}\n${m.content ?? ''}` : (m.content ?? '')));
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    }
+  };
+  const handleAuditMessage = (m: SessionMessage) => {
+    setAuditMessage(m);
+  };
+
   useEffect(() => {
     function recalc() {
       if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -157,7 +262,16 @@ export function SessionDetailPage() {
     }
     const tail = messages[messages.length - 1];
     if (lastTailIdRef.current === null) {
+      // 首次进入会话：直接滚到底部，对齐 APP 端进入 Hardness Session 的体验。
+      // 不走 smooth，避免冷启动时长列表"飞一段"；用 instant + 双 RAF 等渲染稳定。
       lastTailIdRef.current = tail.id;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (typeof window === 'undefined') return;
+          window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+          isNearBottomRef.current = true;
+        });
+      });
       return;
     }
     if (tail.id === lastTailIdRef.current) return;
@@ -296,11 +410,13 @@ export function SessionDetailPage() {
         setSseLive(true);
       },
       onSnapshot: (snap) => {
-        // 整张快照覆盖：与 service displayMessages 顺序保持一致；offset/分页
-        // 「加载更早」的尾巴单独保留——snap.messages 只覆盖最新一页之外的旧消息
-        // 也会一并到来（service 端给的是当前 displayMessages 的全部 in-memory），
-        // 因此这里直接全量替换，不再拼接旧前缀。
-        setMessages([...snap.messages]);
+        // 增量合并：当 snapshot 与本地 messages 的尾巴 N-1 条 id+content.length 完全一致，
+        // 仅末尾消息的 content 变长（流式 token），就只复用前缀对象 + 重建末尾对象，
+        // 让 Preact 的 keyed reconciliation 跳过前缀，每帧仅 patch 一个气泡。
+        // 这是 #9 "感觉不像流式" 的关键修复：之前 setMessages([...snap.messages]) 把
+        // 整个数组的 reference 全换了，所有 MessageCard 重建一遍 markdown / 高亮，
+        // 80ms 一次的 SSE snapshot 就形成肉眼可见的"分段抖动"。
+        setMessages((prev) => mergeStream(prev, snap.messages));
         setTotalKnown(snap.session.message_count ?? snap.messages.length);
         setSendPhase(snap.send_phase);
         setLastError(snap.last_error);
@@ -825,7 +941,15 @@ export function SessionDetailPage() {
                 <ul class="flex flex-col gap-3">
                   {sortedMessages.map((m) => (
                     <li key={m.id}>
-                      <MessageCard message={m} sessionId={sessionId} />
+                      <MessageCard
+                        message={m}
+                        sessionId={sessionId}
+                        onCopy={handleCopyMessage}
+                        onDelete={handleDeleteMessage}
+                        onDeleteAfter={handleDeleteMessageCascade}
+                        onEdit={m.role === 'user' ? handleEditMessage : undefined}
+                        onAudit={handleAuditMessage}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -1133,6 +1257,65 @@ export function SessionDetailPage() {
           ↓ {unreadCount} {t('detail.unreadSuffix', '条新消息')}
         </button>
       ) : null}
+      {auditMessage ? (
+        <MessageAuditDialog
+          message={auditMessage}
+          onClose={() => setAuditMessage(null)}
+        />
+      ) : null}
     </main>
+  );
+}
+
+/// 消息审计弹窗：展示原始 JSON（id / kind / role / metadata / created_at / character_count），
+/// 用于排查 tool_call 元数据 / 文件变动等问题。复用全局对话框样式。
+function MessageAuditDialog({
+  message,
+  onClose,
+}: {
+  message: SessionMessage;
+  onClose: () => void;
+}) {
+  const json = JSON.stringify(message, null, 2);
+  return (
+    <div
+      class="oh-dialog-fade-in fixed inset-0 z-[1100] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.4)' }}
+      onClick={onClose}
+    >
+      <div
+        class="oh-dialog-pop-in rounded-m3-md p-4 max-w-2xl w-full"
+        style={{
+          background: 'var(--m3-surface-container)',
+          color: 'var(--m3-on-surface)',
+          boxShadow: 'var(--m3-elev-3)',
+          maxHeight: '80vh',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header class="flex items-center justify-between gap-3 mb-3">
+          <h2 class="text-base font-semibold">{t('common.audit', '审计')} · {message.id}</h2>
+          <button
+            type="button"
+            class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+            style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
+            onClick={onClose}
+          >
+            {t('common.cancel', '取消')}
+          </button>
+        </header>
+        <pre
+          class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap"
+          style={{
+            background: 'var(--m3-surface)',
+            border: '1px solid var(--m3-outline)',
+            maxHeight: 'calc(80vh - 96px)',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          }}
+        >
+          {json}
+        </pre>
+      </div>
+    </div>
   );
 }
