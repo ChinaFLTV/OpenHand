@@ -112,6 +112,8 @@ export const dict_en: Record<string, string> = {
   'detail.error.network.hint': 'Request did not complete. Check your network connection, DNS and proxy settings; for VPN/private line, confirm the tunnel is online.',
   'detail.error.timeout.title': 'Request timed out',
   'detail.error.timeout.hint': 'No response from upstream. Retry once; if it keeps timing out, try a smaller prompt or another model.',
+  'composer.charUnit': 'chars',
+  'composer.shortcutHint': 'Cmd / Ctrl + Enter to send',
   'detail.missingId': 'Missing session ID',
   'detail.backToList': 'Back to sessions',
   'detail.refresh': 'Refresh',

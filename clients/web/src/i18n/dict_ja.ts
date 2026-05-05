@@ -110,6 +110,8 @@ export const dict_ja: Record<string, string> = {
   'detail.error.network.hint': 'リクエストが完了しませんでした：ネットワーク接続・DNS・プロキシ設定を確認してください。VPN / 専用線をご利用の場合はトンネル状態もご確認ください。',
   'detail.error.timeout.title': 'リクエストタイムアウト',
   'detail.error.timeout.hint': 'アップストリームから応答がありません：1 回再試行してください。引き続きタイムアウトする場合は入力を短くするかモデルを変更してください。',
+  'composer.charUnit': '文字',
+  'composer.shortcutHint': 'Cmd / Ctrl + Enter で送信',
   'detail.missingId': 'セッション ID がありません',
   'detail.backToList': 'セッション一覧へ戻る',
   'detail.refresh': '更新',

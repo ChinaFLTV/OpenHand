@@ -1183,6 +1183,22 @@ export function SessionDetailPage() {
             </p>
           ) : null}
 
+          <div
+            class="flex items-center justify-between gap-2 mt-2 text-xs"
+            style={{ color: 'var(--m3-on-surface-variant)' }}
+          >
+            <span>
+              {composerText.length > 0
+                ? `${composerText.length.toLocaleString()} ${t('composer.charUnit', '字符')}`
+                : t('composer.shortcutHint', 'Cmd / Ctrl + Enter 发送')}
+            </span>
+            {composerAttachments.length > 0 ? (
+              <span>
+                {composerAttachments.length} {t('composer.attachment.unit', '个附件')}
+              </span>
+            ) : null}
+          </div>
+
           <div class="flex items-center justify-end gap-2 mt-3">
             {sendPhase !== 'idle' && sendPhase !== '' ? (
               <button

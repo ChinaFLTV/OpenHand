@@ -111,6 +111,8 @@ export const dict_zh: Record<string, string> = {
   'detail.error.network.hint': '请求未能完成：检查本机网络连接、DNS 与代理设置；如使用专线/VPN 请确认隧道在线。',
   'detail.error.timeout.title': '请求超时',
   'detail.error.timeout.hint': '远端长时间未响应：可重试一次；若持续超时请尝试更小的输入或切换模型。',
+  'composer.charUnit': '字符',
+  'composer.shortcutHint': 'Cmd / Ctrl + Enter 发送',
   'detail.missingId': '缺少会话 ID',
   'detail.backToList': '返回会话列表',
   'detail.refresh': '刷新',

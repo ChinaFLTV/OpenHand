@@ -311,14 +311,24 @@ export function SessionTopBar(props: SessionTopBarProps) {
           type="button"
           onClick={onStop}
           disabled={stopping}
-          class="oh-tap-press text-xs px-2.5 py-1 rounded-m3-sm flex-none disabled:opacity-50"
+          class="oh-tap-press text-xs px-2.5 py-1 rounded-m3-sm flex-none flex items-center gap-1.5 disabled:opacity-50"
           style={{
             border: '1px solid var(--m3-error)',
             color: 'var(--m3-error)',
           }}
           title={t('composer.stop', '停止响应')}
         >
-          ⏹ {stopping ? t('composer.stopping', '正在停止…') : t('composer.stop', '停止')}
+          <span
+            class="oh-pulse-soft inline-block"
+            aria-hidden
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: 'var(--m3-error)',
+            }}
+          />
+          {stopping ? t('composer.stopping', '正在停止…') : t('composer.stop', '停止')}
         </button>
       ) : null}
 
