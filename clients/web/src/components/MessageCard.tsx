@@ -14,6 +14,7 @@ import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { Markdown } from './Markdown';
 import { MessageMedia } from './MessageMedia';
+import { MessageToolMeta } from './MessageToolMeta';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -221,6 +222,7 @@ export function MessageCard({ message, forceExpanded = false, sessionId }: Messa
         </span>
         <span class="opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
       </header>
+      <MessageToolMeta message={message} />
       <Markdown
         source={visibleContent}
         raw={style.mono === true || message.kind === 'tool_call' || message.kind === 'tool' || message.kind === 'reasoning'}
