@@ -87,6 +87,7 @@ class MessageGatewayController extends ChangeNotifier {
   WebGatewayRuntimeState get runtimeState => _service.state;
   bool get isRunning => _service.isRunning;
   String get webUrl => _service.boundUrl;
+
   /// 当前可访问该 Web 服务的全部 URL（监听通配符地址时含 LAN IP）。
   /// view 与设置面板可直接 `Wrap`/`SelectableText.rich` 渲染。
   List<String> get webUrls => _service.accessibleUrls;
@@ -286,6 +287,9 @@ class MessageGatewayController extends ChangeNotifier {
     final tools = builtinToolNames.toSet();
     final models = modelOptions.map((item) => item.key).toSet();
     List<String> keep(List<String> source, Set<String> allowed) {
+      if (source.contains(webGatewayDenyAllSelectionMarker)) {
+        return const <String>[webGatewayDenyAllSelectionMarker];
+      }
       if (source.isEmpty) return const <String>[];
       return source.where(allowed.contains).toList(growable: false);
     }

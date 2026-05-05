@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/support/openhand_scroll_physics.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/highlight_pulse.dart';
@@ -647,6 +648,12 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
             const Divider(height: 1),
             Expanded(
               child: SingleChildScrollView(
+                primary: false,
+                physics: const OpenHandBouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
@@ -770,6 +777,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         _MultiSelectDropdown<String>(
                           label: '可新建的线程模板类型',
                           emptyMeansAll: true,
+                          noneValue: webGatewayDenyAllSelectionMarker,
                           options: [
                             for (final t in widget.controller.templates)
                               _SelectOption(value: t.id, label: t.name),
@@ -781,6 +789,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         _MultiSelectDropdown<String>(
                           label: '可用的技能',
                           emptyMeansAll: true,
+                          noneValue: webGatewayDenyAllSelectionMarker,
                           options: [
                             for (final name in widget.controller.skillNames)
                               _SelectOption(value: name, label: name),
@@ -791,6 +800,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         _MultiSelectDropdown<String>(
                           label: '可用的 MCP',
                           emptyMeansAll: true,
+                          noneValue: webGatewayDenyAllSelectionMarker,
                           options: [
                             for (final name in widget.controller.mcpServerNames)
                               _SelectOption(value: name, label: name),
@@ -802,6 +812,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         _MultiSelectDropdown<String>(
                           label: '可用的记忆',
                           emptyMeansAll: true,
+                          noneValue: webGatewayDenyAllSelectionMarker,
                           options: [
                             for (final id in widget.controller.memoryIds)
                               _SelectOption(value: id, label: id),
@@ -812,6 +823,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         _MultiSelectDropdown<String>(
                           label: '可用的内建工具',
                           emptyMeansAll: true,
+                          noneValue: webGatewayDenyAllSelectionMarker,
                           options: [
                             for (final name
                                 in widget.controller.builtinToolNames)
@@ -1407,6 +1419,10 @@ class _WebGatewayOpsDialog extends StatefulWidget {
 }
 
 class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
+  static const Duration _refreshInterval = Duration(seconds: 2);
+  static const int _trendLimit = 40;
+
+  final ScrollController _scrollController = ScrollController();
   Timer? _timer;
   final List<WebGatewayRuntimeSnapshot> _trend = <WebGatewayRuntimeSnapshot>[];
   bool _isCleaning = false;
@@ -1416,12 +1432,13 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
   void initState() {
     super.initState();
     _tick();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    _timer = Timer.periodic(_refreshInterval, (_) => _tick());
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -1433,7 +1450,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       if (!mounted) return;
       setState(() {
         _trend.add(snapshot);
-        if (_trend.length > 60) _trend.removeAt(0);
+        if (_trend.length > _trendLimit) _trend.removeAt(0);
       });
     } finally {
       _isRefreshingSnapshot = false;
@@ -1484,347 +1501,442 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
             ),
             const Divider(height: 1),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        FilledButton.tonalIcon(
-                          onPressed: isRunning || isTransitioning
-                              ? null
-                              : widget.controller.startService,
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('开启'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: !isRunning || isTransitioning
-                              ? null
-                              : widget.controller.stopService,
-                          icon: const Icon(Icons.stop_rounded),
-                          label: const Text('关机'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: widget.controller.restartService,
-                          icon: const Icon(Icons.restart_alt_rounded),
-                          label: const Text('重启'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: widget.controller.reloadConfig,
-                          icon: const Icon(Icons.sync_rounded),
-                          label: const Text('配置重载'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: widget.controller.hotFix,
-                          icon: const Icon(Icons.healing_rounded),
-                          label: const Text('热修复'),
-                        ),
-                        FilledButton.icon(
-                          onPressed: widget.controller.runHealthCheck,
-                          icon: const Icon(Icons.monitor_heart_outlined),
-                          label: const Text('健康诊断'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: _isCleaning
-                              ? null
-                              : () => _runCleanup(
-                                  label: '过期资源',
-                                  action:
-                                      widget.controller.cleanupExpiredArtifacts,
+              child: Scrollbar(
+                controller: _scrollController,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  primary: false,
+                  physics: const OpenHandBouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.tonalIcon(
+                            onPressed: isRunning || isTransitioning
+                                ? null
+                                : widget.controller.startService,
+                            icon: const Icon(Icons.play_arrow_rounded),
+                            label: const Text('开启'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: !isRunning || isTransitioning
+                                ? null
+                                : widget.controller.stopService,
+                            icon: const Icon(Icons.stop_rounded),
+                            label: const Text('关机'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: widget.controller.restartService,
+                            icon: const Icon(Icons.restart_alt_rounded),
+                            label: const Text('重启'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: widget.controller.reloadConfig,
+                            icon: const Icon(Icons.sync_rounded),
+                            label: const Text('配置重载'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: widget.controller.hotFix,
+                            icon: const Icon(Icons.healing_rounded),
+                            label: const Text('热修复'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: widget.controller.runHealthCheck,
+                            icon: const Icon(Icons.monitor_heart_outlined),
+                            label: const Text('健康诊断'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: _isCleaning
+                                ? null
+                                : () => _runCleanup(
+                                    label: '过期资源',
+                                    action: widget
+                                        .controller
+                                        .cleanupExpiredArtifacts,
+                                  ),
+                            icon: const Icon(Icons.cleaning_services_outlined),
+                            label: const Text('清理过期'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: _isCleaning
+                                ? null
+                                : () => _confirmAndCleanup(
+                                    title: '清空日志',
+                                    message:
+                                        '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
+                                    label: '日志',
+                                    action: widget.controller.cleanupLogs,
+                                  ),
+                            icon: const Icon(Icons.delete_sweep_outlined),
+                            label: const Text('清空日志'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: _isCleaning
+                                ? null
+                                : () => _confirmAndCleanup(
+                                    title: '清空上传缓存',
+                                    message: '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
+                                    label: '上传缓存',
+                                    action:
+                                        widget.controller.cleanupUploadCache,
+                                  ),
+                            icon: const Icon(Icons.folder_delete_outlined),
+                            label: const Text('清空缓存'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth < 760 ? 2 : 4;
+                          return GridView.count(
+                            crossAxisCount: columns,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: columns == 2 ? 2.1 : 2.4,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _MetricTile(
+                                label: '运行状态',
+                                value: _runtimeStateLabel(
+                                  context,
+                                  snapshot.state,
                                 ),
-                          icon: const Icon(Icons.cleaning_services_outlined),
-                          label: const Text('清理过期'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: _isCleaning
-                              ? null
-                              : () => _confirmAndCleanup(
-                                  title: '清空日志',
-                                  message: '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
-                                  label: '日志',
-                                  action: widget.controller.cleanupLogs,
+                              ),
+                              _MetricTile(
+                                label: '运行时间',
+                                value: _formatDuration(snapshot.uptimeMs),
+                              ),
+                              _MetricTile(
+                                label: 'CPU',
+                                value: snapshot.cpuPercent == null
+                                    ? '不可用'
+                                    : '${snapshot.cpuPercent!.toStringAsFixed(1)}%',
+                              ),
+                              _MetricTile(
+                                label: '线程数',
+                                value:
+                                    snapshot.threadCount?.toString() ?? '不可用',
+                              ),
+                              _MetricTile(
+                                label: '文件句柄',
+                                value:
+                                    snapshot.fileHandleCount?.toString() ??
+                                    '不可用',
+                              ),
+                              _MetricTile(
+                                label: 'Swap',
+                                value: snapshot.swapBytes == null
+                                    ? '不可用'
+                                    : _bytes(snapshot.swapBytes!),
+                              ),
+                              _MetricTile(
+                                label: '内存',
+                                value: _bytes(snapshot.currentRssBytes),
+                              ),
+                              _MetricTile(
+                                label: '最大内存',
+                                value: _bytes(snapshot.maxRssBytes),
+                              ),
+                              _MetricTile(
+                                label: '日志磁盘',
+                                value: _bytes(snapshot.logBytes),
+                              ),
+                              _MetricTile(
+                                label: '活动请求',
+                                value: '${snapshot.activeRequests}',
+                              ),
+                              _MetricTile(
+                                label: 'SSE 长连接',
+                                value: '${snapshot.activeSseSubscriptions}',
+                              ),
+                              _MetricTile(
+                                label: '总请求',
+                                value: '${snapshot.totalRequests}',
+                              ),
+                              _MetricTile(
+                                label: '请求/min',
+                                value: _rate(snapshot.requestsPerMinute),
+                              ),
+                              _MetricTile(
+                                label: '错误数',
+                                value: '${snapshot.totalErrors}',
+                              ),
+                              _MetricTile(
+                                label: '错误/min',
+                                value: _rate(snapshot.errorsPerMinute),
+                              ),
+                              _MetricTile(
+                                label: '入流量/min',
+                                value: _bytes(
+                                  snapshot.bytesInPerMinute.round(),
                                 ),
-                          icon: const Icon(Icons.delete_sweep_outlined),
-                          label: const Text('清空日志'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: _isCleaning
-                              ? null
-                              : () => _confirmAndCleanup(
-                                  title: '清空上传缓存',
-                                  message: '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
-                                  label: '上传缓存',
-                                  action: widget.controller.cleanupUploadCache,
+                              ),
+                              _MetricTile(
+                                label: '出流量/min',
+                                value: _bytes(
+                                  snapshot.bytesOutPerMinute.round(),
                                 ),
-                          icon: const Icon(Icons.folder_delete_outlined),
-                          label: const Text('清空缓存'),
+                              ),
+                              _MetricTile(
+                                label: '延迟 P95',
+                                value: '${snapshot.latencyStats.p95Ms}ms',
+                              ),
+                              _MetricTile(
+                                label: '延迟 P50',
+                                value: '${snapshot.latencyStats.p50Ms}ms',
+                              ),
+                              _MetricTile(
+                                label: '延迟 P99',
+                                value: '${snapshot.latencyStats.p99Ms}ms',
+                              ),
+                              _MetricTile(
+                                label: '延迟 MAX',
+                                value: '${snapshot.latencyStats.maxMs}ms',
+                              ),
+                              _MetricTile(
+                                label: '延迟样本',
+                                value: '${snapshot.latencyStats.sampleCount}',
+                              ),
+                              _MetricTile(
+                                label: '累计入流量',
+                                value: _bytes(snapshot.totalBytesIn),
+                              ),
+                              _MetricTile(
+                                label: '累计出流量',
+                                value: _bytes(snapshot.totalBytesOut),
+                              ),
+                              _MetricTile(
+                                label: '崩溃数',
+                                value: '${snapshot.crashCount}',
+                              ),
+                              _MetricTile(
+                                label: '重启数',
+                                value: '${snapshot.restartCount}',
+                              ),
+                              _MetricTile(
+                                label: '线程会话',
+                                value: '${snapshot.openSessionCount}',
+                              ),
+                              _MetricTile(
+                                label: '并发水位',
+                                value: _percent(snapshot.activeRequestRatio),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      _OpsHealthCard(snapshot: snapshot),
+                      const SizedBox(height: 18),
+                      _OpsSummaryCard(snapshot: snapshot),
+                      const SizedBox(height: 18),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth < 760 ? 1 : 2;
+                          return GridView.count(
+                            crossAxisCount: columns,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: columns == 1 ? 2.6 : 2.1,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _OpsBreakdownCard(
+                                title: 'HTTP 状态码分布',
+                                values: snapshot.statusCodeBreakdown,
+                              ),
+                              _OpsBreakdownCard(
+                                title: 'HTTP Method 分布',
+                                values: snapshot.methodBreakdown,
+                              ),
+                              _OpsBreakdownCard(
+                                title: '延迟桶',
+                                values: snapshot.latencyBuckets,
+                              ),
+                              _OpsBreakdownCard(
+                                title: '发送阶段分布',
+                                values: snapshot.sendPhaseBreakdown,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth < 760 ? 1 : 2;
+                          return GridView.count(
+                            crossAxisCount: columns,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: columns == 1 ? 2.3 : 1.75,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _TopRoutesCard(routes: snapshot.topRoutes),
+                              _RecentErrorsCard(errors: snapshot.recentErrors),
+                              _OpsBreakdownCard(
+                                title: '日志级别分布',
+                                values: snapshot.logLevelBreakdown,
+                                footer: '${snapshot.memoryLogCount} 条内存日志',
+                              ),
+                              _ResourceInventoryCard(snapshot: snapshot),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const _SectionTitle('吞吐趋势'),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth < 720 ? 1 : 2;
+                          return GridView.count(
+                            crossAxisCount: columns,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: columns == 1 ? 2.35 : 1.85,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _TrendLineChart(
+                                title: '请求/秒',
+                                values: _deltaSeries(
+                                  _trend,
+                                  (snapshot) =>
+                                      snapshot.totalRequests.toDouble(),
+                                ),
+                                valueFormatter: (value) =>
+                                    value.toStringAsFixed(0),
+                              ),
+                              _TrendLineChart(
+                                title: '错误/秒',
+                                values: _deltaSeries(
+                                  _trend,
+                                  (snapshot) => snapshot.totalErrors.toDouble(),
+                                ),
+                                valueFormatter: (value) =>
+                                    value.toStringAsFixed(0),
+                              ),
+                              _TrendLineChart(
+                                title: '活动请求',
+                                values: _series(
+                                  _trend,
+                                  (snapshot) =>
+                                      snapshot.activeRequests.toDouble(),
+                                ),
+                                valueFormatter: (value) =>
+                                    value.toStringAsFixed(0),
+                              ),
+                              _TrendLineChart(
+                                title: 'P95 延迟',
+                                values: _series(
+                                  _trend,
+                                  (snapshot) =>
+                                      snapshot.latencyStats.p95Ms.toDouble(),
+                                ),
+                                valueFormatter: (value) =>
+                                    '${value.toStringAsFixed(0)}ms',
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const _SectionTitle('资源趋势'),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth < 720 ? 1 : 2;
+                          return GridView.count(
+                            crossAxisCount: columns,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: columns == 1 ? 2.35 : 1.85,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _TrendLineChart(
+                                title: 'CPU %',
+                                values: _series(
+                                  _trend,
+                                  (snapshot) => snapshot.cpuPercent,
+                                ),
+                                valueFormatter: (value) =>
+                                    '${value.toStringAsFixed(1)}%',
+                              ),
+                              _TrendLineChart(
+                                title: '内存 RSS',
+                                values: _series(
+                                  _trend,
+                                  (snapshot) =>
+                                      snapshot.currentRssBytes.toDouble(),
+                                ),
+                                valueFormatter: (value) =>
+                                    _bytes(value.round()),
+                              ),
+                              _TrendLineChart(
+                                title: '日志磁盘',
+                                values: _series(
+                                  _trend,
+                                  (snapshot) => snapshot.logBytes.toDouble(),
+                                ),
+                                valueFormatter: (value) =>
+                                    _bytes(value.round()),
+                              ),
+                              _TrendLineChart(
+                                title: '线程数',
+                                values: _series(
+                                  _trend,
+                                  (snapshot) =>
+                                      snapshot.threadCount?.toDouble(),
+                                ),
+                                valueFormatter: (value) =>
+                                    value.toStringAsFixed(0),
+                              ),
+                              _TrendLineChart(
+                                title: '会话数',
+                                values: _series(
+                                  _trend,
+                                  (snapshot) =>
+                                      snapshot.openSessionCount.toDouble(),
+                                ),
+                                valueFormatter: (value) =>
+                                    value.toStringAsFixed(0),
+                              ),
+                              _TrendLineChart(
+                                title: '入流量/min',
+                                values: _series(
+                                  _trend,
+                                  (snapshot) => snapshot.bytesInPerMinute,
+                                ),
+                                valueFormatter: (value) =>
+                                    _bytes(value.round()),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      if (cleanupHistory.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        const _SectionTitle('清理历史'),
+                        ...cleanupHistory.map(
+                          (entry) => _CleanupHistoryLine(entry: entry),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 18),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth < 760 ? 2 : 4;
-                        return GridView.count(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                          childAspectRatio: columns == 2 ? 2.1 : 2.4,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            _MetricTile(
-                              label: '运行状态',
-                              value: _runtimeStateLabel(
-                                context,
-                                snapshot.state,
-                              ),
-                            ),
-                            _MetricTile(
-                              label: '运行时间',
-                              value: _formatDuration(snapshot.uptimeMs),
-                            ),
-                            _MetricTile(
-                              label: 'CPU',
-                              value: snapshot.cpuPercent == null
-                                  ? '不可用'
-                                  : '${snapshot.cpuPercent!.toStringAsFixed(1)}%',
-                            ),
-                            _MetricTile(
-                              label: '线程数',
-                              value: snapshot.threadCount?.toString() ?? '不可用',
-                            ),
-                            _MetricTile(
-                              label: '文件句柄',
-                              value:
-                                  snapshot.fileHandleCount?.toString() ?? '不可用',
-                            ),
-                            _MetricTile(
-                              label: 'Swap',
-                              value: snapshot.swapBytes == null
-                                  ? '不可用'
-                                  : _bytes(snapshot.swapBytes!),
-                            ),
-                            _MetricTile(
-                              label: '内存',
-                              value: _bytes(snapshot.currentRssBytes),
-                            ),
-                            _MetricTile(
-                              label: '最大内存',
-                              value: _bytes(snapshot.maxRssBytes),
-                            ),
-                            _MetricTile(
-                              label: '日志磁盘',
-                              value: _bytes(snapshot.logBytes),
-                            ),
-                            _MetricTile(
-                              label: '活动请求',
-                              value: '${snapshot.activeRequests}',
-                            ),
-                            _MetricTile(
-                              label: 'SSE 长连接',
-                              value: '${snapshot.activeSseSubscriptions}',
-                            ),
-                            _MetricTile(
-                              label: '总请求',
-                              value: '${snapshot.totalRequests}',
-                            ),
-                            _MetricTile(
-                              label: '请求/min',
-                              value: _rate(snapshot.requestsPerMinute),
-                            ),
-                            _MetricTile(
-                              label: '错误数',
-                              value: '${snapshot.totalErrors}',
-                            ),
-                            _MetricTile(
-                              label: '错误/min',
-                              value: _rate(snapshot.errorsPerMinute),
-                            ),
-                            _MetricTile(
-                              label: '入流量/min',
-                              value: _bytes(snapshot.bytesInPerMinute.round()),
-                            ),
-                            _MetricTile(
-                              label: '出流量/min',
-                              value: _bytes(snapshot.bytesOutPerMinute.round()),
-                            ),
-                            _MetricTile(
-                              label: '延迟 P95',
-                              value: '${snapshot.latencyStats.p95Ms}ms',
-                            ),
-                            _MetricTile(
-                              label: '延迟 P99',
-                              value: '${snapshot.latencyStats.p99Ms}ms',
-                            ),
-                            _MetricTile(
-                              label: '崩溃数',
-                              value: '${snapshot.crashCount}',
-                            ),
-                            _MetricTile(
-                              label: '重启数',
-                              value: '${snapshot.restartCount}',
-                            ),
-                            _MetricTile(
-                              label: '线程会话',
-                              value: '${snapshot.openSessionCount}',
-                            ),
-                            _MetricTile(
-                              label: '并发水位',
-                              value: _percent(snapshot.activeRequestRatio),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    _OpsHealthCard(snapshot: snapshot),
-                    const SizedBox(height: 18),
-                    _OpsSummaryCard(snapshot: snapshot),
-                    const SizedBox(height: 18),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth < 760 ? 1 : 2;
-                        return GridView.count(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: columns == 1 ? 2.6 : 2.1,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            _OpsBreakdownCard(
-                              title: 'HTTP 状态码分布',
-                              values: snapshot.statusCodeBreakdown,
-                            ),
-                            _OpsBreakdownCard(
-                              title: 'HTTP Method 分布',
-                              values: snapshot.methodBreakdown,
-                            ),
-                            _OpsBreakdownCard(
-                              title: '延迟桶',
-                              values: snapshot.latencyBuckets,
-                            ),
-                            _OpsBreakdownCard(
-                              title: '发送阶段分布',
-                              values: snapshot.sendPhaseBreakdown,
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth < 760 ? 1 : 2;
-                        return GridView.count(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: columns == 1 ? 2.3 : 1.75,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            _TopRoutesCard(routes: snapshot.topRoutes),
-                            _RecentErrorsCard(errors: snapshot.recentErrors),
-                            _OpsBreakdownCard(
-                              title: '日志级别分布',
-                              values: snapshot.logLevelBreakdown,
-                              footer: '${snapshot.memoryLogCount} 条内存日志',
-                            ),
-                            _ResourceInventoryCard(snapshot: snapshot),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    const _SectionTitle('吞吐趋势'),
-                    _TrendLineChart(
-                      title: '请求/秒',
-                      values: _deltaSeries(
-                        _trend,
-                        (snapshot) => snapshot.totalRequests.toDouble(),
-                      ),
-                      valueFormatter: (value) => value.toStringAsFixed(0),
-                    ),
-                    const SizedBox(height: 18),
-                    const _SectionTitle('资源趋势'),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth < 720 ? 1 : 2;
-                        return GridView.count(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: columns == 1 ? 2.35 : 1.85,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            _TrendLineChart(
-                              title: 'CPU %',
-                              values: _series(
-                                _trend,
-                                (snapshot) => snapshot.cpuPercent,
-                              ),
-                              valueFormatter: (value) =>
-                                  '${value.toStringAsFixed(1)}%',
-                            ),
-                            _TrendLineChart(
-                              title: '内存 RSS',
-                              values: _series(
-                                _trend,
-                                (snapshot) =>
-                                    snapshot.currentRssBytes.toDouble(),
-                              ),
-                              valueFormatter: (value) => _bytes(value.round()),
-                            ),
-                            _TrendLineChart(
-                              title: '日志磁盘',
-                              values: _series(
-                                _trend,
-                                (snapshot) => snapshot.logBytes.toDouble(),
-                              ),
-                              valueFormatter: (value) => _bytes(value.round()),
-                            ),
-                            _TrendLineChart(
-                              title: '线程数',
-                              values: _series(
-                                _trend,
-                                (snapshot) => snapshot.threadCount?.toDouble(),
-                              ),
-                              valueFormatter: (value) =>
-                                  value.toStringAsFixed(0),
-                            ),
-                            _TrendLineChart(
-                              title: '会话数',
-                              values: _series(
-                                _trend,
-                                (snapshot) =>
-                                    snapshot.openSessionCount.toDouble(),
-                              ),
-                              valueFormatter: (value) =>
-                                  value.toStringAsFixed(0),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    if (cleanupHistory.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      const _SectionTitle('清理历史'),
-                      ...cleanupHistory.map(
-                        (entry) => _CleanupHistoryLine(entry: entry),
-                      ),
+                      if (snapshot.lastError.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        const _SectionTitle('最近错误'),
+                        SelectableText(snapshot.lastError),
+                      ],
                     ],
-                    if (snapshot.lastError.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      const _SectionTitle('最近错误'),
-                      SelectableText(snapshot.lastError),
-                    ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -2854,6 +2966,7 @@ class _MultiSelectDropdown<T> extends StatefulWidget {
     required this.selected,
     required this.onChanged,
     this.emptyMeansAll = false,
+    this.noneValue,
   });
 
   final String label;
@@ -2861,6 +2974,7 @@ class _MultiSelectDropdown<T> extends StatefulWidget {
   final Set<T> selected;
   final ValueChanged<Set<T>> onChanged;
   final bool emptyMeansAll;
+  final T? noneValue;
 
   @override
   State<_MultiSelectDropdown<T>> createState() =>
@@ -2884,6 +2998,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
             options: widget.options,
             selected: widget.selected,
             emptyMeansAll: widget.emptyMeansAll,
+            noneValue: widget.noneValue,
             onApply: widget.onChanged,
             onClose: _menuController.close,
           ),
@@ -2919,6 +3034,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
   }
 
   String _summary() {
+    if (_isExplicitNone(widget.selected, widget.noneValue)) return '全部不可用';
     if (widget.emptyMeansAll && widget.selected.isEmpty) return '全部可用';
     if (widget.selected.isEmpty) return '未选择';
     final labels = widget.options
@@ -2935,6 +3051,7 @@ class _MultiSelectDropdownMenu<T> extends StatefulWidget {
     required this.options,
     required this.selected,
     required this.emptyMeansAll,
+    required this.noneValue,
     required this.onApply,
     required this.onClose,
   });
@@ -2942,6 +3059,7 @@ class _MultiSelectDropdownMenu<T> extends StatefulWidget {
   final List<_SelectOption<T>> options;
   final Set<T> selected;
   final bool emptyMeansAll;
+  final T? noneValue;
   final ValueChanged<Set<T>> onApply;
   final VoidCallback onClose;
 
@@ -2954,6 +3072,7 @@ class _MultiSelectDropdownMenuState<T>
     extends State<_MultiSelectDropdownMenu<T>> {
   final TextEditingController _searchController = TextEditingController();
   late Set<T> _selected;
+  bool _closing = false;
 
   @override
   void initState() {
@@ -2984,106 +3103,147 @@ class _MultiSelectDropdownMenuState<T>
         : widget.options
               .where((option) => option.label.toLowerCase().contains(query))
               .toList(growable: false);
-    return SizedBox(
-      width: 420,
-      height: 360,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                isDense: true,
-                prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                hintText: '搜索',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: _closing ? 1 : 0, end: _closing ? 0 : 1),
+      duration: _motionDuration(context, _closing ? 170 : 280),
+      curve: _closing ? Curves.easeInCubic : Curves.easeOutBack,
+      onEnd: () {
+        if (_closing) widget.onClose();
+      },
+      builder: (context, value, child) => Opacity(
+        opacity: value.clamp(0.0, 1.0).toDouble(),
+        child: Transform.translate(
+          offset: Offset(0, (1 - value) * -8),
+          child: Transform.scale(
+            scale: 0.96 + value * 0.04,
+            alignment: Alignment.topCenter,
+            child: child,
+          ),
+        ),
+      ),
+      child: SizedBox(
+        width: 420,
+        height: 360,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                  hintText: '搜索',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  suffixIcon: _searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '清空搜索',
+                          onPressed: _searchController.clear,
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                        ),
                 ),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: '清空搜索',
-                        onPressed: _searchController.clear,
-                        icon: const Icon(Icons.clear_rounded, size: 18),
-                      ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-            child: Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () => _setSelected(
-                    widget.emptyMeansAll
-                        ? <T>{}
-                        : widget.options.map((option) => option.value).toSet(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _MenuActionButton(
+                            onPressed: () => _setSelected(
+                              widget.emptyMeansAll
+                                  ? <T>{}
+                                  : widget.options
+                                        .map((option) => option.value)
+                                        .toSet(),
+                            ),
+                            icon: const Icon(Icons.done_all_rounded, size: 18),
+                            label: Text(widget.emptyMeansAll ? '全部' : '全选'),
+                          ),
+                          const SizedBox(width: 8),
+                          _MenuActionButton(
+                            onPressed: () => _setSelected(_noneSelection()),
+                            icon: const Icon(
+                              Icons.disabled_by_default_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('全不选'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  icon: const Icon(Icons.done_all_rounded, size: 18),
-                  label: Text(widget.emptyMeansAll ? '全部' : '全选'),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: () {
-                    if (widget.emptyMeansAll) {
-                      _setSelected(<T>{});
-                      return;
-                    }
-                    if (_selected.length > 1) {
-                      _setSelected({_selected.first});
-                    }
-                  },
-                  icon: const Icon(Icons.clear_all_rounded, size: 18),
-                  label: Text(widget.emptyMeansAll ? '清空限制' : '保留一项'),
-                ),
-                const Spacer(),
-                FilledButton.tonal(
-                  onPressed: _applyAndClose,
-                  child: const Text('完成'),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  _MenuActionButton(
+                    onPressed: _applyAndClose,
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: const Text('完成'),
+                    filled: true,
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: filtered.isEmpty
-                ? const Center(child: Text('没有匹配项'))
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final option = filtered[index];
-                      final isImplicitAll =
-                          widget.emptyMeansAll && _selected.isEmpty;
-                      return CheckboxListTile(
-                        dense: true,
-                        value:
-                            isImplicitAll || _selected.contains(option.value),
-                        onChanged: (_) => _toggle(option.value),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        title: Text(
-                          option.label,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+            const Divider(height: 1),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const Center(child: Text('没有匹配项'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final option = filtered[index];
+                        final explicitNone = _isExplicitNone(
+                          _selected,
+                          widget.noneValue,
+                        );
+                        final isImplicitAll =
+                            widget.emptyMeansAll &&
+                            _selected.isEmpty &&
+                            !explicitNone;
+                        return CheckboxListTile(
+                          dense: true,
+                          value:
+                              !explicitNone &&
+                              (isImplicitAll ||
+                                  _selected.contains(option.value)),
+                          onChanged: (_) => _toggle(option.value),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(
+                            option.label,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   void _toggle(T value) {
     final next = Set<T>.from(_selected);
+    final noneValue = widget.noneValue;
+    if (noneValue != null) next.remove(noneValue);
     if (next.contains(value)) {
       next.remove(value);
     } else {
       next.add(value);
     }
-    if (!widget.emptyMeansAll && next.isEmpty) return;
     _setSelected(next);
+  }
+
+  Set<T> _noneSelection() {
+    final noneValue = widget.noneValue;
+    return noneValue == null ? <T>{} : <T>{noneValue};
   }
 
   void _setSelected(Set<T> next) {
@@ -3091,8 +3251,58 @@ class _MultiSelectDropdownMenuState<T>
   }
 
   void _applyAndClose() {
+    if (_closing) return;
     widget.onApply(Set<T>.from(_selected));
-    widget.onClose();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      widget.onClose();
+      return;
+    }
+    setState(() => _closing = true);
+  }
+}
+
+bool _isExplicitNone<T>(Set<T> selected, T? noneValue) {
+  return noneValue != null && selected.contains(noneValue);
+}
+
+class _MenuActionButton extends StatelessWidget {
+  const _MenuActionButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    this.filled = false,
+  });
+
+  final VoidCallback onPressed;
+  final Widget icon;
+  final Widget label;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = filled
+        ? FilledButton.styleFrom(
+            minimumSize: const Size(104, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+          )
+        : TextButton.styleFrom(
+            minimumSize: const Size(104, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+          );
+    if (filled) {
+      return FilledButton.tonalIcon(
+        onPressed: onPressed,
+        icon: icon,
+        label: label,
+        style: style,
+      );
+    }
+    return TextButton.icon(
+      onPressed: onPressed,
+      icon: icon,
+      label: label,
+      style: style,
+    );
   }
 }
 
@@ -3247,9 +3457,27 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                   Expanded(
                     child: Text('选择可用模型', style: theme.textTheme.titleMedium),
                   ),
-                  TextButton(
-                    onPressed: () => setState(() => _selected = <String>{}),
-                    child: Text(widget.emptyMeansAll ? '全部' : '清空'),
+                  _MenuActionButton(
+                    onPressed: () => setState(() {
+                      _selected = widget.emptyMeansAll
+                          ? <String>{}
+                          : widget.options.map((item) => item.key).toSet();
+                    }),
+                    icon: const Icon(Icons.done_all_rounded, size: 18),
+                    label: Text(widget.emptyMeansAll ? '全部' : '全选'),
+                  ),
+                  const SizedBox(width: 6),
+                  _MenuActionButton(
+                    onPressed: () => setState(() {
+                      _selected = const <String>{
+                        webGatewayDenyAllSelectionMarker,
+                      };
+                    }),
+                    icon: const Icon(
+                      Icons.disabled_by_default_outlined,
+                      size: 18,
+                    ),
+                    label: const Text('全不选'),
                   ),
                   const SizedBox(width: 6),
                   IconButton(
@@ -3303,9 +3531,14 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                           );
                         }
                         final option = row as WebGatewayModelOption;
+                        final explicitNone = _selected.contains(
+                          webGatewayDenyAllSelectionMarker,
+                        );
                         return CheckboxListTile(
                           dense: true,
-                          value: widget.emptyMeansAll && _selected.isEmpty
+                          value: explicitNone
+                              ? false
+                              : widget.emptyMeansAll && _selected.isEmpty
                               ? true
                               : _selected.contains(option.key),
                           controlAffinity: ListTileControlAffinity.leading,
@@ -3354,6 +3587,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
 
   void _toggle(String key) {
     setState(() {
+      _selected.remove(webGatewayDenyAllSelectionMarker);
       if (_selected.contains(key)) {
         _selected.remove(key);
       } else {
@@ -3480,7 +3714,7 @@ class _CleanupHistoryLine extends StatelessWidget {
   }
 }
 
-class _TrendLineChart extends StatelessWidget {
+class _TrendLineChart extends StatefulWidget {
   const _TrendLineChart({
     required this.title,
     required this.values,
@@ -3492,13 +3726,39 @@ class _TrendLineChart extends StatelessWidget {
   final String Function(double value) valueFormatter;
 
   @override
+  State<_TrendLineChart> createState() => _TrendLineChartState();
+}
+
+class _TrendLineChartState extends State<_TrendLineChart> {
+  List<double> _fromValues = const <double>[];
+  List<double> _toValues = const <double>[];
+  List<double> _lastPaintValues = const <double>[];
+  int _animationVersion = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _toValues = List<double>.from(widget.values);
+    _lastPaintValues = _toValues;
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrendLineChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_seriesFingerprint(oldWidget.values) ==
+        _seriesFingerprint(widget.values)) {
+      return;
+    }
+    _fromValues = _lastPaintValues;
+    _toValues = List<double>.from(widget.values);
+    _animationVersion++;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final minValue = values.isEmpty ? 0.0 : values.reduce(math.min);
-    final maxValue = values.isEmpty
-        ? 1.0
-        : math.max(minValue + 1, values.reduce(math.max));
+    final headerValues = _toValues;
     return RepaintBoundary(
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -3514,14 +3774,16 @@ class _TrendLineChart extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    title,
+                    widget.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelLarge,
                   ),
                 ),
                 Text(
-                  values.isEmpty ? '暂无数据' : valueFormatter(values.last),
+                  headerValues.isEmpty
+                      ? '暂无数据'
+                      : widget.valueFormatter(headerValues.last),
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -3532,24 +3794,35 @@ class _TrendLineChart extends StatelessWidget {
             SizedBox(
               height: 112,
               child: TweenAnimationBuilder<double>(
+                key: ValueKey<int>(_animationVersion),
                 tween: Tween<double>(begin: 0, end: 1),
                 duration: _motionDuration(context, 420),
-                curve: Curves.easeOutCubic,
-                builder: (context, progress, child) => CustomPaint(
-                  painter: _TrendLinePainter(
-                    values: values,
-                    minValue: minValue,
-                    maxValue: maxValue,
-                    progress: progress,
-                    lineColor: colorScheme.primary,
-                    gridColor: colorScheme.outlineVariant.withValues(
-                      alpha: .72,
+                curve: Curves.easeOutBack,
+                builder: (context, progress, child) {
+                  final values = _lerpSeries(_fromValues, _toValues, progress);
+                  _lastPaintValues = values;
+                  final minValue = values.isEmpty
+                      ? 0.0
+                      : values.reduce(math.min);
+                  final maxValue = values.isEmpty
+                      ? 1.0
+                      : math.max(minValue + 1, values.reduce(math.max));
+                  return CustomPaint(
+                    painter: _TrendLinePainter(
+                      values: values,
+                      minValue: minValue,
+                      maxValue: maxValue,
+                      progress: 1,
+                      lineColor: colorScheme.primary,
+                      gridColor: colorScheme.outlineVariant.withValues(
+                        alpha: .72,
+                      ),
+                      labelColor: colorScheme.onSurfaceVariant,
+                      valueFormatter: widget.valueFormatter,
                     ),
-                    labelColor: colorScheme.onSurfaceVariant,
-                    valueFormatter: valueFormatter,
-                  ),
-                  child: const SizedBox.expand(),
-                ),
+                    child: const SizedBox.expand(),
+                  );
+                },
               ),
             ),
           ],
@@ -3557,6 +3830,24 @@ class _TrendLineChart extends StatelessWidget {
       ),
     );
   }
+}
+
+int _seriesFingerprint(List<double> values) {
+  var hash = values.length;
+  for (final value in values) {
+    hash = 0x3fffffff & (hash * 31 + (value * 1000).round());
+  }
+  return hash;
+}
+
+List<double> _lerpSeries(List<double> from, List<double> to, double progress) {
+  if (to.isEmpty) return const <double>[];
+  final t = progress.clamp(0.0, 1.0).toDouble();
+  final fallback = from.isEmpty ? to.first : from.last;
+  return List<double>.generate(to.length, (index) {
+    final start = index < from.length ? from[index] : fallback;
+    return start + (to[index] - start) * t;
+  }, growable: false);
 }
 
 class _TrendLinePainter extends CustomPainter {
@@ -3721,6 +4012,9 @@ String _modelSummary(
   Set<String> selected,
   bool emptyMeansAll,
 ) {
+  if (selected.contains(webGatewayDenyAllSelectionMarker)) {
+    return '全部模型不可用';
+  }
   if (emptyMeansAll && selected.isEmpty) return '全部模型可用';
   if (selected.isEmpty) return '未选择模型';
   final labels = options

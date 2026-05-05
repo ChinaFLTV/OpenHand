@@ -6,7 +6,7 @@ import preact from '@preact/preset-vite';
 // 同级输出，规避 shelf-router 的 <path|.+> 通配符匹配复杂度。
 export default defineConfig({
   plugins: [preact()],
-  base: './',
+  base: '/',
   // @ts-expect-error vitest 注入的 test 字段, vite 类型不识别但运行无碍
   test: {
     environment: 'happy-dom',

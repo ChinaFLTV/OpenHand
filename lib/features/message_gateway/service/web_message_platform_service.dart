@@ -847,11 +847,6 @@ class WebMessagePlatformService {
     router.get('/login', (shelf.Request _) => _serveWebShell());
     router.get('/thread', (shelf.Request _) => _serveWebShell());
     router.get('/threads', (shelf.Request _) => _serveWebShell());
-    // SPA 深路由：/threads/<id> 直接刷新或粘贴打开都能命中前端 Router。
-    router.get(
-      '/threads/<rest|.+>',
-      (shelf.Request _, String rest) => _serveWebShell(),
-    );
     // Vite 产物里 index.html 引用 app.js / app.css 同级文件，直接出 bundle。
     router.get(
       '/app.js',
@@ -865,6 +860,20 @@ class WebMessagePlatformService {
       (shelf.Request _) =>
           _serveBundleAsset('assets/web/app.css', 'text/css; charset=utf-8'),
     );
+    // 兼容旧缓存 shell: 旧 index.html 使用 ./app.css / ./app.js，用户在
+    // /threads/<id> 原地刷新时浏览器会解析到 /threads/app.css。
+    router.get(
+      '/threads/app.js',
+      (shelf.Request _) => _serveBundleAsset(
+        'assets/web/app.js',
+        'application/javascript; charset=utf-8',
+      ),
+    );
+    router.get(
+      '/threads/app.css',
+      (shelf.Request _) =>
+          _serveBundleAsset('assets/web/app.css', 'text/css; charset=utf-8'),
+    );
     // 通配子路径覆盖 chunks/*.js 与 assets/*.{png,svg,woff2,...}。
     router.get(
       '/chunks/<path|.+>',
@@ -872,7 +881,17 @@ class WebMessagePlatformService {
           _serveBundleAsset('assets/web/chunks/$path', _guessContentType(path)),
     );
     router.get(
+      '/threads/chunks/<path|.+>',
+      (shelf.Request _, String path) =>
+          _serveBundleAsset('assets/web/chunks/$path', _guessContentType(path)),
+    );
+    router.get(
       '/assets/<path|.+>',
+      (shelf.Request _, String path) =>
+          _serveBundleAsset('assets/web/assets/$path', _guessContentType(path)),
+    );
+    router.get(
+      '/threads/assets/<path|.+>',
       (shelf.Request _, String path) =>
           _serveBundleAsset('assets/web/assets/$path', _guessContentType(path)),
     );
@@ -885,7 +904,17 @@ class WebMessagePlatformService {
           _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
     );
     router.get(
+      '/threads/openhand_logo.png',
+      (shelf.Request _) =>
+          _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
+    );
+    router.get(
       '/favicon.ico',
+      (shelf.Request _) =>
+          _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
+    );
+    router.get(
+      '/threads/favicon.ico',
       (shelf.Request _) =>
           _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
     );
@@ -899,11 +928,31 @@ class WebMessagePlatformService {
       ),
     );
     router.get(
+      '/threads/sw.js',
+      (shelf.Request _) => _serveBundleAsset(
+        'assets/web/sw.js',
+        'application/javascript; charset=utf-8',
+      ),
+    );
+    router.get(
       '/manifest.webmanifest',
       (shelf.Request _) => _serveBundleAsset(
         'assets/web/manifest.webmanifest',
         'application/manifest+json; charset=utf-8',
       ),
+    );
+    router.get(
+      '/threads/manifest.webmanifest',
+      (shelf.Request _) => _serveBundleAsset(
+        'assets/web/manifest.webmanifest',
+        'application/manifest+json; charset=utf-8',
+      ),
+    );
+    // SPA 深路由：/threads/<id> 直接刷新或粘贴打开都能命中前端 Router。
+    // 必须放在静态资源别名之后，避免 /threads/app.css 被 HTML shell 截获。
+    router.get(
+      '/threads/<rest|.+>',
+      (shelf.Request _, String rest) => _serveWebShell(),
     );
     router.get('/api/health', _apiHealth);
     router.get('/api/meta', _apiMeta);
@@ -1799,7 +1848,16 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    final ok = await _sessionController.deleteSession(session.id);
+    final deletedBy = auth.deviceName.trim().isEmpty
+        ? auth.source.storageValue
+        : auth.browserName.trim().isEmpty
+        ? auth.deviceName.trim()
+        : '${auth.deviceName.trim()} · ${auth.browserName.trim()}';
+    final ok = await _sessionController.deleteSession(
+      session.id,
+      deletedByLabel: deletedBy,
+      deletionSource: 'web',
+    );
     _log(
       WebGatewayLogLevel.warn,
       'SESSION',
@@ -3011,14 +3069,19 @@ class WebMessagePlatformService {
       todayLocalDate:
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
       timeZoneName: now.timeZoneName,
-      availableSkills: _config.allowedSkillNames.isEmpty
+      availableSkills: webGatewayIsDenyAllSelection(_config.allowedSkillNames)
+          ? const []
+          : _config.allowedSkillNames.isEmpty
           ? _skillsController.skills
           : _skillsController.skills
                 .where(
                   (skill) => _config.allowedSkillNames.contains(skill.name),
                 )
                 .toList(growable: false),
-      availableMcpServers: _config.allowedMcpServerNames.isEmpty
+      availableMcpServers:
+          webGatewayIsDenyAllSelection(_config.allowedMcpServerNames)
+          ? const []
+          : _config.allowedMcpServerNames.isEmpty
           ? _mcpController.servers
           : _mcpController.servers
                 .where(
@@ -3027,18 +3090,26 @@ class WebMessagePlatformService {
                 )
                 .toList(growable: false),
       mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
-      builtinToolConfigs: _settingsController.builtinToolConfigs
-          .where(
-            (tool) =>
-                _config.allowedBuiltinToolNames.isEmpty ||
-                _config.allowedBuiltinToolNames.contains(tool.effectiveName),
-          )
-          .toList(growable: false),
+      builtinToolConfigs:
+          webGatewayIsDenyAllSelection(_config.allowedBuiltinToolNames)
+          ? const []
+          : _settingsController.builtinToolConfigs
+                .where(
+                  (tool) =>
+                      _config.allowedBuiltinToolNames.isEmpty ||
+                      _config.allowedBuiltinToolNames.contains(
+                        tool.effectiveName,
+                      ),
+                )
+                .toList(growable: false),
       userInstructions: _instructionsController.entries,
     );
   }
 
   List<AiThreadTemplate> _allowedTemplates() {
+    if (webGatewayIsDenyAllSelection(_config.allowedTemplateIds)) {
+      return const [];
+    }
     if (_config.allowedTemplateIds.isEmpty) return _sessionController.templates;
     return _sessionController.templates
         .where((template) => _config.allowedTemplateIds.contains(template.id))
@@ -3046,11 +3117,15 @@ class WebMessagePlatformService {
   }
 
   bool _templateAllowed(String templateId) {
+    if (webGatewayIsDenyAllSelection(_config.allowedTemplateIds)) return false;
     return _config.allowedTemplateIds.isEmpty ||
         _config.allowedTemplateIds.contains(templateId);
   }
 
   List<_AllowedWebModel> _allowedModels() {
+    if (webGatewayIsDenyAllSelection(_config.allowedModelKeys)) {
+      return const [];
+    }
     final result = <_AllowedWebModel>[];
     for (final provider in _settingsController.aiModels) {
       for (final modelId in provider.allModelIds) {
@@ -3089,6 +3164,7 @@ class WebMessagePlatformService {
   }
 
   AiModelConfig? _resolveModel(String key) {
+    if (webGatewayIsDenyAllSelection(_config.allowedModelKeys)) return null;
     final requested = key.trim();
     if (requested.isNotEmpty &&
         (_config.allowedModelKeys.isEmpty ||

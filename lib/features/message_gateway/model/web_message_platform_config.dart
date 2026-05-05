@@ -7,6 +7,11 @@ const String webGatewayMetadataKey = 'web_gateway_context';
 const String webGatewayLoginSourceKey = 'login_source';
 const String webGatewayDeviceIdKey = 'device_id';
 const String webGatewayDeviceMacKey = 'device_mac_address';
+const String webGatewayDenyAllSelectionMarker = '__openhand_deny_all__';
+
+bool webGatewayIsDenyAllSelection(List<String> values) {
+  return values.contains(webGatewayDenyAllSelectionMarker);
+}
 
 enum WebGatewayLoginSource {
   webPc('WEB_PC'),
@@ -562,6 +567,7 @@ Map<String, String> _stringMap(Object? raw) {
 
 Set<T> _enumSet<T>(Object? raw, T? Function(String?) parser, Set<T> fallback) {
   if (raw is! List) return Set<T>.from(fallback);
+  if (raw.isEmpty) return <T>{};
   final result = <T>{};
   for (final item in raw) {
     final parsed = parser('$item');

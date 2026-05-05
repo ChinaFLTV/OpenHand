@@ -751,6 +751,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final Map<String, _ComposerDraftState> _composerDraftsBySessionId =
       <String, _ComposerDraftState>{};
   final Map<String, bool> _collapsedPlanTimelinesBySessionId = <String, bool>{};
+  final Set<String> _handledSessionDeletionNoticeKeys = <String>{};
   int? _runtimeToolPreviewCacheKey;
   AiRuntimeToolPreview? _runtimeToolPreviewCacheValue;
   AiSessionController? _observedSessionController;
@@ -1237,8 +1238,53 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     final sessionController = _observedSessionController;
+    _maybePresentExternalSessionDeletionNotice(sessionController);
     _scheduleSessionControllerUiSync();
     _processMessageQueueIfNeeded(sessionController);
+  }
+
+  void _maybePresentExternalSessionDeletionNotice(
+    AiSessionController? sessionController,
+  ) {
+    final notice = sessionController?.lastDeletionNotice;
+    if (notice == null || !notice.wasCurrentSession) return;
+    if (notice.source == 'app') return;
+    final key = '${notice.sessionId}:${notice.deletedAt.toIso8601String()}';
+    if (!_handledSessionDeletionNoticeKeys.add(key)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final deletedBy = notice.deletedByLabel.trim().isEmpty
+          ? _localizedText(context, zh: 'Web 用户', en: 'a Web user')
+          : notice.deletedByLabel.trim();
+      unawaited(
+        showAnimatedDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(
+              _localizedText(
+                dialogContext,
+                zh: '当前线程已被删除',
+                en: 'Current Thread Deleted',
+              ),
+            ),
+            content: Text(
+              _localizedText(
+                dialogContext,
+                zh: '当前会话「${notice.sessionTitle}」已被 $deletedBy 删除。',
+                en: 'The current session "${notice.sessionTitle}" was deleted by $deletedBy.',
+              ),
+            ),
+            actions: [
+              OpenHandDialogActionButton.primary(
+                label: _localizedText(dialogContext, zh: '返回', en: 'Back'),
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   /// 监听 [AiSessionController.toolSearchLoadedSignal]：当模型成功通过

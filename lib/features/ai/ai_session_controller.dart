@@ -228,6 +228,24 @@ class AiRuntimeToolPreview {
   int get toolCount => toolNames.length;
 }
 
+class AiSessionDeletionNotice {
+  const AiSessionDeletionNotice({
+    required this.sessionId,
+    required this.sessionTitle,
+    required this.deletedByLabel,
+    required this.source,
+    required this.deletedAt,
+    required this.wasCurrentSession,
+  });
+
+  final String sessionId;
+  final String sessionTitle;
+  final String deletedByLabel;
+  final String source;
+  final DateTime deletedAt;
+  final bool wasCurrentSession;
+}
+
 class AiSessionController extends ChangeNotifier {
   AiSessionController._({
     required AiSessionStore store,
@@ -609,6 +627,7 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, bool> _didCompressInLastSendBySession = <String, bool>{};
   final Map<String, int> _compressionFailureCountsBySession = <String, int>{};
   String? _currentSessionId;
+  AiSessionDeletionNotice? _lastDeletionNotice;
   String? _editingMessageId;
   String? _lastErrorMessage;
   final Map<String, String> _lastErrorMessagesBySession = <String, String>{};
@@ -646,6 +665,7 @@ class AiSessionController extends ChangeNotifier {
   bool get didCompressInLastSend =>
       didCompressInLastSendForSession(_currentSessionId);
   String? get currentSessionId => _currentSessionId;
+  AiSessionDeletionNotice? get lastDeletionNotice => _lastDeletionNotice;
   String? get editingMessageId => _editingMessageId;
   String? get lastErrorMessage {
     final currentSessionId = _currentSessionId;
@@ -1412,7 +1432,11 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
-  Future<bool> deleteSession(String sessionId) async {
+  Future<bool> deleteSession(
+    String sessionId, {
+    String deletedByLabel = '',
+    String deletionSource = 'app',
+  }) async {
     return _enqueueOperation(() async {
       final previousSessions = List<AiSession>.from(_sessions);
       final previousCurrentSessionId = _currentSessionId;
@@ -1426,6 +1450,19 @@ class AiSessionController extends ChangeNotifier {
       final deletedSession = _sessionById(sessionId);
       final wasSending = _sessionSendPhases.containsKey(sessionId);
       final cancelHandler = _sessionCancelHandlers[sessionId];
+      final deletionNotice =
+          deletedSession != null &&
+              previousCurrentSessionId == sessionId &&
+              deletionSource != 'app'
+          ? AiSessionDeletionNotice(
+              sessionId: deletedSession.id,
+              sessionTitle: deletedSession.title,
+              deletedByLabel: deletedByLabel.trim(),
+              source: deletionSource,
+              deletedAt: _clock().toUtc(),
+              wasCurrentSession: true,
+            )
+          : null;
       final updatedSessions = _sessions
           .where((session) => session.id != sessionId)
           .toList(growable: false);
@@ -1461,6 +1498,7 @@ class AiSessionController extends ChangeNotifier {
           cancelHandler: cancelHandler,
           deletedSession: deletedSession,
         );
+        _publishDeletionNotice(deletionNotice);
         return true;
       } catch (error) {
         // Guard the existence check so a secondary DB failure does not shadow
@@ -1484,6 +1522,7 @@ class AiSessionController extends ChangeNotifier {
             cancelHandler: cancelHandler,
             deletedSession: deletedSession,
           );
+          _publishDeletionNotice(deletionNotice);
           return true;
         }
         _deletedSessionIds.remove(sessionId);
@@ -1832,6 +1871,12 @@ class AiSessionController extends ChangeNotifier {
       notifyListeners();
     }
     return false;
+  }
+
+  void _publishDeletionNotice(AiSessionDeletionNotice? notice) {
+    if (notice == null) return;
+    _lastDeletionNotice = notice;
+    notifyListeners();
   }
 
   Future<void> _finalizeDeletedSession({

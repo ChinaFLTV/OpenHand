@@ -7,13 +7,13 @@
  *
  * 缓存版本号在每次发布时手动 bump, 旧缓存在 activate 时清理。
  */
-const CACHE_VERSION = 'openhand-shell-v1';
+const CACHE_VERSION = 'openhand-shell-v2';
 const APP_SHELL = [
-  './',
-  './app.js',
-  './app.css',
-  './openhand_logo.png',
-  './manifest.webmanifest',
+  '/',
+  '/app.js',
+  '/app.css',
+  '/openhand_logo.png',
+  '/manifest.webmanifest',
 ];
 
 self.addEventListener('install', (event) => {
@@ -75,7 +75,7 @@ self.addEventListener('fetch', (event) => {
             }
             return res;
           })
-          .catch(() => caches.match('./') as Promise<Response>),
+          .catch(() => caches.match('/') as Promise<Response>),
     ),
   );
 });
@@ -90,8 +90,8 @@ self.addEventListener('message', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: typeof body === 'string' ? body : '',
-      icon: './openhand_logo.png',
-      badge: './openhand_logo.png',
+      icon: '/openhand_logo.png',
+      badge: '/openhand_logo.png',
       tag: typeof tag === 'string' ? tag : 'openhand-message',
       data: { sessionId },
     }),
