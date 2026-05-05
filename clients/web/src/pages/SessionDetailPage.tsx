@@ -27,6 +27,7 @@ import {
   type SessionMessage,
 } from '../api/sessions';
 import { ApiError, UnauthorizedError } from '../api/client';
+import { subscribeSessionEvents } from '../api/session_events';
 import { t } from '../i18n';
 import { MenuSelect } from '../components/MenuSelect';
 import { useAuth } from '../state/auth';
@@ -36,8 +37,11 @@ import { MessageCard } from '../components/MessageCard';
 
 const PAGE_SIZE = 80;
 
-/// 助手回复期间的轮询间隔。1.2s 既能让动画/中间步骤可见，也避免过度打扰 service。
-const POLL_INTERVAL_MS = 1200;
+/// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
+const POLL_INTERVAL_MS = 1500;
+
+/// SSE 连续失败 N 次以上才彻底切到 polling，避免短暂网络抖动造成体验切换。
+const SSE_FAIL_THRESHOLD = 3;
 
 /// 单条附件最大字节数（沿用 service singleMessageTokenLimit 的语义留 1 MiB 兜底）；
 /// 真正的硬上限以 service 端响应为准。
@@ -97,6 +101,9 @@ export function SessionDetailPage() {
   const detailAbortRef = useRef<AbortController | null>(null);
   const messagesAbortRef = useRef<AbortController | null>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const sseCloseRef = useRef<(() => void) | null>(null);
+  const sseFailRef = useRef<number>(0);
+  const [sseLive, setSseLive] = useState<boolean>(false);
 
   function handleAuthError(e: unknown): boolean {
     if (e instanceof UnauthorizedError) {
@@ -183,6 +190,47 @@ export function SessionDetailPage() {
         window.clearTimeout(pollTimerRef.current);
         pollTimerRef.current = null;
       }
+      sseCloseRef.current?.();
+      sseCloseRef.current = null;
+    };
+  }, [auth.loading, sessionId]);
+
+  // SSE 实时事件流：用 service 推送替代轮询，覆盖：
+  //   1. AI 流式增量（assistant 消息每次 delta 都会触发一次 snapshot）；
+  //   2. 跨端口同步（APP 端在同一会话发的消息也会推到 web）；
+  //   3. send_phase / last_error 实时更新。
+  // 失败 SSE_FAIL_THRESHOLD 次后切换到 polling 兜底。
+  useEffect(() => {
+    if (auth.loading || !sessionId) return;
+    sseCloseRef.current?.();
+    sseFailRef.current = 0;
+    setSseLive(false);
+    const close = subscribeSessionEvents(sessionId, {
+      onOpen: () => {
+        sseFailRef.current = 0;
+        setSseLive(true);
+      },
+      onSnapshot: (snap) => {
+        // 整张快照覆盖：与 service displayMessages 顺序保持一致；offset/分页
+        // 「加载更早」的尾巴单独保留——snap.messages 只覆盖最新一页之外的旧消息
+        // 也会一并到来（service 端给的是当前 displayMessages 的全部 in-memory），
+        // 因此这里直接全量替换，不再拼接旧前缀。
+        setMessages([...snap.messages]);
+        setTotalKnown(snap.session.message_count ?? snap.messages.length);
+        setSendPhase(snap.send_phase);
+        setLastError(snap.last_error);
+      },
+      onError: () => {
+        sseFailRef.current += 1;
+        if (sseFailRef.current >= SSE_FAIL_THRESHOLD) {
+          setSseLive(false);
+        }
+      },
+    });
+    sseCloseRef.current = close;
+    return () => {
+      close();
+      sseCloseRef.current = null;
     };
   }, [auth.loading, sessionId]);
 
@@ -216,10 +264,18 @@ export function SessionDetailPage() {
     }
   }, [allowedModes]);
 
-  // 轮询：助手回复期间每 1.2s 拉一次最新一页 + send_phase；idle 后自动停。
+  // 轮询：仅作 SSE 兜底——若 SSE 实时通道存活则跳过；否则在助手回复期间
+  // 每 1.5s 拉一次最新一页 + send_phase，避免 SSE 故障下用户永远看不到更新。
   // 用 setTimeout 自驱动而非 setInterval，避免漂移与未完成请求叠加。
   useEffect(() => {
     if (auth.loading || !sessionId) return;
+    if (sseLive) {
+      if (pollTimerRef.current != null) {
+        window.clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      return;
+    }
     const isRunning = sendPhase !== 'idle' && sendPhase !== '';
     if (!isRunning) {
       if (pollTimerRef.current != null) {
@@ -263,7 +319,7 @@ export function SessionDetailPage() {
         pollTimerRef.current = null;
       }
     };
-  }, [auth.loading, sessionId, sendPhase]);
+  }, [auth.loading, sessionId, sendPhase, sseLive]);
 
   async function readFileAsAttachment(
     file: File,
@@ -323,6 +379,13 @@ export function SessionDetailPage() {
 
   async function handleSend(): Promise<void> {
     if (composerSending) return;
+    // 单一发送通道：service 仍在跑助手回复时禁止前端再发，避免并发触发同一
+    // 会话的 _sessionController.sendMessage（即使 service 自身有兜底，前端也
+    // 应在按钮层就拦截，避免 409 与不必要的 round-trip）。
+    if (sendPhase !== 'idle' && sendPhase !== '') {
+      setComposerError(t('composer.error.busy', '助手正在回复，请等待完成或先停止响应'));
+      return;
+    }
     const text = composerText.trim();
     if (!text && composerAttachments.length === 0) {
       setComposerError(t('composer.error.empty', '请输入内容或添加附件'));
@@ -351,9 +414,10 @@ export function SessionDetailPage() {
       });
       setComposerText('');
       setComposerAttachments([]);
-      setSendPhase(res.send_phase || 'sending');
-      // 立刻拉一次让 user 消息出现在尾部
-      void refresh();
+      setSendPhase(res.send_phase || 'sendingMessage');
+      // SSE 通道在 service 端立即推送 user 消息落库；若 SSE 不可用，refresh()
+      // 兜底拉一次让 user 消息出现在尾部。
+      if (!sseLive) void refresh();
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
       if (e instanceof ApiError) {
@@ -472,6 +536,25 @@ export function SessionDetailPage() {
             <strong style={{ color: 'var(--m3-on-surface)' }}>
               {sendPhaseLabel(sendPhase)}
             </strong>
+            <span
+              class="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+              style={{
+                background: sseLive
+                  ? 'color-mix(in srgb, #2ecc71 18%, transparent)'
+                  : 'color-mix(in srgb, var(--m3-on-surface-variant) 14%, transparent)',
+                color: sseLive
+                  ? '#1e8e3e'
+                  : 'var(--m3-on-surface-variant)',
+              }}
+              title={sseLive
+                ? t('detail.sse.live.hint', '已接入实时事件流，无需轮询')
+                : t('detail.sse.fallback.hint', 'SSE 未连通，已退化为轮询')}
+            >
+              <span aria-hidden>{sseLive ? '●' : '○'}</span>
+              <span>{sseLive
+                ? t('detail.sse.live', '实时')
+                : t('detail.sse.fallback', '轮询')}</span>
+            </span>
           </span>
           {lastError ? (
             <span style={{ color: 'var(--m3-error)' }}>
@@ -709,7 +792,11 @@ export function SessionDetailPage() {
             <button
               type="button"
               onClick={handleSend}
-              disabled={composerSending || allowedModels.length === 0}
+              disabled={
+                composerSending ||
+                allowedModels.length === 0 ||
+                (sendPhase !== 'idle' && sendPhase !== '')
+              }
               class="text-sm px-4 py-2 rounded-md font-medium disabled:opacity-50"
               style={{
                 background: 'var(--m3-primary)',
@@ -718,7 +805,9 @@ export function SessionDetailPage() {
             >
               {composerSending
                 ? t('composer.sending', '发送中…')
-                : t('composer.send', '发送')}
+                : (sendPhase !== 'idle' && sendPhase !== '')
+                  ? t('composer.waiting', '等待响应中…')
+                  : t('composer.send', '发送')}
             </button>
           </div>
         </section>

@@ -675,6 +675,12 @@ class WebMessagePlatformService {
         _withAuth(r, (req, auth) => _sendMessage(req, auth, sessionId)));
     router.post('/api/sessions/<sessionId>/stop', (shelf.Request r, String sessionId) =>
         _withAuth(r, (req, auth) => _stopSendMessage(req, auth, sessionId)));
+    // SSE 实时事件流：浏览器 EventSource 不支持自定义 header，因此 token 走
+    // query string `?token=...`（匿名模式可省略）。该端点会推送整张
+    // displayMessages 快照 + send_phase + last_error，前端按 message id 增量
+    // 合并即可，无需服务端 diff。
+    router.get('/api/sessions/<sessionId>/events', (shelf.Request r, String sessionId) =>
+        _sessionEventsHandler(r, sessionId));
     // 导出会话：返回 application/json + Content-Disposition attachment，
     // 以便浏览器一键下载。包含 session 头信息 + 全量未删除消息（不分页）。
     router.get('/api/sessions/<sessionId>/export', (shelf.Request r, String sessionId) =>
@@ -1322,29 +1328,58 @@ class WebMessagePlatformService {
       WebGatewayConversationMode.audio => const <String>['audio'],
       _ => const <String>[],
     };
-    final sent = await _sessionController.sendMessage(
-      sessionId: session.id,
-      content: content,
-      model: model,
-      runtimeContext: _buildRuntimeContext(templateId: session.templateId),
-      attachmentFilePaths: attachments,
-      responseModalities: responseModalities,
-      creationRequest: creationRequest,
-      denyCommandRules: _settingsController.aiDenyCommandRules,
-      requireWriteCommandConfirmation: false,
-      userMessageMetadata: _metadataForRequest(auth, request, <String, Object?>{
-        'sent_via': 'web_api',
-        'conversation_mode': conversationMode.storageValue,
-        'model_key': _modelKey(model.id, model.modelId),
-        'attachment_count': attachments.length,
-      }),
-    );
-    if (!sent) {
+    // 单一发送通道 + 互斥：同一会话若已在 sending/responding/streaming/finalizing
+    // 等任一非 idle 阶段，立刻拒绝新的 web 端发送，避免并发触发同一控制器。
+    // 这与 AiSessionController._enqueueSessionOperation 内部排队一起构成两层防护：
+    // 第一层让前端立即得到 409 反馈以禁用按钮，第二层兜底防止异常路径并发。
+    final currentPhase = _sessionController.sendPhaseForSession(session.id);
+    if (currentPhase != AiSendPhase.idle) {
       return _json(HttpStatus.conflict, <String, Object?>{
-        'error': 'send_failed',
-        'message': _sessionController.lastErrorMessageForSession(session.id),
+        'error': 'session_busy',
+        'send_phase': currentPhase.name,
       });
     }
+    // 关键：不能 await 整轮助手对话完成。原实现 `await sendMessage(...)` 会
+    // 卡住 HTTP 响应直到 30s 后整轮回复结束，导致 web 端长时间「发送中」+
+    // 一次性 dump 所有消息（无法看到流式）。改为 fire-and-forget：
+    //   1. 立即返回 202，让前端解锁 UI；
+    //   2. SSE 通道 (/api/sessions/:id/events) 推送 user 消息落库 + 后续
+    //      流式增量；
+    //   3. 错误经 _sessionController.lastErrorMessageForSession 暴露并通过
+    //      SSE phase/last_error 字段同步。
+    unawaited(
+      _sessionController
+          .sendMessage(
+            sessionId: session.id,
+            content: content,
+            model: model,
+            runtimeContext: _buildRuntimeContext(templateId: session.templateId),
+            attachmentFilePaths: attachments,
+            responseModalities: responseModalities,
+            creationRequest: creationRequest,
+            denyCommandRules: _settingsController.aiDenyCommandRules,
+            requireWriteCommandConfirmation: false,
+            userMessageMetadata: _metadataForRequest(
+              auth,
+              request,
+              <String, Object?>{
+                'sent_via': 'web_api',
+                'conversation_mode': conversationMode.storageValue,
+                'model_key': _modelKey(model.id, model.modelId),
+                'attachment_count': attachments.length,
+              },
+            ),
+          )
+          .catchError((Object error, StackTrace stack) {
+            silentLog(
+              'WebGateway',
+              'sendMessage.async',
+              error,
+              stack,
+            );
+            return false;
+          }),
+    );
     _log(
       WebGatewayLogLevel.success,
       'MESSAGE',
@@ -1357,7 +1392,7 @@ class WebMessagePlatformService {
     );
     return _json(HttpStatus.accepted, <String, Object?>{
       'ok': true,
-      'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+      'send_phase': AiSendPhase.sendingMessage.name,
     });
   }
 
@@ -1396,6 +1431,163 @@ class WebMessagePlatformService {
       'ok': true,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
     });
+  }
+
+  /// SSE 实时事件流（与 polling 互为冗余，前端优先用 SSE）。
+  ///
+  /// 协议：
+  ///   - text/event-stream（无 Content-Length，连接保持）；
+  ///   - 每次 _sessionController.notifyListeners 触发后节流 80ms 推送一次
+  ///     full snapshot：`event: snapshot\ndata: {...}\n\n`；
+  ///   - 每 25s 发送 `:keepalive\n\n` 兜底防止反向代理掐断；
+  ///   - 客户端断开（onCancel）即解订阅，控制器保持单一 listener 注册纪律。
+  ///
+  /// 鉴权：浏览器 EventSource 不允许自定义 header；这里复用 _authorize 但
+  /// 退化到 query 参数（token / device_id / source）。
+  Future<shelf.Response> _sessionEventsHandler(
+    shelf.Request request,
+    String sessionId,
+  ) async {
+    final auth = _authorizeFromRequestOrQuery(request);
+    if (auth == null) {
+      return _json(HttpStatus.unauthorized, <String, Object?>{
+        'error': 'unauthorized',
+      });
+    }
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+
+    String? lastSnapshotHash;
+    Timer? throttleTimer;
+    Timer? keepaliveTimer;
+    var disposed = false;
+
+    Map<String, Object?> buildSnapshot() {
+      final live = _sessionController.sessions.firstWhere(
+        (s) => s.id == sessionId,
+        orElse: () => session,
+      );
+      final messages = live.displayMessages
+          .map(_messageJson)
+          .toList(growable: false);
+      return <String, Object?>{
+        'session': _sessionSummary(live),
+        'messages': messages,
+        'send_phase': _sessionController.sendPhaseForSession(sessionId).name,
+        'last_error': _sessionController.lastErrorMessageForSession(sessionId),
+        'can_stop': _sessionController.canStopResponding(sessionId),
+        'served_at': DateTime.now().toUtc().toIso8601String(),
+      };
+    }
+
+    final controller = StreamController<List<int>>();
+
+    void emit(String event, Object payload) {
+      if (disposed || controller.isClosed) return;
+      try {
+        final body = jsonEncode(payload);
+        final frame = 'event: $event\ndata: $body\n\n';
+        controller.add(utf8.encode(frame));
+      } catch (error, stack) {
+        silentLog('WebGateway', 'sse.emit', error, stack);
+      }
+    }
+
+    void scheduleSnapshot() {
+      if (disposed) return;
+      throttleTimer?.cancel();
+      throttleTimer = Timer(const Duration(milliseconds: 80), () {
+        if (disposed) return;
+        try {
+          final snapshot = buildSnapshot();
+          final hash =
+              '${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['messages'] as List).map((m) {
+            final mm = m as Map<String, Object?>;
+            return '${mm['id']}:${(mm['content'] as String?)?.length ?? 0}';
+          }).join(',')}';
+          if (hash == lastSnapshotHash) return;
+          lastSnapshotHash = hash;
+          emit('snapshot', snapshot);
+        } catch (error, stack) {
+          silentLog('WebGateway', 'sse.snapshot', error, stack);
+        }
+      });
+    }
+
+    void controllerListener() => scheduleSnapshot();
+
+    _sessionController.addListener(controllerListener);
+    keepaliveTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (disposed || controller.isClosed) return;
+      try {
+        controller.add(utf8.encode(':keepalive\n\n'));
+      } catch (error, stack) {
+        silentLog('WebGateway', 'sse.keepalive', error, stack);
+      }
+    });
+
+    void dispose() {
+      if (disposed) return;
+      disposed = true;
+      throttleTimer?.cancel();
+      keepaliveTimer?.cancel();
+      _sessionController.removeListener(controllerListener);
+      if (!controller.isClosed) {
+        controller.close();
+      }
+    }
+
+    controller.onCancel = dispose;
+
+    // 立即推送首帧，避免前端等待第一次 notifyListeners。
+    Future<void>.microtask(() {
+      lastSnapshotHash = null;
+      scheduleSnapshot();
+    });
+
+    return shelf.Response.ok(
+      controller.stream,
+      headers: <String, String>{
+        HttpHeaders.contentTypeHeader: 'text/event-stream; charset=utf-8',
+        HttpHeaders.cacheControlHeader: 'no-store, no-transform',
+        HttpHeaders.connectionHeader: 'keep-alive',
+        'x-accel-buffering': 'no',
+      },
+    );
+  }
+
+  /// 复用 _authorize，但允许从 query string 读取 token / device 信息，
+  /// 兼容浏览器 EventSource 这种不能自定义 header 的场景。
+  _WebGatewayAuthSession? _authorizeFromRequestOrQuery(shelf.Request request) {
+    final fromHeader = _authorize(request);
+    if (fromHeader != null) return fromHeader;
+    if (!_config.authEnabled) {
+      // 匿名模式但 header 缺失：用 query string 兜底构造一个 anonymous session。
+      final qp = request.requestedUri.queryParameters;
+      final deviceId = qp['device_id'] ?? 'anonymous-web';
+      return _WebGatewayAuthSession(
+        token: 'anonymous',
+        source: WebGatewayLoginSource.fromStorage(qp['source'] ?? 'WEB_PC'),
+        deviceId: deviceId,
+        deviceMacAddress: '',
+        deviceName: 'OpenHand Web',
+        devicePlatform: 'web',
+        loginAt: DateTime.now().toUtc(),
+        remoteAddress: (request.context['shelf.io.connection_info']
+                    as HttpConnectionInfo?)
+                ?.remoteAddress
+                .address ??
+            '',
+        userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
+      );
+    }
+    final token = request.requestedUri.queryParameters['token']?.trim() ?? '';
+    if (token.isEmpty) return null;
+    return _authSessions[token];
   }
 
   Future<shelf.Response> _listLogs(shelf.Request request) async {
