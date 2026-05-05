@@ -1575,6 +1575,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   List<WebGatewayLogEntry> _pendingRenderedTarget =
       const <WebGatewayLogEntry>[];
   bool _syncScheduled = false;
+  bool _isExportingLog = false;
 
   @override
   void initState() {
@@ -1671,8 +1672,15 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                         ),
                         IconButton(
                           tooltip: '导出当前日志',
-                          onPressed: _exportCurrentLog,
-                          icon: const Icon(Icons.save_alt_rounded),
+                          onPressed: _isExportingLog ? null : _exportCurrentLog,
+                          icon: _isExportingLog
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.save_alt_rounded),
                         ),
                         // 清空终端：仅清除当前弹窗内的渲染项，
                         // 底层服务的日志环形缓冲与磁盘文件保持不变（类似 shell `clear`）。
@@ -1763,6 +1771,12 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       _anchorLogId = logs.isEmpty ? 0 : logs.last.id;
       _historyLimit = 0;
     });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('终端显示已清空，底层日志文件保持不变'),
+        duration: Duration(milliseconds: 1600),
+      ),
+    );
   }
 
   List<WebGatewayLogEntry> _visibleLogs(List<WebGatewayLogEntry> logs) {
@@ -1881,6 +1895,8 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   }
 
   Future<void> _exportCurrentLog() async {
+    if (_isExportingLog) return;
+    setState(() => _isExportingLog = true);
     final stamp = DateTime.now()
         .toLocal()
         .toIso8601String()
@@ -1897,14 +1913,28 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       final text = await widget.controller.exportCurrentLogText();
       await File(location.path).writeAsString(text);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('当前日志已导出到 ${location.path}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '当前日志已导出到 ${location.path}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('当前日志导出失败: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '当前日志导出失败: $error',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isExportingLog = false);
     }
   }
 }
@@ -1927,6 +1957,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
   final List<WebGatewayRuntimeSnapshot> _trend = <WebGatewayRuntimeSnapshot>[];
   bool _isCleaning = false;
   bool _isRefreshingSnapshot = false;
+  bool _isServiceActing = false;
 
   @override
   void initState() {
@@ -1969,6 +2000,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
     final isTransitioning =
         snapshot.state == WebGatewayRuntimeState.starting ||
         snapshot.state == WebGatewayRuntimeState.stopping;
+    final serviceControlsDisabled = _isServiceActing || isTransitioning;
     final mediaSize = MediaQuery.sizeOf(context);
     final dialogMaxHeight = math.min(
       720.0,
@@ -2019,86 +2051,114 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            FilledButton.tonalIcon(
-                              onPressed: isRunning || isTransitioning
-                                  ? null
-                                  : widget.controller.startService,
-                              icon: const Icon(Icons.play_arrow_rounded),
-                              label: const Text('开启'),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: !isRunning || isTransitioning
-                                  ? null
-                                  : widget.controller.stopService,
-                              icon: const Icon(Icons.stop_rounded),
-                              label: const Text('关机'),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: widget.controller.restartService,
-                              icon: const Icon(Icons.restart_alt_rounded),
-                              label: const Text('重启'),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: widget.controller.reloadConfig,
-                              icon: const Icon(Icons.sync_rounded),
-                              label: const Text('配置重载'),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: widget.controller.hotFix,
-                              icon: const Icon(Icons.healing_rounded),
-                              label: const Text('热修复'),
-                            ),
-                            FilledButton.icon(
-                              onPressed: widget.controller.runHealthCheck,
-                              icon: const Icon(Icons.monitor_heart_outlined),
-                              label: const Text('健康诊断'),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: _isCleaning
-                                  ? null
-                                  : () => _runCleanup(
-                                      label: '过期资源',
-                                      action: widget
-                                          .controller
-                                          .cleanupExpiredArtifacts,
-                                    ),
-                              icon: const Icon(
-                                Icons.cleaning_services_outlined,
+                        AnimatedOpacity(
+                          duration: _motionDuration(context, 220),
+                          curve: Curves.easeOutCubic,
+                          opacity: serviceControlsDisabled ? .62 : 1,
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              FilledButton.tonalIcon(
+                                onPressed: isRunning || serviceControlsDisabled
+                                    ? null
+                                    : () => _runServiceAction(
+                                        label: '开启',
+                                        action: widget.controller.startService,
+                                      ),
+                                icon: const Icon(Icons.play_arrow_rounded),
+                                label: const Text('开启'),
                               ),
-                              label: const Text('清理过期'),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: _isCleaning
-                                  ? null
-                                  : () => _confirmAndCleanup(
-                                      title: '清空日志',
-                                      message:
-                                          '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
-                                      label: '日志',
-                                      action: widget.controller.cleanupLogs,
-                                    ),
-                              icon: const Icon(Icons.delete_sweep_outlined),
-                              label: const Text('清空日志'),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: _isCleaning
-                                  ? null
-                                  : () => _confirmAndCleanup(
-                                      title: '清空上传缓存',
-                                      message:
-                                          '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
-                                      label: '上传缓存',
-                                      action:
-                                          widget.controller.cleanupUploadCache,
-                                    ),
-                              icon: const Icon(Icons.folder_delete_outlined),
-                              label: const Text('清空缓存'),
-                            ),
-                          ],
+                              FilledButton.tonalIcon(
+                                onPressed: !isRunning || serviceControlsDisabled
+                                    ? null
+                                    : () => _runServiceAction(
+                                        label: '关机',
+                                        action: widget.controller.stopService,
+                                      ),
+                                icon: const Icon(Icons.stop_rounded),
+                                label: const Text('关机'),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: serviceControlsDisabled
+                                    ? null
+                                    : () => _runServiceAction(
+                                        label: '重启',
+                                        action:
+                                            widget.controller.restartService,
+                                      ),
+                                icon: const Icon(Icons.restart_alt_rounded),
+                                label: const Text('重启'),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: serviceControlsDisabled
+                                    ? null
+                                    : () => _runServiceAction(
+                                        label: '配置重载',
+                                        action: widget.controller.reloadConfig,
+                                      ),
+                                icon: const Icon(Icons.sync_rounded),
+                                label: const Text('配置重载'),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: serviceControlsDisabled
+                                    ? null
+                                    : () => _runServiceAction(
+                                        label: '热修复',
+                                        action: widget.controller.hotFix,
+                                      ),
+                                icon: const Icon(Icons.healing_rounded),
+                                label: const Text('热修复'),
+                              ),
+                              FilledButton.icon(
+                                onPressed: widget.controller.runHealthCheck,
+                                icon: const Icon(Icons.monitor_heart_outlined),
+                                label: const Text('健康诊断'),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: _isCleaning
+                                    ? null
+                                    : () => _runCleanup(
+                                        label: '过期资源',
+                                        action: widget
+                                            .controller
+                                            .cleanupExpiredArtifacts,
+                                      ),
+                                icon: const Icon(
+                                  Icons.cleaning_services_outlined,
+                                ),
+                                label: const Text('清理过期'),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: _isCleaning
+                                    ? null
+                                    : () => _confirmAndCleanup(
+                                        title: '清空日志',
+                                        message:
+                                            '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
+                                        label: '日志',
+                                        action: widget.controller.cleanupLogs,
+                                      ),
+                                icon: const Icon(Icons.delete_sweep_outlined),
+                                label: const Text('清空日志'),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: _isCleaning
+                                    ? null
+                                    : () => _confirmAndCleanup(
+                                        title: '清空上传缓存',
+                                        message:
+                                            '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
+                                        label: '上传缓存',
+                                        action: widget
+                                            .controller
+                                            .cleanupUploadCache,
+                                      ),
+                                icon: const Icon(Icons.folder_delete_outlined),
+                                label: const Text('清空缓存'),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 18),
                         LayoutBuilder(
@@ -2466,6 +2526,38 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
     );
     if (confirmed == true) {
       await _runCleanup(label: label, action: action);
+    }
+  }
+
+  Future<void> _runServiceAction({
+    required String label,
+    required Future<void> Function() action,
+  }) async {
+    if (_isServiceActing) return;
+    setState(() => _isServiceActing = true);
+    try {
+      await action();
+      await _tick();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$label 已完成'),
+          duration: const Duration(milliseconds: 1600),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$label 失败: $error',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isServiceActing = false);
     }
   }
 
