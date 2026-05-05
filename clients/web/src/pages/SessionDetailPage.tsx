@@ -18,8 +18,11 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation, useRoute } from 'preact-iso';
 import {
+  deleteSession,
+  exportSessionDownload,
   getSession,
   listMessages,
+  renameSession,
   sendMessage,
   stopMessage,
   type SendMessageAttachment,
@@ -34,6 +37,11 @@ import { useAuth } from '../state/auth';
 import type { ApiMetaModel } from '../api/meta';
 import { TopBar } from '../components/TopBar';
 import { MessageCard } from '../components/MessageCard';
+import {
+  SessionTopBar,
+  type PermissionMode,
+} from '../components/SessionTopBar';
+import { pushRecentModel } from '../components/ModelPickerDialog';
 
 const PAGE_SIZE = 80;
 
@@ -97,6 +105,7 @@ export function SessionDetailPage() {
   const [composerSending, setComposerSending] = useState<boolean>(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [stopping, setStopping] = useState<boolean>(false);
+  const [permissionMode, setPermissionMode] = useState<PermissionMode>('ask');
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const messagesAbortRef = useRef<AbortController | null>(null);
@@ -489,39 +498,79 @@ export function SessionDetailPage() {
   return (
     <main class="min-h-screen px-6 py-8" style={{ background: 'var(--m3-surface)' }}>
       <div class="mx-auto max-w-3xl">
-        <TopBar
-          compact
+        {/* 全局 TopBar (品牌/语言/导航) — 独立于会话操作 */}
+        <TopBar compact subtitle="" />
+        <SessionTopBar
           title={session?.title || t('sessions.untitled', '未命名会话')}
           subtitle={subtitle}
-          leadingSlot={
+          onBack={() => location.route('/threads')}
+          onRename={async (next) => {
+            try {
+              const res = await renameSession(sessionId, next);
+              setDetail((prev) =>
+                prev ? { ...prev, session: res.session } : prev,
+              );
+            } catch (e) {
+              if (handleAuthError(e)) return;
+              setLastError(e instanceof Error ? e.message : String(e));
+            }
+          }}
+          modes={allowedModes}
+          mode={composerMode}
+          onModeChange={setComposerMode}
+          models={allowedModels}
+          modelKey={composerModelKey}
+          onModelChange={(k) => {
+            setComposerModelKey(k);
+            pushRecentModel(k);
+          }}
+          permissionMode={permissionMode}
+          onPermissionChange={setPermissionMode}
+          sendPhase={sendPhase}
+          canStop={detail?.runtime.can_stop ?? sendPhase !== 'idle'}
+          stopping={stopping}
+          onStop={handleStop}
+          onDelete={async () => {
+            if (!sessionId) return;
+            if (!window.confirm(t('topbar.deleteConfirm', '确定删除该会话?此操作不可恢复'))) {
+              return;
+            }
+            try {
+              await deleteSession(sessionId);
+              location.route('/threads');
+            } catch (e) {
+              if (handleAuthError(e)) return;
+              setLastError(e instanceof Error ? e.message : String(e));
+            }
+          }}
+          onExport={async () => {
+            try {
+              await exportSessionDownload(
+                sessionId,
+                session?.title || sessionId,
+              );
+            } catch (e) {
+              if (handleAuthError(e)) return;
+              setLastError(e instanceof Error ? e.message : String(e));
+            }
+          }}
+          sessionId={sessionId}
+          trailing={
             <button
               type="button"
-              onClick={() => location.route('/threads')}
-              class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm"
+              onClick={refresh}
+              disabled={refreshing || loadingDetail}
+              class="oh-tap-press text-xs px-2.5 py-1 rounded-m3-sm disabled:opacity-50"
               style={{
-                color: 'var(--m3-on-surface-variant)',
                 border: '1px solid var(--m3-outline)',
+                color: 'var(--m3-on-surface-variant)',
               }}
-              title={t('detail.backToList', '返回会话列表')}
+              title={t('detail.refresh', '刷新')}
             >
-              ←
+              {refreshing ? '↻…' : '↻'}
             </button>
           }
         />
-        <div class="flex justify-end mb-4">
-          <button
-            type="button"
-            onClick={refresh}
-            disabled={refreshing || loadingDetail}
-            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm disabled:opacity-50"
-            style={{
-              border: '1px solid var(--m3-outline)',
-              color: 'var(--m3-on-surface)',
-            }}
-          >
-            {refreshing ? t('detail.refreshing', '刷新中…') : t('detail.refresh', '刷新')}
-          </button>
-        </div>
 
         {/* 状态条 */}
         <div
