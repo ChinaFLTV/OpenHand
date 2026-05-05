@@ -113,6 +113,7 @@ export const dict_zh: Record<string, string> = {
   'detail.error.timeout.hint': '远端长时间未响应：可重试一次；若持续超时请尝试更小的输入或切换模型。',
   'composer.charUnit': '字符',
   'composer.shortcutHint': 'Cmd / Ctrl + Enter 发送',
+  'detail.tool.argumentsTitle': '工具入参',
   'detail.missingId': '缺少会话 ID',
   'detail.backToList': '返回会话列表',
   'detail.refresh': '刷新',

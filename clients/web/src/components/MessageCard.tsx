@@ -272,6 +272,9 @@ function MessageCardImpl({
         <span class="opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
       </header>
       <MessageToolMeta message={message} />
+      {message.kind === 'tool_call' || message.kind === 'mcp' ? (
+        <ToolArgumentsBlock metadata={message.metadata} />
+      ) : null}
       {useToolBody ? (
         content.length > 0 ? <ToolResultBody content={content} /> : null
       ) : (
@@ -362,3 +365,74 @@ function ActionBtn({
 // 不再重做 markdown 解析 / 高亮 / 媒体解码，达到肉眼"逐字 / 逐 token 增长"。
 // 我们仅依赖父级 mergeStream 已经保证不变前缀的引用稳定，因此默认 shallow compare 已足够。
 export const MessageCard = memo(MessageCardImpl);
+
+/// 工具入参展示块：将 metadata.tool_arguments 渲染为可折叠的 JSON 代码块。
+/// - 字符串 → 尝试 JSON.parse 后 pretty-print；解析失败按原文展示。
+/// - 默认折叠到 4 行；点击「展开/折叠」切换。
+/// - 与工具结果（ToolResultBody）共享视觉语言：mono 字体、surface 背景、outline 边框。
+function ToolArgumentsBlock({ metadata }: { metadata: Record<string, unknown> | undefined }) {
+  const raw = metadata?.['tool_arguments'];
+  if (raw == null) return null;
+  let pretty: string;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed === '') return null;
+    try {
+      pretty = JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch {
+      pretty = trimmed;
+    }
+  } else {
+    try {
+      pretty = JSON.stringify(raw, null, 2);
+    } catch {
+      pretty = String(raw);
+    }
+  }
+  const [expanded, setExpanded] = useState(false);
+  const lineCount = pretty.split('\n').length;
+  const overflow = lineCount > 4 || pretty.length > 200;
+  return (
+    <div class="mb-2">
+      <div
+        class="text-[11px] mb-1 flex items-center gap-2"
+        style={{ color: 'var(--m3-on-surface-variant)' }}
+      >
+        <span style={{ fontWeight: 600 }}>{t('detail.tool.argumentsTitle', '工具入参')}</span>
+        {overflow ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+            class="px-1.5 py-0.5 rounded-m3-sm"
+            style={{
+              border: '1px solid var(--m3-outline)',
+              color: 'var(--m3-on-surface-variant)',
+              background: 'var(--m3-surface)',
+              fontSize: 10,
+            }}
+          >
+            {expanded
+              ? t('detail.tool.body.collapse', '折叠')
+              : t('detail.tool.body.expand', '展开全部 ')}
+          </button>
+        ) : null}
+      </div>
+      <pre
+        class="text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
+        style={{
+          background: 'var(--m3-surface)',
+          color: 'var(--m3-on-surface)',
+          border: '1px solid var(--m3-outline)',
+          wordBreak: 'break-word',
+          maxHeight: !expanded && overflow ? '88px' : undefined,
+          overflow: !expanded && overflow ? 'hidden' : 'auto',
+        }}
+      >
+        {pretty}
+      </pre>
+    </div>
+  );
+}

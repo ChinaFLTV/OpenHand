@@ -114,6 +114,7 @@ export const dict_en: Record<string, string> = {
   'detail.error.timeout.hint': 'No response from upstream. Retry once; if it keeps timing out, try a smaller prompt or another model.',
   'composer.charUnit': 'chars',
   'composer.shortcutHint': 'Cmd / Ctrl + Enter to send',
+  'detail.tool.argumentsTitle': 'Tool input',
   'detail.missingId': 'Missing session ID',
   'detail.backToList': 'Back to sessions',
   'detail.refresh': 'Refresh',

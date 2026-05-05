@@ -112,6 +112,7 @@ export const dict_zhHant: Record<string, string> = {
   'detail.error.timeout.hint': '遠端長時間未回應：可重試一次；持續逾時請嘗試較短的輸入或更換模型。',
   'composer.charUnit': '字元',
   'composer.shortcutHint': 'Cmd / Ctrl + Enter 送出',
+  'detail.tool.argumentsTitle': '工具入參',
   'detail.missingId': '缺少工作階段 ID',
   'detail.backToList': '返回工作階段列表',
   'detail.refresh': '重新整理',

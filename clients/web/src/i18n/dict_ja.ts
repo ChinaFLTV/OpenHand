@@ -112,6 +112,7 @@ export const dict_ja: Record<string, string> = {
   'detail.error.timeout.hint': 'アップストリームから応答がありません：1 回再試行してください。引き続きタイムアウトする場合は入力を短くするかモデルを変更してください。',
   'composer.charUnit': '文字',
   'composer.shortcutHint': 'Cmd / Ctrl + Enter で送信',
+  'detail.tool.argumentsTitle': 'ツール入力',
   'detail.missingId': 'セッション ID がありません',
   'detail.backToList': 'セッション一覧へ戻る',
   'detail.refresh': '更新',
