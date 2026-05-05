@@ -16,6 +16,7 @@ import {
   runCleanup,
 } from '../api/ops';
 import { t, tBytes, tDateTime, tDuration, tFmt, tPlural } from '../i18n';
+import { MenuSelect } from '../components/MenuSelect';
 
 const REFRESH_INTERVAL_MS = 5_000;
 
@@ -131,7 +132,7 @@ export function OpsPage() {
   return (
     <main class="min-h-screen p-4 sm:p-6">
       <div class="max-w-6xl mx-auto">
-        <header class="flex items-center justify-between gap-4 mb-4">
+        <header class="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div class="flex items-center gap-3">
             <button
               type="button"
@@ -438,25 +439,16 @@ export function OpsPage() {
             {t('ops.cleanup.title', '资源清理')}
           </h2>
           <div class="flex items-center gap-3 flex-wrap mb-3">
-            <label class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {t('ops.cleanup.target', '目标')}：
-              <select
-                value={cleanupTarget}
-                onChange={(ev) =>
-                  setCleanupTarget((ev.target as HTMLSelectElement).value as 'all' | 'logs' | 'uploads')
-                }
-                class="ml-1 px-2 py-1 rounded-m3-sm text-sm"
-                style={{
-                  backgroundColor: 'var(--m3-surface)',
-                  color: 'var(--m3-on-surface)',
-                  border: '1px solid var(--m3-outline)',
-                }}
-              >
-                <option value="all">{t('ops.cleanup.target.all', '全部')}</option>
-                <option value="logs">{t('ops.cleanup.target.logs', '仅日志')}</option>
-                <option value="uploads">{t('ops.cleanup.target.uploads', '仅上传缓存')}</option>
-              </select>
-            </label>
+            <MenuSelect
+              label={`${t('ops.cleanup.target', '目标')}：`}
+              value={cleanupTarget}
+              onChange={(v) => setCleanupTarget(v as 'all' | 'logs' | 'uploads')}
+              options={[
+                { value: 'all', label: t('ops.cleanup.target.all', '全部') },
+                { value: 'logs', label: t('ops.cleanup.target.logs', '仅日志') },
+                { value: 'uploads', label: t('ops.cleanup.target.uploads', '仅上传缓存') },
+              ]}
+            />
             <label class="text-sm flex items-center gap-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
               <input
                 type="checkbox"
@@ -518,32 +510,34 @@ export function OpsPage() {
               {t('ops.cleanup.empty', '暂无历史记录')}
             </p>
           ) : (
-            <table class="w-full text-sm">
-              <thead>
-                <tr style={{ color: 'var(--m3-on-surface-variant)' }}>
-                  <th class="text-left py-1 px-2">{t('ops.cleanup.col.time', '时间')}</th>
-                  <th class="text-left py-1 px-2">{t('ops.cleanup.col.target', '目标')}</th>
-                  <th class="text-left py-1 px-2">{t('ops.cleanup.col.expired', '仅过期')}</th>
-                  <th class="text-right py-1 px-2">{t('ops.cleanup.col.files', '文件')}</th>
-                  <th class="text-right py-1 px-2">{t('ops.cleanup.col.dirs', '目录')}</th>
-                  <th class="text-right py-1 px-2">{t('ops.cleanup.col.bytes', '释放')}</th>
-                  <th class="text-right py-1 px-2">{t('ops.cleanup.col.memLog', '内存日志')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((h, idx) => (
-                  <tr key={idx} style={{ color: 'var(--m3-on-surface)' }}>
-                    <td class="py-1 px-2 font-mono text-xs">{tDateTime(h.timestamp)}</td>
-                    <td class="py-1 px-2">{h.target}</td>
-                    <td class="py-1 px-2">{h.expired_only ? '✓' : '—'}</td>
-                    <td class="py-1 px-2 text-right">{h.deleted_files}</td>
-                    <td class="py-1 px-2 text-right">{h.deleted_directories}</td>
-                    <td class="py-1 px-2 text-right">{tBytes(h.bytes_freed)}</td>
-                    <td class="py-1 px-2 text-right">{h.memory_log_entries_cleared}</td>
+            <div class="overflow-x-auto -mx-4 px-4">
+              <table class="w-full text-sm" style={{ minWidth: '640px' }}>
+                <thead>
+                  <tr style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <th class="text-left py-1 px-2">{t('ops.cleanup.col.time', '时间')}</th>
+                    <th class="text-left py-1 px-2">{t('ops.cleanup.col.target', '目标')}</th>
+                    <th class="text-left py-1 px-2">{t('ops.cleanup.col.expired', '仅过期')}</th>
+                    <th class="text-right py-1 px-2">{t('ops.cleanup.col.files', '文件')}</th>
+                    <th class="text-right py-1 px-2">{t('ops.cleanup.col.dirs', '目录')}</th>
+                    <th class="text-right py-1 px-2">{t('ops.cleanup.col.bytes', '释放')}</th>
+                    <th class="text-right py-1 px-2">{t('ops.cleanup.col.memLog', '内存日志')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {history.map((h, idx) => (
+                    <tr key={idx} style={{ color: 'var(--m3-on-surface)' }}>
+                      <td class="py-1 px-2 font-mono text-xs">{tDateTime(h.timestamp)}</td>
+                      <td class="py-1 px-2">{h.target}</td>
+                      <td class="py-1 px-2">{h.expired_only ? '✓' : '—'}</td>
+                      <td class="py-1 px-2 text-right">{h.deleted_files}</td>
+                      <td class="py-1 px-2 text-right">{h.deleted_directories}</td>
+                      <td class="py-1 px-2 text-right">{tBytes(h.bytes_freed)}</td>
+                      <td class="py-1 px-2 text-right">{h.memory_log_entries_cleared}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
       </div>

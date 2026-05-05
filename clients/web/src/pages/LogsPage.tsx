@@ -12,6 +12,7 @@ import { useLocation } from 'preact-iso';
 import { ApiError } from '../api/client';
 import { LogEntry, exportLogsBundle, listLogs } from '../api/logs';
 import { t, tTime } from '../i18n';
+import { MenuSelect } from '../components/MenuSelect';
 
 const PAGE_SIZE = 200;
 const TAIL_INTERVAL_MS = 3_000;
@@ -164,24 +165,20 @@ export function LogsPage() {
               />
               {t('logs.tail', 'Tail 模式 3s 自动')}
             </label>
-            <select
+            <MenuSelect
               value={levelFilter}
-              onChange={(ev) => setLevelFilter((ev.target as HTMLSelectElement).value)}
-              class="text-sm px-2 py-1 rounded-m3-sm"
-              style={{
-                backgroundColor: 'var(--m3-surface)',
-                color: 'var(--m3-on-surface)',
-                border: '1px solid var(--m3-outline)',
-              }}
-            >
-              <option value="all">{t('logs.level.all', '全部级别')}</option>
-              <option value="info">info</option>
-              <option value="success">success</option>
-              <option value="warn">warn</option>
-              <option value="error">error</option>
-              <option value="debug">debug</option>
-              <option value="telemetry">telemetry</option>
-            </select>
+              onChange={setLevelFilter}
+              minWidth={140}
+              options={[
+                { value: 'all', label: t('logs.level.all', '全部级别') },
+                { value: 'info', label: 'info' },
+                { value: 'success', label: 'success' },
+                { value: 'warn', label: 'warn' },
+                { value: 'error', label: 'error' },
+                { value: 'debug', label: 'debug' },
+                { value: 'telemetry', label: 'telemetry' },
+              ]}
+            />
             <input
               type="text"
               value={tagFilter}

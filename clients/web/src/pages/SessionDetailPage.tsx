@@ -28,6 +28,7 @@ import {
 } from '../api/sessions';
 import { ApiError, UnauthorizedError } from '../api/client';
 import { t } from '../i18n';
+import { MenuSelect } from '../components/MenuSelect';
 import { useAuth } from '../state/auth';
 import type { ApiMetaModel } from '../api/meta';
 
@@ -439,7 +440,7 @@ export function SessionDetailPage() {
     <main class="min-h-screen px-6 py-8" style={{ background: 'var(--m3-surface)' }}>
       <div class="mx-auto max-w-3xl">
         {/* 顶部条 */}
-        <div class="flex items-start justify-between mb-4 gap-3">
+        <div class="flex items-start justify-between mb-4 gap-3 flex-wrap">
           <div class="flex-1 min-w-0">
             <button
               type="button"
@@ -612,66 +613,43 @@ export function SessionDetailPage() {
               style={{ color: 'var(--m3-on-surface-variant)' }}
             >
               {t('composer.model', '模型')}
-              <select
+              <MenuSelect
                 value={composerModelKey}
-                onChange={(e) =>
-                  setComposerModelKey((e.currentTarget as HTMLSelectElement).value)
-                }
+                onChange={setComposerModelKey}
                 disabled={composerSending || allowedModels.length === 0}
-                class="px-3 py-2 rounded-md text-sm"
-                style={{
-                  background: 'var(--m3-surface)',
-                  color: 'var(--m3-on-surface)',
-                  border: '1px solid var(--m3-outline)',
-                  minWidth: '220px',
-                }}
-              >
-                {allowedModels.length === 0 ? (
-                  <option value="">{t('composer.modelEmpty', '主控制台未配置模型')}</option>
-                ) : (
-                  allowedModels.map((m) => (
-                    <option key={m.key} value={m.key}>
-                      {m.provider} · {m.label}
-                    </option>
-                  ))
-                )}
-              </select>
+                minWidth={240}
+                options={
+                  allowedModels.length === 0
+                    ? [{ value: '', label: t('composer.modelEmpty', '主控制台未配置模型') }]
+                    : allowedModels.map((m) => ({ value: m.key, label: `${m.provider} · ${m.label}` }))
+                }
+              />
             </label>
             <label
               class="flex flex-col text-xs gap-1"
               style={{ color: 'var(--m3-on-surface-variant)' }}
             >
               {t('composer.mode', '模式')}
-              <select
+              <MenuSelect
                 value={composerMode}
-                onChange={(e) =>
-                  setComposerMode((e.currentTarget as HTMLSelectElement).value)
-                }
+                onChange={setComposerMode}
                 disabled={composerSending}
-                class="px-3 py-2 rounded-md text-sm"
-                style={{
-                  background: 'var(--m3-surface)',
-                  color: 'var(--m3-on-surface)',
-                  border: '1px solid var(--m3-outline)',
-                  minWidth: '140px',
-                }}
-              >
-                {allowedModes.map((m) => (
-                  <option key={m} value={m}>
-                    {m === 'normal'
-                      ? t('composer.mode.normal', '普通')
-                      : m === 'plan'
-                        ? t('composer.mode.plan', 'Plan')
-                        : m === 'image'
-                          ? t('composer.mode.image', '图像')
-                          : m === 'video'
-                            ? t('composer.mode.video', '视频')
-                            : m === 'audio'
-                              ? t('composer.mode.audio', '音频')
-                              : m}
-                  </option>
-                ))}
-              </select>
+                minWidth={160}
+                options={allowedModes.map((m) => ({
+                  value: m,
+                  label: m === 'normal'
+                    ? t('composer.mode.normal', '普通')
+                    : m === 'plan'
+                      ? t('composer.mode.plan', 'Plan')
+                      : m === 'image'
+                        ? t('composer.mode.image', '图像')
+                        : m === 'video'
+                          ? t('composer.mode.video', '视频')
+                          : m === 'audio'
+                            ? t('composer.mode.audio', '音频')
+                            : m,
+                }))}
+              />
             </label>
           </div>
 

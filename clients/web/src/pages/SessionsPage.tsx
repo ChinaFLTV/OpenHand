@@ -24,6 +24,7 @@ import {
 } from '../api/sessions';
 import { ApiError, UnauthorizedError } from '../api/client';
 import { t } from '../i18n';
+import { MenuSelect } from '../components/MenuSelect';
 import { useAuth } from '../state/auth';
 import type { ApiMetaTemplate } from '../api/meta';
 
@@ -225,7 +226,7 @@ export function SessionsPage() {
     <main class="min-h-screen px-6 py-10" style={{ background: 'var(--m3-surface)' }}>
       <div class="mx-auto max-w-3xl">
         {/* 顶部条 */}
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between gap-3 mb-6 flex-wrap">
           <div>
             <h1
               class="text-2xl font-semibold"
@@ -271,48 +272,32 @@ export function SessionsPage() {
           <div class="flex flex-wrap gap-3">
             <label class="flex flex-col text-xs gap-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
               {t('sessions.create.template', '模板')}
-              <select
+              <MenuSelect
                 value={createTemplateId}
-                onChange={(e) => setCreateTemplateId((e.currentTarget as HTMLSelectElement).value)}
+                onChange={setCreateTemplateId}
                 disabled={creating || templates.length === 0}
-                class="px-3 py-2 rounded-md text-sm"
-                style={{
-                  background: 'var(--m3-surface)',
-                  color: 'var(--m3-on-surface)',
-                  border: '1px solid var(--m3-outline)',
-                  minWidth: '180px',
-                }}
-              >
-                {templates.length === 0 ? (
-                  <option value="default">default</option>
-                ) : (
-                  templates.map((tpl) => (
-                    <option key={tpl.id} value={tpl.id}>
-                      {tpl.name || tpl.id}
-                    </option>
-                  ))
-                )}
-              </select>
+                minWidth={200}
+                options={
+                  templates.length === 0
+                    ? [{ value: 'default', label: 'default' }]
+                    : templates.map((tpl) => ({ value: tpl.id, label: tpl.name || tpl.id }))
+                }
+              />
             </label>
             <label class="flex flex-col text-xs gap-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
               {t('sessions.create.mode', '模式')}
-              <select
+              <MenuSelect
                 value={createMode}
-                onChange={(e) => setCreateMode((e.currentTarget as HTMLSelectElement).value as 'chat' | 'plan')}
+                onChange={(v) => setCreateMode(v as 'chat' | 'plan')}
                 disabled={creating}
-                class="px-3 py-2 rounded-md text-sm"
-                style={{
-                  background: 'var(--m3-surface)',
-                  color: 'var(--m3-on-surface)',
-                  border: '1px solid var(--m3-outline)',
-                  minWidth: '120px',
-                }}
-              >
-                <option value="chat">{t('sessions.mode.chat', '对话')}</option>
-                {planEnabled ? (
-                  <option value="plan">{t('sessions.mode.plan', 'Plan')}</option>
-                ) : null}
-              </select>
+                minWidth={140}
+                options={[
+                  { value: 'chat', label: t('sessions.mode.chat', '对话') },
+                  ...(planEnabled
+                    ? [{ value: 'plan', label: t('sessions.mode.plan', 'Plan') }]
+                    : []),
+                ]}
+              />
             </label>
             <div class="flex items-end">
               <button

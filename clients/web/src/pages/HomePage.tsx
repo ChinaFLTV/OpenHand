@@ -49,7 +49,7 @@ export function HomePage() {
           boxShadow: 'var(--m3-elev-2)',
         }}
       >
-        <header class="flex items-start justify-between gap-4 mb-6">
+        <header class="flex items-start justify-between gap-4 mb-6 flex-wrap">
           <div class="flex items-center gap-3">
             {/* OpenHand 应用 LOGO，与 Flutter 端 assets/branding 同源；通过 vite public/ 拷贝到 ./openhand_logo.png。 */}
             <img

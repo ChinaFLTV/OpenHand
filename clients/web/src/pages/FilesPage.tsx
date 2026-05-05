@@ -17,6 +17,7 @@ import {
   writeWorkspaceFile,
 } from '../api/workspace';
 import { t, tBytes, tDateTime } from '../i18n';
+import { MenuSelect } from '../components/MenuSelect';
 
 function parentOf(path: string): string {
   const trimmed = path.replace(/\/+$/, '');
@@ -153,7 +154,7 @@ export function FilesPage() {
     <main class="min-h-screen p-4 sm:p-6">
       <div class="max-w-7xl mx-auto">
         {/* 顶部 toolbar */}
-        <header class="flex items-center justify-between gap-4 mb-4">
+        <header class="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div class="flex items-center gap-3">
             <button
               type="button"
@@ -249,22 +250,16 @@ export function FilesPage() {
                   color: 'var(--m3-on-surface)',
                 }}
               />
-              <select
+              <MenuSelect
                 value={typeFilter}
-                onChange={(ev) =>
-                  setTypeFilter((ev.target as HTMLSelectElement).value as 'all' | 'file' | 'directory')
-                }
-                class="text-sm px-2 py-1 rounded-m3-sm"
-                style={{
-                  backgroundColor: 'var(--m3-surface)',
-                  border: '1px solid var(--m3-outline)',
-                  color: 'var(--m3-on-surface)',
-                }}
-              >
-                <option value="all">{t('files.type.all', '全部')}</option>
-                <option value="directory">{t('files.type.directory', '目录')}</option>
-                <option value="file">{t('files.type.file', '文件')}</option>
-              </select>
+                onChange={(v) => setTypeFilter(v as 'all' | 'file' | 'directory')}
+                minWidth={120}
+                options={[
+                  { value: 'all', label: t('files.type.all', '全部') },
+                  { value: 'directory', label: t('files.type.directory', '目录') },
+                  { value: 'file', label: t('files.type.file', '文件') },
+                ]}
+              />
             </div>
 
             {path && (
