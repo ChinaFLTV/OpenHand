@@ -9,31 +9,66 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { dict_zh } from './dict_zh';
+import { dict_zhHant } from './dict_zhHant';
 import { dict_en } from './dict_en';
+import { dict_ja } from './dict_ja';
 
-export type Lang = 'zh' | 'en';
+export type Lang = 'zh' | 'zh-Hant' | 'en' | 'ja';
+export const SUPPORTED_LANGS: readonly Lang[] = ['zh', 'zh-Hant', 'en', 'ja'];
 
 const STORAGE_KEY = 'openhand_web_lang';
 const dicts: Record<Lang, Record<string, string>> = {
   zh: dict_zh,
+  'zh-Hant': dict_zhHant,
   en: dict_en,
+  ja: dict_ja,
 };
+
+function isLang(v: unknown): v is Lang {
+  return v === 'zh' || v === 'zh-Hant' || v === 'en' || v === 'ja';
+}
 
 function detectInitialLang(): Lang {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === 'zh' || stored === 'en') return stored;
+    if (isLang(stored)) return stored;
   } catch {
     // localStorage 不可用（隐私模式 / SSR）：忽略，落入自动检测。
   }
   try {
     const navLang = (navigator.language || '').toLowerCase();
-    if (navLang.startsWith('zh')) return 'zh';
+    if (navLang.startsWith('ja')) return 'ja';
+    // 繁体中文：zh-Hant / zh-TW / zh-HK / zh-MO
+    if (navLang.startsWith('zh')) {
+      if (
+        navLang.includes('hant') ||
+        navLang.includes('-tw') ||
+        navLang.includes('-hk') ||
+        navLang.includes('-mo')
+      ) {
+        return 'zh-Hant';
+      }
+      return 'zh';
+    }
     if (navLang.startsWith('en')) return 'en';
   } catch {
     // 非浏览器环境：忽略。
   }
   return 'zh';
+}
+
+// BCP 47 语言标记（供 <html lang> / 屏幕阅读器 / Intl API 使用）。
+function toBcp47(lang: Lang): string {
+  switch (lang) {
+    case 'zh':
+      return 'zh-Hans';
+    case 'zh-Hant':
+      return 'zh-Hant';
+    case 'en':
+      return 'en';
+    case 'ja':
+      return 'ja';
+  }
 }
 
 let currentLang: Lang = detectInitialLang();
@@ -44,7 +79,7 @@ export function getLang(): Lang {
 }
 
 export function setLang(lang: Lang): void {
-  if (lang !== 'zh' && lang !== 'en') return;
+  if (!isLang(lang)) return;
   if (lang === currentLang) return;
   currentLang = lang;
   try {
@@ -54,7 +89,7 @@ export function setLang(lang: Lang): void {
   }
   // 同步设置 <html lang> 便于浏览器 / 屏幕阅读器识别。
   try {
-    document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : 'en';
+    document.documentElement.lang = toBcp47(lang);
   } catch {
     // 忽略：非浏览器环境。
   }
@@ -109,7 +144,7 @@ export function useLang(): Lang {
 
 // 启动时立刻同步 <html lang>，便于浏览器加载首屏时即生效。
 try {
-  document.documentElement.lang = currentLang === 'zh' ? 'zh-Hans' : 'en';
+  document.documentElement.lang = toBcp47(currentLang);
 } catch {
   // 非浏览器环境：忽略。
 }

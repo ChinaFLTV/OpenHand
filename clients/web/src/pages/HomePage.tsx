@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { logout, useAuth } from '../state/auth';
 import { useLocation } from 'preact-iso';
-import { setLang, t, useLang } from '../i18n';
+import { setLang, SUPPORTED_LANGS, t, useLang, type Lang } from '../i18n';
 
 export function HomePage() {
   const auth = useAuth();
@@ -67,8 +67,16 @@ export function HomePage() {
               class="inline-flex rounded-m3-sm overflow-hidden"
               style={{ border: '1px solid var(--m3-outline)' }}
             >
-              {(['zh', 'en'] as const).map((opt) => {
+              {(SUPPORTED_LANGS as readonly Lang[]).map((opt) => {
                 const active = lang === opt;
+                const labelKey =
+                  opt === 'zh'
+                    ? 'common.lang.zh'
+                    : opt === 'zh-Hant'
+                    ? 'common.lang.zhHant'
+                    : opt === 'en'
+                    ? 'common.lang.en'
+                    : 'common.lang.ja';
                 return (
                   <button
                     key={opt}
@@ -78,13 +86,13 @@ export function HomePage() {
                     style={{
                       color: active ? 'var(--m3-on-primary)' : 'var(--m3-on-surface-variant)',
                       backgroundColor: active ? 'var(--m3-primary)' : 'transparent',
-                      minWidth: '36px',
+                      minWidth: '32px',
                       cursor: active ? 'default' : 'pointer',
                     }}
                     aria-pressed={active}
                     title={t('common.lang.label')}
                   >
-                    {opt === 'zh' ? t('common.lang.zh') : t('common.lang.en')}
+                    {t(labelKey)}
                   </button>
                 );
               })}
