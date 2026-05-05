@@ -130,6 +130,14 @@ export function TopBar(props: TopBarProps) {
             </button>
             <button
               type="button"
+              onClick={() => location.route('/toolbox')}
+              class={navBtnClass}
+              style={navBtnStyle}
+            >
+              {t('home.openToolbox', '工具箱')}
+            </button>
+            <button
+              type="button"
               onClick={() => location.route('/ops')}
               class={navBtnClass}
               style={navBtnStyle}

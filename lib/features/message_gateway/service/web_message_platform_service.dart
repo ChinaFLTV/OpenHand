@@ -21,6 +21,7 @@ import '../../ai/model/ai_session.dart';
 import '../../ai/model/ai_session_message.dart';
 import '../../ai/model/ai_session_runtime_context.dart';
 import '../../ai/model/ai_thread_template.dart';
+import '../../crons/crons_controller.dart';
 import '../../instructions/instructions_controller.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../mcp/model/mcp_tool.dart';
@@ -47,6 +48,7 @@ class WebMessagePlatformService {
     required SkillsController skillsController,
     required McpController mcpController,
     required MemoryController memoryController,
+    required CronsController cronsController,
     required InstructionsController instructionsController,
     required AppInfo appInfo,
     String? cacheDirectoryPath,
@@ -57,6 +59,7 @@ class WebMessagePlatformService {
        _skillsController = skillsController,
        _mcpController = mcpController,
        _memoryController = memoryController,
+       _cronsController = cronsController,
        _instructionsController = instructionsController,
        _appInfo = appInfo,
        _cacheDirectoryPath =
@@ -72,6 +75,7 @@ class WebMessagePlatformService {
   final SkillsController _skillsController;
   final McpController _mcpController;
   final MemoryController _memoryController;
+  final CronsController _cronsController;
   final InstructionsController _instructionsController;
   final AppInfo _appInfo;
   final String _cacheDirectoryPath;
@@ -700,6 +704,13 @@ class WebMessagePlatformService {
     router.get('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _readWorkspaceFile(req)));
     router.put('/api/workspace/file', (shelf.Request r) => _withAuth(r, (req, _) => _writeWorkspaceFile(req)));
 
+    // Toolbox: 只读列出 MCP 服务器 / 已安装技能 / 用户记忆 / 定时任务
+    // App 端是这些资源的真权威 (增删改全在 GUI), Web 端只读消费即可。
+    router.get('/api/mcp/servers', (shelf.Request r) => _withAuth(r, (_, _) => _listMcpServersHandler()));
+    router.get('/api/skills', (shelf.Request r) => _withAuth(r, (_, _) => _listSkillsHandler()));
+    router.get('/api/memories', (shelf.Request r) => _withAuth(r, (_, _) => _listMemoriesHandler()));
+    router.get('/api/crons', (shelf.Request r) => _withAuth(r, (_, _) => _listCronsHandler()));
+
     return router;
   }
 
@@ -865,6 +876,85 @@ class WebMessagePlatformService {
       });
     }
     return _json(HttpStatus.ok, (await runtimeSnapshotAsync()).toJson());
+  }
+
+  /// Toolbox: 列出当前已加载 MCP 服务器（含 enabled / type / 摘要）。
+  Future<shelf.Response> _listMcpServersHandler() async {
+    final items = _mcpController.servers
+        .map((server) => <String, Object?>{
+              'name': server.name,
+              'type': server.type.name,
+              'enabled': server.enabled,
+              'summary': server.summary,
+              'url': server.url,
+              'command': server.command,
+              'args': server.args,
+              'tool_count': _mcpController
+                  .toolCatalogFor(server.name)
+                  .tools
+                  .length,
+            })
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  /// Toolbox: 列出已安装本地技能（来自 SkillsController）。
+  Future<shelf.Response> _listSkillsHandler() async {
+    final items = _skillsController.skills
+        .map((skill) => <String, Object?>{
+              'name': skill.name,
+              'description': skill.description,
+              'directory_path': skill.displayDirectoryPath,
+              'relative_directory_path': skill.relativeDirectoryPath,
+              'has_default_prompt':
+                  (skill.defaultPrompt ?? '').trim().isNotEmpty,
+              'emoji_icon': skill.emojiIcon,
+            })
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{
+      'items': items,
+      'storage_path': _skillsController.storagePath,
+    });
+  }
+
+  /// Toolbox: 列出用户记忆（按时间倒序）。仅暴露 id / type / preview /
+  /// title / tags / created_at — 不暴露完整 content 以降低敏感信息泄露面。
+  Future<shelf.Response> _listMemoriesHandler() async {
+    final items = _memoryController.entries
+        .map((entry) => <String, Object?>{
+              'id': entry.id,
+              'type': entry.type,
+              'title': entry.displayTitle,
+              'preview': entry.preview,
+              'tags': entry.tags,
+              'created_at': entry.createdAtStorageValue,
+              'is_user_profile': entry.isUserProfile,
+              'is_auto_learned': entry.isAutoLearned,
+            })
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  /// Toolbox: 列出定时任务（CronEntry）。包含状态 / 下次运行时间 /
+  /// 最近退出码 / 连续失败计数等，便于 Web 侧只读监控。
+  Future<shelf.Response> _listCronsHandler() async {
+    final items = _cronsController.entries
+        .map((entry) => <String, Object?>{
+              'id': entry.id,
+              'name': entry.name,
+              'description': entry.description,
+              'enabled': entry.enabled,
+              'status': entry.status.name,
+              'cron_expression': entry.cronExpression,
+              'script_type': entry.scriptType.name,
+              'tags': entry.tags,
+              'last_run_at': entry.lastRunAt?.toUtc().toIso8601String(),
+              'next_run_at': entry.nextRunAt?.toUtc().toIso8601String(),
+              'last_exit_code': entry.lastExitCode,
+              'consecutive_failures': entry.consecutiveFailures,
+            })
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
 
   Map<String, Object?> _metaPayload() {

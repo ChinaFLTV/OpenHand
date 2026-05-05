@@ -37,6 +37,7 @@ export const dict_ja: Record<string, string> = {
   'home.openFiles': 'ワークスペースファイル',
   'home.openOps': 'Ops',
   'home.openLogs': 'ログ',
+  'home.openToolbox': 'ツールボックス',
   'home.profile.label': 'ログイン中：',
   'login.title': 'Web メッセージングプラットフォームにログイン',
   'login.subtitle': 'OpenHand コンソールで認証が有効です。資格情報を入力してください。',

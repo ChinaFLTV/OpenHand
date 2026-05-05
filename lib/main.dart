@@ -299,6 +299,7 @@ Future<void> _bootstrap() async {
     skillsController: skillsController,
     mcpController: mcpController,
     memoryController: memoryController,
+    cronsController: cronsController,
     instructionsController: instructionsController,
     appInfo: appInfo,
   );

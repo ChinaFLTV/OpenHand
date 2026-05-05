@@ -9,6 +9,7 @@ import { SessionDetailPage } from './pages/SessionDetailPage';
 import { FilesPage } from './pages/FilesPage';
 import { OpsPage } from './pages/OpsPage';
 import { LogsPage } from './pages/LogsPage';
+import { ToolboxPage } from './pages/ToolboxPage';
 import { Appear } from './components/Appear';
 import { t } from './i18n';
 
@@ -78,6 +79,12 @@ const FilesRoute = () => (
   </RequireAuth>
 );
 
+const ToolboxRoute = () => (
+  <RequireAuth>
+    <Appear variant="page"><ToolboxPage /></Appear>
+  </RequireAuth>
+);
+
 const OpsRoute = () => (
   <RequireAuth>
     <Appear variant="page"><OpsPage /></Appear>
@@ -101,6 +108,7 @@ export function App() {
         {/* /thread 旧路径：保持后向兼容，跳到列表 */}
         <Route path="/thread" component={SessionsRoute} />
         <Route path="/files" component={FilesRoute} />
+        <Route path="/toolbox" component={ToolboxRoute} />
         <Route path="/ops" component={OpsRoute} />
         <Route path="/logs" component={LogsRoute} />
         <Route default component={NotFound} />

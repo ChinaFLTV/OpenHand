@@ -37,6 +37,7 @@ export const dict_zhHant: Record<string, string> = {
   'home.openFiles': '工作區檔案',
   'home.openOps': 'Ops',
   'home.openLogs': '紀錄',
+  'home.openToolbox': '工具箱',
   'home.profile.label': '目前工作階段：',
   'login.title': '登入 Web 通用訊息平台',
   'login.subtitle': 'OpenHand 主控台已啟用驗證，請輸入帳號與密碼',

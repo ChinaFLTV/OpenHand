@@ -6,6 +6,7 @@ import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_thread_template.dart';
+import '../crons/crons_controller.dart';
 import '../instructions/instructions_controller.dart';
 import '../mcp/mcp_controller.dart';
 import '../memory/memory_controller.dart';
@@ -35,6 +36,7 @@ class MessageGatewayController extends ChangeNotifier {
     required SkillsController skillsController,
     required McpController mcpController,
     required MemoryController memoryController,
+    required CronsController cronsController,
     required InstructionsController instructionsController,
     required AppInfo appInfo,
     MessageGatewayStore? store,
@@ -53,6 +55,7 @@ class MessageGatewayController extends ChangeNotifier {
              skillsController: skillsController,
              mcpController: mcpController,
              memoryController: memoryController,
+             cronsController: cronsController,
              instructionsController: instructionsController,
              appInfo: appInfo,
            ) {
