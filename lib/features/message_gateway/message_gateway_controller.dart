@@ -151,8 +151,8 @@ class MessageGatewayController extends ChangeNotifier {
       _config = _normalizeAgainstRuntimeOptions(loaded);
       if (_config.autoStartOnLaunch && !_service.isRunning) {
         final startupConfig = _config.copyWith(enabled: true);
-        _config = startupConfig;
         await _service.start(startupConfig);
+        _config = startupConfig;
         _hasPendingRuntimeConfig = false;
       }
     } catch (error) {
