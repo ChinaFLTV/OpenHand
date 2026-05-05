@@ -73,6 +73,27 @@ const SSE_FAIL_THRESHOLD = 3;
 /// 单条附件最大字节数（沿用 service singleMessageTokenLimit 的语义留 1 MiB 兜底）；
 /// 真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
+const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
+
+function readPersistedComposerCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(COMPOSER_COLLAPSED_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistComposerCollapsed(value: boolean): void {
+  try {
+    if (value) {
+      window.localStorage.setItem(COMPOSER_COLLAPSED_STORAGE_KEY, '1');
+    } else {
+      window.localStorage.removeItem(COMPOSER_COLLAPSED_STORAGE_KEY);
+    }
+  } catch {
+    // private mode / quota errors should never block typing.
+  }
+}
 
 async function copyJsonWithFeedback(json: string): Promise<void> {
   const ok = await copyTextToClipboard(json);
@@ -225,7 +246,9 @@ export function SessionDetailPage() {
   const [composerSending, setComposerSending] = useState<boolean>(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [stopping, setStopping] = useState<boolean>(false);
-  const [composerCollapsed, setComposerCollapsed] = useState(false);
+  const [composerCollapsed, setComposerCollapsed] = useState(
+    readPersistedComposerCollapsed,
+  );
   const [autoFollow, setAutoFollow] = useState(true);
   const [autoFollowPaused, setAutoFollowPaused] = useState(false);
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
@@ -242,7 +265,7 @@ export function SessionDetailPage() {
   // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
   // ---------------------------------------------------------------------
   // 1) 自动跟随: 用户离底 ≤64px 视为「贴底」, 新消息追加时直接 scrollTo bottom;
-  //    否则在右下角浮一个「↓ N 条新消息」pill, 点击回到底部并清零。
+  //    否则把 Composer 控制区切到「回到底部」状态, 点击回到底部并清零。
   // 2) 冲突警告: 本地 handleSend 触发会写 lastLocalSendAtRef. 当 sendPhase 转入
   //    运行态且距离最近一次本地 send > 4s, 视为「另一处客户端在生成」,
   //    若此时 composerText 非空 → 顶部黄色 banner 提示, 防止用户误以为自己刚发了。
@@ -424,6 +447,10 @@ export function SessionDetailPage() {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    persistComposerCollapsed(composerCollapsed);
+  }, [composerCollapsed]);
 
   useEffect(() => {
     if (activeMessageId == null) return;
@@ -1545,6 +1572,7 @@ export function SessionDetailPage() {
             class="oh-composer-body"
             data-collapsed={composerCollapsed ? 'true' : 'false'}
             aria-hidden={composerCollapsed ? 'true' : undefined}
+            {...(composerCollapsed ? { inert: true } : {})}
           >
           <div
             class="relative"
@@ -1594,7 +1622,7 @@ export function SessionDetailPage() {
                 void handleSend();
               }
             }}
-            disabled={composerSending}
+            disabled={composerSending || composerCollapsed}
             rows={4}
             placeholder={t('composer.placeholder', '输入消息（Cmd/Ctrl + Enter 发送）')}
             class="w-full px-3 py-2 rounded-md text-sm"
