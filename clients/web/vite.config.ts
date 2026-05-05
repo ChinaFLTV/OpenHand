@@ -7,6 +7,13 @@ import preact from '@preact/preset-vite';
 export default defineConfig({
   plugins: [preact()],
   base: './',
+  // @ts-expect-error vitest 注入的 test 字段, vite 类型不识别但运行无碍
+  test: {
+    environment: 'happy-dom',
+    globals: true,
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['./test/setup.ts'],
+  },
   build: {
     outDir: '../../assets/web',
     emptyOutDir: true,
