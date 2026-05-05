@@ -18,6 +18,7 @@ import {
 } from '../api/workspace';
 import { t, tBytes, tDateTime } from '../i18n';
 import { MenuSelect } from '../components/MenuSelect';
+import { CodeEditor } from '../components/CodeEditor';
 
 function parentOf(path: string): string {
   const trimmed = path.replace(/\/+$/, '');
@@ -400,24 +401,23 @@ export function FilesPage() {
                   </p>
                 )}
 
-                {!contentLoading && !contentError && (
-                  <textarea
-                    value={content}
-                    onInput={(ev) => {
-                      setContent((ev.target as HTMLTextAreaElement).value);
-                      setDirty(true);
-                      setSaveOk(false);
-                    }}
-                    disabled={writeDisabled}
-                    spellcheck={false}
-                    class="flex-1 w-full p-2 text-sm font-mono rounded-m3-sm resize-none"
-                    style={{
-                      backgroundColor: 'var(--m3-surface)',
-                      color: 'var(--m3-on-surface)',
-                      border: '1px solid var(--m3-outline)',
-                      minHeight: '50vh',
-                    }}
-                  />
+                {!contentLoading && !contentError && selected && (
+                  <div
+                    class="flex-1 w-full"
+                    style={{ minHeight: '50vh', display: 'flex' }}
+                  >
+                    <CodeEditor
+                      key={selected.path}
+                      value={content}
+                      filename={selected.path}
+                      readOnly={writeDisabled}
+                      onChange={(next) => {
+                        setContent(next);
+                        setDirty(true);
+                        setSaveOk(false);
+                      }}
+                    />
+                  </div>
                 )}
               </>
             )}
