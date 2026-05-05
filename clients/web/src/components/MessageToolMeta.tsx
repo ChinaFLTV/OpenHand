@@ -21,6 +21,9 @@ interface ExtractedMeta {
   awaitingApproval: boolean;
   approved: boolean;
   recordCount: number;
+  mcpServerName: string;
+  mcpToolName: string;
+  toolSource: string;
 }
 
 function asString(v: unknown): string {
@@ -55,6 +58,9 @@ function extract(meta: Record<string, unknown> | undefined): ExtractedMeta {
     awaitingApproval: asBool(m['plan_mode_awaiting_approval']),
     approved: asBool(m['plan_mode_approved']),
     recordCount: asNumber(m['round_summary_record_count']),
+    mcpServerName: asString(m['mcp_server_name']),
+    mcpToolName: asString(m['mcp_tool_name']),
+    toolSource: asString(m['tool_source']),
   };
 }
 
@@ -126,6 +132,31 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           title={ex.toolName}
         >
           ⚙ {ex.toolName}
+        </span>
+      ) : null}
+      {(ex.mcpServerName || ex.mcpToolName) ? (
+        <span
+          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono"
+          style={{
+            background: 'color-mix(in srgb, var(--m3-tertiary, #7c3aed) 14%, transparent)',
+            color: 'var(--m3-tertiary, #7c3aed)',
+            fontWeight: 600,
+          }}
+          title={`MCP · ${ex.mcpServerName || '?'} / ${ex.mcpToolName || '?'}`}
+        >
+          🜲 {ex.mcpServerName || '?'}
+          {ex.mcpToolName ? ` · ${ex.mcpToolName}` : ''}
+        </span>
+      ) : null}
+      {ex.toolSource && ex.toolSource !== 'builtin' && !ex.mcpServerName ? (
+        <span
+          class="inline-flex items-center px-1.5 py-0.5 rounded-m3-sm text-[10px] uppercase tracking-wide"
+          style={{
+            background: 'color-mix(in srgb, var(--m3-on-surface-variant) 12%, transparent)',
+            color: 'var(--m3-on-surface-variant)',
+          }}
+        >
+          {ex.toolSource}
         </span>
       ) : null}
       {ex.argumentsStreaming ? (
