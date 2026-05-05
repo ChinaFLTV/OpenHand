@@ -2,11 +2,11 @@
 // 会话列表页。基于用户反馈：原有的"主题预览 + 可访问 URL"看板对终端用户毫无帮助，
 // 直接让登录后的入口与 APP 端"会话列表"对齐才是正路。
 import { useEffect } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
+import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { t } from '../i18n';
 
 export function HomePage() {
-  const location = useLocation();
+  const location = useAnimatedLocation();
   useEffect(() => {
     // 用 replace 而非 push，避免后退键又把用户拉回这个空壳。
     location.route('/threads', true);

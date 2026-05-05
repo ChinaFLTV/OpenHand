@@ -26,6 +26,8 @@ export interface ApiMetaWorkspaceFiles {
 
 export interface ApiMetaPreferences {
   reduce_motion?: boolean;
+  locale?: string;
+  language_storage_value?: string;
 }
 
 export interface ApiMetaThemeRaw {

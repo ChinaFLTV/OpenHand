@@ -7,7 +7,7 @@
 // - 二进制 / 超大文件按 ApiError 文案优雅退化
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
+import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { ApiError } from '../api/client';
 import {
   WorkspaceItem,
@@ -39,7 +39,7 @@ function describeApiError(err: unknown): string {
 }
 
 export function FilesPage() {
-  const location = useLocation();
+  const location = useAnimatedLocation();
 
   const [path, setPath] = useState('');
   const [pathInput, setPathInput] = useState('');

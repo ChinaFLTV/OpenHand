@@ -92,6 +92,20 @@ html, body, #root {
   from { opacity: 0; transform: translate3d(0, 6px, 0); }
   to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
+@keyframes oh-route-view-enter {
+  0%   { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.985); }
+  62%  { opacity: 1; transform: translate3d(0, -2px, 0) scale(1.006); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes oh-route-view-exit {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to   { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.988); }
+}
+@keyframes oh-snackbar-enter {
+  0%   { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.96); }
+  70%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.01); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
 @keyframes oh-pulse-in {
   0%   { opacity: 0.6; }
   100% { opacity: 1; }
@@ -115,6 +129,17 @@ html, body, #root {
 }
 .oh-page-fade {
   animation: oh-page-fade-in var(--oh-motion-duration-slow) var(--oh-motion-emphasized) both;
+}
+.oh-snackbar-enter {
+  animation: oh-snackbar-enter 280ms var(--oh-motion-spring) both;
+  will-change: transform, opacity;
+}
+
+[data-route-transition='active']::view-transition-old(root) {
+  animation: oh-route-view-exit 220ms var(--oh-motion-emphasized) both;
+}
+[data-route-transition='active']::view-transition-new(root) {
+  animation: oh-route-view-enter 360ms var(--oh-motion-spring) both;
 }
 
 /* 列表错峰：用 nth-child / 显式 class 双轨。class 比 nth-child 优先（因 nth-child 仅支持

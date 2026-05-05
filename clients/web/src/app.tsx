@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { LocationProvider, Router, Route, useLocation } from 'preact-iso';
+import { LocationProvider, Router, Route } from 'preact-iso';
 import { useEffect } from 'preact/hooks';
 import { useAuth } from './state/auth';
 import { HomePage } from './pages/HomePage';
@@ -13,13 +13,15 @@ import { ToolboxPage } from './pages/ToolboxPage';
 import { HardnessPage } from './pages/HardnessPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { Appear } from './components/Appear';
+import { SnackbarHost } from './components/Snackbar';
 import { t } from './i18n';
+import { useAnimatedLocation } from './hooks/useAnimatedLocation';
 
 /// 鉴权守卫：service.auth_enabled=true 且无 token 时强制跳 /login。
 /// 鉴权未开启或已登录则透传 children。
 function RequireAuth(props: { children: ComponentChildren }) {
   const auth = useAuth();
-  const location = useLocation();
+  const location = useAnimatedLocation();
   useEffect(() => {
     if (auth.loading) return;
     if (auth.authRequired && !auth.isAuthenticated) {
@@ -129,6 +131,7 @@ export function App() {
         <Route path="/logs" component={LogsRoute} />
         <Route default component={NotFound} />
       </Router>
+      <SnackbarHost />
     </LocationProvider>
   );
 }

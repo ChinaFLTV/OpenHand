@@ -5,6 +5,7 @@
 // - Enter 直接选中第一个匹配
 // - 弹窗 420×520, 无 footer, M3 风格
 
+import { createPortal } from 'preact/compat';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
@@ -167,11 +168,12 @@ export function ModelPickerDialog({
     });
   }
 
-  return (
+  const node = (
     <div
-      class="fixed inset-0 z-50 flex items-center justify-center"
+      class="fixed inset-0 flex items-center justify-center"
       style={{
         background: 'rgba(0, 0, 0, 0.38)',
+        zIndex: 2800,
       }}
       onClick={(ev) => {
         if (ev.target === ev.currentTarget) onClose();
@@ -315,6 +317,8 @@ export function ModelPickerDialog({
       </div>
     </div>
   );
+
+  return typeof document === 'undefined' ? node : createPortal(node, document.body);
 }
 
 function Section({

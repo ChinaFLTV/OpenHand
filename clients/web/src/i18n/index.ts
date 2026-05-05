@@ -118,14 +118,16 @@ export function getLang(): Lang {
   return currentLang;
 }
 
-export function setLang(lang: Lang): void {
+function setLangInternal(lang: Lang, persist: boolean): void {
   if (!isLang(lang)) return;
   if (lang === currentLang) return;
   currentLang = lang;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, lang);
-  } catch {
-    // 持久化失败不影响内存切换。
+  if (persist) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, lang);
+    } catch {
+      // 持久化失败不影响内存切换。
+    }
   }
   // 同步设置 <html lang> 便于浏览器 / 屏幕阅读器识别。
   try {
@@ -142,6 +144,53 @@ export function setLang(lang: Lang): void {
       // 单个订阅者抛错不应影响其他订阅者。
     }
   }
+}
+
+export function setLang(lang: Lang): void {
+  setLangInternal(lang, true);
+}
+
+export function langFromAppPreferences(
+  languageStorageValue?: string,
+  locale?: string,
+): Lang | null {
+  const storage = (languageStorageValue ?? '').trim();
+  switch (storage) {
+    case 'zh_Hant':
+      return 'zh-Hant';
+    case 'zh_Hans':
+      return 'zh';
+    case 'ja':
+      return 'ja';
+    case 'en':
+    case 'fr':
+    case 'de':
+      return 'en';
+  }
+  const tag = (locale ?? '').trim().toLowerCase().replace(/_/g, '-');
+  if (!tag) return null;
+  if (tag.startsWith('ja')) return 'ja';
+  if (tag.startsWith('zh')) {
+    if (
+      tag.includes('hant') ||
+      tag.includes('-tw') ||
+      tag.includes('-hk') ||
+      tag.includes('-mo')
+    ) {
+      return 'zh-Hant';
+    }
+    return 'zh';
+  }
+  if (tag.startsWith('en') || tag.startsWith('fr') || tag.startsWith('de')) return 'en';
+  return null;
+}
+
+export function syncLangFromAppPreferences(
+  languageStorageValue?: string,
+  locale?: string,
+): void {
+  const lang = langFromAppPreferences(languageStorageValue, locale);
+  if (lang) setLangInternal(lang, false);
 }
 
 export function subscribeLang(fn: (lang: Lang) => void): () => void {

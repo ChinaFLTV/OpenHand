@@ -8,11 +8,12 @@
 // - 「导出 JSON」直接下载
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
+import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { ApiError } from '../api/client';
 import { LogEntry, exportLogsBundle, listLogs } from '../api/logs';
 import { t, tTime } from '../i18n';
 import { MenuSelect } from '../components/MenuSelect';
+import { showSnackbar } from '../components/Snackbar';
 
 const PAGE_SIZE = 200;
 const TAIL_INTERVAL_MS = 3_000;
@@ -43,7 +44,7 @@ function describeApiError(err: unknown): string {
 }
 
 export function LogsPage() {
-  const location = useLocation();
+  const location = useAnimatedLocation();
   const [items, setItems] = useState<LogEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -126,9 +127,13 @@ export function LogsPage() {
     setExporting(true);
     setExportError(null);
     try {
+      showSnackbar(t('logs.export.started', '正在导出日志…'));
       await exportLogsBundle();
+      showSnackbar(t('logs.export.ok', '已开始下载日志 JSON'), { tone: 'success' });
     } catch (err) {
-      setExportError(describeApiError(err));
+      const message = describeApiError(err);
+      setExportError(message);
+      showSnackbar(`${t('logs.export.failed', '导出日志失败')}：${message}`, { tone: 'error' });
     } finally {
       setExporting(false);
     }

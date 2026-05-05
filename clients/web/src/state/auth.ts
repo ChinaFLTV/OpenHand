@@ -9,6 +9,7 @@ import { applyThemeTokens, defaultThemeTokens, type M3ThemeTokens } from '../the
 import { metaThemeToTokens } from '../api/meta';
 import { clearAuthStorage, readProfile, readToken, type AuthProfile } from './storage';
 import { setRemoteReducedMotion } from '../hooks/useReducedMotion';
+import { syncLangFromAppPreferences } from '../i18n';
 
 export interface AuthState {
   meta: ApiMetaResponse | null;
@@ -40,6 +41,34 @@ function emit(next: AuthState): void {
 }
 
 let bootPromise: Promise<void> | null = null;
+let syncListenersInstalled = false;
+let lastForegroundMetaRefreshAt = 0;
+
+function applyMetaSideEffects(meta: ApiMetaResponse): M3ThemeTokens {
+  const tokens = metaThemeToTokens(meta.theme, defaultThemeTokens);
+  applyThemeTokens(tokens);
+  setRemoteReducedMotion(Boolean(meta.preferences?.reduce_motion));
+  syncLangFromAppPreferences(
+    meta.preferences?.language_storage_value,
+    meta.preferences?.locale,
+  );
+  return tokens;
+}
+
+function installForegroundMetaSync(): void {
+  if (syncListenersInstalled || typeof window === 'undefined') return;
+  syncListenersInstalled = true;
+  const refreshIfStale = () => {
+    const now = Date.now();
+    if (now - lastForegroundMetaRefreshAt < 2000) return;
+    lastForegroundMetaRefreshAt = now;
+    void refreshMeta().catch(() => undefined);
+  };
+  window.addEventListener('focus', refreshIfStale);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshIfStale();
+  });
+}
 
 /// 第一次调用会拉取 /api/meta + 应用主题 + 检查 token；后续 useAuth 复用结果。
 function bootOnce(): Promise<void> {
@@ -47,9 +76,7 @@ function bootOnce(): Promise<void> {
   bootPromise = (async () => {
     try {
       const meta = await fetchApiMeta();
-      const tokens = metaThemeToTokens(meta.theme, defaultThemeTokens);
-      applyThemeTokens(tokens);
-      setRemoteReducedMotion(Boolean(meta.preferences?.reduce_motion));
+      const tokens = applyMetaSideEffects(meta);
       const authRequired = Boolean(meta.service?.auth_enabled);
       const token = readToken();
       const profile = readProfile();
@@ -63,6 +90,7 @@ function bootOnce(): Promise<void> {
         themeTokens: tokens,
         themeSource: 'api',
       });
+      installForegroundMetaSync();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       emit({ ...current, loading: false, error: msg });

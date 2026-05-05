@@ -7,8 +7,9 @@
 //   带额外参数的模板，受限于服务端契约只接受 {template_id, mode, title?}，先走"通用表单"
 //   保持与服务端契约一致；后续服务端开放 extra_params 时再分模板渲染专属表单。
 //
-// 两个弹窗都使用 portal-less 全屏遮罩 + 中央卡片 + ESC 关闭 + 点击遮罩关闭。
+// 两个弹窗都使用 portal 全屏遮罩 + 中央卡片 + ESC 关闭 + 点击遮罩关闭。
 
+import { createPortal } from 'preact/compat';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel, ApiMetaTemplate } from '../api/meta';
@@ -33,12 +34,13 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
-  return (
+  const node = (
     <div
-      class="fixed inset-0 z-50 flex items-center justify-center px-4 oh-dialog-fade-in"
+      class="fixed inset-0 flex items-center justify-center px-4 oh-dialog-fade-in"
       style={{
         background: 'rgba(0,0,0,0.40)',
         backdropFilter: 'blur(2px)',
+        zIndex: 2400,
       }}
       onClick={(ev) => {
         if (ev.target === ev.currentTarget) onClose();
@@ -80,6 +82,41 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
       </section>
     </div>
   );
+  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+}
+
+function templateIconGlyph(template: ApiMetaTemplate): string {
+  const raw = `${template.icon ?? ''} ${template.id} ${template.name}`.toLowerCase();
+  if (template.icon && !template.icon.includes('_') && template.icon.length <= 3) {
+    return template.icon;
+  }
+  if (raw.includes('program') || raw.includes('code')) return '</>';
+  if (raw.includes('machine') || raw.includes('expert')) return '⌘';
+  if (raw.includes('hardness') || raw.includes('engineering')) return '◇';
+  if (raw.includes('hermes') || raw.includes('talk')) return '✉';
+  if (raw.includes('default') || raw.includes('chat')) return '✦';
+  return '✦';
+}
+
+function TemplateIcon({ template }: { template: ApiMetaTemplate }) {
+  const glyph = templateIconGlyph(template);
+  return (
+    <div
+      class="w-10 h-10 rounded-m3-sm flex items-center justify-center overflow-hidden text-center"
+      style={{
+        background: 'var(--m3-primary)',
+        color: 'var(--m3-on-primary)',
+        fontSize: glyph === '</>' ? '15px' : '18px',
+        fontWeight: 700,
+        lineHeight: 1,
+        letterSpacing: 0,
+      }}
+      aria-hidden
+      title={template.icon ?? template.name}
+    >
+      {glyph}
+    </div>
+  );
 }
 
 export interface TemplatePickerDialogProps {
@@ -115,16 +152,7 @@ export function TemplatePickerDialog({ templates, onPick, onClose }: TemplatePic
                   minHeight: '160px',
                 }}
               >
-                <div
-                  class="w-10 h-10 rounded-m3-sm flex items-center justify-center text-lg"
-                  style={{
-                    background: 'var(--m3-primary)',
-                    color: 'var(--m3-on-primary)',
-                  }}
-                  aria-hidden
-                >
-                  {tpl.icon ?? '✦'}
-                </div>
+                <TemplateIcon template={tpl} />
                 <h3 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
                   {tpl.name}
                 </h3>

@@ -1,14 +1,17 @@
-// 顶部公共导航条：LOGO + 标题 / 子标题 / 语言切换 + 登出。
+// 顶部公共导航条：LOGO + 标题 / 子标题 + 登出。
 // Web 端定位极简——只做线程会话聊天，因此 TopBar 不再暴露 工作区文件 / 工具箱 /
 // Hardness / 设置 / Ops / 日志 等服务端管理面入口；这些页面仍可通过直链访问，
-// 但默认入口仅保留语言切换与登出。
+// 但默认入口仅保留登出。语言由 App 端全局设置经 /api/meta 自动同步。
 // 在 SessionsPage / SessionDetailPage / OpsPage / FilesPage / LogsPage 之间共享，
 // 仅在需要"次级页面"时由调用方用 `compact` 收缩样式。
 
 import type { ComponentChildren } from 'preact';
-import { useLocation } from 'preact-iso';
+import { useState } from 'preact/hooks';
 import { logout, useAuth } from '../state/auth';
-import { setLang, SUPPORTED_LANGS, t, useLang, type Lang } from '../i18n';
+import { t } from '../i18n';
+import { ConfirmDialog } from './ConfirmDialog';
+import { showSnackbar } from './Snackbar';
+import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 
 export interface TopBarProps {
   /// 主标题；缺省 → 走 i18n `app.brand`
@@ -26,12 +29,14 @@ export interface TopBarProps {
 export function TopBar(props: TopBarProps) {
   const { compact = false, hideNav = false, title, subtitle, leadingSlot } = props;
   const auth = useAuth();
-  const location = useLocation();
-  const lang = useLang();
+  const location = useAnimatedLocation();
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
-  const onLogout = () => {
+  const confirmLogout = () => {
     logout();
-    if (auth.authRequired) location.route('/login');
+    setLogoutConfirmOpen(false);
+    showSnackbar(t('common.logout.ok', '已退出登录'), { tone: 'success' });
+    if (auth.authRequired) location.route('/login', true);
   };
 
   const navBtnClass = `oh-tap-press text-sm rounded-m3-sm transition-colors ${
@@ -44,9 +49,10 @@ export function TopBar(props: TopBarProps) {
   };
 
   return (
-    <header
-      class={`flex items-start justify-between gap-4 flex-wrap ${compact ? 'mb-4' : 'mb-6'}`}
-    >
+    <>
+      <header
+        class={`flex items-start justify-between gap-4 flex-wrap ${compact ? 'mb-4' : 'mb-6'}`}
+      >
       <div class="flex items-center gap-3 min-w-0">
         {leadingSlot}
         <img
@@ -85,46 +91,10 @@ export function TopBar(props: TopBarProps) {
       </div>
 
       <div class="flex items-center gap-2 flex-wrap justify-end">
-        <div
-          role="group"
-          aria-label={t('common.lang.label')}
-          class="inline-flex rounded-m3-sm overflow-hidden"
-          style={{ border: '1px solid var(--m3-outline)' }}
-        >
-          {(SUPPORTED_LANGS as readonly Lang[]).map((opt) => {
-            const active = lang === opt;
-            const labelKey =
-              opt === 'zh'
-                ? 'common.lang.zh'
-                : opt === 'zh-Hant'
-                  ? 'common.lang.zhHant'
-                  : opt === 'en'
-                    ? 'common.lang.en'
-                    : 'common.lang.ja';
-            return (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => setLang(opt)}
-                class="text-xs px-2.5 py-1.5 transition-colors"
-                style={{
-                  color: active ? 'var(--m3-on-primary)' : 'var(--m3-on-surface-variant)',
-                  backgroundColor: active ? 'var(--m3-primary)' : 'transparent',
-                  minWidth: '32px',
-                  cursor: active ? 'default' : 'pointer',
-                }}
-                aria-pressed={active}
-                title={t('common.lang.label')}
-              >
-                {t(labelKey)}
-              </button>
-            );
-          })}
-        </div>
         {!hideNav && auth.authRequired ? (
           <button
             type="button"
-            onClick={onLogout}
+            onClick={() => setLogoutConfirmOpen(true)}
             class={navBtnClass}
             style={navBtnStyle}
           >
@@ -132,6 +102,18 @@ export function TopBar(props: TopBarProps) {
           </button>
         ) : null}
       </div>
-    </header>
+      </header>
+      {logoutConfirmOpen ? (
+        <ConfirmDialog
+          title={t('common.logout.confirmTitle', '退出登录?')}
+          body={t('common.logout.confirmBody', '退出后需要重新登录才能访问 Web 消息服务。')}
+          confirmLabel={t('common.logout', '退出登录')}
+          cancelLabel={t('common.cancel', '取消')}
+          danger
+          onCancel={() => setLogoutConfirmOpen(false)}
+          onConfirm={confirmLogout}
+        />
+      ) : null}
+    </>
   );
 }

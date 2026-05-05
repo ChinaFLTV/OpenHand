@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
+import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { loginWithCredentials } from '../api/auth';
 import { ApiError, UnauthorizedError } from '../api/client';
 import { markLoggedIn, useAuth } from '../state/auth';
@@ -7,7 +7,7 @@ import { t } from '../i18n';
 
 export function LoginPage() {
   const auth = useAuth();
-  const location = useLocation();
+  const location = useAnimatedLocation();
   const [username, setUsername] = useState('openhand');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);

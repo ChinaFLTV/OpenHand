@@ -6,7 +6,7 @@
 // - 清理面板：target=all/logs/uploads + expired_only 复选框 + 历史列表
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
+import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { ApiError } from '../api/client';
 import {
   CleanupHistoryEntry,
@@ -30,7 +30,7 @@ function describeApiError(err: unknown): string {
 }
 
 export function OpsPage() {
-  const location = useLocation();
+  const location = useAnimatedLocation();
   const [snapshot, setSnapshot] = useState<OpsRuntimeSnapshot | null>(null);
   const [snapError, setSnapError] = useState<string | null>(null);
   const [snapLoading, setSnapLoading] = useState(false);

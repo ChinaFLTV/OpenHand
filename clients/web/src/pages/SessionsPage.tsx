@@ -9,7 +9,7 @@
 //   GET    /api/sessions/:id/export
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
+import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import {
   createSession,
   deleteSession,
@@ -30,6 +30,8 @@ import { PopMenu } from '../components/PopMenu';
 import { TemplateConfigDialog, TemplatePickerDialog } from '../components/TemplateDialogs';
 import { PullIndicator } from '../components/PullIndicator';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { showSnackbar } from '../components/Snackbar';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -52,17 +54,16 @@ function modeLabel(mode: string): string {
 
 interface RowState {
   draftTitle: string | null;
-  pendingDelete: boolean;
   busy: boolean;
   error?: string;
   exporting?: boolean;
 }
 
-const emptyRow: RowState = { draftTitle: null, pendingDelete: false, busy: false };
+const emptyRow: RowState = { draftTitle: null, busy: false };
 
 export function SessionsPage() {
   const auth = useAuth();
-  const location = useLocation();
+  const location = useAnimatedLocation();
 
   const [page, setPage] = useState(1);
   const [pageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -70,6 +71,8 @@ export function SessionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
+  const [deleteTarget, setDeleteTarget] = useState<SessionSummary | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   // 创建流程：先 picker（选模板），再 config（填参数）。
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -151,6 +154,7 @@ export function SessionsPage() {
         }
       }
       setConfigTemplate(null);
+      showSnackbar(t('sessions.create.ok', '已创建会话'), { tone: 'success' });
       location.route(`/threads/${res.session.id}`);
     } catch (e: unknown) {
       if (e instanceof UnauthorizedError) {
@@ -162,6 +166,7 @@ export function SessionsPage() {
       } else {
         setCreateError(e instanceof Error ? e.message : String(e));
       }
+      showSnackbar(t('sessions.create.failed', '创建会话失败'), { tone: 'error' });
     } finally {
       setCreating(false);
     }
@@ -181,61 +186,64 @@ export function SessionsPage() {
     try {
       await renameSession(item.id, draft);
       patchRow(item.id, { draftTitle: null, busy: false });
+      showSnackbar(t('topbar.rename.ok', '已重命名会话'), { tone: 'success' });
       refresh();
     } catch (e: unknown) {
       if (e instanceof UnauthorizedError) {
         location.route('/login', true);
         return;
       }
-      patchRow(item.id, { busy: false, error: e instanceof Error ? e.message : String(e) });
+      const message = e instanceof Error ? e.message : String(e);
+      patchRow(item.id, { busy: false, error: message });
+      showSnackbar(`${t('topbar.rename.failed', '重命名失败')}：${message}`, { tone: 'error' });
     }
   }
 
-  async function handleDelete(item: SessionSummary): Promise<void> {
-    const row = rowStates[item.id] ?? emptyRow;
-    if (!row.pendingDelete) {
-      patchRow(item.id, { pendingDelete: true });
-      setTimeout(() => {
-        setRowStates((prev) => {
-          const cur = prev[item.id];
-          if (!cur || !cur.pendingDelete) return prev;
-          return { ...prev, [item.id]: { ...cur, pendingDelete: false } };
-        });
-      }, 4000);
-      return;
-    }
+  async function confirmDeleteTarget(): Promise<void> {
+    const item = deleteTarget;
+    if (!item || deleteBusy) return;
+    setDeleteBusy(true);
     patchRow(item.id, { busy: true, error: undefined });
     try {
       await deleteSession(item.id);
-      patchRow(item.id, { busy: false, pendingDelete: false });
+      patchRow(item.id, { busy: false });
+      setDeleteTarget(null);
+      showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
       refresh();
     } catch (e: unknown) {
       if (e instanceof UnauthorizedError) {
         location.route('/login', true);
         return;
       }
+      const message = e instanceof Error ? e.message : String(e);
       patchRow(item.id, {
         busy: false,
-        pendingDelete: false,
-        error: e instanceof Error ? e.message : String(e),
+        error: message,
       });
+      showSnackbar(`${t('topbar.delete.failed', '删除会话失败')}：${message}`, { tone: 'error' });
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
   async function handleExport(item: SessionSummary): Promise<void> {
     patchRow(item.id, { exporting: true, error: undefined });
     try {
-      await exportSessionDownload(item.id, item.title || `session_${item.id}`);
+      showSnackbar(t('topbar.export.started', '正在导出会话数据…'));
+      const result = await exportSessionDownload(item.id, item.title || `session_${item.id}`);
       patchRow(item.id, { exporting: false });
+      showSnackbar(`${t('topbar.export.ok', '已开始下载')}：${result.filename}`, { tone: 'success' });
     } catch (e: unknown) {
-      if (e instanceof Error && e.message === 'UNAUTHORIZED') {
+      if (e instanceof UnauthorizedError) {
         location.route('/login', true);
         return;
       }
+      const message = e instanceof Error ? e.message : String(e);
       patchRow(item.id, {
         exporting: false,
-        error: e instanceof Error ? e.message : String(e),
+        error: message,
       });
+      showSnackbar(`${t('topbar.export.failed', '导出会话失败')}：${message}`, { tone: 'error' });
     }
   }
 
@@ -481,10 +489,8 @@ export function SessionsPage() {
                               key: 'delete',
                               label: row.busy
                                 ? t('sessions.delete.deleting', '正在删除…')
-                                : row.pendingDelete
-                                  ? t('sessions.delete.confirm', '再次点击确认删除')
-                                  : t('sessions.delete.action', '删除'),
-                              onClick: () => void handleDelete(item),
+                                : t('sessions.delete.action', '删除'),
+                              onClick: () => setDeleteTarget(item),
                               variant: 'danger',
                               disabled: row.busy,
                             },
@@ -583,6 +589,20 @@ export function SessionsPage() {
             setConfigTemplate(null);
             setCreateError(null);
           }}
+        />
+      ) : null}
+      {deleteTarget ? (
+        <ConfirmDialog
+          title={t('topbar.deleteConfirmTitle', '删除该会话?')}
+          body={t('topbar.deleteConfirm', '确定删除该会话?此操作不可恢复')}
+          danger
+          busy={deleteBusy}
+          confirmLabel={deleteBusy ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
+          cancelLabel={t('common.cancel', '取消')}
+          onCancel={() => {
+            if (!deleteBusy) setDeleteTarget(null);
+          }}
+          onConfirm={confirmDeleteTarget}
         />
       ) : null}
     </main>

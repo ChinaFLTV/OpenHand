@@ -13,6 +13,7 @@ import type { ComponentChildren } from 'preact';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
 import { ModelPickerDialog } from './ModelPickerDialog';
+import { showSnackbar } from './Snackbar';
 
 export interface SessionToolbarCapsule {
   key: string;
@@ -125,6 +126,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
   const [showModeMenu, setShowModeMenu] = useState(false);
   const [showPermMenu, setShowPermMenu] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
   useEffect(() => {
     if (!editing) setDraftTitle(title);
@@ -149,13 +151,42 @@ export function SessionTopBar(props: SessionTopBarProps) {
     return () => window.removeEventListener('mousedown', close);
   }, [showModeMenu, showPermMenu, showMore]);
 
-  function commitRename() {
+  async function commitRename() {
+    if (renaming) return;
     setEditing(false);
     const next = draftTitle.trim();
     if (next && next !== title && onRename) {
-      void onRename(next);
+      setRenaming(true);
+      try {
+        await onRename(next);
+      } catch {
+        setEditing(true);
+      } finally {
+        setRenaming(false);
+      }
     } else {
       setDraftTitle(title);
+    }
+  }
+
+  async function copySessionId() {
+    if (!sessionId) return;
+    try {
+      await Promise.race([
+        navigator.clipboard.writeText(sessionId),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error('timeout')), 2500);
+        }),
+      ]);
+      showSnackbar(t('topbar.copyId.ok', '已复制会话 ID'), { tone: 'success' });
+    } catch (error) {
+      const timedOut = error instanceof Error && error.message === 'timeout';
+      showSnackbar(
+        timedOut
+          ? t('topbar.copyId.timeout', '复制会话 ID 超时，请重试')
+          : t('topbar.copyId.failed', '复制会话 ID 失败，请检查浏览器剪贴板权限'),
+        { tone: 'error' },
+      );
     }
   }
 
@@ -197,7 +228,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
             onInput={(e) => setDraftTitle((e.currentTarget as HTMLInputElement).value)}
             onBlur={commitRename}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Enter') void commitRename();
               if (e.key === 'Escape') {
                 setEditing(false);
                 setDraftTitle(title);
@@ -215,7 +246,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
             type="button"
             onClick={() => onRename && setEditing(true)}
             class="block w-full text-left truncate"
-            disabled={!onRename}
+            disabled={!onRename || renaming}
             title={onRename ? t('topbar.renameHint', '点击重命名') : undefined}
           >
             <span
@@ -376,11 +407,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
               <MenuItem
                 onClick={async () => {
                   setShowMore(false);
-                  try {
-                    await navigator.clipboard.writeText(sessionId);
-                  } catch {
-                    // ignore
-                  }
+                  await copySessionId();
                 }}
               >
                 ⎘ {t('topbar.copyId', '复制会话 ID')}

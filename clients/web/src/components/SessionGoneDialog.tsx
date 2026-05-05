@@ -10,7 +10,7 @@
 //     [data-motion='reduced'] 自动尊重 reduceMotion / OS prefers-reduced-motion
 
 import { useEffect, useState } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
+import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { t } from '../i18n';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
@@ -21,7 +21,7 @@ export interface SessionGoneDialogProps {
 }
 
 export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogProps) {
-  const location = useLocation();
+  const location = useAnimatedLocation();
   const reduceMotion = useReducedMotion();
   const [navigating, setNavigating] = useState(false);
   const [closing, setClosing] = useState(false);

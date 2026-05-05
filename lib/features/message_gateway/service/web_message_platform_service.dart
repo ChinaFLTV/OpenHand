@@ -1394,6 +1394,8 @@ class WebMessagePlatformService {
       },
       'preferences': <String, Object?>{
         'reduce_motion': _settingsController.reduceMotion,
+        'locale': _settingsController.locale.toLanguageTag(),
+        'language_storage_value': _settingsController.language.storageValue,
       },
       'theme': _theme.toJson(),
       'templates': _allowedTemplates()

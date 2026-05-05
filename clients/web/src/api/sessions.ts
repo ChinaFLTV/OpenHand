@@ -9,8 +9,8 @@
 //
 // 任何接口的 401 都会被 apiRequest 自动转成 UnauthorizedError + 清理本地 token。
 
-import { apiRequest } from './client';
-import { ensureDeviceId, readToken } from '../state/storage';
+import { ApiError, UnauthorizedError, apiRequest } from './client';
+import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
 
 export interface SessionTodoItem {
   id: string;
@@ -285,7 +285,30 @@ export async function deleteMessageCascade(
 
 /// 触发会话 JSON 导出下载。在 service 端附带 Content-Disposition: attachment，
 /// 这里直接抓 blob 后用 a[download] 触发浏览器保存对话框；不绕过鉴权（带上 token）。
-export async function exportSessionDownload(sessionId: string, fallbackName: string): Promise<void> {
+export interface ExportDownloadResult {
+  filename: string;
+}
+
+function filenameFromContentDisposition(value: string | null): string | null {
+  if (!value) return null;
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(value);
+  if (encoded?.[1]) {
+    try {
+      return decodeURIComponent(encoded[1]);
+    } catch {
+      return encoded[1];
+    }
+  }
+  const quoted = /filename="([^"]+)"/i.exec(value);
+  if (quoted?.[1]) return quoted[1];
+  const plain = /filename=([^;]+)/i.exec(value);
+  return plain?.[1]?.trim() ?? null;
+}
+
+export async function exportSessionDownload(
+  sessionId: string,
+  fallbackName: string,
+): Promise<ExportDownloadResult> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'x-openhand-device-id': ensureDeviceId(),
@@ -299,16 +322,17 @@ export async function exportSessionDownload(sessionId: string, fallbackName: str
     credentials: 'same-origin',
   });
   if (res.status === 401) {
-    throw new Error('UNAUTHORIZED');
+    clearAuthStorage();
+    throw new UnauthorizedError(null);
   }
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+    const text = await res.text().catch(() => '');
+    throw new ApiError(res.status, text || null);
   }
   // 优先用响应里 Content-Disposition 的 filename；缺失时 fallback 到调用方给的名字。
   let filename = `${fallbackName}.json`;
-  const cd = res.headers.get('Content-Disposition') ?? '';
-  const match = /filename="?([^";]+)"?/i.exec(cd);
-  if (match && match[1]) filename = match[1];
+  const parsedFilename = filenameFromContentDisposition(res.headers.get('Content-Disposition'));
+  if (parsedFilename) filename = parsedFilename;
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   try {
@@ -319,7 +343,7 @@ export async function exportSessionDownload(sessionId: string, fallbackName: str
     a.click();
     a.remove();
   } finally {
-    // 给浏览器一次机会发起下载，再回收 URL；500ms 经验值足够覆盖 click→保存路径。
-    setTimeout(() => URL.revokeObjectURL(url), 500);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
+  return { filename };
 }

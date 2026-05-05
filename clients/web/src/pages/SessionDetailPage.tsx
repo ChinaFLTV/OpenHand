@@ -16,7 +16,7 @@
 //   POST  /api/sessions/:id/stop     body {}
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { useLocation, useRoute } from 'preact-iso';
+import { useRoute } from 'preact-iso';
 import {
   deleteMessage,
   deleteMessageCascade,
@@ -51,6 +51,9 @@ import { ModelPickerDialog, pushRecentModel } from '../components/ModelPickerDia
 import { PullIndicator } from '../components/PullIndicator';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { showSnackbar } from '../components/Snackbar';
 
 const PAGE_SIZE = 80;
 
@@ -168,7 +171,7 @@ interface RouteParams {
 
 export function SessionDetailPage() {
   const auth = useAuth();
-  const location = useLocation();
+  const location = useAnimatedLocation();
   const reduceMotion = useReducedMotion();
   const routeMatch = useRoute() as { params?: RouteParams } | undefined;
   const sessionId = routeMatch?.params?.id ?? '';
@@ -235,14 +238,8 @@ export function SessionDetailPage() {
     cascade: boolean;
   } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const showToast = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => {
-      setToast((current) => (current === message ? null : current));
-    }, 1800);
-  };
+  const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
+  const [sessionDeleteBusy, setSessionDeleteBusy] = useState(false);
 
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
     const el = mainRef.current;
@@ -276,9 +273,11 @@ export function SessionDetailPage() {
   const handleCopyMessage = async (m: SessionMessage) => {
     const text = m.content ?? '';
     const ok = await copyText(text);
-    showToast(ok
+    showSnackbar(ok
       ? t('detail.copy.ok', '已复制消息内容')
-      : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'));
+      : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+        tone: ok ? 'success' : 'error',
+      });
   };
   const handleDeleteMessage = (m: SessionMessage) => {
     setPendingDeleteAction({ message: m, cascade: false });
@@ -297,15 +296,39 @@ export function SessionDetailPage() {
         await deleteMessage(sessionId, message.id);
       }
       setPendingDeleteAction(null);
-      showToast(cascade
+      showSnackbar(cascade
         ? t('detail.deleteAfter.ok', '已删除此条及后续消息')
-        : t('detail.delete.ok', '已删除消息'));
+        : t('detail.delete.ok', '已删除消息'), { tone: 'success' });
     } catch (e) {
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
+      showSnackbar(t('detail.delete.failed', '删除消息失败'), { tone: 'error' });
     } finally {
       setDeleteBusy(false);
+    }
+  };
+
+  const confirmDeleteSession = async () => {
+    if (!sessionId || sessionDeleteBusy) return;
+    setSessionDeleteBusy(true);
+    try {
+      await deleteSession(sessionId);
+      showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
+      location.route('/threads');
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      if (e instanceof ApiError && e.status === 404) {
+        showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
+        location.route('/threads');
+        return;
+      }
+      const message = e instanceof Error ? e.message : String(e);
+      setLastError(message);
+      showSnackbar(`${t('topbar.delete.failed', '删除会话失败')}：${message}`, { tone: 'error' });
+    } finally {
+      setSessionDeleteBusy(false);
+      setPendingSessionDelete(false);
     }
   };
   const handleEditMessage = (m: SessionMessage) => {
@@ -1020,10 +1043,14 @@ export function SessionDetailPage() {
               setDetail((prev) =>
                 prev ? { ...prev, session: res.session } : prev,
               );
+              showSnackbar(t('topbar.rename.ok', '已重命名会话'), { tone: 'success' });
             } catch (e) {
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
-              setLastError(e instanceof Error ? e.message : String(e));
+              const message = e instanceof Error ? e.message : String(e);
+              setLastError(message);
+              showSnackbar(`${t('topbar.rename.failed', '重命名失败')}：${message}`, { tone: 'error' });
+              throw e;
             }
           }}
           modes={sessionModeOptions}
@@ -1033,10 +1060,13 @@ export function SessionDetailPage() {
             try {
               const res = await updateSessionMode(sessionId, next);
               setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+              showSnackbar(t('topbar.mode.ok', '已更新会话模式'), { tone: 'success' });
             } catch (e) {
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
-              setLastError(e instanceof Error ? e.message : String(e));
+              const message = e instanceof Error ? e.message : String(e);
+              setLastError(message);
+              showSnackbar(`${t('topbar.mode.failed', '更新会话模式失败')}：${message}`, { tone: 'error' });
             }
           }}
           models={allowedModels}
@@ -1052,10 +1082,13 @@ export function SessionDetailPage() {
             try {
               const res = await updateSessionFullAccessPermission(sessionId, next);
               setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+              showSnackbar(t('topbar.perm.ok', '已更新权限设置'), { tone: 'success' });
             } catch (e) {
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
-              setLastError(e instanceof Error ? e.message : String(e));
+              const message = e instanceof Error ? e.message : String(e);
+              setLastError(message);
+              showSnackbar(`${t('topbar.perm.failed', '更新权限设置失败')}：${message}`, { tone: 'error' });
             } finally {
               setPermissionSaving(false);
             }
@@ -1065,33 +1098,22 @@ export function SessionDetailPage() {
           stopping={stopping}
           onStop={handleStop}
           onDelete={async () => {
-            if (!sessionId) return;
-            if (!window.confirm(t('topbar.deleteConfirm', '确定删除该会话?此操作不可恢复'))) {
-              return;
-            }
-            try {
-              await deleteSession(sessionId);
-              location.route('/threads');
-            } catch (e) {
-              if (handleAuthError(e)) return;
-              // 用户主动删除时若服务端已先删 (race) → 也直接跳走，不再弹 SessionGoneDialog
-              if (e instanceof ApiError && e.status === 404) {
-                location.route('/threads');
-                return;
-              }
-              setLastError(e instanceof Error ? e.message : String(e));
-            }
+            setPendingSessionDelete(true);
           }}
           onExport={async () => {
             try {
-              await exportSessionDownload(
+              showSnackbar(t('topbar.export.started', '正在导出会话数据…'));
+              const result = await exportSessionDownload(
                 sessionId,
                 session?.title || sessionId,
               );
+              showSnackbar(`${t('topbar.export.ok', '已开始下载')}：${result.filename}`, { tone: 'success' });
             } catch (e) {
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
-              setLastError(e instanceof Error ? e.message : String(e));
+              const message = e instanceof Error ? e.message : String(e);
+              setLastError(message);
+              showSnackbar(`${t('topbar.export.failed', '导出会话失败')}：${message}`, { tone: 'error' });
             }
           }}
           sessionId={sessionId}
@@ -1314,11 +1336,14 @@ export function SessionDetailPage() {
                 updateSessionFullAccessPermission(sessionId, next)
                   .then((res) => {
                     setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+                    showSnackbar(t('topbar.perm.ok', '已更新权限设置'), { tone: 'success' });
                   })
                   .catch((e: unknown) => {
                     if (handleAuthError(e)) return;
                     if (handleSessionGoneError(e)) return;
-                    setLastError(e instanceof Error ? e.message : String(e));
+                    const message = e instanceof Error ? e.message : String(e);
+                    setLastError(message);
+                    showSnackbar(`${t('topbar.perm.failed', '更新权限设置失败')}：${message}`, { tone: 'error' });
                   })
                   .finally(() => setPermissionSaving(false));
               }}
@@ -1649,19 +1674,19 @@ export function SessionDetailPage() {
           onConfirm={confirmDeleteMessage}
         />
       ) : null}
-      {toast ? (
-        <div
-          class="oh-appear-pop fixed left-1/2 bottom-6 z-[1200] -translate-x-1/2 rounded-full px-4 py-2 text-sm"
-          style={{
-            background: 'var(--m3-surface-container)',
-            color: 'var(--m3-on-surface)',
-            border: '1px solid var(--m3-outline)',
-            boxShadow: 'var(--m3-elev-3)',
+      {pendingSessionDelete ? (
+        <ConfirmDialog
+          title={t('topbar.deleteConfirmTitle', '删除该会话?')}
+          body={t('topbar.deleteConfirm', '确定删除该会话?此操作不可恢复')}
+          danger
+          busy={sessionDeleteBusy}
+          confirmLabel={sessionDeleteBusy ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
+          cancelLabel={t('common.cancel', '取消')}
+          onCancel={() => {
+            if (!sessionDeleteBusy) setPendingSessionDelete(false);
           }}
-          role="status"
-        >
-          {toast}
-        </div>
+          onConfirm={confirmDeleteSession}
+        />
       ) : null}
       {showComposerModelPicker ? (
         <ModelPickerDialog
@@ -1994,74 +2019,6 @@ function SessionAuditDialog({
         >
           {json}
         </pre>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmDialog({
-  title,
-  body,
-  confirmLabel,
-  busy,
-  danger,
-  onCancel,
-  onConfirm,
-}: {
-  title: string;
-  body: string;
-  confirmLabel: string;
-  busy?: boolean;
-  danger?: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div
-      class="oh-dialog-fade-in fixed inset-0 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.38)', zIndex: 1100 }}
-      onClick={busy ? undefined : onCancel}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        class="oh-dialog-pop-in rounded-m3-md p-4 w-full max-w-md"
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-3)',
-          border: '1px solid var(--m3-outline)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 class="text-base font-semibold">{title}</h2>
-        <p class="text-sm mt-2 leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
-          {body}
-        </p>
-        <div class="mt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            class="oh-tap-press text-sm px-3 py-2 rounded-m3-sm"
-            style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
-            disabled={busy}
-            onClick={onCancel}
-          >
-            {t('common.cancel', '取消')}
-          </button>
-          <button
-            type="button"
-            class="oh-tap-press text-sm px-3 py-2 rounded-m3-sm disabled:opacity-60"
-            style={{
-              color: danger ? '#fff' : 'var(--m3-on-primary)',
-              background: danger ? 'var(--m3-error)' : 'var(--m3-primary)',
-              border: '1px solid transparent',
-            }}
-            disabled={busy}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </button>
-        </div>
       </div>
     </div>
   );
