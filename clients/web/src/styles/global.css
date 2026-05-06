@@ -930,6 +930,11 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-hover-lift:hover { transform: translateY(-2px); }
 
+.oh-session-error-banner {
+  animation: oh-snackbar-enter 240ms var(--oh-motion-spring) both;
+  transform-origin: top center;
+}
+
 /* 弹窗入场：遮罩 fade + 中央卡片 spring scale-in，对齐 Material 3 Expressive 的"触觉Q弹"。 */
 @keyframes oh-dialog-fade-in {
   from { opacity: 0; }

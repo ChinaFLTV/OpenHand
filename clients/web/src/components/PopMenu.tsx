@@ -43,6 +43,25 @@ interface MenuPos {
 const VIEWPORT_PADDING = 8;
 const MENU_GAP = 4;
 
+function PopMenuCheckIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="m5 12 4 4 10-10" />
+    </svg>
+  );
+}
+
 export function PopMenu({ items, trigger, align = 'right', width }: PopMenuProps) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -211,7 +230,7 @@ export function PopMenu({ items, trigger, align = 'right', width }: PopMenuProps
               }}
             >
               <span>{item.label}</span>
-              {item.selected ? <span aria-hidden>✓</span> : null}
+              {item.selected ? <PopMenuCheckIcon /> : null}
             </button>
           ))}
         </div>,

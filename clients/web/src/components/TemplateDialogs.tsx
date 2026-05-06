@@ -26,6 +26,25 @@ interface DialogShellProps {
   maxWidth?: number;
 }
 
+function DialogCloseIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M7 7l10 10M17 7 7 17" />
+    </svg>
+  );
+}
+
 function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellProps) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
@@ -72,11 +91,11 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
           <button
             type="button"
             onClick={requestClose}
-            class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+            class="oh-tap-press inline-flex h-8 w-8 items-center justify-center rounded-m3-sm"
             style={{ color: 'var(--m3-on-surface-variant)' }}
             aria-label="close"
           >
-            ✕
+            <DialogCloseIcon />
           </button>
         </header>
         <div class="px-6 py-5 overflow-auto" style={{ flex: 1 }}>

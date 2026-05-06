@@ -190,6 +190,7 @@ type ComposerIconName =
   | 'chevronDown'
   | 'chevronUp'
   | 'close'
+  | 'copy'
   | 'edit'
   | 'file'
   | 'image'
@@ -251,6 +252,8 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
       return <svg {...common}><path {...stroke} d="m7 14 5-5 5 5" /></svg>;
     case 'close':
       return <svg {...common}><path {...stroke} d="M7 7l10 10M17 7 7 17" /></svg>;
+    case 'copy':
+      return <svg {...common}><rect {...stroke} x="8" y="8" width="11" height="11" rx="2" /><path {...stroke} d="M5 15V7a2 2 0 0 1 2-2h8" /></svg>;
     case 'edit':
       return <svg {...common}><path {...stroke} d="M4 20h4.4L19 9.4A2.1 2.1 0 0 0 16 6.4L5.4 17H4z" /><path {...stroke} d="m14.8 7.6 1.6 1.6" /></svg>;
     case 'file':
@@ -2856,7 +2859,7 @@ function ErrorBanner({
 
   return (
     <div
-      class="rounded-md px-3 py-2 text-xs flex flex-col gap-1.5"
+      class="oh-session-error-banner rounded-md px-3 py-2 text-xs flex flex-col gap-1.5"
       style={{
         background: 'color-mix(in srgb, var(--m3-error) 8%, transparent)',
         color: 'var(--m3-on-surface)',
@@ -2890,15 +2893,20 @@ function ErrorBanner({
           onClick={onRetry}
           style={{
             padding: '4px 10px',
+            minHeight: 26,
             borderRadius: 999,
             background: 'var(--m3-primary)',
             color: 'var(--m3-on-primary)',
             border: 'none',
             fontSize: 12,
             cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
           }}
         >
-          {t('common.retry', '重试')}
+          <ComposerIcon name="refresh" size={13} />
+          <span>{t('common.retry', '重试')}</span>
         </button>
         <button
           type="button"
@@ -2906,15 +2914,20 @@ function ErrorBanner({
           onClick={() => void copyText()}
           style={{
             padding: '4px 10px',
+            minHeight: 26,
             borderRadius: 999,
             background: 'transparent',
             color: 'var(--m3-on-surface-variant)',
             border: '1px solid var(--m3-outline)',
             fontSize: 12,
             cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
           }}
         >
-          {t('common.copy', '复制')}
+          <ComposerIcon name="copy" size={13} />
+          <span>{t('common.copy', '复制')}</span>
         </button>
         <button
           type="button"
@@ -2923,12 +2936,17 @@ function ErrorBanner({
           aria-label={t('common.cancel', '取消')}
           style={{
             padding: '4px 10px',
+            minWidth: 26,
+            minHeight: 26,
             borderRadius: 999,
             background: 'transparent',
             color: 'var(--m3-on-surface-variant)',
             border: '1px solid transparent',
             fontSize: 12,
             cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <ComposerIcon name="close" size={14} />
