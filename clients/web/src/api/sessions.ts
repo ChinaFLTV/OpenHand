@@ -21,6 +21,24 @@ export interface SessionTodoItem {
   status: string;
 }
 
+export interface SessionPlanRecord {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  status: string;
+  plan?: string;
+  steps?: SessionTodoItem[];
+}
+
+export interface SessionErrorRecord {
+  id: string;
+  created_at: string;
+  stage: string;
+  message: string;
+  detail?: string | null;
+  presented_at?: string | null;
+}
+
 export interface SessionSummary {
   id: string;
   title: string;
@@ -33,6 +51,11 @@ export interface SessionSummary {
   full_access_permission?: boolean;
   last_used_model_id?: string | null;
   last_used_model_label?: string | null;
+  is_title_manually_edited?: boolean;
+  auto_title_generated_at?: string | null;
+  auto_title_source_message_id?: string | null;
+  latest_compression_checkpoint_message_id?: string | null;
+  latest_compression_at?: string | null;
   last_model_key?: string | null;
   message_count: number;
   statistics?: Record<string, unknown>;
@@ -47,6 +70,12 @@ export interface SessionSummary {
   source?: string;
   device_id?: string;
   metadata?: Record<string, unknown>;
+  web_context?: Record<string, unknown>;
+  environment?: Record<string, unknown>;
+  last_prompt_metadata?: Record<string, unknown>;
+  plan_history?: SessionPlanRecord[];
+  recent_errors?: SessionErrorRecord[];
+  latest_compression_point?: SessionMessage | null;
   awaiting_plan_approval?: boolean;
   pending_plan?: string | null;
   todo_items?: SessionTodoItem[];

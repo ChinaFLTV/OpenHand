@@ -1942,7 +1942,7 @@ class WebMessagePlatformService {
       });
     }
     return _json(HttpStatus.ok, <String, Object?>{
-      'session': _sessionSummary(session),
+      'session': _sessionSummary(session, includeDetails: true),
       'runtime': <String, Object?>{
         'send_phase': _sessionController.sendPhaseForSession(session.id).name,
         'can_stop': _sessionController.canStopResponding(session.id),
@@ -3309,12 +3309,15 @@ class WebMessagePlatformService {
     return null;
   }
 
-  Map<String, Object?> _sessionSummary(AiSession session) {
+  Map<String, Object?> _sessionSummary(
+    AiSession session, {
+    bool includeDetails = false,
+  }) {
     final context = _webContext(session.metadata);
     final displayMessages = session.displayMessages;
     final last = displayMessages.isEmpty ? null : displayMessages.last;
     final lastModelKey = _lastModelKeyForSession(session);
-    return <String, Object?>{
+    final summary = <String, Object?>{
       'id': session.id,
       'title': session.title,
       'template_id': session.templateId,
@@ -3326,6 +3329,16 @@ class WebMessagePlatformService {
       'full_access_permission': session.fullAccessPermission,
       'last_used_model_id': session.lastUsedModelId,
       'last_used_model_label': session.lastUsedModelLabel,
+      'is_title_manually_edited': session.isTitleManuallyEdited,
+      'auto_title_generated_at': session.autoTitleGeneratedAt
+          ?.toUtc()
+          .toIso8601String(),
+      'auto_title_source_message_id': session.autoTitleSourceMessageId,
+      'latest_compression_checkpoint_message_id':
+          session.latestCompressionCheckpointMessageId,
+      'latest_compression_at': session.latestCompressionAt
+          ?.toUtc()
+          .toIso8601String(),
       'last_model_key': lastModelKey,
       'message_count': displayMessages.length,
       'statistics': session.statistics.toJson(),
@@ -3341,7 +3354,8 @@ class WebMessagePlatformService {
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
       'source': context['login_source'],
       'device_id': context['device_id'],
-      'metadata': context,
+      'metadata': includeDetails ? session.metadata : context,
+      if (includeDetails) 'web_context': context,
       // Plan-mode 字段：Web 端 PlanTimeline 直接消费这些字段渲染时间线
       // + 「批准计划」按钮。todo_items 走 [{id,content,status}] 三元组，
       // status 取值与 App 端一致：completed / in_progress / failed /
@@ -3352,6 +3366,22 @@ class WebMessagePlatformService {
           .map((item) => item.toJson())
           .toList(growable: false),
     };
+    if (!includeDetails) return summary;
+    summary.addAll(<String, Object?>{
+      'environment': session.environment.toJson(),
+      'last_prompt_metadata': session.lastPromptMetadata,
+      'plan_history': session.planHistory
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'recent_errors': session.recentErrors
+          .where((error) => error.stage != 'title_generation')
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'latest_compression_point': session.latestCompressionPoint == null
+          ? null
+          : _messageJson(session.latestCompressionPoint!),
+    });
+    return summary;
   }
 
   Map<String, Object?> _messageJson(AiSessionMessage message) {

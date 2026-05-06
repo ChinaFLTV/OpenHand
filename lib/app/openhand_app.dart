@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../features/home/openhand_home_page.dart';
+import '../features/message_gateway/message_gateway_controller.dart';
 import '../l10n/app_localizations.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
@@ -55,6 +56,10 @@ class _OpenHandAppState extends State<OpenHandApp> {
       // 动画组件（AnimatedExpandable / AppearOnce 等）的统一信号源。OS-level
       // reduceMotion 仍然由 Flutter 的 PlatformDispatcher 自动并入。
       builder: (context, child) {
+        Provider.of<MessageGatewayController?>(
+          context,
+          listen: false,
+        )?.updateTheme(Theme.of(context));
         final media = MediaQuery.of(context);
         final disable = reduceMotion || media.disableAnimations;
         if (disable == media.disableAnimations) {

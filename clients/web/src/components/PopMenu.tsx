@@ -28,18 +28,20 @@ export interface PopMenuProps {
   trigger: (props: { open: boolean; toggle: () => void }) => ComponentChildren;
   /// 默认 'right'，菜单从触发器右上角弹出。
   align?: 'left' | 'right';
+  /// 可选固定宽度，适合模式选择等短菜单，避免长禁用说明把菜单撑宽。
+  width?: number;
 }
 
 interface MenuPos {
   top: number;
   left: number;
-  minWidth: number;
+  width: number;
 }
 
 const VIEWPORT_PADDING = 8;
 const MENU_GAP = 4;
 
-export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
+export function PopMenu({ items, trigger, align = 'right', width }: PopMenuProps) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -101,9 +103,9 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
     const r = trig.getBoundingClientRect();
     const menuEl = menuRef.current;
     const menuRect = menuEl?.getBoundingClientRect();
-    const menuWidth = menuRect?.width ?? 180;
+    const desiredWidth = width ?? Math.max(r.width, 160);
+    const menuWidth = menuRect?.width ?? desiredWidth;
     const menuHeight = menuRect?.height ?? 160;
-    const minWidth = Math.max(r.width, 160);
     let left = align === 'right' ? r.right - menuWidth : r.left;
     let top = r.bottom + MENU_GAP;
     // 右侧夹紧。
@@ -115,7 +117,7 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
       const above = r.top - menuHeight - MENU_GAP;
       if (above >= VIEWPORT_PADDING) top = above;
     }
-    setPos({ top, left, minWidth });
+    setPos({ top, left, width: desiredWidth });
   };
 
   useLayoutEffect(() => {
@@ -145,7 +147,7 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
       setPos((prev) => (prev ? { ...prev, left: Math.max(VIEWPORT_PADDING, desiredLeft) } : prev));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuVisible, pos?.minWidth]);
+  }, [menuVisible, pos?.width]);
 
   const menuNode = menuVisible && typeof document !== 'undefined'
     ? createPortal(
@@ -155,7 +157,8 @@ export function PopMenu({ items, trigger, align = 'right' }: PopMenuProps) {
           style={{
             top: pos ? `${pos.top}px` : '-9999px',
             left: pos ? `${pos.left}px` : '-9999px',
-            minWidth: pos ? `${pos.minWidth}px` : '160px',
+            width: pos ? `${pos.width}px` : width ? `${width}px` : '160px',
+            maxWidth: 'calc(100vw - 16px)',
             zIndex: 2000,
             background: 'var(--m3-surface-container)',
             color: 'var(--m3-on-surface)',

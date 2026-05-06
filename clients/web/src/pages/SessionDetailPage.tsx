@@ -171,6 +171,23 @@ function sameMetadata(a: unknown, b: unknown): boolean {
   }
 }
 
+function mergeSessionSummary(
+  previous: SessionDetailResponse['session'],
+  incoming: SessionDetailResponse['session'],
+): SessionDetailResponse['session'] {
+  return {
+    ...previous,
+    ...incoming,
+    metadata: incoming.metadata ?? previous.metadata,
+    web_context: incoming.web_context ?? previous.web_context,
+    environment: incoming.environment ?? previous.environment,
+    last_prompt_metadata: incoming.last_prompt_metadata ?? previous.last_prompt_metadata,
+    plan_history: incoming.plan_history ?? previous.plan_history,
+    recent_errors: incoming.recent_errors ?? previous.recent_errors,
+    latest_compression_point: incoming.latest_compression_point ?? previous.latest_compression_point,
+  };
+}
+
 function sendPhaseLabel(phase: string): string {
   switch (phase) {
     case 'idle':
@@ -461,7 +478,9 @@ export function SessionDetailPage() {
     setPermissionSaving(true);
     try {
       const res = await updateSessionFullAccessPermission(sessionId, next);
-      setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+      setDetail((prev) =>
+        prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev,
+      );
       showSnackbar(t('topbar.perm.ok', '已更新权限设置'), { tone: 'success' });
     } catch (e) {
       if (handleAuthError(e)) return;
@@ -796,7 +815,7 @@ export function SessionDetailPage() {
             last_error: snap.last_error,
           };
           return prev
-            ? { ...prev, session: snap.session, runtime }
+            ? { ...prev, session: mergeSessionSummary(prev.session, snap.session), runtime }
             : { session: snap.session, runtime };
         });
         setSendPhase(snap.send_phase);
@@ -1180,7 +1199,9 @@ export function SessionDetailPage() {
     if (!sessionId) return;
     try {
       const res = await updateSessionMode(sessionId, next);
-      setDetail((prev) => prev ? { ...prev, session: res.session } : prev);
+      setDetail((prev) =>
+        prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev,
+      );
       showSnackbar(t('topbar.mode.ok', '已更新会话模式'), { tone: 'success' });
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
@@ -1188,6 +1209,25 @@ export function SessionDetailPage() {
       const message = e instanceof Error ? e.message : String(e);
       setLastError(message);
       showSnackbar(`${t('topbar.mode.failed', '更新会话模式失败')}：${message}`, { tone: 'error' });
+    }
+  }
+
+  async function openSessionMetadataDialog(): Promise<void> {
+    if (!sessionId) return;
+    try {
+      const fresh = await getSession(sessionId);
+      setDetail((prev) =>
+        prev
+          ? { ...fresh, session: mergeSessionSummary(prev.session, fresh.session) }
+          : fresh,
+      );
+      setSessionMetadataOpen(true);
+    } catch (e: unknown) {
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      setLastError(message);
+      showSnackbar(`${t('metadata.loadFailed', '加载会话元数据失败')}：${message}`, { tone: 'error' });
     }
   }
   const remainingOlder = windowOffset;
@@ -1248,7 +1288,7 @@ export function SessionDetailPage() {
         key: 'metadata',
         icon: t('topbar.capsule.metadataIcon', '元'),
         label: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
-        onClick: () => setSessionMetadataOpen(true),
+        onClick: () => void openSessionMetadataDialog(),
       },
       {
         key: 'audit',
@@ -1337,7 +1377,7 @@ export function SessionDetailPage() {
             try {
               const res = await renameSession(sessionId, next);
               setDetail((prev) =>
-                prev ? { ...prev, session: res.session } : prev,
+                prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev,
               );
               showSnackbar(t('topbar.rename.ok', '已重命名会话'), { tone: 'success' });
             } catch (e) {
@@ -1579,6 +1619,7 @@ export function SessionDetailPage() {
 
             <PopMenu
               align="left"
+              width={220}
               items={composerModeOptions.map((mode) => {
                 const serviceAllowed = allowedModes.includes(mode);
                 const modelAllowed = modelSupportsMode(selectedModel, mode);
@@ -2396,6 +2437,119 @@ function formatDialogDate(value?: string | null): string {
   return date.toLocaleString();
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asInt(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  const parsed = Number.parseInt(String(value ?? '').trim(), 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function asStringList(value: unknown): string[] {
+  return asArray(value)
+    .map((item) => String(item ?? '').trim())
+    .filter(Boolean);
+}
+
+function metadataValue(value: unknown): string {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function metadataFieldLabel(field: string): string {
+  const labels: Record<string, string> = {
+    session_id: '会话 ID',
+    template: '模板',
+    created_at: '创建时间',
+    updated_at: '更新时间',
+    last_model: '最近模型',
+    compression_checkpoint: '压缩检查点',
+    latest_compression_at: '最近压缩时间',
+    total_input_characters: '输入字符总数',
+    total_output_characters: '输出字符总数',
+    total_prompt_characters: 'Prompt 字符总数',
+    last_prompt_system_message_count: '上次 Prompt 系统消息数',
+    last_prompt_history_message_count: '上次 Prompt 历史消息数',
+    context_budget_estimated_prompt_tokens: '估算 Prompt Token',
+    context_budget_model_max_tokens: '模型上下文窗口',
+    context_budget_effective_window_tokens: '有效上下文窗口',
+    context_budget_auto_compact_threshold_tokens: '自动压缩阈值',
+    context_budget_remaining_tokens: '估算剩余 Token',
+    context_budget_percent_left: '距自动压缩剩余',
+    context_budget_usage_percent: '估算使用率',
+    compact_memory_sidecar_status: 'Sidecar 状态',
+    compact_memory_checkpoint_id: 'Checkpoint ID',
+    compact_memory_checkpoint_characters: 'Checkpoint 字符数',
+    compact_memory_restored_from_sidecar: '从 Sidecar 恢复',
+    compact_memory_sidecar_path: 'Sidecar 路径',
+    locale_tag: '语言区域',
+    platform: '平台',
+    app_version: '应用版本',
+    compression_threshold_chars: '压缩阈值字符数',
+    single_round_tool_call_limit: '单轮工具调用上限',
+    sequential_tool_round_limit: '连续工具轮次上限',
+    application_directory: '应用目录',
+    home_directory: '主目录',
+    settings_file: '设置文件',
+    skills_storage: '技能目录',
+    mcp_servers_file: 'MCP 文件',
+    user_memory_file: '记忆文件',
+    sessions_directory: '会话目录',
+    post_compact_active: '启用状态',
+    checkpoint_message_id: 'Checkpoint 消息 ID',
+    checkpoint_created_at: 'Checkpoint 创建时间',
+    runtime_tool_count: '运行工具',
+    restored_signal_counts: '恢复信号',
+  };
+  return labels[field] ?? field;
+}
+
+function boolLabel(value: boolean): string {
+  return value ? t('common.yes', '是') : t('common.no', '否');
+}
+
+function runtimeGateReasonLabel(reason: string): string {
+  switch (reason.trim()) {
+    case 'awaiting_plan_approval':
+      return '计划待批准，执行工具暂未开放';
+    case 'plan_mode_recovery_inspection':
+      return '计划恢复审阅中';
+    case 'plan_mode_execution':
+      return '计划已批准，执行工具开放';
+    case 'plan_mode_planning_with_exit_allowed':
+      return '计划草拟中，可退出计划模式';
+    case 'plan_mode_planning_only':
+      return '计划草拟中，仅规划工具开放';
+    case 'mode_switch_requires_refresh':
+      return '模式刚切换，需下一轮刷新';
+    case 'chat_mode_no_tools':
+      return '聊天模式，不开放工具';
+    case 'chat_mode':
+      return '聊天模式，工具目录同步';
+    case 'model_no_tool_support':
+      return '当前协议不支持工具调用';
+    case 'no_runtime_snapshot':
+      return '暂无运行时快照';
+    default:
+      return reason.trim() || '未记录原因';
+  }
+}
+
 function SessionMetadataDialog({
   detail,
   messages,
@@ -2407,81 +2561,207 @@ function SessionMetadataDialog({
 }) {
   const session = detail.session;
   const { closing, requestClose } = useDialogExitMotion(onClose);
-  const latest = messages[messages.length - 1];
-  const tokenRows = [
-    [t('metadata.tokens.total', '总 Token'), `${session.total_tokens ?? 0}`],
-    [t('metadata.tokens.prompt', 'Prompt'), `${session.total_prompt_tokens ?? 0}`],
-    [t('metadata.tokens.completion', 'Completion'), `${session.total_completion_tokens ?? 0}`],
-    [t('metadata.tokens.compress', '压缩点'), `${session.compression_point_count ?? 0}`],
-  ];
-  const sections: Array<{ title: string; rows: Array<[string, string]> }> = [
-    {
-      title: t('metadata.section.identity', '会话身份'),
-      rows: [
-        [t('metadata.id', '会话 ID'), session.id],
-        [t('metadata.title', '标题'), session.title || t('sessions.untitled', '未命名会话')],
-        [t('metadata.mode', '会话模式'), session.mode === 'plan' ? t('sessions.mode.plan', '计划模式') : t('sessions.mode.chat', '聊天模式')],
-        [t('metadata.permission', '权限'), session.full_access_permission ? t('topbar.perm.full', '完全访问权限') : t('topbar.perm.default', '默认权限')],
-      ],
-    },
-    {
-      title: t('metadata.section.template', '模板与模型'),
-      rows: [
-        [t('metadata.template', '线程模板'), session.template_name || session.template_id],
-        [t('metadata.templateId', '模板 ID'), session.template_id],
-        [t('metadata.templateVersion', '模板版本'), session.template_internal_version != null ? `v${session.template_internal_version}` : '—'],
-        [t('metadata.model', '最近模型'), session.last_used_model_label || session.last_used_model_id || '—'],
-      ],
-    },
-    {
-      title: t('metadata.section.runtime', '运行状态'),
-      rows: [
-        [t('metadata.sendPhase', '发送阶段'), sendPhaseLabel(detail.runtime.send_phase || session.send_phase || 'idle')],
-        [t('metadata.canStop', '可停止'), detail.runtime.can_stop ? t('common.yes', '是') : t('common.no', '否')],
-        [t('metadata.lastError', '最近错误'), detail.runtime.last_error || '—'],
-        [t('metadata.pendingPlan', '待批准计划'), session.awaiting_plan_approval ? t('common.yes', '是') : t('common.no', '否')],
-      ],
-    },
-    {
-      title: t('metadata.section.time', '时间与来源'),
-      rows: [
-        [t('metadata.createdAt', '创建时间'), formatDialogDate(session.created_at)],
-        [t('metadata.updatedAt', '更新时间'), formatDialogDate(session.updated_at)],
-        [t('metadata.source', '来源'), session.source || '—'],
-        [t('metadata.device', '设备'), session.device_id || '—'],
-      ],
-    },
-  ];
+  useEffect(() => {
+    if (closing) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [closing, requestClose]);
+
+  const stats = asRecord(session.statistics);
+  const metadata = asRecord(session.metadata);
+  const environment = asRecord(session.environment);
+  const lastPromptMetadata = asRecord(session.last_prompt_metadata);
+  const latestCompressionPoint = asRecord(session.latest_compression_point);
+  const latestCompressionPointMetadata = asRecord(latestCompressionPoint['metadata']);
+  const rehydration = asRecord(lastPromptMetadata['post_compact_rehydration']);
+  const hasPromptMetadata = Object.keys(lastPromptMetadata).length > 0;
+  const runtimeToolNames = asStringList(lastPromptMetadata['current_tool_names']);
+  const runtimeNotices = asStringList(lastPromptMetadata['runtime_tool_catalog_notices']);
+  const runtimeToolCount = Math.max(asInt(lastPromptMetadata['current_tool_count']), runtimeToolNames.length);
+  const runtimeStale = lastPromptMetadata['runtime_tool_catalog_stale'] === true;
+  const awaitingPlanApproval = lastPromptMetadata['awaiting_plan_approval'] === true || session.awaiting_plan_approval === true;
+  const planRecoveryRequired = lastPromptMetadata['plan_mode_recovery_inspection_required'] === true || lastPromptMetadata['plan_recovery_required'] === true;
+  const planExecutionApproved = lastPromptMetadata['plan_mode_execution_approved_for_send'] === true;
+  const hasActivePlanState = Boolean(session.todo_items?.length) || Boolean((session.pending_plan ?? '').trim());
+  let gateReason = String(lastPromptMetadata['runtime_tool_gate_reason'] ?? '').trim();
+  if (!gateReason) {
+    gateReason = awaitingPlanApproval
+      ? 'awaiting_plan_approval'
+      : session.mode !== 'plan'
+        ? (hasPromptMetadata ? 'chat_mode' : 'no_runtime_snapshot')
+        : planRecoveryRequired
+          ? 'plan_mode_recovery_inspection'
+          : planExecutionApproved
+            ? 'plan_mode_execution'
+            : hasActivePlanState
+              ? 'plan_mode_planning_with_exit_allowed'
+              : 'plan_mode_planning_only';
+  }
+  const runtimeModeLabel = session.mode !== 'plan'
+    ? '聊天模式'
+    : awaitingPlanApproval
+      ? '计划待审'
+      : planRecoveryRequired
+        ? '计划审阅'
+        : planExecutionApproved
+          ? '计划执行'
+          : hasActivePlanState
+            ? '计划草拟'
+            : '计划模式';
+  const toolCatalogState = !hasPromptMetadata
+    ? '暂无运行时快照'
+    : runtimeStale
+      ? '工具目录待刷新'
+      : '工具目录已同步';
+  const promptBudgetTokens = asInt(lastPromptMetadata['context_budget_estimated_prompt_tokens']);
+  const contextStatus = String(lastPromptMetadata['context_budget_status'] ?? 'unknown').trim();
+  const contextStatusLabel = contextStatus === 'critical'
+    ? '危险'
+    : contextStatus === 'auto_compact'
+      ? '需压缩'
+      : contextStatus === 'warning'
+        ? '偏高'
+        : contextStatus === 'ok'
+          ? '正常'
+          : '未知';
+  const usagePercent = asInt(lastPromptMetadata['context_budget_usage_percent']);
+  const usageValue = Math.max(0, Math.min(100, usagePercent));
+  const sidecarPath = String(rehydration['session_memory_sidecar_path'] ?? '').trim();
+  const sidecarPresent = rehydration['session_memory_sidecar_present'] === true;
+  const compressionRestored = latestCompressionPointMetadata['restored_from_compact_memory_sidecar'] === true;
+  const hasCompressionPoint = Boolean(String(latestCompressionPoint['id'] ?? '').trim());
+  const sidecarStatus = !hasCompressionPoint
+    ? '未生成'
+    : compressionRestored
+      ? '已恢复'
+      : sidecarPresent
+        ? '已登记'
+        : '等待下次 Prompt 刷新';
+  const visibleMetadataEntries = Object.entries(metadata).filter(([key]) => {
+    if (session.template_id === 'hardness_engineering' && key === 'hardness_config') return false;
+    if (session.template_id === 'programming_expert' && key === 'programming_expert_config') return false;
+    return true;
+  });
+  const planHistory = [...(session.plan_history ?? [])].reverse();
+  const todos = session.todo_items ?? [];
+  const recentErrors = session.recent_errors ?? [];
+
+  const sectionStyle = {
+    background: 'var(--m3-surface-container-low)',
+    borderRadius: '20px',
+  };
+
+  const SummaryTile = ({ label, value }: { label: string; value: string }) => (
+    <div class="p-3.5" style={{ ...sectionStyle, width: '188px' }}>
+      <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</div>
+      <div class="mt-1.5 text-xl font-extrabold tabular-nums">{value}</div>
+    </div>
+  );
+  const Chip = ({ label }: { label: string }) => (
+    <span
+      class="inline-flex rounded-full px-2.5 py-1.5 text-xs font-bold"
+      style={{ background: 'var(--m3-surface-container-highest)', color: 'var(--m3-on-surface)' }}
+    >
+      {label}
+    </span>
+  );
+  const EntryRow = ({ label, value }: { label: string; value: ComponentChildren }) => (
+    <div class="mb-2.5 min-w-0">
+      <div class="text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</div>
+      <div class="mt-1 text-sm leading-relaxed break-words whitespace-pre-wrap select-text">{value}</div>
+    </div>
+  );
+  const Section = ({ title, children }: { title: string; children: ComponentChildren }) => (
+    <section class="p-4" style={sectionStyle}>
+      <h3 class="text-base font-extrabold mb-3.5">{title}</h3>
+      {children}
+    </section>
+  );
+  const JsonPanel = ({ content }: { content: unknown }) => (
+    <pre
+      class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap max-h-72"
+      style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+    >
+      {JSON.stringify(content ?? {}, null, 2)}
+    </pre>
+  );
+
+  const renderProgrammingConfig = () => {
+    const config = asRecord(metadata['programming_expert_config']);
+    return (
+      <Section title="编程专家配置">
+        {Object.keys(config).length === 0 ? (
+          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>配置数据尚未写入会话元数据。</p>
+        ) : (
+          <>
+            <EntryRow label="项目根目录" value={metadataValue(config['project_root'])} />
+            <EntryRow label="项目语言" value={metadataValue(config['language'] ?? 'mixed')} />
+            <EntryRow label="SDK 路径" value={metadataValue(config['sdk_path'])} />
+            <EntryRow label="LSP 路径" value={metadataValue(config['lsp_path'])} />
+          </>
+        )}
+      </Section>
+    );
+  };
+
+  const renderHardnessConfig = () => {
+    const config = asRecord(metadata['hardness_config']);
+    const roleKeys = ['profiler', 'reader', 'planner', 'implementer', 'reviewer'];
+    return (
+      <Section title="Hardness Engineering 配置">
+        {Object.keys(config).length === 0 ? (
+          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。</p>
+        ) : (
+          <>
+            <EntryRow label="任务描述" value={metadataValue(config['task'])} />
+            <EntryRow label="工作目录" value={metadataValue(config['working_directory'])} />
+            <EntryRow label="持久化目录" value={metadataValue(config['persistence_directory'])} />
+            <EntryRow label="首次运行" value={config['first_run'] === true ? '是（含探档阶段）' : '否（增量运行）'} />
+            <div class="mt-3 mb-2 text-sm font-extrabold">角色配置</div>
+            {roleKeys.map((key) => {
+              const role = asRecord(config[key]);
+              const cli = String(role['cli_name'] ?? '').trim();
+              const model = String(role['model_id'] ?? '').trim();
+              return <EntryRow key={key} label={key} value={cli || model ? `${cli || '-'} · ${model || '-'}` : '未配置'} />;
+            })}
+          </>
+        )}
+      </Section>
+    );
+  };
+
   const node = (
     <div
       class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
+      style={{ background: 'color-mix(in srgb, var(--m3-inverse-surface) 44%, transparent)', zIndex: 2600 }}
       onClick={requestClose}
     >
       <div
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-4 max-w-4xl w-full flex flex-col`}
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-lg p-5 w-full flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
           boxShadow: 'var(--m3-elev-3)',
           border: '1px solid var(--m3-outline-variant)',
+          maxWidth: '860px',
           maxHeight: '84vh',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <header class="flex items-center justify-between gap-3 mb-4">
+        <header class="flex items-start justify-between gap-3 mb-4">
           <div class="min-w-0">
-            <h2 class="text-base font-semibold truncate">{t('metadata.titleBar', '会话元数据')} · {session.title}</h2>
-            <p class="text-xs mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {session.message_count} {t('sessions.messageUnit', '条消息')} · {session.tool_message_count ?? 0} tool
-            </p>
+            <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
+            <p class="text-sm mt-2 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>{session.title}</p>
           </div>
           <div class="flex items-center gap-2 flex-none">
             <button
               type="button"
               class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
               style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
-              onClick={() => void copyJsonWithFeedback(JSON.stringify({ session, runtime: detail.runtime }, null, 2))}
+              onClick={() => void copyJsonWithFeedback(JSON.stringify({ session, runtime: detail.runtime, loaded_messages: messages.length }, null, 2))}
             >
               {t('common.copy', '复制')}
             </button>
@@ -2495,63 +2775,160 @@ function SessionMetadataDialog({
             </button>
           </div>
         </header>
-        <div class="grid gap-2 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-          {tokenRows.map(([label, value]) => (
-            <div
-              key={label}
-              class="rounded-m3-sm p-3"
-              style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
-            >
-              <div class="text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</div>
-              <div class="text-base font-semibold mt-1">{value}</div>
-            </div>
-          ))}
+        <div class="flex flex-wrap gap-3 mb-4">
+          <SummaryTile label="消息总数" value={`${stats.total_message_count ?? session.message_count ?? 0}`} />
+          <SummaryTile label="Prompt 构建" value={`${stats.prompt_build_count ?? 0}`} />
+          <SummaryTile label="压缩次数" value={`${stats.compression_run_count ?? 0}`} />
+          <SummaryTile label="总 Token" value={`${stats.total_tokens ?? session.total_tokens ?? 0}`} />
+          <SummaryTile label="当前模式" value={runtimeModeLabel} />
+          <SummaryTile label="运行工具" value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`} />
         </div>
         <div class="overflow-auto pr-1 flex-1 min-h-0">
-          <div class="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-            {sections.map((section) => (
-              <section
-                key={section.title}
-                class="rounded-m3-sm p-3"
-                style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
-              >
-                <h3 class="text-sm font-semibold mb-2">{section.title}</h3>
-                <dl class="space-y-2">
-                  {section.rows.map(([label, value]) => (
-                    <div key={label} class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
-                      <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</dt>
-                      <dd class="text-xs break-words">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ))}
-            <section
-              class="rounded-m3-sm p-3"
-              style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
-            >
-              <h3 class="text-sm font-semibold mb-2">{t('metadata.section.latest', '最近加载消息')}</h3>
-              <dl class="space-y-2">
-                <div class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
-                  <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('metadata.loaded', '已加载')}</dt>
-                  <dd class="text-xs">{messages.length}</dd>
+          <div class="flex flex-col gap-4">
+            <Section title="会话概览">
+              <EntryRow label={metadataFieldLabel('session_id')} value={session.id} />
+              <EntryRow label={metadataFieldLabel('template')} value={`${session.template_name || session.template_id} · v${session.template_internal_version ?? '—'}`} />
+              <EntryRow label={metadataFieldLabel('created_at')} value={formatDialogDate(session.created_at)} />
+              <EntryRow label={metadataFieldLabel('updated_at')} value={formatDialogDate(session.updated_at)} />
+              <EntryRow label={metadataFieldLabel('last_model')} value={session.last_used_model_label || session.last_used_model_id || '—'} />
+              <EntryRow label={metadataFieldLabel('compression_checkpoint')} value={session.latest_compression_checkpoint_message_id || '—'} />
+              <EntryRow label={metadataFieldLabel('latest_compression_at')} value={formatDialogDate(session.latest_compression_at)} />
+            </Section>
+            {session.template_id === 'hardness_engineering' ? renderHardnessConfig() : null}
+            {session.template_id === 'programming_expert' ? renderProgrammingConfig() : null}
+            {visibleMetadataEntries.length > 0 ? (
+              <Section title="扩展元数据">
+                {visibleMetadataEntries.map(([key, value]) => <EntryRow key={key} label={key} value={metadataValue(value)} />)}
+              </Section>
+            ) : null}
+            <Section title="统计信息">
+              <div class="flex flex-wrap gap-2 mb-3">
+                <Chip label={`用户 ${stats.user_message_count ?? 0}`} />
+                <Chip label={`助手 ${stats.assistant_message_count ?? 0}`} />
+                <Chip label={`工具 ${stats.tool_message_count ?? 0}`} />
+                <Chip label={`MCP ${stats.mcp_message_count ?? 0}`} />
+                <Chip label={`技能 ${stats.skill_message_count ?? 0}`} />
+                <Chip label={`压缩 ${stats.compression_point_count ?? 0}`} />
+              </div>
+              <EntryRow label={metadataFieldLabel('total_input_characters')} value={`${stats.total_input_characters ?? 0}`} />
+              <EntryRow label={metadataFieldLabel('total_output_characters')} value={`${stats.total_output_characters ?? 0}`} />
+              <EntryRow label={metadataFieldLabel('total_prompt_characters')} value={`${stats.total_prompt_characters ?? 0}`} />
+              <EntryRow label={metadataFieldLabel('last_prompt_system_message_count')} value={`${stats.last_prompt_system_message_count ?? 0}`} />
+              <EntryRow label={metadataFieldLabel('last_prompt_history_message_count')} value={`${stats.last_prompt_history_message_count ?? 0}`} />
+            </Section>
+            {promptBudgetTokens > 0 ? (
+              <Section title="上下文预算">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="h-2 flex-1 rounded-full overflow-hidden" style={{ background: 'var(--m3-surface-container-highest)' }}>
+                    <div class="h-full rounded-full" style={{ width: `${usageValue}%`, background: contextStatus === 'critical' ? 'var(--m3-error)' : 'var(--m3-primary)' }} />
+                  </div>
+                  <Chip label={contextStatusLabel} />
                 </div>
-                <div class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
-                  <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('metadata.latestRole', '最新角色')}</dt>
-                  <dd class="text-xs">{latest?.role || '—'}</dd>
+                <EntryRow label={metadataFieldLabel('context_budget_estimated_prompt_tokens')} value={`${promptBudgetTokens}`} />
+                <EntryRow label={metadataFieldLabel('context_budget_model_max_tokens')} value={metadataValue(lastPromptMetadata['context_budget_model_max_tokens'])} />
+                <EntryRow label={metadataFieldLabel('context_budget_effective_window_tokens')} value={metadataValue(lastPromptMetadata['context_budget_effective_window_tokens'])} />
+                <EntryRow label={metadataFieldLabel('context_budget_auto_compact_threshold_tokens')} value={metadataValue(lastPromptMetadata['context_budget_auto_compact_threshold_tokens'])} />
+                <EntryRow label={metadataFieldLabel('context_budget_remaining_tokens')} value={metadataValue(lastPromptMetadata['context_budget_remaining_tokens'])} />
+                <EntryRow label={metadataFieldLabel('context_budget_percent_left')} value={`${asInt(lastPromptMetadata['context_budget_percent_left'])}%`} />
+                <EntryRow label={metadataFieldLabel('context_budget_usage_percent')} value={`${usagePercent}%`} />
+              </Section>
+            ) : null}
+            {Object.keys(rehydration).length > 0 ? (
+              <Section title="压缩后上下文恢复">
+                <EntryRow label={metadataFieldLabel('post_compact_active')} value={rehydration['active'] === true ? '启用' : '未启用'} />
+                <EntryRow label={metadataFieldLabel('checkpoint_message_id')} value={metadataValue(rehydration['checkpoint_message_id'])} />
+                <EntryRow label={metadataFieldLabel('checkpoint_created_at')} value={metadataValue(rehydration['checkpoint_created_at'])} />
+                <EntryRow label={metadataFieldLabel('runtime_tool_count')} value={`${asInt(rehydration['runtime_tool_count'])} (${asInt(rehydration['builtin_tool_count'])} builtin, ${asInt(rehydration['skill_tool_count'])} skill, ${asInt(rehydration['mcp_tool_count'])} MCP)`} />
+                <EntryRow label={metadataFieldLabel('restored_signal_counts')} value={`read_files=${asInt(rehydration['recent_read_file_count'])}, skills=${asInt(rehydration['invoked_skill_count'])}, mcp_instructions=${asInt(rehydration['mcp_server_instruction_count'])}, session_hooks=${asInt(rehydration['session_start_hook_count'])}, agent_results=${asInt(rehydration['agent_result_count'])}, deferred_tools=${asInt(rehydration['deferred_builtin_tool_count'])}, agent_types=${asInt(rehydration['agent_type_count'])}`} />
+                <div class="mt-2 mb-2 text-sm font-extrabold">恢复通道</div>
+                <div class="flex flex-wrap gap-2">
+                  {asStringList(rehydration['restored_channels']).length === 0 ? <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>暂无恢复通道。</span> : asStringList(rehydration['restored_channels']).map((item) => <Chip key={item} label={item} />)}
                 </div>
-                <div class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
-                  <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('metadata.latestKind', '最新类型')}</dt>
-                  <dd class="text-xs">{latest?.kind || '—'}</dd>
-                </div>
-                <div class="grid gap-1" style={{ gridTemplateColumns: '96px minmax(0, 1fr)' }}>
-                  <dt class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('metadata.latestId', '最新 ID')}</dt>
-                  <dd class="text-xs break-all">{latest?.id || '—'}</dd>
-                </div>
-              </dl>
-            </section>
+              </Section>
+            ) : null}
+            {hasCompressionPoint || Object.keys(rehydration).length > 0 ? (
+              <Section title="压缩记忆 Sidecar">
+                <EntryRow label={metadataFieldLabel('compact_memory_sidecar_status')} value={sidecarStatus} />
+                <EntryRow label={metadataFieldLabel('compact_memory_checkpoint_id')} value={metadataValue(latestCompressionPoint['id'])} />
+                <EntryRow label={metadataFieldLabel('compact_memory_checkpoint_characters')} value={metadataValue(latestCompressionPoint['character_count'])} />
+                <EntryRow label={metadataFieldLabel('compact_memory_restored_from_sidecar')} value={boolLabel(compressionRestored)} />
+                <EntryRow label={metadataFieldLabel('compact_memory_sidecar_path')} value={sidecarPath || '—'} />
+              </Section>
+            ) : null}
+            <Section title="环境">
+              <EntryRow label={metadataFieldLabel('locale_tag')} value={metadataValue(environment['locale_tag'])} />
+              <EntryRow label={metadataFieldLabel('platform')} value={metadataValue(environment['platform'])} />
+              <EntryRow label={metadataFieldLabel('app_version')} value={`${environment['app_version'] ?? '—'} (${environment['app_build_number'] ?? '—'})`} />
+              <EntryRow label={metadataFieldLabel('compression_threshold_chars')} value={metadataValue(environment['compression_threshold_chars'])} />
+              <EntryRow label={metadataFieldLabel('single_round_tool_call_limit')} value={metadataValue(environment['single_round_tool_call_limit'])} />
+              <EntryRow label={metadataFieldLabel('sequential_tool_round_limit')} value={metadataValue(environment['sequential_tool_round_limit'])} />
+              <EntryRow label={metadataFieldLabel('application_directory')} value={metadataValue(environment['application_directory'])} />
+              <EntryRow label={metadataFieldLabel('home_directory')} value={metadataValue(environment['home_directory'])} />
+              <EntryRow label={metadataFieldLabel('settings_file')} value={metadataValue(environment['settings_file_path'])} />
+              <EntryRow label={metadataFieldLabel('skills_storage')} value={metadataValue(environment['skills_storage_path'])} />
+              <EntryRow label={metadataFieldLabel('mcp_servers_file')} value={metadataValue(environment['mcp_servers_file_path'])} />
+              <EntryRow label={metadataFieldLabel('user_memory_file')} value={metadataValue(environment['user_memory_file_path'])} />
+              <EntryRow label={metadataFieldLabel('sessions_directory')} value={metadataValue(environment['sessions_directory_path'])} />
+            </Section>
+            <Section title="命令策略">
+              {!hasPromptMetadata ? (
+                <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>Prompt 元数据尚不可用。</p>
+              ) : (
+                <>
+                  <EntryRow label="写命令确认" value={lastPromptMetadata['write_command_confirmation_enabled'] === true ? '必需' : '不需要'} />
+                  <EntryRow label="允许规则" value={`${asInt(lastPromptMetadata['allow_command_rule_count'])}`} />
+                  <div class="flex flex-wrap gap-2">
+                    {asArray(lastPromptMetadata['allow_command_rules']).length === 0 ? <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>暂无显式允许命令规则。</span> : asArray(lastPromptMetadata['allow_command_rules']).map((raw, index) => {
+                      const rule = asRecord(raw);
+                      const pattern = String(rule['pattern'] ?? '').trim();
+                      const mode = String(rule['match_mode'] ?? '').trim();
+                      return pattern ? <Chip key={`${pattern}-${index}`} label={`${mode ? `${mode}: ` : ''}${pattern}`} /> : null;
+                    })}
+                  </div>
+                </>
+              )}
+            </Section>
+            <Section title="运行编排">
+              <EntryRow label="状态来源" value={hasPromptMetadata ? '最近持久化运行时快照' : '暂无快照'} />
+              <EntryRow label="模式" value={runtimeModeLabel} />
+              <EntryRow label="工具目录状态" value={toolCatalogState} />
+              <EntryRow label="门控原因" value={runtimeGateReasonLabel(gateReason)} />
+              <EntryRow label="运行工具数" value={hasPromptMetadata && !runtimeStale ? `${runtimeToolCount}` : '下轮刷新'} />
+              {runtimeNotices.length > 0 ? <><div class="mt-3 mb-2 text-sm font-extrabold">运行时提示</div><div class="flex flex-wrap gap-2">{runtimeNotices.map((item) => <Chip key={item} label={item} />)}</div></> : null}
+              {runtimeToolNames.length > 0 && !runtimeStale ? <><div class="mt-3 mb-2 text-sm font-extrabold">当前运行工具</div><div class="flex flex-wrap gap-2">{runtimeToolNames.map((item) => <Chip key={item} label={item} />)}</div></> : null}
+            </Section>
+            <Section title="任务跟踪">
+              <EntryRow label="当前 Todos" value={`${todos.length}`} />
+              <EntryRow label="计划记录" value={`${planHistory.length}`} />
+              <EntryRow label="TodoWrite 提醒" value={hasPromptMetadata ? (lastPromptMetadata['todo_write_recommended'] === true ? '已触发' : '未触发') : '不可用'} />
+              {String(lastPromptMetadata['todo_write_reason'] ?? '').trim() ? <EntryRow label="提醒原因" value={String(lastPromptMetadata['todo_write_reason'])} /> : null}
+              {todos.length > 0 ? <div class="flex flex-wrap gap-2">{todos.map((todo) => <Chip key={todo.id} label={`${todo.status ? `[${todo.status}] ` : ''}${todo.id ? `${todo.id}: ` : ''}${todo.content}`} />)}</div> : null}
+              {planHistory.length > 0 ? <div class="mt-4 flex flex-col gap-2">{planHistory.map((plan, index) => <div key={plan.id || index} class="rounded-m3-sm p-3" style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}><div class="text-sm font-bold">计划 #{planHistory.length - index} · {plan.status || '—'}</div><div class="mt-1 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{formatDialogDate(plan.created_at)} → {formatDialogDate(plan.updated_at)}</div>{plan.plan ? <div class="mt-2 text-sm whitespace-pre-wrap">{plan.plan}</div> : null}{plan.steps?.length ? <div class="mt-2 flex flex-wrap gap-2">{plan.steps.map((step) => <Chip key={step.id} label={`${step.status ? `[${step.status}] ` : ''}${step.id}: ${step.content}`} />)}</div> : null}</div>)}</div> : null}
+            </Section>
+            <Section title="最近错误">
+              {recentErrors.length === 0 ? <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>暂无会话错误。</p> : recentErrors.map((error) => <div key={error.id} class="rounded-m3-sm p-3 mb-2" style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}><div class="text-sm font-bold" style={{ color: 'var(--m3-error)' }}>{error.stage || 'error'} · {formatDialogDate(error.created_at)}</div><div class="mt-2 text-sm whitespace-pre-wrap">{error.message}</div>{error.detail ? <pre class="mt-2 text-xs whitespace-pre-wrap overflow-auto">{error.detail}</pre> : null}</div>)}
+            </Section>
+            <Section title="最近加载消息">
+              <EntryRow label="已加载" value={`${messages.length}`} />
+              <EntryRow label="最新角色" value={messages[messages.length - 1]?.role || '—'} />
+              <EntryRow label="最新类型" value={messages[messages.length - 1]?.kind || '—'} />
+              <EntryRow label="最新 ID" value={messages[messages.length - 1]?.id || '—'} />
+            </Section>
+            <Section title="Last Prompt Metadata">
+              <JsonPanel content={lastPromptMetadata} />
+            </Section>
           </div>
         </div>
+        <footer class="flex justify-end pt-4">
+          <button
+            type="button"
+            class="oh-tap-press px-5 py-2 rounded-m3-sm text-sm font-bold"
+            style={{ background: 'var(--m3-primary)', color: 'var(--m3-on-primary)' }}
+            onClick={requestClose}
+          >
+            {t('common.close', '关闭')}
+          </button>
+        </footer>
       </div>
     </div>
   );
