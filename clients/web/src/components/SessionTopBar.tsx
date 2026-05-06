@@ -370,57 +370,59 @@ export function SessionTopBar(props: SessionTopBarProps) {
           </button>
         ) : null}
 
-        <div ref={moreMenuAnchorRef} class="relative flex-none" data-topbar-menu>
-          <button
-            type="button"
-            onClick={toggleMoreMenu}
-            class="oh-tap-press oh-icon-button"
-            style={{
-              color: 'var(--m3-on-surface-variant)',
-              border: '1px solid var(--m3-outline-variant)',
-              background: 'var(--m3-surface)',
-            }}
-            title={t('topbar.more', '更多')}
-          >
-            <TopBarIcon name="more" size={17} />
-          </button>
-          {moreMenuVisible ? (
-            <Menu anchorRef={moreMenuAnchorRef} closing={closingMore}>
-              {onRename ? (
-                <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); setEditing(true); }}>
-                  {t('topbar.rename', '重命名')}
-                </MenuItem>
-              ) : null}
-              {onExport ? (
-                <MenuItem icon="export" onClick={() => { requestCloseMoreMenu(); onExport(); }}>
-                  {t('topbar.export', '导出 JSON')}
-                </MenuItem>
-              ) : null}
-              {sessionId ? (
-                <MenuItem
-                  icon="copy"
-                  onClick={async () => {
-                    requestCloseMoreMenu();
-                    await copySessionId();
-                  }}
-                >
-                  {t('topbar.copyId', '复制会话 ID')}
-                </MenuItem>
-              ) : null}
-              {onDelete ? (
-                <MenuItem
-                  icon="trash"
-                  tone="danger"
-                  onClick={() => { requestCloseMoreMenu(); onDelete(); }}
-                >
-                  {t('topbar.delete', '删除会话')}
-                </MenuItem>
-              ) : null}
-            </Menu>
-          ) : null}
-        </div>
+        <div class="oh-session-topbar-actions flex items-center gap-2 flex-none">
+          <div ref={moreMenuAnchorRef} class="relative flex-none" data-topbar-menu>
+            <button
+              type="button"
+              onClick={toggleMoreMenu}
+              class="oh-tap-press oh-icon-button"
+              style={{
+                color: 'var(--m3-on-surface-variant)',
+                border: '1px solid var(--m3-outline-variant)',
+                background: 'var(--m3-surface)',
+              }}
+              title={t('topbar.more', '更多')}
+            >
+              <TopBarIcon name="more" size={17} />
+            </button>
+            {moreMenuVisible ? (
+              <Menu anchorRef={moreMenuAnchorRef} closing={closingMore}>
+                {onRename ? (
+                  <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); setEditing(true); }}>
+                    {t('topbar.rename', '重命名')}
+                  </MenuItem>
+                ) : null}
+                {onExport ? (
+                  <MenuItem icon="export" onClick={() => { requestCloseMoreMenu(); onExport(); }}>
+                    {t('topbar.export', '导出 JSON')}
+                  </MenuItem>
+                ) : null}
+                {sessionId ? (
+                  <MenuItem
+                    icon="copy"
+                    onClick={async () => {
+                      requestCloseMoreMenu();
+                      await copySessionId();
+                    }}
+                  >
+                    {t('topbar.copyId', '复制会话 ID')}
+                  </MenuItem>
+                ) : null}
+                {onDelete ? (
+                  <MenuItem
+                    icon="trash"
+                    tone="danger"
+                    onClick={() => { requestCloseMoreMenu(); onDelete(); }}
+                  >
+                    {t('topbar.delete', '删除会话')}
+                  </MenuItem>
+                ) : null}
+              </Menu>
+            ) : null}
+          </div>
 
-        {trailing}
+          {trailing}
+        </div>
       </div>
 
     </header>

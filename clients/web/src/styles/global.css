@@ -916,11 +916,44 @@ button.oh-composer-pill:not(:disabled):hover {
     flex-wrap: wrap;
   }
   .oh-session-title-block {
-    width: calc(100% - 84px);
+    width: calc(100% - 128px);
   }
   .oh-session-capsule-rail {
     order: 10;
     flex-basis: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .oh-composer-toolbar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(142px, 100%), 1fr));
+    align-items: center;
+  }
+  .oh-composer-toolbar > .relative.inline-block {
+    min-width: 0;
+    width: 100%;
+  }
+  .oh-composer-toolbar > .relative.inline-block .oh-composer-control {
+    width: 100%;
+  }
+  .oh-composer-control {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .oh-session-mode-button {
+    min-width: 0;
+  }
+  .oh-composer-model-control {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+  .oh-composer-mode-control .oh-composer-caret {
+    margin-left: auto;
+  }
+  .oh-composer-icon-control {
+    margin-left: 0 !important;
+    justify-self: end;
   }
 }
 

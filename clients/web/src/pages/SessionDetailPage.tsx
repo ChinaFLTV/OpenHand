@@ -2903,6 +2903,8 @@ function ErrorBanner({
             display: 'inline-flex',
             alignItems: 'center',
             gap: 5,
+            whiteSpace: 'nowrap',
+            flex: '0 0 auto',
           }}
         >
           <ComposerIcon name="refresh" size={13} />
@@ -2924,6 +2926,8 @@ function ErrorBanner({
             display: 'inline-flex',
             alignItems: 'center',
             gap: 5,
+            whiteSpace: 'nowrap',
+            flex: '0 0 auto',
           }}
         >
           <ComposerIcon name="copy" size={13} />
@@ -2947,6 +2951,7 @@ function ErrorBanner({
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
+            flex: '0 0 auto',
           }}
         >
           <ComposerIcon name="close" size={14} />
