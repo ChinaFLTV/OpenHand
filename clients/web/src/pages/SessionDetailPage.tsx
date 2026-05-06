@@ -2351,6 +2351,7 @@ export function SessionDetailPage() {
             <PopMenu
               align="left"
               width={220}
+              wrapperClassName="oh-composer-mode-menu"
               items={composerModeOptions.map((mode) => {
                 const serviceAllowed = allowedModes.includes(mode);
                 const modelAllowed = modelSupportsMode(selectedModel, mode);
@@ -2420,7 +2421,10 @@ export function SessionDetailPage() {
                   setAutoFollowPaused(false);
                 }
               }}
-              class={`oh-composer-control oh-tap-press ${autoFollow || autoFollowPaused || unreadCount > 0 ? 'is-tonal' : 'is-muted'}`}
+              class={`oh-composer-control oh-composer-follow-control oh-tap-press ${autoFollow || autoFollowPaused || unreadCount > 0 ? 'is-tonal' : 'is-muted'}`}
+              aria-label={autoFollowPaused || unreadCount > 0
+                ? t('detail.resumeToLatest', '回到底部')
+                : t('composer.autoFollow', '自动跟随到底部')}
               title={autoFollowPaused || unreadCount > 0
                 ? t('detail.resumeToLatest', '回到底部')
                 : t('composer.autoFollow', '自动跟随到底部')}
@@ -2440,7 +2444,7 @@ export function SessionDetailPage() {
             <button
               type="button"
               onClick={() => setComposerCollapsed((v) => !v)}
-              class="oh-composer-icon-control oh-tap-press ml-auto"
+              class="oh-composer-icon-control oh-composer-collapse-control oh-tap-press ml-auto"
               title={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
             >
               <ComposerIcon name={composerCollapsed ? 'chevronUp' : 'chevronDown'} />
@@ -2472,7 +2476,7 @@ export function SessionDetailPage() {
                 <span class="oh-composer-pill-icon"><ComposerIcon name="close" size={15} /></span>
               </button>
             ) : null}
-            <span key={`mode-${composerMode}`} class="oh-composer-pill oh-composer-chip-motion">
+            <span key={`mode-${composerMode}`} class="oh-composer-pill oh-composer-mode-pill oh-composer-chip-motion">
               <span class="oh-composer-pill-icon"><ComposerIcon name={composerModeIconName(composerMode)} size={16} /></span>
               {composerModeLabel(composerMode)}
             </span>
@@ -2669,7 +2673,7 @@ export function SessionDetailPage() {
           ) : null}
           </div>
 
-          <div class="flex flex-wrap items-center gap-2 mt-3">
+          <div class="oh-composer-footer flex flex-wrap items-center gap-2 mt-3">
             {attachmentsAllowed ? (
               <label
                 class="oh-tap-press text-xs px-3 py-2 rounded-m3-sm cursor-pointer flex items-center gap-1.5"
@@ -2726,7 +2730,7 @@ export function SessionDetailPage() {
                 allowedModels.length === 0 ||
                 (sendPhase !== 'idle' && sendPhase !== '')
               }
-              class="oh-tap-press oh-composer-footer-action is-send disabled:opacity-50"
+              class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${sendPhase !== 'idle' && sendPhase !== '' ? 'is-waiting' : ''}`}
               style={{
                 background: 'var(--m3-primary)',
                 color: 'var(--m3-on-primary)',

@@ -28,6 +28,8 @@ export interface PopMenuProps {
   items: PopMenuItem[];
   /// 触发器；调用方控制其外观。
   trigger: (props: { open: boolean; toggle: () => void }) => ComponentChildren;
+  /// Optional class for callers that need layout control over the trigger wrap.
+  wrapperClassName?: string;
   /// 默认 'right'，菜单从触发器右上角弹出。
   align?: 'left' | 'right';
   /// 可选固定宽度，适合模式选择等短菜单，避免长禁用说明把菜单撑宽。
@@ -62,7 +64,7 @@ function PopMenuCheckIcon() {
   );
 }
 
-export function PopMenu({ items, trigger, align = 'right', width }: PopMenuProps) {
+export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right', width }: PopMenuProps) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -241,7 +243,7 @@ export function PopMenu({ items, trigger, align = 'right', width }: PopMenuProps
   return (
     <div
       ref={wrapRef}
-      class="relative inline-block"
+      class={`relative inline-block ${wrapperClassName}`}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
