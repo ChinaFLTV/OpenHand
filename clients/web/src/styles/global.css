@@ -245,7 +245,7 @@ html, body, #root {
   max-height: 520px;
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
-  overflow: hidden;
+  overflow: visible;
   transition:
     max-height 420ms var(--oh-motion-spring),
     opacity 220ms var(--oh-motion-emphasized),
@@ -255,6 +255,7 @@ html, body, #root {
 .oh-composer-body[data-collapsed='true'] {
   max-height: 0;
   opacity: 0;
+  overflow: hidden;
   pointer-events: none;
   transform: translate3d(0, -8px, 0) scale(0.985);
 }
@@ -349,8 +350,10 @@ button.oh-composer-pill {
   position: absolute;
   left: 0;
   bottom: calc(100% + 10px);
+  display: flex;
+  flex-direction: column;
   width: min(480px, calc(100vw - 48px));
-  max-height: 360px;
+  max-height: min(360px, max(180px, calc(100vh - 430px)));
   overflow: hidden;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 80%, transparent);
@@ -371,7 +374,8 @@ button.oh-composer-pill {
   color: var(--m3-on-surface-variant);
 }
 .oh-skill-picker-list {
-  max-height: 302px;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow-y: auto;
   padding: 4px 0 8px;
 }
