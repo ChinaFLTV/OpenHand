@@ -15,13 +15,82 @@ import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
 import { showSnackbar } from './Snackbar';
 
+const TOPBAR_MENU_EXIT_MS = 180;
+
 export interface SessionToolbarCapsule {
   key: string;
-  icon: string;
+  icon: SessionToolbarIconName;
   label: string;
   title?: string;
   tone?: 'neutral' | 'primary' | 'warning' | 'success';
   onClick?: () => void;
+}
+
+export type SessionToolbarIconName =
+  | 'mode'
+  | 'runtime'
+  | 'permission'
+  | 'template'
+  | 'files'
+  | 'metadata'
+  | 'audit'
+  | 'tokens';
+
+type TopBarIconName = SessionToolbarIconName
+  | 'back'
+  | 'more'
+  | 'check'
+  | 'rename'
+  | 'export'
+  | 'copy'
+  | 'trash';
+
+function TopBarIcon({ name, size = 16 }: { name: TopBarIconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.9,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+    class: 'oh-topbar-icon-svg',
+  };
+  switch (name) {
+    case 'back':
+      return <svg {...common}><path d="m15 18-6-6 6-6" /></svg>;
+    case 'more':
+      return <svg {...common}><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></svg>;
+    case 'check':
+      return <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
+    case 'mode':
+      return <svg {...common}><path d="M5 6h14M7 12h10M5 18h14" /></svg>;
+    case 'runtime':
+      return <svg {...common}><path d="M4 13a8 8 0 1 0 2.1-5.4" /><path d="M4 5v5h5" /><path d="M12 8v4l2.5 2" /></svg>;
+    case 'permission':
+      return <svg {...common}><path d="M12 3 5 6v5c0 4.4 2.8 8.4 7 10 4.2-1.6 7-5.6 7-10V6z" /><path d="m9.5 12 1.7 1.7 3.6-4" /></svg>;
+    case 'template':
+      return <svg {...common}><path d="M12 3 4 7l8 4 8-4z" /><path d="m4 12 8 4 8-4" /><path d="m4 17 8 4 8-4" /></svg>;
+    case 'files':
+      return <svg {...common}><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h4l2 2h5A2.5 2.5 0 0 1 20 8.5v7A2.5 2.5 0 0 1 17.5 18h-11A2.5 2.5 0 0 1 4 15.5z" /></svg>;
+    case 'metadata':
+      return <svg {...common}><ellipse cx="12" cy="5.5" rx="6" ry="2.5" /><path d="M6 5.5v6c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-6" /><path d="M6 11.5v6c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-6" /></svg>;
+    case 'audit':
+      return <svg {...common}><path d="M9 4h6l1 2h2v14H6V6h2z" /><path d="M9 12h3M9 16h6" /><path d="m14 11 1.2 1.2L18 9.5" /></svg>;
+    case 'tokens':
+      return <svg {...common}><ellipse cx="9" cy="7" rx="5" ry="2.5" /><path d="M4 7v5c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5V7" /><path d="M10 17c.9.6 2.4 1 4 1 2.8 0 5-1.1 5-2.5V11" /><path d="M14 8.5c2.8 0 5 1.1 5 2.5s-2.2 2.5-5 2.5" /></svg>;
+    case 'rename':
+      return <svg {...common}><path d="M4 20h4.4L19 9.4a2.1 2.1 0 0 0-3-3L5.4 17H4z" /><path d="m14.8 7.6 1.6 1.6" /></svg>;
+    case 'export':
+      return <svg {...common}><path d="M12 4v10" /><path d="m8 10 4 4 4-4" /><path d="M5 19h14" /></svg>;
+    case 'copy':
+      return <svg {...common}><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M5 15V7a2 2 0 0 1 2-2h8" /></svg>;
+    case 'trash':
+      return <svg {...common}><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 14h10l1-14" /><path d="M9 7V4h6v3" /></svg>;
+  }
 }
 
 export interface SessionTopBarProps {
@@ -82,7 +151,42 @@ export function SessionTopBar(props: SessionTopBarProps) {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const moreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
   const [showMore, setShowMore] = useState(false);
+  const [closingMore, setClosingMore] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const moreMenuCloseTimerRef = useRef<number | null>(null);
+
+  const moreMenuVisible = showMore || closingMore;
+
+  function clearMoreMenuCloseTimer() {
+    if (moreMenuCloseTimerRef.current == null) return;
+    window.clearTimeout(moreMenuCloseTimerRef.current);
+    moreMenuCloseTimerRef.current = null;
+  }
+
+  function openMoreMenu() {
+    clearMoreMenuCloseTimer();
+    setClosingMore(false);
+    setShowMore(true);
+  }
+
+  function requestCloseMoreMenu() {
+    if (!showMore || closingMore) return;
+    setClosingMore(true);
+    clearMoreMenuCloseTimer();
+    moreMenuCloseTimerRef.current = window.setTimeout(() => {
+      setShowMore(false);
+      setClosingMore(false);
+      moreMenuCloseTimerRef.current = null;
+    }, TOPBAR_MENU_EXIT_MS);
+  }
+
+  function toggleMoreMenu() {
+    if (showMore && !closingMore) {
+      requestCloseMoreMenu();
+    } else {
+      openMoreMenu();
+    }
+  }
 
   useEffect(() => {
     if (!editing) setDraftTitle(title);
@@ -92,18 +196,27 @@ export function SessionTopBar(props: SessionTopBarProps) {
     if (editing) titleInputRef.current?.focus();
   }, [editing]);
 
+  useEffect(() => () => clearMoreMenuCloseTimer(), []);
+
   // 任意菜单打开时, 点击外部关闭
   useEffect(() => {
-    if (!showMore) return;
+    if (!showMore || closingMore) return;
     function close(e: MouseEvent) {
       const t = e.target as HTMLElement;
       if (!t.closest('[data-topbar-menu]')) {
-        setShowMore(false);
+        requestCloseMoreMenu();
       }
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') requestCloseMoreMenu();
+    }
     window.addEventListener('mousedown', close);
-    return () => window.removeEventListener('mousedown', close);
-  }, [showMore]);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [showMore, closingMore]);
 
   async function commitRename() {
     if (renaming) return;
@@ -168,7 +281,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
             }}
             title={t('detail.backToList', '返回会话列表')}
           >
-            ←
+            <TopBarIcon name="back" size={18} />
           </button>
         ) : null}
 
@@ -260,9 +373,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
         <div ref={moreMenuAnchorRef} class="relative flex-none" data-topbar-menu>
           <button
             type="button"
-            onClick={() => {
-              setShowMore((v) => !v);
-            }}
+            onClick={toggleMoreMenu}
             class="oh-tap-press oh-icon-button"
             style={{
               color: 'var(--m3-on-surface-variant)',
@@ -271,24 +382,25 @@ export function SessionTopBar(props: SessionTopBarProps) {
             }}
             title={t('topbar.more', '更多')}
           >
-            ⋯
+            <TopBarIcon name="more" size={17} />
           </button>
-          {showMore ? (
-            <Menu anchorRef={moreMenuAnchorRef}>
+          {moreMenuVisible ? (
+            <Menu anchorRef={moreMenuAnchorRef} closing={closingMore}>
               {onRename ? (
-                <MenuItem onClick={() => { setShowMore(false); setEditing(true); }}>
+                <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); setEditing(true); }}>
                   {t('topbar.rename', '重命名')}
                 </MenuItem>
               ) : null}
               {onExport ? (
-                <MenuItem onClick={() => { setShowMore(false); onExport(); }}>
+                <MenuItem icon="export" onClick={() => { requestCloseMoreMenu(); onExport(); }}>
                   {t('topbar.export', '导出 JSON')}
                 </MenuItem>
               ) : null}
               {sessionId ? (
                 <MenuItem
+                  icon="copy"
                   onClick={async () => {
-                    setShowMore(false);
+                    requestCloseMoreMenu();
                     await copySessionId();
                   }}
                 >
@@ -297,8 +409,9 @@ export function SessionTopBar(props: SessionTopBarProps) {
               ) : null}
               {onDelete ? (
                 <MenuItem
+                  icon="trash"
                   tone="danger"
-                  onClick={() => { setShowMore(false); onDelete(); }}
+                  onClick={() => { requestCloseMoreMenu(); onDelete(); }}
                 >
                   {t('topbar.delete', '删除会话')}
                 </MenuItem>
@@ -329,7 +442,7 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
       : capsule.tone === 'success'
         ? 'var(--m3-primary-container)'
         : 'var(--m3-surface)';
-  const baseClass = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] flex-none max-w-[240px]';
+  const baseClass = 'oh-session-capsule oh-appear-pop inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] flex-none max-w-[240px]';
   const baseStyle = {
     background: toneBackground,
     color: toneColor,
@@ -338,13 +451,15 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
   };
   const children = (
     <>
-      <span aria-hidden>{capsule.icon}</span>
+      <span class="oh-session-capsule-icon" aria-hidden>
+        <TopBarIcon name={capsule.icon} size={13.5} />
+      </span>
       <span class="truncate">{capsule.label}</span>
     </>
   );
   if (!capsule.onClick) {
     return (
-      <span class={baseClass} style={baseStyle} title={capsule.title ?? capsule.label}>
+      <span class={baseClass} style={baseStyle} title={capsule.title ?? capsule.label} data-tone={capsule.tone ?? 'neutral'}>
         {children}
       </span>
     );
@@ -356,6 +471,7 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
       style={baseStyle}
       onClick={capsule.onClick}
       title={capsule.title ?? capsule.label}
+      data-tone={capsule.tone ?? 'neutral'}
     >
       {children}
     </button>
@@ -402,9 +518,11 @@ function computeTopBarMenuPosition(
 function Menu({
   children,
   anchorRef,
+  closing,
 }: {
   children: ComponentChildren;
   anchorRef: { current: HTMLElement | null };
+  closing: boolean;
 }) {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<TopBarMenuPosition>(() => (
@@ -432,7 +550,7 @@ function Menu({
     <div
       ref={menuRef}
       data-topbar-menu
-      class="fixed rounded-m3-sm py-1 oh-appear-up"
+      class={`fixed rounded-m3-sm py-1 ${closing ? 'oh-menu-pop-out' : 'oh-popmenu-pop'}`}
       style={{
         background: 'var(--m3-surface)',
         boxShadow: 'var(--m3-elev-2)',
@@ -442,6 +560,7 @@ function Menu({
         top: `${position.top}px`,
         left: `${position.left}px`,
         zIndex: 2300,
+        transformOrigin: 'top right',
       }}
     >
       {children}
@@ -455,11 +574,13 @@ function MenuItem({
   onClick,
   active,
   tone,
+  icon,
 }: {
   children: ComponentChildren;
   onClick: () => void;
   active?: boolean;
   tone?: 'danger';
+  icon?: TopBarIconName;
 }) {
   return (
     <button
@@ -478,8 +599,9 @@ function MenuItem({
         fontWeight: active ? 600 : 400,
       }}
     >
+      {icon ? <TopBarIcon name={icon} size={15} /> : null}
       {children}
-      {active ? <span class="ml-auto">✓</span> : null}
+      {active ? <span class="ml-auto"><TopBarIcon name="check" size={14} /></span> : null}
     </button>
   );
 }

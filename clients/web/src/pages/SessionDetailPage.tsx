@@ -193,9 +193,12 @@ type ComposerIconName =
   | 'edit'
   | 'file'
   | 'image'
+  | 'model'
   | 'mode'
   | 'plan'
+  | 'permission'
   | 'research'
+  | 'refresh'
   | 'sound'
   | 'spark'
   | 'video'
@@ -254,10 +257,16 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
       return <svg {...common}><path {...stroke} d="M7 3h6l4 4v14H7z" /><path {...stroke} d="M13 3v5h5M9 13h6M9 17h4" /></svg>;
     case 'follow':
       return <svg {...common}><path {...stroke} d="M12 5v10M8 11l4 4 4-4M5 19h14" /></svg>;
+    case 'refresh':
+      return <svg {...common}><path {...stroke} d="M4 12a8 8 0 0 1 13.4-5.9" /><path {...stroke} d="M17 3v4h-4" /><path {...stroke} d="M20 12a8 8 0 0 1-13.4 5.9" /><path {...stroke} d="M7 21v-4h4" /></svg>;
     case 'image':
       return <svg {...common}><path {...stroke} d="M5 5h14v14H5z" /><path {...stroke} d="m5 16 4.5-4.5 3.5 3.5 2-2 4 4" /><path {...stroke} d="M14.5 8.5h.01" /></svg>;
+    case 'model':
+      return <svg {...common}><rect {...stroke} x="7" y="7" width="10" height="10" rx="2" /><path {...stroke} d="M9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4" /><path {...stroke} d="M10 12h4" /></svg>;
     case 'mode':
       return <svg {...common}><path {...stroke} d="M5 7h8M17 7h2M5 12h2M11 12h8M5 17h10M19 17h0" /><path {...stroke} d="M13 5v4M9 10v4M15 15v4" /></svg>;
+    case 'permission':
+      return <svg {...common}><path {...stroke} d="M12 3 5 6v5c0 4.4 2.8 8.4 7 10 4.2-1.6 7-5.6 7-10V6z" /><path {...stroke} d="m9.5 12 1.7 1.7 3.6-4" /></svg>;
     case 'plan':
       return <svg {...common}><path {...stroke} d="M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2z" /><path {...stroke} d="M9 8h6M9 12h6M9 16h3" /><path {...stroke} d="m15 16 1.2 1.2L19 14.4" /></svg>;
     case 'research':
@@ -1913,7 +1922,7 @@ export function SessionDetailPage() {
     return [
       {
         key: 'mode',
-        icon: t('topbar.capsule.modeIcon', '模式'),
+        icon: 'mode',
         label: sessionModeLabel(session.mode),
         tone: session.mode === 'plan' ? 'primary' : 'neutral',
         onClick: () => {
@@ -1924,13 +1933,13 @@ export function SessionDetailPage() {
       },
       {
         key: 'runtime',
-        icon: t('topbar.capsule.runtimeIcon', '运行'),
+        icon: 'runtime',
         label: `${sendPhaseLabel(sendPhase)} · ${sseLive ? t('detail.sse.live', '实时') : t('detail.sse.fallback', '轮询')}`,
         tone: running ? 'primary' : 'neutral',
       },
       {
         key: 'permission',
-        icon: t('topbar.capsule.permissionIcon', '权限'),
+        icon: 'permission',
         label: fullAccess
           ? t('topbar.perm.full', '完全访问权限')
           : t('topbar.perm.default', '默认权限'),
@@ -1939,33 +1948,33 @@ export function SessionDetailPage() {
       },
       {
         key: 'template',
-        icon: t('topbar.capsule.templateIcon', '模板'),
+        icon: 'template',
         label: `${templateLabel}${templateVersion}`,
         title: `${t('sessions.template.label', '模板：')}${templateLabel}${templateVersion}`,
       },
       {
         key: 'files',
-        icon: t('topbar.capsule.filesIcon', '文件'),
+        icon: 'files',
         label: t('topbar.files', '项目文件'),
         title: t('topbar.files.title', '打开项目文件'),
         onClick: () => location.route('/files'),
       },
       {
         key: 'metadata',
-        icon: t('topbar.capsule.metadataIcon', '元'),
+        icon: 'metadata',
         label: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
         onClick: () => void openSessionMetadataDialog(),
       },
       {
         key: 'audit',
-        icon: t('topbar.capsule.auditIcon', '审计'),
+        icon: 'audit',
         label: t('topbar.audit', '会话审计'),
         tone: 'primary',
         onClick: () => setSessionAuditOpen(true),
       },
       {
         key: 'tokens',
-        icon: t('topbar.capsule.tokenIcon', 'Token'),
+        icon: 'tokens',
         label: tokens,
         title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
         onClick: () => setTokenStatsOpen(true),
@@ -2112,7 +2121,9 @@ export function SessionDetailPage() {
               }}
               title={t('detail.refresh', '刷新')}
             >
-              <span class={refreshing ? 'oh-spin' : undefined} aria-hidden>↻</span>
+              <span class={refreshing ? 'oh-spin' : undefined} aria-hidden>
+                <ComposerIcon name="refresh" size={17} />
+              </span>
             </button>
           }
         />
@@ -2254,6 +2265,9 @@ export function SessionDetailPage() {
               class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0"
               title={t('composer.model', '模型')}
             >
+              <span class="oh-composer-control-icon">
+                <ComposerIcon name="model" />
+              </span>
               <span class="truncate">
                 {selectedModel?.model_id || selectedModel?.label || t('composer.modelEmpty', '主控制台未配置模型')}
               </span>
@@ -2311,6 +2325,9 @@ export function SessionDetailPage() {
               class={`oh-composer-control oh-tap-press ${session?.full_access_permission === true ? 'is-tonal' : 'is-muted'}`}
               title={t('topbar.perm.title', '权限模式')}
             >
+              <span class="oh-composer-control-icon">
+                <ComposerIcon name="permission" />
+              </span>
               <span>
                 {session?.full_access_permission === true
                   ? t('topbar.perm.full', '完全访问权限')

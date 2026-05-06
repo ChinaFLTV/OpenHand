@@ -230,6 +230,11 @@ html, body, #root {
   line-height: 1;
 }
 
+.oh-topbar-icon-svg {
+  display: block;
+  flex: none;
+}
+
 .oh-session-title-block {
   width: clamp(150px, 24vw, 260px);
 }
@@ -240,6 +245,29 @@ html, body, #root {
   mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
 }
 .oh-session-capsule-rail::-webkit-scrollbar { display: none; }
+
+.oh-session-capsule {
+  min-height: 30px;
+  transition:
+    transform var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized),
+    border-color var(--oh-motion-duration-base) var(--oh-motion-emphasized),
+    box-shadow var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+
+.oh-session-capsule:hover {
+  box-shadow: 0 1px 4px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.oh-session-capsule-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 11%, transparent);
+}
 
 .oh-composer-body {
   max-height: 520px;
