@@ -552,6 +552,7 @@ function Menu({
     <div
       ref={menuRef}
       data-topbar-menu
+      role="menu"
       class={`fixed rounded-m3-sm py-1 ${closing ? 'oh-menu-pop-out' : 'oh-popmenu-pop'}`}
       style={{
         background: 'var(--m3-surface)',
@@ -587,6 +588,7 @@ function MenuItem({
   return (
     <button
       type="button"
+      role="menuitem"
       onClick={onClick}
       class="w-full text-left text-xs px-3 py-1.5 oh-tap-press flex items-center gap-1"
       style={{

@@ -14,7 +14,7 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 const RECENT_KEY = 'openhand.web.recent_models';
 const RECENT_MAX = 6;
 
-type ModelPickerIconName = 'close' | 'check';
+type ModelPickerIconName = 'close' | 'check' | 'search';
 
 function ModelPickerIcon({ name, size = 16 }: { name: ModelPickerIconName; size?: number }) {
   const common = {
@@ -34,6 +34,8 @@ function ModelPickerIcon({ name, size = 16 }: { name: ModelPickerIconName; size?
       return <svg {...common}><path d="M7 7l10 10M17 7 7 17" /></svg>;
     case 'check':
       return <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
+    case 'search':
+      return <svg {...common}><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>;
   }
 }
 
@@ -233,7 +235,7 @@ export function ModelPickerDialog({
                 transition: 'background-color 180ms var(--oh-motion-emphasized), color 180ms var(--oh-motion-emphasized)',
               }}
             >
-              ⌕
+              <ModelPickerIcon name="search" size={15} />
             </span>
             <input
               ref={inputRef}

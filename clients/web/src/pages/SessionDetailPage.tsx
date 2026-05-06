@@ -211,6 +211,8 @@ function sessionModeIconName(mode: string): ComposerIconName {
 
 function composerModeIconName(mode: string): ComposerIconName {
   switch (mode) {
+    case 'plan':
+      return 'plan';
     case 'image':
       return 'image';
     case 'video':
@@ -413,6 +415,8 @@ function modelSupportsMode(model: ApiMetaModel | undefined, mode: string): boole
       return model.supports_video_generation !== false;
     case 'audio':
       return model.supports_audio_generation !== false;
+    case 'plan':
+      return true;
     default:
       return true;
   }
@@ -428,6 +432,8 @@ function composerModeLabel(mode: string): string {
       return t('composer.mode.video', '视频');
     case 'audio':
       return t('composer.mode.audio', '音频');
+    case 'plan':
+      return t('sessions.mode.plan', '计划模式');
     case 'deep_research':
       return t('composer.mode.deepResearch', '深度研究');
     default:
@@ -2517,11 +2523,11 @@ export function SessionDetailPage() {
                         onClick={() => selectSkillForComposer(skill)}
                       >
                         <span class="oh-skill-picker-leading" aria-hidden>
-                          {skill.emoji_icon || skill.name.slice(0, 1).toUpperCase() || 'S'}
+                          {skill.emoji_icon || <ComposerIcon name="spark" size={16} />}
                         </span>
                         <span class="min-w-0 flex-1 text-left">
                           <span class="block truncate font-semibold">{skill.name}</span>
-                          {skill.description.trim() ? (
+                          {(skill.description ?? '').trim() ? (
                             <span class="block truncate text-[11px] opacity-70">{skill.description}</span>
                           ) : null}
                         </span>
