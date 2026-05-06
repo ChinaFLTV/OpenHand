@@ -33,6 +33,7 @@ import { PullIndicator } from '../components/PullIndicator';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
+import { BusyWaitDialog } from '../components/BusyWaitDialog';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -622,6 +623,11 @@ export function SessionsPage() {
           }}
         />
       ) : null}
+      <BusyWaitDialog
+        open={creating}
+        title={t('sessions.create.wait.title', '正在新建会话')}
+        body={t('sessions.create.wait.body', '正在创建线程并准备会话上下文，请稍候。')}
+      />
       {deleteTarget ? (
         <ConfirmDialog
           title={t('topbar.deleteConfirmTitle', '删除该会话?')}

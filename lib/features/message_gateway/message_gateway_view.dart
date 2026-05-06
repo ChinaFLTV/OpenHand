@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/support/openhand_scroll_physics.dart';
+import '../../app/support/safe_subprocess.dart';
+import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
@@ -1242,27 +1244,35 @@ class _WebGatewayConnectivityDialogState
                         ],
                       ),
                     ),
-                    IconButton(
-                      tooltip: '复制结果 JSON',
-                      onPressed: result == null
-                          ? null
-                          : () => _copyResult(result),
-                      icon: const Icon(Icons.content_copy_rounded),
-                    ),
-                    IconButton(
-                      tooltip: '重新测试',
-                      onPressed: _running ? null : _run,
-                      icon: _running
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh_rounded),
-                    ),
-                    IconButton(
-                      tooltip: '关闭',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        IconButton.filledTonal(
+                          tooltip: '复制结果 JSON',
+                          onPressed: result == null
+                              ? null
+                              : () => _copyResult(result),
+                          icon: const Icon(Icons.content_copy_rounded),
+                        ),
+                        IconButton.filledTonal(
+                          tooltip: '重新测试',
+                          onPressed: _running ? null : _run,
+                          icon: _running
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.refresh_rounded),
+                        ),
+                        IconButton.filledTonal(
+                          tooltip: '关闭',
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1552,12 +1562,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
           ],
           if (target.bodyPreview.isNotEmpty) ...[
             const SizedBox(height: 8),
-            SelectableText(
-              target.bodyPreview,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
+            _StructuredResponsePreview(raw: target.bodyPreview),
           ],
         ],
       ),
@@ -1577,6 +1582,112 @@ class _ConnectivityTargetCard extends StatelessWidget {
         );
       },
       child: content,
+    );
+  }
+}
+
+class _StructuredResponsePreview extends StatelessWidget {
+  const _StructuredResponsePreview({required this.raw});
+
+  final String raw;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final decoded = _tryDecodeJson(raw);
+    final entries = decoded is Map
+        ? decoded.entries.toList(growable: false)
+        : const <MapEntry<Object?, Object?>>[];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.data_object_rounded,
+                size: 16,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text('响应数据', style: theme.textTheme.labelLarge),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (entries.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final entry in entries)
+                  _ResponseFieldChip(
+                    label: '${entry.key}',
+                    value: _formatStructuredValue(entry.value),
+                  ),
+              ],
+            )
+          else
+            SelectableText(
+              raw,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontFamily: 'Menlo',
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResponseFieldChip extends StatelessWidget {
+  const _ResponseFieldChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 132, maxWidth: 280),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: .50),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            value,
+            maxLines: 4,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontFamily: 'Menlo',
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2783,8 +2894,7 @@ class _InfoChip extends StatelessWidget {
 }
 
 /// 监听通配符地址（0.0.0.0 / ::）时展示全部可访问 URL 的横向胶囊条。
-/// 点击任意一项 → 拷贝该 URL 并 SnackBar 提示。视觉与 _InfoChip 同源
-/// 但使用 ActionChip + primary tint，提示"可点"且与状态 chip 区分开。
+/// 每个 URL 胶囊同时提供复制与浏览器访问动作。
 class _AccessibleUrlsBar extends StatelessWidget {
   const _AccessibleUrlsBar({required this.urls});
 
@@ -2796,6 +2906,41 @@ class _AccessibleUrlsBar extends StatelessWidget {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('已复制 $url')));
+  }
+
+  Future<void> _open(BuildContext context, String url) async {
+    try {
+      final result = Platform.isMacOS
+          ? await runProcessWithTimeout('open', <String>[
+              url,
+            ], tag: 'message_gateway.open_url')
+          : Platform.isWindows
+          ? await runProcessWithTimeout(
+              'cmd',
+              <String>['/c', 'start', '', url],
+              tag: 'message_gateway.open_url',
+              runInShell: true,
+            )
+          : await runProcessWithTimeout('xdg-open', <String>[
+              url,
+            ], tag: 'message_gateway.open_url');
+      if (!context.mounted) return;
+      if (result == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('打开失败: $url')));
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('正在打开 $url')));
+    } catch (error, stack) {
+      silentLog('message_gateway_view', 'open url', error, stack);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('打开失败: $error')));
+    }
   }
 
   @override
@@ -2810,7 +2955,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
             Icon(Icons.lan_outlined, size: 16, color: cs.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(
-              '可访问 URL（点击复制）',
+              '可访问 URL（复制 / 访问）',
               style: theme.textTheme.labelMedium?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -2823,29 +2968,99 @@ class _AccessibleUrlsBar extends StatelessWidget {
           runSpacing: 8,
           children: [
             for (final url in urls)
-              ActionChip(
-                avatar: Icon(
-                  Icons.content_copy_rounded,
-                  size: 14,
-                  color: cs.primary,
-                ),
-                label: Text(
-                  url,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                onPressed: () => _copy(context, url),
-                backgroundColor: cs.primaryContainer.withValues(alpha: 0.42),
-                side: BorderSide(
-                  color: cs.primary.withValues(alpha: 0.32),
-                  width: 0.6,
-                ),
+              _AccessibleUrlPill(
+                url: url,
+                onCopy: () => _copy(context, url),
+                onOpen: () => _open(context, url),
               ),
           ],
         ),
       ],
     );
+  }
+}
+
+class _AccessibleUrlPill extends StatelessWidget {
+  const _AccessibleUrlPill({
+    required this.url,
+    required this.onCopy,
+    required this.onOpen,
+  });
+
+  final String url;
+  final VoidCallback onCopy;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 360),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: cs.primary.withValues(alpha: 0.32),
+          width: 0.6,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Tooltip(
+            message: '复制地址',
+            child: IconButton(
+              onPressed: onCopy,
+              icon: const Icon(Icons.content_copy_rounded),
+              iconSize: 16,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+            ),
+          ),
+          Flexible(
+            child: Text(
+              url,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+                color: cs.onPrimaryContainer,
+              ),
+            ),
+          ),
+          Tooltip(
+            message: '浏览器访问',
+            child: IconButton(
+              onPressed: onOpen,
+              icon: const Icon(Icons.open_in_browser_rounded),
+              iconSize: 17,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 34),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Object? _tryDecodeJson(String value) {
+  try {
+    return jsonDecode(value);
+  } catch (_) {
+    return null;
+  }
+}
+
+String _formatStructuredValue(Object? value) {
+  if (value == null) return 'null';
+  if (value is String || value is num || value is bool) return '$value';
+  try {
+    const encoder = JsonEncoder.withIndent('  ');
+    return encoder.convert(value);
+  } catch (_) {
+    return '$value';
   }
 }
 

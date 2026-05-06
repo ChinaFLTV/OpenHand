@@ -369,6 +369,9 @@ html, body, #root {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+.oh-spin {
+  animation: oh-spin 840ms linear infinite;
+}
 
 /* OS 级 + 应用级双重「降低动效」开关：任一开启即整树关闭动画。
    - prefers-reduced-motion: 系统设置

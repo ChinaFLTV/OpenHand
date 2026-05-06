@@ -3,6 +3,8 @@ import { useLocation } from 'preact-iso';
 type ViewTransitionDocument = Document & {
   startViewTransition?: (callback: () => Promise<void> | void) => {
     finished: Promise<void>;
+    ready?: Promise<void>;
+    updateCallbackDone?: Promise<void>;
   };
 };
 
@@ -24,15 +26,28 @@ function runWithRouteTransition(update: () => void): void {
     return;
   }
   document.documentElement.dataset.routeTransition = 'active';
-  const transition = doc.startViewTransition(() => {
-    update();
-    return new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
-    });
-  });
-  transition.finished.finally(() => {
+  let cleaned = false;
+  let updateStarted = false;
+  let cleanupTimer: number | undefined;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    if (cleanupTimer != null) window.clearTimeout(cleanupTimer);
     delete document.documentElement.dataset.routeTransition;
-  });
+  };
+  cleanupTimer = window.setTimeout(cleanup, 720);
+  try {
+    const transition = doc.startViewTransition(() => {
+      updateStarted = true;
+      update();
+    });
+    void transition.ready?.catch(() => undefined);
+    void transition.updateCallbackDone?.catch(() => undefined);
+    void transition.finished.catch(() => undefined).finally(cleanup);
+  } catch {
+    cleanup();
+    if (!updateStarted) update();
+  }
 }
 
 export function useAnimatedLocation() {

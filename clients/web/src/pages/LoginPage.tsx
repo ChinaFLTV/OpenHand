@@ -4,6 +4,7 @@ import { loginWithCredentials } from '../api/auth';
 import { ApiError, UnauthorizedError } from '../api/client';
 import { markLoggedIn, useAuth } from '../state/auth';
 import { t } from '../i18n';
+import { BusyWaitDialog } from '../components/BusyWaitDialog';
 
 export function LoginPage() {
   const auth = useAuth();
@@ -132,6 +133,11 @@ export function LoginPage() {
           </button>
         </form>
       </section>
+      <BusyWaitDialog
+        open={submitting}
+        title={t('login.wait.title', '正在登录')}
+        body={t('login.wait.body', '正在校验凭据并准备线程列表，请稍候。')}
+      />
     </main>
   );
 }

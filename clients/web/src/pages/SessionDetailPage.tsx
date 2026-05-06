@@ -16,6 +16,7 @@
 //   POST  /api/sessions/:id/stop     body {}
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
 import { createPortal } from 'preact/compat';
 import {
@@ -286,6 +287,7 @@ export function SessionDetailPage() {
   } | null>(null);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
+  const [tokenStatsOpen, setTokenStatsOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
   const [sessionDeleteBusy, setSessionDeleteBusy] = useState(false);
@@ -1143,7 +1145,7 @@ export function SessionDetailPage() {
         icon: t('topbar.capsule.tokenIcon', 'Token'),
         label: tokens,
         title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
-        onClick: () => setSessionMetadataOpen(true),
+        onClick: () => setTokenStatsOpen(true),
       },
     ];
   }, [session, sendPhase, sseLive, totalKnown, selectedModel, composerModelKey, sessionModeOptions, sessionId]);
@@ -1814,6 +1816,12 @@ export function SessionDetailPage() {
           onClose={() => setSessionMetadataOpen(false)}
         />
       ) : null}
+      {tokenStatsOpen && detail ? (
+        <SessionTokenStatsDialog
+          detail={detail}
+          onClose={() => setTokenStatsOpen(false)}
+        />
+      ) : null}
       {pendingDeleteAction ? (
         <ConfirmDialog
           title={pendingDeleteAction.cascade
@@ -2119,6 +2127,153 @@ function MessageAuditDialog({
     </div>
   );
   return typeof document === 'undefined' ? node : createPortal(node, document.body);
+}
+
+function SessionTokenStatsDialog({
+  detail,
+  onClose,
+}: {
+  detail: SessionDetailResponse;
+  onClose: () => void;
+}) {
+  const session = detail.session;
+  const stats = session.statistics ?? {};
+  const promptTokens = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
+  const completionTokens = readStatNumber(
+    stats['total_completion_tokens'],
+    session.total_completion_tokens,
+  );
+  const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
+  const cacheWriteTokens = readStatNumber(stats['cache_creation_tokens'], 0);
+  const totalTokens = readStatNumber(
+    stats['total_tokens'],
+    session.total_tokens ?? promptTokens + completionTokens,
+  );
+  const totalMessageCount = readStatNumber(stats['total_message_count'], session.message_count);
+  const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
+  const totalPromptCharacters = readStatNumber(stats['total_prompt_characters'], 0);
+  const cacheHitBase = promptTokens + cacheReadTokens;
+  const cacheHitRatio = cacheHitBase === 0
+    ? 0
+    : Math.round((cacheReadTokens / cacheHitBase) * 100);
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+  const node = (
+    <div
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
+      style={{ background: 'rgba(0,0,0,0.36)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
+      onClick={requestClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-md rounded-m3-xl p-5`}
+        style={{
+          background: 'var(--m3-surface-container)',
+          color: 'var(--m3-on-surface)',
+          boxShadow: 'var(--m3-elev-3)',
+          border: '1px solid var(--m3-outline-variant)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header class="mb-4 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold">{t('topbar.tokens', 'Token 统计')}</h2>
+            <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {session.title || t('sessions.untitled', '未命名会话')}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="oh-tap-press rounded-m3-sm px-2 py-1 text-sm"
+            style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
+            onClick={requestClose}
+          >
+            {t('common.close', '关闭')}
+          </button>
+        </header>
+        <div class="space-y-4">
+          <TokenStatsSection title={t('tokenPopup.input', '输入')}>
+            <TokenStatsRow label={t('tokenPopup.prompt', 'Prompt')} value={promptTokens} />
+            <TokenStatsRow label={t('tokenPopup.cacheRead', 'Cache 命中')} value={cacheReadTokens} tone="success" />
+            <TokenStatsRow label={t('tokenPopup.cacheWrite', 'Cache 写入')} value={cacheWriteTokens} tone="success" />
+          </TokenStatsSection>
+          <TokenStatsSection title={t('tokenPopup.output', '输出')}>
+            <TokenStatsRow label={t('tokenPopup.completion', 'Completion')} value={completionTokens} />
+          </TokenStatsSection>
+          <div
+            class="rounded-m3-md px-3 py-2.5"
+            style={{
+              background: 'var(--m3-primary-container)',
+              color: 'var(--m3-on-primary-container)',
+              border: '1px solid color-mix(in srgb, var(--m3-primary) 34%, transparent)',
+            }}
+          >
+            <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
+            {(cacheReadTokens > 0 || cacheWriteTokens > 0) ? (
+              <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={cacheHitRatio} suffix="%" tone="success" />
+            ) : null}
+          </div>
+          <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
+            <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} />
+            <TokenStatsRow label={t('tokenPopup.promptBuilds', 'Prompt 构建')} value={promptBuildCount} />
+            <TokenStatsRow label={t('tokenPopup.promptChars', 'Prompt 字符')} value={totalPromptCharacters} />
+          </TokenStatsSection>
+        </div>
+      </div>
+    </div>
+  );
+  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+}
+
+function TokenStatsSection({ title, children }: { title: string; children: ComponentChildren }) {
+  return (
+    <section
+      class="rounded-m3-md p-3"
+      style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+    >
+      <h3 class="mb-2 text-[11px] font-semibold uppercase" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {title}
+      </h3>
+      <div class="space-y-1.5">{children}</div>
+    </section>
+  );
+}
+
+function TokenStatsRow({
+  label,
+  value,
+  suffix = '',
+  tone = 'neutral',
+  emphasized = false,
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+  tone?: 'neutral' | 'success';
+  emphasized?: boolean;
+}) {
+  const color = tone === 'success' ? 'var(--m3-secondary)' : 'var(--m3-on-surface)';
+  return (
+    <div class="flex items-center justify-between gap-3 text-sm">
+      <span style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
+      <span
+        class={emphasized ? 'text-base font-bold tabular-nums' : 'font-semibold tabular-nums'}
+        style={{ color }}
+      >
+        {value.toLocaleString()}{suffix}
+      </span>
+    </div>
+  );
+}
+
+function readStatNumber(value: unknown, fallback: unknown): number {
+  const raw = value ?? fallback;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return Math.max(0, Math.round(raw));
+  if (typeof raw === 'string') {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
+  }
+  return 0;
 }
 
 function formatDialogDate(value?: string | null): string {
