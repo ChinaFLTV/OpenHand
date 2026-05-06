@@ -719,9 +719,15 @@ button.oh-composer-pill:not(:disabled):hover {
   grid-template-columns: minmax(0, 1fr) 132px;
   gap: 18px;
   align-items: center;
+  min-width: 0;
+}
+.oh-image-editor-preview-row > * {
+  min-width: 0;
 }
 .oh-image-editor-preview-shell {
   justify-self: center;
+  width: 100%;
+  min-width: 0;
   max-height: 420px;
   border-radius: 10px;
   overflow: hidden;
@@ -893,6 +899,37 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-image-editor-footer button:disabled {
   opacity: 0.5;
+}
+
+@media (max-width: 520px) {
+  .oh-image-editor-dialog {
+    width: min(390px, calc(100vw - 24px));
+  }
+  .oh-image-editor-header {
+    padding: 18px 18px 10px;
+  }
+  .oh-image-editor-header h2 {
+    font-size: 20px;
+  }
+  .oh-image-editor-scroll {
+    overflow-x: hidden;
+    padding: 0 18px 14px;
+  }
+  .oh-image-editor-preview-shell {
+    max-width: 100% !important;
+  }
+  .oh-image-editor-canvas {
+    max-width: 100%;
+  }
+  .oh-image-editor-aspects button,
+  .oh-image-editor-actions button,
+  .oh-image-editor-footer button {
+    padding-inline: 13px;
+    white-space: nowrap;
+  }
+  .oh-image-editor-footer {
+    padding: 12px 18px 16px;
+  }
 }
 
 @media (max-width: 760px) {

@@ -299,7 +299,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
 
           <div class="oh-image-editor-scroll">
             <section class="oh-image-editor-preview-row">
-              <div class="oh-image-editor-preview-shell" style={{ width: `${previewSize.width}px`, maxWidth: '100%' }}>
+              <div class="oh-image-editor-preview-shell" style={{ width: '100%', maxWidth: `${previewSize.width}px` }}>
                 <canvas
                   ref={canvasRef}
                   width={previewSize.width}
