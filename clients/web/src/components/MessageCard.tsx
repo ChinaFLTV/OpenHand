@@ -352,7 +352,7 @@ function MessageCardImpl({
   return (
     <article
       ref={cardRef}
-      class="rounded-m3-md p-4 oh-appear-up"
+      class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} rounded-m3-md p-4 oh-appear-up`}
       style={{
         display: 'block',
         width: 'fit-content',
@@ -379,8 +379,8 @@ function MessageCardImpl({
         onActiveChange?.(message, !active);
       }}
     >
-      <header class="flex items-center justify-between gap-3 text-xs mb-2 opacity-90">
-        <span class="flex items-center gap-2 min-w-0">
+      <header class="oh-message-card-header flex items-center justify-between gap-3 text-xs mb-2 opacity-90">
+        <span class="oh-message-card-meta flex items-center gap-2 min-w-0">
           {style.badge ? (
             <span
               class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
@@ -402,10 +402,10 @@ function MessageCardImpl({
             </span>
           )}
           {message.model_label ? (
-            <span class="truncate opacity-75">· {message.model_label}</span>
+            <span class="oh-message-model-label truncate opacity-75">· {message.model_label}</span>
           ) : null}
         </span>
-        <span class="opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
+        <span class="oh-message-time opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
       </header>
       <MessageToolMeta message={message} />
       {message.kind === 'file_mutation_summary' ? (

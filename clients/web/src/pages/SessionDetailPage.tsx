@@ -2186,7 +2186,7 @@ export function SessionDetailPage() {
               type="button"
               onClick={refresh}
               disabled={refreshing || loadingDetail}
-              class="oh-tap-press oh-icon-button flex-none disabled:opacity-50"
+              class="oh-tap-press oh-icon-button oh-session-refresh-button flex-none disabled:opacity-50"
               style={{
                 border: '1px solid var(--m3-outline-variant)',
                 color: 'var(--m3-on-surface-variant)',
@@ -2207,14 +2207,14 @@ export function SessionDetailPage() {
 
         {remoteRunning ? (
           <div
-            class="rounded-md px-3 py-2 mb-4 text-xs flex items-start gap-2"
+            class="oh-remote-running-banner rounded-md px-3 py-2 mb-4 text-xs flex items-start gap-2"
             style={{
               background: 'var(--m3-tertiary-container)',
               color: 'var(--m3-on-tertiary-container)',
               border: '1px solid color-mix(in srgb, var(--m3-tertiary) 36%, transparent)',
             }}
           >
-            <span>
+            <span class="oh-remote-running-text">
               {t(
                 'detail.remoteRunning',
                 '另一处客户端正在生成回复。如本端正在编辑草稿, 建议等远端结束后再发送, 避免顺序混乱。',

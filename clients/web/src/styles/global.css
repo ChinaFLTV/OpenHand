@@ -1055,6 +1055,95 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 @media (max-width: 480px) {
+  .oh-session-topbar {
+    padding: 8px !important;
+  }
+  .oh-session-topbar-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+  }
+  .oh-session-back-button {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .oh-session-title-block {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+  }
+  .oh-session-topbar-actions {
+    grid-column: 3;
+    grid-row: 1;
+    margin-left: 0;
+  }
+  .oh-session-stop-button {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 30px;
+    justify-content: center;
+  }
+  .oh-session-capsule-rail {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    order: 0;
+    flex-basis: auto;
+    min-width: 0;
+    width: 100%;
+  }
+  .oh-session-topbar-row:not(:has(.oh-session-stop-button)) .oh-session-capsule-rail {
+    grid-column: 1 / 4;
+  }
+  .oh-session-capsule {
+    max-width: min(46vw, 220px);
+  }
+  .oh-remote-running-banner {
+    margin-bottom: 8px !important;
+    padding-block: 8px !important;
+    line-height: 1.45;
+  }
+  .oh-remote-running-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .oh-message-card {
+    max-width: 100% !important;
+    padding: 13px !important;
+    border-radius: 18px !important;
+  }
+  .oh-message-card-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 3px 8px;
+    margin-bottom: 7px;
+  }
+  .oh-message-card-meta {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+  .oh-message-model-label {
+    display: none;
+  }
+  .oh-message-time {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .oh-message-kind-icon,
+  .oh-file-mutation-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .oh-message-action-button {
+    max-width: 100%;
+    padding-inline: 8px;
+  }
+  .oh-markdown {
+    font-size: 13px;
+    line-height: 1.62;
+  }
   .oh-composer-toolbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 42px;
@@ -1162,14 +1251,66 @@ button.oh-composer-pill:not(:disabled):hover {
     display: none;
   }
   .oh-session-capsule {
-    max-width: min(76vw, 280px);
+    max-width: min(46vw, 220px);
   }
   .oh-session-title-block {
-    width: calc(100% - 116px);
+    width: auto;
   }
 }
 
 @media (max-width: 360px) {
+  .oh-session-topbar {
+    border-radius: 18px !important;
+    padding: 7px !important;
+  }
+  .oh-session-topbar-row {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+  .oh-session-title-block p {
+    display: none;
+  }
+  .oh-session-stop-button {
+    width: 32px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0;
+  }
+  .oh-session-stop-label {
+    display: none;
+  }
+  .oh-session-stop-dot {
+    margin: 0;
+  }
+  .oh-session-refresh-button {
+    display: none;
+  }
+  .oh-session-capsule {
+    max-width: min(62vw, 190px);
+    min-height: 28px;
+    padding: 4px 8px !important;
+  }
+  .oh-session-capsule-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .oh-remote-running-banner {
+    padding-inline: 10px !important;
+    font-size: 12px;
+  }
+  .oh-remote-running-text {
+    -webkit-line-clamp: 2;
+  }
+  .oh-message-card {
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+  .oh-message-card-header {
+    margin-bottom: 6px;
+  }
+  .oh-message-action-button.is-compact {
+    padding-inline: 6px;
+  }
   .oh-composer-toolbar {
     grid-template-columns: minmax(0, 1fr) 38px 38px;
     gap: 6px;

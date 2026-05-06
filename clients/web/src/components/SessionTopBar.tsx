@@ -283,7 +283,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
           <button
             type="button"
             onClick={onBack}
-            class="oh-tap-press oh-icon-button flex-none"
+            class="oh-tap-press oh-icon-button oh-session-back-button flex-none"
             style={{
               color: 'var(--m3-on-surface-variant)',
               border: '1px solid var(--m3-outline-variant)',
@@ -358,7 +358,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
             type="button"
             onClick={onStop}
             disabled={stopping}
-            class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm flex-none flex items-center gap-1.5 disabled:opacity-50"
+            class="oh-tap-press oh-session-stop-button text-xs px-2.5 py-1.5 rounded-m3-sm flex-none flex items-center gap-1.5 disabled:opacity-50"
             style={{
               border: '1px solid var(--m3-error)',
               color: 'var(--m3-error)',
@@ -367,7 +367,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
             title={t('composer.stop', '停止响应')}
           >
             <span
-              class="oh-pulse-soft inline-block"
+              class="oh-pulse-soft oh-session-stop-dot inline-block"
               aria-hidden
               style={{
                 width: 6,
@@ -376,7 +376,9 @@ export function SessionTopBar(props: SessionTopBarProps) {
                 background: 'var(--m3-error)',
               }}
             />
-            {stopping ? t('composer.stopping', '正在停止…') : t('composer.stop', '停止')}
+            <span class="oh-session-stop-label">
+              {stopping ? t('composer.stopping', '正在停止…') : t('composer.stop', '停止')}
+            </span>
           </button>
         ) : null}
 
