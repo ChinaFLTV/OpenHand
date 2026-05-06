@@ -2715,6 +2715,7 @@ class WebMessagePlatformService {
         HttpHeaders.connectionHeader: 'keep-alive',
         'x-accel-buffering': 'no',
       },
+      context: const <String, Object>{'shelf.io.buffer_output': false},
     );
   }
 
@@ -2899,27 +2900,60 @@ class WebMessagePlatformService {
   /// 复用 _authorize，但允许从 query string 读取 token / device 信息，
   /// 兼容浏览器 EventSource 这种不能自定义 header 的场景。
   _WebGatewayAuthSession? _authorizeFromRequestOrQuery(shelf.Request request) {
-    final fromHeader = _authorize(request);
-    if (fromHeader != null) return fromHeader;
     if (!_config.authEnabled) {
-      // 匿名模式但 header 缺失：用 query string 兜底构造一个 anonymous session。
+      // 匿名模式下 EventSource 无法带自定义 header，因此 query string 是
+      // `/events` 的首选身份来源；手写 HTTP 调用仍可回落到 header。
       final qp = request.requestedUri.queryParameters;
-      final deviceId = qp['device_id'] ?? 'anonymous-web';
+      String pick(String queryKey, String headerKey, String fallback) {
+        final queryValue = qp[queryKey]?.trim();
+        if (queryValue != null && queryValue.isNotEmpty) return queryValue;
+        final headerValue = request.headers[headerKey]?.trim();
+        if (headerValue != null && headerValue.isNotEmpty) return headerValue;
+        return fallback;
+      }
+
+      final deviceId = pick(
+        'device_id',
+        'x-openhand-device-id',
+        'anonymous-web',
+      );
       return _WebGatewayAuthSession(
         token: 'anonymous',
-        source: WebGatewayLoginSource.fromStorage(qp['source'] ?? 'WEB_PC'),
+        source: WebGatewayLoginSource.fromStorage(
+          pick('source', 'x-openhand-source', 'WEB_PC'),
+        ),
         deviceId: deviceId,
-        deviceMacAddress: '',
-        deviceName: 'OpenHand Web',
-        devicePlatform: 'web',
-        osName: qp['os_name'] ?? '',
-        osVersion: qp['os_version'] ?? '',
-        browserName: qp['browser_name'] ?? '',
-        browserVersion: qp['browser_version'] ?? '',
-        webClientVersion: qp['web_client_version'] ?? '',
-        locale: qp['locale'] ?? '',
-        timezone: qp['timezone'] ?? '',
-        screenClass: qp['screen_class'] ?? '',
+        deviceMacAddress: pick(
+          'device_mac_address',
+          'x-openhand-device-mac',
+          '',
+        ),
+        deviceName: pick(
+          'device_name',
+          'x-openhand-device-name',
+          'OpenHand Web',
+        ),
+        devicePlatform: pick(
+          'device_platform',
+          'x-openhand-device-platform',
+          'web',
+        ),
+        osName: pick('os_name', 'x-openhand-os-name', ''),
+        osVersion: pick('os_version', 'x-openhand-os-version', ''),
+        browserName: pick('browser_name', 'x-openhand-browser-name', ''),
+        browserVersion: pick(
+          'browser_version',
+          'x-openhand-browser-version',
+          '',
+        ),
+        webClientVersion: pick(
+          'web_client_version',
+          'x-openhand-web-client-version',
+          '',
+        ),
+        locale: pick('locale', 'x-openhand-locale', ''),
+        timezone: pick('timezone', 'x-openhand-timezone', ''),
+        screenClass: pick('screen_class', 'x-openhand-screen-class', ''),
         loginAt: DateTime.now().toUtc(),
         remoteAddress:
             (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
@@ -2929,6 +2963,8 @@ class WebMessagePlatformService {
         userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
       );
     }
+    final fromHeader = _authorize(request);
+    if (fromHeader != null) return fromHeader;
     final token = request.requestedUri.queryParameters['token']?.trim() ?? '';
     if (token.isEmpty) return null;
     return _authSessions[token];
