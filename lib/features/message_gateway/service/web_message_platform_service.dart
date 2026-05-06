@@ -89,6 +89,15 @@ class _HttpByteRange {
   final int endInclusive;
 }
 
+class _GatewayBindResult {
+  const _GatewayBindResult({required this.server, required this.requestedPort});
+
+  final HttpServer server;
+  final int requestedPort;
+
+  bool get usedFallbackPort => server.port != requestedPort;
+}
+
 class WebMessagePlatformService {
   WebMessagePlatformService({
     required AiSessionController sessionController,
@@ -249,20 +258,37 @@ class WebMessagePlatformService {
           .addMiddleware(_corsMiddleware())
           .addMiddleware(_telemetryAndLimitMiddleware());
       final handler = pipeline.addHandler(_buildRouter().call);
-      final server = await shelf_io.serve(
-        handler,
-        address,
-        config.listenPort,
-        shared: true,
+      final bindResult = await _serveGateway(
+        handler: handler,
+        address: address,
+        config: config,
       );
+      final server = bindResult.server;
       server.serverHeader = 'OpenHand-WebGateway/1.0';
       _server = server;
       _startedAt = DateTime.now().toUtc();
+      _lastError = '';
+      _lastErrorAt = null;
+      _lastErrorPath = '';
       _state = WebGatewayRuntimeState.running;
       // 启动后立刻探测一次主机 IP 列表，使 BOOT 日志可同时打出 LAN URL；
       // NetworkInterface.list 内部毫秒级，且失败仅 silentLog，不阻塞 boot。
       await _refreshLocalAddressesIfStale(ttl: Duration.zero);
       final urls = accessibleUrls;
+      if (bindResult.usedFallbackPort) {
+        _log(
+          WebGatewayLogLevel.warn,
+          'BOOT',
+          '配置端口 ${bindResult.requestedPort} 已被占用，已临时监听 ${server.port}',
+          <String, Object?>{
+            'host': config.listenHost,
+            'requested_port': bindResult.requestedPort,
+            'bound_port': server.port,
+            'bound_url': boundUrl,
+            'accessible_urls': urls,
+          },
+        );
+      }
       final logSummary = urls.length <= 1
           ? boundUrl
           : '$boundUrl  (LAN: ${urls.where((u) => u != boundUrl).join(", ")})';
@@ -272,6 +298,7 @@ class WebMessagePlatformService {
         'Web 服务已监听 $logSummary',
         <String, Object?>{'bound_url': boundUrl, 'accessible_urls': urls},
       );
+      _logPublicAccessWarningIfNeeded(config, urls);
       // 启动后顺手做一次过期清理；失败不应阻塞 boot 流程，但要走 silentLog
       // 防止 Future error 被 unawaited 静默吞掉。
       unawaited(() async {
@@ -289,9 +316,14 @@ class WebMessagePlatformService {
     } catch (error, stack) {
       _state = WebGatewayRuntimeState.crashed;
       _crashCount++;
-      _lastError = '$error';
-      _log(WebGatewayLogLevel.error, 'BOOT', 'Web 服务启动失败: $error');
-      silentLog('web_message_platform_service', 'start', error, stack);
+      _lastError = _startupFailureMessage(config, error);
+      _log(WebGatewayLogLevel.error, 'BOOT', _lastError, <String, Object?>{
+        'host': config.listenHost,
+        'port': config.listenPort,
+      });
+      if (!_isAddressAlreadyInUse(error)) {
+        silentLog('web_message_platform_service', 'start', error, stack);
+      }
       rethrow;
     }
   }
@@ -1609,7 +1641,12 @@ class WebMessagePlatformService {
         'id': webMessagePlatformBuiltinId,
         'name': webMessagePlatformBuiltinName,
         'description': _config.description,
+        'listen_host': _config.listenHost,
+        'listen_port': _config.listenPort,
         'bound_url': boundUrl,
+        'bound_port': _server?.port,
+        'port_fallback_active':
+            _server != null && _server!.port != _config.listenPort,
         'accessible_urls': accessibleUrls,
         'auto_start_on_launch': _config.autoStartOnLaunch,
         'auto_reload_on_change': _config.autoReloadOnChange,
@@ -3813,6 +3850,76 @@ class WebMessagePlatformService {
     if (_config.loggingEnabled) {
       unawaited(_fileLogger.write(entry, _config.logConfig));
     }
+  }
+
+  Future<_GatewayBindResult> _serveGateway({
+    required shelf.Handler handler,
+    required InternetAddress address,
+    required WebMessagePlatformConfig config,
+  }) async {
+    try {
+      final server = await shelf_io.serve(
+        handler,
+        address,
+        config.listenPort,
+        shared: true,
+      );
+      return _GatewayBindResult(
+        server: server,
+        requestedPort: config.listenPort,
+      );
+    } catch (error) {
+      if (!_isAddressAlreadyInUse(error)) rethrow;
+      final server = await shelf_io.serve(handler, address, 0, shared: true);
+      return _GatewayBindResult(
+        server: server,
+        requestedPort: config.listenPort,
+      );
+    }
+  }
+
+  bool _isAddressAlreadyInUse(Object error) {
+    if (error is! SocketException) return false;
+    final code = error.osError?.errorCode;
+    if (code == 48 || code == 98 || code == 10048) return true;
+    final message = '${error.message} ${error.osError?.message ?? ''}'
+        .toLowerCase();
+    return message.contains('address already in use') ||
+        message.contains('only one usage of each socket address') ||
+        message.contains('binding multiple times') ||
+        message.contains('same (address, port)');
+  }
+
+  String _startupFailureMessage(WebMessagePlatformConfig config, Object error) {
+    if (_isAddressAlreadyInUse(error)) {
+      return 'Web 服务启动失败：${config.listenHost}:${config.listenPort} 已被占用，请关闭占用进程或修改监听端口';
+    }
+    return 'Web 服务启动失败: $error';
+  }
+
+  void _logPublicAccessWarningIfNeeded(
+    WebMessagePlatformConfig config,
+    List<String> urls,
+  ) {
+    if (config.authEnabled || !_isWildcardListenHost(config.listenHost)) return;
+    _log(
+      WebGatewayLogLevel.warn,
+      'SECURITY',
+      'Web 服务正在监听全部网卡且未开启鉴权，请仅在可信网络使用；如需长期跨设备访问，建议开启鉴权或改为 127.0.0.1',
+      <String, Object?>{
+        'listen_host': config.listenHost,
+        'auth_enabled': config.authEnabled,
+        'accessible_urls': urls,
+      },
+    );
+  }
+
+  bool _isWildcardListenHost(String host) {
+    final normalized = host.trim();
+    return normalized.isEmpty ||
+        normalized == '0.0.0.0' ||
+        normalized == '::' ||
+        normalized == '::0';
   }
 
   InternetAddress _bindAddress(String host) {

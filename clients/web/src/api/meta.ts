@@ -2,7 +2,11 @@ import type { M3ThemeTokens } from '../theme/tokens';
 import { tFmt } from '../i18n';
 
 export interface ApiMetaService {
+  listen_host?: string;
+  listen_port?: number;
   bound_url?: string;
+  bound_port?: number;
+  port_fallback_active?: boolean;
   accessible_urls?: string[];
   auth_enabled?: boolean;
   telemetry_enabled?: boolean;

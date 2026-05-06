@@ -106,6 +106,9 @@ class _WebPlatformServiceCard extends StatelessWidget {
     final config = controller.config;
     final runtime = controller.runtimeSnapshot();
     final isRunning = controller.isRunning;
+    final boundPort = Uri.tryParse(runtime.boundUrl)?.port;
+    final usingFallbackPort =
+        isRunning && boundPort != null && boundPort != config.listenPort;
     final stateColor = switch (controller.runtimeState) {
       WebGatewayRuntimeState.running => const Color(0xFF16A34A),
       WebGatewayRuntimeState.crashed => theme.colorScheme.error,
@@ -282,6 +285,11 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       ? controller.webUrl
                       : '${config.listenHost}:${config.listenPort}',
                 ),
+                if (usingFallbackPort)
+                  _InfoChip(
+                    icon: Icons.warning_amber_rounded,
+                    label: '${config.listenPort} 被占用，临时端口 $boundPort',
+                  ),
                 _InfoChip(
                   icon: Icons.lock_outline_rounded,
                   label: config.authEnabled ? '鉴权开启' : '免鉴权',
