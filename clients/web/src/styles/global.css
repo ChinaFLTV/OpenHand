@@ -1005,6 +1005,22 @@ button.oh-composer-pill:not(:disabled):hover {
   transform-origin: top center;
 }
 
+.oh-dialog-action-button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: var(--m3-radius-sm);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.oh-dialog-action-button > svg {
+  flex: none;
+}
+
 /* 弹窗入场：遮罩 fade + 中央卡片 spring scale-in，对齐 Material 3 Expressive 的"触觉Q弹"。 */
 @keyframes oh-dialog-fade-in {
   from { opacity: 0; }

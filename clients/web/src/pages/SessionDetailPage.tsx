@@ -2978,6 +2978,14 @@ function MessageAuditDialog({
 }) {
   const json = JSON.stringify(message, null, 2);
   const { closing, requestClose } = useDialogExitMotion(onClose);
+  useEffect(() => {
+    if (closing) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [closing, requestClose]);
   const node = (
     <div
       class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 z-[2600] flex items-center justify-center p-4`}
@@ -2985,6 +2993,8 @@ function MessageAuditDialog({
       onClick={requestClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-4 max-w-2xl w-full flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
@@ -2995,24 +3005,26 @@ function MessageAuditDialog({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <header class="flex items-center justify-between gap-3 mb-3">
-          <h2 class="text-base font-semibold">{t('common.audit', '审计')} · {message.id}</h2>
-          <div class="flex items-center gap-2">
+        <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 class="text-base font-semibold min-w-0 truncate">{t('common.audit', '审计')} · {message.id}</h2>
+          <div class="flex flex-wrap items-center justify-end gap-2">
             <button
               type="button"
-              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              class="oh-tap-press oh-dialog-action-button"
               style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
               onClick={() => void copyJsonWithFeedback(json)}
             >
-              {t('common.copy', '复制')}
+              <ComposerIcon name="copy" size={14} />
+              <span>{t('common.copy', '复制')}</span>
             </button>
             <button
               type="button"
-              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              class="oh-tap-press oh-dialog-action-button"
               style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
               onClick={requestClose}
             >
-              {t('common.close', '关闭')}
+              <ComposerIcon name="close" size={14} />
+              <span>{t('common.close', '关闭')}</span>
             </button>
           </div>
         </header>
@@ -3490,6 +3502,8 @@ function SessionMetadataDialog({
       onClick={requestClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-lg p-5 w-full flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
@@ -3501,27 +3515,29 @@ function SessionMetadataDialog({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <header class="flex items-start justify-between gap-3 mb-4">
+        <header class="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div class="min-w-0">
             <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
             <p class="text-sm mt-2 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>{session.title}</p>
           </div>
-          <div class="flex items-center gap-2 flex-none">
+          <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
             <button
               type="button"
-              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              class="oh-tap-press oh-dialog-action-button"
               style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
               onClick={() => void copyJsonWithFeedback(JSON.stringify({ session, runtime: detail.runtime, loaded_messages: messages.length }, null, 2))}
             >
-              {t('common.copy', '复制')}
+              <ComposerIcon name="copy" size={14} />
+              <span>{t('common.copy', '复制')}</span>
             </button>
             <button
               type="button"
-              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              class="oh-tap-press oh-dialog-action-button"
               style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
               onClick={requestClose}
             >
-              {t('common.close', '关闭')}
+              <ComposerIcon name="close" size={14} />
+              <span>{t('common.close', '关闭')}</span>
             </button>
           </div>
         </header>
@@ -3696,6 +3712,14 @@ function SessionAuditDialog({
 }) {
   const session = detail.session;
   const { closing, requestClose } = useDialogExitMotion(onClose);
+  useEffect(() => {
+    if (closing) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [closing, requestClose]);
   const json = JSON.stringify({
     session,
     runtime: detail.runtime,
@@ -3715,6 +3739,8 @@ function SessionAuditDialog({
       onClick={requestClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-4 max-w-3xl w-full flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
@@ -3725,29 +3751,31 @@ function SessionAuditDialog({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <header class="flex items-center justify-between gap-3 mb-3">
+        <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div class="min-w-0">
             <h2 class="text-base font-semibold truncate">{t('topbar.audit', '会话审计')} · {session.title}</h2>
             <p class="text-xs mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
               {session.id}
             </p>
           </div>
-          <div class="flex items-center gap-2 flex-none">
+          <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
             <button
               type="button"
-              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              class="oh-tap-press oh-dialog-action-button"
               style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
               onClick={() => void copyJsonWithFeedback(json)}
             >
-              {t('common.copy', '复制')}
+              <ComposerIcon name="copy" size={14} />
+              <span>{t('common.copy', '复制')}</span>
             </button>
             <button
               type="button"
-              class="oh-tap-press text-sm px-2 py-1 rounded-m3-sm"
+              class="oh-tap-press oh-dialog-action-button"
               style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
               onClick={requestClose}
             >
-              {t('common.close', '关闭')}
+              <ComposerIcon name="close" size={14} />
+              <span>{t('common.close', '关闭')}</span>
             </button>
           </div>
         </header>
