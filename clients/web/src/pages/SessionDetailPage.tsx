@@ -43,7 +43,7 @@ import { listSessions } from '../api/sessions';
 import { SessionGoneDialog } from '../components/SessionGoneDialog';
 import { t } from '../i18n';
 import { useAuth } from '../state/auth';
-import type { ApiMetaModel } from '../api/meta';
+import type { ApiMetaModel, ApiMetaShortcutBinding } from '../api/meta';
 import { MessageCard } from '../components/MessageCard';
 import { PlanTimeline } from '../components/PlanTimeline';
 import { notifyIfHidden } from '../services/pwa';
@@ -60,6 +60,7 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { PopMenu } from '../components/PopMenu';
 
 const PAGE_SIZE = 80;
 
@@ -76,6 +77,7 @@ const SSE_FAIL_THRESHOLD = 3;
 /// 真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
+const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
 
 function readPersistedComposerCollapsed(): boolean {
   try {
@@ -207,6 +209,85 @@ function modelSupportsMode(model: ApiMetaModel | undefined, mode: string): boole
   }
 }
 
+function composerModeLabel(mode: string): string {
+  switch (mode) {
+    case 'normal':
+      return t('composer.mode.normal', '普通');
+    case 'image':
+      return t('composer.mode.image', '图像');
+    case 'video':
+      return t('composer.mode.video', '视频');
+    case 'audio':
+      return t('composer.mode.audio', '音频');
+    case 'deep_research':
+      return t('composer.mode.deepResearch', '深度研究');
+    default:
+      return mode;
+  }
+}
+
+function allComposerModes(allowedModes: string[]): string[] {
+  const merged = new Set<string>([...allowedModes, ...DEFAULT_COMPOSER_MODES]);
+  return [...merged];
+}
+
+function parseShortcutLabel(binding: ApiMetaShortcutBinding | undefined, fallback: string[]): string[] {
+  const label = binding?.label?.trim();
+  const source = label && label !== 'Not set' ? label.split('+') : fallback;
+  return source.map((token) => token.trim().toLowerCase()).filter(Boolean);
+}
+
+function keyMatchesShortcutToken(event: KeyboardEvent, token: string): boolean {
+  const key = event.key.toLowerCase();
+  switch (token) {
+    case 'enter':
+      return key === 'enter';
+    case 'esc':
+    case 'escape':
+      return key === 'escape';
+    case 'space':
+      return key === ' ' || key === 'spacebar';
+    case 'tab':
+      return key === 'tab';
+    case '←':
+      return key === 'arrowleft';
+    case '→':
+      return key === 'arrowright';
+    case '↑':
+      return key === 'arrowup';
+    case '↓':
+      return key === 'arrowdown';
+    default:
+      return key === token;
+  }
+}
+
+function eventMatchesShortcut(
+  event: KeyboardEvent,
+  binding: ApiMetaShortcutBinding | undefined,
+  fallback: string[],
+): boolean {
+  const tokens = parseShortcutLabel(binding, fallback);
+  if (tokens.length === 0) return false;
+  const needsCtrl = tokens.includes('ctrl');
+  const needsShift = tokens.includes('shift');
+  const needsAlt = tokens.includes('alt');
+  const needsMeta = tokens.includes('cmd') || tokens.includes('meta');
+  if (event.ctrlKey !== needsCtrl) return false;
+  if (event.shiftKey !== needsShift) return false;
+  if (event.altKey !== needsAlt) return false;
+  if (event.metaKey !== needsMeta) return false;
+  const keyTokens = tokens.filter(
+    (token) => !['ctrl', 'shift', 'alt', 'cmd', 'meta'].includes(token),
+  );
+  return keyTokens.length === 1 && keyMatchesShortcutToken(event, keyTokens[0]!);
+}
+
+function isEditableShortcutTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest('input,textarea,select,[contenteditable="true"]'));
+}
+
 interface RouteParams {
   id?: string;
 }
@@ -272,6 +353,7 @@ export function SessionDetailPage() {
   //    运行态且距离最近一次本地 send > 4s, 视为「另一处客户端在生成」,
   //    若此时 composerText 非空 → 顶部黄色 banner 提示, 防止用户误以为自己刚发了。
   const isNearBottomRef = useRef<boolean>(true);
+  const programmaticScrollUntilRef = useRef<number>(0);
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailContentLengthRef = useRef<number>(0);
   const lastLocalSendAtRef = useRef<number>(0);
@@ -295,7 +377,21 @@ export function SessionDetailPage() {
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
     const el = mainRef.current;
     if (!el) return;
+    programmaticScrollUntilRef.current = Date.now() + 700;
     el.scrollTo({ top: el.scrollHeight, behavior });
+  };
+
+  const scheduleFollowToBottom = (behavior: ScrollBehavior = 'auto') => {
+    programmaticScrollUntilRef.current = Date.now() + 900;
+    requestAnimationFrame(() => {
+      scrollMessagesToBottom(behavior);
+      requestAnimationFrame(() => {
+        scrollMessagesToBottom('auto');
+        isNearBottomRef.current = true;
+        setAutoFollowPaused(false);
+        setUnreadCount(0);
+      });
+    });
   };
 
   const handleCopyMessage = async (m: SessionMessage) => {
@@ -414,7 +510,7 @@ export function SessionDetailPage() {
   const handleEditMessage = (m: SessionMessage) => {
     if (m.role !== 'user') return;
     setComposerText((cur) => (cur ? `${cur}\n${m.content ?? ''}` : (m.content ?? '')));
-    requestAnimationFrame(() => scrollMessagesToBottom(reduceMotion ? 'auto' : 'smooth'));
+    scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   };
   const handleAuditMessage = (m: SessionMessage) => {
     setAuditMessage(m);
@@ -433,7 +529,7 @@ export function SessionDetailPage() {
       if (isNearBottomRef.current) {
         if (unreadCount !== 0) setUnreadCount(0);
         if (autoFollowPaused) setAutoFollowPaused(false);
-      } else if (!autoFollowPaused) {
+      } else if (!autoFollowPaused && Date.now() > programmaticScrollUntilRef.current) {
         setAutoFollowPaused(true);
       }
     }
@@ -475,14 +571,7 @@ export function SessionDetailPage() {
       // 不走 smooth，避免冷启动时长列表"飞一段"；用 instant + 双 RAF 等渲染稳定。
       lastTailIdRef.current = tail.id;
       lastTailContentLengthRef.current = tailContentLength;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollMessagesToBottom('auto');
-          isNearBottomRef.current = true;
-          setAutoFollowPaused(false);
-          setUnreadCount(0);
-        });
-      });
+      scheduleFollowToBottom('auto');
       return;
     }
     const tailChanged = tail.id !== lastTailIdRef.current;
@@ -491,18 +580,17 @@ export function SessionDetailPage() {
     lastTailIdRef.current = tail.id;
     lastTailContentLengthRef.current = tailContentLength;
     if (autoFollow && (isNearBottomRef.current || !autoFollowPaused)) {
-      // defer 一帧, 等 DOM 把新卡片画上
-      requestAnimationFrame(() => {
-        scrollMessagesToBottom(reduceMotion ? 'auto' : 'smooth');
-        isNearBottomRef.current = true;
-        setAutoFollowPaused(false);
-        setUnreadCount(0);
-      });
+      scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
     } else {
       if (autoFollow) setAutoFollowPaused(true);
       setUnreadCount((n) => (tailChanged ? n + 1 : Math.max(1, n)));
     }
   }, [messages, autoFollow, autoFollowPaused, reduceMotion]);
+
+  useEffect(() => {
+    if (!autoFollow || !pendingWriteApproval) return;
+    scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
+  }, [pendingWriteApproval?.id, autoFollow, reduceMotion]);
 
   // sendPhase 变化 → 远端冲突探测
   useEffect(() => {
@@ -750,6 +838,10 @@ export function SessionDetailPage() {
     () => meta?.conversation_modes ?? ['normal'],
     [meta],
   );
+  const shortcutBindings = useMemo(
+    () => meta?.shortcut_bindings ?? {},
+    [meta],
+  );
   const selectedModel = useMemo(
     () => allowedModels.find((model) => model.key === composerModelKey),
     [allowedModels, composerModelKey],
@@ -758,6 +850,10 @@ export function SessionDetailPage() {
     const filtered = allowedModes.filter((mode) => modelSupportsMode(selectedModel, mode));
     return filtered.length > 0 ? filtered : ['normal'];
   }, [allowedModes, selectedModel]);
+  const composerModeOptions = useMemo(
+    () => allComposerModes(allowedModes),
+    [allowedModes],
+  );
   const allowedMessageTypes = useMemo<string[]>(
     () => meta?.message_types ?? ['text', 'attachment'],
     [meta],
@@ -1033,6 +1129,35 @@ export function SessionDetailPage() {
     }
   }
 
+  function handleComposerShortcut(event: KeyboardEvent): boolean {
+    if (event.isComposing) return false;
+    if (eventMatchesShortcut(event, shortcutBindings.send_message, ['ctrl', 'enter'])) {
+      event.preventDefault();
+      event.stopPropagation();
+      void handleSend();
+      return true;
+    }
+    if (eventMatchesShortcut(event, shortcutBindings.toggle_composer, ['ctrl', 'p'])) {
+      event.preventDefault();
+      event.stopPropagation();
+      setComposerCollapsed((value) => !value);
+      if (autoFollow) {
+        scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
+      }
+      return true;
+    }
+    return false;
+  }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isEditableShortcutTarget(event.target)) return;
+      handleComposerShortcut(event);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
   async function handleStop(): Promise<void> {
     if (stopping) return;
     setStopping(true);
@@ -1076,7 +1201,6 @@ export function SessionDetailPage() {
     const tokens = session.total_tokens != null
       ? `${session.total_tokens.toLocaleString()} tokens`
       : t('topbar.tokens.empty', 'Token 暂无');
-    const modelLabel = selectedModel?.model_id || selectedModel?.label || composerModelKey || t('composer.model', '模型');
     const fullAccess = session.full_access_permission === true;
     return [
       {
@@ -1097,13 +1221,6 @@ export function SessionDetailPage() {
         icon: t('topbar.capsule.runtimeIcon', '运行'),
         label: `${sendPhaseLabel(sendPhase)} · ${sseLive ? t('detail.sse.live', '实时') : t('detail.sse.fallback', '轮询')}`,
         tone: running ? 'primary' : 'success',
-      },
-      {
-        key: 'model',
-        icon: t('topbar.capsule.modelIcon', '模型'),
-        label: modelLabel,
-        title: t('topbar.model.title', '点击选择模型'),
-        onClick: () => setShowComposerModelPicker(true),
       },
       {
         key: 'permission',
@@ -1148,7 +1265,7 @@ export function SessionDetailPage() {
         onClick: () => setTokenStatsOpen(true),
       },
     ];
-  }, [session, sendPhase, sseLive, totalKnown, selectedModel, composerModelKey, sessionModeOptions, sessionId]);
+  }, [session, sendPhase, sseLive, totalKnown, sessionModeOptions, sessionId]);
   const pull = usePullToRefresh(mainRef, {
     enabled: !loadingDetail && !loadingOlder,
     onRefresh: async () => {
@@ -1177,9 +1294,7 @@ export function SessionDetailPage() {
     setAutoFollowPaused(false);
     setUnreadCount(0);
     isNearBottomRef.current = true;
-    requestAnimationFrame(() => {
-      scrollMessagesToBottom(reduceMotion ? 'auto' : 'smooth');
-    });
+    scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   };
 
   if (!sessionId) {
@@ -1262,8 +1377,9 @@ export function SessionDetailPage() {
                 sessionId,
                 session?.title || sessionId,
               );
-              showSnackbar(`${t('topbar.export.ok', '已开始下载')}：${result.filename}`, { tone: 'success' });
+              showSnackbar(`${t('topbar.export.ok', '已保存导出文件')}：${result.filename}`, { tone: 'success' });
             } catch (e) {
+              if (e instanceof DOMException && e.name === 'AbortError') return;
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
               const message = e instanceof Error && e.message === EXPORT_SESSION_TIMEOUT_ERROR
@@ -1461,44 +1577,45 @@ export function SessionDetailPage() {
               </span>
             </button>
 
-            <div
-              class="flex items-center gap-1 rounded-m3-sm p-0.5"
-              style={{
-                background: 'var(--m3-surface)',
-                border: '1px solid var(--m3-outline)',
-              }}
-              aria-label={t('composer.mode', '模式')}
-            >
-              {modelAllowedModes.map((m) => {
-                const active = m === composerMode;
-                const label = m === 'normal'
-                  ? t('composer.mode.normal', '普通')
-                  : m === 'image'
-                    ? t('composer.mode.image', '图像')
-                    : m === 'video'
-                      ? t('composer.mode.video', '视频')
-                      : m === 'audio'
-                        ? t('composer.mode.audio', '音频')
-                        : m;
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setComposerMode(m)}
-                    disabled={composerSending || active}
-                    class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm disabled:opacity-90"
-                    style={{
-                      background: active ? 'var(--m3-secondary-container)' : 'transparent',
-                      color: active ? 'var(--m3-on-secondary-container)' : 'var(--m3-on-surface-variant)',
-                      fontWeight: active ? 700 : 500,
-                    }}
-                    title={label}
-                  >
-                    <span>{label}</span>
-                  </button>
-                );
+            <PopMenu
+              align="left"
+              items={composerModeOptions.map((mode) => {
+                const serviceAllowed = allowedModes.includes(mode);
+                const modelAllowed = modelSupportsMode(selectedModel, mode);
+                const active = mode === composerMode;
+                const label = composerModeLabel(mode);
+                const suffix = !serviceAllowed
+                  ? t('composer.mode.disabled.service', '（未启用）')
+                  : !modelAllowed
+                    ? t('composer.mode.disabled.model', '（当前模型不支持）')
+                    : '';
+                return {
+                  key: mode,
+                  label: active ? `${label} · ${t('common.current', '当前')}` : `${label}${suffix}`,
+                  disabled: composerSending || active || !serviceAllowed || !modelAllowed,
+                  onClick: () => setComposerMode(mode),
+                };
               })}
-            </div>
+              trigger={({ open, toggle }) => (
+                <button
+                  type="button"
+                  onClick={toggle}
+                  disabled={composerSending}
+                  class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm flex items-center gap-1.5 disabled:opacity-50"
+                  style={{
+                    border: '1px solid var(--m3-outline)',
+                    color: 'var(--m3-on-secondary-container)',
+                    background: 'var(--m3-secondary-container)',
+                    fontWeight: 700,
+                  }}
+                  aria-expanded={open}
+                  title={t('composer.mode', '模式')}
+                >
+                  <span>{composerModeLabel(composerMode)}</span>
+                  <span aria-hidden style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 160ms ease' }}>⌄</span>
+                </button>
+              )}
+            />
 
             <button
               type="button"
@@ -1619,15 +1736,11 @@ export function SessionDetailPage() {
               }
             }}
             onKeyDown={(e) => {
-              // Cmd/Ctrl + Enter 发送
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                e.preventDefault();
-                void handleSend();
-              }
+              handleComposerShortcut(e as unknown as KeyboardEvent);
             }}
             disabled={composerSending || composerCollapsed}
             rows={4}
-            placeholder={t('composer.placeholder', '输入消息（Cmd/Ctrl + Enter 发送）')}
+            placeholder={t('composer.placeholder', '输入消息')}
             class="w-full px-3 py-2 rounded-md text-sm"
             style={{
               background: 'var(--m3-surface)',
@@ -1749,7 +1862,7 @@ export function SessionDetailPage() {
             <span class="text-xs flex-1 min-w-[160px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
               {composerText.length > 0
                 ? `${composerText.length.toLocaleString()} ${t('composer.charUnit', '字符')}`
-                : t('composer.shortcutHint', 'Cmd / Ctrl + Enter 发送')}
+                : ''}
             </span>
             {composerAttachments.length > 0 ? (
               <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>

@@ -244,8 +244,12 @@ export function SessionsPage() {
       showSnackbar(t('topbar.export.started', '正在导出会话数据…'));
       const result = await exportSessionDownload(item.id, item.title || `session_${item.id}`);
       patchRow(item.id, { exporting: false });
-      showSnackbar(`${t('topbar.export.ok', '已开始下载')}：${result.filename}`, { tone: 'success' });
+      showSnackbar(`${t('topbar.export.ok', '已保存导出文件')}：${result.filename}`, { tone: 'success' });
     } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        patchRow(item.id, { exporting: false });
+        return;
+      }
       if (e instanceof UnauthorizedError) {
         location.route('/login', true);
         return;
@@ -265,6 +269,10 @@ export function SessionsPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;
   const items = data?.items ?? [];
+
+  const openSession = (id: string) => {
+    location.route(`/threads/${id}`);
+  };
 
   // 下拉刷新挂在 <main> 上：触摸设备体验对齐 APP 端线程列表。
   const mainRef = useRef<HTMLElement | null>(null);
@@ -374,14 +382,14 @@ export function SessionsPage() {
                       if (editing) return;
                       // 点击操作菜单 / 输入框等已经 stopPropagation；这里只接管"卡片本体"点击。
                       const target = ev.target as HTMLElement;
-                      if (target.closest('button,input,[role="menu"]')) return;
-                      location.route(`/threads/${item.id}`);
+                      if (target.closest('button,input,textarea,select,a,[role="menu"]')) return;
+                      openSession(item.id);
                     }}
                     onKeyDown={(ev) => {
                       if (editing) return;
                       if (ev.key === 'Enter' || ev.key === ' ') {
                         ev.preventDefault();
-                        location.route(`/threads/${item.id}`);
+                        openSession(item.id);
                       }
                     }}
                   >
@@ -480,6 +488,7 @@ export function SessionsPage() {
                           trigger={({ open, toggle }) => (
                             <button
                               type="button"
+                              onMouseDown={(ev) => ev.stopPropagation()}
                               onClick={(ev) => {
                                 ev.stopPropagation();
                                 toggle();

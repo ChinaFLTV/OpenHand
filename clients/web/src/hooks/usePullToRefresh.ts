@@ -109,7 +109,7 @@ export function usePullToRefresh<E extends HTMLElement>(
     };
 
     const onPointerDown = (ev: PointerEvent) => {
-      if (ev.pointerType === 'touch') return;
+      if (ev.pointerType !== 'pen') return;
       if (refreshing || ev.button !== 0 || !isAtTop()) return;
       activePointerId.current = ev.pointerId;
       beginPull(ev.clientY);

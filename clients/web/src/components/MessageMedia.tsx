@@ -4,10 +4,14 @@
 // 路径不直接发给 <img src=>: 走 /api/sessions/<id>/asset?path=...&token=...
 // 由 service 端基于 session 消息 metadata 白名单放行。
 
-import { useMemo } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SessionMessage } from '../api/sessions';
 import { readToken } from '../state/storage';
 import { t } from '../i18n';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
+import { showSnackbar } from './Snackbar';
 
 type MediaKind = 'image' | 'video' | 'audio' | 'file';
 
@@ -118,29 +122,209 @@ function buildAssetUrl(sessionId: string, path: string, token: string): string {
   return `/api/sessions/${encodeURIComponent(sessionId)}/asset?${qs.toString()}`;
 }
 
+function pickerTypesForMedia(item: MediaItem): SaveBlobPickerType[] | undefined {
+  switch (item.kind) {
+    case 'image':
+      return [{ description: 'Image', accept: { 'image/*': IMAGE_EXTS } }];
+    case 'video':
+      return [{ description: 'Video', accept: { 'video/*': VIDEO_EXTS } }];
+    case 'audio':
+      return [{ description: 'Audio', accept: { 'audio/*': AUDIO_EXTS } }];
+    default:
+      return undefined;
+  }
+}
+
+async function saveMediaAsset(item: MediaItem, url: string): Promise<void> {
+  const res = await fetch(url, { credentials: 'same-origin' });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  await saveBlobWithPicker(blob, item.name, pickerTypesForMedia(item));
+}
+
+function mediaKindLabel(kind: MediaKind): string {
+  switch (kind) {
+    case 'image':
+      return t('detail.media.image', '图片');
+    case 'video':
+      return t('detail.media.video', '视频');
+    case 'audio':
+      return t('detail.media.audio', '音频');
+    default:
+      return t('detail.media.file', '文件');
+  }
+}
+
 export interface MessageMediaProps {
   message: SessionMessage;
   sessionId: string;
 }
 
+interface MediaPreviewDialogProps {
+  item: MediaItem;
+  url: string;
+  onClose: () => void;
+}
+
+function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+  useEffect(() => {
+    if (closing) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [closing, requestClose]);
+  const requestFullscreen = async () => {
+    try {
+      await stageRef.current?.requestFullscreen?.();
+    } catch {
+      showSnackbar(t('detail.media.fullscreenFailed', '无法进入全屏'), { tone: 'error' });
+    }
+  };
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await saveMediaAsset(item, url);
+      showSnackbar(t('detail.media.saveOk', '已保存媒体文件'), { tone: 'success' });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      showSnackbar(
+        `${t('detail.media.saveFailed', '保存失败')}：${error instanceof Error ? error.message : String(error)}`,
+        { tone: 'error' },
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
+      style={{
+        zIndex: 3000,
+        background: 'color-mix(in srgb, black 58%, transparent)',
+        backdropFilter: 'blur(10px)',
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.name}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) requestClose();
+      }}
+    >
+      <section
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-5xl rounded-m3-lg overflow-hidden`}
+        style={{
+          background: 'var(--m3-surface-container)',
+          color: 'var(--m3-on-surface)',
+          boxShadow: 'var(--m3-elev-4)',
+          border: '1px solid var(--m3-outline)',
+          maxHeight: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <header class="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold truncate">{item.name}</p>
+            <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {mediaKindLabel(item.kind)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={requestFullscreen}
+            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)' }}
+          >
+            {t('detail.media.fullscreen', '全屏')}
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm disabled:opacity-50"
+            style={{ background: 'var(--m3-primary)', color: 'var(--m3-on-primary)' }}
+          >
+            {saving ? t('detail.media.saving', '保存中…') : t('detail.media.save', '保存')}
+          </button>
+          <button
+            type="button"
+            onClick={requestClose}
+            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
+          >
+            {t('common.close', '关闭')}
+          </button>
+        </header>
+        <div
+          ref={stageRef}
+          class="flex-1 min-h-0 flex items-center justify-center"
+          style={{
+            background: item.kind === 'audio' ? 'var(--m3-surface)' : 'black',
+            padding: item.kind === 'audio' ? '32px' : '0',
+          }}
+        >
+          {item.kind === 'image' ? (
+            <img
+              src={url}
+              alt={item.name}
+              decoding="async"
+              style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain' }}
+            />
+          ) : item.kind === 'video' ? (
+            <video
+              src={url}
+              controls
+              autoPlay
+              preload="metadata"
+              style={{ width: '100%', maxHeight: '76vh', background: 'black' }}
+            />
+          ) : item.kind === 'audio' ? (
+            <div class="w-full max-w-2xl rounded-m3-md p-4" style={{ background: 'var(--m3-surface-container-high)' }}>
+              <p class="text-sm font-medium truncate mb-3">{item.name}</p>
+              <audio src={url} controls autoPlay preload="metadata" style={{ width: '100%' }} />
+            </div>
+          ) : null}
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 export function MessageMedia({ message, sessionId }: MessageMediaProps) {
   const items = useMemo(() => collectMedia(message), [message]);
+  const [preview, setPreview] = useState<{ item: MediaItem; url: string } | null>(null);
   if (items.length === 0) return null;
   const token = readToken() ?? '';
+  const openPreview = (item: MediaItem, url: string) => {
+    if (item.kind === 'file') return;
+    setPreview({ item, url });
+  };
 
   return (
+    <>
     <div class="mt-3 flex flex-col gap-2">
       {items.map((item, idx) => {
         const url = buildAssetUrl(sessionId, item.path, token);
         const key = `${item.path}:${idx}`;
         if (item.kind === 'image') {
           return (
-            <a
+            <button
               key={key}
-              href={url}
-              target="_blank"
-              rel="noreferrer noopener"
-              class="block rounded-md overflow-hidden oh-tap-press"
+              type="button"
+              onClick={() => openPreview(item, url)}
+              class="block rounded-md overflow-hidden oh-tap-press text-left"
               style={{
                 border: '1px solid var(--m3-outline)',
                 background: 'var(--m3-surface)',
@@ -167,7 +351,7 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
               >
                 {item.name}
               </p>
-            </a>
+            </button>
           );
         }
         if (item.kind === 'video') {
@@ -192,15 +376,23 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
                   background: 'black',
                 }}
               />
-              <p
-                class="text-xs px-2 py-1 truncate"
+              <div
+                class="text-xs px-2 py-1 flex items-center gap-2"
                 style={{
                   color: 'var(--m3-on-surface-variant)',
                   background: 'var(--m3-surface)',
                 }}
               >
-                {item.name}
-              </p>
+                <span class="truncate flex-1 min-w-0">{item.name}</span>
+                <button
+                  type="button"
+                  onClick={() => openPreview(item, url)}
+                  class="oh-tap-press px-2 py-1 rounded-m3-sm"
+                  style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline-variant)' }}
+                >
+                  {t('detail.media.preview', '预览')}
+                </button>
+              </div>
             </div>
           );
         }
@@ -208,19 +400,29 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
           return (
             <div
               key={key}
-              class="rounded-md px-3 py-2 flex flex-col gap-1"
+              class="rounded-md px-3 py-2 flex flex-col gap-2"
               style={{
                 border: '1px solid var(--m3-outline)',
                 background: 'var(--m3-surface)',
                 maxWidth: '480px',
               }}
             >
-              <p
-                class="text-xs truncate"
-                style={{ color: 'var(--m3-on-surface)' }}
-              >
-                {item.name}
-              </p>
+              <div class="flex items-center gap-2">
+                <p
+                  class="text-xs truncate flex-1 min-w-0"
+                  style={{ color: 'var(--m3-on-surface)' }}
+                >
+                  {item.name}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openPreview(item, url)}
+                  class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm"
+                  style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline-variant)' }}
+                >
+                  {t('detail.media.preview', '预览')}
+                </button>
+              </div>
               <audio
                 src={url}
                 controls
@@ -259,5 +461,13 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
         );
       })}
     </div>
+    {preview ? (
+      <MediaPreviewDialog
+        item={preview.item}
+        url={preview.url}
+        onClose={() => setPreview(null)}
+      />
+    ) : null}
+    </>
   );
 }

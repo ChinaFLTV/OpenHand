@@ -13,6 +13,7 @@ import { ApiError, UnauthorizedError, apiRequest } from './client';
 import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
 import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
+import { saveBlobWithPicker } from '../utils/save_blob';
 
 export interface SessionTodoItem {
   id: string;
@@ -302,8 +303,8 @@ export async function deleteMessageCascade(
   );
 }
 
-/// 触发会话 JSON 导出下载。在 service 端附带 Content-Disposition: attachment，
-/// 这里直接抓 blob 后用 a[download] 触发浏览器保存对话框；不绕过鉴权（带上 token）。
+/// 触发会话 JSON 导出保存。在 service 端附带 Content-Disposition: attachment，
+/// 这里抓 blob 后优先打开系统保存面板；不绕过鉴权（带上 token）。
 export interface ExportDownloadResult {
   filename: string;
 }
@@ -369,16 +370,8 @@ export async function exportSessionDownload(
   const parsedFilename = filenameFromContentDisposition(res.headers.get('Content-Disposition'));
   if (parsedFilename) filename = parsedFilename;
   const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } finally {
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-  }
+  await saveBlobWithPicker(blob, filename, [
+    { description: 'JSON', accept: { 'application/json': ['.json'] } },
+  ]);
   return { filename };
 }

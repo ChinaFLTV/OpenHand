@@ -12,6 +12,7 @@ import 'package:shelf_router/shelf_router.dart';
 import '../../../app/model/app_info.dart';
 import '../../../app/model/app_language.dart';
 import '../../../app/model/app_settings_snapshot.dart';
+import '../../../app/model/openhand_shortcut.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
@@ -79,6 +80,13 @@ class _WebWriteApprovalRequest {
       'expires_at': expiresAt.toUtc().toIso8601String(),
     };
   }
+}
+
+class _HttpByteRange {
+  const _HttpByteRange({required this.start, required this.endInclusive});
+
+  final int start;
+  final int endInclusive;
 }
 
 class WebMessagePlatformService {
@@ -1626,6 +1634,7 @@ class WebMessagePlatformService {
         'locale': _settingsController.locale.toLanguageTag(),
         'language_storage_value': _settingsController.language.storageValue,
       },
+      'shortcut_bindings': _shortcutBindingsPayload(),
       'theme': _theme.toJson(),
       'templates': _allowedTemplates()
           .map(
@@ -1659,6 +1668,17 @@ class WebMessagePlatformService {
             },
           )
           .toList(growable: false),
+    };
+  }
+
+  Map<String, Object?> _shortcutBindingsPayload() {
+    final bindings = _settingsController.shortcutBindings;
+    return <String, Object?>{
+      for (final action in OpenHandShortcutAction.values)
+        openHandShortcutActionStorageKey(action): <String, Object?>{
+          'key_ids': bindings[action] ?? const <int>[],
+          'label': formatShortcutLabel(bindings[action] ?? const <int>[]),
+        },
     };
   }
 
@@ -2582,22 +2602,83 @@ class WebMessagePlatformService {
       });
     }
     final stat = await file.stat();
-    // 简单上限: 单文件 ≤ 64 MiB, 防止意外把超大视频塞进单次响应
-    const maxBytes = 64 * 1024 * 1024;
+    // 简单上限: 单文件 ≤ 512 MiB, 覆盖常见生成视频同时防止误暴露超大文件。
+    const maxBytes = 512 * 1024 * 1024;
     if (stat.size > maxBytes) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'asset_too_large',
         'limit_bytes': maxBytes,
       });
     }
-    final bytes = await file.readAsBytes();
+    final totalBytes = stat.size;
+    final contentType = _guessContentType(requested);
+    final rangeHeader = request.headers[HttpHeaders.rangeHeader];
+    if (rangeHeader != null && rangeHeader.startsWith('bytes=')) {
+      final range = _parseHttpByteRange(rangeHeader, totalBytes);
+      if (range == null) {
+        return shelf.Response(
+          HttpStatus.requestedRangeNotSatisfiable,
+          headers: <String, String>{
+            HttpHeaders.contentRangeHeader: 'bytes */$totalBytes',
+            HttpHeaders.acceptRangesHeader: 'bytes',
+          },
+        );
+      }
+      final length = range.endInclusive - range.start + 1;
+      return shelf.Response(
+        HttpStatus.partialContent,
+        body: file.openRead(range.start, range.endInclusive + 1),
+        headers: <String, String>{
+          HttpHeaders.contentTypeHeader: contentType,
+          HttpHeaders.cacheControlHeader: 'private, max-age=300',
+          HttpHeaders.contentLengthHeader: length.toString(),
+          HttpHeaders.acceptRangesHeader: 'bytes',
+          HttpHeaders.contentRangeHeader:
+              'bytes ${range.start}-${range.endInclusive}/$totalBytes',
+        },
+      );
+    }
     return shelf.Response.ok(
-      bytes,
+      file.openRead(),
       headers: <String, String>{
-        'content-type': _guessContentType(requested),
-        'cache-control': 'private, max-age=300',
-        'content-length': bytes.length.toString(),
+        HttpHeaders.contentTypeHeader: contentType,
+        HttpHeaders.cacheControlHeader: 'private, max-age=300',
+        HttpHeaders.contentLengthHeader: totalBytes.toString(),
+        HttpHeaders.acceptRangesHeader: 'bytes',
       },
+    );
+  }
+
+  _HttpByteRange? _parseHttpByteRange(String value, int totalBytes) {
+    if (totalBytes <= 0) {
+      return null;
+    }
+    final rawRange = value.substring('bytes='.length).split(',').first.trim();
+    final separator = rawRange.indexOf('-');
+    if (separator <= -1) {
+      return null;
+    }
+    final rawStart = rawRange.substring(0, separator).trim();
+    final rawEnd = rawRange.substring(separator + 1).trim();
+    int start;
+    int end;
+    if (rawStart.isEmpty) {
+      final suffixLength = int.tryParse(rawEnd);
+      if (suffixLength == null || suffixLength <= 0) {
+        return null;
+      }
+      start = math.max(0, totalBytes - suffixLength);
+      end = totalBytes - 1;
+    } else {
+      start = int.tryParse(rawStart) ?? -1;
+      end = rawEnd.isEmpty ? totalBytes - 1 : int.tryParse(rawEnd) ?? -1;
+    }
+    if (start < 0 || end < start || start >= totalBytes) {
+      return null;
+    }
+    return _HttpByteRange(
+      start: start,
+      endInclusive: math.min(end, totalBytes - 1),
     );
   }
 

@@ -32,6 +32,11 @@ export interface ApiMetaPreferences {
   language_storage_value?: string;
 }
 
+export interface ApiMetaShortcutBinding {
+  key_ids?: number[];
+  label?: string;
+}
+
 export interface ApiMetaThemeRaw {
   primary?: string;
   on_primary?: string;
@@ -87,6 +92,7 @@ export interface ApiMetaResponse {
   service?: ApiMetaService;
   workspace_files?: ApiMetaWorkspaceFiles;
   preferences?: ApiMetaPreferences;
+  shortcut_bindings?: Record<string, ApiMetaShortcutBinding>;
   theme?: ApiMetaThemeRaw;
   templates?: ApiMetaTemplate[];
   conversation_modes?: string[];

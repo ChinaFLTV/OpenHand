@@ -1005,7 +1005,12 @@ class AiSessionController extends ChangeNotifier {
     } else {
       unawaited(
         startHookFuture.catchError((Object error, StackTrace stack) {
-          silentLog('ai_session_controller', 'session start hook', error, stack);
+          silentLog(
+            'ai_session_controller',
+            'session start hook',
+            error,
+            stack,
+          );
         }),
       );
     }
@@ -1429,23 +1434,42 @@ class AiSessionController extends ChangeNotifier {
     if (normalizedTitle.isEmpty) {
       return false;
     }
-    return _enqueueSessionOperation(sessionId, () async {
-      final session = _sessionById(sessionId);
-      if (session == null) {
-        return false;
-      }
-      final updatedSession = session.copyWith(
-        title: normalizedTitle,
-        isTitleManuallyEdited: true,
-        updatedAt: _clock().toUtc(),
-      );
-      final committed = await _commitSessionLocked(updatedSession);
-      if (!committed) {
-        return false;
-      }
-      _currentSessionId ??= sessionId;
+    // Keep manual renaming responsive even while sendMessage owns the
+    // per-session operation queue during streaming or write approval. This
+    // mirrors updateSessionFullAccessPermission: later concurrent commits run
+    // through _mergeLiveSessionState and preserve live manually edited titles.
+    final session = _sessionById(sessionId);
+    if (session == null) {
+      return false;
+    }
+    if (session.title == normalizedTitle && session.isTitleManuallyEdited) {
       return true;
-    });
+    }
+    final updatedSession = session.copyWith(
+      title: normalizedTitle,
+      isTitleManuallyEdited: true,
+      updatedAt: _clock().toUtc(),
+    );
+    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
+    if (existingIndex == -1) {
+      return false;
+    }
+    final updatedSessions = List<AiSession>.from(_sessions);
+    updatedSessions[existingIndex] = updatedSession;
+    _setSessions(updatedSessions);
+    _currentSessionId ??= sessionId;
+    notifyListeners();
+    try {
+      await _store.save(updatedSession);
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'persist manual title update',
+        error,
+        stack,
+      );
+    }
+    return true;
   }
 
   Future<bool> deleteSession(
