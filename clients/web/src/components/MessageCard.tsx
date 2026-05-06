@@ -55,13 +55,92 @@ interface KindStyle {
   color: string;
   border?: string;
   label: string;
-  icon: string;
+  icon: MessageIconName;
   /// 标题区是否额外带图标徽章。
   badge?: boolean;
   /// pre-wrap 文字是否走 mono 字体（工具/json 适合）。
   mono?: boolean;
   /// 折叠超长内容（thinking / tool stdout 等）。
   collapsible?: boolean;
+}
+
+type MessageIconName =
+  | 'reasoning'
+  | 'toolCall'
+  | 'tool'
+  | 'mcp'
+  | 'skill'
+  | 'hook'
+  | 'learn'
+  | 'fileMutation'
+  | 'status'
+  | 'compression'
+  | 'user'
+  | 'assistant'
+  | 'copy'
+  | 'edit'
+  | 'audit'
+  | 'trash'
+  | 'cascade'
+  | 'write'
+  | 'delete'
+  | 'mutate';
+
+function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.9,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  switch (name) {
+    case 'reasoning':
+      return <svg {...common}><path d="M9 18h6" /><path d="M10 22h4" /><path d="M8.3 14.8A6 6 0 1 1 15.7 14c-.8.7-1.2 1.4-1.2 2H9.5c0-.7-.4-1.2-1.2-1.8z" /></svg>;
+    case 'toolCall':
+      return <svg {...common}><path d="m8 8-4 4 4 4" /><path d="m16 8 4 4-4 4" /><path d="m14 5-4 14" /></svg>;
+    case 'tool':
+      return <svg {...common}><path d="M14.7 6.3a4 4 0 0 0-5 5L4 17v3h3l5.7-5.7a4 4 0 0 0 5-5l-2.4 2.4-2.9-2.9z" /></svg>;
+    case 'mcp':
+      return <svg {...common}><circle cx="6" cy="12" r="2.4" /><circle cx="18" cy="7" r="2.4" /><circle cx="18" cy="17" r="2.4" /><path d="M8.2 11 15.8 8M8.2 13l7.6 3" /></svg>;
+    case 'skill':
+      return <svg {...common}><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7z" /><path d="M19 16v4M17 18h4" /></svg>;
+    case 'hook':
+      return <svg {...common}><path d="M7 8a4 4 0 0 1 4-4h2" /><path d="M17 16a4 4 0 0 1-4 4h-2" /><path d="m16 4 4 4-4 4" /><path d="m8 12-4 4 4 4" /></svg>;
+    case 'learn':
+      return <svg {...common}><path d="M4 12a8 8 0 0 1 13.4-5.9" /><path d="M17 3v4h-4" /><path d="M7 21v-4h4" /><path d="M20 12a8 8 0 0 1-13.4 5.9" /></svg>;
+    case 'fileMutation':
+      return <svg {...common}><path d="M7 3h6l4 4v14H7z" /><path d="M13 3v5h5" /><path d="M10 14h4M12 12v4" /></svg>;
+    case 'status':
+      return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 8h.01M11 12h1v4h1" /></svg>;
+    case 'compression':
+      return <svg {...common}><path d="M6 4h12v5H6z" /><path d="M8 9v11h8V9" /><path d="m9 14 3 3 3-3" /></svg>;
+    case 'user':
+      return <svg {...common}><circle cx="12" cy="8" r="4" /><path d="M5 21a7 7 0 0 1 14 0" /></svg>;
+    case 'assistant':
+      return <svg {...common}><rect x="6" y="7" width="12" height="10" rx="3" /><path d="M9 3v4M15 3v4M9 12h.01M15 12h.01M10 17v2h4v-2" /></svg>;
+    case 'copy':
+      return <svg {...common}><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M5 15V7a2 2 0 0 1 2-2h8" /></svg>;
+    case 'edit':
+      return <svg {...common}><path d="M4 20h4.4L19 9.4a2.1 2.1 0 0 0-3-3L5.4 17H4z" /><path d="m14.8 7.6 1.6 1.6" /></svg>;
+    case 'audit':
+      return <svg {...common}><path d="M9 4h6l1 2h2v14H6V6h2z" /><path d="M9 12h6M9 16h4" /></svg>;
+    case 'trash':
+      return <svg {...common}><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 14h10l1-14" /><path d="M9 7V4h6v3" /></svg>;
+    case 'cascade':
+      return <svg {...common}><path d="M5 6h14" /><path d="M8 12h8" /><path d="M10 18h4" /><path d="M18 6v5a7 7 0 0 1-7 7" /></svg>;
+    case 'write':
+      return <svg {...common}><path d="M12 5v14M5 12h14" /></svg>;
+    case 'delete':
+      return <svg {...common}><path d="M5 12h14" /></svg>;
+    case 'mutate':
+      return <svg {...common}><path d="M7 7h10v10H7z" /><path d="M4 12h16M12 4v16" /></svg>;
+  }
 }
 
 function styleForKind(kind: string, role: string): KindStyle {
@@ -71,7 +150,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         background: 'var(--m3-inverse-surface)',
         color: 'var(--m3-inverse-on-surface)',
         label: t('detail.kind.reasoning', '思考'),
-        icon: 'TH',
+        icon: 'reasoning',
         badge: true,
         collapsible: true,
       };
@@ -81,7 +160,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, var(--m3-primary) 35%, transparent)',
         label: t('detail.kind.toolCall', '工具调用'),
-        icon: 'TC',
+        icon: 'toolCall',
         badge: true,
         mono: true,
       };
@@ -91,7 +170,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid var(--m3-outline)',
         label: t('detail.kind.tool', '工具结果'),
-        icon: '▣',
+        icon: 'tool',
         badge: true,
         mono: true,
         collapsible: true,
@@ -102,7 +181,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, var(--m3-primary) 34%, transparent)',
         label: t('detail.kind.mcp', 'MCP'),
-        icon: '⌬',
+        icon: 'mcp',
         badge: true,
         mono: true,
       };
@@ -112,7 +191,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, var(--m3-tertiary) 36%, transparent)',
         label: t('detail.kind.skill', '技能'),
-        icon: 'SK',
+        icon: 'skill',
         badge: true,
       };
     case 'hook':
@@ -121,7 +200,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, var(--m3-secondary) 34%, transparent)',
         label: t('detail.kind.hook', 'Hook'),
-        icon: 'HK',
+        icon: 'hook',
         badge: true,
       };
     case 'self_learning':
@@ -130,7 +209,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, var(--m3-secondary) 36%, transparent)',
         label: t('detail.kind.selfLearning', '自学习'),
-        icon: '↻',
+        icon: 'learn',
         badge: true,
       };
     case 'file_mutation_summary':
@@ -139,7 +218,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface)',
         border: '1px solid var(--m3-outline)',
         label: t('detail.kind.fileMutation', '本轮文件变动汇总'),
-        icon: 'FM',
+        icon: 'fileMutation',
         badge: true,
         mono: true,
       };
@@ -149,7 +228,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface-variant)',
         border: '1px dashed var(--m3-outline)',
         label: t('detail.kind.status', '状态'),
-        icon: 'ST',
+        icon: 'status',
         badge: true,
       };
     case 'compression_point':
@@ -158,7 +237,7 @@ function styleForKind(kind: string, role: string): KindStyle {
         color: 'var(--m3-on-surface-variant)',
         border: '1px dashed var(--m3-outline)',
         label: t('detail.kind.compression', '压缩点'),
-        icon: '↧',
+        icon: 'compression',
         badge: true,
       };
     default:
@@ -168,14 +247,14 @@ function styleForKind(kind: string, role: string): KindStyle {
           background: 'var(--m3-primary)',
           color: 'var(--m3-on-primary)',
           label: t('detail.role.user', '用户'),
-          icon: '@',
+          icon: 'user',
         };
       }
       return {
         background: 'var(--m3-surface-container)',
         color: 'var(--m3-on-surface)',
         label: t('detail.role.assistant', '助手'),
-        icon: 'AI',
+        icon: 'assistant',
       };
   }
 }
@@ -309,7 +388,9 @@ function MessageCardImpl({
                 background: 'color-mix(in srgb, currentColor 14%, transparent)',
               }}
             >
-              <span aria-hidden>{style.icon}</span>
+              <span class="oh-message-kind-icon" aria-hidden>
+                <MessageIcon name={style.icon} size={14} />
+              </span>
               <span>{style.label}</span>
             </span>
           ) : (
@@ -353,22 +434,24 @@ function MessageCardImpl({
           }}
         >
           {onCopy ? (
-            <ActionBtn label={t('common.copy')} onClick={() => onCopy(message)} />
+            <ActionBtn icon="copy" label={t('common.copy')} onClick={() => onCopy(message)} />
           ) : null}
           {onEdit && message.role === 'user' ? (
-            <ActionBtn label={t('common.edit')} onClick={() => onEdit(message)} />
+            <ActionBtn icon="edit" label={t('common.edit')} onClick={() => onEdit(message)} />
           ) : null}
           {onAudit ? (
-            <ActionBtn label={t('common.audit')} onClick={() => onAudit(message)} />
+            <ActionBtn icon="audit" label={t('common.audit')} onClick={() => onAudit(message)} />
           ) : null}
           {onDelete ? (
             <ActionBtn
+              icon="trash"
               label={t('common.delete')}
               onClick={() => onDelete(message)}
             />
           ) : null}
           {onDeleteAfter ? (
             <ActionBtn
+              icon="cascade"
               label={t('common.deleteAfter')}
               onClick={() => onDeleteAfter(message)}
             />
@@ -380,9 +463,11 @@ function MessageCardImpl({
 }
 
 function ActionBtn({
+  icon,
   label,
   onClick,
 }: {
+  icon: MessageIconName;
   label: string;
   onClick: () => void;
 }) {
@@ -393,7 +478,7 @@ function ActionBtn({
         e.stopPropagation();
         onClick();
       }}
-      class="oh-tap-press px-2.5 py-1 rounded-m3-sm transition-colors"
+      class="oh-tap-press oh-message-action-button"
       style={{
         color: 'currentColor',
         border: '1px solid color-mix(in srgb, currentColor 28%, transparent)',
@@ -407,7 +492,8 @@ function ActionBtn({
         (e.currentTarget as HTMLElement).style.background = 'transparent';
       }}
     >
-      {label}
+      <MessageIcon name={icon} size={14} />
+      <span>{label}</span>
     </button>
   );
 }
@@ -492,6 +578,7 @@ function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
       metadata['write_analysis_reason'] ??
       metadata['tool_execution_write_analysis_reason'],
   );
+  const mutationIcon: MessageIconName = kind === 'delete' ? 'delete' : kind === 'write' ? 'write' : 'mutate';
   return (
     <div
       class="rounded-m3-sm p-3"
@@ -524,18 +611,21 @@ function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
                 color: 'var(--m3-on-surface)',
               }}
             >
-              <span aria-hidden>{kind === 'delete' ? '−' : kind === 'write' ? '+' : '±'}</span>
+              <span class="oh-file-mutation-icon" aria-hidden>
+                <MessageIcon name={mutationIcon} size={14} />
+              </span>
               <span class="font-mono truncate" title={path}>{path}</span>
               <button
                 type="button"
-                class="oh-tap-press ml-auto text-[11px] px-1.5 py-0.5 rounded-m3-sm"
+                class="oh-tap-press oh-message-action-button is-compact ml-auto text-[11px]"
                 style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   void copyPathWithFeedback(path);
                 }}
               >
-                {t('common.copy', '复制')}
+                <MessageIcon name="copy" size={13} />
+                <span>{t('common.copy', '复制')}</span>
               </button>
             </li>
           ))}

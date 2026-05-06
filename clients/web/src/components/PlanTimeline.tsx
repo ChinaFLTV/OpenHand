@@ -5,13 +5,13 @@
 //   2) session.pending_plan (按 1./2. 行号 / "-" / "•" 切分)
 //
 // 状态图:
-//   completed     绿色  ✓
-//   in_progress   主色  ⟳ + 呼吸动效
-//   failed/blocked/cancelled  m3-error  ✕
-//   pending       灰    ·
+//   completed     绿色 check
+//   in_progress   主色 spinner + 呼吸动效
+//   failed/blocked/cancelled  m3-error x
+//   pending       灰    step number
 //
 // 交互:
-//   - awaiting_plan_approval=true 时, 渲染「✓ 批准计划」+「✕ 取消」按钮
+//   - awaiting_plan_approval=true 时, 渲染批准按钮
 //     批准 = 发送一条 normal 消息 "好"（后端 _looksLikePlanApproval 接住）
 //   - 折叠/展开 (本地 state, 默认展开)
 
@@ -21,6 +21,35 @@ import { t } from '../i18n';
 import { showSnackbar } from './Snackbar';
 
 type StepState = 'completed' | 'in_progress' | 'failed' | 'pending';
+
+type PlanIconName = 'check' | 'x' | 'running' | 'chevronDown' | 'chevronUp';
+
+function PlanIcon({ name, size = 15 }: { name: PlanIconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  switch (name) {
+    case 'check':
+      return <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
+    case 'x':
+      return <svg {...common}><path d="M7 7l10 10M17 7 7 17" /></svg>;
+    case 'running':
+      return <svg {...common}><path d="M4 12a8 8 0 0 1 13.4-5.9" /><path d="M17 3v4h-4" /><path d="M20 12a8 8 0 0 1-13.4 5.9" /><path d="M7 21v-4h4" /></svg>;
+    case 'chevronDown':
+      return <svg {...common}><path d="m7 10 5 5 5-5" /></svg>;
+    case 'chevronUp':
+      return <svg {...common}><path d="m7 14 5-5 5 5" /></svg>;
+  }
+}
 
 interface Step {
   id: string;
@@ -76,26 +105,25 @@ function buildSteps(session: SessionSummary): {
   };
 }
 
-function statusVisual(s: StepState) {
+function statusVisual(s: StepState): { color: string; icon?: PlanIconName; bg: string } {
   switch (s) {
     case 'completed':
-      return { color: 'var(--m3-secondary)', icon: '✓', bg: 'var(--m3-secondary-container)' };
+      return { color: 'var(--m3-secondary)', icon: 'check', bg: 'var(--m3-secondary-container)' };
     case 'in_progress':
       return {
         color: 'var(--m3-primary)',
-        icon: '⟳',
+        icon: 'running',
         bg: 'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
       };
     case 'failed':
       return {
         color: 'var(--m3-error)',
-        icon: '✕',
+        icon: 'x',
         bg: 'color-mix(in srgb, var(--m3-error) 14%, transparent)',
       };
     case 'pending':
       return {
         color: 'var(--m3-on-surface-variant)',
-        icon: '·',
         bg: 'var(--m3-surface)',
       };
   }
@@ -181,19 +209,20 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
           </span>
         ) : allDone ? (
           <span
-            class="text-xs px-1.5 py-0.5 rounded-m3-sm"
+            class="text-xs px-1.5 py-0.5 rounded-m3-sm inline-flex items-center gap-1"
             style={{
               background: 'var(--m3-secondary-container)',
               color: 'var(--m3-on-secondary-container)',
               fontWeight: 600,
             }}
           >
-            {t('detail.plan.completed', '✓ 已完成')}
+            <PlanIcon name="check" size={13} />
+            {t('detail.plan.completed', '已完成')}
           </span>
         ) : null}
         <button
           type="button"
-          class="text-xs px-2 py-0.5 rounded-m3-sm ml-auto"
+          class="oh-tap-press text-xs px-2 py-0.5 rounded-m3-sm ml-auto inline-flex items-center gap-1"
           style={{
             background: 'var(--m3-surface)',
             color: 'var(--m3-on-surface-variant)',
@@ -201,6 +230,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
           }}
           onClick={() => setCollapsed((v) => !v)}
         >
+          <PlanIcon name={collapsed ? 'chevronDown' : 'chevronUp'} size={13} />
           {collapsed ? t('detail.plan.expand', '展开') : t('detail.plan.collapse', '折叠')}
         </button>
       </header>
@@ -226,7 +256,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
                   }}
                   aria-hidden
                 >
-                  {step.state === 'completed' || step.state === 'failed' ? v.icon : idx + 1}
+                  {v.icon ? <PlanIcon name={v.icon} size={14} /> : idx + 1}
                 </span>
                 <span
                   class="text-sm leading-relaxed"
@@ -249,7 +279,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
             type="button"
             disabled={submitting}
             onClick={handleApprove}
-            class="px-3 py-1.5 rounded-m3-sm text-sm font-semibold disabled:opacity-60"
+            class="oh-tap-press px-3 py-1.5 rounded-m3-sm text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
             style={{
               background: 'var(--m3-primary)',
               color: 'var(--m3-on-primary)',
@@ -257,7 +287,12 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
           >
             {submitting
               ? t('detail.plan.approving', '批准中…')
-              : t('detail.plan.approve', '✓ 批准计划')}
+              : (
+                <>
+                  <PlanIcon name="check" />
+                  {t('detail.plan.approve', '批准计划')}
+                </>
+              )}
           </button>
           <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {t('detail.plan.approveHint', '或在输入框回复任意文本继续讨论')}

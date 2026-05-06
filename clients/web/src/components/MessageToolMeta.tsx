@@ -26,6 +26,58 @@ interface ExtractedMeta {
   toolSource: string;
 }
 
+type ToolMetaIconName =
+  | 'running'
+  | 'check'
+  | 'x'
+  | 'timeout'
+  | 'alert'
+  | 'blocked'
+  | 'cancelled'
+  | 'dot'
+  | 'server'
+  | 'terminal'
+  | 'file';
+
+function ToolMetaIcon({ name, size = 13 }: { name: ToolMetaIconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  switch (name) {
+    case 'running':
+      return <svg {...common}><path d="M4 12a8 8 0 0 1 13.4-5.9" /><path d="M17 3v4h-4" /><path d="M20 12a8 8 0 0 1-13.4 5.9" /><path d="M7 21v-4h4" /></svg>;
+    case 'check':
+      return <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
+    case 'x':
+      return <svg {...common}><path d="M7 7l10 10M17 7 7 17" /></svg>;
+    case 'timeout':
+      return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>;
+    case 'alert':
+      return <svg {...common}><path d="M12 3 2.8 20h18.4z" /><path d="M12 9v4M12 17h.01" /></svg>;
+    case 'blocked':
+      return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="m8 8 8 8" /></svg>;
+    case 'cancelled':
+      return <svg {...common}><path d="M7 7h10v10H7z" /><path d="M4 12h3M17 12h3" /></svg>;
+    case 'dot':
+      return <svg {...common}><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" /></svg>;
+    case 'server':
+      return <svg {...common}><rect x="5" y="4" width="14" height="6" rx="2" /><rect x="5" y="14" width="14" height="6" rx="2" /><path d="M8 7h.01M8 17h.01" /></svg>;
+    case 'terminal':
+      return <svg {...common}><path d="m5 8 4 4-4 4" /><path d="M11 17h8" /></svg>;
+    case 'file':
+      return <svg {...common}><path d="M7 3h6l4 4v14H7z" /><path d="M13 3v5h5" /></svg>;
+  }
+}
+
 function asString(v: unknown): string {
   if (v == null) return '';
   return String(v).trim();
@@ -68,61 +120,61 @@ function extract(meta: Record<string, unknown> | undefined): ExtractedMeta {
   };
 }
 
-function statusVisual(status: string): { color: string; label: string; icon: string } {
+function statusVisual(status: string): { color: string; label: string; icon: ToolMetaIconName } {
   const s = status.toLowerCase();
   if (s === 'running' || s === 'pending' || s === 'in_progress') {
     return {
       color: 'var(--m3-primary)',
       label: t('detail.tool.status.running', '运行中'),
-      icon: '⟳',
+      icon: 'running',
     };
   }
   if (s === 'success' || s === 'ok' || s === 'completed') {
     return {
       color: 'var(--m3-secondary)',
       label: t('detail.tool.status.success', '成功'),
-      icon: '✓',
+      icon: 'check',
     };
   }
   if (s === 'timed_out') {
     return {
       color: 'var(--m3-error)',
       label: t('detail.tool.status.timedOut', '已超时'),
-      icon: 'TO',
+      icon: 'timeout',
     };
   }
   if (s === 'invalid_arguments') {
     return {
       color: 'var(--m3-error)',
       label: t('detail.tool.status.invalidArguments', '参数错误'),
-      icon: '!',
+      icon: 'alert',
     };
   }
   if (s === 'denied' || s === 'rejected' || s === 'blocked') {
     return {
       color: 'var(--m3-error)',
       label: t('detail.tool.status.blocked', '已拦截'),
-      icon: '⊘',
+      icon: 'blocked',
     };
   }
   if (s === 'error' || s === 'failed' || s === 'failure') {
     return {
       color: 'var(--m3-error)',
       label: t('detail.tool.status.error', '失败'),
-      icon: '✕',
+      icon: 'x',
     };
   }
   if (s === 'cancelled' || s === 'canceled' || s === 'aborted') {
     return {
       color: 'var(--m3-on-surface-variant)',
       label: t('detail.tool.status.cancelled', '已取消'),
-      icon: '⌽',
+      icon: 'cancelled',
     };
   }
   return {
     color: 'var(--m3-on-surface-variant)',
     label: status,
-    icon: '·',
+    icon: 'dot',
   };
 }
 
@@ -190,7 +242,8 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           }}
           title={`MCP · ${ex.mcpServerName || '?'} / ${ex.mcpToolName || '?'}`}
         >
-          🜲 {ex.mcpServerName || '?'}
+          <ToolMetaIcon name="server" />
+          {ex.mcpServerName || '?'}
           {ex.mcpToolName ? ` · ${ex.mcpToolName}` : ''}
         </span>
       ) : null}
@@ -214,7 +267,8 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           }}
           title={t('detail.tool.streaming.hint', '参数构造中…')}
         >
-          ⟳ {t('detail.tool.streaming', '构造中…')}
+          <ToolMetaIcon name="running" />
+          {t('detail.tool.streaming', '构造中…')}
         </span>
       ) : null}
       {sv && !argumentsStreaming ? (
@@ -226,7 +280,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
             background: `color-mix(in srgb, ${sv.color} 10%, transparent)`,
           }}
         >
-          <span aria-hidden>{sv.icon}</span>
+          <ToolMetaIcon name={sv.icon} />
           {sv.label}
         </span>
       ) : null}
@@ -240,7 +294,8 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           }}
           title={ex.command}
         >
-          $ {ex.command}
+          <ToolMetaIcon name="terminal" />
+          {ex.command}
         </span>
       ) : null}
       {ex.filePath ? (
@@ -253,6 +308,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           }}
           title={ex.filePath}
         >
+          <ToolMetaIcon name="file" />
           {ex.filePath}
         </span>
       ) : null}
@@ -289,7 +345,8 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
             fontWeight: 600,
           }}
         >
-          ✓ {t('detail.tool.approved', '已审批')}
+          <ToolMetaIcon name="check" />
+          {t('detail.tool.approved', '已审批')}
         </span>
       ) : null}
       {isFileMutation && ex.recordCount > 0 ? (

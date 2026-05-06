@@ -3,7 +3,7 @@
 // 功能:
 // - 展开 / 折叠 (默认折叠到 600 字符以下不显示按钮; 超出则展示前 600 字符
 //   + 「展开全部 (N 字符)」按钮; 展开后变为「折叠」)
-// - 复制按钮 (一键 navigator.clipboard.writeText, 1.6s 文案变 ✓ 已复制)
+// - 复制按钮 (一键 navigator.clipboard.writeText, 1.6s 文案变 已复制)
 // - 错误行红色高亮: 行内匹配 (?i)error|exception|traceback|fail|panic 时,
 //   左竖条 + 文字偏红
 // - 仍保持 pre-wrap mono 字体, word-break:break-all (避免长 URL 撑爆)
@@ -18,6 +18,33 @@ const ERROR_LINE_PATTERN = /\b(error|exception|traceback|fail(?:ed|ure)?|panic|f
 
 interface ToolResultBodyProps {
   content: string;
+}
+
+type ToolBodyIconName = 'copy' | 'check' | 'chevronDown' | 'chevronUp';
+
+function ToolBodyIcon({ name, size = 13 }: { name: ToolBodyIconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  switch (name) {
+    case 'copy':
+      return <svg {...common}><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M5 15V7a2 2 0 0 1 2-2h8" /></svg>;
+    case 'check':
+      return <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
+    case 'chevronDown':
+      return <svg {...common}><path d="m7 10 5 5 5-5" /></svg>;
+    case 'chevronUp':
+      return <svg {...common}><path d="m7 14 5-5 5 5" /></svg>;
+  }
 }
 
 interface RenderedLine {
@@ -89,13 +116,14 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            class="px-2 py-0.5 rounded-m3-sm"
+            class="oh-tap-press oh-message-action-button is-compact"
             style={{
               background: 'var(--m3-surface-container)',
               color: 'var(--m3-on-surface-variant)',
               border: '1px solid var(--m3-outline)',
             }}
           >
+            <ToolBodyIcon name={expanded ? 'chevronUp' : 'chevronDown'} />
             {expanded
               ? t('detail.tool.body.collapse', '折叠')
               : t('detail.tool.body.expand', '展开全部 ') + `(${content.length} ${t('detail.tool.body.chars', '字符')})`}
@@ -104,7 +132,7 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
         <button
           type="button"
           onClick={handleCopy}
-          class="px-2 py-0.5 rounded-m3-sm ml-auto"
+          class="oh-tap-press oh-message-action-button is-compact ml-auto"
           style={{
             background: copied
               ? 'var(--m3-secondary-container)'
@@ -114,8 +142,9 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
             fontWeight: copied ? 600 : 400,
           }}
         >
+          <ToolBodyIcon name={copied ? 'check' : 'copy'} />
           {copied
-            ? t('detail.tool.body.copied', '✓ 已复制')
+            ? t('detail.tool.body.copied', '已复制')
             : t('detail.tool.body.copy', '复制')}
         </button>
       </div>
