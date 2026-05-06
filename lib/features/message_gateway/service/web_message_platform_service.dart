@@ -33,6 +33,7 @@ import '../../instructions/instructions_controller.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../mcp/model/mcp_tool.dart';
 import '../../memory/memory_controller.dart';
+import '../../skills/model/local_skill.dart';
 import '../../skills/skills_controller.dart';
 import '../model/web_gateway_runtime.dart';
 import '../model/web_gateway_session_metadata.dart';
@@ -1492,7 +1493,15 @@ class WebMessagePlatformService {
 
   /// Toolbox: 列出已安装本地技能（来自 SkillsController）。
   Future<shelf.Response> _listSkillsHandler() async {
-    final items = _skillsController.skills
+    final Iterable<LocalSkill> visibleSkills =
+        webGatewayIsDenyAllSelection(_config.allowedSkillNames)
+        ? const <LocalSkill>[]
+        : _config.allowedSkillNames.isEmpty
+        ? _skillsController.skills
+        : _skillsController.skills.where(
+            (skill) => _config.allowedSkillNames.contains(skill.name),
+          );
+    final items = visibleSkills
         .map(
           (skill) => <String, Object?>{
             'name': skill.name,
@@ -2181,6 +2190,97 @@ class WebMessagePlatformService {
     );
   }
 
+  Future<({String? reminder, Map<String, Object?>? metadata, String? error})>
+  _resolveWebSelectedSkill(Object? raw) async {
+    if (raw == null) {
+      return (reminder: null, metadata: null, error: null);
+    }
+    if (raw is! Map) {
+      return (reminder: null, metadata: null, error: 'skill_selection_invalid');
+    }
+    if (webGatewayIsDenyAllSelection(_config.allowedSkillNames)) {
+      return (reminder: null, metadata: null, error: 'skill_not_allowed');
+    }
+    final name = _string(raw['name'], '').trim();
+    final relativePath = _string(raw['relative_directory_path'], '').trim();
+    if (name.isEmpty && relativePath.isEmpty) {
+      return (reminder: null, metadata: null, error: 'skill_selection_empty');
+    }
+    final candidates = _config.allowedSkillNames.isEmpty
+        ? _skillsController.skills
+        : _skillsController.skills
+              .where((skill) => _config.allowedSkillNames.contains(skill.name))
+              .toList(growable: false);
+    LocalSkill? selected;
+    for (final skill in candidates) {
+      if (relativePath.isNotEmpty &&
+          skill.relativeDirectoryPath == relativePath) {
+        selected = skill;
+        break;
+      }
+      if (name.isNotEmpty && skill.name == name) {
+        selected = skill;
+        break;
+      }
+    }
+    if (selected == null) {
+      return (reminder: null, metadata: null, error: 'skill_not_found');
+    }
+    String? manifestContent;
+    try {
+      manifestContent = await _skillsController.readSkillManifest(selected);
+    } catch (error, stack) {
+      silentLog('WebGateway', 'selectedSkill.readManifest', error, stack);
+    }
+    final manifest = (manifestContent ?? '').trim();
+    final fallbackDescription = selected.description.trim();
+    final manifestBody = manifest.isNotEmpty
+        ? manifest
+        : (fallbackDescription.isNotEmpty
+              ? fallbackDescription
+              : 'No SKILL.md content is available; honour the user intent implied by the skill name.');
+    final reminder = StringBuffer()
+      ..writeln(
+        'The user explicitly selected the local skill "${selected.name}" for this request.',
+      )
+      ..writeln(
+        'Follow the SKILL.md content below with the highest priority, overriding any conflicting default behaviour.',
+      )
+      ..writeln(
+        "Apply the skill's guidance to the user's message for this turn; do not ignore this directive even if the skill seems unrelated.",
+      )
+      ..writeln()
+      ..writeln(
+        '<skill-manifest name="${_escapeXmlAttribute(selected.name)}" path="${_escapeXmlAttribute(selected.manifestPath)}">',
+      )
+      ..writeln(manifestBody)
+      ..write('</skill-manifest>');
+    return (
+      reminder: reminder.toString(),
+      metadata: <String, Object?>{
+        'name': selected.name,
+        'path': selected.manifestPath,
+        if (selected.hasEmojiIcon) 'emoji': selected.emojiIcon,
+        if (selected.hasIcon) 'icon_path': selected.iconPath,
+        if (selected.hasIcon && selected.iconKind != null)
+          'icon_kind': switch (selected.iconKind!) {
+            LocalSkillIconKind.svg => 'svg',
+            LocalSkillIconKind.raster => 'raster',
+          },
+      },
+      error: null,
+    );
+  }
+
+  String _escapeXmlAttribute(String input) {
+    return input
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+  }
+
   Future<shelf.Response> _sendMessage(
     shelf.Request request,
     _WebGatewayAuthSession auth,
@@ -2240,6 +2340,14 @@ class WebMessagePlatformService {
         'error': 'model_not_configured',
       });
     }
+    final selectedSkill = await _resolveWebSelectedSkill(
+      body['selected_skill'],
+    );
+    if (selectedSkill.error != null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': selectedSkill.error,
+      });
+    }
     final creationRequest = _creationRequestFor(conversationMode);
     if (!_modelSupportsConversationMode(model, conversationMode)) {
       return _json(HttpStatus.badRequest, <String, Object?>{
@@ -2293,6 +2401,10 @@ class WebMessagePlatformService {
                 : _settingsController.aiWriteCommandConfirmationEnabled,
             confirmWriteCommand: (request) =>
                 _confirmWebWriteCommand(session.id, request),
+            additionalSystemReminders: selectedSkill.reminder == null
+                ? const <String>[]
+                : <String>[selectedSkill.reminder!],
+            selectedSkillMetadata: selectedSkill.metadata,
             userMessageMetadata:
                 _metadataForRequest(auth, request, <String, Object?>{
                   'sent_via': 'web_api',

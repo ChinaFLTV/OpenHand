@@ -62,6 +62,12 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { PopMenu } from '../components/PopMenu';
+import { listSkills, type SkillSummary } from '../api/toolbox';
+import {
+  ImageEditorDialog,
+  type ImageEditorInput,
+  type ImageEditorResult,
+} from '../components/ImageEditorDialog';
 
 const PAGE_SIZE = 80;
 
@@ -339,6 +345,13 @@ export function SessionDetailPage() {
   const [composerModelKey, setComposerModelKey] = useState<string>('');
   const [composerAttachments, setComposerAttachments] =
     useState<SendMessageAttachment[]>([]);
+  const [selectedSkill, setSelectedSkill] = useState<SkillSummary | null>(null);
+  const [skills, setSkills] = useState<SkillSummary[]>([]);
+  const [skillPickerOpen, setSkillPickerOpen] = useState(false);
+  const [skillPickerQuery, setSkillPickerQuery] = useState('');
+  const [skillPickerLoading, setSkillPickerLoading] = useState(false);
+  const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = useState(0);
+  const [slashDismissedToken, setSlashDismissedToken] = useState<string | null>(null);
   // 附件预览 (image/* → dataURL); key 与 composerAttachments 同序
   const [attachmentPreviews, setAttachmentPreviews] = useState<
     { mime: string; dataUrl: string; size: number }[]
@@ -362,6 +375,9 @@ export function SessionDetailPage() {
   const messagesAbortRef = useRef<AbortController | null>(null);
   const pollTimerRef = useRef<number | null>(null);
   const sseCloseRef = useRef<(() => void) | null>(null);
+  const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
+  const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
   const autoTitleRefreshTimersRef = useRef<number[]>([]);
 
@@ -390,6 +406,7 @@ export function SessionDetailPage() {
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
   const [tokenStatsOpen, setTokenStatsOpen] = useState(false);
+  const [imageEditorInput, setImageEditorInput] = useState<ImageEditorInput | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
   const [sessionDeleteBusy, setSessionDeleteBusy] = useState(false);
@@ -397,6 +414,11 @@ export function SessionDetailPage() {
   useEffect(() => {
     detailRef.current = detail;
   }, [detail]);
+
+  useEffect(() => () => {
+    imageEditorResolverRef.current?.(null);
+    imageEditorResolverRef.current = null;
+  }, []);
 
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
     const el = mainRef.current;
@@ -1090,6 +1112,136 @@ export function SessionDetailPage() {
     }).catch(() => undefined);
   }, [messages, sessionId, detail?.session.title]);
 
+  const skillPickerResults = useMemo(() => {
+    const query = skillPickerQuery.trim().toLowerCase();
+    const base = query.length === 0
+      ? skills
+      : skills.filter((skill) => `${skill.name} ${skill.description}`.toLowerCase().includes(query));
+    return base.slice(0, 18);
+  }, [skills, skillPickerQuery]);
+
+  useEffect(() => {
+    setSkillPickerSelectedIndex((index) => {
+      if (skillPickerResults.length === 0) return 0;
+      return Math.min(index, skillPickerResults.length - 1);
+    });
+  }, [skillPickerResults.length]);
+
+  async function ensureSkillsLoadedForPicker(): Promise<void> {
+    if (skillsLoadedRef.current || skillPickerLoading) return;
+    setSkillPickerLoading(true);
+    try {
+      const res = await listSkills();
+      setSkills(res.items);
+    } catch (error: unknown) {
+      setComposerError(
+        `${t('composer.skill.loadFailed', '加载技能列表失败')}：${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      skillsLoadedRef.current = true;
+      setSkillPickerLoading(false);
+    }
+  }
+
+  function computeSlashTrigger(text: string, cursor: number): { tokenEnd: number; query: string; token: string } | null {
+    if (!text.startsWith('/')) return null;
+    let tokenEnd = text.length;
+    for (let i = 0; i < text.length; i += 1) {
+      const ch = text.charCodeAt(i);
+      if (ch === 0x20 || ch === 0x09 || ch === 0x0A || ch === 0x0D) {
+        tokenEnd = i;
+        break;
+      }
+    }
+    if (cursor > tokenEnd) return null;
+    const token = text.slice(0, tokenEnd);
+    return { tokenEnd, query: text.slice(1, tokenEnd), token };
+  }
+
+  function updateSkillPickerForText(text: string, cursor: number): void {
+    if (selectedSkill) {
+      setSkillPickerOpen(false);
+      return;
+    }
+    const trigger = computeSlashTrigger(text, cursor);
+    if (!trigger) {
+      setSkillPickerOpen(false);
+      setSkillPickerQuery('');
+      setSlashDismissedToken(null);
+      return;
+    }
+    if (slashDismissedToken === trigger.token) return;
+    setSkillPickerQuery(trigger.query);
+    setSkillPickerOpen(true);
+    setSkillPickerSelectedIndex(0);
+    void ensureSkillsLoadedForPicker();
+  }
+
+  function selectSkillForComposer(skill: SkillSummary): void {
+    const textarea = composerTextareaRef.current;
+    const text = textarea?.value ?? composerText;
+    const cursor = textarea?.selectionStart ?? 0;
+    const trigger = computeSlashTrigger(text, cursor);
+    const remainderStart = trigger
+      ? trigger.tokenEnd < text.length && /[ \t]/.test(text.charAt(trigger.tokenEnd))
+        ? trigger.tokenEnd + 1
+        : trigger.tokenEnd
+      : 0;
+    const nextText = text.slice(remainderStart);
+    setComposerText(nextText);
+    setSelectedSkill(skill);
+    setSkillPickerOpen(false);
+    setSlashDismissedToken(null);
+    requestAnimationFrame(() => {
+      const node = composerTextareaRef.current;
+      node?.focus();
+      node?.setSelectionRange(0, 0);
+    });
+  }
+
+  function dismissSkillPicker(remember = false): void {
+    const textarea = composerTextareaRef.current;
+    const text = textarea?.value ?? composerText;
+    const cursor = textarea?.selectionStart ?? 0;
+    const trigger = computeSlashTrigger(text, cursor);
+    if (remember && trigger) setSlashDismissedToken(trigger.token);
+    setSkillPickerOpen(false);
+  }
+
+  function handleComposerKeyDown(e: KeyboardEvent): void {
+    if (skillPickerOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSkillPickerSelectedIndex((index) => (
+          skillPickerResults.length === 0 ? 0 : (index + 1) % skillPickerResults.length
+        ));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSkillPickerSelectedIndex((index) => {
+          if (skillPickerResults.length === 0) return 0;
+          return (index - 1 + skillPickerResults.length) % skillPickerResults.length;
+        });
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        const skill = skillPickerResults[skillPickerSelectedIndex];
+        if (skill) {
+          e.preventDefault();
+          selectSkillForComposer(skill);
+          return;
+        }
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        dismissSkillPicker(true);
+        return;
+      }
+    }
+    handleComposerShortcut(e);
+  }
+
   async function readFileAsAttachment(
     file: File,
   ): Promise<{ att: SendMessageAttachment; mime: string; dataUrl: string }> {
@@ -1121,6 +1273,21 @@ export function SessionDetailPage() {
     });
   }
 
+  function openImageEditor(input: ImageEditorInput): Promise<ImageEditorResult | null> {
+    imageEditorResolverRef.current?.(null);
+    setImageEditorInput(input);
+    return new Promise((resolve) => {
+      imageEditorResolverRef.current = resolve;
+    });
+  }
+
+  function settleImageEditor(result: ImageEditorResult | null): void {
+    const resolve = imageEditorResolverRef.current;
+    imageEditorResolverRef.current = null;
+    setImageEditorInput(null);
+    resolve?.(result);
+  }
+
   // 从 File[] 追加附件。共用与 file input / drag-drop / paste
   async function appendFiles(files: File[]): Promise<void> {
     if (files.length === 0) return;
@@ -1140,8 +1307,28 @@ export function SessionDetailPage() {
       }
       try {
         const r = await readFileAsAttachment(file);
-        nextAtt.push(r.att);
-        nextPv.push({ mime: r.mime, dataUrl: r.dataUrl, size: file.size });
+        if (r.mime.startsWith('image/')) {
+          const edited = await openImageEditor({
+            name: file.name,
+            mime: r.mime,
+            dataUrl: r.dataUrl,
+            size: file.size,
+          });
+          if (!edited) continue;
+          if (edited.size > ATTACHMENT_MAX_BYTES) {
+            setComposerError(
+              t('composer.attachment.tooLarge', '附件超过 ') +
+                (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) +
+                ' MiB',
+            );
+            continue;
+          }
+          nextAtt.push({ name: edited.name, data_base64: edited.dataBase64 });
+          nextPv.push({ mime: edited.mime, dataUrl: edited.dataUrl, size: edited.size });
+        } else {
+          nextAtt.push(r.att);
+          nextPv.push({ mime: r.mime, dataUrl: r.dataUrl, size: file.size });
+        }
       } catch (e: unknown) {
         setComposerError(
           t('composer.attachment.readFailed', '附件读取失败：') +
@@ -1163,6 +1350,33 @@ export function SessionDetailPage() {
   function removeAttachmentAt(idx: number): void {
     setComposerAttachments((prev) => prev.filter((_, i) => i !== idx));
     setAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function editAttachmentAt(idx: number): Promise<void> {
+    const preview = attachmentPreviews[idx];
+    const attachment = composerAttachments[idx];
+    if (!preview || !attachment || !preview.mime.startsWith('image/')) return;
+    const edited = await openImageEditor({
+      name: attachment.name,
+      mime: preview.mime,
+      dataUrl: preview.dataUrl,
+      size: preview.size,
+    });
+    if (!edited) return;
+    if (edited.size > ATTACHMENT_MAX_BYTES) {
+      setComposerError(
+        t('composer.attachment.tooLarge', '附件超过 ') +
+          (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) +
+          ' MiB',
+      );
+      return;
+    }
+    setComposerAttachments((prev) => prev.map((item, i) => (
+      i === idx ? { name: edited.name, data_base64: edited.dataBase64 } : item
+    )));
+    setAttachmentPreviews((prev) => prev.map((item, i) => (
+      i === idx ? { mime: edited.mime, dataUrl: edited.dataUrl, size: edited.size } : item
+    )));
   }
 
   async function handleSend(): Promise<void> {
@@ -1208,10 +1422,18 @@ export function SessionDetailPage() {
         modelKey: composerModelKey,
         mode: composerMode,
         attachments: composerAttachments,
+        selectedSkill: selectedSkill
+          ? {
+              name: selectedSkill.name,
+              relative_directory_path: selectedSkill.relative_directory_path,
+            }
+          : null,
       });
       setComposerText('');
       setComposerAttachments([]);
       setAttachmentPreviews([]);
+      setSelectedSkill(null);
+      setSkillPickerOpen(false);
       setSendPhase(res.send_phase || 'sendingMessage');
       // SSE 通道在 service 端立即推送 user 消息落库；若 SSE 不可用，refresh()
       // 兜底拉一次让 user 消息出现在尾部。
@@ -1828,6 +2050,75 @@ export function SessionDetailPage() {
             aria-hidden={composerCollapsed ? 'true' : undefined}
             {...(composerCollapsed ? { inert: true } : {})}
           >
+          <div class="oh-composer-chip-rail mb-3">
+            <span class="oh-composer-pill oh-appear-pop">
+              <span aria-hidden>✦</span>
+              {composerModeLabel(composerMode)}
+            </span>
+            {selectedSkill ? (
+              <button
+                type="button"
+                class="oh-composer-pill oh-appear-pop"
+                onClick={() => setSelectedSkill(null)}
+                disabled={composerSending}
+                title={t('composer.skill.clear', '移除已选择技能')}
+              >
+                <span aria-hidden>{selectedSkill.emoji_icon || '▣'}</span>
+                <span class="truncate max-w-[180px]">{selectedSkill.name}</span>
+                <span aria-hidden>×</span>
+              </button>
+            ) : null}
+          </div>
+
+          {attachmentsAllowed && composerAttachments.length > 0 ? (
+            <ul class="oh-composer-attachment-rail mb-3">
+              {composerAttachments.map((att, i) => {
+                const pv = attachmentPreviews[i];
+                const isImage = (pv?.mime ?? '').startsWith('image/');
+                const sizeKb = pv ? (pv.size / 1024).toFixed(1) : '';
+                return (
+                  <li
+                    key={`${att.name}-${i}`}
+                    class={`oh-composer-attachment-chip oh-appear-pop ${isImage ? 'is-image' : ''}`}
+                  >
+                    {isImage && pv ? (
+                      <button
+                        type="button"
+                        class="oh-composer-image-thumb"
+                        onClick={() => void editAttachmentAt(i)}
+                        disabled={composerSending}
+                        title={t('imageEditor.title', '编辑图片')}
+                      >
+                        <img src={pv.dataUrl} alt={att.name} decoding="async" loading="lazy" />
+                      </button>
+                    ) : (
+                      <span aria-hidden class="oh-composer-file-leading">ATT</span>
+                    )}
+                    {!isImage ? (
+                      <span class="flex flex-col min-w-0">
+                        <span class="truncate max-w-[180px]">{att.name}</span>
+                        {pv ? (
+                          <span class="truncate" style={{ color: 'var(--m3-on-surface-variant)', fontSize: '10px' }}>
+                            {pv.mime || 'application/octet-stream'} · {sizeKb} KB
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => removeAttachmentAt(i)}
+                      disabled={composerSending}
+                      class="oh-composer-chip-close"
+                      aria-label={t('composer.attachment.remove', '移除附件')}
+                    >
+                      ×
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+
           <div
             class="relative"
             onDragOver={(e) => {
@@ -1848,11 +2139,57 @@ export function SessionDetailPage() {
               if (files.length > 0) void appendFiles(files);
             }}
           >
+          {skillPickerOpen ? (
+            <div class="oh-skill-picker oh-appear-pop" role="listbox">
+              <div class="oh-skill-picker-title">
+                <span aria-hidden>▣</span>
+                {t('composer.skill.pick', '选择一个技能')}
+              </div>
+              {skillPickerLoading ? (
+                <div class="oh-skill-picker-empty">{t('common.loading', '加载中…')}</div>
+              ) : skillPickerResults.length === 0 ? (
+                <div class="oh-skill-picker-empty">{t('composer.skill.empty', '未找到匹配技能')}</div>
+              ) : (
+                <ul class="oh-skill-picker-list">
+                  {skillPickerResults.map((skill, index) => (
+                    <li key={`${skill.relative_directory_path}-${skill.name}`}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={index === skillPickerSelectedIndex}
+                        class="oh-skill-picker-item"
+                        data-active={index === skillPickerSelectedIndex ? 'true' : 'false'}
+                        onMouseEnter={() => setSkillPickerSelectedIndex(index)}
+                        onClick={() => selectSkillForComposer(skill)}
+                      >
+                        <span class="oh-skill-picker-leading" aria-hidden>
+                          {skill.emoji_icon || skill.name.slice(0, 1).toUpperCase() || 'S'}
+                        </span>
+                        <span class="min-w-0 flex-1 text-left">
+                          <span class="block truncate font-semibold">{skill.name}</span>
+                          {skill.description.trim() ? (
+                            <span class="block truncate text-[11px] opacity-70">{skill.description}</span>
+                          ) : null}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
           <textarea
+            ref={composerTextareaRef}
             value={composerText}
-            onInput={(e) =>
-              setComposerText((e.currentTarget as HTMLTextAreaElement).value)
-            }
+            onInput={(e) => {
+              const target = e.currentTarget as HTMLTextAreaElement;
+              setComposerText(target.value);
+              updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
+            }}
+            onSelect={(e) => {
+              const target = e.currentTarget as HTMLTextAreaElement;
+              updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
+            }}
             onPaste={(e) => {
               if (!attachmentsAllowed) return;
               const items = e.clipboardData?.items;
@@ -1870,7 +2207,7 @@ export function SessionDetailPage() {
               }
             }}
             onKeyDown={(e) => {
-              handleComposerShortcut(e as unknown as KeyboardEvent);
+              handleComposerKeyDown(e as unknown as KeyboardEvent);
             }}
             disabled={composerSending || composerCollapsed}
             rows={4}
@@ -1898,73 +2235,6 @@ export function SessionDetailPage() {
             </div>
           ) : null}
           </div>
-
-          {/* 附件 */}
-          {attachmentsAllowed && composerAttachments.length > 0 ? (
-            <div class="mt-2">
-              <ul class="flex flex-wrap gap-2">
-                  {composerAttachments.map((att, i) => {
-                    const pv = attachmentPreviews[i];
-                    const isImage = (pv?.mime ?? '').startsWith('image/');
-                    const sizeKb = pv ? (pv.size / 1024).toFixed(1) : '';
-                    return (
-                      <li
-                        key={`${att.name}-${i}`}
-                        class="text-xs rounded-md flex items-center gap-2 overflow-hidden"
-                        style={{
-                          background: 'var(--m3-surface)',
-                          border: '1px solid var(--m3-outline)',
-                          color: 'var(--m3-on-surface)',
-                          padding: isImage ? '4px 6px 4px 4px' : '4px 8px',
-                        }}
-                      >
-                        {isImage && pv ? (
-                          <img
-                            src={pv.dataUrl}
-                            alt={att.name}
-                            decoding="async"
-                            loading="lazy"
-                            style={{
-                              width: '36px',
-                              height: '36px',
-                              objectFit: 'cover',
-                              borderRadius: '4px',
-                              flex: 'none',
-                            }}
-                          />
-                        ) : (
-                          <span aria-hidden style={{ fontSize: '12px', fontWeight: 700 }}>ATT</span>
-                        )}
-                        <span class="flex flex-col min-w-0">
-                          <span class="truncate max-w-[160px]">{att.name}</span>
-                          {pv ? (
-                            <span
-                              class="truncate"
-                              style={{
-                                color: 'var(--m3-on-surface-variant)',
-                                fontSize: '10px',
-                              }}
-                            >
-                              {pv.mime || 'application/octet-stream'} · {sizeKb} KB
-                            </span>
-                          ) : null}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeAttachmentAt(i)}
-                          disabled={composerSending}
-                          class="opacity-70 hover:opacity-100 px-1"
-                          style={{ color: 'var(--m3-error)' }}
-                          aria-label="remove attachment"
-                        >
-                          ×
-                        </button>
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
-          ) : null}
 
           {composerError ? (
             <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
@@ -2131,6 +2401,13 @@ export function SessionDetailPage() {
           cancelLabel={t('detail.writeApproval.reject', '拒绝')}
           onCancel={() => void handleWriteApproval(false)}
           onConfirm={() => void handleWriteApproval(true)}
+        />
+      ) : null}
+      {imageEditorInput ? (
+        <ImageEditorDialog
+          input={imageEditorInput}
+          onCancel={() => settleImageEditor(null)}
+          onSave={(result) => settleImageEditor(result)}
         />
       ) : null}
       {showComposerModelPicker ? (

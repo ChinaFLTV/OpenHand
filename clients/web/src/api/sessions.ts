@@ -251,11 +251,19 @@ export function listMessages(
 /// - mode: 与 meta.conversation_modes 之一对齐（normal/plan/image/video/audio）；
 /// - model_key: 必须命中 meta.models[*].key；
 /// - attachments[]: 浏览器 File API 读出来的 base64（不含 data: 前缀）。
+/// - selected_skill: 由 /api/skills 返回的 name + relative_directory_path，
+///   service 端会读取 SKILL.md 并走 App 同款隐藏 reminder 注入。
 export interface SendMessageInput {
   content: string;
   modelKey: string;
   mode?: string;
   attachments?: SendMessageAttachment[];
+  selectedSkill?: SendMessageSelectedSkill | null;
+}
+
+export interface SendMessageSelectedSkill {
+  name: string;
+  relative_directory_path: string;
 }
 
 export interface SendMessageAttachment {
@@ -282,6 +290,7 @@ export function sendMessage(
         mode: input.mode ?? 'normal',
         model_key: input.modelKey,
         attachments: input.attachments ?? [],
+        selected_skill: input.selectedSkill ?? null,
       },
     },
   );
