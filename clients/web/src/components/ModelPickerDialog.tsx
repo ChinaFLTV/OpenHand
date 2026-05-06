@@ -14,6 +14,29 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 const RECENT_KEY = 'openhand.web.recent_models';
 const RECENT_MAX = 6;
 
+type ModelPickerIconName = 'close' | 'check';
+
+function ModelPickerIcon({ name, size = 16 }: { name: ModelPickerIconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  switch (name) {
+    case 'close':
+      return <svg {...common}><path d="M7 7l10 10M17 7 7 17" /></svg>;
+    case 'check':
+      return <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
+  }
+}
+
 interface RecentEntry {
   key: string;
   ts: number;
@@ -262,7 +285,7 @@ export function ModelPickerDialog({
                 }}
                 aria-label={t('common.clear', '清空')}
               >
-                ✕
+                <ModelPickerIcon name="close" />
               </button>
             ) : null}
           </div>
@@ -394,7 +417,7 @@ function Section({
                     lineHeight: 1,
                   }}
                 >
-                  ✓
+                  <ModelPickerIcon name="check" size={12} />
                 </span>
               ) : null}
             </span>

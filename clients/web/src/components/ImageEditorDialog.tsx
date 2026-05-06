@@ -27,6 +27,58 @@ interface ImageEditorDialogProps {
 type CropAspect = 'free' | 'original' | '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | 'circle';
 type WatermarkPosition = 'tl' | 'tc' | 'tr' | 'ml' | 'mc' | 'mr' | 'bl' | 'bc' | 'br';
 
+type ImageEditorIconName =
+  | 'compare'
+  | 'check'
+  | 'rotateLeft'
+  | 'rotateRight'
+  | 'flipH'
+  | 'flipV'
+  | 'reset'
+  | 'download'
+  | 'copy'
+  | 'undo'
+  | 'dot';
+
+function ImageEditorIcon({ name, size = 15 }: { name: ImageEditorIconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  switch (name) {
+    case 'compare':
+      return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 4v16" /></svg>;
+    case 'check':
+      return <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
+    case 'rotateLeft':
+      return <svg {...common}><path d="M8 7H4V3" /><path d="M4 7a8 8 0 1 1 2.3 5.7" /></svg>;
+    case 'rotateRight':
+      return <svg {...common}><path d="M16 7h4V3" /><path d="M20 7a8 8 0 1 0-2.3 5.7" /></svg>;
+    case 'flipH':
+      return <svg {...common}><path d="M4 5v14" /><path d="M20 5v14" /><path d="m8 8 4 4-4 4z" /><path d="m16 8-4 4 4 4z" /></svg>;
+    case 'flipV':
+      return <svg {...common}><path d="M5 4h14" /><path d="M5 20h14" /><path d="m8 8 4 4 4-4z" /><path d="m8 16 4-4 4 4z" /></svg>;
+    case 'reset':
+      return <svg {...common}><path d="M4 12a8 8 0 0 1 13.4-5.9" /><path d="M17 3v4h-4" /><path d="M20 12a8 8 0 0 1-13.4 5.9" /><path d="M7 21v-4h4" /></svg>;
+    case 'download':
+      return <svg {...common}><path d="M12 4v10" /><path d="m8 10 4 4 4-4" /><path d="M5 19h14" /></svg>;
+    case 'copy':
+      return <svg {...common}><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M5 15V7a2 2 0 0 1 2-2h8" /></svg>;
+    case 'undo':
+      return <svg {...common}><path d="M9 7H4v5" /><path d="M4 12a8 8 0 1 0 2.3-5.7" /></svg>;
+    case 'dot':
+      return <svg {...common}><circle cx="12" cy="12" r="3.3" fill="currentColor" stroke="none" /></svg>;
+  }
+}
+
 interface EditorSettings {
   aspect: CropAspect;
   zoom: number;
@@ -275,30 +327,37 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
                 onPointerLeave={() => setShowOriginal(false)}
                 disabled={busy}
               >
-                ◐ {showOriginal ? t('imageEditor.release', '松开') : t('imageEditor.compare', '按住对比')}
+                <ImageEditorIcon name="compare" />
+                {showOriginal ? t('imageEditor.release', '松开') : t('imageEditor.compare', '按住对比')}
               </button>
             </section>
 
             <div class="oh-image-editor-aspects">
-              {ASPECTS.map((item) => (
+              {ASPECTS.map((item) => {
+                const active = settings.aspect === item.key;
+                return (
                 <button
                   key={item.key}
                   type="button"
                   class="oh-tap-press"
-                  data-active={settings.aspect === item.key ? 'true' : 'false'}
+                  data-active={active ? 'true' : 'false'}
                   onClick={() => { pushUndo(); setSettings((prev) => ({ ...prev, aspect: item.key, panX: 0, panY: 0 })); }}
                 >
-                  {settings.aspect === item.key ? '✓ ' : ''}{item.label}
+                  <span class="oh-image-editor-button-icon">
+                    {active ? <ImageEditorIcon name="check" size={13} /> : null}
+                  </span>
+                  {item.label}
                 </button>
-              ))}
+                );
+              })}
             </div>
 
             <div class="oh-image-editor-actions">
-              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('rotation', settings.rotation - 90); }}>↶ {t('imageEditor.rotateLeft', '左转')}</button>
-              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('rotation', settings.rotation + 90); }}>↷ {t('imageEditor.rotateRight', '右转')}</button>
-              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('flipH', !settings.flipH); }}>⇋ {t('imageEditor.flipH', '水平翻转')}</button>
-              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('flipV', !settings.flipV); }}>↕ {t('imageEditor.flipV', '垂直翻转')}</button>
-              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); setSettings((prev) => ({ ...DEFAULT_SETTINGS, aspect: prev.aspect })); }}>⟳ {t('imageEditor.reset', '重置')}</button>
+              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('rotation', settings.rotation - 90); }}><ImageEditorIcon name="rotateLeft" />{t('imageEditor.rotateLeft', '左转')}</button>
+              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('rotation', settings.rotation + 90); }}><ImageEditorIcon name="rotateRight" />{t('imageEditor.rotateRight', '右转')}</button>
+              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('flipH', !settings.flipH); }}><ImageEditorIcon name="flipH" />{t('imageEditor.flipH', '水平翻转')}</button>
+              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('flipV', !settings.flipV); }}><ImageEditorIcon name="flipV" />{t('imageEditor.flipV', '垂直翻转')}</button>
+              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); setSettings((prev) => ({ ...DEFAULT_SETTINGS, aspect: prev.aspect })); }}><ImageEditorIcon name="reset" />{t('imageEditor.reset', '重置')}</button>
             </div>
 
             <section class="oh-image-editor-sliders">
@@ -344,7 +403,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
               <EditorSlider label={t('imageEditor.watermarkLightness', '文字明度')} value={settings.watermarkLightness} min={0} max={1} step={0.01} onChange={(v) => update('watermarkLightness', v)} />
               <div class="oh-image-editor-position-grid">
                 {(['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'] as WatermarkPosition[]).map((pos) => (
-                  <button type="button" data-active={settings.watermarkPosition === pos ? 'true' : 'false'} onClick={() => update('watermarkPosition', pos)} aria-label={pos}>●</button>
+                  <button type="button" data-active={settings.watermarkPosition === pos ? 'true' : 'false'} onClick={() => update('watermarkPosition', pos)} aria-label={pos}><ImageEditorIcon name="dot" size={12} /></button>
                 ))}
               </div>
             </details>
@@ -354,17 +413,17 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
           </div>
 
           <footer class="oh-image-editor-footer">
-            <button type="button" class="oh-tap-press" disabled={busy} onClick={() => void download()}>↧ {t('imageEditor.saveLocal', '另存到本地')}</button>
-            <button type="button" class="oh-tap-press" disabled={busy} onClick={() => void copyToClipboard()}>▣ {t('imageEditor.copy', '复制到剪贴板')}</button>
+            <button type="button" class="oh-tap-press" disabled={busy} onClick={() => void download()}><ImageEditorIcon name="download" />{t('imageEditor.saveLocal', '另存到本地')}</button>
+            <button type="button" class="oh-tap-press" disabled={busy} onClick={() => void copyToClipboard()}><ImageEditorIcon name="copy" />{t('imageEditor.copy', '复制到剪贴板')}</button>
             <span class="flex-1" />
-            <button type="button" class="oh-tap-press" disabled={busy} onClick={() => { pushUndo(); setStatus(t('imageEditor.applied', '调整已应用')); }}>✓ {t('imageEditor.apply', '应用')}</button>
+            <button type="button" class="oh-tap-press" disabled={busy} onClick={() => { pushUndo(); setStatus(t('imageEditor.applied', '调整已应用')); }}><ImageEditorIcon name="check" />{t('imageEditor.apply', '应用')}</button>
             <button type="button" class="oh-tap-press" disabled={busy || undoStack.length === 0} onClick={() => {
               const previous = undoStack[undoStack.length - 1];
               if (!previous) return;
               setSettings(previous);
               setUndoStack((prev) => prev.slice(0, -1));
-            }}>↶ {t('imageEditor.undo', '回退')}</button>
-            <button type="button" class="oh-tap-press" disabled={busy} onClick={() => { pushUndo(); setSettings(DEFAULT_SETTINGS); }}>⟳ {t('imageEditor.resetAll', '重置全部')}</button>
+            }}><ImageEditorIcon name="undo" />{t('imageEditor.undo', '回退')}</button>
+            <button type="button" class="oh-tap-press" disabled={busy} onClick={() => { pushUndo(); setSettings(DEFAULT_SETTINGS); }}><ImageEditorIcon name="reset" />{t('imageEditor.resetAll', '重置全部')}</button>
             <button type="button" class="oh-tap-press" disabled={busy || closing} onClick={requestClose}>{t('common.cancel', '取消')}</button>
             <button type="button" class="oh-tap-press is-primary" disabled={busy || closing || Boolean(error)} onClick={() => void save()}>{busy ? t('common.processing', '处理中…') : t('common.save', '保存')}</button>
           </footer>

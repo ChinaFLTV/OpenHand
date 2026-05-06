@@ -2,6 +2,24 @@ import { createPortal } from 'preact/compat';
 import { useEffect } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 
+function ConfirmIcon({ danger }: { danger: boolean }) {
+  const common = {
+    width: 20,
+    height: 20,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  return danger
+    ? <svg {...common}><path d="M12 3 2.8 20h18.4z" /><path d="M12 9v4M12 17h.01" /></svg>
+    : <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
+}
+
 export interface ConfirmDialogProps {
   title: string;
   body?: string;
@@ -63,7 +81,7 @@ export function ConfirmDialog({
               color: danger ? 'var(--m3-error)' : 'var(--m3-primary)',
             }}
           >
-            {danger ? '!' : '✓'}
+            <ConfirmIcon danger={danger} />
           </span>
           <div class="min-w-0 flex-1">
             <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>

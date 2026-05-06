@@ -2931,7 +2931,7 @@ function ErrorBanner({
             cursor: 'pointer',
           }}
         >
-          ✕
+          <ComposerIcon name="close" size={14} />
         </button>
       </div>
     </div>

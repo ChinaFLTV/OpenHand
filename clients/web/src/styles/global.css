@@ -748,6 +748,10 @@ button.oh-composer-pill:not(:disabled):hover {
   width: 108px;
   min-height: 76px;
   justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   border-radius: 16px;
   border: 1px solid var(--m3-outline-variant);
   background: var(--m3-surface-container);
@@ -772,6 +776,10 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-image-editor-actions button,
 .oh-image-editor-footer button {
   min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   padding: 8px 15px;
   border-radius: 999px;
   border: 1px solid var(--m3-outline-variant);
@@ -779,6 +787,13 @@ button.oh-composer-pill:not(:disabled):hover {
   color: var(--m3-on-surface);
   font-size: 13px;
   font-weight: 650;
+}
+.oh-image-editor-button-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
 }
 .oh-image-editor-aspects button[data-active='true'],
 .oh-image-editor-footer button.is-primary {
@@ -852,6 +867,8 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-image-editor-position-grid button {
   min-height: 34px;
+  display: inline-grid;
+  place-items: center;
   border-radius: 10px;
   border: 1px solid var(--m3-outline-variant);
   background: transparent;
