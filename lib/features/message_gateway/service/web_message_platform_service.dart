@@ -2125,6 +2125,7 @@ class WebMessagePlatformService {
       offset: offset,
     );
     return _json(HttpStatus.ok, <String, Object?>{
+      'session': _sessionSummary(session),
       'items': page.messages
           .where((message) => !message.isDeleted)
           .map(_messageJson)
@@ -3414,6 +3415,14 @@ class WebMessagePlatformService {
       userMemoryFilePath: _settingsController.userMemoryFilePath,
       compressionThresholdChars:
           _settingsController.aiMessageCompressionThresholdChars,
+      fallbackTitleMaxCharacters:
+          _settingsController.aiFallbackTitleMaxCharacters,
+      generatedTitleMaxCharacters:
+          _settingsController.aiGeneratedTitleMaxCharacters,
+      minimumMeaningfulTitleCharacters:
+          _settingsController.aiMinimumMeaningfulTitleCharacters,
+      minimumMeaningfulLatinTitleWords:
+          _settingsController.aiMinimumMeaningfulLatinTitleWords,
       memoryEnabled: _settingsController.memoryEnabled,
       memoryEntries: _settingsController.memoryEnabled
           ? _memoryController.entries
@@ -3457,6 +3466,7 @@ class WebMessagePlatformService {
                       ),
                 )
                 .toList(growable: false),
+      autoTitleEnabled: _settingsController.aiAutoTitleEnabled,
       userInstructions: _instructionsController.entries,
     );
   }

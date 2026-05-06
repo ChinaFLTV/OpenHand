@@ -11,7 +11,7 @@
 //
 // 服务端契约：
 //   GET   /api/sessions/:id
-//   GET   /api/sessions/:id/messages?limit=&offset=&tail= → {items, offset, limit, total, has_more, send_phase, last_error}
+//   GET   /api/sessions/:id/messages?limit=&offset=&tail= → {session, items, offset, limit, total, has_more, send_phase, last_error}
 //   POST  /api/sessions/:id/messages  body {content, mode, model_key, attachments}
 //   POST  /api/sessions/:id/stop     body {}
 
@@ -36,6 +36,7 @@ import {
   type SendMessageAttachment,
   type SessionDetailResponse,
   type SessionMessage,
+  type SessionSummary,
 } from '../api/sessions';
 import { ApiError, UnauthorizedError } from '../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval } from '../api/session_events';
@@ -361,6 +362,8 @@ export function SessionDetailPage() {
   const messagesAbortRef = useRef<AbortController | null>(null);
   const pollTimerRef = useRef<number | null>(null);
   const sseCloseRef = useRef<(() => void) | null>(null);
+  const detailRef = useRef<SessionDetailResponse | null>(null);
+  const autoTitleRefreshTimersRef = useRef<number[]>([]);
 
   // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
   // ---------------------------------------------------------------------
@@ -390,6 +393,10 @@ export function SessionDetailPage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
   const [sessionDeleteBusy, setSessionDeleteBusy] = useState(false);
+
+  useEffect(() => {
+    detailRef.current = detail;
+  }, [detail]);
 
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
     const el = mainRef.current;
@@ -652,11 +659,86 @@ export function SessionDetailPage() {
           window.clearTimeout(pollTimerRef.current);
           pollTimerRef.current = null;
         }
+        clearAutoTitleRefreshTimers();
         setSessionGone(true);
         return true;
       }
     }
     return false;
+  }
+
+  function clearAutoTitleRefreshTimers(): void {
+    for (const timer of autoTitleRefreshTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    autoTitleRefreshTimersRef.current = [];
+  }
+
+  function shouldWatchAutoTitleAfterSend(text: string): boolean {
+    if (!text.trim()) return false;
+    const current = detailRef.current?.session;
+    if (!current || current.is_title_manually_edited || current.auto_title_generated_at) {
+      return false;
+    }
+    const visibleUserMessages = messagesRef.current.filter(
+      (item) => item.role === 'user' && (item.content ?? '').trim().length > 0,
+    );
+    return visibleUserMessages.length === 0;
+  }
+
+  function mergeSessionSummaryFromPolling(summary: SessionSummary): void {
+    setDetail((prev) => {
+      const runtime = prev?.runtime ?? {
+        send_phase: sendPhase,
+        can_stop: false,
+        last_error: lastError,
+      };
+      return prev
+        ? { ...prev, session: mergeSessionSummary(prev.session, summary), runtime }
+        : { session: summary, runtime };
+    });
+    if (typeof summary.message_count === 'number') {
+      setTotalKnown(summary.message_count);
+    }
+    if (summary.auto_title_generated_at || summary.is_title_manually_edited) {
+      clearAutoTitleRefreshTimers();
+    }
+  }
+
+  async function refreshAutoTitleSummary(): Promise<boolean> {
+    if (!sessionId) return true;
+    const current = detailRef.current?.session;
+    if (!current || current.is_title_manually_edited || current.auto_title_generated_at) {
+      return true;
+    }
+    const fresh = await getSession(sessionId);
+    setDetail((prev) => (
+      prev
+        ? { ...fresh, session: mergeSessionSummary(prev.session, fresh.session) }
+        : fresh
+    ));
+    setSendPhase(fresh.runtime.send_phase);
+    setLastError(fresh.runtime.last_error);
+    setTotalKnown(fresh.session.message_count ?? messagesRef.current.length);
+    return Boolean(
+      fresh.session.is_title_manually_edited || fresh.session.auto_title_generated_at,
+    );
+  }
+
+  function scheduleAutoTitleFollowUp(): void {
+    clearAutoTitleRefreshTimers();
+    const delays = [1200, 3200, 7000, 14000, 24000];
+    autoTitleRefreshTimersRef.current = delays.map((delay) => window.setTimeout(() => {
+      void refreshAutoTitleSummary()
+        .then((done) => {
+          if (done) clearAutoTitleRefreshTimers();
+        })
+        .catch((error: unknown) => {
+          if (handleAuthError(error) || handleSessionGoneError(error)) {
+            clearAutoTitleRefreshTimers();
+          }
+        });
+    }, delay));
   }
 
   function loadDetail(): void {
@@ -680,7 +762,7 @@ export function SessionDetailPage() {
     ])
       .then(([d, m]) => {
         if (ctrl.signal.aborted) return;
-        setDetail(d);
+        setDetail(m.session ? { ...d, session: mergeSessionSummary(d.session, m.session) } : d);
         setMessages([...m.items]);
         setWindowOffset(m.offset);
         setTotalKnown(m.total);
@@ -714,6 +796,7 @@ export function SessionDetailPage() {
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
       setPendingWriteApproval(m.pending_write_approval ?? null);
+      if (m.session) mergeSessionSummaryFromPolling(m.session);
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
@@ -746,6 +829,7 @@ export function SessionDetailPage() {
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
       setPendingWriteApproval(m.pending_write_approval ?? null);
+      if (m.session) mergeSessionSummaryFromPolling(m.session);
       requestAnimationFrame(() => {
         const el = mainRef.current;
         if (!el) return;
@@ -774,6 +858,7 @@ export function SessionDetailPage() {
       }
       sseCloseRef.current?.();
       sseCloseRef.current = null;
+      clearAutoTitleRefreshTimers();
     };
   }, [auth.loading, sessionId]);
 
@@ -818,6 +903,9 @@ export function SessionDetailPage() {
             ? { ...prev, session: mergeSessionSummary(prev.session, snap.session), runtime }
             : { session: snap.session, runtime };
         });
+        if (snap.session.auto_title_generated_at || snap.session.is_title_manually_edited) {
+          clearAutoTitleRefreshTimers();
+        }
         setSendPhase(snap.send_phase);
         setLastError(snap.last_error);
         setPendingWriteApproval(snap.pending_write_approval ?? null);
@@ -940,6 +1028,7 @@ export function SessionDetailPage() {
         setSendPhase(m.send_phase);
         setLastError(m.last_error);
         setPendingWriteApproval(m.pending_write_approval ?? null);
+        if (m.session) mergeSessionSummaryFromPolling(m.session);
       } catch (e: unknown) {
         if (cancelled) return;
         if (handleAuthError(e)) return;
@@ -1108,6 +1197,7 @@ export function SessionDetailPage() {
       );
       return;
     }
+    const shouldTrackAutoTitle = shouldWatchAutoTitleAfterSend(text);
     setComposerSending(true);
     setComposerError(null);
     // 标记「这是本地刚刚发起的 send」, 抑制后续 sendPhase running 触发远端冲突 banner
@@ -1126,6 +1216,7 @@ export function SessionDetailPage() {
       // SSE 通道在 service 端立即推送 user 消息落库；若 SSE 不可用，refresh()
       // 兜底拉一次让 user 消息出现在尾部。
       if (!sseLive) void refresh();
+      if (shouldTrackAutoTitle) scheduleAutoTitleFollowUp();
     } catch (e: unknown) {
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;

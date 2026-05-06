@@ -150,11 +150,18 @@ html, body, #root {
   62%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.012); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
+@keyframes oh-title-glow {
+  0%   { text-shadow: 0 0 0 color-mix(in srgb, var(--m3-primary) 0%, transparent); }
+  34%  { text-shadow: 0 0 18px color-mix(in srgb, var(--m3-primary) 34%, transparent); }
+  100% { text-shadow: 0 0 0 color-mix(in srgb, var(--m3-primary) 0%, transparent); }
+}
 .oh-pulse-soft {
   animation: oh-pulse-soft 1.1s ease-in-out infinite;
 }
 .oh-title-spring {
-  animation: oh-title-spring 360ms var(--oh-motion-spring) both;
+  animation:
+    oh-title-spring 360ms var(--oh-motion-spring) both,
+    oh-title-glow 720ms var(--oh-motion-emphasized) both;
   will-change: transform, opacity;
 }
 

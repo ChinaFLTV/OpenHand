@@ -113,6 +113,7 @@ export interface SessionMessage {
 }
 
 export interface SessionMessagesResponse {
+  session?: SessionSummary;
   items: SessionMessage[];
   offset: number;
   limit: number;
