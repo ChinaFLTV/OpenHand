@@ -233,6 +233,18 @@ function MessageCardImpl({
   const actionsVisible = hasAnyAction && active;
   const cardRef = useRef<HTMLElement | null>(null);
   const lastHeightRef = useRef<number | null>(null);
+  const isUserBubble = message.role === 'user';
+  const isWideSystemCard =
+    useToolBody ||
+    message.kind === 'reasoning' ||
+    message.kind === 'system' ||
+    message.role === 'system' ||
+    message.role === 'tool';
+  const bubbleMaxWidth = isWideSystemCard
+    ? 'min(92%, 820px)'
+    : isUserBubble
+      ? 'min(78%, 640px)'
+      : 'min(82%, 720px)';
 
   useLayoutEffect(() => {
     const el = cardRef.current;
@@ -263,12 +275,18 @@ function MessageCardImpl({
       ref={cardRef}
       class="rounded-m3-md p-4 oh-appear-up"
       style={{
+        display: 'block',
+        width: 'fit-content',
+        maxWidth: bubbleMaxWidth,
+        marginLeft: isUserBubble ? 'auto' : '0',
+        marginRight: isUserBubble ? '0' : 'auto',
         background: style.background,
         color: style.color,
         boxShadow: style.border ? 'none' : 'var(--m3-elev-1)',
         border: style.border,
         cursor: hasAnyAction ? 'pointer' : 'default',
-        transformOrigin: 'center top',
+        overflowWrap: 'anywhere',
+        transformOrigin: isUserBubble ? 'right top' : 'left top',
         transition: 'box-shadow 220ms ease-out, border-color 220ms ease-out',
       }}
       onClick={(ev) => {

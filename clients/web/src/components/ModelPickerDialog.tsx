@@ -364,11 +364,11 @@ function Section({
             class="w-full text-left px-4 py-2 flex items-center gap-3 oh-tap-press"
             style={{
               background: active
-                ? 'color-mix(in srgb, var(--m3-primary) 12%, transparent)'
+                ? 'var(--m3-primary-container)'
                 : highlighted
                   ? 'color-mix(in srgb, var(--m3-primary) 6%, transparent)'
                   : 'transparent',
-              color: active ? 'var(--m3-primary)' : 'var(--m3-on-surface)',
+              color: active ? 'var(--m3-on-primary-container)' : 'var(--m3-on-surface)',
               fontWeight: active ? 600 : 400,
             }}
           >

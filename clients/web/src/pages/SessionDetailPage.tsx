@@ -1260,7 +1260,7 @@ export function SessionDetailPage() {
         key: 'runtime',
         icon: t('topbar.capsule.runtimeIcon', '运行'),
         label: `${sendPhaseLabel(sendPhase)} · ${sseLive ? t('detail.sse.live', '实时') : t('detail.sse.fallback', '轮询')}`,
-        tone: running ? 'primary' : 'success',
+        tone: running ? 'primary' : 'neutral',
       },
       {
         key: 'permission',
@@ -1268,7 +1268,7 @@ export function SessionDetailPage() {
         label: fullAccess
           ? t('topbar.perm.full', '完全访问权限')
           : t('topbar.perm.default', '默认权限'),
-        tone: fullAccess ? 'warning' : 'neutral',
+        tone: fullAccess ? 'primary' : 'neutral',
         onClick: () => requestFullAccessPermissionChange(!fullAccess),
       },
       {
@@ -1438,14 +1438,15 @@ export function SessionDetailPage() {
               type="button"
               onClick={refresh}
               disabled={refreshing || loadingDetail}
-              class="oh-tap-press text-xs px-2.5 py-1 rounded-m3-sm disabled:opacity-50"
+              class="oh-tap-press oh-icon-button flex-none disabled:opacity-50"
               style={{
-                border: '1px solid var(--m3-outline)',
+                border: '1px solid var(--m3-outline-variant)',
                 color: 'var(--m3-on-surface-variant)',
+                background: 'var(--m3-surface)',
               }}
               title={t('detail.refresh', '刷新')}
             >
-              {refreshing ? '↻…' : '↻'}
+              <span class={refreshing ? 'oh-spin' : undefined} aria-hidden>↻</span>
             </button>
           }
         />
@@ -1634,6 +1635,7 @@ export function SessionDetailPage() {
                   key: mode,
                   label: active ? `${label} · ${t('common.current', '当前')}` : `${label}${suffix}`,
                   disabled: composerSending || active || !serviceAllowed || !modelAllowed,
+                  selected: active,
                   onClick: () => setComposerMode(mode),
                 };
               })}
@@ -1645,8 +1647,8 @@ export function SessionDetailPage() {
                   class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm flex items-center gap-1.5 disabled:opacity-50"
                   style={{
                     border: '1px solid var(--m3-outline)',
-                    color: 'var(--m3-on-secondary-container)',
-                    background: 'var(--m3-secondary-container)',
+                    color: 'var(--m3-on-primary-container)',
+                    background: 'var(--m3-primary-container)',
                     fontWeight: 700,
                   }}
                   aria-expanded={open}
@@ -1669,11 +1671,11 @@ export function SessionDetailPage() {
               class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
               style={{
                 border: session?.full_access_permission === true
-                  ? '1px solid color-mix(in srgb, var(--m3-tertiary) 50%, transparent)'
+                  ? '1px solid color-mix(in srgb, var(--m3-primary) 48%, transparent)'
                   : '1px solid var(--m3-outline)',
-                color: session?.full_access_permission === true ? 'var(--m3-on-tertiary-container)' : 'var(--m3-on-surface-variant)',
+                color: session?.full_access_permission === true ? 'var(--m3-on-primary-container)' : 'var(--m3-on-surface-variant)',
                 background: session?.full_access_permission === true
-                  ? 'var(--m3-tertiary-container)'
+                  ? 'var(--m3-primary-container)'
                   : 'transparent',
               }}
               title={t('topbar.perm.title', '权限模式')}

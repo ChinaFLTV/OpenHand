@@ -320,14 +320,14 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
     : capsule.tone === 'warning'
       ? 'var(--m3-tertiary)'
       : capsule.tone === 'success'
-        ? 'var(--m3-secondary)'
+        ? 'var(--m3-primary)'
         : 'var(--m3-on-surface-variant)';
   const toneBackground = capsule.tone === 'primary'
     ? 'var(--m3-primary-container)'
     : capsule.tone === 'warning'
       ? 'var(--m3-tertiary-container)'
       : capsule.tone === 'success'
-        ? 'var(--m3-secondary-container)'
+        ? 'var(--m3-primary-container)'
         : 'var(--m3-surface)';
   const baseClass = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] flex-none max-w-[240px]';
   const baseStyle = {
@@ -468,12 +468,12 @@ function MenuItem({
       class="w-full text-left text-xs px-3 py-1.5 oh-tap-press flex items-center gap-1"
       style={{
         background: active
-          ? 'color-mix(in srgb, var(--m3-primary) 10%, transparent)'
+          ? 'var(--m3-primary-container)'
           : 'transparent',
         color: tone === 'danger'
           ? 'var(--m3-error)'
           : active
-            ? 'var(--m3-primary)'
+            ? 'var(--m3-on-primary-container)'
             : 'var(--m3-on-surface)',
         fontWeight: active ? 600 : 400,
       }}

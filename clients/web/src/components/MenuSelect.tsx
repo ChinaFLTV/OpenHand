@@ -259,12 +259,16 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
             class="px-3 py-2 text-sm flex items-center gap-2"
             style={{
               cursor: opt.disabled ? 'not-allowed' : 'pointer',
-              backgroundColor: isHi
-                ? 'var(--m3-surface-container)'
-                : selected
+              backgroundColor: selected
+                ? 'var(--m3-primary-container)'
+                : isHi
                   ? 'var(--m3-surface-container)'
                   : 'transparent',
-              color: opt.disabled ? 'var(--m3-on-surface-variant)' : 'var(--m3-on-surface)',
+              color: opt.disabled
+                ? 'var(--m3-on-surface-variant)'
+                : selected
+                  ? 'var(--m3-on-primary-container)'
+                  : 'var(--m3-on-surface)',
               opacity: opt.disabled ? 0.5 : 1,
               borderLeft: selected ? '3px solid var(--m3-primary)' : '3px solid transparent',
               transition: 'background-color 160ms var(--oh-motion-emphasized)',
@@ -357,7 +361,7 @@ function Caret({ open }: { open: boolean }): JSX.Element {
 
 function Check(): JSX.Element {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style={{ color: 'var(--m3-primary)' }}>
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style={{ color: 'currentColor' }}>
       <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z" />
     </svg>
   );

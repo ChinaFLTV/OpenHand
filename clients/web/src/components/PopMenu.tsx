@@ -20,6 +20,8 @@ export interface PopMenuItem {
   variant?: 'default' | 'danger';
   /// 禁用时按钮可见但不可点。
   disabled?: boolean;
+  /// 当前选中项；禁用时仍保持主题选中态，避免看起来像普通不可用项。
+  selected?: boolean;
 }
 
 export interface PopMenuProps {
@@ -183,22 +185,33 @@ export function PopMenu({ items, trigger, align = 'right', width }: PopMenuProps
                 requestClose();
                 item.onClick();
               }}
-              class="w-full text-left px-3 py-2 text-sm transition-colors disabled:opacity-50"
+              class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between gap-2"
               style={{
-                color: item.variant === 'danger' ? 'var(--m3-error)' : 'var(--m3-on-surface)',
+                color: item.variant === 'danger'
+                  ? 'var(--m3-error)'
+                  : item.selected
+                    ? 'var(--m3-on-primary-container)'
+                    : 'var(--m3-on-surface)',
                 cursor: item.disabled ? 'not-allowed' : 'pointer',
-                background: 'transparent',
+                background: item.selected ? 'var(--m3-primary-container)' : 'transparent',
+                fontWeight: item.selected ? 700 : 500,
+                opacity: item.disabled && !item.selected ? 0.5 : 1,
               }}
               onMouseEnter={(e) => {
                 if (item.disabled) return;
                 (e.currentTarget as HTMLElement).style.background =
-                  'color-mix(in srgb, var(--m3-on-surface) 6%, transparent)';
+                  item.selected
+                    ? 'color-mix(in srgb, var(--m3-primary-container) 84%, var(--m3-primary) 16%)'
+                    : 'color-mix(in srgb, var(--m3-on-surface) 6%, transparent)';
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'transparent';
+                (e.currentTarget as HTMLElement).style.background = item.selected
+                  ? 'var(--m3-primary-container)'
+                  : 'transparent';
               }}
             >
-              {item.label}
+              <span>{item.label}</span>
+              {item.selected ? <span aria-hidden>✓</span> : null}
             </button>
           ))}
         </div>,
