@@ -2828,7 +2828,7 @@ export function SessionDetailPage() {
       {pendingWriteApproval ? (
         <ConfirmDialog
           title={t('detail.writeApproval.title', '确认写操作')}
-          body={`${t('detail.writeApproval.body', '当前默认权限模式需要确认后才会继续执行写文件或命令操作。')}\n\n${t('detail.writeApproval.cwd', '工作目录')}：${pendingWriteApproval.working_directory || '-'}\n${t('detail.writeApproval.command', '命令')}：${pendingWriteApproval.command}`}
+          body={`${t('detail.writeApproval.body', '当前默认权限模式需要确认后才会继续执行写文件或命令操作。')}\n\n${t('detail.writeApproval.cwd', '工作目录')}：${pendingWriteApproval.working_directory || '-'}\n${t('detail.writeApproval.command', '命令')}：${pendingWriteApproval.command || '-'}`}
           danger
           busy={writeApprovalBusy}
           confirmLabel={writeApprovalBusy
@@ -2950,13 +2950,14 @@ function ErrorBanner({
       }}
       role="alert"
     >
-      <div class="flex items-start gap-2">
+      <div class="oh-session-error-content flex items-start gap-2">
         <div class="flex-1 min-w-0">
-          <div style={{ color: 'var(--m3-error)', fontWeight: 600 }}>{title}</div>
+          <div class="oh-session-error-title" style={{ color: 'var(--m3-error)', fontWeight: 600 }}>{title}</div>
           {hint ? (
-            <div style={{ color: 'var(--m3-on-surface-variant)', marginTop: 2 }}>{hint}</div>
+            <div class="oh-session-error-hint" style={{ color: 'var(--m3-on-surface-variant)', marginTop: 2 }}>{hint}</div>
           ) : null}
           <div
+            class="oh-session-error-message"
             style={{
               marginTop: 4,
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
@@ -2968,10 +2969,10 @@ function ErrorBanner({
           </div>
         </div>
       </div>
-      <div class="flex items-center gap-2 self-end">
+      <div class="oh-session-error-actions flex items-center gap-2 self-end">
         <button
           type="button"
-          class="oh-tap-press"
+          class="oh-tap-press oh-session-error-action is-primary"
           onClick={onRetry}
           style={{
             padding: '4px 10px',
@@ -2994,7 +2995,7 @@ function ErrorBanner({
         </button>
         <button
           type="button"
-          class="oh-tap-press"
+          class="oh-tap-press oh-session-error-action"
           onClick={() => void copyText()}
           style={{
             padding: '4px 10px',
@@ -3017,7 +3018,7 @@ function ErrorBanner({
         </button>
         <button
           type="button"
-          class="oh-tap-press"
+          class="oh-tap-press oh-session-error-action is-icon"
           onClick={onDismiss}
           aria-label={t('common.cancel', '取消')}
           style={{

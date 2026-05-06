@@ -173,7 +173,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
 
   return (
     <section
-      class="oh-appear-up rounded-m3-lg p-3 mb-3"
+      class="oh-plan-timeline oh-appear-up rounded-m3-lg p-3 mb-3"
       style={{
         border: awaitingApproval
           ? '1px solid color-mix(in srgb, var(--m3-tertiary) 50%, transparent)'
@@ -183,12 +183,12 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
           : 'var(--m3-surface-container-low)',
       }}
     >
-      <header class="flex items-center gap-2 mb-2">
-        <span style={{ fontWeight: 600, color: 'var(--m3-on-surface)' }}>
+      <header class="oh-plan-timeline-header flex items-center gap-2 mb-2">
+        <span class="oh-plan-timeline-title" style={{ fontWeight: 600, color: 'var(--m3-on-surface)' }}>
           {t('detail.plan.title', 'Plan 步骤时间线')}
         </span>
         <span
-          class="text-xs px-1.5 py-0.5 rounded-m3-sm"
+          class="oh-plan-timeline-count text-xs px-1.5 py-0.5 rounded-m3-sm"
           style={{
             background: 'var(--m3-surface)',
             color: 'var(--m3-on-surface-variant)',
@@ -198,7 +198,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
         </span>
         {awaitingApproval ? (
           <span
-            class="text-xs px-1.5 py-0.5 rounded-m3-sm"
+            class="oh-plan-timeline-state text-xs px-1.5 py-0.5 rounded-m3-sm"
             style={{
               background: 'var(--m3-tertiary-container)',
               color: 'var(--m3-on-tertiary-container)',
@@ -209,7 +209,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
           </span>
         ) : allDone ? (
           <span
-            class="text-xs px-1.5 py-0.5 rounded-m3-sm inline-flex items-center gap-1"
+            class="oh-plan-timeline-state text-xs px-1.5 py-0.5 rounded-m3-sm inline-flex items-center gap-1"
             style={{
               background: 'var(--m3-secondary-container)',
               color: 'var(--m3-on-secondary-container)',
@@ -222,7 +222,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
         ) : null}
         <button
           type="button"
-          class="oh-tap-press text-xs px-2 py-0.5 rounded-m3-sm ml-auto inline-flex items-center gap-1"
+          class="oh-tap-press oh-plan-collapse-button text-xs px-2 py-0.5 rounded-m3-sm ml-auto inline-flex items-center gap-1"
           style={{
             background: 'var(--m3-surface)',
             color: 'var(--m3-on-surface-variant)',
@@ -235,18 +235,18 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
         </button>
       </header>
       {!collapsed && (
-        <ol class="flex flex-col gap-1.5">
+        <ol class="oh-plan-step-list flex flex-col gap-1.5">
           {steps.map((step, idx) => {
             const v = statusVisual(step.state);
             return (
               <li
                 key={step.id}
-                class="flex items-start gap-2 px-2 py-1.5 rounded-m3-sm"
+                class="oh-plan-step-row flex items-start gap-2 px-2 py-1.5 rounded-m3-sm"
                 style={{ background: v.bg }}
               >
                 <span
                   class={
-                    'inline-flex items-center justify-center w-6 h-6 rounded-full text-xs flex-shrink-0' +
+                    'oh-plan-step-icon inline-flex items-center justify-center w-6 h-6 rounded-full text-xs flex-shrink-0' +
                     (step.state === 'in_progress' ? ' oh-pulse-soft' : '')
                   }
                   style={{
@@ -259,7 +259,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
                   {v.icon ? <PlanIcon name={v.icon} size={14} /> : idx + 1}
                 </span>
                 <span
-                  class="text-sm leading-relaxed"
+                  class="oh-plan-step-label text-sm leading-relaxed"
                   style={{
                     color: 'var(--m3-on-surface)',
                     textDecoration: step.state === 'completed' ? 'line-through' : 'none',
@@ -274,12 +274,12 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
         </ol>
       )}
       {awaitingApproval && (
-        <footer class="flex items-center gap-2 mt-3">
+        <footer class="oh-plan-timeline-footer flex items-center gap-2 mt-3">
           <button
             type="button"
             disabled={submitting}
             onClick={handleApprove}
-            class="oh-tap-press px-3 py-1.5 rounded-m3-sm text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
+            class="oh-tap-press oh-plan-approve-button px-3 py-1.5 rounded-m3-sm text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
             style={{
               background: 'var(--m3-primary)',
               color: 'var(--m3-on-primary)',
@@ -294,11 +294,11 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
                 </>
               )}
           </button>
-          <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <span class="oh-plan-approve-hint text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {t('detail.plan.approveHint', '或在输入框回复任意文本继续讨论')}
           </span>
           {error && (
-            <span class="text-xs ml-auto" style={{ color: 'var(--m3-error)' }}>
+            <span class="oh-plan-approve-error text-xs ml-auto" style={{ color: 'var(--m3-error)' }}>
               {error}
             </span>
           )}

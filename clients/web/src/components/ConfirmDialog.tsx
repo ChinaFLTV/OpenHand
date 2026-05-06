@@ -54,14 +54,14 @@ export function ConfirmDialog({
 
   const node = (
     <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4`}
       style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
       onClick={busy || closing ? undefined : requestClose}
     >
       <div
         role="dialog"
         aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-md rounded-m3-xl p-5`}
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} oh-confirm-dialog w-full max-w-md rounded-m3-xl p-5`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
@@ -70,10 +70,10 @@ export function ConfirmDialog({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div class="flex items-start gap-3">
+        <div class="oh-confirm-dialog-head flex items-start gap-3">
           <span
             aria-hidden
-            class="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full text-lg"
+            class="oh-confirm-dialog-icon inline-flex h-10 w-10 flex-none items-center justify-center rounded-full text-lg"
             style={{
               background: danger
                 ? 'color-mix(in srgb, var(--m3-error) 13%, transparent)'
@@ -83,21 +83,21 @@ export function ConfirmDialog({
           >
             <ConfirmIcon danger={danger} />
           </span>
-          <div class="min-w-0 flex-1">
-            <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+          <div class="oh-confirm-dialog-main min-w-0 flex-1">
+            <h2 class="oh-confirm-dialog-title text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
               {title}
             </h2>
             {body ? (
-              <p class="mt-2 text-sm leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="oh-confirm-dialog-body mt-2 text-sm leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
                 {body}
               </p>
             ) : null}
           </div>
         </div>
-        <div class="mt-5 flex items-center justify-end gap-2">
+        <div class="oh-confirm-dialog-actions mt-5 flex items-center justify-end gap-2">
           <button
             type="button"
-            class="oh-tap-press rounded-m3-sm px-4 py-2 text-sm disabled:opacity-60"
+            class="oh-tap-press oh-confirm-dialog-button rounded-m3-sm px-4 py-2 text-sm disabled:opacity-60"
             style={{
               color: 'var(--m3-on-surface-variant)',
               border: '1px solid var(--m3-outline)',
@@ -110,7 +110,7 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            class="oh-tap-press rounded-m3-sm px-4 py-2 text-sm font-medium disabled:opacity-60"
+            class="oh-tap-press oh-confirm-dialog-button rounded-m3-sm px-4 py-2 text-sm font-medium disabled:opacity-60"
             style={{
               color: 'var(--m3-on-primary)',
               background: danger ? 'var(--m3-error)' : 'var(--m3-primary)',

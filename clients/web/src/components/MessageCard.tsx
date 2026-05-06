@@ -542,8 +542,8 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
     (message.kind === 'tool_call' && !status && !hasStructuredOutput && fallback.trim().length === 0);
 
   return (
-    <div class="flex flex-col gap-2">
-      <div class="flex flex-wrap gap-1.5 text-[11px]">
+    <div class="oh-tool-execution-card flex flex-col gap-2">
+      <div class="oh-tool-execution-chip-row flex flex-wrap gap-1.5 text-[11px]">
         {status ? <MetaChip label={status} tone={status.toLowerCase().includes('error') ? 'danger' : 'neutral'} /> : null}
         {elapsedMs != null ? <MetaChip label={`${elapsedMs} ms`} /> : null}
         {exitCode != null ? <MetaChip label={`exit ${exitCode}`} tone={exitCode === 0 ? 'ok' : 'danger'} /> : null}
@@ -581,13 +581,13 @@ function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
   const mutationIcon: MessageIconName = kind === 'delete' ? 'delete' : kind === 'write' ? 'write' : 'mutate';
   return (
     <div
-      class="rounded-m3-sm p-3"
+      class="oh-file-mutation-card rounded-m3-sm p-3"
       style={{
         background: 'var(--m3-surface)',
         border: '1px solid var(--m3-outline)',
       }}
     >
-      <div class="flex items-center justify-between gap-2 mb-2">
+      <div class="oh-file-mutation-header flex items-center justify-between gap-2 mb-2">
         <div class="flex items-center gap-2 min-w-0">
           <span class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
             {t('detail.fileMutation.title', '文件变动')}
@@ -601,11 +601,11 @@ function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
         ) : null}
       </div>
       {paths.length > 0 ? (
-        <ul class="flex flex-col gap-1.5">
+        <ul class="oh-file-mutation-path-list flex flex-col gap-1.5">
           {paths.map((path) => (
             <li
               key={path}
-              class="flex items-center gap-2 text-xs rounded-m3-sm px-2 py-1.5"
+              class="oh-file-mutation-path-row flex items-center gap-2 text-xs rounded-m3-sm px-2 py-1.5"
               style={{
                 background: 'var(--m3-surface-container)',
                 color: 'var(--m3-on-surface)',
@@ -665,8 +665,8 @@ function ToolSection({
   const long = content.length > 640 || content.split('\n').length > 10;
   const [expanded, setExpanded] = useState(defaultExpanded || !long);
   return (
-    <section>
-      <div class="flex items-center gap-2 mb-1 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+    <section class="oh-tool-section">
+      <div class="oh-tool-section-header flex items-center gap-2 mb-1 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
         <span style={{ fontWeight: 600, color: danger ? 'var(--m3-error)' : undefined }}>{title}</span>
         {long ? (
           <button
@@ -683,7 +683,7 @@ function ToolSection({
         ) : null}
       </div>
       <pre
-        class="text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
+        class="oh-tool-section-pre text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
         style={{
           background: 'var(--m3-surface)',
           color: danger ? 'var(--m3-error)' : 'var(--m3-on-surface)',

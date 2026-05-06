@@ -216,12 +216,12 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
 
   return (
     <div
-      class="text-xs flex flex-wrap items-center gap-1.5 mb-2"
+      class="oh-tool-meta text-xs flex flex-wrap items-center gap-1.5 mb-2"
       style={{ color: 'var(--m3-on-surface-variant)' }}
     >
       {ex.toolName ? (
         <span
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono"
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono"
           style={{
             background: 'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
             color: 'var(--m3-primary)',
@@ -234,7 +234,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {(ex.mcpServerName || ex.mcpToolName) ? (
         <span
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono"
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono"
           style={{
             background: 'color-mix(in srgb, var(--m3-tertiary) 14%, transparent)',
             color: 'var(--m3-tertiary)',
@@ -249,7 +249,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {ex.toolSource && ex.toolSource !== 'builtin' && !ex.mcpServerName ? (
         <span
-          class="inline-flex items-center px-1.5 py-0.5 rounded-m3-sm text-[10px] uppercase tracking-wide"
+          class="oh-tool-meta-chip inline-flex items-center px-1.5 py-0.5 rounded-m3-sm text-[10px] uppercase tracking-wide"
           style={{
             background: 'color-mix(in srgb, var(--m3-on-surface-variant) 12%, transparent)',
             color: 'var(--m3-on-surface-variant)',
@@ -260,7 +260,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {argumentsStreaming ? (
         <span
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm oh-pulse-soft"
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm oh-pulse-soft"
           style={{
             border: '1px dashed var(--m3-outline)',
             color: 'var(--m3-on-surface-variant)',
@@ -273,7 +273,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {sv && !argumentsStreaming ? (
         <span
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
           style={{
             border: `1px solid ${sv.color}`,
             color: sv.color,
@@ -286,7 +286,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {ex.command ? (
         <span
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono truncate max-w-[260px]"
+          class="oh-tool-meta-chip oh-tool-meta-command inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono truncate max-w-[260px]"
           style={{
             border: '1px solid var(--m3-outline)',
             color: 'var(--m3-on-surface-variant)',
@@ -300,7 +300,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {ex.filePath ? (
         <span
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono truncate max-w-[320px]"
+          class="oh-tool-meta-chip oh-tool-meta-file inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono truncate max-w-[320px]"
           style={{
             border: '1px solid var(--m3-outline)',
             color: 'var(--m3-on-surface)',
@@ -314,7 +314,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {ex.mutationKind ? (
         <span
-          class="inline-flex items-center px-1.5 py-0.5 rounded-m3-sm"
+          class="oh-tool-meta-chip inline-flex items-center px-1.5 py-0.5 rounded-m3-sm"
           style={{
             background: 'color-mix(in srgb, var(--m3-primary) 8%, transparent)',
             color: 'var(--m3-primary)',
@@ -326,7 +326,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {ex.awaitingApproval ? (
         <span
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
           style={{
             background: 'var(--m3-tertiary-container)',
             color: 'var(--m3-on-tertiary-container)',
@@ -338,7 +338,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {ex.approved ? (
         <span
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
           style={{
             background: 'var(--m3-secondary-container)',
             color: 'var(--m3-on-secondary-container)',
@@ -351,7 +351,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {isFileMutation && ex.recordCount > 0 ? (
         <span
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
           style={{
             background: 'color-mix(in srgb, var(--m3-primary) 12%, transparent)',
             color: 'var(--m3-primary)',
@@ -365,7 +365,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {ex.writeReason ? (
         <span
-          class="text-[11px] basis-full mt-1 italic truncate"
+          class="oh-tool-write-reason text-[11px] basis-full mt-1 italic truncate"
           style={{ color: 'var(--m3-on-surface-variant)' }}
           title={ex.writeReason}
         >

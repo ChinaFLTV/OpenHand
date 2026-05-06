@@ -81,7 +81,7 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
   return (
     <div class="relative">
       <pre
-        class="text-xs leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
+        class="oh-tool-result-pre text-xs leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
         style={{
           background: 'var(--m3-surface)',
           color: 'var(--m3-on-surface)',
@@ -111,7 +111,7 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
           </div>
         ))}
       </pre>
-      <div class="flex items-center gap-2 mt-1.5 text-xs">
+      <div class="oh-tool-result-actions flex items-center gap-2 mt-1.5 text-xs">
         {overflow ? (
           <button
             type="button"
