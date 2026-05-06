@@ -2168,6 +2168,7 @@ class AiSessionController extends ChangeNotifier {
     List<String> additionalSystemReminders = const <String>[],
     Map<String, Object?>? selectedSkillMetadata,
     Map<String, Object?>? userMessageMetadata,
+    bool revealUserMessageBeforePreflight = false,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
     final normalizedContent = content.trim();
@@ -2207,6 +2208,8 @@ class AiSessionController extends ChangeNotifier {
       notifyListeners();
       final sendPreflightStopwatch = Stopwatch()..start();
       final sendPreflightTimingsMs = <String, int>{...callerPreflightTimingsMs};
+      _PreparedUserTurn? preparedUserTurn;
+      var userTurnAlreadyCommitted = false;
 
       try {
         final previousEnvironment = session.environment;
@@ -2349,6 +2352,41 @@ class AiSessionController extends ChangeNotifier {
           runtimeContext,
           model,
         );
+        if (revealUserMessageBeforePreflight &&
+            _editingMessageId == null &&
+            !shouldCompress) {
+          final prepareUserTurnStopwatch = Stopwatch()..start();
+          preparedUserTurn = await _prepareUserTurn(
+            session: session,
+            content: normalizedContent,
+            model: model,
+            runtimeContext: runtimeContext,
+            attachmentFilePaths: normalizedAttachmentPaths,
+            userMessageMetadata: nextUserMessageMetadata,
+          );
+          sendPreflightTimingsMs['prepare_user_turn'] =
+              prepareUserTurnStopwatch.elapsedMilliseconds;
+          session = preparedUserTurn.session;
+          final persistUserTurnStopwatch = Stopwatch()..start();
+          final userCommitted = await _commitSessionLocked(session);
+          sendPreflightTimingsMs['persist_user_turn'] =
+              persistUserTurnStopwatch.elapsedMilliseconds;
+          if (!userCommitted) {
+            if (preparedUserTurn.importedAttachments) {
+              await _attachmentService.deleteMessageAttachments(
+                sessionId: session.id,
+                messageId: preparedUserTurn.userMessage.id,
+              );
+            }
+            _setLastSendErrorMessage(
+              session.id,
+              'Failed to persist the user message.',
+            );
+            return false;
+          }
+          userTurnAlreadyCommitted = true;
+          session = _sessionById(session.id) ?? session;
+        }
         if (shouldCompress) {
           _setSessionSendPhase(session.id, AiSendPhase.compressing);
           notifyListeners();
@@ -2368,43 +2406,67 @@ class AiSessionController extends ChangeNotifier {
           await Future<void>.delayed(Duration.zero);
         }
 
-        final prepareUserTurnStopwatch = Stopwatch()..start();
-        final preparedUserTurn = await _prepareUserTurn(
-          session: session,
-          content: normalizedContent,
-          model: model,
-          runtimeContext: runtimeContext,
-          attachmentFilePaths: normalizedAttachmentPaths,
-          userMessageMetadata: nextUserMessageMetadata,
-        );
-        sendPreflightTimingsMs['prepare_user_turn'] =
-            prepareUserTurnStopwatch.elapsedMilliseconds;
-        session = preparedUserTurn.session;
+        if (preparedUserTurn == null) {
+          final prepareUserTurnStopwatch = Stopwatch()..start();
+          preparedUserTurn = await _prepareUserTurn(
+            session: session,
+            content: normalizedContent,
+            model: model,
+            runtimeContext: runtimeContext,
+            attachmentFilePaths: normalizedAttachmentPaths,
+            userMessageMetadata: nextUserMessageMetadata,
+          );
+          sendPreflightTimingsMs['prepare_user_turn'] =
+              prepareUserTurnStopwatch.elapsedMilliseconds;
+          session = preparedUserTurn.session;
+        } else {
+          session = _sessionById(session.id) ?? session;
+        }
+        final preparedUserTurnBeforeMetadata = preparedUserTurn;
+        AiSessionMessage? latestUserMessage;
         session = _upsertMessage(
           session,
-          messageId: preparedUserTurn.userMessage.id,
-          create: () => preparedUserTurn.userMessage,
-          update: (message) => message.copyWith(
-            metadata: <String, Object?>{
-              ...message.metadata,
-              'send_preflight_timings_ms': Map<String, int>.from(
-                sendPreflightTimingsMs,
-              ),
-              'send_preflight_elapsed_ms':
-                  sendPreflightStopwatch.elapsedMilliseconds,
-              'send_preflight_compression_needed': shouldCompress,
-            },
-          ),
+          messageId: preparedUserTurnBeforeMetadata.userMessage.id,
+          create: () => preparedUserTurnBeforeMetadata.userMessage,
+          update: (message) {
+            final updated = message.copyWith(
+              metadata: <String, Object?>{
+                ...message.metadata,
+                ...nextUserMessageMetadata,
+                'send_preflight_timings_ms': Map<String, int>.from(
+                  sendPreflightTimingsMs,
+                ),
+                'send_preflight_elapsed_ms':
+                    sendPreflightStopwatch.elapsedMilliseconds,
+                'send_preflight_compression_needed': shouldCompress,
+              },
+            );
+            latestUserMessage = updated;
+            return updated;
+          },
         );
+        final preparedUserTurnWithMetadata = _PreparedUserTurn(
+          session: session,
+          userMessage:
+              latestUserMessage ?? preparedUserTurnBeforeMetadata.userMessage,
+          shouldGenerateTitle:
+              preparedUserTurnBeforeMetadata.shouldGenerateTitle,
+          importedAttachments:
+              preparedUserTurnBeforeMetadata.importedAttachments,
+        );
+        preparedUserTurn = preparedUserTurnWithMetadata;
         final persistUserTurnStopwatch = Stopwatch()..start();
         final userCommitted = await _commitSessionLocked(session);
-        sendPreflightTimingsMs['persist_user_turn'] =
+        sendPreflightTimingsMs[userTurnAlreadyCommitted
+                ? 'persist_user_turn_metadata'
+                : 'persist_user_turn'] =
             persistUserTurnStopwatch.elapsedMilliseconds;
         if (!userCommitted) {
-          if (preparedUserTurn.importedAttachments) {
+          if (!userTurnAlreadyCommitted &&
+              preparedUserTurnWithMetadata.importedAttachments) {
             await _attachmentService.deleteMessageAttachments(
               sessionId: session.id,
-              messageId: preparedUserTurn.userMessage.id,
+              messageId: preparedUserTurnWithMetadata.userMessage.id,
             );
           }
           _setLastSendErrorMessage(
@@ -2415,8 +2477,8 @@ class AiSessionController extends ChangeNotifier {
         }
         session = _upsertMessage(
           _sessionById(session.id) ?? session,
-          messageId: preparedUserTurn.userMessage.id,
-          create: () => preparedUserTurn.userMessage,
+          messageId: preparedUserTurnWithMetadata.userMessage.id,
+          create: () => preparedUserTurnWithMetadata.userMessage,
           update: (message) => message.copyWith(
             metadata: <String, Object?>{
               ...message.metadata,
@@ -2432,13 +2494,13 @@ class AiSessionController extends ChangeNotifier {
         _setSessionSendPhase(session.id, AiSendPhase.responding);
         notifyListeners();
 
-        if (preparedUserTurn.shouldGenerateTitle &&
+        if (preparedUserTurnWithMetadata.shouldGenerateTitle &&
             runtimeContext.autoTitleEnabled) {
           unawaited(
             _generateAutoTitle(
               sessionId: session.id,
-              sourceMessageId: preparedUserTurn.userMessage.id,
-              sourceContent: preparedUserTurn.userMessage.content,
+              sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
+              sourceContent: preparedUserTurnWithMetadata.userMessage.content,
               model: model,
             ),
           );
@@ -2450,7 +2512,7 @@ class AiSessionController extends ChangeNotifier {
           runtimeContext: runtimeContext,
           responseModalities: responseModalities,
           creationRequest: creationRequest,
-          latestUserMessageId: preparedUserTurn.userMessage.id,
+          latestUserMessageId: preparedUserTurnWithMetadata.userMessage.id,
           denyCommandRules: denyCommandRules,
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
           confirmWriteCommand: confirmWriteCommand,

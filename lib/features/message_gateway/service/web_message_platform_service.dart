@@ -2414,6 +2414,7 @@ class WebMessagePlatformService {
                   'model_key': _modelKey(model.id, model.modelId),
                   'attachment_count': attachments.length,
                 }),
+            revealUserMessageBeforePreflight: true,
           )
           .catchError((Object error, StackTrace stack) {
             silentLog('WebGateway', 'sendMessage.async', error, stack);

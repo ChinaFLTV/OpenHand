@@ -519,7 +519,9 @@ export function SessionDetailPage() {
   const reduceMotion = useReducedMotion();
   const routeMatch = useRoute() as { params?: RouteParams } | undefined;
   const sessionId = routeMatch?.params?.id ?? '';
+  const pageRootRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
+  const messagesContentRef = useRef<HTMLDivElement | null>(null);
   const messagesRef = useRef<SessionMessage[]>([]);
   const windowOffsetRef = useRef(0);
 
@@ -567,6 +569,7 @@ export function SessionDetailPage() {
   );
   const [autoFollow, setAutoFollow] = useState(true);
   const [autoFollowPaused, setAutoFollowPaused] = useState(false);
+  const [fullscreenActive, setFullscreenActive] = useState(false);
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
   const [permissionSaving, setPermissionSaving] = useState(false);
   const [pendingFullAccess, setPendingFullAccess] = useState<boolean | null>(null);
@@ -660,21 +663,46 @@ export function SessionDetailPage() {
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
     const el = mainRef.current;
     if (!el) return;
-    programmaticScrollUntilRef.current = Date.now() + 700;
+    programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 700 : 220);
     el.scrollTo({ top: el.scrollHeight, behavior });
   };
 
   const scheduleFollowToBottom = (behavior: ScrollBehavior = 'auto') => {
-    programmaticScrollUntilRef.current = Date.now() + 900;
+    programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 900 : 240);
     requestAnimationFrame(() => {
       scrollMessagesToBottom(behavior);
       requestAnimationFrame(() => {
-        scrollMessagesToBottom('auto');
+        if (behavior !== 'smooth') {
+          scrollMessagesToBottom('auto');
+        }
         isNearBottomRef.current = true;
         setAutoFollowPaused(false);
         setUnreadCount(0);
       });
     });
+  };
+
+  const shouldFollowPinnedMessages = () => {
+    return autoFollow && isNearBottomRef.current && !autoFollowPaused;
+  };
+
+  const toggleBrowserFullscreen = async () => {
+    if (typeof document === 'undefined') return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        const target = pageRootRef.current ?? document.documentElement;
+        if (!target.requestFullscreen) {
+          showSnackbar(t('topbar.fullscreen.unsupported', '当前浏览器不支持全屏'), { tone: 'error' });
+          return;
+        }
+        await target.requestFullscreen();
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      showSnackbar(`${t('topbar.fullscreen.failed', '切换全屏失败')}：${message}`, { tone: 'error' });
+    }
   };
 
   const handleCopyMessage = async (m: SessionMessage) => {
@@ -813,6 +841,14 @@ export function SessionDetailPage() {
   };
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const syncFullscreenState = () => setFullscreenActive(Boolean(document.fullscreenElement));
+    syncFullscreenState();
+    document.addEventListener('fullscreenchange', syncFullscreenState);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreenState);
+  }, []);
+
+  useEffect(() => {
     function recalc() {
       const el = mainRef.current;
       if (!el) return;
@@ -838,6 +874,25 @@ export function SessionDetailPage() {
       window.removeEventListener('resize', recalc);
     };
   }, [autoFollow, autoFollowPaused, unreadCount]);
+
+  useEffect(() => {
+    const target = messagesContentRef.current;
+    if (!target || typeof ResizeObserver === 'undefined') return;
+    let frame: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (!shouldFollowPinnedMessages()) return;
+      if (frame != null) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        scrollMessagesToBottom('auto');
+      });
+    });
+    observer.observe(target);
+    return () => {
+      observer.disconnect();
+      if (frame != null) window.cancelAnimationFrame(frame);
+    };
+  }, [autoFollow, autoFollowPaused]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -887,7 +942,7 @@ export function SessionDetailPage() {
       // 不走 smooth，避免冷启动时长列表"飞一段"；用 instant + 双 RAF 等渲染稳定。
       lastTailIdRef.current = tail.id;
       lastTailContentLengthRef.current = tailContentLength;
-      scheduleFollowToBottom('auto');
+      if (autoFollow) scheduleFollowToBottom('auto');
       return;
     }
     const tailChanged = tail.id !== lastTailIdRef.current;
@@ -895,8 +950,9 @@ export function SessionDetailPage() {
     if (!tailChanged && !tailContentChanged) return;
     lastTailIdRef.current = tail.id;
     lastTailContentLengthRef.current = tailContentLength;
-    if (autoFollow && (isNearBottomRef.current || !autoFollowPaused)) {
-      scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
+    if (shouldFollowPinnedMessages()) {
+      const behavior = reduceMotion || tailContentChanged ? 'auto' : 'smooth';
+      scheduleFollowToBottom(behavior);
     } else {
       if (autoFollow) setAutoFollowPaused(true);
       setUnreadCount((n) => (tailChanged ? n + 1 : Math.max(1, n)));
@@ -904,9 +960,9 @@ export function SessionDetailPage() {
   }, [messages, autoFollow, autoFollowPaused, reduceMotion]);
 
   useEffect(() => {
-    if (!autoFollow || !pendingWriteApproval) return;
+    if (!pendingWriteApproval || !shouldFollowPinnedMessages()) return;
     scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
-  }, [pendingWriteApproval?.id, autoFollow, reduceMotion]);
+  }, [pendingWriteApproval?.id, autoFollow, autoFollowPaused, reduceMotion]);
 
   // sendPhase 变化 → 远端冲突探测
   useEffect(() => {
@@ -1958,7 +2014,7 @@ export function SessionDetailPage() {
         label: fullAccess
           ? t('topbar.perm.full', '完全访问权限')
           : t('topbar.perm.default', '默认权限'),
-        tone: fullAccess ? 'primary' : 'neutral',
+        tone: fullAccess ? 'warning' : 'neutral',
         onClick: () => requestFullAccessPermissionChange(!fullAccess),
       },
       {
@@ -2051,14 +2107,14 @@ export function SessionDetailPage() {
     : t('detail.loading', '加载会话中…');
 
   return (
-    <main class="h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col" style={{ background: 'var(--m3-surface)' }}>
+    <main ref={pageRootRef} class="oh-session-detail-page h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col" style={{ background: 'var(--m3-surface)' }}>
       <PullIndicator
         pulled={pull.pulled}
         refreshing={pull.refreshing}
         willRelease={pull.willRelease}
         activationDistance={84}
       />
-      <div class="mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col gap-3">
+      <div class="oh-session-detail-shell mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col gap-3">
         <SessionTopBar
           title={session?.title || t('sessions.untitled', '未命名会话')}
           subtitle={subtitle}
@@ -2121,6 +2177,8 @@ export function SessionDetailPage() {
               showSnackbar(`${t('topbar.export.failed', '导出会话失败')}：${message}`, { tone: 'error' });
             }
           }}
+          onToggleFullscreen={() => void toggleBrowserFullscreen()}
+          fullscreenActive={fullscreenActive}
           sessionId={sessionId}
           capsules={sessionCapsules}
           trailing={
@@ -2166,50 +2224,51 @@ export function SessionDetailPage() {
         ) : null}
 
         {/* 主区：只有这块滚动，顶部 TopBar / 底部 Composer 固定在视口内。 */}
-        <section ref={mainRef} class="relative flex-1 min-h-0 overflow-y-auto pr-1 pb-3">
-        {loadingDetail ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
-            {t('detail.loading', '加载会话中…')}
-          </p>
-        ) : error ? (
-          <div
-            class="rounded-md p-4 text-sm"
-            style={{
-              background: 'var(--m3-surface-container)',
-              color: 'var(--m3-error)',
-            }}
-          >
-            {error}
-            <button
-              type="button"
-              onClick={loadDetail}
-              class="ml-3 underline"
+        <section ref={mainRef} class="oh-session-messages relative flex-1 min-h-0 overflow-y-auto pr-1 pb-3">
+          <div ref={messagesContentRef} class="oh-session-message-content">
+          {loadingDetail ? (
+            <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {t('detail.loading', '加载会话中…')}
+            </p>
+          ) : error ? (
+            <div
+              class="rounded-md p-4 text-sm"
+              style={{
+                background: 'var(--m3-surface-container)',
+                color: 'var(--m3-error)',
+              }}
             >
-              {t('sessions.retry', '重试')}
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* 加载更早 */}
-            {remainingOlder > 0 ? (
-              <div class="text-center mb-3">
-                <button
-                  type="button"
-                  onClick={loadOlder}
-                  disabled={loadingOlder}
-                  class="text-xs px-3 py-1.5 rounded-md disabled:opacity-50"
-                  style={{
-                    border: '1px solid var(--m3-outline)',
-                    color: 'var(--m3-on-surface-variant)',
-                  }}
-                >
-                  {loadingOlder
-                    ? t('detail.loadingOlder', '加载中…')
-                    : t('detail.loadOlder', '加载更早 ') +
-                      `(${remainingOlder})`}
-                </button>
-              </div>
-            ) : null}
+              {error}
+              <button
+                type="button"
+                onClick={loadDetail}
+                class="ml-3 underline"
+              >
+                {t('sessions.retry', '重试')}
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* 加载更早 */}
+              {remainingOlder > 0 ? (
+                <div class="text-center mb-3">
+                  <button
+                    type="button"
+                    onClick={loadOlder}
+                    disabled={loadingOlder}
+                    class="text-xs px-3 py-1.5 rounded-md disabled:opacity-50"
+                    style={{
+                      border: '1px solid var(--m3-outline)',
+                      color: 'var(--m3-on-surface-variant)',
+                    }}
+                  >
+                    {loadingOlder
+                      ? t('detail.loadingOlder', '加载中…')
+                      : t('detail.loadOlder', '加载更早 ') +
+                        `(${remainingOlder})`}
+                  </button>
+                </div>
+              ) : null}
 
             {sortedMessages.length === 0 ? (
               <p
@@ -2244,13 +2303,14 @@ export function SessionDetailPage() {
                 </ul>
               </>
             )}
-          </>
-        )}
+            </>
+          )}
+          </div>
         </section>
 
         {/* Composer */}
         <section
-          class="rounded-xl p-4 flex-none"
+          class="oh-session-composer rounded-xl p-4 flex-none"
           style={{
             background: 'var(--m3-surface-container)',
             boxShadow: 'var(--m3-elev-1)',
@@ -2337,7 +2397,7 @@ export function SessionDetailPage() {
                 requestFullAccessPermissionChange(next);
               }}
               disabled={permissionSaving}
-              class={`oh-composer-control oh-tap-press ${session?.full_access_permission === true ? 'is-tonal' : 'is-muted'}`}
+              class={`oh-composer-control oh-composer-permission-control oh-tap-press ${session?.full_access_permission === true ? 'is-full-access' : 'is-muted'}`}
               title={t('topbar.perm.title', '权限模式')}
             >
               <span class="oh-composer-control-icon">
@@ -2383,7 +2443,7 @@ export function SessionDetailPage() {
               class="oh-composer-icon-control oh-tap-press ml-auto"
               title={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
             >
-              <ComposerIcon name={composerCollapsed ? 'chevronDown' : 'chevronUp'} />
+              <ComposerIcon name={composerCollapsed ? 'chevronUp' : 'chevronDown'} />
             </button>
           </div>
 

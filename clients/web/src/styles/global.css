@@ -30,6 +30,9 @@
   --m3-error: #B3261E;
   --m3-error-container: #F9DEDC;
   --m3-on-error-container: #410E0B;
+  --oh-full-access: #B26A00;
+  --oh-full-access-container: #FFE8B7;
+  --oh-on-full-access-container: #2F2100;
 
   /* M3 Expressive 标志性圆角 + elevation + motion easing */
   --m3-radius-sm: 8px;
@@ -52,6 +55,9 @@
   --m3-elev-1: 0 1px 2px rgba(0, 0, 0, 0.40), 0 1px 3px rgba(0, 0, 0, 0.28);
   --m3-elev-2: 0 2px 6px rgba(0, 0, 0, 0.46), 0 1px 2px rgba(0, 0, 0, 0.32);
   --m3-elev-3: 0 6px 18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.36);
+  --oh-full-access: #FFB950;
+  --oh-full-access-container: #4A3210;
+  --oh-on-full-access-container: #FFE8B7;
 }
 
 html, body, #root {
@@ -239,6 +245,19 @@ html, body, #root {
   width: clamp(150px, 24vw, 260px);
 }
 
+.oh-session-detail-page:fullscreen,
+.oh-session-detail-page:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  padding: 18px 24px;
+  background: var(--m3-surface);
+}
+
+.oh-session-detail-page:fullscreen .oh-session-detail-shell,
+.oh-session-detail-page:-webkit-full-screen .oh-session-detail-shell {
+  max-width: min(980px, calc(100vw - 48px));
+}
+
 .oh-session-capsule-rail {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -371,6 +390,16 @@ html, body, #root {
   background: color-mix(in srgb, var(--m3-surface) 72%, transparent);
   color: var(--m3-on-surface-variant);
 }
+.oh-composer-permission-control.is-full-access {
+  border-color: color-mix(in srgb, var(--oh-full-access) 64%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--oh-full-access-container) 78%, var(--m3-surface));
+  color: var(--oh-on-full-access-container);
+  box-shadow: 0 6px 18px -16px color-mix(in srgb, var(--oh-full-access) 80%, transparent);
+}
+.oh-composer-permission-control.is-full-access .oh-composer-control-icon {
+  background: color-mix(in srgb, var(--oh-full-access) 16%, transparent);
+  color: var(--oh-full-access);
+}
 .oh-composer-control:disabled {
   cursor: default;
   opacity: 0.72;
@@ -413,6 +442,11 @@ html, body, #root {
     background-color 260ms var(--oh-motion-emphasized),
     color 220ms var(--oh-motion-emphasized),
     transform 260ms var(--oh-motion-spring);
+}
+.oh-composer-control > span:not(.oh-composer-control-icon):not(.oh-composer-caret) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .oh-composer-control.is-tonal .oh-composer-control-icon,
 .oh-session-mode-button.is-plan .oh-session-mode-icon {
@@ -974,23 +1008,59 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 @media (max-width: 720px) {
+  .oh-session-detail-page {
+    height: 100dvh;
+    padding: 10px 10px 12px;
+  }
+  .oh-session-detail-shell {
+    max-width: none;
+    gap: 10px;
+  }
+  .oh-session-detail-page:fullscreen,
+  .oh-session-detail-page:-webkit-full-screen {
+    height: 100dvh;
+    padding: 10px;
+  }
   .oh-session-topbar-row {
     flex-wrap: wrap;
+    gap: 8px;
+  }
+  .oh-session-topbar {
+    border-radius: 22px !important;
   }
   .oh-session-title-block {
-    width: calc(100% - 128px);
+    width: calc(100% - 140px);
+    flex: 1 1 auto;
   }
   .oh-session-capsule-rail {
     order: 10;
     flex-basis: 100%;
+    mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
+  }
+  .oh-session-topbar-actions {
+    margin-left: auto;
+    gap: 6px;
+  }
+  .oh-session-messages {
+    padding-right: 0;
+    padding-bottom: 6px;
+  }
+  .oh-session-composer {
+    border-radius: 22px !important;
+    padding: 13px !important;
+    max-height: min(64dvh, 520px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
 @media (max-width: 480px) {
   .oh-composer-toolbar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(142px, 100%), 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
   }
   .oh-composer-toolbar > .relative.inline-block {
     min-width: 0;
@@ -1000,8 +1070,16 @@ button.oh-composer-pill:not(:disabled):hover {
     width: 100%;
   }
   .oh-composer-control {
+    height: 42px;
     width: 100%;
     justify-content: flex-start;
+    padding-inline: 8px 10px;
+    font-size: 12px;
+  }
+  .oh-composer-control-icon {
+    width: 25px;
+    height: 25px;
+    border-radius: 9px;
   }
   .oh-session-mode-button {
     min-width: 0;
@@ -1010,12 +1088,54 @@ button.oh-composer-pill:not(:disabled):hover {
     grid-column: 1 / -1;
     max-width: none;
   }
+  .oh-composer-permission-control {
+    grid-column: 1 / -1;
+  }
   .oh-composer-mode-control .oh-composer-caret {
     margin-left: auto;
   }
   .oh-composer-icon-control {
     margin-left: 0 !important;
+    width: 42px;
+    height: 42px;
     justify-self: end;
+  }
+  .oh-composer-chip-rail,
+  .oh-composer-attachment-rail {
+    gap: 7px;
+  }
+  .oh-composer-pill {
+    max-width: 100%;
+  }
+  .oh-composer-attachment-chip {
+    max-width: 100%;
+  }
+  .oh-composer-footer-action {
+    min-height: 40px;
+    padding-inline: 12px;
+  }
+  .oh-session-capsule {
+    max-width: min(76vw, 280px);
+  }
+  .oh-session-title-block {
+    width: calc(100% - 116px);
+  }
+}
+
+@media (max-width: 360px) {
+  .oh-composer-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .oh-composer-icon-control {
+    width: 100%;
+    justify-self: stretch;
+  }
+  .oh-composer-permission-control {
+    grid-column: 1 / -1;
+  }
+  .oh-composer-control {
+    padding-inline: 7px;
   }
 }
 
