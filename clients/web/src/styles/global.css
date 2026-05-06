@@ -602,6 +602,31 @@ button.oh-composer-pill:not(:disabled):hover {
   color: var(--m3-error);
   transform: scale(1.08);
 }
+.oh-composer-footer-action {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 15px;
+  border-radius: var(--m3-radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.oh-composer-footer-action > span:first-child {
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.oh-composer-footer-action > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .oh-composer-attachment-chip.is-image .oh-composer-chip-close {
   position: absolute;
   top: -7px;

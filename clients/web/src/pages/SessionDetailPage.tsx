@@ -200,8 +200,10 @@ type ComposerIconName =
   | 'permission'
   | 'research'
   | 'refresh'
+  | 'send'
   | 'sound'
   | 'spark'
+  | 'stop'
   | 'video'
   | 'follow';
 
@@ -276,10 +278,14 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
       return <svg {...common}><path {...stroke} d="M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2z" /><path {...stroke} d="M9 8h6M9 12h6M9 16h3" /><path {...stroke} d="m15 16 1.2 1.2L19 14.4" /></svg>;
     case 'research':
       return <svg {...common}><path {...stroke} d="M10.5 18a7.5 7.5 0 1 1 5.3-2.2L21 21" /><path {...stroke} d="M8 10h5M8 13h3" /></svg>;
+    case 'send':
+      return <svg {...common}><path {...stroke} d="M4 12 20 4l-5 16-3-7z" /><path {...stroke} d="m12 13 4-5" /></svg>;
     case 'sound':
       return <svg {...common}><path {...stroke} d="M4 10v4h4l5 4V6L8 10z" /><path {...stroke} d="M16 9.5a4 4 0 0 1 0 5M19 7a8 8 0 0 1 0 10" /></svg>;
     case 'spark':
       return <svg {...common}><path {...stroke} d="m12 3 1.6 5.2L19 10l-5.4 1.8L12 17l-1.6-5.2L5 10l5.4-1.8z" /><path {...stroke} d="M19 16v4M17 18h4" /></svg>;
+    case 'stop':
+      return <svg {...common}><rect {...stroke} x="7" y="7" width="10" height="10" rx="2" /></svg>;
     case 'video':
       return <svg {...common}><path {...stroke} d="M5 7h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5z" /><path {...stroke} d="m17 10 4-2.5v9L17 14" /></svg>;
     default:
@@ -2638,15 +2644,18 @@ export function SessionDetailPage() {
                 type="button"
                 onClick={handleStop}
                 disabled={stopping}
-                class="text-sm px-4 py-2 rounded-md disabled:opacity-50"
+                class="oh-tap-press oh-composer-footer-action is-stop disabled:opacity-50"
                 style={{
                   border: '1px solid var(--m3-error)',
                   color: 'var(--m3-error)',
                 }}
               >
-                {stopping
+                <span class={stopping ? 'oh-spin' : undefined}>
+                  <ComposerIcon name={stopping ? 'refresh' : 'stop'} size={16} />
+                </span>
+                <span>{stopping
                   ? t('composer.stopping', '正在停止…')
-                  : t('composer.stop', '停止响应')}
+                  : t('composer.stop', '停止响应')}</span>
               </button>
             ) : null}
             <button
@@ -2657,17 +2666,20 @@ export function SessionDetailPage() {
                 allowedModels.length === 0 ||
                 (sendPhase !== 'idle' && sendPhase !== '')
               }
-              class="text-sm px-4 py-2 rounded-md font-medium disabled:opacity-50"
+              class="oh-tap-press oh-composer-footer-action is-send disabled:opacity-50"
               style={{
                 background: 'var(--m3-primary)',
                 color: 'var(--m3-on-primary)',
               }}
             >
-              {composerSending
+              <span class={composerSending || (sendPhase !== 'idle' && sendPhase !== '') ? 'oh-spin' : undefined}>
+                <ComposerIcon name={composerSending || (sendPhase !== 'idle' && sendPhase !== '') ? 'refresh' : 'send'} size={16} />
+              </span>
+              <span>{composerSending
                 ? t('composer.sending', '发送中…')
                 : (sendPhase !== 'idle' && sendPhase !== '')
                   ? t('composer.waiting', '等待响应中…')
-                  : t('composer.send', '发送')}
+                  : t('composer.send', '发送')}</span>
             </button>
           </div>
         </section>
