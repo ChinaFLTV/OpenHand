@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -48,9 +49,6 @@ class SystemProxyResolver {
   /// 都接受；命名沿用历史 API 但日志按实际 mode 输出，避免误导。
   void applyConfig(AppProxySettings settings) {
     _settings = settings;
-    if (kDebugMode) {
-      debugPrint('[system_proxy] applyConfig mode=${settings.mode} $settings');
-    }
   }
 
   /// Backwards-compatible alias for callers still on the old name.
@@ -71,19 +69,6 @@ class SystemProxyResolver {
       await _resolveFromMacScutil();
     }
     _initialized = true;
-    if (kDebugMode) {
-      // For tiny lists print contents inline; for big lists fall back to
-      // count to avoid spamming a wall of host names.
-      final noProxySummary = _noProxyHosts.isEmpty
-          ? '[]'
-          : _noProxyHosts.length <= 5
-              ? _noProxyHosts.join(',')
-              : '${_noProxyHosts.length}entries';
-      debugPrint(
-        '[system_proxy] init http=$_httpProxy https=$_httpsProxy '
-        'socks=$_socksProxy noProxy=$noProxySummary',
-      );
-    }
   }
 
   void _resolveFromEnvironment() {
@@ -98,9 +83,24 @@ class SystemProxyResolver {
       return null;
     }
 
-    _httpProxy = pick(<String>['HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy']);
-    _httpsProxy = pick(<String>['HTTPS_PROXY', 'https_proxy', 'ALL_PROXY', 'all_proxy']);
-    _socksProxy = pick(<String>['SOCKS_PROXY', 'socks_proxy', 'ALL_PROXY', 'all_proxy']);
+    _httpProxy = pick(<String>[
+      'HTTP_PROXY',
+      'http_proxy',
+      'ALL_PROXY',
+      'all_proxy',
+    ]);
+    _httpsProxy = pick(<String>[
+      'HTTPS_PROXY',
+      'https_proxy',
+      'ALL_PROXY',
+      'all_proxy',
+    ]);
+    _socksProxy = pick(<String>[
+      'SOCKS_PROXY',
+      'socks_proxy',
+      'ALL_PROXY',
+      'all_proxy',
+    ]);
 
     final noProxy = env['NO_PROXY'] ?? env['no_proxy'] ?? '';
     _noProxyHosts
@@ -165,9 +165,10 @@ class SystemProxyResolver {
       return 'DIRECT';
     }
     final scheme = uri.scheme.toLowerCase();
-    final wantsHttp = scheme == 'http' &&
-        _settings.protocols.contains(AppProxyProtocol.http);
-    final wantsHttps = scheme == 'https' &&
+    final wantsHttp =
+        scheme == 'http' && _settings.protocols.contains(AppProxyProtocol.http);
+    final wantsHttps =
+        scheme == 'https' &&
         _settings.protocols.contains(AppProxyProtocol.https);
     final wantsSocks = _settings.protocols.contains(AppProxyProtocol.socks);
     final endpoint = '${_settings.host}:${_settings.port}';
@@ -252,10 +253,7 @@ class SystemProxyResolver {
           _settings.host,
           _settings.port,
           'Basic',
-          HttpClientBasicCredentials(
-            _settings.username,
-            _settings.password,
-          ),
+          HttpClientBasicCredentials(_settings.username, _settings.password),
         );
       } catch (error, stack) {
         silentLog('system_proxy', 'addProxyCredentials', error, stack);
@@ -303,10 +301,7 @@ bool _matchesExceptionPattern(String lowerHost, String lowerPattern) {
       final body = lowerPattern.substring(1, lastSlash);
       final flags = lowerPattern.substring(lastSlash + 1);
       try {
-        final regex = RegExp(
-          body,
-          caseSensitive: !flags.contains('i'),
-        );
+        final regex = RegExp(body, caseSensitive: !flags.contains('i'));
         return regex.hasMatch(lowerHost);
       } catch (_) {
         return false;

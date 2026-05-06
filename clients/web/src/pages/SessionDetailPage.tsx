@@ -44,6 +44,7 @@ import { listSessions } from '../api/sessions';
 import { SessionGoneDialog } from '../components/SessionGoneDialog';
 import { t } from '../i18n';
 import { useAuth } from '../state/auth';
+import { readToken } from '../state/storage';
 import type { ApiMetaModel, ApiMetaShortcutBinding } from '../api/meta';
 import { MessageCard } from '../components/MessageCard';
 import { PlanTimeline } from '../components/PlanTimeline';
@@ -151,20 +152,106 @@ function mergeStream(
   return identical ? prev : out;
 }
 
-function mergeLatestWindow(
+function mergeServerWindow(
   prev: SessionMessage[],
   latest: SessionMessage[],
+  currentOffset: number,
+  nextOffset: number,
 ): SessionMessage[] {
   if (prev.length === 0) return latest;
-  if (latest.length === 0) return prev;
-  const firstIndex = prev.findIndex((item) => item.id === latest[0]!.id);
-  if (firstIndex >= 0) {
-    const prefix = prev.slice(0, firstIndex);
-    return [...prefix, ...mergeStream(prev.slice(firstIndex), latest)];
+  if (nextOffset < currentOffset) return latest;
+  const prefixCount = nextOffset - currentOffset;
+  if (prefixCount <= 0) return mergeStream(prev, latest);
+  if (prefixCount > prev.length) return latest;
+  const prefix = prev.slice(0, prefixCount);
+  return [...prefix, ...mergeStream(prev.slice(prefixCount), latest)];
+}
+
+function nextWindowOffset(
+  currentOffset: number,
+  currentLength: number,
+  nextOffset: number,
+): number {
+  if (currentLength === 0) return nextOffset;
+  if (nextOffset <= currentOffset) return nextOffset;
+  return nextOffset - currentOffset <= currentLength ? currentOffset : nextOffset;
+}
+
+function sessionModeLabel(mode: string): string {
+  return mode === 'plan'
+    ? t('sessions.mode.plan', '计划模式')
+    : t('sessions.mode.chat', '聊天模式');
+}
+
+function sessionModeIcon(mode: string): string {
+  return mode === 'plan' ? '✓' : '▱';
+}
+
+interface EditableAttachmentAsset {
+  path: string;
+  name: string;
+  mime?: string;
+}
+
+function basename(path: string): string {
+  const i = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  return i >= 0 ? path.slice(i + 1) : path;
+}
+
+function pushEditableAttachmentAsset(
+  out: EditableAttachmentAsset[],
+  rawPath: unknown,
+  rawName?: unknown,
+  rawMime?: unknown,
+): void {
+  if (typeof rawPath !== 'string') return;
+  const path = rawPath.trim();
+  if (!path || path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return;
   }
-  const latestIds = new Set(latest.map((item) => item.id));
-  const retained = prev.filter((item) => !latestIds.has(item.id));
-  return [...retained, ...latest];
+  out.push({
+    path,
+    name: typeof rawName === 'string' && rawName.trim() ? rawName.trim() : basename(path),
+    mime: typeof rawMime === 'string' && rawMime.trim() ? rawMime.trim() : undefined,
+  });
+}
+
+function collectEditableAttachmentAssets(message: SessionMessage): EditableAttachmentAsset[] {
+  const meta = message.metadata as Record<string, unknown> | undefined;
+  if (!meta) return [];
+  const out: EditableAttachmentAsset[] = [];
+  const attachments = meta['attachments'];
+  if (Array.isArray(attachments)) {
+    for (const entry of attachments) {
+      if (entry && typeof entry === 'object') {
+        const item = entry as Record<string, unknown>;
+        const name = item['name'] ?? item['file_name'] ?? item['original_name'];
+        const mime = item['mime'] ?? item['content_type'];
+        pushEditableAttachmentAsset(
+          out,
+          item['storage_path'] ?? item['path'] ?? item['file_path'] ?? item['original_source_path'],
+          name,
+          mime,
+        );
+      } else {
+        pushEditableAttachmentAsset(out, entry);
+      }
+    }
+  }
+  const seen = new Set<string>();
+  return out.filter((item) => {
+    if (seen.has(item.path)) return false;
+    seen.add(item.path);
+    return true;
+  });
+}
+
+function buildSessionAssetUrl(sessionId: string, path: string): string {
+  const qs = new URLSearchParams();
+  qs.set('path', path);
+  const token = readToken();
+  if (token) qs.set('token', token);
+  return `/api/sessions/${encodeURIComponent(sessionId)}/asset?${qs.toString()}`;
 }
 
 function sameMetadata(a: unknown, b: unknown): boolean {
@@ -324,6 +411,7 @@ export function SessionDetailPage() {
   const sessionId = routeMatch?.params?.id ?? '';
   const mainRef = useRef<HTMLElement | null>(null);
   const messagesRef = useRef<SessionMessage[]>([]);
+  const windowOffsetRef = useRef(0);
 
   const [detail, setDetail] = useState<SessionDetailResponse | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
@@ -345,6 +433,8 @@ export function SessionDetailPage() {
   const [composerModelKey, setComposerModelKey] = useState<string>('');
   const [composerAttachments, setComposerAttachments] =
     useState<SendMessageAttachment[]>([]);
+  const [editingDraftMessage, setEditingDraftMessage] =
+    useState<SessionMessage | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillSummary | null>(null);
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [skillPickerOpen, setSkillPickerOpen] = useState(false);
@@ -379,6 +469,7 @@ export function SessionDetailPage() {
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
   const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
+  const editingDraftMessageRef = useRef<SessionMessage | null>(null);
   const autoTitleRefreshTimersRef = useRef<number[]>([]);
 
   // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
@@ -557,7 +648,17 @@ export function SessionDetailPage() {
   };
   const handleEditMessage = (m: SessionMessage) => {
     if (m.role !== 'user') return;
-    setComposerText((cur) => (cur ? `${cur}\n${m.content ?? ''}` : (m.content ?? '')));
+    editingDraftMessageRef.current = m;
+    setEditingDraftMessage(m);
+    setComposerText(m.content ?? '');
+    setComposerError(null);
+    setSelectedSkill(null);
+    setSkillPickerOpen(false);
+    setComposerCollapsed(false);
+    setComposerAttachments([]);
+    setAttachmentPreviews([]);
+    void restoreAttachmentsForEdit(m);
+    window.setTimeout(() => composerTextareaRef.current?.focus(), 0);
     scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   };
   const handleAuditMessage = (m: SessionMessage) => {
@@ -596,6 +697,14 @@ export function SessionDetailPage() {
   }, [messages]);
 
   useEffect(() => {
+    windowOffsetRef.current = windowOffset;
+  }, [windowOffset]);
+
+  useEffect(() => {
+    editingDraftMessageRef.current = editingDraftMessage;
+  }, [editingDraftMessage]);
+
+  useEffect(() => {
     persistComposerCollapsed(composerCollapsed);
   }, [composerCollapsed]);
 
@@ -604,6 +713,14 @@ export function SessionDetailPage() {
     if (messages.some((item) => item.id === activeMessageId)) return;
     setActiveMessageId(null);
   }, [messages, activeMessageId]);
+
+  useEffect(() => {
+    if (!editingDraftMessage || composerSending) return;
+    if (messages.some((item) => item.id === editingDraftMessage.id)) return;
+    editingDraftMessageRef.current = null;
+    setEditingDraftMessage(null);
+    showSnackbar(t('composer.edit.targetGone', '原消息已在其他客户端被更新'), { tone: 'error' });
+  }, [messages, editingDraftMessage, composerSending]);
 
   // messages 变化 → 自动跟随 / 累计未读
   useEffect(() => {
@@ -771,11 +888,14 @@ export function SessionDetailPage() {
     setLoadingDetail(true);
     setError(null);
     setMessages([]);
+    windowOffsetRef.current = 0;
     setWindowOffset(0);
     setTotalKnown(0);
     setActiveMessageId(null);
     setComposerModelKey('');
     setComposerMode('normal');
+    editingDraftMessageRef.current = null;
+    setEditingDraftMessage(null);
     lastTailIdRef.current = null;
     lastTailContentLengthRef.current = 0;
     Promise.all([
@@ -786,6 +906,7 @@ export function SessionDetailPage() {
         if (ctrl.signal.aborted) return;
         setDetail(m.session ? { ...d, session: mergeSessionSummary(d.session, m.session) } : d);
         setMessages([...m.items]);
+        windowOffsetRef.current = m.offset;
         setWindowOffset(m.offset);
         setTotalKnown(m.total);
         setSendPhase(m.send_phase || d.runtime.send_phase || 'idle');
@@ -810,10 +931,17 @@ export function SessionDetailPage() {
     setRefreshing(true);
     try {
       const m = await listMessages(sessionId, { limit: PAGE_SIZE, tail: true });
-      setMessages((prev) => mergeLatestWindow(prev, m.items));
-      setWindowOffset((prev) => (
-        messagesRef.current.length === 0 ? m.offset : Math.min(prev, m.offset)
+      setMessages((prev) => mergeServerWindow(
+        prev,
+        m.items,
+        windowOffsetRef.current,
+        m.offset,
       ));
+      setWindowOffset((prev) => {
+        const next = nextWindowOffset(prev, messagesRef.current.length, m.offset);
+        windowOffsetRef.current = next;
+        return next;
+      });
       setTotalKnown(m.total);
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
@@ -846,6 +974,7 @@ export function SessionDetailPage() {
         const incoming = m.items.filter((item) => !existing.has(item.id));
         return [...incoming, ...prev];
       });
+      windowOffsetRef.current = m.offset;
       setWindowOffset(m.offset);
       setTotalKnown(m.total);
       setSendPhase(m.send_phase);
@@ -910,10 +1039,17 @@ export function SessionDetailPage() {
           0,
           (snap.session.message_count ?? snap.messages.length) - snap.messages.length,
         );
-        setMessages((prev) => mergeLatestWindow(prev, snap.messages));
-        setWindowOffset((prev) => (
-          messagesRef.current.length === 0 ? snapOffset : Math.min(prev, snapOffset)
+        setMessages((prev) => mergeServerWindow(
+          prev,
+          snap.messages,
+          windowOffsetRef.current,
+          snapOffset,
         ));
+        setWindowOffset((prev) => {
+          const next = nextWindowOffset(prev, messagesRef.current.length, snapOffset);
+          windowOffsetRef.current = next;
+          return next;
+        });
         setTotalKnown(snap.session.message_count ?? snap.messages.length);
         setDetail((prev) => {
           const runtime = {
@@ -1042,10 +1178,17 @@ export function SessionDetailPage() {
         if (cancelled) return;
         const offset = m.offset ?? Math.max(0, m.total - m.items.length);
         // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
-        setMessages((prev) => mergeLatestWindow(prev, m.items));
-        setWindowOffset((prev) => (
-          messagesRef.current.length === 0 ? offset : Math.min(prev, offset)
+        setMessages((prev) => mergeServerWindow(
+          prev,
+          m.items,
+          windowOffsetRef.current,
+          offset,
         ));
+        setWindowOffset((prev) => {
+          const next = nextWindowOffset(prev, messagesRef.current.length, offset);
+          windowOffsetRef.current = next;
+          return next;
+        });
         setTotalKnown(m.total);
         setSendPhase(m.send_phase);
         setLastError(m.last_error);
@@ -1273,6 +1416,46 @@ export function SessionDetailPage() {
     });
   }
 
+  async function restoreAttachmentsForEdit(message: SessionMessage): Promise<void> {
+    const assets = collectEditableAttachmentAssets(message);
+    if (assets.length === 0) return;
+    const restoredAttachments: SendMessageAttachment[] = [];
+    const restoredPreviews: { mime: string; dataUrl: string; size: number }[] = [];
+    let failed = 0;
+    for (const asset of assets) {
+      try {
+        const res = await fetch(buildSessionAssetUrl(sessionId, asset.path), {
+          credentials: 'same-origin',
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (blob.size > ATTACHMENT_MAX_BYTES) {
+          throw new Error(
+            t('composer.attachment.tooLarge', '附件超过 ') +
+              (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) +
+              ' MiB',
+          );
+        }
+        const file = new File([blob], asset.name, {
+          type: asset.mime || blob.type || 'application/octet-stream',
+        });
+        const item = await readFileAsAttachment(file);
+        restoredAttachments.push(item.att);
+        restoredPreviews.push({ mime: item.mime, dataUrl: item.dataUrl, size: blob.size });
+      } catch {
+        failed += 1;
+      }
+    }
+    if (editingDraftMessageRef.current?.id !== message.id) return;
+    setComposerAttachments(restoredAttachments);
+    setAttachmentPreviews(restoredPreviews);
+    if (failed > 0) {
+      showSnackbar(t('composer.edit.attachmentRestorePartial', '部分原附件无法恢复到编辑草稿'), {
+        tone: 'error',
+      });
+    }
+  }
+
   function openImageEditor(input: ImageEditorInput): Promise<ImageEditorResult | null> {
     imageEditorResolverRef.current?.(null);
     setImageEditorInput(input);
@@ -1416,7 +1599,21 @@ export function SessionDetailPage() {
     setComposerError(null);
     // 标记「这是本地刚刚发起的 send」, 抑制后续 sendPhase running 触发远端冲突 banner
     lastLocalSendAtRef.current = Date.now();
+    const editTarget = editingDraftMessage;
+    let cascadeDeleted = false;
     try {
+      if (editTarget) {
+        await deleteMessageCascade(sessionId, editTarget.id);
+        cascadeDeleted = true;
+        setMessages((prev) => {
+          const idx = prev.findIndex((item) => item.id === editTarget.id);
+          return idx >= 0 ? prev.slice(0, idx) : prev;
+        });
+        setTotalKnown((prev) => {
+          const idx = messagesRef.current.findIndex((item) => item.id === editTarget.id);
+          return idx >= 0 ? Math.min(prev, windowOffsetRef.current + idx) : prev;
+        });
+      }
       const res = await sendMessage(sessionId, {
         content: text,
         modelKey: composerModelKey,
@@ -1433,6 +1630,8 @@ export function SessionDetailPage() {
       setComposerAttachments([]);
       setAttachmentPreviews([]);
       setSelectedSkill(null);
+      editingDraftMessageRef.current = null;
+      setEditingDraftMessage(null);
       setSkillPickerOpen(false);
       setSendPhase(res.send_phase || 'sendingMessage');
       // SSE 通道在 service 端立即推送 user 消息落库；若 SSE 不可用，refresh()
@@ -1440,6 +1639,10 @@ export function SessionDetailPage() {
       if (!sseLive) void refresh();
       if (shouldTrackAutoTitle) scheduleAutoTitleFollowUp();
     } catch (e: unknown) {
+      if (cascadeDeleted) {
+        editingDraftMessageRef.current = null;
+        setEditingDraftMessage(null);
+      }
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       if (e instanceof ApiError) {
@@ -1508,6 +1711,9 @@ export function SessionDetailPage() {
   }
 
   const session = detail?.session;
+  const currentSessionMode: 'chat' | 'plan' = session?.mode === 'plan' ? 'plan' : 'chat';
+  const nextSessionMode: 'chat' | 'plan' = currentSessionMode === 'plan' ? 'chat' : 'plan';
+  const canToggleSessionMode = sessionModeOptions.includes(nextSessionMode);
   async function applySessionMode(next: 'chat' | 'plan'): Promise<void> {
     if (!sessionId) return;
     try {
@@ -1559,9 +1765,7 @@ export function SessionDetailPage() {
       {
         key: 'mode',
         icon: t('topbar.capsule.modeIcon', '模式'),
-        label: session.mode === 'plan'
-          ? t('sessions.mode.plan', '计划模式')
-          : t('sessions.mode.chat', '聊天模式'),
+        label: sessionModeLabel(session.mode),
         tone: session.mode === 'plan' ? 'primary' : 'neutral',
         onClick: () => {
           const next = session.mode === 'plan' ? 'chat' : 'plan';
@@ -1879,38 +2083,19 @@ export function SessionDetailPage() {
         >
           <div class="flex flex-wrap items-center gap-2 mb-3">
             {sessionModeOptions.length > 1 ? (
-              <div
-                class="flex items-center gap-1 rounded-m3-sm p-0.5"
-                style={{
-                  background: 'var(--m3-surface)',
-                  border: '1px solid var(--m3-outline-variant)',
-                }}
-                aria-label={t('composer.sessionMode', '会话模式')}
+              <button
+                type="button"
+                onClick={() => void applySessionMode(nextSessionMode)}
+                disabled={composerSending || !canToggleSessionMode}
+                class={`oh-session-mode-button oh-tap-press ${currentSessionMode === 'plan' ? 'is-plan' : 'is-chat'}`}
+                aria-pressed={currentSessionMode === 'plan'}
+                title={sessionModeLabel(currentSessionMode)}
               >
-                {sessionModeOptions.map((item) => {
-                  const active = (session?.mode ?? 'chat') === item;
-                  const label = item === 'plan'
-                    ? t('sessions.mode.plan', '计划模式')
-                    : t('sessions.mode.chat', '聊天模式');
-                  return (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => void applySessionMode(item as 'chat' | 'plan')}
-                      disabled={composerSending || active}
-                      class="oh-tap-press text-xs px-2.5 py-1 rounded-m3-sm disabled:opacity-90"
-                      style={{
-                        background: active ? 'var(--m3-primary-container)' : 'transparent',
-                        color: active ? 'var(--m3-on-primary-container)' : 'var(--m3-on-surface-variant)',
-                        fontWeight: active ? 700 : 500,
-                      }}
-                      title={label}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+                <span class="oh-session-mode-icon" aria-hidden>
+                  {sessionModeIcon(currentSessionMode)}
+                </span>
+                <span class="oh-session-mode-label">{sessionModeLabel(currentSessionMode)}</span>
+              </button>
             ) : null}
 
             <button
@@ -2051,6 +2236,24 @@ export function SessionDetailPage() {
             {...(composerCollapsed ? { inert: true } : {})}
           >
           <div class="oh-composer-chip-rail mb-3">
+            {editingDraftMessage ? (
+              <button
+                type="button"
+                class="oh-composer-pill oh-composer-edit-pill oh-appear-pop"
+                onClick={() => {
+                  editingDraftMessageRef.current = null;
+                  setEditingDraftMessage(null);
+                }}
+                disabled={composerSending}
+                title={t('composer.edit.cancel', '取消编辑历史消息')}
+              >
+                <span aria-hidden>↻</span>
+                <span class="truncate max-w-[180px]">
+                  {t('composer.edit.active', '正在编辑历史消息')}
+                </span>
+                <span aria-hidden>×</span>
+              </button>
+            ) : null}
             <span class="oh-composer-pill oh-appear-pop">
               <span aria-hidden>✦</span>
               {composerModeLabel(composerMode)}

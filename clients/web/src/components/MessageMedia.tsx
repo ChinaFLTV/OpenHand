@@ -78,8 +78,11 @@ function collectMedia(message: SessionMessage): MediaItem[] {
           : typeof e['type'] === 'string'
             ? (e['type'] as string)
             : undefined;
-        pushString(out, e['path'], hintKind);
-        pushString(out, e['file_path'], hintKind);
+        pushString(
+          out,
+          e['storage_path'] ?? e['path'] ?? e['file_path'] ?? e['original_source_path'],
+          hintKind,
+        );
       } else if (typeof entry === 'string') {
         pushString(out, entry);
       }

@@ -3020,6 +3020,15 @@ class _AccessibleUrlPill extends StatelessWidget {
             message: '复制地址',
             child: IconButton(
               onPressed: onCopy,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: cs.onPrimaryContainer,
+                hoverColor: cs.primary.withValues(alpha: 0.08),
+                highlightColor: cs.primary.withValues(alpha: 0.12),
+                focusColor: cs.primary.withValues(alpha: 0.10),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               icon: const Icon(Icons.content_copy_rounded),
               iconSize: 16,
               visualDensity: VisualDensity.compact,
@@ -3041,6 +3050,15 @@ class _AccessibleUrlPill extends StatelessWidget {
             message: '浏览器访问',
             child: IconButton(
               onPressed: onOpen,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: cs.onPrimaryContainer,
+                hoverColor: cs.primary.withValues(alpha: 0.08),
+                highlightColor: cs.primary.withValues(alpha: 0.12),
+                focusColor: cs.primary.withValues(alpha: 0.10),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               icon: const Icon(Icons.open_in_browser_rounded),
               iconSize: 17,
               visualDensity: VisualDensity.compact,

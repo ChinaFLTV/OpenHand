@@ -260,6 +260,67 @@ html, body, #root {
   transform: translate3d(0, -8px, 0) scale(0.985);
 }
 
+.oh-session-mode-button {
+  height: 52px;
+  min-width: 132px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--m3-outline-variant);
+  background: var(--m3-surface-container-highest);
+  color: var(--m3-on-surface);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: var(--m3-elev-1);
+  transition:
+    background-color 260ms var(--oh-motion-emphasized),
+    border-color 260ms var(--oh-motion-emphasized),
+    color 220ms var(--oh-motion-emphasized),
+    transform 260ms var(--oh-motion-spring),
+    box-shadow 260ms var(--oh-motion-emphasized);
+}
+.oh-session-mode-button.is-plan {
+  border-color: color-mix(in srgb, var(--m3-primary) 38%, transparent);
+  background: color-mix(in srgb, var(--m3-primary-container) 86%, var(--m3-surface));
+  color: var(--m3-on-primary-container);
+}
+.oh-session-mode-button:disabled {
+  cursor: default;
+  opacity: 0.72;
+  box-shadow: none;
+}
+.oh-session-mode-button:not(:disabled):hover {
+  box-shadow: var(--m3-elev-2);
+}
+.oh-session-mode-icon {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--m3-primary) 11%, transparent);
+  color: var(--m3-primary);
+  font-size: 14px;
+  font-weight: 900;
+  transition:
+    background-color 260ms var(--oh-motion-emphasized),
+    color 220ms var(--oh-motion-emphasized),
+    transform 260ms var(--oh-motion-spring);
+}
+.oh-session-mode-button.is-plan .oh-session-mode-icon {
+  background: color-mix(in srgb, var(--m3-primary) 16%, transparent);
+  color: var(--m3-on-primary-container);
+  transform: rotate(-4deg) scale(1.04);
+}
+.oh-session-mode-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .oh-composer-chip-rail,
 .oh-composer-attachment-rail {
   display: flex;
@@ -284,6 +345,11 @@ html, body, #root {
 }
 button.oh-composer-pill {
   cursor: pointer;
+}
+.oh-composer-edit-pill {
+  border-color: color-mix(in srgb, var(--m3-tertiary) 45%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-tertiary-container) 74%, transparent);
+  color: var(--m3-on-tertiary-container);
 }
 .oh-composer-attachment-chip {
   position: relative;

@@ -900,12 +900,14 @@ class WebMessagePlatformService {
           );
         } catch (error, stack) {
           probeStarted.stop();
-          silentLog(
-            'web_message_platform_service',
-            'connectivity probe',
-            error,
-            stack,
-          );
+          if (error is! TimeoutException) {
+            silentLog(
+              'web_message_platform_service',
+              'connectivity probe',
+              error,
+              stack,
+            );
+          }
           addLog(
             '探测失败 ${endpoint.host}:${endpoint.port} · ${probeStarted.elapsedMilliseconds}ms · $error',
           );
@@ -2849,13 +2851,15 @@ class WebMessagePlatformService {
 
     for (final msg in session.displayMessages) {
       final meta = msg.metadata;
-      // 用户附件: [{kind, path}] 或 [{file_path}]
+      // 用户附件: [{kind, path}] / [{file_path}] / [{storage_path}]
       final atts = meta['attachments'];
       if (atts is List) {
         for (final entry in atts) {
           if (entry is Map) {
             addCandidate(entry['path']);
             addCandidate(entry['file_path']);
+            addCandidate(entry['storage_path']);
+            addCandidate(entry['original_source_path']);
           } else if (entry is String) {
             addCandidate(entry);
           }
