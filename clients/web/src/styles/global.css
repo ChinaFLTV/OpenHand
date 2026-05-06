@@ -260,21 +260,30 @@ html, body, #root {
   transform: translate3d(0, -8px, 0) scale(0.985);
 }
 
-.oh-session-mode-button {
-  height: 52px;
-  min-width: 132px;
+.oh-composer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.oh-composer-control {
+  height: 40px;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px 8px 12px;
-  border-radius: 16px;
-  border: 1px solid var(--m3-outline-variant);
-  background: var(--m3-surface-container-highest);
+  gap: 8px;
+  padding: 0 12px 0 8px;
+  border-radius: 13px;
+  border: 1px solid var(--m3-outline);
+  background: var(--m3-surface);
   color: var(--m3-on-surface);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
+  line-height: 1;
   white-space: nowrap;
-  box-shadow: var(--m3-elev-1);
+  box-shadow: none;
   transition:
     background-color 260ms var(--oh-motion-emphasized),
     border-color 260ms var(--oh-motion-emphasized),
@@ -282,43 +291,121 @@ html, body, #root {
     transform 260ms var(--oh-motion-spring),
     box-shadow 260ms var(--oh-motion-emphasized);
 }
-.oh-session-mode-button.is-plan {
-  border-color: color-mix(in srgb, var(--m3-primary) 38%, transparent);
-  background: color-mix(in srgb, var(--m3-primary-container) 86%, var(--m3-surface));
+.oh-composer-control.is-tonal {
+  border-color: color-mix(in srgb, var(--m3-primary) 46%, transparent);
+  background: var(--m3-primary-container);
   color: var(--m3-on-primary-container);
 }
-.oh-session-mode-button:disabled {
+.oh-composer-control.is-muted {
+  background: color-mix(in srgb, var(--m3-surface) 72%, transparent);
+  color: var(--m3-on-surface-variant);
+}
+.oh-composer-control:disabled {
   cursor: default;
   opacity: 0.72;
   box-shadow: none;
 }
-.oh-session-mode-button:not(:disabled):hover {
+.oh-composer-control:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-outline));
   box-shadow: var(--m3-elev-2);
 }
-.oh-session-mode-icon {
-  width: 28px;
-  height: 28px;
+.oh-composer-control:not(:disabled):active {
+  transform: scale(0.98);
+}
+.oh-session-mode-button {
+  min-width: 118px;
+  font-weight: 800;
+  background: var(--m3-surface-container-high);
+  border-color: var(--m3-outline-variant);
+}
+.oh-session-mode-button.is-plan {
+  border-color: color-mix(in srgb, var(--m3-primary) 46%, transparent);
+  background: color-mix(in srgb, var(--m3-primary-container) 88%, var(--m3-surface));
+  color: var(--m3-on-primary-container);
+}
+.oh-composer-model-control {
+  max-width: 260px;
+}
+.oh-composer-mode-control {
+  padding-right: 8px;
+}
+.oh-composer-control-icon {
+  width: 26px;
+  height: 26px;
   flex: none;
   display: inline-grid;
   place-items: center;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--m3-primary) 11%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--m3-primary) 10%, transparent);
   color: var(--m3-primary);
-  font-size: 14px;
-  font-weight: 900;
   transition:
     background-color 260ms var(--oh-motion-emphasized),
     color 220ms var(--oh-motion-emphasized),
     transform 260ms var(--oh-motion-spring);
 }
+.oh-composer-control.is-tonal .oh-composer-control-icon,
 .oh-session-mode-button.is-plan .oh-session-mode-icon {
   background: color-mix(in srgb, var(--m3-primary) 16%, transparent);
   color: var(--m3-on-primary-container);
-  transform: rotate(-4deg) scale(1.04);
+}
+.oh-session-mode-button:not(:disabled):hover .oh-session-mode-icon {
+  transform: rotate(-3deg) scale(1.05);
 }
 .oh-session-mode-label {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.oh-composer-caret {
+  display: inline-grid;
+  place-items: center;
+  color: currentColor;
+  transition: transform 220ms var(--oh-motion-spring);
+}
+.oh-composer-caret.is-open {
+  transform: rotate(180deg);
+}
+.oh-composer-icon-control {
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 13px;
+  border: 1px solid var(--m3-outline);
+  background: var(--m3-surface);
+  color: var(--m3-on-surface-variant);
+  transition:
+    background-color 260ms var(--oh-motion-emphasized),
+    border-color 260ms var(--oh-motion-emphasized),
+    color 220ms var(--oh-motion-emphasized),
+    transform 260ms var(--oh-motion-spring),
+    box-shadow 260ms var(--oh-motion-emphasized);
+}
+.oh-composer-icon-control:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-outline));
+  color: var(--m3-primary);
+  box-shadow: var(--m3-elev-2);
+}
+.oh-composer-icon-control:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+@keyframes oh-composer-chip-in {
+  0%   { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.88); }
+  58%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.04); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes oh-composer-chip-out {
+  0%   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  100% { opacity: 0; transform: translate3d(0, -6px, 0) scale(0.86); }
+}
+.oh-composer-chip-motion {
+  animation: oh-composer-chip-in 280ms var(--oh-motion-spring) both;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+.oh-composer-chip-motion.is-exiting {
+  animation: oh-composer-chip-out 190ms var(--oh-motion-emphasized) both;
+  pointer-events: none;
 }
 
 .oh-composer-chip-rail,
@@ -342,9 +429,24 @@ html, body, #root {
   font-size: 12px;
   font-weight: 700;
   box-shadow: 0 4px 14px -12px color-mix(in srgb, var(--m3-primary) 60%, transparent);
+  transition:
+    background-color 220ms var(--oh-motion-emphasized),
+    border-color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized);
 }
 button.oh-composer-pill {
   cursor: pointer;
+}
+button.oh-composer-pill:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant));
+  box-shadow: 0 8px 22px -14px color-mix(in srgb, var(--m3-primary) 74%, transparent);
+}
+.oh-composer-pill-icon,
+.oh-composer-action-icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  color: currentColor;
 }
 .oh-composer-edit-pill {
   border-color: color-mix(in srgb, var(--m3-tertiary) 45%, var(--m3-outline-variant));
@@ -365,6 +467,14 @@ button.oh-composer-pill {
   color: var(--m3-on-surface);
   font-size: 12px;
   box-shadow: var(--m3-elev-1);
+  transition:
+    border-color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized),
+    background-color 220ms var(--oh-motion-emphasized);
+}
+.oh-composer-attachment-chip:not(.is-exiting):hover {
+  border-color: color-mix(in srgb, var(--m3-primary) 38%, var(--m3-outline-variant));
+  box-shadow: var(--m3-elev-2);
 }
 .oh-composer-attachment-chip.is-image {
   width: 64px;
@@ -389,9 +499,13 @@ button.oh-composer-pill {
   display: block;
 }
 .oh-composer-file-leading {
+  width: 28px;
+  height: 28px;
   flex: none;
-  font-size: 11px;
-  font-weight: 800;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--m3-primary) 10%, transparent);
   color: var(--m3-primary);
 }
 .oh-composer-chip-close {
@@ -402,9 +516,20 @@ button.oh-composer-pill {
   place-items: center;
   border-radius: 999px;
   border: 1px solid var(--m3-outline-variant);
-  background: var(--m3-surface);
+  background: color-mix(in srgb, var(--m3-surface) 88%, transparent);
   color: var(--m3-on-surface-variant);
   line-height: 1;
+  transition:
+    background-color 180ms var(--oh-motion-emphasized),
+    border-color 180ms var(--oh-motion-emphasized),
+    color 180ms var(--oh-motion-emphasized),
+    transform 180ms var(--oh-motion-spring);
+}
+.oh-composer-chip-close:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--m3-error) 46%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-error) 10%, var(--m3-surface));
+  color: var(--m3-error);
+  transform: scale(1.08);
 }
 .oh-composer-attachment-chip.is-image .oh-composer-chip-close {
   position: absolute;

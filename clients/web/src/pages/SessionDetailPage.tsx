@@ -84,6 +84,7 @@ const SSE_FAIL_THRESHOLD = 3;
 /// 单条附件最大字节数（沿用 service singleMessageTokenLimit 的语义留 1 MiB 兜底）；
 /// 真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
+const COMPOSER_CHIP_EXIT_MS = 190;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
 
@@ -183,8 +184,93 @@ function sessionModeLabel(mode: string): string {
     : t('sessions.mode.chat', '聊天模式');
 }
 
-function sessionModeIcon(mode: string): string {
-  return mode === 'plan' ? '✓' : '▱';
+type ComposerIconName =
+  | 'attachment'
+  | 'chat'
+  | 'chevronDown'
+  | 'chevronUp'
+  | 'close'
+  | 'edit'
+  | 'file'
+  | 'image'
+  | 'mode'
+  | 'plan'
+  | 'research'
+  | 'sound'
+  | 'spark'
+  | 'video'
+  | 'follow';
+
+function sessionModeIconName(mode: string): ComposerIconName {
+  return mode === 'plan' ? 'plan' : 'chat';
+}
+
+function composerModeIconName(mode: string): ComposerIconName {
+  switch (mode) {
+    case 'image':
+      return 'image';
+    case 'video':
+      return 'video';
+    case 'audio':
+      return 'sound';
+    case 'deep_research':
+      return 'research';
+    case 'normal':
+      return 'chat';
+    default:
+      return 'mode';
+  }
+}
+
+function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    'aria-hidden': true,
+    focusable: 'false',
+  };
+  const stroke = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+  switch (name) {
+    case 'attachment':
+      return <svg {...common}><path {...stroke} d="M21.4 11.6 12 21a5.2 5.2 0 0 1-7.4-7.4l9.7-9.7a3.5 3.5 0 0 1 5 5l-9.8 9.8a1.8 1.8 0 0 1-2.6-2.6l8.9-8.9" /></svg>;
+    case 'chat':
+      return <svg {...common}><path {...stroke} d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5v5A3.5 3.5 0 0 1 15.5 15h-4.7L6 19v-4.2a3.5 3.5 0 0 1-1-2.3z" /><path {...stroke} d="M9 8h6M9 11h3.8" /></svg>;
+    case 'chevronDown':
+      return <svg {...common}><path {...stroke} d="m7 10 5 5 5-5" /></svg>;
+    case 'chevronUp':
+      return <svg {...common}><path {...stroke} d="m7 14 5-5 5 5" /></svg>;
+    case 'close':
+      return <svg {...common}><path {...stroke} d="M7 7l10 10M17 7 7 17" /></svg>;
+    case 'edit':
+      return <svg {...common}><path {...stroke} d="M4 20h4.4L19 9.4A2.1 2.1 0 0 0 16 6.4L5.4 17H4z" /><path {...stroke} d="m14.8 7.6 1.6 1.6" /></svg>;
+    case 'file':
+      return <svg {...common}><path {...stroke} d="M7 3h6l4 4v14H7z" /><path {...stroke} d="M13 3v5h5M9 13h6M9 17h4" /></svg>;
+    case 'follow':
+      return <svg {...common}><path {...stroke} d="M12 5v10M8 11l4 4 4-4M5 19h14" /></svg>;
+    case 'image':
+      return <svg {...common}><path {...stroke} d="M5 5h14v14H5z" /><path {...stroke} d="m5 16 4.5-4.5 3.5 3.5 2-2 4 4" /><path {...stroke} d="M14.5 8.5h.01" /></svg>;
+    case 'mode':
+      return <svg {...common}><path {...stroke} d="M5 7h8M17 7h2M5 12h2M11 12h8M5 17h10M19 17h0" /><path {...stroke} d="M13 5v4M9 10v4M15 15v4" /></svg>;
+    case 'plan':
+      return <svg {...common}><path {...stroke} d="M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2z" /><path {...stroke} d="M9 8h6M9 12h6M9 16h3" /><path {...stroke} d="m15 16 1.2 1.2L19 14.4" /></svg>;
+    case 'research':
+      return <svg {...common}><path {...stroke} d="M10.5 18a7.5 7.5 0 1 1 5.3-2.2L21 21" /><path {...stroke} d="M8 10h5M8 13h3" /></svg>;
+    case 'sound':
+      return <svg {...common}><path {...stroke} d="M4 10v4h4l5 4V6L8 10z" /><path {...stroke} d="M16 9.5a4 4 0 0 1 0 5M19 7a8 8 0 0 1 0 10" /></svg>;
+    case 'spark':
+      return <svg {...common}><path {...stroke} d="m12 3 1.6 5.2L19 10l-5.4 1.8L12 17l-1.6-5.2L5 10l5.4-1.8z" /><path {...stroke} d="M19 16v4M17 18h4" /></svg>;
+    case 'video':
+      return <svg {...common}><path {...stroke} d="M5 7h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5z" /><path {...stroke} d="m17 10 4-2.5v9L17 14" /></svg>;
+    default:
+      return <svg {...common}><path {...stroke} d="M12 3v18M3 12h18" /></svg>;
+  }
 }
 
 interface EditableAttachmentAsset {
@@ -433,6 +519,7 @@ export function SessionDetailPage() {
   const [composerModelKey, setComposerModelKey] = useState<string>('');
   const [composerAttachments, setComposerAttachments] =
     useState<SendMessageAttachment[]>([]);
+  const [composerAttachmentIds, setComposerAttachmentIds] = useState<string[]>([]);
   const [editingDraftMessage, setEditingDraftMessage] =
     useState<SessionMessage | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillSummary | null>(null);
@@ -446,6 +533,7 @@ export function SessionDetailPage() {
   const [attachmentPreviews, setAttachmentPreviews] = useState<
     { mime: string; dataUrl: string; size: number }[]
   >([]);
+  const [exitingComposerChipKeys, setExitingComposerChipKeys] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState<boolean>(false);
   const [composerSending, setComposerSending] = useState<boolean>(false);
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -471,6 +559,9 @@ export function SessionDetailPage() {
   const detailRef = useRef<SessionDetailResponse | null>(null);
   const editingDraftMessageRef = useRef<SessionMessage | null>(null);
   const autoTitleRefreshTimersRef = useRef<number[]>([]);
+  const composerChipExitTimersRef = useRef<number[]>([]);
+  const composerAttachmentIdsRef = useRef<string[]>([]);
+  const attachmentIdSeqRef = useRef(0);
 
   // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
   // ---------------------------------------------------------------------
@@ -510,6 +601,37 @@ export function SessionDetailPage() {
     imageEditorResolverRef.current?.(null);
     imageEditorResolverRef.current = null;
   }, []);
+
+  useEffect(() => () => {
+    for (const timer of composerChipExitTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    composerChipExitTimersRef.current = [];
+  }, []);
+
+  function nextAttachmentUiId(): string {
+    attachmentIdSeqRef.current += 1;
+    return `att-${Date.now().toString(36)}-${attachmentIdSeqRef.current}`;
+  }
+
+  function composerChipIsExiting(key: string): boolean {
+    return exitingComposerChipKeys.includes(key);
+  }
+
+  function runAfterComposerChipExit(key: string, action: () => void): void {
+    if (composerChipIsExiting(key)) return;
+    if (reduceMotion || typeof window === 'undefined') {
+      action();
+      return;
+    }
+    setExitingComposerChipKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
+    const timer = window.setTimeout(() => {
+      action();
+      setExitingComposerChipKeys((keys) => keys.filter((item) => item !== key));
+      composerChipExitTimersRef.current = composerChipExitTimersRef.current.filter((item) => item !== timer);
+    }, COMPOSER_CHIP_EXIT_MS);
+    composerChipExitTimersRef.current.push(timer);
+  }
 
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
     const el = mainRef.current;
@@ -656,6 +778,7 @@ export function SessionDetailPage() {
     setSkillPickerOpen(false);
     setComposerCollapsed(false);
     setComposerAttachments([]);
+    setComposerAttachmentIds([]);
     setAttachmentPreviews([]);
     void restoreAttachmentsForEdit(m);
     window.setTimeout(() => composerTextareaRef.current?.focus(), 0);
@@ -703,6 +826,10 @@ export function SessionDetailPage() {
   useEffect(() => {
     editingDraftMessageRef.current = editingDraftMessage;
   }, [editingDraftMessage]);
+
+  useEffect(() => {
+    composerAttachmentIdsRef.current = composerAttachmentIds;
+  }, [composerAttachmentIds]);
 
   useEffect(() => {
     persistComposerCollapsed(composerCollapsed);
@@ -1448,6 +1575,7 @@ export function SessionDetailPage() {
     }
     if (editingDraftMessageRef.current?.id !== message.id) return;
     setComposerAttachments(restoredAttachments);
+    setComposerAttachmentIds(restoredAttachments.map(() => nextAttachmentUiId()));
     setAttachmentPreviews(restoredPreviews);
     if (failed > 0) {
       showSnackbar(t('composer.edit.attachmentRestorePartial', '部分原附件无法恢复到编辑草稿'), {
@@ -1479,6 +1607,7 @@ export function SessionDetailPage() {
     const nextPv: { mime: string; dataUrl: string; size: number }[] = [
       ...attachmentPreviews,
     ];
+    const nextIds = [...composerAttachmentIds];
     for (const file of files) {
       if (file.size > ATTACHMENT_MAX_BYTES) {
         setComposerError(
@@ -1508,9 +1637,11 @@ export function SessionDetailPage() {
           }
           nextAtt.push({ name: edited.name, data_base64: edited.dataBase64 });
           nextPv.push({ mime: edited.mime, dataUrl: edited.dataUrl, size: edited.size });
+          nextIds.push(nextAttachmentUiId());
         } else {
           nextAtt.push(r.att);
           nextPv.push({ mime: r.mime, dataUrl: r.dataUrl, size: file.size });
+          nextIds.push(nextAttachmentUiId());
         }
       } catch (e: unknown) {
         setComposerError(
@@ -1520,6 +1651,7 @@ export function SessionDetailPage() {
       }
     }
     setComposerAttachments(nextAtt);
+    setComposerAttachmentIds(nextIds);
     setAttachmentPreviews(nextPv);
   }
 
@@ -1532,7 +1664,23 @@ export function SessionDetailPage() {
 
   function removeAttachmentAt(idx: number): void {
     setComposerAttachments((prev) => prev.filter((_, i) => i !== idx));
+    setComposerAttachmentIds((prev) => prev.filter((_, i) => i !== idx));
     setAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function removeAttachmentById(id: string): void {
+    const idx = composerAttachmentIdsRef.current.indexOf(id);
+    if (idx < 0) return;
+    removeAttachmentAt(idx);
+  }
+
+  function requestRemoveAttachmentAt(idx: number): void {
+    const key = composerAttachmentIds[idx];
+    if (!key) {
+      removeAttachmentAt(idx);
+      return;
+    }
+    runAfterComposerChipExit(key, () => removeAttachmentById(key));
   }
 
   async function editAttachmentAt(idx: number): Promise<void> {
@@ -1628,6 +1776,7 @@ export function SessionDetailPage() {
       });
       setComposerText('');
       setComposerAttachments([]);
+      setComposerAttachmentIds([]);
       setAttachmentPreviews([]);
       setSelectedSkill(null);
       editingDraftMessageRef.current = null;
@@ -2081,18 +2230,18 @@ export function SessionDetailPage() {
             boxShadow: 'var(--m3-elev-1)',
           }}
         >
-          <div class="flex flex-wrap items-center gap-2 mb-3">
+          <div class="oh-composer-toolbar">
             {sessionModeOptions.length > 1 ? (
               <button
                 type="button"
                 onClick={() => void applySessionMode(nextSessionMode)}
                 disabled={composerSending || !canToggleSessionMode}
-                class={`oh-session-mode-button oh-tap-press ${currentSessionMode === 'plan' ? 'is-plan' : 'is-chat'}`}
+                class={`oh-session-mode-button oh-composer-control oh-tap-press ${currentSessionMode === 'plan' ? 'is-plan is-tonal' : 'is-chat'}`}
                 aria-pressed={currentSessionMode === 'plan'}
                 title={sessionModeLabel(currentSessionMode)}
               >
-                <span class="oh-session-mode-icon" aria-hidden>
-                  {sessionModeIcon(currentSessionMode)}
+                <span class="oh-composer-control-icon oh-session-mode-icon">
+                  <ComposerIcon name={sessionModeIconName(currentSessionMode)} />
                 </span>
                 <span class="oh-session-mode-label">{sessionModeLabel(currentSessionMode)}</span>
               </button>
@@ -2102,13 +2251,7 @@ export function SessionDetailPage() {
               type="button"
               onClick={() => setShowComposerModelPicker(true)}
               disabled={composerSending || allowedModels.length === 0}
-              class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm flex items-center gap-1.5 disabled:opacity-50 min-w-0"
-              style={{
-                border: '1px solid var(--m3-outline)',
-                color: 'var(--m3-on-surface)',
-                background: 'var(--m3-surface)',
-                maxWidth: '260px',
-              }}
+              class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0"
               title={t('composer.model', '模型')}
             >
               <span class="truncate">
@@ -2142,18 +2285,17 @@ export function SessionDetailPage() {
                   type="button"
                   onClick={toggle}
                   disabled={composerSending}
-                  class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm flex items-center gap-1.5 disabled:opacity-50"
-                  style={{
-                    border: '1px solid var(--m3-outline)',
-                    color: 'var(--m3-on-primary-container)',
-                    background: 'var(--m3-primary-container)',
-                    fontWeight: 700,
-                  }}
+                  class="oh-composer-control oh-composer-mode-control oh-tap-press is-tonal disabled:opacity-50"
                   aria-expanded={open}
                   title={t('composer.mode', '模式')}
                 >
+                  <span class="oh-composer-control-icon">
+                    <ComposerIcon name={composerModeIconName(composerMode)} />
+                  </span>
                   <span>{composerModeLabel(composerMode)}</span>
-                  <span aria-hidden style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 160ms ease' }}>⌄</span>
+                  <span class={`oh-composer-caret ${open ? 'is-open' : ''}`}>
+                    <ComposerIcon name="chevronDown" size={16} />
+                  </span>
                 </button>
               )}
             />
@@ -2166,16 +2308,7 @@ export function SessionDetailPage() {
                 requestFullAccessPermissionChange(next);
               }}
               disabled={permissionSaving}
-              class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
-              style={{
-                border: session?.full_access_permission === true
-                  ? '1px solid color-mix(in srgb, var(--m3-primary) 48%, transparent)'
-                  : '1px solid var(--m3-outline)',
-                color: session?.full_access_permission === true ? 'var(--m3-on-primary-container)' : 'var(--m3-on-surface-variant)',
-                background: session?.full_access_permission === true
-                  ? 'var(--m3-primary-container)'
-                  : 'transparent',
-              }}
+              class={`oh-composer-control oh-tap-press ${session?.full_access_permission === true ? 'is-tonal' : 'is-muted'}`}
               title={t('topbar.perm.title', '权限模式')}
             >
               <span>
@@ -2195,20 +2328,14 @@ export function SessionDetailPage() {
                   setAutoFollowPaused(false);
                 }
               }}
-              class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm"
-              style={{
-                border: '1px solid var(--m3-outline)',
-                background: autoFollow || autoFollowPaused || unreadCount > 0
-                  ? 'var(--m3-primary-container)'
-                  : 'transparent',
-                color: autoFollow || autoFollowPaused || unreadCount > 0
-                  ? 'var(--m3-on-primary-container)'
-                  : 'var(--m3-on-surface-variant)',
-              }}
+              class={`oh-composer-control oh-tap-press ${autoFollow || autoFollowPaused || unreadCount > 0 ? 'is-tonal' : 'is-muted'}`}
               title={autoFollowPaused || unreadCount > 0
                 ? t('detail.resumeToLatest', '回到底部')
                 : t('composer.autoFollow', '自动跟随到底部')}
             >
+              <span class="oh-composer-control-icon">
+                <ComposerIcon name="follow" />
+              </span>
               <span>
                 {autoFollowPaused || unreadCount > 0
                   ? t('detail.resumeToLatest', '回到底部')
@@ -2221,11 +2348,10 @@ export function SessionDetailPage() {
             <button
               type="button"
               onClick={() => setComposerCollapsed((v) => !v)}
-              class="oh-tap-press text-xs px-2.5 py-1.5 rounded-m3-sm ml-auto"
-              style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)' }}
+              class="oh-composer-icon-control oh-tap-press ml-auto"
               title={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
             >
-              {composerCollapsed ? '▴' : '▾'}
+              <ComposerIcon name={composerCollapsed ? 'chevronDown' : 'chevronUp'} />
             </button>
           </div>
 
@@ -2239,36 +2365,38 @@ export function SessionDetailPage() {
             {editingDraftMessage ? (
               <button
                 type="button"
-                class="oh-composer-pill oh-composer-edit-pill oh-appear-pop"
-                onClick={() => {
+                class={`oh-composer-pill oh-composer-edit-pill oh-composer-chip-motion ${composerChipIsExiting('edit-draft') ? 'is-exiting' : ''}`}
+                onClick={() => runAfterComposerChipExit('edit-draft', () => {
                   editingDraftMessageRef.current = null;
                   setEditingDraftMessage(null);
-                }}
-                disabled={composerSending}
+                })}
+                disabled={composerSending || composerChipIsExiting('edit-draft')}
                 title={t('composer.edit.cancel', '取消编辑历史消息')}
               >
-                <span aria-hidden>↻</span>
+                <span class="oh-composer-pill-icon"><ComposerIcon name="edit" size={16} /></span>
                 <span class="truncate max-w-[180px]">
                   {t('composer.edit.active', '正在编辑历史消息')}
                 </span>
-                <span aria-hidden>×</span>
+                <span class="oh-composer-pill-icon"><ComposerIcon name="close" size={15} /></span>
               </button>
             ) : null}
-            <span class="oh-composer-pill oh-appear-pop">
-              <span aria-hidden>✦</span>
+            <span key={`mode-${composerMode}`} class="oh-composer-pill oh-composer-chip-motion">
+              <span class="oh-composer-pill-icon"><ComposerIcon name={composerModeIconName(composerMode)} size={16} /></span>
               {composerModeLabel(composerMode)}
             </span>
             {selectedSkill ? (
               <button
                 type="button"
-                class="oh-composer-pill oh-appear-pop"
-                onClick={() => setSelectedSkill(null)}
-                disabled={composerSending}
+                class={`oh-composer-pill oh-composer-chip-motion ${composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`) ? 'is-exiting' : ''}`}
+                onClick={() => runAfterComposerChipExit(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`, () => setSelectedSkill(null))}
+                disabled={composerSending || composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`)}
                 title={t('composer.skill.clear', '移除已选择技能')}
               >
-                <span aria-hidden>{selectedSkill.emoji_icon || '▣'}</span>
+                <span class="oh-composer-pill-icon">
+                  {selectedSkill.emoji_icon || <ComposerIcon name="spark" size={16} />}
+                </span>
                 <span class="truncate max-w-[180px]">{selectedSkill.name}</span>
-                <span aria-hidden>×</span>
+                <span class="oh-composer-pill-icon"><ComposerIcon name="close" size={15} /></span>
               </button>
             ) : null}
           </div>
@@ -2277,12 +2405,13 @@ export function SessionDetailPage() {
             <ul class="oh-composer-attachment-rail mb-3">
               {composerAttachments.map((att, i) => {
                 const pv = attachmentPreviews[i];
+                const chipKey = composerAttachmentIds[i] ?? `${att.name}-${i}`;
                 const isImage = (pv?.mime ?? '').startsWith('image/');
                 const sizeKb = pv ? (pv.size / 1024).toFixed(1) : '';
                 return (
                   <li
-                    key={`${att.name}-${i}`}
-                    class={`oh-composer-attachment-chip oh-appear-pop ${isImage ? 'is-image' : ''}`}
+                    key={chipKey}
+                    class={`oh-composer-attachment-chip oh-composer-chip-motion ${composerChipIsExiting(chipKey) ? 'is-exiting' : ''} ${isImage ? 'is-image' : ''}`}
                   >
                     {isImage && pv ? (
                       <button
@@ -2295,7 +2424,9 @@ export function SessionDetailPage() {
                         <img src={pv.dataUrl} alt={att.name} decoding="async" loading="lazy" />
                       </button>
                     ) : (
-                      <span aria-hidden class="oh-composer-file-leading">ATT</span>
+                      <span aria-hidden class="oh-composer-file-leading">
+                        <ComposerIcon name="file" size={16} />
+                      </span>
                     )}
                     {!isImage ? (
                       <span class="flex flex-col min-w-0">
@@ -2309,12 +2440,12 @@ export function SessionDetailPage() {
                     ) : null}
                     <button
                       type="button"
-                      onClick={() => removeAttachmentAt(i)}
-                      disabled={composerSending}
+                      onClick={() => requestRemoveAttachmentAt(i)}
+                      disabled={composerSending || composerChipIsExiting(chipKey)}
                       class="oh-composer-chip-close"
                       aria-label={t('composer.attachment.remove', '移除附件')}
                     >
-                      ×
+                      <ComposerIcon name="close" size={14} />
                     </button>
                   </li>
                 );
@@ -2345,7 +2476,7 @@ export function SessionDetailPage() {
           {skillPickerOpen ? (
             <div class="oh-skill-picker oh-appear-pop" role="listbox">
               <div class="oh-skill-picker-title">
-                <span aria-hidden>▣</span>
+                <span aria-hidden><ComposerIcon name="spark" size={16} /></span>
                 {t('composer.skill.pick', '选择一个技能')}
               </div>
               {skillPickerLoading ? (
@@ -2456,7 +2587,7 @@ export function SessionDetailPage() {
                   background: 'var(--m3-surface)',
                 }}
               >
-                <span aria-hidden>＋</span>
+                <span class="oh-composer-action-icon"><ComposerIcon name="attachment" size={16} /></span>
                 {t('composer.attachment.add', '添加附件')}
                 <input
                   type="file"
