@@ -1586,14 +1586,22 @@ class WebMessagePlatformService {
 
   /// Settings: 暴露一组 Web 远程可读 / 可改的核心 prefs。
   /// 字段精挑细选: reduce_motion (动画) / locale (UI 语言) /
+  /// dialog_animation_settings (只读弹窗动画同步) /
   /// memory_enabled (是否在 prompt 注入用户记忆) /
   /// ai_message_compression_threshold_chars (单消息压缩阈值)。
   /// 其余设置仍只能在 App 端修改 (避免 Web 误改影响本机正在跑的会话)。
   Future<shelf.Response> _getPreferencesHandler() async {
-    return _json(HttpStatus.ok, <String, Object?>{
+    return _json(HttpStatus.ok, _preferencesPayload());
+  }
+
+  Map<String, Object?> _preferencesPayload({Map<String, Object?>? updated}) {
+    return <String, Object?>{
+      if (updated != null) 'updated': updated,
       'reduce_motion': _settingsController.reduceMotion,
       'locale': _settingsController.locale.toLanguageTag(),
       'language_storage_value': _settingsController.language.storageValue,
+      'dialog_animation_settings': _settingsController.dialogAnimationSettings
+          .toJson(),
       'memory_enabled': _settingsController.memoryEnabled,
       'ai_message_compression_threshold_chars':
           _settingsController.aiMessageCompressionThresholdChars,
@@ -1606,7 +1614,7 @@ class WebMessagePlatformService {
       'language_options': AppLanguage.values
           .map((l) => l.storageValue)
           .toList(growable: false),
-    });
+    };
   }
 
   Future<shelf.Response> _putPreferencesHandler(shelf.Request request) async {
@@ -1637,13 +1645,7 @@ class WebMessagePlatformService {
       }
     }
     _log(WebGatewayLogLevel.warn, 'SETTINGS', 'Web 修改偏好设置', updated);
-    return _json(HttpStatus.ok, <String, Object?>{
-      'updated': updated,
-      'reduce_motion': _settingsController.reduceMotion,
-      'language_storage_value': _settingsController.language.storageValue,
-      'ai_message_compression_threshold_chars':
-          _settingsController.aiMessageCompressionThresholdChars,
-    });
+    return _json(HttpStatus.ok, _preferencesPayload(updated: updated));
   }
 
   Map<String, Object?> _metaPayload() {
@@ -1681,6 +1683,8 @@ class WebMessagePlatformService {
         'reduce_motion': _settingsController.reduceMotion,
         'locale': _settingsController.locale.toLanguageTag(),
         'language_storage_value': _settingsController.language.storageValue,
+        'dialog_animation_settings': _settingsController.dialogAnimationSettings
+            .toJson(),
       },
       'shortcut_bindings': _shortcutBindingsPayload(),
       'theme': _theme.toJson(),

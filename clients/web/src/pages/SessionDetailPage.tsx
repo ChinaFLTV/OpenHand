@@ -119,12 +119,41 @@ async function copyJsonWithFeedback(json: string): Promise<void> {
 
 // 时间戳与角色标签现在由 MessageCard 内部处理，本页不再直接使用。
 
+interface MergeServerWindowOptions {
+  preserveLocalStreamingTail?: boolean;
+}
+
+function isRunningPhase(phase: string | null | undefined): boolean {
+  return Boolean(phase && phase !== 'idle');
+}
+
+function isStreamingTailMessage(message: SessionMessage): boolean {
+  return message.role === 'assistant' || message.role === 'tool';
+}
+
+function shouldKeepLongerStreamingMessage(
+  existing: SessionMessage | undefined,
+  incoming: SessionMessage,
+  options: MergeServerWindowOptions,
+): boolean {
+  return Boolean(
+    options.preserveLocalStreamingTail &&
+    existing &&
+    existing.id === incoming.id &&
+    existing.kind === incoming.kind &&
+    existing.role === incoming.role &&
+    isStreamingTailMessage(existing) &&
+    existing.content.length > incoming.content.length,
+  );
+}
+
 /// 流式增量合并：保留与上一次 snapshot 相同的对象引用，仅替换发生变化的尾巴消息。
 /// 使 `<MessageCard memo>` 在 SSE 80ms 推流期间跳过不变前缀的重新 diff，
 /// 让流式更新感觉真正像"逐字增长"而不是"全帧重排"。
-function mergeStream(
+export function mergeStream(
   prev: SessionMessage[],
   next: SessionMessage[],
+  options: MergeServerWindowOptions = {},
 ): SessionMessage[] {
   if (prev === next) return prev;
   if (prev.length === 0 || next.length === 0) return next;
@@ -134,7 +163,9 @@ function mergeStream(
   for (let i = 0; i < next.length; i += 1) {
     const a = i < prev.length ? prev[i] : undefined;
     const b = next[i];
-    if (
+    if (shouldKeepLongerStreamingMessage(a, b, options)) {
+      out[i] = a!;
+    } else if (
       a &&
       a.id === b.id &&
       a.content.length === b.content.length &&
@@ -153,19 +184,65 @@ function mergeStream(
   return identical ? prev : out;
 }
 
-function mergeServerWindow(
+function appendLocalStreamingTail(
+  prev: SessionMessage[],
+  merged: SessionMessage[],
+): SessionMessage[] {
+  if (prev.length === 0 || merged.length === 0) return merged;
+  const mergedIndexById = new Map<string, number>();
+  merged.forEach((item, index) => mergedIndexById.set(item.id, index));
+  let prevSharedIndex = -1;
+  let mergedSharedIndex = -1;
+  for (let index = prev.length - 1; index >= 0; index -= 1) {
+    const match = mergedIndexById.get(prev[index]!.id);
+    if (match != null) {
+      prevSharedIndex = index;
+      mergedSharedIndex = match;
+      break;
+    }
+  }
+  if (prevSharedIndex < 0 || mergedSharedIndex !== merged.length - 1) return merged;
+  const suffix = prev.slice(prevSharedIndex + 1);
+  if (suffix.length === 0 || !suffix.every(isStreamingTailMessage)) return merged;
+  return [...merged, ...suffix];
+}
+
+export function mergeServerWindow(
   prev: SessionMessage[],
   latest: SessionMessage[],
   currentOffset: number,
   nextOffset: number,
+  options: MergeServerWindowOptions = {},
 ): SessionMessage[] {
   if (prev.length === 0) return latest;
-  if (nextOffset < currentOffset) return latest;
+  if (options.preserveLocalStreamingTail && latest.length === 0) return prev;
+  if (nextOffset < currentOffset) {
+    if (options.preserveLocalStreamingTail) {
+      const firstPrev = prev[0];
+      const overlapIndex = firstPrev
+        ? latest.findIndex((item) => item.id === firstPrev.id)
+        : -1;
+      if (overlapIndex >= 0) {
+        const merged = mergeStream(prev, latest.slice(overlapIndex), options);
+        return appendLocalStreamingTail(prev, merged);
+      }
+      return prev;
+    }
+    return latest;
+  }
   const prefixCount = nextOffset - currentOffset;
-  if (prefixCount <= 0) return mergeStream(prev, latest);
+  if (prefixCount <= 0) {
+    const merged = mergeStream(prev, latest, options);
+    return options.preserveLocalStreamingTail
+      ? appendLocalStreamingTail(prev, merged)
+      : merged;
+  }
   if (prefixCount > prev.length) return latest;
   const prefix = prev.slice(0, prefixCount);
-  return [...prefix, ...mergeStream(prev.slice(prefixCount), latest)];
+  const merged = [...prefix, ...mergeStream(prev.slice(prefixCount), latest, options)];
+  return options.preserveLocalStreamingTail
+    ? appendLocalStreamingTail(prev, merged)
+    : merged;
 }
 
 function nextWindowOffset(
@@ -561,8 +638,6 @@ export function SessionDetailPage() {
   const composerChipExitTimersRef = useRef<number[]>([]);
   const composerAttachmentIdsRef = useRef<string[]>([]);
   const attachmentIdSeqRef = useRef(0);
-  const lastComposerHeightRef = useRef<number | null>(null);
-
   // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
   // ---------------------------------------------------------------------
   // 1) 自动跟随: 用户离底 ≤64px 视为「贴底」, 新消息追加时直接 scrollTo bottom;
@@ -571,7 +646,11 @@ export function SessionDetailPage() {
   //    运行态且距离最近一次本地 send > 4s, 视为「另一处客户端在生成」,
   //    若此时 composerText 非空 → 顶部黄色 banner 提示, 防止用户误以为自己刚发了。
   const isNearBottomRef = useRef<boolean>(true);
+  const autoFollowRef = useRef<boolean>(true);
+  const autoFollowPausedRef = useRef<boolean>(false);
   const programmaticScrollUntilRef = useRef<number>(0);
+  const followFrameRef = useRef<number | null>(null);
+  const followSettleFrameRef = useRef<number | null>(null);
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailContentLengthRef = useRef<number>(0);
   const lastLocalSendAtRef = useRef<number>(0);
@@ -609,6 +688,25 @@ export function SessionDetailPage() {
     composerChipExitTimersRef.current = [];
   }, []);
 
+  useEffect(() => () => {
+    if (followFrameRef.current != null) {
+      window.cancelAnimationFrame(followFrameRef.current);
+      followFrameRef.current = null;
+    }
+    if (followSettleFrameRef.current != null) {
+      window.cancelAnimationFrame(followSettleFrameRef.current);
+      followSettleFrameRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    autoFollowRef.current = autoFollow;
+  }, [autoFollow]);
+
+  useEffect(() => {
+    autoFollowPausedRef.current = autoFollowPaused;
+  }, [autoFollowPaused]);
+
   function nextAttachmentUiId(): string {
     attachmentIdSeqRef.current += 1;
     return `att-${Date.now().toString(36)}-${attachmentIdSeqRef.current}`;
@@ -633,16 +731,37 @@ export function SessionDetailPage() {
     composerChipExitTimersRef.current.push(timer);
   }
 
+  const setAutoFollowEnabled = (value: boolean) => {
+    autoFollowRef.current = value;
+    setAutoFollow((current) => (current === value ? current : value));
+  };
+
+  const setAutoFollowPausedValue = (value: boolean) => {
+    autoFollowPausedRef.current = value;
+    setAutoFollowPaused((current) => (current === value ? current : value));
+  };
+
+  const clearUnreadCount = () => {
+    setUnreadCount((count) => (count === 0 ? count : 0));
+  };
+
+  const pinMessagesToBottom = () => {
+    const el = mainRef.current;
+    if (!el) return;
+    const bottomTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (Math.abs(el.scrollTop - bottomTop) > 0.5) {
+      el.scrollTop = bottomTop;
+    }
+  };
+
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
     const el = mainRef.current;
     if (!el) return;
     programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 700 : 220);
     if (behavior === 'smooth') {
-      el.scrollTo({ top: el.scrollHeight, behavior });
+      el.scrollTo({ top: Math.max(0, el.scrollHeight - el.clientHeight), behavior });
     } else {
-      // 直接同步设置，避免 scrollTo({behavior:'auto'}) 在某些浏览器上仍触发额外 reflow，
-      // 与 ResizeObserver / 新消息追加产生的 scroll-anchor 抢位，从而让消息列表抽搐。
-      el.scrollTop = el.scrollHeight;
+      pinMessagesToBottom();
     }
   };
 
@@ -650,28 +769,32 @@ export function SessionDetailPage() {
     const el = mainRef.current;
     if (!el) return;
     programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 900 : 260);
-    // 流式追加文本时，立刻同步把 scrollTop 钉到底，避免 scroll-anchor 把视口卡在旧位置后我们再回拉，
-    // 进而呈现「先上移再降落」的鬼畜抖动。
     scrollMessagesToBottom(behavior);
     isNearBottomRef.current = true;
-    setAutoFollowPaused(false);
-    setUnreadCount(0);
+    setAutoFollowPausedValue(false);
+    clearUnreadCount();
     if (behavior === 'auto') {
-      // 下一帧再钉一次，吸收图片懒加载 / markdown 异步渲染引起的二次高度变化，
-      // 但不再叠加多次 scrollTo，单一来源更不易抖。
-      requestAnimationFrame(() => {
+      if (followFrameRef.current != null) {
+        window.cancelAnimationFrame(followFrameRef.current);
+      }
+      if (followSettleFrameRef.current != null) {
+        window.cancelAnimationFrame(followSettleFrameRef.current);
+        followSettleFrameRef.current = null;
+      }
+      followFrameRef.current = requestAnimationFrame(() => {
+        followFrameRef.current = null;
         if (!shouldFollowPinnedMessages()) return;
-        const node = mainRef.current;
-        if (!node) return;
-        if (node.scrollHeight - (node.scrollTop + node.clientHeight) > 1) {
-          node.scrollTop = node.scrollHeight;
-        }
+        pinMessagesToBottom();
+        followSettleFrameRef.current = requestAnimationFrame(() => {
+          followSettleFrameRef.current = null;
+          if (shouldFollowPinnedMessages()) pinMessagesToBottom();
+        });
       });
     }
   };
 
   const shouldFollowPinnedMessages = () => {
-    return autoFollow && isNearBottomRef.current && !autoFollowPaused;
+    return autoFollowRef.current && isNearBottomRef.current && !autoFollowPausedRef.current;
   };
 
   const toggleBrowserFullscreen = async () => {
@@ -842,15 +965,21 @@ export function SessionDetailPage() {
       if (!el) return;
       const dist = el.scrollHeight - (el.scrollTop + el.clientHeight);
       isNearBottomRef.current = dist <= 64;
+      if (Date.now() <= programmaticScrollUntilRef.current) {
+        if (autoFollowRef.current && autoFollowPausedRef.current) {
+          setAutoFollowPausedValue(false);
+        }
+        return;
+      }
       if (!autoFollow) {
-        if (autoFollowPaused) setAutoFollowPaused(false);
+        if (autoFollowPaused) setAutoFollowPausedValue(false);
         return;
       }
       if (isNearBottomRef.current) {
-        if (unreadCount !== 0) setUnreadCount(0);
-        if (autoFollowPaused) setAutoFollowPaused(false);
+        if (unreadCount !== 0) clearUnreadCount();
+        if (autoFollowPaused) setAutoFollowPausedValue(false);
       } else if (!autoFollowPaused && Date.now() > programmaticScrollUntilRef.current) {
-        setAutoFollowPaused(true);
+        setAutoFollowPausedValue(true);
       }
     }
     recalc();
@@ -865,20 +994,16 @@ export function SessionDetailPage() {
 
   useEffect(() => {
     const target = messagesContentRef.current;
-    if (!target || typeof ResizeObserver === 'undefined') return;
-    let frame: number | null = null;
+    const scroller = mainRef.current;
+    if (!target || !scroller || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
       if (!shouldFollowPinnedMessages()) return;
-      if (frame != null) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        frame = null;
-        scrollMessagesToBottom('auto');
-      });
+      scheduleFollowToBottom('auto');
     });
     observer.observe(target);
+    observer.observe(scroller);
     return () => {
       observer.disconnect();
-      if (frame != null) window.cancelAnimationFrame(frame);
     };
   }, [autoFollow, autoFollowPaused]);
 
@@ -903,35 +1028,13 @@ export function SessionDetailPage() {
   }, [composerCollapsed]);
 
   useLayoutEffect(() => {
-    const el = composerSectionRef.current;
-    if (!el || typeof window === 'undefined') return;
-    const nextHeight = el.getBoundingClientRect().height;
-    const previousHeight = lastComposerHeightRef.current;
-    lastComposerHeightRef.current = nextHeight;
-    if (reduceMotion || previousHeight == null || Math.abs(previousHeight - nextHeight) < 2) return;
-    el.style.overflow = 'clip';
-    const animation = el.animate([
-      { height: `${previousHeight}px`, transform: 'translate3d(0, 0, 0) scale(1)' },
-      { height: `${nextHeight}px`, transform: 'translate3d(0, -1px, 0) scale(1.003)' },
-      { height: `${nextHeight}px`, transform: 'translate3d(0, 0, 0) scale(1)' },
-    ], {
-      duration: 420,
-      easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-    });
-    animation.onfinish = () => {
-      el.style.overflow = '';
-      if (shouldFollowPinnedMessages()) scheduleFollowToBottom('auto');
-    };
-    animation.oncancel = animation.onfinish;
     if (shouldFollowPinnedMessages()) scheduleFollowToBottom('auto');
-    return () => animation.cancel();
   }, [
     composerCollapsed,
     composerAttachments.length,
     selectedSkill?.name,
     editingDraftMessage?.id,
     composerError,
-    reduceMotion,
   ]);
 
   useEffect(() => {
@@ -976,7 +1079,7 @@ export function SessionDetailPage() {
       const behavior = reduceMotion || tailContentChanged ? 'auto' : 'smooth';
       scheduleFollowToBottom(behavior);
     } else {
-      if (autoFollow) setAutoFollowPaused(true);
+      if (autoFollow) setAutoFollowPausedValue(true);
       setUnreadCount((n) => (tailChanged ? n + 1 : Math.max(1, n)));
     }
   }, [messages, autoFollow, autoFollowPaused, reduceMotion]);
@@ -1165,6 +1268,7 @@ export function SessionDetailPage() {
         m.items,
         windowOffsetRef.current,
         m.offset,
+        { preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase) },
       ));
       setWindowOffset((prev) => {
         const next = nextWindowOffset(prev, messagesRef.current.length, m.offset);
@@ -1273,6 +1377,7 @@ export function SessionDetailPage() {
           snap.messages,
           windowOffsetRef.current,
           snapOffset,
+          { preserveLocalStreamingTail: isRunningPhase(snap.send_phase) },
         ));
         setWindowOffset((prev) => {
           const next = nextWindowOffset(prev, messagesRef.current.length, snapOffset);
@@ -1412,6 +1517,7 @@ export function SessionDetailPage() {
           m.items,
           windowOffsetRef.current,
           offset,
+          { preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase) },
         ));
         setWindowOffset((prev) => {
           const next = nextWindowOffset(prev, messagesRef.current.length, offset);
@@ -2119,9 +2225,9 @@ export function SessionDetailPage() {
   }, [messages]);
 
   const resumeToLatest = () => {
-    setAutoFollow(true);
-    setAutoFollowPaused(false);
-    setUnreadCount(0);
+    setAutoFollowEnabled(true);
+    setAutoFollowPausedValue(false);
+    clearUnreadCount();
     isNearBottomRef.current = true;
     scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   };
@@ -2448,8 +2554,8 @@ export function SessionDetailPage() {
                 if (!autoFollow || autoFollowPaused || unreadCount > 0) {
                   resumeToLatest();
                 } else {
-                  setAutoFollow(false);
-                  setAutoFollowPaused(false);
+                  setAutoFollowEnabled(false);
+                  setAutoFollowPausedValue(false);
                 }
               }}
               class={`oh-composer-control oh-composer-follow-control oh-tap-press ${autoFollow || autoFollowPaused || unreadCount > 0 ? 'is-tonal' : 'is-muted'}`}

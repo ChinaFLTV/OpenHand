@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { getDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
 
-const DEFAULT_EXIT_MS = 180;
-
-export function useDialogExitMotion(onClose: () => void, exitMs = DEFAULT_EXIT_MS) {
+export function useDialogExitMotion(onClose: () => void, exitMs?: number) {
   const reduceMotion = useReducedMotion();
   const [closing, setClosing] = useState(false);
   const timeoutRef = useRef<number | null>(null);
@@ -11,14 +10,15 @@ export function useDialogExitMotion(onClose: () => void, exitMs = DEFAULT_EXIT_M
   const requestClose = useCallback(() => {
     if (closing) return;
     setClosing(true);
-    if (reduceMotion || typeof window === 'undefined') {
+    const durationMs = exitMs ?? getDialogExitDurationMs();
+    if (reduceMotion || durationMs <= 0 || typeof window === 'undefined') {
       onClose();
       return;
     }
     timeoutRef.current = window.setTimeout(() => {
       timeoutRef.current = null;
       onClose();
-    }, exitMs);
+    }, durationMs);
   }, [closing, exitMs, onClose, reduceMotion]);
 
   useEffect(() => {

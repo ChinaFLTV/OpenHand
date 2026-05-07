@@ -30,7 +30,10 @@ describe('ConfirmDialog motion', () => {
     expect(overlay.className).toContain('oh-dialog-fade-out');
     expect(dialog.className).toContain('oh-dialog-pop-out');
 
-    vi.advanceTimersByTime(180);
+    vi.advanceTimersByTime(319);
+    expect(onCancel).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });

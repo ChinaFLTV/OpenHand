@@ -9,6 +9,7 @@ import { applyThemeTokens, defaultThemeTokens, type M3ThemeTokens } from '../the
 import { metaThemeToTokens } from '../api/meta';
 import { clearAuthStorage, readProfile, readToken, type AuthProfile } from './storage';
 import { setRemoteReducedMotion } from '../hooks/useReducedMotion';
+import { syncRemoteDialogMotionSettings } from '../hooks/useDialogMotionSettings';
 import { syncLangFromAppPreferences } from '../i18n';
 
 export interface AuthState {
@@ -48,6 +49,7 @@ function applyMetaSideEffects(meta: ApiMetaResponse): M3ThemeTokens {
   const tokens = metaThemeToTokens(meta.theme, defaultThemeTokens);
   applyThemeTokens(tokens);
   setRemoteReducedMotion(Boolean(meta.preferences?.reduce_motion));
+  syncRemoteDialogMotionSettings(meta.preferences?.dialog_animation_settings);
   syncLangFromAppPreferences(
     meta.preferences?.language_storage_value,
     meta.preferences?.locale,

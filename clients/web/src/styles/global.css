@@ -113,6 +113,9 @@ html, body, #root {
   --oh-motion-duration-base: 240ms;
   --oh-motion-duration-slow: 320ms;
   --oh-motion-stagger-step: 60ms;
+  --oh-dialog-duration: 320ms;
+  --oh-dialog-curve: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --oh-dialog-exit-curve: cubic-bezier(0.55, 0.055, 0.675, 0.19);
 }
 
 @keyframes oh-appear-up {
@@ -125,8 +128,9 @@ html, body, #root {
   100% { opacity: 1; transform: scale(1); }
 }
 @keyframes oh-page-fade-in {
-  from { opacity: 0; transform: translate3d(0, 6px, 0); }
-  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  0%   { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.992); }
+  62%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.002); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 @keyframes oh-route-view-enter {
   0%   { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.985); }
@@ -184,7 +188,7 @@ html, body, #root {
   will-change: transform, opacity;
 }
 .oh-page-fade {
-  animation: oh-page-fade-in var(--oh-motion-duration-slow) var(--oh-motion-emphasized) both;
+  animation: oh-page-fade-in 360ms var(--oh-motion-spring) both;
 }
 .oh-snackbar-enter {
   animation: oh-snackbar-enter 280ms var(--oh-motion-spring) both;
@@ -371,10 +375,7 @@ html, body, #root {
 .oh-session-messages {
   overflow-anchor: none;
   scroll-behavior: auto;
-  transition:
-    min-height 420ms var(--oh-motion-spring),
-    padding-bottom 320ms var(--oh-motion-emphasized);
-  will-change: min-height;
+  overscroll-behavior: contain;
 }
 .oh-session-message-content,
 .oh-session-message-content > * {
@@ -382,16 +383,16 @@ html, body, #root {
 }
 
 .oh-session-composer {
-  transform-origin: bottom center;
+  transform-origin: top center;
   transition:
     box-shadow 260ms var(--oh-motion-emphasized),
     background-color 260ms var(--oh-motion-emphasized),
-    transform 420ms var(--oh-motion-spring);
-  will-change: height, transform;
+    transform 320ms var(--oh-motion-spring);
+  will-change: transform;
 }
 
 .oh-session-composer[data-collapsed='true'] {
-  transform: translate3d(0, 1px, 0) scale(0.998);
+  transform: translate3d(0, 0, 0) scale(1);
 }
 
 .oh-session-capsule-icon {
@@ -484,14 +485,14 @@ html, body, #root {
 .oh-composer-body {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: flex-start;
   max-height: 520px;
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
-  transform-origin: bottom center;
-  overflow: visible;
+  transform-origin: top center;
+  overflow: clip;
   transition:
-    max-height 420ms var(--oh-motion-spring),
+    max-height 380ms var(--oh-motion-spring),
     opacity 220ms var(--oh-motion-emphasized),
     transform 320ms var(--oh-motion-spring);
   will-change: max-height, opacity, transform;
@@ -499,9 +500,8 @@ html, body, #root {
 .oh-composer-body[data-collapsed='true'] {
   max-height: 0;
   opacity: 0;
-  overflow: hidden;
   pointer-events: none;
-  transform: translate3d(0, 6px, 0) scale(0.985);
+  transform: scaleY(0.985);
 }
 
 .oh-composer-toolbar {
@@ -1879,38 +1879,147 @@ button.oh-composer-pill:not(:disabled):hover {
   flex: none;
 }
 
-/* 弹窗入场：遮罩 fade + 中央卡片 spring scale-in，对齐 Material 3 Expressive 的"触觉Q弹"。 */
+/* 弹窗入场：遮罩 fade + 卡片动画由 App 端 DialogAnimationSettings 同步控制。 */
 @keyframes oh-dialog-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
-}
-@keyframes oh-dialog-pop-in {
-  0%   { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.94); }
-  60%  { opacity: 1; transform: translate3d(0, -2px, 0) scale(1.02); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 @keyframes oh-dialog-fade-out {
   from { opacity: 1; }
   to   { opacity: 0; }
 }
-@keyframes oh-dialog-pop-out {
+
+@keyframes oh-dialog-card-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes oh-dialog-card-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes oh-dialog-fade-scale-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes oh-dialog-fade-scale-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.85); }
+}
+@keyframes oh-dialog-slide-up-in {
+  from { opacity: 0; transform: translate3d(0, 15%, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes oh-dialog-slide-up-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to   { opacity: 0; transform: translate3d(0, 15%, 0); }
+}
+@keyframes oh-dialog-slide-down-in {
+  from { opacity: 0; transform: translate3d(0, -15%, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes oh-dialog-slide-down-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to   { opacity: 0; transform: translate3d(0, -15%, 0); }
+}
+@keyframes oh-dialog-slide-left-in {
+  from { opacity: 0; transform: translate3d(-25%, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes oh-dialog-slide-left-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to   { opacity: 0; transform: translate3d(-25%, 0, 0); }
+}
+@keyframes oh-dialog-slide-right-in {
+  from { opacity: 0; transform: translate3d(25%, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes oh-dialog-slide-right-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to   { opacity: 0; transform: translate3d(25%, 0, 0); }
+}
+@keyframes oh-dialog-expand-in {
+  from { opacity: 0; transform: scale(0); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes oh-dialog-expand-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0); }
+}
+@keyframes oh-dialog-rotate-scale-in {
+  from { opacity: 0; transform: rotate(-18deg) scale(0.7); }
+  to   { opacity: 1; transform: rotate(0) scale(1); }
+}
+@keyframes oh-dialog-rotate-scale-out {
+  from { opacity: 1; transform: rotate(0) scale(1); }
+  to   { opacity: 0; transform: rotate(-10deg) scale(0.7); }
+}
+@keyframes oh-dialog-elastic-in {
+  0%   { opacity: 0; transform: scale(0.9); }
+  45%  { opacity: 1; }
+  70%  { transform: scale(1.035); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes oh-dialog-spring-scale-in {
+  0%   { opacity: 0; transform: scale(0.6); }
+  54%  { opacity: 1; transform: scale(1.055); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes oh-dialog-spring-scale-out {
   from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   to   { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.97); }
 }
+@keyframes oh-dialog-flip-x-in {
+  from { opacity: 0; transform: perspective(900px) rotateX(90deg); }
+  to   { opacity: 1; transform: perspective(900px) rotateX(0); }
+}
+@keyframes oh-dialog-flip-x-out {
+  from { opacity: 1; transform: perspective(900px) rotateX(0); }
+  to   { opacity: 0; transform: perspective(900px) rotateX(70deg); }
+}
 .oh-dialog-fade-in {
-  animation: oh-dialog-fade-in 220ms var(--oh-motion-emphasized) both;
+  animation: oh-dialog-fade-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
 }
 .oh-dialog-pop-in {
-  animation: oh-dialog-pop-in 360ms var(--oh-motion-spring) both;
+  animation: oh-dialog-fade-scale-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
+  transform-origin: center;
   will-change: transform, opacity;
 }
 .oh-dialog-fade-out {
-  animation: oh-dialog-fade-out 180ms var(--oh-motion-emphasized) both;
+  animation: oh-dialog-fade-out var(--oh-dialog-duration) var(--oh-dialog-exit-curve) both;
 }
 .oh-dialog-pop-out {
-  animation: oh-dialog-pop-out 180ms var(--oh-motion-emphasized) both;
+  animation: oh-dialog-fade-scale-out var(--oh-dialog-duration) var(--oh-dialog-exit-curve) both;
+  transform-origin: center;
   will-change: transform, opacity;
 }
+
+[data-dialog-enter='none'] .oh-dialog-fade-in,
+[data-dialog-enter='none'] .oh-dialog-pop-in,
+[data-dialog-exit='none'] .oh-dialog-fade-out,
+[data-dialog-exit='none'] .oh-dialog-pop-out {
+  animation: none;
+}
+[data-dialog-enter='fade'] .oh-dialog-pop-in { animation-name: oh-dialog-card-fade-in; }
+[data-dialog-enter='slide_up'] .oh-dialog-pop-in { animation-name: oh-dialog-slide-up-in; }
+[data-dialog-enter='slide_down'] .oh-dialog-pop-in { animation-name: oh-dialog-slide-down-in; }
+[data-dialog-enter='slide_left'] .oh-dialog-pop-in { animation-name: oh-dialog-slide-left-in; }
+[data-dialog-enter='slide_right'] .oh-dialog-pop-in { animation-name: oh-dialog-slide-right-in; }
+[data-dialog-enter='expand'] .oh-dialog-pop-in { animation-name: oh-dialog-expand-in; }
+[data-dialog-enter='rotate_scale'] .oh-dialog-pop-in { animation-name: oh-dialog-rotate-scale-in; }
+[data-dialog-enter='elastic'] .oh-dialog-pop-in { animation-name: oh-dialog-elastic-in; }
+[data-dialog-enter='spring_scale'] .oh-dialog-pop-in { animation-name: oh-dialog-spring-scale-in; }
+[data-dialog-enter='flip_x'] .oh-dialog-pop-in { animation-name: oh-dialog-flip-x-in; }
+
+[data-dialog-exit='fade'] .oh-dialog-pop-out { animation-name: oh-dialog-card-fade-out; }
+[data-dialog-exit='slide_up'] .oh-dialog-pop-out { animation-name: oh-dialog-slide-up-out; }
+[data-dialog-exit='slide_down'] .oh-dialog-pop-out { animation-name: oh-dialog-slide-down-out; }
+[data-dialog-exit='slide_left'] .oh-dialog-pop-out { animation-name: oh-dialog-slide-left-out; }
+[data-dialog-exit='slide_right'] .oh-dialog-pop-out { animation-name: oh-dialog-slide-right-out; }
+[data-dialog-exit='expand'] .oh-dialog-pop-out { animation-name: oh-dialog-expand-out; }
+[data-dialog-exit='rotate_scale'] .oh-dialog-pop-out { animation-name: oh-dialog-rotate-scale-out; }
+[data-dialog-exit='elastic'] .oh-dialog-pop-out,
+[data-dialog-exit='spring_scale'] .oh-dialog-pop-out { animation-name: oh-dialog-spring-scale-out; }
+[data-dialog-exit='flip_x'] .oh-dialog-pop-out { animation-name: oh-dialog-flip-x-out; }
 
 /* 悬浮加号按钮 (FAB)：常态轻浮 + hover 上抬 + active 下沉，外加循环极轻 idle 呼吸。 */
 @keyframes oh-fab-idle {

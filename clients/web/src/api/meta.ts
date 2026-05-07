@@ -1,5 +1,6 @@
 import type { M3ThemeTokens } from '../theme/tokens';
 import { tFmt } from '../i18n';
+import type { ApiDialogAnimationSettings } from '../hooks/useDialogMotionSettings';
 
 export interface ApiMetaService {
   listen_host?: string;
@@ -34,6 +35,7 @@ export interface ApiMetaPreferences {
   reduce_motion?: boolean;
   locale?: string;
   language_storage_value?: string;
+  dialog_animation_settings?: ApiDialogAnimationSettings;
 }
 
 export interface ApiMetaShortcutBinding {

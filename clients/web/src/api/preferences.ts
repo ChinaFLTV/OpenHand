@@ -1,10 +1,12 @@
 // 远程偏好 API. 服务端字段集见 _getPreferencesHandler。
 import { apiRequest } from './client';
+import type { ApiDialogAnimationSettings } from '../hooks/useDialogMotionSettings';
 
 export interface RemotePreferences {
   reduce_motion: boolean;
   locale: string;
   language_storage_value: string;
+  dialog_animation_settings?: ApiDialogAnimationSettings;
   memory_enabled: boolean;
   ai_message_compression_threshold_chars: number;
   limits: {
