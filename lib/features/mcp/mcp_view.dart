@@ -2408,50 +2408,199 @@ class _ToolListPreview extends StatelessWidget {
   }
 }
 
-class _ToolPreviewTile extends StatelessWidget {
+class _ToolPreviewTile extends StatefulWidget {
   const _ToolPreviewTile({required this.tool});
 
   final McpTool tool;
 
   @override
+  State<_ToolPreviewTile> createState() => _ToolPreviewTileState();
+}
+
+class _ToolPreviewTileState extends State<_ToolPreviewTile> {
+  bool _expanded = false;
+
+  bool get _hasInputSchema => widget.tool.inputSchema.isNotEmpty;
+  bool get _hasOutputSchema => widget.tool.hasOutputSchema;
+  bool get _canExpand => _hasInputSchema || _hasOutputSchema;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final description = tool.description.trim();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.handyman_outlined,
-            size: 16,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SelectableText(
-                  tool.name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: 'monospace',
+    final description = widget.tool.description.trim();
+    final header = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.handyman_outlined,
+          size: 16,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(
+                widget.tool.name,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: 'monospace',
+                ),
+              ),
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  maxLines: _expanded ? 6 : 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
                   ),
                 ),
-                if (description.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
               ],
+            ],
+          ),
+        ),
+        if (_canExpand)
+          Padding(
+            padding: const EdgeInsets.only(left: 8, top: 2),
+            child: AnimatedRotation(
+              turns: _expanded ? 0.5 : 0.0,
+              duration: const Duration(milliseconds: 180),
+              child: Icon(
+                Icons.expand_more_rounded,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: InkWell(
+        onTap: _canExpand ? () => setState(() => _expanded = !_expanded) : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              header,
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topLeft,
+                child: _expanded
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 8, left: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_hasInputSchema)
+                              _ToolSchemaBlock(
+                                title: _localizedText(
+                                  context,
+                                  zh: '入参 Schema',
+                                  en: 'Input schema',
+                                ),
+                                payload: widget.tool.inputSchema,
+                              ),
+                            if (_hasOutputSchema) ...[
+                              const SizedBox(height: 8),
+                              _ToolSchemaBlock(
+                                title: _localizedText(
+                                  context,
+                                  zh: '出参 Schema',
+                                  en: 'Output schema',
+                                ),
+                                payload:
+                                    widget.tool.outputSchema ??
+                                    const <String, Object?>{},
+                              ),
+                            ],
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolSchemaBlock extends StatelessWidget {
+  const _ToolSchemaBlock({required this.title, required this.payload});
+
+  final String title;
+  final Map<String, Object?> payload;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    String pretty;
+    try {
+      pretty = const JsonEncoder.withIndent('  ').convert(payload);
+    } catch (_) {
+      pretty = payload.toString();
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.primary,
+                ),
+              ),
+              const Spacer(),
+              Tooltip(
+                message: _localizedText(context, zh: '复制', en: 'Copy'),
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: pretty));
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                      OpenHandSnackBar.success(
+                        context,
+                        _localizedText(
+                          context,
+                          zh: '已复制 Schema',
+                          en: 'Schema copied',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            pretty,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+              color: colorScheme.onSurface,
+              height: 1.4,
             ),
           ),
         ],
