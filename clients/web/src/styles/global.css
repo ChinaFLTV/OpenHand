@@ -355,17 +355,35 @@ html, body, #root {
 .oh-session-capsule-rail {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+  mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
 }
 .oh-session-capsule-rail::-webkit-scrollbar { display: none; }
 
+.oh-session-capsule-rail > div {
+  transition: gap var(--oh-motion-duration-fast) var(--oh-motion-spring);
+}
+
 .oh-session-capsule {
   min-height: 30px;
+  white-space: nowrap;
   transition:
     transform var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
     background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized),
     border-color var(--oh-motion-duration-base) var(--oh-motion-emphasized),
     box-shadow var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+
+.oh-session-capsule .truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oh-session-capsule[data-capsule-key='updated-at'] {
+  max-width: none !important;
+  min-width: max-content;
+  font-variant-numeric: tabular-nums;
 }
 
 .oh-session-capsule:hover {
@@ -1409,6 +1427,7 @@ button.oh-composer-pill:not(:disabled):hover {
     order: 10;
     flex-basis: 100%;
     mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
   }
   .oh-session-topbar-actions {
     margin-left: auto;
@@ -1652,22 +1671,13 @@ button.oh-composer-pill:not(:disabled):hover {
     grid-row: 1;
     margin-left: 0;
   }
-  .oh-session-stop-button {
-    grid-column: 1;
-    grid-row: 2;
-    min-height: 30px;
-    justify-content: center;
-  }
   .oh-session-capsule-rail {
-    grid-column: 2 / 4;
+    grid-column: 1 / 4;
     grid-row: 2;
     order: 0;
     flex-basis: auto;
     min-width: 0;
     width: 100%;
-  }
-  .oh-session-topbar-row:not(:has(.oh-session-stop-button)) .oh-session-capsule-rail {
-    grid-column: 1 / 4;
   }
   .oh-session-capsule {
     max-width: min(46vw, 220px);
@@ -1843,7 +1853,6 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-composer-footer-action {
     width: 100%;
   }
-  .oh-composer-footer-action.is-stop,
   .oh-composer-footer-action.is-waiting {
     display: none;
   }
@@ -1956,18 +1965,6 @@ button.oh-composer-pill:not(:disabled):hover {
   }
   .oh-session-title-block p {
     display: none;
-  }
-  .oh-session-stop-button {
-    width: 32px;
-    height: 30px;
-    min-height: 30px;
-    padding: 0;
-  }
-  .oh-session-stop-label {
-    display: none;
-  }
-  .oh-session-stop-dot {
-    margin: 0;
   }
   .oh-session-refresh-button {
     display: none;

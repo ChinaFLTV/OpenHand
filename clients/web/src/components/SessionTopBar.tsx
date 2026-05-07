@@ -1,7 +1,7 @@
 // 单会话页专用 TopBar (1:1 对齐 OpenHand App 端 home page 顶部条):
 // - 标题区: 返回按钮 + 可点击重命名的标题 + 模板/计数副标题
 // - 工具区: 仅接收上层按 App 端顺序构造好的胶囊；会话模式 / 权限不在 TopBar 重复展示。
-// - 停止按钮 (sendPhase != idle 时高亮) + More 菜单 (重命名 / 删除 / 导出 / 复制 ID)。
+// - More 菜单 (重命名 / 删除 / 导出 / 复制 ID)。
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
@@ -100,12 +100,6 @@ export interface SessionTopBarProps {
   // 标题点击 → 进入重命名;
   onRename?: (next: string) => Promise<void> | void;
 
-  // 状态
-  sendPhase: string;
-  canStop: boolean;
-  stopping: boolean;
-  onStop?: () => void;
-
   // 操作
   onDelete?: () => void;
   onExport?: () => void;
@@ -123,10 +117,6 @@ export function SessionTopBar(props: SessionTopBarProps) {
     subtitle,
     onBack,
     onRename,
-    sendPhase,
-    canStop,
-    stopping,
-    onStop,
     onDelete,
     onExport,
     onToggleFullscreen,
@@ -247,8 +237,6 @@ export function SessionTopBar(props: SessionTopBarProps) {
     }
   }
 
-  const isRunning = sendPhase !== 'idle' && sendPhase !== '';
-
   return (
     <header
       class="oh-session-topbar rounded-m3-md px-2.5 py-2"
@@ -331,35 +319,6 @@ export function SessionTopBar(props: SessionTopBarProps) {
               ))}
             </div>
           </div>
-        ) : null}
-
-        {isRunning && canStop && onStop ? (
-          <button
-            type="button"
-            onClick={onStop}
-            disabled={stopping}
-            class="oh-tap-press oh-session-stop-button text-xs px-2.5 py-1.5 rounded-m3-sm flex-none flex items-center gap-1.5 disabled:opacity-50"
-            style={{
-              border: '1px solid var(--m3-error)',
-              color: 'var(--m3-error)',
-              background: 'var(--m3-error-container)',
-            }}
-            title={t('composer.stop', '停止响应')}
-          >
-            <span
-              class="oh-pulse-soft oh-session-stop-dot inline-block"
-              aria-hidden
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: 'var(--m3-error)',
-              }}
-            />
-            <span class="oh-session-stop-label">
-              {stopping ? t('composer.stopping', '正在停止…') : t('composer.stop', '停止')}
-            </span>
-          </button>
         ) : null}
 
         <div class="oh-session-topbar-actions flex items-center gap-2 flex-none">
@@ -463,7 +422,13 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
   );
   if (!capsule.onClick) {
     return (
-      <span class={baseClass} style={baseStyle} title={capsule.title ?? capsule.label} data-tone={capsule.tone ?? 'neutral'}>
+      <span
+        class={baseClass}
+        style={baseStyle}
+        title={capsule.title ?? capsule.label}
+        data-tone={capsule.tone ?? 'neutral'}
+        data-capsule-key={capsule.key}
+      >
         {children}
       </span>
     );
@@ -476,6 +441,7 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
       onClick={capsule.onClick}
       title={capsule.title ?? capsule.label}
       data-tone={capsule.tone ?? 'neutral'}
+      data-capsule-key={capsule.key}
     >
       {children}
     </button>

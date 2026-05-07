@@ -2355,6 +2355,28 @@ export function SessionDetailPage() {
       ? `${session.total_tokens.toLocaleString()} tokens`
       : t('topbar.tokens.empty', 'Token 暂无');
     const capsules: SessionToolbarCapsule[] = [];
+    capsules.push(
+      {
+        key: 'updated-at',
+        icon: 'runtime',
+        label: formatToolbarDate(session.updated_at),
+        title: `${t('topbar.updatedAt', '更新时间')} · ${formatDialogDate(session.updated_at)}`,
+      },
+      {
+        key: 'audit',
+        icon: 'audit',
+        label: t('topbar.audit', '会话审计'),
+        tone: 'primary',
+        onClick: () => setSessionAuditOpen(true),
+      },
+      {
+        key: 'tokens',
+        icon: 'tokens',
+        label: tokens,
+        title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
+        onClick: () => setTokenStatsOpen(true),
+      },
+    );
     if (lazyLoadingCapsule) capsules.push(lazyLoadingCapsule);
     if (runtimeNotices.length > 0) {
       capsules.push({
@@ -2398,21 +2420,6 @@ export function SessionDetailPage() {
         onClick: () => void openSessionMetadataDialog(),
       });
     }
-    capsules.push(
-      {
-        key: 'updated-at',
-        icon: 'runtime',
-        label: formatToolbarDate(session.updated_at),
-        title: `${t('topbar.updatedAt', '更新时间')} · ${formatDialogDate(session.updated_at)}`,
-      },
-      {
-        key: 'audit',
-        icon: 'audit',
-        label: t('topbar.audit', '会话审计'),
-        tone: 'primary',
-        onClick: () => setSessionAuditOpen(true),
-      },
-    );
     if (session.template_id === 'programming_expert') {
       capsules.push({
         key: 'files',
@@ -2422,15 +2429,6 @@ export function SessionDetailPage() {
         onClick: () => location.route('/files'),
       });
     }
-    capsules.push(
-      {
-        key: 'tokens',
-        icon: 'tokens',
-        label: tokens,
-        title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
-        onClick: () => setTokenStatsOpen(true),
-      },
-    );
     return capsules;
   }, [session, totalKnown, sessionId]);
   const pull = usePullToRefresh(mainRef, {
@@ -2518,10 +2516,6 @@ export function SessionDetailPage() {
               throw e;
             }
           }}
-          sendPhase={sendPhase}
-          canStop={detail?.runtime.can_stop ?? sendPhase !== 'idle'}
-          stopping={stopping}
-          onStop={handleStop}
           onDelete={async () => {
             setPendingSessionDelete(true);
           }}
@@ -3827,7 +3821,7 @@ function formatToolbarDate(value?: string | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function metadataValue(value: unknown): string {
