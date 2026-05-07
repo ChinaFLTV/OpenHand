@@ -111,6 +111,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             int queuedAutoProbeTasks,
             bool autoToolRefreshInProgress,
             bool autoHealthCheckInProgress,
+            DateTime? lastBatchProbeAt,
+            DateTime? nextScheduledProbeAt,
           })
         >((controller) {
           return (
@@ -123,6 +125,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             queuedAutoProbeTasks: controller.queuedAutoProbeTasks,
             autoToolRefreshInProgress: controller.isAutoToolRefreshInProgress,
             autoHealthCheckInProgress: controller.isAutoHealthCheckInProgress,
+            lastBatchProbeAt: controller.lastBatchProbeAt,
+            nextScheduledProbeAt: controller.nextScheduledProbeAt,
           );
         });
     final mcpController = context.read<McpController>();
@@ -223,6 +227,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                 enabledServerCount: mcpSnapshot.servers
                     .where((server) => server.enabled)
                     .length,
+                lastBatchProbeAt: mcpSnapshot.lastBatchProbeAt,
+                nextScheduledProbeAt: mcpSnapshot.nextScheduledProbeAt,
               ),
               const SizedBox(height: 16),
             ],
@@ -1251,6 +1257,29 @@ class _McpServerCard extends StatelessWidget {
                           icon: _healthStatusChipIcon(healthStatus),
                           label: _healthStatusSummary(context, healthStatus),
                         ),
+                      if (healthStatus.latencyMs != null &&
+                          healthStatus.isHealthy)
+                        _McpStatusChip(
+                          icon: Icons.speed_rounded,
+                          label: _localizedText(
+                            context,
+                            zh: '${healthStatus.latencyMs} ms',
+                            en: '${healthStatus.latencyMs} ms',
+                          ),
+                        ),
+                      if (healthStatus.lastCheckedAt != null &&
+                          !healthStatus.isChecking)
+                        _McpStatusChip(
+                          icon: Icons.history_toggle_off_rounded,
+                          label: _formatRelativePast(
+                            context,
+                            healthStatus.lastCheckedAt!,
+                          ),
+                        ),
+                      if (healthStatus.needsAttention)
+                        _McpAttentionChip(
+                          consecutiveFailures: healthStatus.consecutiveFailures,
+                        ),
                       if (toolCatalog.isLoading)
                         AnimatedBuilder(
                           animation: mcpStdioBootstrapStatus,
@@ -1403,6 +1432,42 @@ class _McpStatusChip extends StatelessWidget {
   }
 }
 
+/// 当某个 MCP 服务连续探测失败 ≥ 3 次时，在卡片顶部胶囊行展示一枚醒目的警告标签，
+/// 引导用户去检查配置或网络。配色走 errorContainer，与下方错误提示框遥相呼应。
+class _McpAttentionChip extends StatelessWidget {
+  const _McpAttentionChip({required this.consecutiveFailures});
+
+  final int consecutiveFailures;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: _localizedText(
+        context,
+        zh: '已连续 $consecutiveFailures 次探测失败，建议检查 MCP 服务配置或网络可达性。',
+        en: '$consecutiveFailures consecutive probe failures. Please check MCP server configuration or connectivity.',
+      ),
+      child: Chip(
+        avatar: Icon(
+          Icons.priority_high_rounded,
+          size: 18,
+          color: colorScheme.onErrorContainer,
+        ),
+        backgroundColor: colorScheme.errorContainer,
+        labelStyle: TextStyle(color: colorScheme.onErrorContainer),
+        label: Text(
+          _localizedText(
+            context,
+            zh: '需要处理 · 连续失败 $consecutiveFailures 次',
+            en: 'Needs attention · $consecutiveFailures fails',
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _McpProbeStatusBar extends StatelessWidget {
   const _McpProbeStatusBar({
     required this.maxConcurrency,
@@ -1411,6 +1476,8 @@ class _McpProbeStatusBar extends StatelessWidget {
     required this.toolRefreshInProgress,
     required this.healthCheckInProgress,
     required this.enabledServerCount,
+    required this.lastBatchProbeAt,
+    required this.nextScheduledProbeAt,
   });
 
   final int maxConcurrency;
@@ -1419,6 +1486,8 @@ class _McpProbeStatusBar extends StatelessWidget {
   final bool toolRefreshInProgress;
   final bool healthCheckInProgress;
   final int enabledServerCount;
+  final DateTime? lastBatchProbeAt;
+  final DateTime? nextScheduledProbeAt;
 
   @override
   Widget build(BuildContext context) {
@@ -1544,6 +1613,24 @@ class _McpProbeStatusBar extends StatelessWidget {
                   en: 'Health ${healthCheckInProgress ? 'running' : 'idle'}',
                 ),
               ),
+              if (lastBatchProbeAt != null)
+                _McpStatusChip(
+                  icon: Icons.history_rounded,
+                  label: _localizedText(
+                    context,
+                    zh: '上次 ${_formatRelativePast(context, lastBatchProbeAt!)}',
+                    en: 'Last ${_formatRelativePast(context, lastBatchProbeAt!)}',
+                  ),
+                ),
+              if (nextScheduledProbeAt != null && !hasWork)
+                _McpStatusChip(
+                  icon: Icons.schedule_rounded,
+                  label: _localizedText(
+                    context,
+                    zh: '下次 ${_formatRelativeFuture(context, nextScheduledProbeAt!)}',
+                    en: 'Next ${_formatRelativeFuture(context, nextScheduledProbeAt!)}',
+                  ),
+                ),
             ],
           ),
         ],
@@ -3449,4 +3536,46 @@ String _localizedText(
 }) {
   final languageCode = Localizations.localeOf(context).languageCode;
   return languageCode.startsWith('zh') ? zh : en;
+}
+
+/// 把 UTC 时间戳渲染成「12 秒前 / 3 分钟前 / 4 小时前」形式。
+String _formatRelativePast(BuildContext context, DateTime utc) {
+  final diff = DateTime.now().toUtc().difference(utc);
+  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  if (diff.inSeconds < 5) return isZh ? '刚刚' : 'just now';
+  if (diff.inSeconds < 60) {
+    final s = diff.inSeconds;
+    return isZh ? '$s 秒前' : '${s}s ago';
+  }
+  if (diff.inMinutes < 60) {
+    final m = diff.inMinutes;
+    return isZh ? '$m 分钟前' : '${m}m ago';
+  }
+  if (diff.inHours < 24) {
+    final h = diff.inHours;
+    return isZh ? '$h 小时前' : '${h}h ago';
+  }
+  final d = diff.inDays;
+  return isZh ? '$d 天前' : '${d}d ago';
+}
+
+/// 把未来 UTC 时间戳渲染成「约 12 秒后 / 约 3 分钟后」形式；过期则显示「即将开始」。
+String _formatRelativeFuture(BuildContext context, DateTime utc) {
+  final diff = utc.difference(DateTime.now().toUtc());
+  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  if (diff.inSeconds <= 0) return isZh ? '即将开始' : 'imminent';
+  if (diff.inSeconds < 60) {
+    final s = diff.inSeconds;
+    return isZh ? '约 $s 秒后' : 'in ${s}s';
+  }
+  if (diff.inMinutes < 60) {
+    final m = diff.inMinutes;
+    return isZh ? '约 $m 分钟后' : 'in ${m}m';
+  }
+  if (diff.inHours < 24) {
+    final h = diff.inHours;
+    return isZh ? '约 $h 小时后' : 'in ${h}h';
+  }
+  final d = diff.inDays;
+  return isZh ? '约 $d 天后' : 'in ${d}d';
 }

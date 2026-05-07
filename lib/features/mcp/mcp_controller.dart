@@ -97,6 +97,8 @@ class McpController extends ChangeNotifier {
   bool _autoToolRefreshInProgress = false;
   bool _autoHealthCheckInProgress = false;
   int _activeAutoProbeSlots = 0;
+  DateTime? _lastBatchProbeAt;
+  static const int _maxRecentProbeRecords = 10;
   Future<void> _operationQueue = Future<void>.value();
   Timer? _pageActivationWorkTimer;
   Timer? _healthCheckTimer;
@@ -125,6 +127,28 @@ class McpController extends ChangeNotifier {
   int get autoProbeConcurrency => _autoProbeConcurrency;
   int get activeAutoProbeSlots => _activeAutoProbeSlots;
   int get queuedAutoProbeTasks => _autoProbeSlotWaiters.length;
+
+  /// 最近一次自动批量探测（tools 拉取或健康检查）的发起时间（UTC）。
+  DateTime? get lastBatchProbeAt => _lastBatchProbeAt;
+
+  /// 健康检查的固定周期，用于 UI 推算「下次自动探测」时间。
+  Duration get healthCheckInterval => _healthCheckInterval;
+
+  /// 推算下次自动健康探测的 UTC 时间；当前没有可用信息时返回 null。
+  DateTime? get nextScheduledProbeAt {
+    if (_isDisposed || !_isPageActive) {
+      return null;
+    }
+    if (!_servers.any((server) => server.enabled)) {
+      return null;
+    }
+    final base = _lastBatchProbeAt;
+    if (base == null) {
+      return DateTime.now().toUtc().add(_healthCheckInterval);
+    }
+    return base.add(_healthCheckInterval);
+  }
+
   bool get isAutoToolRefreshInProgress => _autoToolRefreshInProgress;
   bool get isAutoHealthCheckInProgress => _autoHealthCheckInProgress;
 
@@ -378,30 +402,80 @@ class McpController extends ChangeNotifier {
     );
     notifyListeners();
 
+    final stopwatch = Stopwatch()..start();
     try {
       final resolvedHealth = await _toolDiscoveryService.checkHealth(server);
+      stopwatch.stop();
       if (_isDisposed ||
           !_isPageActive ||
           _healthCheckGenerationByServerName[normalizedServerName] !=
               nextGeneration) {
         return;
       }
-      _healthByServerName[normalizedServerName] = resolvedHealth;
+      final latencyMs = stopwatch.elapsedMilliseconds;
+      final completedAt =
+          resolvedHealth.lastCheckedAt ?? DateTime.now().toUtc();
+      final isHealthy = resolvedHealth.status == McpServerHealthStatus.healthy;
+      final consecutiveFailures = isHealthy
+          ? 0
+          : previousHealth.consecutiveFailures + 1;
+      final probeRecord = McpHealthProbeRecord(
+        status: resolvedHealth.status,
+        timestamp: completedAt,
+        latencyMs: isHealthy ? latencyMs : null,
+        errorMessage: resolvedHealth.errorMessage,
+      );
+      final mergedRecent = _appendProbeRecord(
+        previousHealth.recentProbes,
+        probeRecord,
+      );
+      _healthByServerName[normalizedServerName] = resolvedHealth.copyWith(
+        latencyMs: isHealthy ? latencyMs : null,
+        clearLatency: !isHealthy,
+        consecutiveFailures: consecutiveFailures,
+        lastSuccessAt: isHealthy ? completedAt : previousHealth.lastSuccessAt,
+        recentProbes: mergedRecent,
+      );
       notifyListeners();
     } catch (error) {
+      stopwatch.stop();
       if (_isDisposed ||
           !_isPageActive ||
           _healthCheckGenerationByServerName[normalizedServerName] !=
               nextGeneration) {
         return;
       }
+      final completedAt = DateTime.now().toUtc();
+      final probeRecord = McpHealthProbeRecord(
+        status: McpServerHealthStatus.unhealthy,
+        timestamp: completedAt,
+        errorMessage: '$error',
+      );
+      final mergedRecent = _appendProbeRecord(
+        previousHealth.recentProbes,
+        probeRecord,
+      );
       _healthByServerName[normalizedServerName] = McpServerHealth(
         status: McpServerHealthStatus.unhealthy,
         errorMessage: '$error',
-        lastCheckedAt: DateTime.now().toUtc(),
+        lastCheckedAt: completedAt,
+        consecutiveFailures: previousHealth.consecutiveFailures + 1,
+        lastSuccessAt: previousHealth.lastSuccessAt,
+        recentProbes: mergedRecent,
       );
       notifyListeners();
     }
+  }
+
+  List<McpHealthProbeRecord> _appendProbeRecord(
+    List<McpHealthProbeRecord> previous,
+    McpHealthProbeRecord record,
+  ) {
+    final next = <McpHealthProbeRecord>[record, ...previous];
+    if (next.length > _maxRecentProbeRecords) {
+      next.removeRange(_maxRecentProbeRecords, next.length);
+    }
+    return List<McpHealthProbeRecord>.unmodifiable(next);
   }
 
   Future<McpToolCallResult> callTool({
