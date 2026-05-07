@@ -548,11 +548,12 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               minHeight: 240,
             ),
             child: Selector<McpController, McpServerHealth>(
-              selector: (_, controller) => controller.healthStatusFor(
-                serverName,
+              selector: (_, controller) =>
+                  controller.healthStatusFor(serverName),
+              builder: (context, health, _) => _McpHealthHistorySheet(
+                serverName: serverName,
+                health: health,
               ),
-              builder: (context, health, _) =>
-                  _McpHealthHistorySheet(serverName: serverName, health: health),
             ),
           ),
         );
@@ -575,20 +576,28 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.86,
               minHeight: 320,
             ),
-            child: Selector<
-              McpController,
-              ({McpServerHealth health, McpToolCatalog catalog})
-            >(
-              selector: (_, controller) => (
-                health: controller.healthStatusFor(server.name),
-                catalog: controller.toolCatalogFor(server.name),
-              ),
-              builder: (context, snapshot, _) => _McpServerDetailsSheet(
-                server: server,
-                health: snapshot.health,
-                toolCatalog: snapshot.catalog,
-              ),
-            ),
+            child:
+                Selector<
+                  McpController,
+                  ({McpServerHealth health, McpToolCatalog catalog})
+                >(
+                  selector: (_, controller) => (
+                    health: controller.healthStatusFor(server.name),
+                    catalog: controller.toolCatalogFor(server.name),
+                  ),
+                  builder: (context, snapshot, _) => _McpServerDetailsSheet(
+                    server: server,
+                    health: snapshot.health,
+                    toolCatalog: snapshot.catalog,
+                    onEdit: () {
+                      Navigator.of(sheetContext).pop();
+                      if (!context.mounted) {
+                        return;
+                      }
+                      _showServerDialog(context, initialServer: server);
+                    },
+                  ),
+                ),
           ),
         );
       },
@@ -1686,11 +1695,13 @@ class _McpServerDetailsSheet extends StatelessWidget {
     required this.server,
     required this.health,
     required this.toolCatalog,
+    this.onEdit,
   });
 
   final McpServer server;
   final McpServerHealth health;
   final McpToolCatalog toolCatalog;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -1737,11 +1748,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _localizedText(
-                        context,
-                        zh: '服务详情',
-                        en: 'Server details',
-                      ),
+                      _localizedText(context, zh: '服务详情', en: 'Server details'),
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 2),
@@ -1754,6 +1761,19 @@ class _McpServerDetailsSheet extends StatelessWidget {
                   ],
                 ),
               ),
+              if (onEdit != null)
+                Tooltip(
+                  message: _localizedText(
+                    context,
+                    zh: '跳转到编辑',
+                    en: 'Edit configuration',
+                  ),
+                  child: FilledButton.tonalIcon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: Text(_localizedText(context, zh: '编辑', en: 'Edit')),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1777,7 +1797,11 @@ class _McpServerDetailsSheet extends StatelessWidget {
               ),
               if (server.headers.isNotEmpty)
                 _DetailsRow(
-                  label: _localizedText(context, zh: 'Header 数量', en: 'Headers'),
+                  label: _localizedText(
+                    context,
+                    zh: 'Header 数量',
+                    en: 'Headers',
+                  ),
                   value: '${server.headers.length}',
                 ),
             ],
@@ -1812,11 +1836,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
                 },
               ),
               _DetailsRow(
-                label: _localizedText(
-                  context,
-                  zh: '最近成功',
-                  en: 'Last success',
-                ),
+                label: _localizedText(context, zh: '最近成功', en: 'Last success'),
                 value: health.lastSuccessAt == null
                     ? '—'
                     : _formatRelativePast(context, health.lastSuccessAt!),
@@ -1852,11 +1872,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
                 value: avgLatency == null ? '—' : '$avgLatency ms',
               ),
               _DetailsRow(
-                label: _localizedText(
-                  context,
-                  zh: '记录样本',
-                  en: 'Sample size',
-                ),
+                label: _localizedText(context, zh: '记录样本', en: 'Sample size'),
                 value:
                     '${probes.length} '
                     '(${_localizedText(context, zh: '成功 $successCount / 失败 $failureCount', en: '$successCount ok / $failureCount fail')})',
@@ -1881,11 +1897,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
               ),
               if (toolCatalog.errorMessage != null)
                 _DetailsRow(
-                  label: _localizedText(
-                    context,
-                    zh: '最近错误',
-                    en: 'Last error',
-                  ),
+                  label: _localizedText(context, zh: '最近错误', en: 'Last error'),
                   value: toolCatalog.errorMessage!,
                   multiline: true,
                 ),
@@ -2022,16 +2034,47 @@ class _McpHealthHistorySheet extends StatelessWidget {
                 ),
               ),
               if (probes.isNotEmpty)
-                Tooltip(
-                  message: _localizedText(
+                PopupMenuButton<_McpHistoryExportFormat>(
+                  tooltip: _localizedText(
                     context,
-                    zh: '复制为 Markdown',
-                    en: 'Copy as Markdown',
+                    zh: '复制探测历史',
+                    en: 'Copy probe history',
                   ),
-                  child: IconButton(
-                    icon: const Icon(Icons.copy_all_rounded),
-                    onPressed: () => _copyHistoryToClipboard(context),
-                  ),
+                  icon: const Icon(Icons.copy_all_rounded),
+                  onSelected: (format) =>
+                      _copyHistoryToClipboard(context, format),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: _McpHistoryExportFormat.markdown,
+                      child: Text(
+                        _localizedText(
+                          context,
+                          zh: '复制为 Markdown',
+                          en: 'Copy as Markdown',
+                        ),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _McpHistoryExportFormat.json,
+                      child: Text(
+                        _localizedText(
+                          context,
+                          zh: '复制为 JSON',
+                          en: 'Copy as JSON',
+                        ),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _McpHistoryExportFormat.csv,
+                      child: Text(
+                        _localizedText(
+                          context,
+                          zh: '复制为 CSV',
+                          en: 'Copy as CSV',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
@@ -2070,8 +2113,42 @@ class _McpHealthHistorySheet extends StatelessWidget {
     );
   }
 
-  Future<void> _copyHistoryToClipboard(BuildContext context) async {
+  Future<void> _copyHistoryToClipboard(
+    BuildContext context,
+    _McpHistoryExportFormat format,
+  ) async {
     final probes = health.recentProbes;
+    final text = switch (format) {
+      _McpHistoryExportFormat.markdown => _renderHistoryMarkdown(probes),
+      _McpHistoryExportFormat.json => _renderHistoryJson(probes),
+      _McpHistoryExportFormat.csv => _renderHistoryCsv(probes),
+    };
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!context.mounted) {
+      return;
+    }
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) {
+      return;
+    }
+    final formatLabel = switch (format) {
+      _McpHistoryExportFormat.markdown => 'Markdown',
+      _McpHistoryExportFormat.json => 'JSON',
+      _McpHistoryExportFormat.csv => 'CSV',
+    };
+    messenger.showSnackBar(
+      OpenHandSnackBar.success(
+        context,
+        _localizedText(
+          context,
+          zh: '已将最近 ${probes.length} 条探测记录以 $formatLabel 格式复制到剪贴板',
+          en: 'Copied ${probes.length} recent probes as $formatLabel to clipboard',
+        ),
+      ),
+    );
+  }
+
+  String _renderHistoryMarkdown(List<McpHealthProbeRecord> probes) {
     final buffer = StringBuffer()
       ..writeln('# MCP probe history — $serverName')
       ..writeln();
@@ -2094,26 +2171,65 @@ class _McpHealthHistorySheet extends StatelessWidget {
       }
       buffer.writeln();
     }
-    await Clipboard.setData(ClipboardData(text: buffer.toString()));
-    if (!context.mounted) {
-      return;
+    return buffer.toString();
+  }
+
+  String _renderHistoryJson(List<McpHealthProbeRecord> probes) {
+    final payload = {
+      'server': serverName,
+      'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      'probes': [
+        for (final probe in probes)
+          {
+            'timestamp': probe.timestamp.toIso8601String(),
+            'status': probe.status == McpServerHealthStatus.healthy
+                ? 'healthy'
+                : 'failed',
+            if (probe.latencyMs != null) 'latencyMs': probe.latencyMs,
+            if (probe.errorMessage != null &&
+                probe.errorMessage!.trim().isNotEmpty)
+              'errorMessage': probe.errorMessage!.trim(),
+          },
+      ],
+    };
+    return const JsonEncoder.withIndent('  ').convert(payload);
+  }
+
+  String _renderHistoryCsv(List<McpHealthProbeRecord> probes) {
+    final buffer = StringBuffer()..writeln('timestamp,status,latency_ms,error');
+    for (final probe in probes) {
+      final status = probe.status == McpServerHealthStatus.healthy
+          ? 'healthy'
+          : 'failed';
+      final latency = probe.latencyMs?.toString() ?? '';
+      final error = probe.errorMessage == null
+          ? ''
+          : probe.errorMessage!
+                .replaceAll('\r', ' ')
+                .replaceAll('\n', ' ')
+                .trim();
+      buffer.writeln(
+        '${_csvCell(probe.timestamp.toIso8601String())},${_csvCell(status)},${_csvCell(latency)},${_csvCell(error)}',
+      );
     }
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) {
-      return;
+    return buffer.toString();
+  }
+
+  String _csvCell(String raw) {
+    if (raw.isEmpty) {
+      return '';
     }
-    messenger.showSnackBar(
-      OpenHandSnackBar.success(
-        context,
-        _localizedText(
-          context,
-          zh: '已将最近 ${probes.length} 条探测记录复制到剪贴板',
-          en: 'Copied ${probes.length} recent probes to clipboard',
-        ),
-      ),
-    );
+    final needsQuote =
+        raw.contains(',') || raw.contains('"') || raw.contains('\n');
+    if (!needsQuote) {
+      return raw;
+    }
+    final escaped = raw.replaceAll('"', '""');
+    return '"$escaped"';
   }
 }
+
+enum _McpHistoryExportFormat { markdown, json, csv }
 
 class _McpHealthProbeTile extends StatelessWidget {
   const _McpHealthProbeTile({required this.probe});
@@ -2449,9 +2565,7 @@ class _McpServerFilterBar extends StatelessWidget {
           label: Text(
             _localizedText(
               context,
-              zh: attentionCount > 0
-                  ? '只看需要处理（$attentionCount）'
-                  : '只看需要处理',
+              zh: attentionCount > 0 ? '只看需要处理（$attentionCount）' : '只看需要处理',
               en: attentionCount > 0
                   ? 'Show only attention ($attentionCount)'
                   : 'Show only attention',
