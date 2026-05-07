@@ -142,6 +142,10 @@ html, body, #root {
   70%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.01); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
+@keyframes oh-snackbar-exit {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to   { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.965); }
+}
 @keyframes oh-pulse-in {
   0%   { opacity: 0.6; }
   100% { opacity: 1; }
@@ -184,6 +188,10 @@ html, body, #root {
 }
 .oh-snackbar-enter {
   animation: oh-snackbar-enter 280ms var(--oh-motion-spring) both;
+  will-change: transform, opacity;
+}
+.oh-snackbar-exit {
+  animation: oh-snackbar-exit 180ms var(--oh-motion-emphasized) both;
   will-change: transform, opacity;
 }
 
@@ -360,6 +368,26 @@ html, body, #root {
   box-shadow: 0 1px 4px color-mix(in srgb, currentColor 12%, transparent);
 }
 
+.oh-session-messages {
+  transition:
+    min-height 420ms var(--oh-motion-spring),
+    padding-bottom 320ms var(--oh-motion-emphasized);
+  will-change: min-height;
+}
+
+.oh-session-composer {
+  transform-origin: bottom center;
+  transition:
+    box-shadow 260ms var(--oh-motion-emphasized),
+    background-color 260ms var(--oh-motion-emphasized),
+    transform 420ms var(--oh-motion-spring);
+  will-change: height, transform;
+}
+
+.oh-session-composer[data-collapsed='true'] {
+  transform: translate3d(0, 1px, 0) scale(0.998);
+}
+
 .oh-session-capsule-icon {
   width: 20px;
   height: 20px;
@@ -408,6 +436,40 @@ html, body, #root {
 }
 
 .oh-message-action-button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oh-tool-section-pre,
+.oh-tool-result-pre {
+  transition:
+    max-height 420ms var(--oh-motion-spring),
+    border-color 240ms var(--oh-motion-emphasized),
+    background-color 240ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized);
+  will-change: max-height;
+}
+
+.oh-tool-toggle-button {
+  transition:
+    transform 220ms var(--oh-motion-spring),
+    background-color 220ms var(--oh-motion-emphasized),
+    border-color 220ms var(--oh-motion-emphasized),
+    color 180ms var(--oh-motion-emphasized);
+}
+
+.oh-tool-meta-chip,
+.oh-tool-execution-chip-row > span {
+  min-height: 24px;
+  max-width: min(100%, 260px);
+  padding: 3px 8px;
+  line-height: 1.25;
+  overflow: hidden;
+}
+
+.oh-tool-meta-chip > span,
+.oh-tool-execution-chip-row > span > span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

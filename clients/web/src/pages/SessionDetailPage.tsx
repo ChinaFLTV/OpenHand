@@ -15,7 +15,7 @@
 //   POST  /api/sessions/:id/messages  body {content, mode, model_key, attachments}
 //   POST  /api/sessions/:id/stop     body {}
 
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
 import { createPortal } from 'preact/compat';
@@ -181,7 +181,7 @@ function nextWindowOffset(
 function sessionModeLabel(mode: string): string {
   return mode === 'plan'
     ? t('sessions.mode.plan', '计划模式')
-    : t('sessions.mode.chat', '聊天模式');
+    : t('composer.mode.normal', '文本模式');
 }
 
 type ComposerIconName =
@@ -380,27 +380,6 @@ function mergeSessionSummary(
   };
 }
 
-function sendPhaseLabel(phase: string): string {
-  switch (phase) {
-    case 'idle':
-      return t('detail.phase.idle', '空闲');
-    case 'sendingMessage':
-    case 'sending':
-      return t('detail.phase.sending', '发送中');
-    case 'responding':
-      return t('detail.phase.streaming', '流式接收中');
-    case 'awaitingResponse':
-    case 'awaiting_response':
-      return t('detail.phase.awaiting', '等待响应');
-    case 'streaming':
-      return t('detail.phase.streaming', '流式接收中');
-    case 'finalizing':
-      return t('detail.phase.finalizing', '收尾中');
-    default:
-      return phase;
-  }
-}
-
 function modelSupportsMode(model: ApiMetaModel | undefined, mode: string): boolean {
   if (!model) return mode === 'normal' || mode === 'deep_research';
   switch (mode) {
@@ -423,7 +402,7 @@ function modelSupportsMode(model: ApiMetaModel | undefined, mode: string): boole
 function composerModeLabel(mode: string): string {
   switch (mode) {
     case 'normal':
-      return t('composer.mode.normal', '聊天模式');
+      return t('composer.mode.normal', '文本模式');
     case 'image':
       return t('composer.mode.image', '图像');
     case 'video':
@@ -514,6 +493,7 @@ export function SessionDetailPage() {
   const pageRootRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
   const messagesContentRef = useRef<HTMLDivElement | null>(null);
+  const composerSectionRef = useRef<HTMLElement | null>(null);
   const messagesRef = useRef<SessionMessage[]>([]);
   const windowOffsetRef = useRef(0);
 
@@ -581,6 +561,7 @@ export function SessionDetailPage() {
   const composerChipExitTimersRef = useRef<number[]>([]);
   const composerAttachmentIdsRef = useRef<string[]>([]);
   const attachmentIdSeqRef = useRef(0);
+  const lastComposerHeightRef = useRef<number | null>(null);
 
   // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
   // ---------------------------------------------------------------------
@@ -905,6 +886,38 @@ export function SessionDetailPage() {
   useEffect(() => {
     persistComposerCollapsed(composerCollapsed);
   }, [composerCollapsed]);
+
+  useLayoutEffect(() => {
+    const el = composerSectionRef.current;
+    if (!el || typeof window === 'undefined') return;
+    const nextHeight = el.getBoundingClientRect().height;
+    const previousHeight = lastComposerHeightRef.current;
+    lastComposerHeightRef.current = nextHeight;
+    if (reduceMotion || previousHeight == null || Math.abs(previousHeight - nextHeight) < 2) return;
+    el.style.overflow = 'clip';
+    const animation = el.animate([
+      { height: `${previousHeight}px`, transform: 'translate3d(0, 0, 0) scale(1)' },
+      { height: `${nextHeight}px`, transform: 'translate3d(0, -1px, 0) scale(1.003)' },
+      { height: `${nextHeight}px`, transform: 'translate3d(0, 0, 0) scale(1)' },
+    ], {
+      duration: 420,
+      easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+    });
+    animation.onfinish = () => {
+      el.style.overflow = '';
+      if (shouldFollowPinnedMessages()) scheduleFollowToBottom('auto');
+    };
+    animation.oncancel = animation.onfinish;
+    if (shouldFollowPinnedMessages()) scheduleFollowToBottom('auto');
+    return () => animation.cancel();
+  }, [
+    composerCollapsed,
+    composerAttachments.length,
+    selectedSkill?.name,
+    editingDraftMessage?.id,
+    composerError,
+    reduceMotion,
+  ]);
 
   useEffect(() => {
     if (activeMessageId == null) return;
@@ -1896,13 +1909,15 @@ export function SessionDetailPage() {
     if (eventMatchesShortcut(event, shortcutBindings.toggle_composer, ['ctrl', 'p'])) {
       event.preventDefault();
       event.stopPropagation();
-      setComposerCollapsed((value) => !value);
-      if (autoFollow) {
-        scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
-      }
+      toggleComposerCollapsed();
       return true;
     }
     return false;
+  }
+
+  function toggleComposerCollapsed(): void {
+    setComposerCollapsed((value) => !value);
+    if (autoFollow) scheduleFollowToBottom('auto');
   }
 
   useEffect(() => {
@@ -1973,60 +1988,67 @@ export function SessionDetailPage() {
   const remainingOlder = windowOffset;
   const sessionCapsules = useMemo<SessionToolbarCapsule[]>(() => {
     if (!session) return [];
-    const running = sendPhase !== 'idle' && sendPhase !== '';
     const templateLabel = session.template_name || session.template_id;
     const templateVersion = session.template_internal_version != null
       ? ` · v${session.template_internal_version}`
       : '';
+    const lastPromptMetadata = asRecord(session.last_prompt_metadata);
+    const runtimeNotices = asStringList(lastPromptMetadata['runtime_tool_catalog_notices']);
+    const lazyLoadingCapsule = mcpLazyLoadingCapsule(runtimeNotices);
+    const contextBudgetLabel = contextBudgetToolbarLabel(lastPromptMetadata);
     const tokens = session.total_tokens != null
       ? `${session.total_tokens.toLocaleString()} tokens`
       : t('topbar.tokens.empty', 'Token 暂无');
-    const fullAccess = session.full_access_permission === true;
-    return [
-      {
-        key: 'mode',
-        icon: 'mode',
-        label: sessionModeLabel(session.mode),
-        tone: session.mode === 'plan' ? 'primary' : 'neutral',
-        onClick: () => {
-          const next = session.mode === 'plan' ? 'chat' : 'plan';
-          if (!sessionModeOptions.includes(next)) return;
-          void applySessionMode(next);
-        },
-      },
-      {
-        key: 'runtime',
+    const capsules: SessionToolbarCapsule[] = [];
+    if (lazyLoadingCapsule) capsules.push(lazyLoadingCapsule);
+    if (runtimeNotices.length > 0) {
+      capsules.push({
+        key: 'runtime-notices',
         icon: 'runtime',
-        label: `${sendPhaseLabel(sendPhase)} · ${sseLive ? t('detail.sse.live', '实时') : t('detail.sse.fallback', '轮询')}`,
-        tone: running ? 'primary' : 'neutral',
-      },
-      {
-        key: 'permission',
-        icon: 'permission',
-        label: fullAccess
-          ? t('topbar.perm.full', '完全访问权限')
-          : t('topbar.perm.default', '默认权限'),
-        tone: fullAccess ? 'warning' : 'neutral',
-        onClick: () => requestFullAccessPermissionChange(!fullAccess),
-      },
+        label: t('topbar.runtimeNotices', '{count} 项运行时 Notice').replace('{count}', String(runtimeNotices.length)),
+        title: runtimeNotices.join('\n'),
+        onClick: () => void openSessionMetadataDialog(),
+      });
+    }
+    capsules.push(
       {
         key: 'template',
         icon: 'template',
         label: `${templateLabel}${templateVersion}`,
         title: `${t('sessions.template.label', '模板：')}${templateLabel}${templateVersion}`,
       },
-      {
-        key: 'files',
-        icon: 'files',
-        label: t('topbar.files', '项目文件'),
-        title: t('topbar.files.title', '打开项目文件'),
-        onClick: () => location.route('/files'),
-      },
+    );
+    if (session.template_id === 'hermes_talker') {
+      capsules.push({
+        key: 'hermes-warning',
+        icon: 'runtime',
+        label: t('topbar.hermesSelfLearningNotice', 'Hermes 自学习状态'),
+        title: t('topbar.hermesSelfLearningNotice.title', '可在 App 定时任务面板检查 Hermes Talker 自学习开关。'),
+      });
+    }
+    capsules.push(
       {
         key: 'metadata',
         icon: 'metadata',
-        label: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
+        label: t('topbar.metadata', '会话元数据'),
+        title: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
         onClick: () => void openSessionMetadataDialog(),
+      },
+    );
+    if (contextBudgetLabel) {
+      capsules.push({
+        key: 'context-budget',
+        icon: 'runtime',
+        label: contextBudgetLabel,
+        onClick: () => void openSessionMetadataDialog(),
+      });
+    }
+    capsules.push(
+      {
+        key: 'updated-at',
+        icon: 'runtime',
+        label: formatToolbarDate(session.updated_at),
+        title: `${t('topbar.updatedAt', '更新时间')} · ${formatDialogDate(session.updated_at)}`,
       },
       {
         key: 'audit',
@@ -2035,6 +2057,17 @@ export function SessionDetailPage() {
         tone: 'primary',
         onClick: () => setSessionAuditOpen(true),
       },
+    );
+    if (session.template_id === 'programming_expert') {
+      capsules.push({
+        key: 'files',
+        icon: 'files',
+        label: t('topbar.files', '项目文件'),
+        title: t('topbar.files.title', '打开项目文件'),
+        onClick: () => location.route('/files'),
+      });
+    }
+    capsules.push(
       {
         key: 'tokens',
         icon: 'tokens',
@@ -2042,8 +2075,9 @@ export function SessionDetailPage() {
         title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
         onClick: () => setTokenStatsOpen(true),
       },
-    ];
-  }, [session, sendPhase, sseLive, totalKnown, sessionModeOptions, sessionId]);
+    );
+    return capsules;
+  }, [session, totalKnown, sessionId]);
   const pull = usePullToRefresh(mainRef, {
     enabled: !loadingDetail && !loadingOlder,
     onRefresh: async () => {
@@ -2127,20 +2161,6 @@ export function SessionDetailPage() {
               throw e;
             }
           }}
-          modes={sessionModeOptions}
-          mode={session?.mode ?? 'chat'}
-          onModeChange={async (next) => {
-            if (next !== 'chat' && next !== 'plan') return;
-            await applySessionMode(next);
-          }}
-          models={allowedModels}
-          modelKey={composerModelKey}
-          onModelChange={(k) => {
-            setComposerModelKey(k);
-            pushRecentModel(k);
-          }}
-          fullAccessPermission={session?.full_access_permission === true}
-          onFullAccessPermissionChange={requestFullAccessPermissionChange}
           sendPhase={sendPhase}
           canStop={detail?.runtime.can_stop ?? sendPhase !== 'idle'}
           stopping={stopping}
@@ -2302,7 +2322,9 @@ export function SessionDetailPage() {
 
         {/* Composer */}
         <section
+          ref={composerSectionRef}
           class="oh-session-composer rounded-xl p-4 flex-none"
+          data-collapsed={composerCollapsed ? 'true' : 'false'}
           style={{
             background: 'var(--m3-surface-container)',
             boxShadow: 'var(--m3-elev-1)',
@@ -2435,7 +2457,7 @@ export function SessionDetailPage() {
 
             <button
               type="button"
-              onClick={() => setComposerCollapsed((v) => !v)}
+              onClick={toggleComposerCollapsed}
               class="oh-composer-icon-control oh-composer-collapse-control oh-tap-press ml-auto"
               title={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
             >
@@ -3289,6 +3311,52 @@ function asStringList(value: unknown): string[] {
   return asArray(value)
     .map((item) => String(item ?? '').trim())
     .filter(Boolean);
+}
+
+function contextBudgetToolbarLabel(metadata: Record<string, unknown>): string | null {
+  const estimatedTokens = asInt(metadata['context_budget_estimated_prompt_tokens']);
+  if (estimatedTokens <= 0) return null;
+  const percentLeft = asInt(metadata['context_budget_percent_left']);
+  const status = String(metadata['context_budget_status'] ?? '').trim();
+  const statusLabel = status === 'critical'
+    ? t('topbar.contextBudget.critical', '危险')
+    : status === 'auto_compact'
+      ? t('topbar.contextBudget.compact', '压缩')
+      : status === 'warning'
+        ? t('topbar.contextBudget.warning', '偏高')
+        : status === 'ok'
+          ? t('topbar.contextBudget.ok', '正常')
+          : t('topbar.contextBudget.unknown', '未知');
+  return `${t('topbar.contextBudget', '上下文')} ${percentLeft}% · ${statusLabel}`;
+}
+
+function mcpLazyLoadingCapsule(notices: string[]): SessionToolbarCapsule | null {
+  const pattern = /MCP tool lazy loading active.*?(\d+)\s+of\s+(\d+)\s+MCP tool/i;
+  for (const notice of notices) {
+    const match = pattern.exec(notice);
+    if (!match) continue;
+    const deferred = Number.parseInt(match[1] ?? '', 10);
+    const total = Number.parseInt(match[2] ?? '', 10);
+    if (!Number.isFinite(deferred) || !Number.isFinite(total) || total <= 0) continue;
+    const loaded = Math.max(0, Math.min(total, total - deferred));
+    return {
+      key: 'mcp-lazy-loading',
+      icon: 'runtime',
+      label: t('topbar.mcpLazyLoading', 'MCP {loaded}/{total}')
+        .replace('{loaded}', String(loaded))
+        .replace('{total}', String(total)),
+      title: notice,
+    };
+  }
+  return null;
+}
+
+function formatToolbarDate(value?: string | null): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function metadataValue(value: unknown): string {

@@ -16,7 +16,7 @@ import { MessageMedia } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
 import { memo } from 'preact/compat';
-import { useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 
@@ -513,8 +513,6 @@ function MessageCardImpl({
 
   const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
   const actionsVisible = hasAnyAction && active;
-  const cardRef = useRef<HTMLElement | null>(null);
-  const lastHeightRef = useRef<number | null>(null);
   const isUserBubble = message.role === 'user';
   const isWideSystemCard =
     useToolBody ||
@@ -529,35 +527,8 @@ function MessageCardImpl({
       : 'min(82%, 720px)';
   const contextChips = messageContextChips(message);
 
-  useLayoutEffect(() => {
-    const el = cardRef.current;
-    if (!el || typeof window === 'undefined') return;
-    const nextHeight = el.getBoundingClientRect().height;
-    const previousHeight = lastHeightRef.current;
-    lastHeightRef.current = nextHeight;
-    const reduceMotion =
-      document.documentElement.dataset.motion === 'reduced' ||
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-    if (reduceMotion || previousHeight == null || Math.abs(previousHeight - nextHeight) < 2) return;
-    el.style.overflow = 'clip';
-    const animation = el.animate([
-      { height: `${previousHeight}px`, transform: 'scale(0.998)' },
-      { height: `${nextHeight}px`, transform: 'scale(1.004)' },
-      { height: `${nextHeight}px`, transform: 'scale(1)' },
-    ], {
-      duration: 360,
-      easing: 'cubic-bezier(.2, .9, .2, 1)',
-    });
-    animation.onfinish = () => {
-      el.style.overflow = '';
-    };
-    animation.oncancel = animation.onfinish;
-    return () => animation.cancel();
-  }, [visibleContent, content, actionsVisible, message.kind, message.metadata, contextChips.length]);
-
   return (
     <article
-      ref={cardRef}
       class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} rounded-m3-md p-4 oh-appear-up`}
       style={{
         display: 'block',
@@ -756,7 +727,6 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
   return (
     <div class="oh-tool-execution-card flex flex-col gap-2">
       <div class="oh-tool-execution-chip-row flex flex-wrap gap-1.5 text-[11px]">
-        {status ? <MetaChip label={status} tone={status.toLowerCase().includes('error') ? 'danger' : 'neutral'} /> : null}
         {elapsedMs != null ? <MetaChip label={`${elapsedMs} ms`} /> : null}
         {exitCode != null ? <MetaChip label={`exit ${exitCode}`} tone={exitCode === 0 ? 'ok' : 'danger'} /> : null}
         {workingDirectory ? <MetaChip label={workingDirectory} mono /> : null}
@@ -767,7 +737,7 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
         <ToolSection title={t('detail.tool.command', '执行命令')} content={command} defaultExpanded />
       ) : null}
       {stdout ? (
-        <ToolSection title={t('detail.tool.stdout', '标准输出 stdout')} content={stdout} />
+        <ToolSection title={t('detail.tool.stdout', '标准输出')} content={stdout} />
       ) : null}
       {stderr ? (
         <ToolSection title={t('detail.tool.stderr', '标准错误 stderr')} content={stderr} danger defaultExpanded />
@@ -887,7 +857,7 @@ function ToolSection({
               e.stopPropagation();
               setExpanded((v) => !v);
             }}
-            class="px-1.5 py-0.5 rounded-m3-sm"
+            class="oh-tap-press oh-tool-toggle-button px-1.5 py-0.5 rounded-m3-sm"
             style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)', background: 'var(--m3-surface)', fontSize: 10 }}
           >
             {expanded ? t('detail.tool.body.collapse', '折叠') : t('detail.tool.body.expand', '展开全部 ')}
@@ -901,8 +871,8 @@ function ToolSection({
           color: danger ? 'var(--m3-error)' : 'var(--m3-on-surface)',
           border: `1px solid ${danger ? 'color-mix(in srgb, var(--m3-error) 45%, transparent)' : 'var(--m3-outline)'}`,
           wordBreak: 'break-word',
-          maxHeight: !expanded && long ? '160px' : undefined,
-          overflow: !expanded && long ? 'hidden' : 'auto',
+          maxHeight: long ? (expanded ? 'min(70dvh, 720px)' : '160px') : undefined,
+          overflow: long ? 'auto' : 'visible',
         }}
       >
         {content}
@@ -915,7 +885,7 @@ function MetaChip({ label, tone = 'neutral', mono }: { label: string; tone?: 'ne
   const color = tone === 'danger' ? 'var(--m3-error)' : tone === 'ok' ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)';
   return (
     <span
-      class="inline-flex items-center px-1.5 py-0.5 rounded-m3-sm"
+      class="oh-tool-meta-chip inline-flex items-center rounded-m3-sm"
       style={{
         border: `1px solid color-mix(in srgb, ${color} 40%, transparent)`,
         color,
@@ -1020,7 +990,7 @@ function ToolArgumentsBlock({ metadata }: { metadata: Record<string, unknown> | 
               e.stopPropagation();
               setExpanded((v) => !v);
             }}
-            class="px-1.5 py-0.5 rounded-m3-sm"
+            class="oh-tap-press oh-tool-toggle-button px-1.5 py-0.5 rounded-m3-sm"
             style={{
               border: '1px solid var(--m3-outline)',
               color: 'var(--m3-on-surface-variant)',
@@ -1035,14 +1005,14 @@ function ToolArgumentsBlock({ metadata }: { metadata: Record<string, unknown> | 
         ) : null}
       </div>
       <pre
-        class="text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
+        class="oh-tool-section-pre text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
         style={{
           background: 'var(--m3-surface)',
           color: 'var(--m3-on-surface)',
           border: '1px solid var(--m3-outline)',
           wordBreak: 'break-word',
-          maxHeight: !expanded && overflow ? '88px' : undefined,
-          overflow: !expanded && overflow ? 'hidden' : 'auto',
+          maxHeight: overflow ? (expanded ? 'min(64dvh, 640px)' : '88px') : undefined,
+          overflow: overflow ? 'auto' : 'visible',
         }}
       >
         {pretty}

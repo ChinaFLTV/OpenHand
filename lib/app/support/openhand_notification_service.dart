@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../shared/widgets/openhand_snack_bar.dart';
 import 'safe_subprocess.dart';
 
 enum OpenHandNotificationLevel { info, success, warning, error, critical }
@@ -56,23 +57,13 @@ abstract final class OpenHandNotificationService {
     final text = body.trim().isEmpty ? title : '$title\n$body';
 
     messenger.showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
+      OpenHandSnackBar.notification(
+        context,
+        message: text,
+        icon: icon,
+        tint: foregroundColor,
         backgroundColor: backgroundColor,
-        content: Row(
-          children: [
-            Icon(icon, size: 18, color: foregroundColor),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                text,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: foregroundColor),
-              ),
-            ),
-          ],
-        ),
+        foregroundColor: foregroundColor,
       ),
     );
 

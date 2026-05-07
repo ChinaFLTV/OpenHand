@@ -87,8 +87,8 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
           color: 'var(--m3-on-surface)',
           border: '1px solid var(--m3-outline)',
           wordBreak: 'break-word',
-          maxHeight: expanded ? undefined : '420px',
-          overflow: expanded ? 'visible' : 'auto',
+          maxHeight: expanded ? 'min(70dvh, 720px)' : '420px',
+          overflow: 'auto',
         }}
       >
         {lines.map((line, idx) => (
@@ -116,7 +116,7 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            class="oh-tap-press oh-message-action-button is-compact"
+            class="oh-tap-press oh-message-action-button oh-tool-toggle-button is-compact"
             style={{
               background: 'var(--m3-surface-container)',
               color: 'var(--m3-on-surface-variant)',

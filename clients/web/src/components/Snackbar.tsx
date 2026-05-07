@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export type SnackbarTone = 'default' | 'success' | 'warning' | 'error';
 
@@ -12,6 +13,7 @@ interface SnackbarItem {
   message: string;
   tone: SnackbarTone;
   durationMs: number;
+  closing?: boolean;
 }
 
 const listeners = new Set<(item: SnackbarItem) => void>();
@@ -60,19 +62,29 @@ function toneStyle(tone: SnackbarTone) {
 
 export function SnackbarHost() {
   const [items, setItems] = useState<SnackbarItem[]>([]);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const onItem = (item: SnackbarItem) => {
       setItems((prev) => [...prev.slice(-2), item]);
       window.setTimeout(() => {
-        setItems((prev) => prev.filter((cur) => cur.id !== item.id));
+        if (reduceMotion) {
+          setItems((prev) => prev.filter((cur) => cur.id !== item.id));
+          return;
+        }
+        setItems((prev) => prev.map((cur) => (
+          cur.id === item.id ? { ...cur, closing: true } : cur
+        )));
+        window.setTimeout(() => {
+          setItems((prev) => prev.filter((cur) => cur.id !== item.id));
+        }, 180);
       }, item.durationMs);
     };
     listeners.add(onItem);
     return () => {
       listeners.delete(onItem);
     };
-  }, []);
+  }, [reduceMotion]);
 
   if (items.length === 0) return null;
 
@@ -84,7 +96,7 @@ export function SnackbarHost() {
       {items.map((item) => (
         <div
           key={item.id}
-          class="oh-snackbar-enter rounded-full px-4 py-2 text-sm pointer-events-auto"
+          class={`${item.closing ? 'oh-snackbar-exit' : 'oh-snackbar-enter'} rounded-full px-4 py-2 text-sm pointer-events-auto`}
           style={{
             ...toneStyle(item.tone),
             boxShadow: 'var(--m3-elev-3)',
