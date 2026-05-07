@@ -451,16 +451,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       ),
                     ),
                     if (isUser)
-                      _CreationModeChip(
-                        request: AiCreationRequest.fromMetadata(
+                      _UserMessageCapsuleRow(
+                        creationRequest: AiCreationRequest.fromMetadata(
                           message.metadata[AiCreationRequest.metadataKey],
                         ),
-                        textColor: textColor,
-                      ),
-                    if (isUser)
-                      _UserSkillSelectionChip(
-                        metadata:
+                        skillMetadata:
                             message.metadata[aiUserSkillSelectionMetadataKey],
+                        attachments: attachments,
                         textColor: textColor,
                       ),
                   ],
@@ -2616,6 +2613,93 @@ const Set<String> _audioMediaExtensions = <String>{
 /// message was sent with a non-text creation mode (image / video / audio / deep
 /// research). Lets the reader tell at a glance what action the message is
 /// asking for even after the composer chip is gone.
+class _UserMessageCapsuleRow extends StatelessWidget {
+  const _UserMessageCapsuleRow({
+    required this.creationRequest,
+    required this.skillMetadata,
+    required this.attachments,
+    required this.textColor,
+  });
+
+  final AiCreationRequest creationRequest;
+  final Object? skillMetadata;
+  final List<AiMessageAttachment> attachments;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final skillName = _UserSkillSelectionChip.nameFromMetadata(skillMetadata);
+    final attachmentCapsules = _AttachmentCapsuleData.fromAttachments(
+      context,
+      attachments,
+    );
+    if (!creationRequest.isActive &&
+        skillName.isEmpty &&
+        attachmentCapsules.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          if (creationRequest.isActive)
+            _CreationModeChip(request: creationRequest, textColor: textColor),
+          if (skillName.isNotEmpty)
+            _UserSkillSelectionChip(
+              metadata: skillMetadata,
+              textColor: textColor,
+            ),
+          for (final capsule in attachmentCapsules)
+            _AttachmentKindCapsule(data: capsule, textColor: textColor),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageContextCapsule extends StatelessWidget {
+  const _MessageContextCapsule({
+    required this.icon,
+    required this.label,
+    required this.textColor,
+    this.leading,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color textColor;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: textColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: textColor.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          leading ??
+              Icon(icon, size: 12, color: textColor.withValues(alpha: 0.9)),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: textColor.withValues(alpha: 0.9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CreationModeChip extends StatelessWidget {
   const _CreationModeChip({required this.request, required this.textColor});
 
@@ -2625,7 +2709,6 @@ class _CreationModeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!request.isActive) return const SizedBox.shrink();
-    final theme = Theme.of(context);
     final (icon, labelZh, labelEn) = switch (request.mode) {
       AiCreationMode.image => (Icons.image_outlined, '图片生成', 'Image'),
       AiCreationMode.video => (Icons.videocam_outlined, '视频生成', 'Video'),
@@ -2646,29 +2729,10 @@ class _CreationModeChip extends StatelessWidget {
     ];
     final label = _localizedText(context, zh: labelZh, en: labelEn);
     final detail = detailParts.isEmpty ? '' : ' · ${detailParts.join(' · ')}';
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: textColor.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: textColor.withValues(alpha: 0.22)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: textColor.withValues(alpha: 0.9)),
-            const SizedBox(width: 4),
-            Text(
-              '$label$detail',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: textColor.withValues(alpha: 0.9),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return _MessageContextCapsule(
+      icon: icon,
+      label: '$label$detail',
+      textColor: textColor,
     );
   }
 }
@@ -2686,49 +2750,32 @@ class _UserSkillSelectionChip extends StatelessWidget {
   final Object? metadata;
   final Color textColor;
 
+  static String nameFromMetadata(Object? metadata) {
+    if (metadata is! Map) return '';
+    final map = Map<String, Object?>.from(metadata);
+    return (map['name'] as String?)?.trim() ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (metadata is! Map) return const SizedBox.shrink();
     final map = Map<String, Object?>.from(metadata as Map);
-    final name = (map['name'] as String?)?.trim() ?? '';
+    final name = nameFromMetadata(metadata);
     if (name.isEmpty) return const SizedBox.shrink();
     final emoji = (map['emoji'] as String?)?.trim();
     final iconPath = (map['icon_path'] as String?)?.trim();
     final iconKind = (map['icon_kind'] as String?)?.trim();
-    final theme = Theme.of(context);
     final leading = _buildLeading(emoji, iconPath, iconKind);
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: textColor.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: textColor.withValues(alpha: 0.22)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (leading != null) ...[
-              leading,
-              const SizedBox(width: 4),
-            ] else ...[
-              Icon(
-                Icons.extension_rounded,
-                size: 12,
-                color: textColor.withValues(alpha: 0.9),
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              name,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: textColor.withValues(alpha: 0.9),
-              ),
-            ),
-          ],
-        ),
-      ),
+    final label = _localizedText(
+      context,
+      zh: '技能 · $name',
+      en: 'Skill · $name',
+    );
+    return _MessageContextCapsule(
+      icon: Icons.extension_rounded,
+      label: label,
+      textColor: textColor,
+      leading: leading,
     );
   }
 
@@ -2753,6 +2800,84 @@ class _UserSkillSelectionChip extends StatelessWidget {
       );
     }
     return null;
+  }
+}
+
+class _AttachmentKindCapsule extends StatelessWidget {
+  const _AttachmentKindCapsule({required this.data, required this.textColor});
+
+  final _AttachmentCapsuleData data;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MessageContextCapsule(
+      icon: data.icon,
+      label: data.label,
+      textColor: textColor,
+    );
+  }
+}
+
+class _AttachmentCapsuleData {
+  const _AttachmentCapsuleData({required this.icon, required this.label});
+
+  factory _AttachmentCapsuleData.fromKind(
+    BuildContext context, {
+    required AiAttachmentKind kind,
+    required int count,
+  }) {
+    final (icon, labelZh, labelEn) = switch (kind) {
+      AiAttachmentKind.image => (
+        Icons.image_outlined,
+        '图片附件',
+        'Image attachment',
+      ),
+      AiAttachmentKind.text => (
+        Icons.description_outlined,
+        '文本附件',
+        'Text attachment',
+      ),
+      AiAttachmentKind.spreadsheet => (
+        Icons.table_chart_outlined,
+        '表格附件',
+        'Spreadsheet',
+      ),
+      AiAttachmentKind.pdf => (Icons.picture_as_pdf_outlined, 'PDF 附件', 'PDF'),
+      AiAttachmentKind.binary => (
+        Icons.insert_drive_file_outlined,
+        '文件附件',
+        'File attachment',
+      ),
+    };
+    final base = _localizedText(context, zh: labelZh, en: labelEn);
+    return _AttachmentCapsuleData(
+      icon: icon,
+      label: count > 1 ? '$base · x$count' : base,
+    );
+  }
+
+  final IconData icon;
+  final String label;
+
+  static List<_AttachmentCapsuleData> fromAttachments(
+    BuildContext context,
+    List<AiMessageAttachment> attachments,
+  ) {
+    if (attachments.isEmpty) return const <_AttachmentCapsuleData>[];
+    final counts = <AiAttachmentKind, int>{};
+    for (final attachment in attachments) {
+      counts[attachment.kind] = (counts[attachment.kind] ?? 0) + 1;
+    }
+    return [
+      for (final kind in AiAttachmentKind.values)
+        if ((counts[kind] ?? 0) > 0)
+          _AttachmentCapsuleData.fromKind(
+            context,
+            kind: kind,
+            count: counts[kind]!,
+          ),
+    ];
   }
 }
 

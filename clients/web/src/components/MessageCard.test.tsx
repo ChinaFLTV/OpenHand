@@ -19,7 +19,7 @@ vi.mock('./MessageToolMeta', () => ({
   MessageToolMeta: () => null,
 }));
 
-function makeMessage(id: string, content: string): SessionMessage {
+function makeMessage(id: string, content: string, metadata?: Record<string, unknown>): SessionMessage {
   return {
     id,
     kind: 'text',
@@ -27,6 +27,7 @@ function makeMessage(id: string, content: string): SessionMessage {
     content,
     created_at: '2026-05-06T00:00:00.000Z',
     character_count: content.length,
+    metadata,
   };
 }
 
@@ -74,5 +75,28 @@ describe('MessageCard actions', () => {
     expect(within(cards[0]!).queryByRole('button', { name: copyName })).toBeNull();
     expect(within(cards[1]!).getByRole('button', { name: copyName })).not.toBeNull();
     expect(cards[1]!.getAttribute('style') ?? '').not.toContain('outline');
+  });
+
+  it('renders user message context capsules for creation mode, skill and attachment kinds', () => {
+    render(
+      <MessageCard
+        message={makeMessage('rich', '生成一张火星照片', {
+          creation_request: {
+            mode: 'image',
+            options: { aspect_ratio: '16:9', count: 2 },
+          },
+          user_skill_selection: { name: '摄影构图', emoji: '📷' },
+          attachments: [
+            { id: 'a1', name: 'reference.png', storage_path: '/tmp/reference.png', kind: 'image' },
+            { id: 'a2', name: 'brief.pdf', storage_path: '/tmp/brief.pdf', kind: 'pdf' },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/(图片生成|Image generation).*16:9.*x2/)).not.toBeNull();
+    expect(screen.getByText(/(技能|Skill).*摄影构图/)).not.toBeNull();
+    expect(screen.getByText(/(图片附件|Image attachment)/)).not.toBeNull();
+    expect(screen.getByText(/(PDF 附件|PDF attachment)/)).not.toBeNull();
   });
 });

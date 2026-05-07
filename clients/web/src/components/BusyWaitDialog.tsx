@@ -1,5 +1,6 @@
 import { createPortal } from 'preact/compat';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface BusyWaitDialogProps {
   open: boolean;
@@ -16,6 +17,7 @@ export function BusyWaitDialog({
   body,
   delayMs = 650,
 }: BusyWaitDialogProps) {
+  const reduceMotion = useReducedMotion();
   const [phase, setPhase] = useState<BusyDialogPhase>('hidden');
   const phaseRef = useRef<BusyDialogPhase>('hidden');
 
@@ -27,18 +29,21 @@ export function BusyWaitDialog({
     let timer: number | undefined;
     if (open) {
       if (phaseRef.current === 'hidden') {
-        timer = window.setTimeout(() => setPhase('visible'), delayMs);
+        timer = window.setTimeout(
+          () => setPhase('visible'),
+          reduceMotion ? 0 : delayMs,
+        );
       } else {
         setPhase('visible');
       }
     } else if (phaseRef.current !== 'hidden') {
       setPhase('closing');
-      timer = window.setTimeout(() => setPhase('hidden'), 180);
+      timer = window.setTimeout(() => setPhase('hidden'), reduceMotion ? 0 : 180);
     }
     return () => {
       if (timer != null) window.clearTimeout(timer);
     };
-  }, [open, delayMs]);
+  }, [open, delayMs, reduceMotion]);
 
   if (phase === 'hidden') return null;
   const closing = phase === 'closing';

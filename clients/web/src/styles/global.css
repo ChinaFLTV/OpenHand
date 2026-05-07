@@ -248,6 +248,59 @@ html, body, #root {
   box-shadow: var(--m3-elev-2);
 }
 
+.oh-message-context-capsules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -2px 0 10px;
+}
+.oh-message-context-capsules.is-user {
+  justify-content: flex-end;
+}
+.oh-message-context-capsule {
+  max-width: min(100%, 260px);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  color: inherit;
+  font-size: 11px;
+  font-weight: 620;
+  line-height: 1.25;
+  white-space: nowrap;
+  transform-origin: center;
+  transition:
+    transform 220ms var(--oh-motion-spring),
+    background-color 220ms var(--oh-motion-emphasized),
+    border-color 220ms var(--oh-motion-emphasized);
+}
+.oh-message-context-capsule:hover {
+  transform: translate3d(0, -1px, 0) scale(1.015);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+.oh-message-context-icon,
+.oh-message-context-emoji {
+  display: inline-flex;
+  width: 13px;
+  height: 13px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+.oh-message-context-emoji {
+  font-size: 12px;
+  line-height: 1;
+}
+.oh-message-context-capsule .truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .oh-session-topbar button,
 .oh-session-topbar input,
 .oh-session-topbar [role="button"] {

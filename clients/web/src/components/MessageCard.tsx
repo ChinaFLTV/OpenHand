@@ -65,6 +65,14 @@ interface KindStyle {
 }
 
 type MessageIconName =
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'deepResearch'
+  | 'attachmentText'
+  | 'attachmentSpreadsheet'
+  | 'attachmentPdf'
+  | 'attachmentFile'
   | 'reasoning'
   | 'toolCall'
   | 'tool'
@@ -100,6 +108,22 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
     'aria-hidden': true,
   };
   switch (name) {
+    case 'image':
+      return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2.5" /><path d="m7 16 4-4 3 3 2-2 3 3" /><circle cx="9" cy="9" r="1.2" /></svg>;
+    case 'video':
+      return <svg {...common}><rect x="4" y="7" width="12" height="10" rx="2" /><path d="m16 11 4-2.5v7L16 13" /></svg>;
+    case 'audio':
+      return <svg {...common}><path d="M9 18V6l10-2v12" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="16" r="2" /></svg>;
+    case 'deepResearch':
+      return <svg {...common}><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /><path d="M8.5 11h5M11 8.5v5" /></svg>;
+    case 'attachmentText':
+      return <svg {...common}><path d="M7 3h7l3 3v15H7z" /><path d="M14 3v4h4" /><path d="M9.5 12h5M9.5 16h4" /></svg>;
+    case 'attachmentSpreadsheet':
+      return <svg {...common}><rect x="5" y="4" width="14" height="16" rx="2" /><path d="M5 10h14M5 15h14M10 4v16M15 4v16" /></svg>;
+    case 'attachmentPdf':
+      return <svg {...common}><path d="M7 3h7l3 3v15H7z" /><path d="M14 3v4h4" /><path d="M9.5 16h5" /><path d="M9.5 12h1.5a1.5 1.5 0 0 1 0 3H9.5z" /></svg>;
+    case 'attachmentFile':
+      return <svg {...common}><path d="M7 3h7l3 3v15H7z" /><path d="M14 3v4h4" /></svg>;
     case 'reasoning':
       return <svg {...common}><path d="M9 18h6" /><path d="M10 22h4" /><path d="M8.3 14.8A6 6 0 1 1 15.7 14c-.8.7-1.2 1.4-1.2 2H9.5c0-.7-.4-1.2-1.2-1.8z" /></svg>;
     case 'toolCall':
@@ -259,6 +283,181 @@ function styleForKind(kind: string, role: string): KindStyle {
   }
 }
 
+interface MessageContextChip {
+  key: string;
+  label: string;
+  icon?: MessageIconName;
+  emoji?: string;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function nonEmptyString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function messageContextChips(message: SessionMessage): MessageContextChip[] {
+  if (message.role !== 'user') return [];
+  const meta = asRecord(message.metadata);
+  if (!meta) return [];
+  return [
+    ...creationModeChips(meta),
+    ...skillChips(meta),
+    ...attachmentChips(meta),
+  ];
+}
+
+function creationModeChips(meta: Record<string, unknown>): MessageContextChip[] {
+  const request = asRecord(meta['creation_request']);
+  const options = asRecord(request?.['options']);
+  const mode = nonEmptyString(request?.['mode']) || nonEmptyString(meta['conversation_mode']);
+  const data = creationModeData(mode);
+  if (!data) return [];
+  const detail = creationOptionDetail(options);
+  return [{
+    key: `mode:${mode}`,
+    icon: data.icon,
+    label: detail ? `${data.label} · ${detail}` : data.label,
+  }];
+}
+
+function creationModeData(mode: string): { icon: MessageIconName; label: string } | null {
+  switch (mode) {
+    case 'image':
+      return { icon: 'image', label: t('message.context.mode.image', '图片生成') };
+    case 'video':
+      return { icon: 'video', label: t('message.context.mode.video', '视频生成') };
+    case 'audio':
+      return { icon: 'audio', label: t('message.context.mode.audio', '音频生成') };
+    case 'deep_research':
+      return { icon: 'deepResearch', label: t('message.context.mode.deepResearch', '深度研究') };
+    default:
+      return null;
+  }
+}
+
+function creationOptionDetail(options: Record<string, unknown> | null): string {
+  if (!options) return '';
+  const parts: string[] = [];
+  const aspectRatio = nonEmptyString(options['aspect_ratio']);
+  const size = nonEmptyString(options['size']);
+  const duration = typeof options['duration_seconds'] === 'number'
+    ? Math.round(options['duration_seconds'])
+    : Number.parseInt(nonEmptyString(options['duration_seconds']), 10);
+  const count = typeof options['count'] === 'number'
+    ? Math.round(options['count'])
+    : Number.parseInt(nonEmptyString(options['count']), 10);
+  if (aspectRatio) parts.push(aspectRatio);
+  else if (size) parts.push(size);
+  if (Number.isFinite(duration) && duration > 0) parts.push(`${duration}s`);
+  if (Number.isFinite(count) && count > 1) parts.push(`x${count}`);
+  return parts.join(' · ');
+}
+
+function skillChips(meta: Record<string, unknown>): MessageContextChip[] {
+  const skill = asRecord(meta['user_skill_selection']) ?? asRecord(meta['selected_skill']);
+  const name = nonEmptyString(skill?.['name']);
+  if (!name) return [];
+  const emoji = nonEmptyString(skill?.['emoji']);
+  return [{
+    key: `skill:${name}`,
+    icon: emoji ? undefined : 'skill',
+    emoji: emoji || undefined,
+    label: `${t('message.context.skill', '技能')} · ${name}`,
+  }];
+}
+
+type AttachmentKind = 'image' | 'text' | 'spreadsheet' | 'pdf' | 'binary';
+
+function attachmentChips(meta: Record<string, unknown>): MessageContextChip[] {
+  const counts = new Map<AttachmentKind, number>();
+  const attachments = meta['attachments'];
+  if (Array.isArray(attachments)) {
+    for (const item of attachments) {
+      const kind = attachmentKindFor(item);
+      counts.set(kind, (counts.get(kind) ?? 0) + 1);
+    }
+  }
+  if (counts.size === 0) {
+    const count = typeof meta['attachment_count'] === 'number'
+      ? Math.max(0, Math.round(meta['attachment_count']))
+      : Number.parseInt(nonEmptyString(meta['attachment_count']), 10);
+    if (Number.isFinite(count) && count > 0) counts.set('binary', count);
+  }
+  const order: AttachmentKind[] = ['image', 'text', 'spreadsheet', 'pdf', 'binary'];
+  return order.flatMap((kind) => {
+    const count = counts.get(kind) ?? 0;
+    if (count <= 0) return [];
+    const data = attachmentKindData(kind);
+    return [{
+      key: `attachment:${kind}`,
+      icon: data.icon,
+      label: count > 1 ? `${data.label} · x${count}` : data.label,
+    }];
+  });
+}
+
+function attachmentKindFor(item: unknown): AttachmentKind {
+  const record = asRecord(item);
+  if (!record) return attachmentKindFromPath(nonEmptyString(item));
+  const rawKind = nonEmptyString(record['kind'] ?? record['type']).toLowerCase();
+  if (rawKind === 'image' || rawKind === 'text' || rawKind === 'spreadsheet' || rawKind === 'pdf') return rawKind;
+  const mime = nonEmptyString(record['mime_type'] ?? record['mime']).toLowerCase();
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.includes('pdf')) return 'pdf';
+  if (mime.includes('spreadsheet') || mime.includes('excel') || mime.includes('csv')) return 'spreadsheet';
+  if (mime.startsWith('text/') || mime.includes('json') || mime.includes('xml') || mime.includes('yaml')) return 'text';
+  return attachmentKindFromPath(
+    nonEmptyString(record['name']) ||
+    nonEmptyString(record['storage_path']) ||
+    nonEmptyString(record['path']) ||
+    nonEmptyString(record['file_path']),
+  );
+}
+
+function attachmentKindFromPath(path: string): AttachmentKind {
+  const lower = path.toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|bmp|heic|svg)$/.test(lower)) return 'image';
+  if (/\.(pdf)$/.test(lower)) return 'pdf';
+  if (/\.(csv|tsv|xls|xlsx|ods)$/.test(lower)) return 'spreadsheet';
+  if (/\.(txt|md|markdown|json|ya?ml|toml|xml|log|sql|dart|go|jsx?|tsx?|py|sh|rs|java|kt|swift|c|cc|cpp|h|hpp|css|html)$/.test(lower)) return 'text';
+  return 'binary';
+}
+
+function attachmentKindData(kind: AttachmentKind): { icon: MessageIconName; label: string } {
+  switch (kind) {
+    case 'image':
+      return { icon: 'image', label: t('message.context.attachment.image', '图片附件') };
+    case 'text':
+      return { icon: 'attachmentText', label: t('message.context.attachment.text', '文本附件') };
+    case 'spreadsheet':
+      return { icon: 'attachmentSpreadsheet', label: t('message.context.attachment.spreadsheet', '表格附件') };
+    case 'pdf':
+      return { icon: 'attachmentPdf', label: t('message.context.attachment.pdf', 'PDF 附件') };
+    case 'binary':
+      return { icon: 'attachmentFile', label: t('message.context.attachment.file', '文件附件') };
+  }
+}
+
+function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
+  return (
+    <span class="oh-message-context-capsule oh-soft-replace">
+      {chip.emoji ? (
+        <span class="oh-message-context-emoji" aria-hidden>{chip.emoji}</span>
+      ) : chip.icon ? (
+        <span class="oh-message-context-icon" aria-hidden>
+          <MessageIcon name={chip.icon} size={13} />
+        </span>
+      ) : null}
+      <span class="truncate">{chip.label}</span>
+    </span>
+  );
+}
+
 // 自动 collapse 长正文（thinking / tool stdout）。阈值经验值，避免一屏被 5K 字符卡片占满。
 const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
 
@@ -324,6 +523,7 @@ function MessageCardImpl({
     : isUserBubble
       ? 'min(78%, 640px)'
       : 'min(82%, 720px)';
+  const contextChips = messageContextChips(message);
 
   useLayoutEffect(() => {
     const el = cardRef.current;
@@ -331,7 +531,9 @@ function MessageCardImpl({
     const nextHeight = el.getBoundingClientRect().height;
     const previousHeight = lastHeightRef.current;
     lastHeightRef.current = nextHeight;
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    const reduceMotion =
+      document.documentElement.dataset.motion === 'reduced' ||
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     if (reduceMotion || previousHeight == null || Math.abs(previousHeight - nextHeight) < 2) return;
     el.style.overflow = 'clip';
     const animation = el.animate([
@@ -347,7 +549,7 @@ function MessageCardImpl({
     };
     animation.oncancel = animation.onfinish;
     return () => animation.cancel();
-  }, [visibleContent, content, actionsVisible, message.kind, message.metadata]);
+  }, [visibleContent, content, actionsVisible, message.kind, message.metadata, contextChips.length]);
 
   return (
     <article
@@ -407,6 +609,11 @@ function MessageCardImpl({
         </span>
         <span class="oh-message-time opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
       </header>
+      {contextChips.length > 0 ? (
+        <div class={`oh-message-context-capsules ${isUserBubble ? 'is-user' : 'is-other'}`}>
+          {contextChips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
+        </div>
+      ) : null}
       <MessageToolMeta message={message} />
       {message.kind === 'file_mutation_summary' ? (
         <FileMutationSummaryCard message={message} />
@@ -420,7 +627,8 @@ function MessageCardImpl({
           raw={style.mono === true || message.kind === 'reasoning'}
           mono={style.mono === true}
         />
-      )}      {sessionId ? <MessageMedia message={message} sessionId={sessionId} /> : null}
+      )}
+      {sessionId ? <MessageMedia message={message} sessionId={sessionId} /> : null}
       {overflows ? (
         <p class="text-xs mt-2 opacity-70">
           {t('detail.collapsed.hint', '内容已折叠（超过 1200 字符），点击下方刷新或加载更早可在控制台查看完整正文。')}
