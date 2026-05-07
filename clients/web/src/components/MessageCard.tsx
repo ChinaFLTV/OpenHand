@@ -16,9 +16,10 @@ import { MessageMedia } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
 import { memo } from 'preact/compat';
-import { useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -464,6 +465,101 @@ function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
 
 // 自动 collapse 长正文（thinking / tool stdout）。阈值经验值，避免一屏被 5K 字符卡片占满。
 const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
+const SIZE_MOTION_MIN_DELTA_PX = 1.5;
+
+function isAssistantSideMessage(message: SessionMessage): boolean {
+  return message.role !== 'user';
+}
+
+function messageSizeMotionSignal(message: SessionMessage, actionsVisible: boolean): string {
+  const metadata = message.metadata ?? {};
+  return [
+    message.id,
+    message.role,
+    message.kind,
+    message.content?.length ?? 0,
+    message.character_count ?? 0,
+    actionsVisible ? 1 : 0,
+    asBool(metadata['tool_arguments_streaming']) ? 1 : 0,
+    asString(metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status']),
+    asString(metadata['tool_execution_stdout']).length,
+    asString(metadata['tool_execution_stderr']).length,
+    asString(metadata['tool_execution_result'] ?? metadata['result_text']).length,
+    asString(metadata['file_mutation_kind']),
+    asNumber(metadata['round_summary_record_count']) ?? '',
+  ].join('|');
+}
+
+function useMessageSizeMotion(signal: string, enabled: boolean) {
+  const ref = useRef<HTMLElement | null>(null);
+  const lastHeightRef = useRef<number | null>(null);
+  const animationRef = useRef<Animation | null>(null);
+  const overflowBeforeAnimationRef = useRef<string | null>(null);
+
+  useEffect(() => () => {
+    animationRef.current?.cancel();
+    animationRef.current = null;
+  }, []);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const activeAnimation = animationRef.current;
+    const currentVisualHeight = activeAnimation
+      ? element.getBoundingClientRect().height
+      : null;
+    activeAnimation?.cancel();
+    animationRef.current = null;
+    if (overflowBeforeAnimationRef.current != null) {
+      element.style.overflow = overflowBeforeAnimationRef.current;
+      overflowBeforeAnimationRef.current = null;
+    }
+
+    const nextHeight = element.getBoundingClientRect().height;
+    const previousHeight = lastHeightRef.current;
+    lastHeightRef.current = nextHeight;
+    if (!enabled || previousHeight == null || typeof element.animate !== 'function') return;
+
+    const fromHeight = currentVisualHeight ?? previousHeight;
+    const delta = nextHeight - fromHeight;
+    if (!Number.isFinite(fromHeight) || !Number.isFinite(nextHeight) || Math.abs(delta) < SIZE_MOTION_MIN_DELTA_PX) {
+      return;
+    }
+
+    const growing = delta > 0;
+    const overshoot = growing ? Math.min(10, Math.max(2, delta * 0.12)) : 0;
+    const duration = growing ? 360 : 230;
+    overflowBeforeAnimationRef.current = element.style.overflow;
+    element.style.overflow = 'clip';
+    const animation = element.animate(
+      growing
+        ? [
+            { height: `${fromHeight}px`, offset: 0 },
+            { height: `${nextHeight + overshoot}px`, offset: 0.72 },
+            { height: `${nextHeight}px`, offset: 1 },
+          ]
+        : [
+            { height: `${fromHeight}px`, offset: 0 },
+            { height: `${nextHeight}px`, offset: 1 },
+          ],
+      {
+        duration,
+        easing: growing ? 'cubic-bezier(0.22, 1.22, 0.36, 1)' : 'cubic-bezier(0.2, 0, 0, 1)',
+      },
+    );
+    animationRef.current = animation;
+    const restore = () => {
+      if (animationRef.current !== animation) return;
+      animationRef.current = null;
+      element.style.overflow = overflowBeforeAnimationRef.current ?? '';
+      overflowBeforeAnimationRef.current = null;
+    };
+    void animation.finished.then(restore, restore);
+  }, [enabled, signal]);
+
+  return ref;
+}
 
 export interface MessageCardProps {
   message: SessionMessage;
@@ -498,6 +594,7 @@ function MessageCardImpl({
   onAudit,
   onActiveChange,
 }: MessageCardProps) {
+  const reduceMotion = useReducedMotion();
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
   const useStructuredToolBody =
@@ -526,9 +623,15 @@ function MessageCardImpl({
       ? 'min(78%, 640px)'
       : 'min(82%, 720px)';
   const contextChips = messageContextChips(message);
+  const sizeMotionSignal = messageSizeMotionSignal(message, actionsVisible);
+  const cardRef = useMessageSizeMotion(
+    sizeMotionSignal,
+    !reduceMotion && isAssistantSideMessage(message),
+  );
 
   return (
     <article
+      ref={cardRef}
       class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} rounded-m3-md p-4 oh-appear-up`}
       style={{
         display: 'block',

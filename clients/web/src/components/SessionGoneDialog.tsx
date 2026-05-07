@@ -13,6 +13,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { t } from '../i18n';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 
 export interface SessionGoneDialogProps {
   open: boolean;
@@ -49,7 +50,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
       window.setTimeout(() => {
         // 即便 refresh 失败也要导航走 — 用户已经被告知会话不存在了
         location.route('/threads');
-      }, reduceMotion ? 0 : 180);
+      }, reduceMotion ? 0 : getDialogExitDurationMs());
     }
   };
 

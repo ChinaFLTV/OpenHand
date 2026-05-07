@@ -31,6 +31,27 @@ function makeMessage(id: string, content: string, metadata?: Record<string, unkn
   };
 }
 
+function makeAssistantMessage(id: string, content: string): SessionMessage {
+  return {
+    ...makeMessage(id, content),
+    role: 'assistant',
+  };
+}
+
+function domRect(height: number): DOMRect {
+  return {
+    x: 0,
+    y: 0,
+    width: 320,
+    height,
+    top: 0,
+    right: 320,
+    bottom: height,
+    left: 0,
+    toJSON: () => ({}),
+  } as DOMRect;
+}
+
 function MessageListHarness() {
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const messages = [makeMessage('first', '第一条内容'), makeMessage('second', '第二条内容')];
@@ -98,5 +119,50 @@ describe('MessageCard actions', () => {
     expect(screen.getByText(/(技能|Skill).*摄影构图/)).not.toBeNull();
     expect(screen.getByText(/(附件|Attachment).*(图片|Image)/)).not.toBeNull();
     expect(screen.getByText(/(附件|Attachment).*PDF/)).not.toBeNull();
+  });
+
+  it('animates assistant card height when streamed content grows', () => {
+    const animateDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'animate');
+    const animate = vi.fn(function animateMock(
+      _keyframes?: Keyframe[] | PropertyIndexedKeyframes | null,
+      _options?: number | KeyframeAnimationOptions,
+    ) {
+      return {
+        cancel: vi.fn(),
+        finished: Promise.resolve({} as Animation),
+      } as unknown as Animation;
+    });
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      value: animate,
+    });
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getRect(this: HTMLElement) {
+        return domRect((this.textContent ?? '').includes('第二行') ? 120 : 80);
+      });
+
+    try {
+      const { rerender } = render(
+        <MessageCard message={makeAssistantMessage('assistant-1', '第一行')} />,
+      );
+      expect(animate).not.toHaveBeenCalled();
+
+      rerender(
+        <MessageCard message={makeAssistantMessage('assistant-1', '第一行\n第二行')} />,
+      );
+
+      expect(animate).toHaveBeenCalledTimes(1);
+      const [keyframes, options] = animate.mock.calls[0] as [Keyframe[], KeyframeAnimationOptions];
+      expect((keyframes as Keyframe[])[0]!.height).toBe('80px');
+      expect((keyframes as Keyframe[]).at(-1)!.height).toBe('120px');
+      expect((options as KeyframeAnimationOptions).duration).toBeGreaterThanOrEqual(300);
+    } finally {
+      rectSpy.mockRestore();
+      if (animateDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, 'animate', animateDescriptor);
+      } else {
+        delete (HTMLElement.prototype as unknown as { animate?: unknown }).animate;
+      }
+    }
   });
 });

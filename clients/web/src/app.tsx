@@ -101,6 +101,10 @@ const HomeRoute = () => (
   </RequireAuth>
 );
 
+const LoginRoute = () => (
+  <Appear variant="page"><LoginPage /></Appear>
+);
+
 const SessionsRoute = () => (
   <RequireAuth>
     <Appear variant="page"><SessionsPage /></Appear>
@@ -157,7 +161,7 @@ export function App() {
   return (
     <LocationProvider>
       <Router>
-        <Route path="/login" component={LoginPage} />
+        <Route path="/login" component={LoginRoute} />
         <Route path="/" component={HomeRoute} />
         <Route path="/threads" component={SessionsRoute} />
         <Route path="/threads/:id" component={SessionDetailRoute} />
