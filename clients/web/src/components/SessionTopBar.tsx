@@ -1,7 +1,7 @@
 // 单会话页专用 TopBar (1:1 对齐 OpenHand App 端 home page 顶部条):
 // - 标题区: 返回按钮 + 可点击重命名的标题 + 模板/计数副标题
 // - 工具区:
-//     模式 chip (普通/Plan/图像/视频/音频)
+//     模式 chip (聊天模式/计划模式/图像/视频/音频)
 //     模型 chip (点击弹出 ModelPickerDialog)
 //     权限 chip (默认 ask, App 端 normal/auto/ask 等)
 //     停止按钮 (sendPhase != idle 时高亮)

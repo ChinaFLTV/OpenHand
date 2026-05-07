@@ -267,9 +267,9 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
               disabled={busy}
               minWidth={140}
               options={[
-                { value: 'chat', label: t('sessions.mode.chat', '对话') },
+                { value: 'chat', label: t('sessions.mode.chat', '聊天模式') },
                 ...(planEnabled
-                  ? [{ value: 'plan', label: t('sessions.mode.plan', 'Plan') }]
+                  ? [{ value: 'plan', label: t('sessions.mode.plan', '计划模式') }]
                   : []),
               ]}
             />

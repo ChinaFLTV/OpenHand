@@ -44,7 +44,6 @@ import { listSessions } from '../api/sessions';
 import { SessionGoneDialog } from '../components/SessionGoneDialog';
 import { t } from '../i18n';
 import { useAuth } from '../state/auth';
-import { readToken } from '../state/storage';
 import type { ApiMetaModel, ApiMetaShortcutBinding } from '../api/meta';
 import { MessageCard } from '../components/MessageCard';
 import { PlanTimeline } from '../components/PlanTimeline';
@@ -62,6 +61,7 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { buildSessionAssetUrl } from '../utils/session_asset';
 import { PopMenu } from '../components/PopMenu';
 import { listSkills, type SkillSummary } from '../api/toolbox';
 import {
@@ -352,14 +352,6 @@ function collectEditableAttachmentAssets(message: SessionMessage): EditableAttac
   });
 }
 
-function buildSessionAssetUrl(sessionId: string, path: string): string {
-  const qs = new URLSearchParams();
-  qs.set('path', path);
-  const token = readToken();
-  if (token) qs.set('token', token);
-  return `/api/sessions/${encodeURIComponent(sessionId)}/asset?${qs.toString()}`;
-}
-
 function sameMetadata(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (a == null || b == null) return false;
@@ -431,7 +423,7 @@ function modelSupportsMode(model: ApiMetaModel | undefined, mode: string): boole
 function composerModeLabel(mode: string): string {
   switch (mode) {
     case 'normal':
-      return t('composer.mode.normal', '普通');
+      return t('composer.mode.normal', '聊天模式');
     case 'image':
       return t('composer.mode.image', '图像');
     case 'video':
@@ -439,7 +431,7 @@ function composerModeLabel(mode: string): string {
     case 'audio':
       return t('composer.mode.audio', '音频');
     case 'plan':
-      return t('sessions.mode.plan', '计划模式');
+      return t('composer.mode.plan', '计划模式');
     case 'deep_research':
       return t('composer.mode.deepResearch', '深度研究');
     default:
@@ -2097,8 +2089,8 @@ export function SessionDetailPage() {
     ? [
         session.template_name || session.template_id,
         session.mode === 'plan'
-          ? t('sessions.mode.plan', 'Plan')
-          : t('sessions.mode.chat', '对话'),
+          ? t('sessions.mode.plan', '计划模式')
+          : t('sessions.mode.chat', '聊天模式'),
         `${totalKnown} ${t('sessions.messageUnit', '条消息')}`,
         session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : '',
         session.tool_message_count ? `${session.tool_message_count} tool` : '',
@@ -2326,10 +2318,10 @@ export function SessionDetailPage() {
                 aria-pressed={currentSessionMode === 'plan'}
                 title={sessionModeLabel(currentSessionMode)}
               >
-                <span class="oh-composer-control-icon oh-session-mode-icon">
+                <span key={`session-mode-icon-${currentSessionMode}`} class="oh-composer-control-icon oh-session-mode-icon oh-soft-replace">
                   <ComposerIcon name={sessionModeIconName(currentSessionMode)} />
                 </span>
-                <span class="oh-session-mode-label">{sessionModeLabel(currentSessionMode)}</span>
+                <span key={`session-mode-label-${currentSessionMode}`} class="oh-session-mode-label oh-soft-replace">{sessionModeLabel(currentSessionMode)}</span>
               </button>
             ) : null}
 
@@ -2379,10 +2371,10 @@ export function SessionDetailPage() {
                   aria-expanded={open}
                   title={t('composer.mode', '模式')}
                 >
-                  <span class="oh-composer-control-icon">
+                  <span key={`composer-mode-icon-${composerMode}`} class="oh-composer-control-icon oh-soft-replace">
                     <ComposerIcon name={composerModeIconName(composerMode)} />
                   </span>
-                  <span>{composerModeLabel(composerMode)}</span>
+                  <span key={`composer-mode-label-${composerMode}`} class="oh-soft-replace">{composerModeLabel(composerMode)}</span>
                   <span class={`oh-composer-caret ${open ? 'is-open' : ''}`}>
                     <ComposerIcon name="chevronDown" size={16} />
                   </span>

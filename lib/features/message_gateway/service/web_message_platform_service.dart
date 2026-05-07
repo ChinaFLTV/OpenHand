@@ -2845,7 +2845,9 @@ class WebMessagePlatformService {
         final s = raw.trim();
         if (s.isNotEmpty &&
             !s.startsWith('http://') &&
-            !s.startsWith('https://')) {
+            !s.startsWith('https://') &&
+            !s.startsWith('data:') &&
+            !s.startsWith('blob:')) {
           out.add(s);
         }
       }
@@ -2893,9 +2895,80 @@ class WebMessagePlatformService {
           }
         }
       }
+      for (final path in _collectMessageContentAssetPaths(msg.content)) {
+        addCandidate(path);
+      }
     }
     return out;
   }
+
+  Iterable<String> _collectMessageContentAssetPaths(String content) sync* {
+    if (content.isEmpty || !content.contains('openhand_media')) {
+      return;
+    }
+    for (final match in _markdownMediaReferencePattern.allMatches(content)) {
+      final raw = match.group(1);
+      if (raw == null) continue;
+      final path = _normalizeMarkdownDestination(raw);
+      if (_isGeneratedInlineMediaPath(path)) yield path;
+    }
+    for (final match in _htmlMediaSrcPattern.allMatches(content)) {
+      final raw = match.group(1);
+      if (raw == null) continue;
+      final path = raw.trim();
+      if (_isGeneratedInlineMediaPath(path)) yield path;
+    }
+  }
+
+  String _normalizeMarkdownDestination(String raw) {
+    var value = raw.trim();
+    if (value.startsWith('<')) {
+      final close = value.indexOf('>');
+      if (close > 0) {
+        return value.substring(1, close).trim();
+      }
+    }
+    final title = RegExp(
+      r'''\s+(?:"[^"]*"|'[^']*'|\([^)]*\))\s*$''',
+    ).firstMatch(value);
+    if (title != null) {
+      value = value.substring(0, title.start).trim();
+    }
+    return value;
+  }
+
+  bool _isGeneratedInlineMediaPath(String rawPath) {
+    var value = rawPath.trim();
+    if (value.isEmpty ||
+        value.startsWith('http://') ||
+        value.startsWith('https://') ||
+        value.startsWith('data:') ||
+        value.startsWith('blob:')) {
+      return false;
+    }
+    if (value.startsWith('file://')) {
+      final uri = Uri.tryParse(value);
+      if (uri == null || !uri.isScheme('file')) return false;
+      try {
+        value = uri.toFilePath();
+      } on UnsupportedError {
+        return false;
+      }
+    }
+    final inlineDir = p.normalize(
+      p.join(Directory.systemTemp.path, 'openhand_media'),
+    );
+    final normalized = p.normalize(value);
+    return normalized == inlineDir || p.isWithin(inlineDir, normalized);
+  }
+
+  static final RegExp _markdownMediaReferencePattern = RegExp(
+    r'''!?\[[^\]\r\n]{0,240}\]\(([^)\r\n]+)\)''',
+  );
+  static final RegExp _htmlMediaSrcPattern = RegExp(
+    r'''<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>''',
+    caseSensitive: false,
+  );
 
   /// 复用 _authorize，但允许从 query string 读取 token / device 信息，
   /// 兼容浏览器 EventSource 这种不能自定义 header 的场景。

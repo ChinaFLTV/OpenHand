@@ -17,6 +17,36 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 
 const CONTENT_TOO_BIG_BYTES = 120 * 1024;
+const LOCAL_MEDIA_EXT = /\.(?:png|jpe?g|gif|webp|bmp|heic|svg|mp4|webm|mov|m4v|mp3|wav|ogg|m4a|flac|aac)(?:[?#].*)?$/i;
+const MARKDOWN_MEDIA_REF = /!?\[[^\]\n]{0,240}\]\(([^)\r\n]+)\)/g;
+
+export function normalizeMarkdownDestination(raw: string): string {
+  let value = raw.trim();
+  if (value.startsWith('<')) {
+    const close = value.indexOf('>');
+    if (close > 0) return value.slice(1, close).trim();
+  }
+  const title = value.match(/\s+(?:"[^"]*"|'[^']*'|\([^)]*\))\s*$/);
+  if (title?.index != null) {
+    value = value.slice(0, title.index).trim();
+  }
+  return value;
+}
+
+export function isLocalMediaReference(raw: unknown): boolean {
+  if (typeof raw !== 'string') return false;
+  const value = normalizeMarkdownDestination(raw);
+  if (!value || /^(?:https?:|data:|blob:|\/api\/sessions\/)/i.test(value)) return false;
+  return value.includes('openhand_media') || LOCAL_MEDIA_EXT.test(value);
+}
+
+export function stripLocalMediaReferences(source: string): string {
+  return source
+    .replace(MARKDOWN_MEDIA_REF, (match: string, destination: string) => (
+      isLocalMediaReference(destination) ? '' : match
+    ))
+    .replace(/\n{3,}/g, '\n\n');
+}
 
 export interface MarkdownProps {
   /// 原始 Markdown 文本.
@@ -29,6 +59,7 @@ export interface MarkdownProps {
 
 export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
   const content = source ?? '';
+  const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
   const tooBig = content.length > CONTENT_TOO_BIG_BYTES;
 
   const fontFamily = mono
@@ -159,7 +190,7 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
         rehypePlugins={[rehypeHighlight]}
         components={components}
       >
-        {content}
+        {markdownContent}
       </ReactMarkdown>
     </div>
   );

@@ -49,8 +49,8 @@ function formatTimestamp(iso: string): string {
 }
 
 function modeLabel(mode: string): string {
-  if (mode === 'plan') return t('sessions.mode.plan', 'Plan');
-  if (mode === 'chat') return t('sessions.mode.chat', '对话');
+  if (mode === 'plan') return t('sessions.mode.plan', '计划模式');
+  if (mode === 'chat') return t('sessions.mode.chat', '聊天模式');
   return mode;
 }
 

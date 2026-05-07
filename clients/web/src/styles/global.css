@@ -104,7 +104,7 @@ html, body, #root {
    - reduce-motion 状态由 [data-motion='reduced'] 标志位（JS 在 root 上写入）。
    - .oh-appear-up：220ms fade + translateY(8px → 0)，配合 .oh-appear-stagger-N 形成入场错峰（最多 12 阶，每阶 60ms）。
    - .oh-page-fade：路由切换时整页 280ms fade，避免顶层闪烁。
-   - .oh-tap-press：可点击元素受压反馈，scale(0.97) 70ms。
+  - .oh-tap-press：可点击元素受压反馈，按下与释放都走弹性曲线。
    - 任何作用于 transform / opacity 的动画都额外开 will-change，避免 layout/paint 抖动。 */
 :root {
   --oh-motion-emphasized: cubic-bezier(0.2, 0, 0, 1);
@@ -212,12 +212,41 @@ html, body, #root {
 /* hover/press 微反馈：盖在按钮/卡片/可点击行上。 */
 .oh-tap-press {
   transition:
-    transform var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    transform 220ms var(--oh-motion-spring),
     box-shadow var(--oh-motion-duration-base) var(--oh-motion-emphasized),
-    background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+    background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized),
+    border-color var(--oh-motion-duration-base) var(--oh-motion-emphasized),
+    color var(--oh-motion-duration-fast) var(--oh-motion-emphasized);
+  will-change: transform;
 }
-.oh-tap-press:hover { transform: translateY(-1px); }
-.oh-tap-press:active { transform: scale(0.97); }
+.oh-tap-press:hover:not(:disabled) {
+  transform: translate3d(0, -1px, 0) scale(1.012);
+}
+.oh-tap-press:active:not(:disabled) {
+  transform: translate3d(0, 0, 0) scale(0.965);
+  transition-duration: 90ms, var(--oh-motion-duration-base), var(--oh-motion-duration-base), var(--oh-motion-duration-base), var(--oh-motion-duration-fast);
+}
+
+@keyframes oh-soft-replace {
+  0%   { opacity: 0; transform: translate3d(0, 4px, 0) scale(0.92); }
+  58%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.035); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+.oh-soft-replace {
+  animation: oh-soft-replace 280ms var(--oh-motion-spring) both;
+  will-change: transform, opacity;
+}
+.oh-media-card {
+  animation: oh-appear-pop 320ms var(--oh-motion-spring) both;
+  transform-origin: top left;
+  transition:
+    transform 240ms var(--oh-motion-spring),
+    box-shadow 260ms var(--oh-motion-emphasized),
+    border-color 220ms var(--oh-motion-emphasized);
+}
+.oh-media-card:hover {
+  box-shadow: var(--m3-elev-2);
+}
 
 .oh-session-topbar button,
 .oh-session-topbar input,

@@ -7,10 +7,10 @@
 import { createPortal } from 'preact/compat';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SessionMessage } from '../api/sessions';
-import { readToken } from '../state/storage';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
+import { buildSessionAssetUrl } from '../utils/session_asset';
 import { showSnackbar } from './Snackbar';
 
 type MediaKind = 'image' | 'video' | 'audio' | 'file';
@@ -28,6 +28,9 @@ interface MediaItem {
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.heic', '.svg'];
 const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v'];
 const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
+const MARKDOWN_MEDIA_REF = /(!?)\[([^\]\n]{0,240})\]\(([^)\r\n]+)\)/g;
+const HTML_MEDIA_SRC = /<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
+const INLINE_MEDIA_DIR = /(^|[\\/])openhand_media([\\/]|$)/i;
 
 function mediaKindFromPath(path: string, hintKind?: string): MediaKind {
   const lower = path.toLowerCase();
@@ -64,51 +67,95 @@ function pushString(out: MediaItem[], raw: unknown, hintKind?: string): void {
   });
 }
 
+function normalizeMarkdownDestination(raw: string): string {
+  let value = raw.trim();
+  if (value.startsWith('<')) {
+    const close = value.indexOf('>');
+    if (close > 0) return value.slice(1, close).trim();
+  }
+  const title = value.match(/\s+(?:"[^"]*"|'[^']*'|\([^)]*\))\s*$/);
+  if (title?.index != null) {
+    value = value.slice(0, title.index).trim();
+  }
+  return value;
+}
+
+function isGeneratedInlineMediaPath(path: string): boolean {
+  if (/^(?:https?:|data:|blob:)/i.test(path)) return false;
+  return INLINE_MEDIA_DIR.test(path);
+}
+
+function markdownMediaKind(path: string, label: string, imageSyntax: boolean): MediaKind {
+  const lowerLabel = label.toLowerCase();
+  if (lowerLabel.includes('video') || label.includes('🎬')) return 'video';
+  if (lowerLabel.includes('audio') || lowerLabel.includes('sound') || label.includes('🔊')) return 'audio';
+  if (imageSyntax || lowerLabel.includes('image') || lowerLabel.includes('picture')) return 'image';
+  return mediaKindFromPath(path);
+}
+
+function collectMarkdownMedia(message: SessionMessage, out: MediaItem[]): void {
+  const content = message.content ?? '';
+  if (!content || !content.includes('openhand_media')) return;
+  for (const match of content.matchAll(MARKDOWN_MEDIA_REF)) {
+    const path = normalizeMarkdownDestination(match[3] ?? '');
+    if (!isGeneratedInlineMediaPath(path)) continue;
+    const label = (match[2] ?? '').trim();
+    pushString(out, path, markdownMediaKind(path, label, match[1] === '!'));
+  }
+  for (const match of content.matchAll(HTML_MEDIA_SRC)) {
+    const path = (match[1] ?? '').trim();
+    if (!isGeneratedInlineMediaPath(path)) continue;
+    pushString(out, path);
+  }
+}
+
 function collectMedia(message: SessionMessage): MediaItem[] {
   const meta = message.metadata as Record<string, unknown> | undefined;
-  if (!meta) return [];
   const out: MediaItem[] = [];
-  const atts = meta['attachments'];
-  if (Array.isArray(atts)) {
-    for (const entry of atts) {
-      if (entry && typeof entry === 'object') {
-        const e = entry as Record<string, unknown>;
-        const hintKind = typeof e['kind'] === 'string'
-          ? (e['kind'] as string)
-          : typeof e['type'] === 'string'
-            ? (e['type'] as string)
-            : undefined;
-        pushString(
-          out,
-          e['storage_path'] ?? e['path'] ?? e['file_path'] ?? e['original_source_path'],
-          hintKind,
-        );
-      } else if (typeof entry === 'string') {
-        pushString(out, entry);
+  if (meta) {
+    const atts = meta['attachments'];
+    if (Array.isArray(atts)) {
+      for (const entry of atts) {
+        if (entry && typeof entry === 'object') {
+          const e = entry as Record<string, unknown>;
+          const hintKind = typeof e['kind'] === 'string'
+            ? (e['kind'] as string)
+            : typeof e['type'] === 'string'
+              ? (e['type'] as string)
+              : undefined;
+          pushString(
+            out,
+            e['storage_path'] ?? e['path'] ?? e['file_path'] ?? e['original_source_path'],
+            hintKind,
+          );
+        } else if (typeof entry === 'string') {
+          pushString(out, entry);
+        }
       }
     }
+    const KEY_MAP: Record<string, MediaKind> = {
+      image_path: 'image',
+      image_paths: 'image',
+      generated_image_path: 'image',
+      generated_image_paths: 'image',
+      video_path: 'video',
+      video_paths: 'video',
+      generated_video_path: 'video',
+      generated_video_paths: 'video',
+      audio_path: 'audio',
+      audio_paths: 'audio',
+      generated_audio_path: 'audio',
+      generated_audio_paths: 'audio',
+      media_path: 'file',
+      media_paths: 'file',
+    };
+    for (const key of Object.keys(KEY_MAP)) {
+      const v = meta[key];
+      if (typeof v === 'string') pushString(out, v, KEY_MAP[key]);
+      else if (Array.isArray(v)) for (const e of v) pushString(out, e, KEY_MAP[key]);
+    }
   }
-  const KEY_MAP: Record<string, MediaKind> = {
-    image_path: 'image',
-    image_paths: 'image',
-    generated_image_path: 'image',
-    generated_image_paths: 'image',
-    video_path: 'video',
-    video_paths: 'video',
-    generated_video_path: 'video',
-    generated_video_paths: 'video',
-    audio_path: 'audio',
-    audio_paths: 'audio',
-    generated_audio_path: 'audio',
-    generated_audio_paths: 'audio',
-    media_path: 'file',
-    media_paths: 'file',
-  };
-  for (const key of Object.keys(KEY_MAP)) {
-    const v = meta[key];
-    if (typeof v === 'string') pushString(out, v, KEY_MAP[key]);
-    else if (Array.isArray(v)) for (const e of v) pushString(out, e, KEY_MAP[key]);
-  }
+  collectMarkdownMedia(message, out);
   // 去重 (按 path)
   const seen = new Set<string>();
   return out.filter((m) => {
@@ -116,13 +163,6 @@ function collectMedia(message: SessionMessage): MediaItem[] {
     seen.add(m.path);
     return true;
   });
-}
-
-function buildAssetUrl(sessionId: string, path: string, token: string): string {
-  const qs = new URLSearchParams();
-  qs.set('path', path);
-  if (token) qs.set('token', token);
-  return `/api/sessions/${encodeURIComponent(sessionId)}/asset?${qs.toString()}`;
 }
 
 function pickerTypesForMedia(item: MediaItem): SaveBlobPickerType[] | undefined {
@@ -309,7 +349,6 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
   const items = useMemo(() => collectMedia(message), [message]);
   const [preview, setPreview] = useState<{ item: MediaItem; url: string } | null>(null);
   if (items.length === 0) return null;
-  const token = readToken() ?? '';
   const openPreview = (item: MediaItem, url: string) => {
     if (item.kind === 'file') return;
     setPreview({ item, url });
@@ -319,7 +358,7 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
     <>
     <div class="mt-3 flex flex-col gap-2">
       {items.map((item, idx) => {
-        const url = buildAssetUrl(sessionId, item.path, token);
+        const url = buildSessionAssetUrl(sessionId, item.path);
         const key = `${item.path}:${idx}`;
         if (item.kind === 'image') {
           return (
@@ -327,7 +366,7 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
               key={key}
               type="button"
               onClick={() => openPreview(item, url)}
-              class="block rounded-md overflow-hidden oh-tap-press text-left"
+              class="oh-media-card oh-media-image-card block rounded-md overflow-hidden oh-tap-press text-left"
               style={{
                 border: '1px solid var(--m3-outline)',
                 background: 'var(--m3-surface)',
@@ -361,7 +400,7 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
           return (
             <div
               key={key}
-              class="rounded-md overflow-hidden"
+              class="oh-media-card rounded-md overflow-hidden"
               style={{
                 border: '1px solid var(--m3-outline)',
                 background: 'black',
@@ -403,7 +442,7 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
           return (
             <div
               key={key}
-              class="rounded-md px-3 py-2 flex flex-col gap-2"
+              class="oh-media-card rounded-md px-3 py-2 flex flex-col gap-2"
               style={{
                 border: '1px solid var(--m3-outline)',
                 background: 'var(--m3-surface)',
@@ -442,7 +481,7 @@ export function MessageMedia({ message, sessionId }: MessageMediaProps) {
             href={url}
             target="_blank"
             rel="noreferrer noopener"
-            class="text-xs inline-flex items-center gap-2 px-3 py-1.5 rounded-md oh-tap-press"
+            class="oh-media-card text-xs inline-flex items-center gap-2 px-3 py-1.5 rounded-md oh-tap-press"
             style={{
               border: '1px solid var(--m3-outline)',
               color: 'var(--m3-on-surface)',
