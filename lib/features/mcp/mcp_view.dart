@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -22,7 +23,7 @@ import 'model/mcp_server_health.dart';
 import 'model/mcp_tool.dart';
 import 'service/mcp_tool_discovery_service.dart';
 
-enum _McpCardAction { edit, delete, viewHistory }
+enum _McpCardAction { edit, delete, viewHistory, viewDetails }
 
 const int _mcpToolPreviewCollapsedLimit = 8;
 const int _mcpToolPreviewExpandedLimit = 48;
@@ -396,6 +397,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                             _confirmDeleteServer(context, server);
                           case _McpCardAction.viewHistory:
                             _showHealthHistorySheet(context, server.name);
+                          case _McpCardAction.viewDetails:
+                            _showServerDetailsSheet(context, server);
                         }
                       },
                     );
@@ -550,6 +553,41 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               ),
               builder: (context, health, _) =>
                   _McpHealthHistorySheet(serverName: serverName, health: health),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 服务详情抽屉：基于 healthStatus / toolCatalog 聚合可读统计（成功率、平均耗时、
+  /// 最近成功 / 失败时间、Tool 数量），同时展示 server 的关键配置摘要。仅读，不可编辑。
+  void _showServerDetailsSheet(BuildContext context, McpServer server) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.86,
+              minHeight: 320,
+            ),
+            child: Selector<
+              McpController,
+              ({McpServerHealth health, McpToolCatalog catalog})
+            >(
+              selector: (_, controller) => (
+                health: controller.healthStatusFor(server.name),
+                catalog: controller.toolCatalogFor(server.name),
+              ),
+              builder: (context, snapshot, _) => _McpServerDetailsSheet(
+                server: server,
+                health: snapshot.health,
+                toolCatalog: snapshot.catalog,
+              ),
             ),
           ),
         );
@@ -1371,6 +1409,16 @@ class _McpServerCard extends StatelessWidget {
                         itemBuilder: (context) {
                           return [
                             PopupMenuItem<_McpCardAction>(
+                              value: _McpCardAction.viewDetails,
+                              child: Text(
+                                _localizedText(
+                                  context,
+                                  zh: '服务详情',
+                                  en: 'Server details',
+                                ),
+                              ),
+                            ),
+                            PopupMenuItem<_McpCardAction>(
                               value: _McpCardAction.viewHistory,
                               child: Text(
                                 _localizedText(
@@ -1631,6 +1679,301 @@ class _McpAttentionChip extends StatelessWidget {
   }
 }
 
+/// 服务详情抽屉：展示服务配置摘要 + 聚合健康统计 + Tool 数量。
+/// 数据来源全部为 controller 既有快照，无独立请求。
+class _McpServerDetailsSheet extends StatelessWidget {
+  const _McpServerDetailsSheet({
+    required this.server,
+    required this.health,
+    required this.toolCatalog,
+  });
+
+  final McpServer server;
+  final McpServerHealth health;
+  final McpToolCatalog toolCatalog;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final probes = health.recentProbes;
+    final successCount = probes
+        .where((p) => p.status == McpServerHealthStatus.healthy)
+        .length;
+    final failureCount = probes.length - successCount;
+    final successRate = probes.isEmpty
+        ? null
+        : (successCount / probes.length * 100).round();
+    final latencies = <int>[
+      for (final p in probes)
+        if (p.status == McpServerHealthStatus.healthy && p.latencyMs != null)
+          p.latencyMs!,
+    ];
+    final avgLatency = latencies.isEmpty
+        ? null
+        : (latencies.reduce((a, b) => a + b) / latencies.length).round();
+    final lastFailure = probes.firstWhere(
+      (p) => p.status != McpServerHealthStatus.healthy,
+      orElse: () => McpHealthProbeRecord(
+        status: McpServerHealthStatus.idle,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      ),
+    );
+    final lastFailureAt = lastFailure.timestamp.millisecondsSinceEpoch == 0
+        ? null
+        : lastFailure.timestamp;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '服务详情',
+                        en: 'Server details',
+                      ),
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      server.name,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _DetailsSection(
+            title: _localizedText(context, zh: '配置摘要', en: 'Configuration'),
+            children: [
+              _DetailsRow(
+                label: _localizedText(context, zh: '协议类型', en: 'Protocol'),
+                value: server.type.label(AppLocalizations.of(context)!),
+              ),
+              _DetailsRow(
+                label: _localizedText(context, zh: '启用状态', en: 'Enabled'),
+                value: server.enabled
+                    ? _localizedText(context, zh: '已启用', en: 'Yes')
+                    : _localizedText(context, zh: '已停用', en: 'No'),
+              ),
+              _DetailsRow(
+                label: _localizedText(context, zh: '入口', en: 'Endpoint'),
+                value: server.summary.isEmpty ? '—' : server.summary,
+                multiline: true,
+              ),
+              if (server.headers.isNotEmpty)
+                _DetailsRow(
+                  label: _localizedText(context, zh: 'Header 数量', en: 'Headers'),
+                  value: '${server.headers.length}',
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _DetailsSection(
+            title: _localizedText(context, zh: '健康统计', en: 'Health'),
+            children: [
+              _DetailsRow(
+                label: _localizedText(context, zh: '当前状态', en: 'Status'),
+                value: switch (health.status) {
+                  McpServerHealthStatus.healthy => _localizedText(
+                    context,
+                    zh: '健康',
+                    en: 'Healthy',
+                  ),
+                  McpServerHealthStatus.unhealthy => _localizedText(
+                    context,
+                    zh: '不健康',
+                    en: 'Unhealthy',
+                  ),
+                  McpServerHealthStatus.checking => _localizedText(
+                    context,
+                    zh: '检测中',
+                    en: 'Checking',
+                  ),
+                  McpServerHealthStatus.idle => _localizedText(
+                    context,
+                    zh: '尚未探测',
+                    en: 'Idle',
+                  ),
+                },
+              ),
+              _DetailsRow(
+                label: _localizedText(
+                  context,
+                  zh: '最近成功',
+                  en: 'Last success',
+                ),
+                value: health.lastSuccessAt == null
+                    ? '—'
+                    : _formatRelativePast(context, health.lastSuccessAt!),
+              ),
+              _DetailsRow(
+                label: _localizedText(context, zh: '最近失败', en: 'Last failure'),
+                value: lastFailureAt == null
+                    ? '—'
+                    : _formatRelativePast(context, lastFailureAt),
+              ),
+              _DetailsRow(
+                label: _localizedText(
+                  context,
+                  zh: '连续失败',
+                  en: 'Consecutive fails',
+                ),
+                value: '${health.consecutiveFailures}',
+              ),
+              _DetailsRow(
+                label: _localizedText(
+                  context,
+                  zh: '近期成功率',
+                  en: 'Recent success rate',
+                ),
+                value: successRate == null ? '—' : '$successRate%',
+              ),
+              _DetailsRow(
+                label: _localizedText(
+                  context,
+                  zh: '平均耗时',
+                  en: 'Average latency',
+                ),
+                value: avgLatency == null ? '—' : '$avgLatency ms',
+              ),
+              _DetailsRow(
+                label: _localizedText(
+                  context,
+                  zh: '记录样本',
+                  en: 'Sample size',
+                ),
+                value:
+                    '${probes.length} '
+                    '(${_localizedText(context, zh: '成功 $successCount / 失败 $failureCount', en: '$successCount ok / $failureCount fail')})',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _DetailsSection(
+            title: _localizedText(context, zh: '工具目录', en: 'Tool catalog'),
+            children: [
+              _DetailsRow(
+                label: _localizedText(context, zh: '加载状态', en: 'Status'),
+                value: toolCatalog.isLoading
+                    ? _localizedText(context, zh: '加载中', en: 'Loading')
+                    : (toolCatalog.errorMessage != null
+                          ? _localizedText(context, zh: '失败', en: 'Failed')
+                          : _localizedText(context, zh: '已加载', en: 'Loaded')),
+              ),
+              _DetailsRow(
+                label: _localizedText(context, zh: 'Tool 数量', en: 'Tool count'),
+                value: '${toolCatalog.tools.length}',
+              ),
+              if (toolCatalog.errorMessage != null)
+                _DetailsRow(
+                  label: _localizedText(
+                    context,
+                    zh: '最近错误',
+                    en: 'Last error',
+                  ),
+                  value: toolCatalog.errorMessage!,
+                  multiline: true,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailsSection extends StatelessWidget {
+  const _DetailsSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailsRow extends StatelessWidget {
+  const _DetailsRow({
+    required this.label,
+    required this.value,
+    this.multiline = false,
+  });
+
+  final String label;
+  final String value;
+  final bool multiline;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SelectableText(
+              value,
+              maxLines: multiline ? 6 : 2,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 「最近探测历史」抽屉：渲染最多 10 条 [McpHealthProbeRecord]，按时间倒序，
 /// 健康记录显示绿色对勾 + 耗时，失败记录显示红色叹号 + 截断错误信息（点击可查看完整内容）。
 class _McpHealthHistorySheet extends StatelessWidget {
@@ -1678,6 +2021,18 @@ class _McpHealthHistorySheet extends StatelessWidget {
                   ],
                 ),
               ),
+              if (probes.isNotEmpty)
+                Tooltip(
+                  message: _localizedText(
+                    context,
+                    zh: '复制为 Markdown',
+                    en: 'Copy as Markdown',
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.copy_all_rounded),
+                    onPressed: () => _copyHistoryToClipboard(context),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1711,6 +2066,50 @@ class _McpHealthHistorySheet extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _copyHistoryToClipboard(BuildContext context) async {
+    final probes = health.recentProbes;
+    final buffer = StringBuffer()
+      ..writeln('# MCP probe history — $serverName')
+      ..writeln();
+    for (final probe in probes) {
+      final isHealthy = probe.status == McpServerHealthStatus.healthy;
+      buffer
+        ..write('- ')
+        ..write(probe.timestamp.toIso8601String())
+        ..write(isHealthy ? ' · healthy' : ' · failed');
+      if (probe.latencyMs != null) {
+        buffer.write(' · ${probe.latencyMs} ms');
+      }
+      if (probe.errorMessage != null && probe.errorMessage!.trim().isNotEmpty) {
+        final firstLine = probe.errorMessage!
+            .split('\n')
+            .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '');
+        if (firstLine.isNotEmpty) {
+          buffer.write(' — ${firstLine.trim()}');
+        }
+      }
+      buffer.writeln();
+    }
+    await Clipboard.setData(ClipboardData(text: buffer.toString()));
+    if (!context.mounted) {
+      return;
+    }
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) {
+      return;
+    }
+    messenger.showSnackBar(
+      OpenHandSnackBar.success(
+        context,
+        _localizedText(
+          context,
+          zh: '已将最近 ${probes.length} 条探测记录复制到剪贴板',
+          en: 'Copied ${probes.length} recent probes to clipboard',
+        ),
       ),
     );
   }
