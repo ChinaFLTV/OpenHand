@@ -369,10 +369,16 @@ html, body, #root {
 }
 
 .oh-session-messages {
+  overflow-anchor: none;
+  scroll-behavior: auto;
   transition:
     min-height 420ms var(--oh-motion-spring),
     padding-bottom 320ms var(--oh-motion-emphasized);
   will-change: min-height;
+}
+.oh-session-message-content,
+.oh-session-message-content > * {
+  overflow-anchor: none;
 }
 
 .oh-session-composer {
@@ -476,9 +482,13 @@ html, body, #root {
 }
 
 .oh-composer-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   max-height: 520px;
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: bottom center;
   overflow: visible;
   transition:
     max-height 420ms var(--oh-motion-spring),
@@ -491,7 +501,7 @@ html, body, #root {
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
-  transform: translate3d(0, -8px, 0) scale(0.985);
+  transform: translate3d(0, 6px, 0) scale(0.985);
 }
 
 .oh-composer-toolbar {

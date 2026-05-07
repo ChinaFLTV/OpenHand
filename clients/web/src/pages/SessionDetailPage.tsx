@@ -181,7 +181,7 @@ function nextWindowOffset(
 function sessionModeLabel(mode: string): string {
   return mode === 'plan'
     ? t('sessions.mode.plan', '计划模式')
-    : t('composer.mode.normal', '文本模式');
+    : t('sessions.mode.chat', '聊天模式');
 }
 
 type ComposerIconName =
@@ -637,22 +637,37 @@ export function SessionDetailPage() {
     const el = mainRef.current;
     if (!el) return;
     programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 700 : 220);
-    el.scrollTo({ top: el.scrollHeight, behavior });
+    if (behavior === 'smooth') {
+      el.scrollTo({ top: el.scrollHeight, behavior });
+    } else {
+      // 直接同步设置，避免 scrollTo({behavior:'auto'}) 在某些浏览器上仍触发额外 reflow，
+      // 与 ResizeObserver / 新消息追加产生的 scroll-anchor 抢位，从而让消息列表抽搐。
+      el.scrollTop = el.scrollHeight;
+    }
   };
 
   const scheduleFollowToBottom = (behavior: ScrollBehavior = 'auto') => {
-    programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 900 : 240);
-    requestAnimationFrame(() => {
-      scrollMessagesToBottom(behavior);
+    const el = mainRef.current;
+    if (!el) return;
+    programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 900 : 260);
+    // 流式追加文本时，立刻同步把 scrollTop 钉到底，避免 scroll-anchor 把视口卡在旧位置后我们再回拉，
+    // 进而呈现「先上移再降落」的鬼畜抖动。
+    scrollMessagesToBottom(behavior);
+    isNearBottomRef.current = true;
+    setAutoFollowPaused(false);
+    setUnreadCount(0);
+    if (behavior === 'auto') {
+      // 下一帧再钉一次，吸收图片懒加载 / markdown 异步渲染引起的二次高度变化，
+      // 但不再叠加多次 scrollTo，单一来源更不易抖。
       requestAnimationFrame(() => {
-        if (behavior !== 'smooth') {
-          scrollMessagesToBottom('auto');
+        if (!shouldFollowPinnedMessages()) return;
+        const node = mainRef.current;
+        if (!node) return;
+        if (node.scrollHeight - (node.scrollTop + node.clientHeight) > 1) {
+          node.scrollTop = node.scrollHeight;
         }
-        isNearBottomRef.current = true;
-        setAutoFollowPaused(false);
-        setUnreadCount(0);
       });
-    });
+    }
   };
 
   const shouldFollowPinnedMessages = () => {
@@ -934,7 +949,9 @@ export function SessionDetailPage() {
   }, [messages, editingDraftMessage, composerSending]);
 
   // messages 变化 → 自动跟随 / 累计未读
-  useEffect(() => {
+  // 用 useLayoutEffect 在浏览器 paint 前同步钉到底部，避免插入新内容后浏览器 scroll-anchor
+  // 先把视口锁在旧位置、随后我们再回拉造成的「上移 → 降落」鬼畜抖动。
+  useLayoutEffect(() => {
     if (messages.length === 0) {
       lastTailIdRef.current = null;
       lastTailContentLengthRef.current = 0;
@@ -943,8 +960,6 @@ export function SessionDetailPage() {
     const tail = messages[messages.length - 1];
     const tailContentLength = tail.content?.length ?? tail.character_count ?? 0;
     if (lastTailIdRef.current === null) {
-      // 首次进入会话：直接滚到底部，对齐 APP 端进入 Hardness Session 的体验。
-      // 不走 smooth，避免冷启动时长列表"飞一段"；用 instant + 双 RAF 等渲染稳定。
       lastTailIdRef.current = tail.id;
       lastTailContentLengthRef.current = tailContentLength;
       if (autoFollow) scheduleFollowToBottom('auto');
@@ -956,6 +971,8 @@ export function SessionDetailPage() {
     lastTailIdRef.current = tail.id;
     lastTailContentLengthRef.current = tailContentLength;
     if (shouldFollowPinnedMessages()) {
+      // 流式追加（tailContentChanged）一律走 'auto' 即时钉底；只有切换会话或新建消息这种
+      // 一次性大跳跃才偶尔用 smooth，避免每个 token 都触发 smooth 缓动堆叠。
       const behavior = reduceMotion || tailContentChanged ? 'auto' : 'smooth';
       scheduleFollowToBottom(behavior);
     } else {
