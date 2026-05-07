@@ -85,6 +85,7 @@ const SSE_FAIL_THRESHOLD = 3;
 /// 真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 const COMPOSER_CHIP_EXIT_MS = 190;
+const QUEUE_SEND_SETTLE_MS = 600;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
 
@@ -561,6 +562,21 @@ interface RouteParams {
   id?: string;
 }
 
+interface QueuedComposerMessage {
+  id: string;
+  content: string;
+  attachments: SendMessageAttachment[];
+  modelKey: string;
+  modelLabel: string;
+  mode: string;
+  selectedSkill: {
+    name: string;
+    relative_directory_path: string;
+  } | null;
+  skillLabel: string | null;
+  createdAt: number;
+}
+
 export function SessionDetailPage() {
   const auth = useAuth();
   const location = useAnimatedLocation();
@@ -612,6 +628,12 @@ export function SessionDetailPage() {
   const [dragOver, setDragOver] = useState<boolean>(false);
   const [composerSending, setComposerSending] = useState<boolean>(false);
   const [composerError, setComposerError] = useState<string | null>(null);
+  const [queuedComposerMessages, setQueuedComposerMessages] = useState<QueuedComposerMessage[]>([]);
+  const [exitingQueuedMessageIds, setExitingQueuedMessageIds] = useState<string[]>([]);
+  const [editingQueuedMessageId, setEditingQueuedMessageId] = useState<string | null>(null);
+  const [queuedEditText, setQueuedEditText] = useState('');
+  const [queueDispatchingId, setQueueDispatchingId] = useState<string | null>(null);
+  const [queuedListMotionGeneration, setQueuedListMotionGeneration] = useState(0);
   const [stopping, setStopping] = useState<boolean>(false);
   const [composerCollapsed, setComposerCollapsed] = useState(
     readPersistedComposerCollapsed,
@@ -633,9 +655,14 @@ export function SessionDetailPage() {
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
   const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
+  const sessionIdRef = useRef(sessionId);
   const editingDraftMessageRef = useRef<SessionMessage | null>(null);
   const autoTitleRefreshTimersRef = useRef<number[]>([]);
   const composerChipExitTimersRef = useRef<number[]>([]);
+  const queuedMessageExitTimersRef = useRef<number[]>([]);
+  const queuedComposerMessagesRef = useRef<QueuedComposerMessage[]>([]);
+  const queuedMessageSeqRef = useRef(0);
+  const queueDispatchingRef = useRef(false);
   const composerAttachmentIdsRef = useRef<string[]>([]);
   const attachmentIdSeqRef = useRef(0);
   // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
@@ -676,6 +703,23 @@ export function SessionDetailPage() {
     detailRef.current = detail;
   }, [detail]);
 
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  useEffect(() => {
+    queuedComposerMessagesRef.current = queuedComposerMessages;
+  }, [queuedComposerMessages]);
+
+  useEffect(() => {
+    queueDispatchingRef.current = false;
+    setQueuedComposerMessages([]);
+    setExitingQueuedMessageIds([]);
+    setEditingQueuedMessageId(null);
+    setQueuedEditText('');
+    setQueueDispatchingId(null);
+  }, [sessionId]);
+
   useEffect(() => () => {
     imageEditorResolverRef.current?.(null);
     imageEditorResolverRef.current = null;
@@ -686,6 +730,10 @@ export function SessionDetailPage() {
       window.clearTimeout(timer);
     }
     composerChipExitTimersRef.current = [];
+    for (const timer of queuedMessageExitTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    queuedMessageExitTimersRef.current = [];
   }, []);
 
   useEffect(() => () => {
@@ -712,8 +760,17 @@ export function SessionDetailPage() {
     return `att-${Date.now().toString(36)}-${attachmentIdSeqRef.current}`;
   }
 
+  function nextQueuedMessageId(): string {
+    queuedMessageSeqRef.current += 1;
+    return `queued-${Date.now().toString(36)}-${queuedMessageSeqRef.current}`;
+  }
+
   function composerChipIsExiting(key: string): boolean {
     return exitingComposerChipKeys.includes(key);
+  }
+
+  function queuedMessageIsExiting(id: string): boolean {
+    return exitingQueuedMessageIds.includes(id);
   }
 
   function runAfterComposerChipExit(key: string, action: () => void): void {
@@ -729,6 +786,21 @@ export function SessionDetailPage() {
       composerChipExitTimersRef.current = composerChipExitTimersRef.current.filter((item) => item !== timer);
     }, COMPOSER_CHIP_EXIT_MS);
     composerChipExitTimersRef.current.push(timer);
+  }
+
+  function runAfterQueuedMessageExit(id: string, action: () => void): void {
+    if (queuedMessageIsExiting(id)) return;
+    if (reduceMotion || typeof window === 'undefined') {
+      action();
+      return;
+    }
+    setExitingQueuedMessageIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+    const timer = window.setTimeout(() => {
+      action();
+      setExitingQueuedMessageIds((ids) => ids.filter((item) => item !== id));
+      queuedMessageExitTimersRef.current = queuedMessageExitTimersRef.current.filter((item) => item !== timer);
+    }, COMPOSER_CHIP_EXIT_MS);
+    queuedMessageExitTimersRef.current.push(timer);
   }
 
   const setAutoFollowEnabled = (value: boolean) => {
@@ -1465,6 +1537,186 @@ export function SessionDetailPage() {
     allowedMessageTypes.includes('attachment') && selectedModel?.supports_attachments !== false;
   const textAllowed = allowedMessageTypes.includes('text');
 
+  function copyQueuedAttachments(): SendMessageAttachment[] {
+    return composerAttachments.map((att) => ({ ...att }));
+  }
+
+  function queuedSelectedSkillPayload(): QueuedComposerMessage['selectedSkill'] {
+    return selectedSkill
+      ? {
+          name: selectedSkill.name,
+          relative_directory_path: selectedSkill.relative_directory_path,
+        }
+      : null;
+  }
+
+  function clearComposerAfterQueue(): void {
+    setComposerText('');
+    setComposerAttachments([]);
+    setComposerAttachmentIds([]);
+    setAttachmentPreviews([]);
+    setSelectedSkill(null);
+    setSkillPickerOpen(false);
+    if (!composerCollapsed) {
+      requestAnimationFrame(() => composerTextareaRef.current?.focus());
+    }
+  }
+
+  function validateComposerPayload(
+    text: string,
+    attachments: SendMessageAttachment[],
+    modelKey: string,
+    mode: string,
+    model: typeof selectedModel,
+  ): string | null {
+    if (!text && attachments.length === 0) return t('composer.error.empty', '请输入内容或添加附件');
+    if (text && !textAllowed) return t('composer.error.textNotAllowed', '当前 service 禁用了文本消息');
+    if (attachments.length > 0 && (!allowedMessageTypes.includes('attachment') || model?.supports_attachments === false)) {
+      return t('composer.error.attachmentNotAllowed', '当前 service 禁用了附件');
+    }
+    if (!modelKey) return t('composer.error.modelMissing', '请选择模型');
+    if (!modelSupportsMode(model, mode)) {
+      return t('composer.error.modeUnsupported', '当前模型不支持所选模式，请切换模型或模式后再发送');
+    }
+    return null;
+  }
+
+  function enqueueCurrentComposerMessage(): boolean {
+    if (editingDraftMessage) {
+      setComposerError(t('composer.queue.editingBusy', '当前正在回复，不能排队编辑历史消息'));
+      return false;
+    }
+    const text = composerText.trim();
+    const attachments = copyQueuedAttachments();
+    const validation = validateComposerPayload(text, attachments, composerModelKey, composerMode, selectedModel);
+    if (validation) {
+      setComposerError(validation);
+      return false;
+    }
+    const queued: QueuedComposerMessage = {
+      id: nextQueuedMessageId(),
+      content: text,
+      attachments,
+      modelKey: composerModelKey,
+      modelLabel: selectedModel?.label ?? composerModelKey,
+      mode: composerMode,
+      selectedSkill: queuedSelectedSkillPayload(),
+      skillLabel: selectedSkill?.name ?? null,
+      createdAt: Date.now(),
+    };
+    setQueuedComposerMessages((prev) => [...prev, queued]);
+    setQueuedListMotionGeneration((value) => value + 1);
+    setComposerError(null);
+    clearComposerAfterQueue();
+    showSnackbar(t('composer.queue.added', '消息已加入等待队列，将在当前回答完成后自动发送'), { tone: 'success' });
+    return true;
+  }
+
+  function removeQueuedMessage(id: string): void {
+    if (queueDispatchingId === id || queuedMessageIsExiting(id)) return;
+    runAfterQueuedMessageExit(id, () => {
+      setQueuedComposerMessages((prev) => prev.filter((item) => item.id !== id));
+      setQueuedListMotionGeneration((value) => value + 1);
+      if (editingQueuedMessageId === id) {
+        setEditingQueuedMessageId(null);
+        setQueuedEditText('');
+      }
+    });
+  }
+
+  function moveQueuedMessage(from: number, to: number): void {
+    setQueuedComposerMessages((prev) => {
+      if (from < 0 || from >= prev.length || to < 0 || to >= prev.length || from === to) return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      if (!item) return prev;
+      next.splice(to, 0, item);
+      return next;
+    });
+    setQueuedListMotionGeneration((value) => value + 1);
+  }
+
+  function startEditQueuedMessage(item: QueuedComposerMessage): void {
+    if (queueDispatchingId === item.id) return;
+    setEditingQueuedMessageId(item.id);
+    setQueuedEditText(item.content);
+  }
+
+  function saveQueuedMessageEdit(id: string): void {
+    const trimmed = queuedEditText.trim();
+    if (!trimmed) return;
+    setQueuedComposerMessages((prev) => prev.map((item) => (
+      item.id === id ? { ...item, content: trimmed } : item
+    )));
+    setEditingQueuedMessageId(null);
+    setQueuedEditText('');
+    setQueuedListMotionGeneration((value) => value + 1);
+  }
+
+  async function dispatchNextQueuedMessage(): Promise<void> {
+    if (queueDispatchingRef.current || composerSending || isRunningPhase(sendPhase)) return;
+    const next = queuedComposerMessagesRef.current[0];
+    if (!next) return;
+    const queuedModel = allowedModels.find((model) => model.key === next.modelKey);
+    const validation = validateComposerPayload(next.content, next.attachments, next.modelKey, next.mode, queuedModel);
+    if (validation) {
+      setComposerError(validation);
+      return;
+    }
+    queueDispatchingRef.current = true;
+    setQueueDispatchingId(next.id);
+    setComposerError(null);
+    lastLocalSendAtRef.current = Date.now();
+    const dispatchSessionId = sessionId;
+    try {
+      const res = await sendMessage(dispatchSessionId, {
+        content: next.content,
+        modelKey: next.modelKey,
+        mode: next.mode,
+        attachments: next.attachments,
+        selectedSkill: next.selectedSkill,
+      });
+      if (sessionIdRef.current !== dispatchSessionId) return;
+      setQueuedComposerMessages((prev) => (
+        prev[0]?.id === next.id ? prev.slice(1) : prev.filter((item) => item.id !== next.id)
+      ));
+      setQueuedListMotionGeneration((value) => value + 1);
+      setSendPhase(res.send_phase || 'sendingMessage');
+      if (!sseLive) void refresh();
+      if (shouldWatchAutoTitleAfterSend(next.content)) scheduleAutoTitleFollowUp();
+    } catch (e: unknown) {
+      if (sessionIdRef.current !== dispatchSessionId) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      if (e instanceof ApiError) {
+        const body = e.body as { error?: string; message?: string } | null;
+        setComposerError(
+          body?.message ||
+            t('composer.queue.sendFailed', '等待队列发送失败：HTTP ') +
+              String(e.status) +
+              (body?.error ? ` (${body.error})` : ''),
+        );
+      } else {
+        setComposerError(
+          t('composer.queue.sendFailed', '等待队列发送失败：HTTP ') +
+            (e instanceof Error ? e.message : String(e)),
+        );
+      }
+    } finally {
+      queueDispatchingRef.current = false;
+      setQueueDispatchingId(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!sessionId || queuedComposerMessages.length === 0) return;
+    if (composerSending || queueDispatchingRef.current || isRunningPhase(sendPhase)) return;
+    const timer = window.setTimeout(() => {
+      void dispatchNextQueuedMessage();
+    }, QUEUE_SEND_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [sessionId, queuedComposerMessages, sendPhase, composerSending, allowedModels, allowedMessageTypes, textAllowed, sseLive]);
+
   useEffect(() => {
     if (allowedModels.length === 0) return;
     const sessionModelKey = detail?.session.last_model_key ?? '';
@@ -1920,34 +2172,14 @@ export function SessionDetailPage() {
 
   async function handleSend(): Promise<void> {
     if (composerSending) return;
-    // 单一发送通道：service 仍在跑助手回复时禁止前端再发，避免并发触发同一
-    // 会话的 _sessionController.sendMessage（即使 service 自身有兜底，前端也
-    // 应在按钮层就拦截，避免 409 与不必要的 round-trip）。
-    if (sendPhase !== 'idle' && sendPhase !== '') {
-      setComposerError(t('composer.error.busy', '助手正在回复，请等待完成或先停止响应'));
+    if (isRunningPhase(sendPhase)) {
+      enqueueCurrentComposerMessage();
       return;
     }
     const text = composerText.trim();
-    if (!text && composerAttachments.length === 0) {
-      setComposerError(t('composer.error.empty', '请输入内容或添加附件'));
-      return;
-    }
-    if (text && !textAllowed) {
-      setComposerError(t('composer.error.textNotAllowed', '当前 service 禁用了文本消息'));
-      return;
-    }
-    if (composerAttachments.length > 0 && !attachmentsAllowed) {
-      setComposerError(t('composer.error.attachmentNotAllowed', '当前 service 禁用了附件'));
-      return;
-    }
-    if (!composerModelKey) {
-      setComposerError(t('composer.error.modelMissing', '请选择模型'));
-      return;
-    }
-    if (!modelSupportsMode(selectedModel, composerMode)) {
-      setComposerError(
-        t('composer.error.modeUnsupported', '当前模型不支持所选模式，请切换模型或模式后再发送'),
-      );
+    const validation = validateComposerPayload(text, composerAttachments, composerModelKey, composerMode, selectedModel);
+    if (validation) {
+      setComposerError(validation);
       return;
     }
     const shouldTrackAutoTitle = shouldWatchAutoTitleAfterSend(text);
@@ -2254,6 +2486,8 @@ export function SessionDetailPage() {
         session.compression_point_count ? `${session.compression_point_count} compress` : '',
       ].filter(Boolean).join(' · ')
     : t('detail.loading', '加载会话中…');
+  const responseRunning = isRunningPhase(sendPhase);
+  const composerSendDisabled = composerSending || allowedModels.length === 0 || stopping;
 
   return (
     <main ref={pageRootRef} class="oh-session-detail-page h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col" style={{ background: 'var(--m3-surface)' }}>
@@ -2686,6 +2920,124 @@ export function SessionDetailPage() {
             </ul>
           ) : null}
 
+          {queuedComposerMessages.length > 0 ? (
+            <section class="oh-queued-message-panel mb-3" aria-label={t('composer.queue.title', '自动发送等待队列')}>
+              <div class="oh-queued-message-header">
+                <span class="oh-queued-message-title">
+                  <ComposerIcon name="send" size={15} />
+                  {t('composer.queue.title', '自动发送等待队列')}
+                </span>
+                <span class="oh-queued-message-count">
+                  {queuedComposerMessages.length} {t('composer.queue.unit', '条')}
+                </span>
+              </div>
+              <ul class="oh-queued-message-list">
+                {queuedComposerMessages.map((item, index) => {
+                  const isEditingQueued = editingQueuedMessageId === item.id;
+                  const isDispatchingQueued = queueDispatchingId === item.id;
+                  const queueKey = `${item.id}-${queuedListMotionGeneration}`;
+                  return (
+                    <li
+                      key={queueKey}
+                      class={`oh-queued-message-row ${queuedMessageIsExiting(item.id) ? 'is-exiting' : ''} ${isDispatchingQueued ? 'is-dispatching' : ''}`}
+                    >
+                      <div class="oh-queued-message-index">{index + 1}</div>
+                      <div class="oh-queued-message-main">
+                        {isEditingQueued ? (
+                          <div class="oh-queued-message-edit">
+                            <textarea
+                              value={queuedEditText}
+                              onInput={(event) => setQueuedEditText(event.currentTarget.value)}
+                              rows={3}
+                              aria-label={t('composer.queue.editLabel', '编辑等待消息')}
+                            />
+                            <div class="oh-queued-message-edit-actions">
+                              <button
+                                type="button"
+                                class="oh-tap-press oh-queued-message-mini-action"
+                                onClick={() => saveQueuedMessageEdit(item.id)}
+                                disabled={!queuedEditText.trim()}
+                              >
+                                {t('common.save', '保存')}
+                              </button>
+                              <button
+                                type="button"
+                                class="oh-tap-press oh-queued-message-mini-action is-muted"
+                                onClick={() => {
+                                  setEditingQueuedMessageId(null);
+                                  setQueuedEditText('');
+                                }}
+                              >
+                                {t('common.cancel', '取消')}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p class="oh-queued-message-text">
+                              {item.content || t('composer.queue.attachmentOnly', '仅附件消息')}
+                            </p>
+                            <div class="oh-queued-message-meta">
+                              <span>{composerModeLabel(item.mode)}</span>
+                              <span>{item.modelLabel || item.modelKey}</span>
+                              {item.selectedSkill ? <span>{item.skillLabel ?? item.selectedSkill.name}</span> : null}
+                              {item.attachments.length > 0 ? (
+                                <span>{item.attachments.length} {t('composer.attachment.unit', '个附件')}</span>
+                              ) : null}
+                              {isDispatchingQueued ? <span>{t('composer.queue.sending', '正在自动发送')}</span> : null}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div class="oh-queued-message-actions">
+                        <button
+                          type="button"
+                          class="oh-tap-press oh-queued-message-icon-action"
+                          onClick={() => moveQueuedMessage(index, index - 1)}
+                          disabled={index === 0 || isDispatchingQueued}
+                          title={t('composer.queue.moveUp', '上移')}
+                          aria-label={t('composer.queue.moveUp', '上移')}
+                        >
+                          <ComposerIcon name="chevronUp" size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          class="oh-tap-press oh-queued-message-icon-action"
+                          onClick={() => moveQueuedMessage(index, index + 1)}
+                          disabled={index >= queuedComposerMessages.length - 1 || isDispatchingQueued}
+                          title={t('composer.queue.moveDown', '下移')}
+                          aria-label={t('composer.queue.moveDown', '下移')}
+                        >
+                          <ComposerIcon name="chevronDown" size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          class="oh-tap-press oh-queued-message-icon-action"
+                          onClick={() => startEditQueuedMessage(item)}
+                          disabled={isDispatchingQueued}
+                          title={t('composer.queue.edit', '编辑')}
+                          aria-label={t('composer.queue.edit', '编辑')}
+                        >
+                          <ComposerIcon name="edit" size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          class="oh-tap-press oh-queued-message-icon-action is-danger"
+                          onClick={() => removeQueuedMessage(item.id)}
+                          disabled={isDispatchingQueued}
+                          title={t('composer.queue.remove', '删除')}
+                          aria-label={t('composer.queue.remove', '删除')}
+                        >
+                          <ComposerIcon name="close" size={15} />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+
           <div
             class="relative"
             onDragOver={(e) => {
@@ -2840,7 +3192,7 @@ export function SessionDetailPage() {
                 {composerAttachments.length} {t('composer.attachment.unit', '个附件')}
               </span>
             ) : null}
-            {sendPhase !== 'idle' && sendPhase !== '' ? (
+            {responseRunning ? (
               <button
                 type="button"
                 onClick={handleStop}
@@ -2862,24 +3214,20 @@ export function SessionDetailPage() {
             <button
               type="button"
               onClick={handleSend}
-              disabled={
-                composerSending ||
-                allowedModels.length === 0 ||
-                (sendPhase !== 'idle' && sendPhase !== '')
-              }
-              class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${sendPhase !== 'idle' && sendPhase !== '' ? 'is-waiting' : ''}`}
+              disabled={composerSendDisabled}
+              class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${responseRunning ? 'is-queueing' : ''}`}
               style={{
                 background: 'var(--m3-primary)',
                 color: 'var(--m3-on-primary)',
               }}
             >
-              <span class={composerSending || (sendPhase !== 'idle' && sendPhase !== '') ? 'oh-spin' : undefined}>
-                <ComposerIcon name={composerSending || (sendPhase !== 'idle' && sendPhase !== '') ? 'refresh' : 'send'} size={16} />
+              <span class={composerSending ? 'oh-spin' : undefined}>
+                <ComposerIcon name={composerSending ? 'refresh' : 'send'} size={16} />
               </span>
               <span>{composerSending
                 ? t('composer.sending', '发送中…')
-                : (sendPhase !== 'idle' && sendPhase !== '')
-                  ? t('composer.waiting', '等待响应中…')
+                : responseRunning
+                  ? t('composer.queue.aheadSend', '提前发送')
                   : t('composer.send', '发送')}</span>
             </button>
           </div>
