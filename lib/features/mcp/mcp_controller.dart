@@ -348,6 +348,28 @@ class McpController extends ChangeNotifier {
     ]);
   }
 
+  /// 批量重连「需要处理」的服务（连续失败 ≥ 3 次或最近一次探测明确不健康）。
+  /// 仅作用于已启用服务；返回参与本次重连的服务名列表，调用方据此显示进度/反馈。
+  Future<List<String>> reconnectFailingServers() async {
+    final candidates = <String>[
+      for (final server in _servers)
+        if (server.enabled)
+          if (() {
+            final health = healthStatusFor(server.name);
+            return health.needsAttention ||
+                health.status == McpServerHealthStatus.unhealthy;
+          }())
+            server.name,
+    ];
+    if (candidates.isEmpty) {
+      return const <String>[];
+    }
+    await Future.wait<void>(<Future<void>>[
+      for (final name in candidates) reconnectServer(name),
+    ]);
+    return candidates;
+  }
+
   Future<void> refreshServerTools(String serverName) async {
     final normalizedServerName = _normalizeServerName(serverName);
     if (normalizedServerName.isEmpty) {

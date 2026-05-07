@@ -38,6 +38,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   McpController? _mcpController;
   bool _pageActiveSyncScheduled = false;
   bool? _pendingPageActiveState;
+  bool _showOnlyAttention = false;
+  bool _isBatchReconnecting = false;
 
   @override
   void initState() {
@@ -113,8 +115,20 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             bool autoHealthCheckInProgress,
             DateTime? lastBatchProbeAt,
             DateTime? nextScheduledProbeAt,
+            String attentionSignature,
+            int attentionCount,
           })
         >((controller) {
+          final attentionNames = <String>[
+            for (final server in controller.servers)
+              if (server.enabled)
+                if (() {
+                  final h = controller.healthStatusFor(server.name);
+                  return h.needsAttention ||
+                      h.status == McpServerHealthStatus.unhealthy;
+                }())
+                  server.name,
+          ]..sort();
           return (
             isLoading: controller.isLoading,
             errorMessage: controller.errorMessage,
@@ -127,6 +141,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             autoHealthCheckInProgress: controller.isAutoHealthCheckInProgress,
             lastBatchProbeAt: controller.lastBatchProbeAt,
             nextScheduledProbeAt: controller.nextScheduledProbeAt,
+            attentionSignature: attentionNames.join('\u0001'),
+            attentionCount: attentionNames.length,
           );
         });
     final mcpController = context.read<McpController>();
@@ -232,6 +248,22 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
             ],
+            if (mcpSnapshot.servers.isNotEmpty) ...[
+              _McpServerFilterBar(
+                showOnlyAttention: _showOnlyAttention,
+                attentionCount: mcpSnapshot.attentionCount,
+                isBatchReconnecting: _isBatchReconnecting,
+                onToggleFilter: () {
+                  setState(() {
+                    _showOnlyAttention = !_showOnlyAttention;
+                  });
+                },
+                onBatchReconnect: mcpSnapshot.attentionCount == 0
+                    ? null
+                    : () => _runBatchReconnect(context),
+              ),
+              const SizedBox(height: 12),
+            ],
             Expanded(
               child: AnimatedSwitcher(
                 duration: MediaQuery.disableAnimationsOf(context)
@@ -242,6 +274,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                   isLoading: mcpSnapshot.isLoading,
                   errorMessage: mcpSnapshot.errorMessage,
                   servers: mcpSnapshot.servers,
+                  attentionSignature: mcpSnapshot.attentionSignature,
+                  attentionCount: mcpSnapshot.attentionCount,
                 ),
               ),
             ),
@@ -264,6 +298,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     required bool isLoading,
     required String? errorMessage,
     required List<McpServer> servers,
+    required String attentionSignature,
+    required int attentionCount,
   }) {
     final l10n = AppLocalizations.of(context)!;
     if (isLoading) {
@@ -288,16 +324,40 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       );
     }
 
+    final attentionNames = attentionSignature.isEmpty
+        ? const <String>{}
+        : attentionSignature.split('\u0001').toSet();
+    final visibleServers = _showOnlyAttention
+        ? servers.where((s) => attentionNames.contains(s.name)).toList()
+        : servers;
+
+    if (_showOnlyAttention && visibleServers.isEmpty) {
+      return _McpStateCard(
+        key: const ValueKey<String>('mcp-attention-empty'),
+        icon: Icons.verified_rounded,
+        title: _localizedText(
+          context,
+          zh: '暂无需要处理的服务',
+          en: 'No servers need attention',
+        ),
+        body: _localizedText(
+          context,
+          zh: '当前所有已启用服务最近一次探测均通过。可关闭筛选查看完整列表。',
+          en: 'All enabled servers passed their latest probe. Disable the filter to see the full list.',
+        ),
+      );
+    }
+
     return ListView.separated(
       key: const ValueKey<String>('mcp-list'),
       // 顶部留 1.5px 缓冲：ListView 视口在 y=0 处会把卡片描边的最上一像素切掉，
       // 滚动后看上去像「第一张卡片少了上边框」。在所有列表面板里都这样补。
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-      itemCount: servers.length,
+      itemCount: visibleServers.length,
       cacheExtent: 600,
       separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
-        final server = servers[index];
+        final server = visibleServers[index];
         return SettingsAwareAppearOnce(
           key: ValueKey<String>('mcp-server-appear-${server.name}'),
           child: RepaintBoundary(
@@ -427,6 +487,46 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       return;
     }
     _showSnackBar(context, l10n.mcpServerDeleted, kind: _SnackKind.success);
+  }
+
+  /// 批量重连：仅作用于「需要处理」的已启用服务。带 SnackBar 反馈与并发互斥保护。
+  Future<void> _runBatchReconnect(BuildContext context) async {
+    if (_isBatchReconnecting) {
+      return;
+    }
+    setState(() => _isBatchReconnecting = true);
+    try {
+      final names = await context
+          .read<McpController>()
+          .reconnectFailingServers();
+      if (!context.mounted) {
+        return;
+      }
+      if (names.isEmpty) {
+        _showSnackBar(
+          context,
+          _localizedText(
+            context,
+            zh: '没有需要重连的服务',
+            en: 'No servers needed reconnecting',
+          ),
+        );
+      } else {
+        _showSnackBar(
+          context,
+          _localizedText(
+            context,
+            zh: '已重连 ${names.length} 个失败服务',
+            en: 'Reconnected ${names.length} failing services',
+          ),
+          kind: _SnackKind.success,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isBatchReconnecting = false);
+      }
+    }
   }
 
   /// 弹出半屏 ModalBottomSheet 展示该服务的最近 10 条探测历史，用 Selector 监听
@@ -1907,6 +2007,79 @@ class _McpProbeStatusBar extends StatelessWidget {
       return _localizedText(context, zh: '健康检查', en: 'health checks');
     }
     return _localizedText(context, zh: '探测任务', en: 'probe tasks');
+  }
+}
+
+/// 失败热点筛选栏：左侧 FilterChip 切换「仅显示需要处理」，右侧 FilledButton 触发批量重连。
+class _McpServerFilterBar extends StatelessWidget {
+  const _McpServerFilterBar({
+    required this.showOnlyAttention,
+    required this.attentionCount,
+    required this.isBatchReconnecting,
+    required this.onToggleFilter,
+    required this.onBatchReconnect,
+  });
+
+  final bool showOnlyAttention;
+  final int attentionCount;
+  final bool isBatchReconnecting;
+  final VoidCallback onToggleFilter;
+  final VoidCallback? onBatchReconnect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        FilterChip(
+          selected: showOnlyAttention,
+          onSelected: (_) => onToggleFilter(),
+          avatar: Icon(
+            Icons.priority_high_rounded,
+            size: 18,
+            color: showOnlyAttention
+                ? colorScheme.onSecondaryContainer
+                : (attentionCount > 0
+                      ? colorScheme.error
+                      : colorScheme.onSurfaceVariant),
+          ),
+          label: Text(
+            _localizedText(
+              context,
+              zh: attentionCount > 0
+                  ? '只看需要处理（$attentionCount）'
+                  : '只看需要处理',
+              en: attentionCount > 0
+                  ? 'Show only attention ($attentionCount)'
+                  : 'Show only attention',
+            ),
+          ),
+        ),
+        FilledButton.tonalIcon(
+          onPressed: isBatchReconnecting ? null : onBatchReconnect,
+          icon: isBatchReconnecting
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.cyclone_rounded),
+          label: Text(
+            _localizedText(
+              context,
+              zh: isBatchReconnecting ? '正在批量重连…' : '批量重连失败的服务',
+              en: isBatchReconnecting
+                  ? 'Reconnecting…'
+                  : 'Reconnect failing servers',
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
