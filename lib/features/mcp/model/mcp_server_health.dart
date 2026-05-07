@@ -39,7 +39,7 @@ class McpServerHealth {
   /// 最近一次探测成功的时间（UTC）。
   final DateTime? lastSuccessAt;
 
-  /// 最近若干次探测记录（按时间倒序，最多保留 10 条），驱动「最近探测历史」抽屉。
+  /// 最近若干次探测记录（按时间倒序，最多保留 30 条），驱动「最近探测历史」抽屉与趋势迷你图。
   final List<McpHealthProbeRecord> recentProbes;
 
   bool get isChecking => status == McpServerHealthStatus.checking;

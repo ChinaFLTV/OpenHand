@@ -543,7 +543,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     }
   }
 
-  /// 弹出半屏 ModalBottomSheet 展示该服务的最近 10 条探测历史，用 Selector 监听
+  /// 弹出半屏 ModalBottomSheet 展示该服务的最近 30 条探测历史，用 Selector 监听
   /// controller 的健康表，使得 reconnect / 自动健康检查刷新历史时抽屉内容会自动跟新。
   void _showHealthHistorySheet(BuildContext context, String serverName) {
     showModalBottomSheet<void>(
@@ -2030,6 +2030,10 @@ class _McpServerDetailsSheet extends StatelessWidget {
               ),
             ],
           ),
+          if (probes.length >= 2) ...[
+            const SizedBox(height: 16),
+            _ProbeTrendSection(probes: probes),
+          ],
           const SizedBox(height: 16),
           _DetailsSection(
             title: _localizedText(context, zh: '工具目录', en: 'Tool catalog'),
@@ -2061,6 +2065,280 @@ class _McpServerDetailsSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _ProbeTrendSection extends StatelessWidget {
+  const _ProbeTrendSection({required this.probes});
+
+  final List<McpHealthProbeRecord> probes;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    // 绘制顺序：左旧 → 右新；recentProbes 是倒序，因此反转。
+    final ordered = probes.reversed.toList();
+    final latencyValues = <int?>[
+      for (final probe in ordered)
+        probe.status == McpServerHealthStatus.healthy ? probe.latencyMs : null,
+    ];
+    final hasAnyLatency = latencyValues.any((v) => v != null);
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.show_chart_rounded,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _localizedText(context, zh: '探测趋势', en: 'Probe trend'),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '最近 ${ordered.length} 次',
+                  en: 'Last ${ordered.length}',
+                ),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 72,
+            child: CustomPaint(
+              painter: _ProbeTrendPainter(
+                ordered: ordered,
+                lineColor: colorScheme.primary,
+                fillColor: colorScheme.primary.withValues(alpha: 0.16),
+                gridColor: colorScheme.outlineVariant,
+                healthyColor: colorScheme.primary,
+                failedColor: colorScheme.error,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _LegendDot(color: colorScheme.primary),
+              const SizedBox(width: 4),
+              Text(
+                _localizedText(context, zh: '健康 (耗时)', en: 'Healthy (latency)'),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 12),
+              _LegendDot(color: colorScheme.error),
+              const SizedBox(width: 4),
+              Text(
+                _localizedText(context, zh: '失败', en: 'Failed'),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (!hasAnyLatency) ...[
+                const SizedBox(width: 12),
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '暂无耗时样本',
+                    en: 'No latency samples',
+                  ),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+class _ProbeTrendPainter extends CustomPainter {
+  _ProbeTrendPainter({
+    required this.ordered,
+    required this.lineColor,
+    required this.fillColor,
+    required this.gridColor,
+    required this.healthyColor,
+    required this.failedColor,
+  });
+
+  final List<McpHealthProbeRecord> ordered;
+  final Color lineColor;
+  final Color fillColor;
+  final Color gridColor;
+  final Color healthyColor;
+  final Color failedColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (ordered.isEmpty) return;
+    const padding = EdgeInsets.fromLTRB(6, 6, 6, 12);
+    final chartLeft = padding.left;
+    final chartTop = padding.top;
+    final chartWidth = size.width - padding.horizontal;
+    final chartHeight = size.height - padding.vertical;
+    if (chartWidth <= 0 || chartHeight <= 0) return;
+
+    // 基线（失败/无耗时点的 Y）。
+    final baselineY = chartTop + chartHeight;
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(chartLeft, baselineY),
+      Offset(chartLeft + chartWidth, baselineY),
+      gridPaint,
+    );
+
+    final healthyLatencies = <int>[
+      for (final p in ordered)
+        if (p.status == McpServerHealthStatus.healthy && p.latencyMs != null)
+          p.latencyMs!,
+    ];
+    final maxLatency = healthyLatencies.isEmpty
+        ? 1
+        : healthyLatencies.reduce((a, b) => a > b ? a : b);
+    final scaleMax = maxLatency <= 0 ? 1 : maxLatency;
+
+    final n = ordered.length;
+    final stepX = n > 1 ? chartWidth / (n - 1) : 0.0;
+
+    final points = <Offset?>[];
+    for (var i = 0; i < n; i++) {
+      final p = ordered[i];
+      if (p.status == McpServerHealthStatus.healthy && p.latencyMs != null) {
+        final ratio = (p.latencyMs! / scaleMax).clamp(0.0, 1.0);
+        final x = chartLeft + stepX * i;
+        final y = baselineY - ratio * chartHeight;
+        points.add(Offset(x, y));
+      } else {
+        points.add(null);
+      }
+    }
+
+    // Fill area under healthy segments.
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+    final fillPaint = Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.fill;
+
+    Path? currentLine;
+    Path? currentFill;
+    Offset? lineStart;
+    for (var i = 0; i < points.length; i++) {
+      final point = points[i];
+      if (point == null) {
+        if (currentLine != null) {
+          canvas.drawPath(currentLine, linePaint);
+          if (currentFill != null && lineStart != null) {
+            currentFill.lineTo(points[i - 1]!.dx, baselineY);
+            currentFill.lineTo(lineStart.dx, baselineY);
+            currentFill.close();
+            canvas.drawPath(currentFill, fillPaint);
+          }
+        }
+        currentLine = null;
+        currentFill = null;
+        lineStart = null;
+        continue;
+      }
+      if (currentLine == null) {
+        currentLine = Path()..moveTo(point.dx, point.dy);
+        currentFill = Path()..moveTo(point.dx, point.dy);
+        lineStart = point;
+      } else {
+        currentLine.lineTo(point.dx, point.dy);
+        currentFill!.lineTo(point.dx, point.dy);
+      }
+    }
+    if (currentLine != null) {
+      canvas.drawPath(currentLine, linePaint);
+      if (currentFill != null && lineStart != null) {
+        // Find last non-null x in the trailing segment.
+        Offset? lastPoint;
+        for (var i = points.length - 1; i >= 0; i--) {
+          if (points[i] != null) {
+            lastPoint = points[i];
+            break;
+          }
+        }
+        if (lastPoint != null) {
+          currentFill.lineTo(lastPoint.dx, baselineY);
+          currentFill.lineTo(lineStart.dx, baselineY);
+          currentFill.close();
+          canvas.drawPath(currentFill, fillPaint);
+        }
+      }
+    }
+
+    // Draw status dots.
+    final healthyDotPaint = Paint()..color = healthyColor;
+    final failedDotPaint = Paint()..color = failedColor;
+    for (var i = 0; i < n; i++) {
+      final p = ordered[i];
+      final x = chartLeft + stepX * i;
+      if (p.status == McpServerHealthStatus.healthy) {
+        final point = points[i];
+        if (point != null) {
+          canvas.drawCircle(point, 2.4, healthyDotPaint);
+        }
+      } else {
+        canvas.drawCircle(Offset(x, baselineY), 2.6, failedDotPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProbeTrendPainter oldDelegate) {
+    return oldDelegate.ordered != ordered ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.fillColor != fillColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.healthyColor != healthyColor ||
+        oldDelegate.failedColor != failedColor;
   }
 }
 
@@ -2259,7 +2537,7 @@ class _DetailsRow extends StatelessWidget {
   }
 }
 
-/// 「最近探测历史」抽屉：渲染最多 10 条 [McpHealthProbeRecord]，按时间倒序，
+/// 「最近探测历史」抽屉：渲染最多 30 条 [McpHealthProbeRecord]，按时间倒序，
 /// 健康记录显示绿色对勾 + 耗时，失败记录显示红色叹号 + 截断错误信息（点击可查看完整内容）。
 class _McpHealthHistorySheet extends StatelessWidget {
   const _McpHealthHistorySheet({

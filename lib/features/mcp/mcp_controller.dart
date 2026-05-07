@@ -98,7 +98,7 @@ class McpController extends ChangeNotifier {
   bool _autoHealthCheckInProgress = false;
   int _activeAutoProbeSlots = 0;
   DateTime? _lastBatchProbeAt;
-  static const int _maxRecentProbeRecords = 10;
+  static const int _maxRecentProbeRecords = 30;
   Future<void> _operationQueue = Future<void>.value();
   Timer? _pageActivationWorkTimer;
   Timer? _healthCheckTimer;
