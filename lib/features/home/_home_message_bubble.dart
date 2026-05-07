@@ -2710,9 +2710,21 @@ class _CreationModeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!request.isActive) return const SizedBox.shrink();
     final (icon, labelZh, labelEn) = switch (request.mode) {
-      AiCreationMode.image => (Icons.image_outlined, '图片生成', 'Image'),
-      AiCreationMode.video => (Icons.videocam_outlined, '视频生成', 'Video'),
-      AiCreationMode.audio => (Icons.audiotrack_outlined, '音频生成', 'Audio'),
+      AiCreationMode.image => (
+        Icons.image_outlined,
+        '图片生成',
+        'Image generation',
+      ),
+      AiCreationMode.video => (
+        Icons.videocam_outlined,
+        '视频生成',
+        'Video generation',
+      ),
+      AiCreationMode.audio => (
+        Icons.audiotrack_outlined,
+        '音频生成',
+        'Audio generation',
+      ),
       AiCreationMode.deepResearch => (
         Icons.travel_explore_rounded,
         '深度研究',
@@ -2727,7 +2739,11 @@ class _CreationModeChip extends StatelessWidget {
       if (options.durationSeconds != null) '${options.durationSeconds}s',
       if (options.count != 1) 'x${options.count}',
     ];
-    final label = _localizedText(context, zh: labelZh, en: labelEn);
+    final label = _localizedText(
+      context,
+      zh: '模式 · $labelZh',
+      en: 'Mode · $labelEn',
+    );
     final detail = detailParts.isEmpty ? '' : ' · ${detailParts.join(' · ')}';
     return _MessageContextCapsule(
       icon: icon,
@@ -2828,29 +2844,25 @@ class _AttachmentCapsuleData {
     required int count,
   }) {
     final (icon, labelZh, labelEn) = switch (kind) {
-      AiAttachmentKind.image => (
-        Icons.image_outlined,
-        '图片附件',
-        'Image attachment',
-      ),
-      AiAttachmentKind.text => (
-        Icons.description_outlined,
-        '文本附件',
-        'Text attachment',
-      ),
+      AiAttachmentKind.image => (Icons.image_outlined, '图片', 'Image'),
+      AiAttachmentKind.text => (Icons.description_outlined, '文本', 'Text'),
       AiAttachmentKind.spreadsheet => (
         Icons.table_chart_outlined,
-        '表格附件',
+        '表格',
         'Spreadsheet',
       ),
-      AiAttachmentKind.pdf => (Icons.picture_as_pdf_outlined, 'PDF 附件', 'PDF'),
+      AiAttachmentKind.pdf => (Icons.picture_as_pdf_outlined, 'PDF', 'PDF'),
       AiAttachmentKind.binary => (
         Icons.insert_drive_file_outlined,
-        '文件附件',
-        'File attachment',
+        '文件',
+        'File',
       ),
     };
-    final base = _localizedText(context, zh: labelZh, en: labelEn);
+    final base = _localizedText(
+      context,
+      zh: '附件 · $labelZh',
+      en: 'Attachment · $labelEn',
+    );
     return _AttachmentCapsuleData(
       icon: icon,
       label: count > 1 ? '$base · x$count' : base,

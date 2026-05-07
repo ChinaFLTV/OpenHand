@@ -318,10 +318,12 @@ function creationModeChips(meta: Record<string, unknown>): MessageContextChip[] 
   const data = creationModeData(mode);
   if (!data) return [];
   const detail = creationOptionDetail(options);
+  const modePrefix = t('message.context.kind.mode', '模式');
+  const label = `${modePrefix} · ${data.label}`;
   return [{
     key: `mode:${mode}`,
     icon: data.icon,
-    label: detail ? `${data.label} · ${detail}` : data.label,
+    label: detail ? `${label} · ${detail}` : label,
   }];
 }
 
@@ -393,10 +395,12 @@ function attachmentChips(meta: Record<string, unknown>): MessageContextChip[] {
     const count = counts.get(kind) ?? 0;
     if (count <= 0) return [];
     const data = attachmentKindData(kind);
+    const attachmentPrefix = t('message.context.kind.attachment', '附件');
+    const label = `${attachmentPrefix} · ${data.label}`;
     return [{
       key: `attachment:${kind}`,
       icon: data.icon,
-      label: count > 1 ? `${data.label} · x${count}` : data.label,
+      label: count > 1 ? `${label} · x${count}` : label,
     }];
   });
 }

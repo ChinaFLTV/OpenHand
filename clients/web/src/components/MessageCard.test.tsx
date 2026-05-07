@@ -94,9 +94,9 @@ describe('MessageCard actions', () => {
       />,
     );
 
-    expect(screen.getByText(/(图片生成|Image generation).*16:9.*x2/)).not.toBeNull();
+    expect(screen.getByText(/(模式|Mode).*(图片生成|Image generation).*16:9.*x2/)).not.toBeNull();
     expect(screen.getByText(/(技能|Skill).*摄影构图/)).not.toBeNull();
-    expect(screen.getByText(/(图片附件|Image attachment)/)).not.toBeNull();
-    expect(screen.getByText(/(PDF 附件|PDF attachment)/)).not.toBeNull();
+    expect(screen.getByText(/(附件|Attachment).*(图片|Image)/)).not.toBeNull();
+    expect(screen.getByText(/(附件|Attachment).*PDF/)).not.toBeNull();
   });
 });
