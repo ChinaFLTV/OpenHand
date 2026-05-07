@@ -40,6 +40,11 @@ void main() {
       expect(service.toolCalls, servers.length);
       expect(service.healthCalls, servers.length);
       expect(service.maxActive, lessThanOrEqualTo(2));
+      expect(controller.autoProbeConcurrency, 2);
+      expect(controller.activeAutoProbeSlots, 0);
+      expect(controller.queuedAutoProbeTasks, 0);
+      expect(controller.isAutoToolRefreshInProgress, isFalse);
+      expect(controller.isAutoHealthCheckInProgress, isFalse);
     },
   );
 }

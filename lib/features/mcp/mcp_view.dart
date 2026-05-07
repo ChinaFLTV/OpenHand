@@ -106,6 +106,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             String? errorMessage,
             List<McpServer> servers,
             McpPersistenceIssue? persistenceIssue,
+            int autoProbeConcurrency,
+            int activeAutoProbeSlots,
+            int queuedAutoProbeTasks,
+            bool autoToolRefreshInProgress,
+            bool autoHealthCheckInProgress,
           })
         >((controller) {
           return (
@@ -113,6 +118,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             errorMessage: controller.errorMessage,
             servers: controller.servers,
             persistenceIssue: controller.persistenceIssue,
+            autoProbeConcurrency: controller.autoProbeConcurrency,
+            activeAutoProbeSlots: controller.activeAutoProbeSlots,
+            queuedAutoProbeTasks: controller.queuedAutoProbeTasks,
+            autoToolRefreshInProgress: controller.isAutoToolRefreshInProgress,
+            autoHealthCheckInProgress: controller.isAutoHealthCheckInProgress,
           );
         });
     final mcpController = context.read<McpController>();
@@ -200,6 +210,19 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               _McpPersistenceIssueCard(
                 issue: mcpSnapshot.persistenceIssue!,
                 onDismiss: mcpController.clearPersistenceIssue,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (mcpSnapshot.servers.isNotEmpty) ...[
+              _McpProbeStatusBar(
+                maxConcurrency: mcpSnapshot.autoProbeConcurrency,
+                activeSlots: mcpSnapshot.activeAutoProbeSlots,
+                queuedTasks: mcpSnapshot.queuedAutoProbeTasks,
+                toolRefreshInProgress: mcpSnapshot.autoToolRefreshInProgress,
+                healthCheckInProgress: mcpSnapshot.autoHealthCheckInProgress,
+                enabledServerCount: mcpSnapshot.servers
+                    .where((server) => server.enabled)
+                    .length,
               ),
               const SizedBox(height: 16),
             ],
@@ -1377,6 +1400,172 @@ class _McpStatusChip extends StatelessWidget {
       backgroundColor: colorScheme.surfaceContainerHighest,
       label: Text(label),
     );
+  }
+}
+
+class _McpProbeStatusBar extends StatelessWidget {
+  const _McpProbeStatusBar({
+    required this.maxConcurrency,
+    required this.activeSlots,
+    required this.queuedTasks,
+    required this.toolRefreshInProgress,
+    required this.healthCheckInProgress,
+    required this.enabledServerCount,
+  });
+
+  final int maxConcurrency;
+  final int activeSlots;
+  final int queuedTasks;
+  final bool toolRefreshInProgress;
+  final bool healthCheckInProgress;
+  final int enabledServerCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final hasWork =
+        activeSlots > 0 ||
+        queuedTasks > 0 ||
+        toolRefreshInProgress ||
+        healthCheckInProgress;
+    final progress = maxConcurrency <= 0
+        ? 0.0
+        : (activeSlots / maxConcurrency).clamp(0.0, 1.0);
+    final phaseLabel = _phaseLabel(context);
+    final title = hasWork
+        ? _localizedText(context, zh: 'MCP 探测池运行中', en: 'MCP Probe Pool Active')
+        : _localizedText(context, zh: 'MCP 探测池空闲', en: 'MCP Probe Pool Idle');
+    final subtitle = hasWork
+        ? _localizedText(
+            context,
+            zh: '正在执行 $phaseLabel，慢服务会占用槽位但不会阻塞整批刷新。',
+            en: 'Running $phaseLabel. Slow services occupy slots without blocking the whole batch.',
+          )
+        : _localizedText(
+            context,
+            zh: '$enabledServerCount 个已启用服务等待下一轮自动检测。',
+            en: '$enabledServerCount enabled services are waiting for the next automatic probe.',
+          );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: hasWork
+                      ? colorScheme.primaryContainer
+                      : colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  hasWork ? Icons.radar_rounded : Icons.speed_outlined,
+                  color: hasWork
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 6,
+              value: progress,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _McpStatusChip(
+                icon: Icons.commit_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '槽位 $activeSlots/$maxConcurrency',
+                  en: 'Slots $activeSlots/$maxConcurrency',
+                ),
+              ),
+              _McpStatusChip(
+                icon: Icons.queue_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '排队 $queuedTasks',
+                  en: 'Queued $queuedTasks',
+                ),
+              ),
+              _McpStatusChip(
+                icon: Icons.build_circle_outlined,
+                label: _localizedText(
+                  context,
+                  zh: 'Tools ${toolRefreshInProgress ? '运行中' : '空闲'}',
+                  en: 'Tools ${toolRefreshInProgress ? 'running' : 'idle'}',
+                ),
+              ),
+              _McpStatusChip(
+                icon: Icons.health_and_safety_outlined,
+                label: _localizedText(
+                  context,
+                  zh: '健康 ${healthCheckInProgress ? '运行中' : '空闲'}',
+                  en: 'Health ${healthCheckInProgress ? 'running' : 'idle'}',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _phaseLabel(BuildContext context) {
+    if (toolRefreshInProgress && healthCheckInProgress) {
+      return _localizedText(
+        context,
+        zh: 'Tools 拉取和健康检查',
+        en: 'tool fetches and health checks',
+      );
+    }
+    if (toolRefreshInProgress) {
+      return _localizedText(context, zh: 'Tools 拉取', en: 'tool fetches');
+    }
+    if (healthCheckInProgress) {
+      return _localizedText(context, zh: '健康检查', en: 'health checks');
+    }
+    return _localizedText(context, zh: '探测任务', en: 'probe tasks');
   }
 }
 

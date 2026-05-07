@@ -123,6 +123,10 @@ class McpController extends ChangeNotifier {
   }
 
   int get autoProbeConcurrency => _autoProbeConcurrency;
+  int get activeAutoProbeSlots => _activeAutoProbeSlots;
+  int get queuedAutoProbeTasks => _autoProbeSlotWaiters.length;
+  bool get isAutoToolRefreshInProgress => _autoToolRefreshInProgress;
+  bool get isAutoHealthCheckInProgress => _autoHealthCheckInProgress;
 
   void updateAutoProbeConcurrency(int value) {
     final normalized = _normalizeAutoProbeConcurrency(value);
@@ -130,6 +134,7 @@ class McpController extends ChangeNotifier {
       return;
     }
     _autoProbeConcurrency = normalized;
+    _notifyAutoProbeMetricsChanged();
     _drainAutoProbeSlotQueue();
   }
 
@@ -571,6 +576,7 @@ class McpController extends ChangeNotifier {
       return;
     }
     _autoToolRefreshInProgress = true;
+    _notifyAutoProbeMetricsChanged();
     unawaited(_runAutoToolRefreshes(force: force));
   }
 
@@ -599,6 +605,7 @@ class McpController extends ChangeNotifier {
       );
     } finally {
       _autoToolRefreshInProgress = false;
+      _notifyAutoProbeMetricsChanged();
     }
   }
 
@@ -607,6 +614,7 @@ class McpController extends ChangeNotifier {
       return;
     }
     _autoHealthCheckInProgress = true;
+    _notifyAutoProbeMetricsChanged();
     unawaited(_runAutoHealthChecks(force: force));
   }
 
@@ -639,6 +647,7 @@ class McpController extends ChangeNotifier {
       );
     } finally {
       _autoHealthCheckInProgress = false;
+      _notifyAutoProbeMetricsChanged();
     }
   }
 
@@ -695,21 +704,25 @@ class McpController extends ChangeNotifier {
     }
     if (_activeAutoProbeSlots < _autoProbeConcurrency) {
       _activeAutoProbeSlots += 1;
+      _notifyAutoProbeMetricsChanged();
       return Future<bool>.value(true);
     }
     final waiter = Completer<bool>();
     _autoProbeSlotWaiters.add(waiter);
+    _notifyAutoProbeMetricsChanged();
     return waiter.future;
   }
 
   void _releaseAutoProbeSlot() {
     if (_activeAutoProbeSlots > 0) {
       _activeAutoProbeSlots -= 1;
+      _notifyAutoProbeMetricsChanged();
     }
     _drainAutoProbeSlotQueue();
   }
 
   void _drainAutoProbeSlotQueue() {
+    var didChange = false;
     while (!_isDisposed &&
         _isPageActive &&
         _autoProbeSlotWaiters.isNotEmpty &&
@@ -720,16 +733,29 @@ class McpController extends ChangeNotifier {
       }
       _activeAutoProbeSlots += 1;
       waiter.complete(true);
+      didChange = true;
+    }
+    if (didChange) {
+      _notifyAutoProbeMetricsChanged();
     }
   }
 
   void _cancelQueuedAutoProbeSlots() {
+    var didCancel = false;
     while (_autoProbeSlotWaiters.isNotEmpty) {
       final waiter = _autoProbeSlotWaiters.removeFirst();
       if (!waiter.isCompleted) {
         waiter.complete(false);
+        didCancel = true;
       }
     }
+    if (didCancel) {
+      _notifyAutoProbeMetricsChanged();
+    }
+  }
+
+  void _notifyAutoProbeMetricsChanged() {
+    notifyListeners();
   }
 
   void _invalidateHealthCheckGenerations() {
