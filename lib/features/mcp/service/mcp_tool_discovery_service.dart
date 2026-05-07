@@ -1632,10 +1632,10 @@ Future<String> _probeLoginShellPath() {
       for (final candidate in fallbackShells) {
         if (!File(candidate).existsSync()) continue;
         try {
-          final proc = await Process.start(
-            candidate,
-            const ['-ilc', 'printf %s "\$PATH"'],
-          );
+          final proc = await Process.start(candidate, const [
+            '-ilc',
+            'printf %s "\$PATH"',
+          ]);
           // 关闭 stdin 防止 shell 等待输入。
           await proc.stdin.close();
           final stdoutFuture = proc.stdout
@@ -1662,7 +1662,12 @@ Future<String> _probeLoginShellPath() {
             break;
           }
         } catch (error, stack) {
-          silentLog('mcp.stdio', 'probeLoginShellPath/$candidate', error, stack);
+          silentLog(
+            'mcp.stdio',
+            'probeLoginShellPath/$candidate',
+            error,
+            stack,
+          );
         }
       }
     } catch (error, stack) {
@@ -1684,7 +1689,8 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
       .toList(growable: false);
 
   final extraSegments = <String>[];
-  final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+  final home =
+      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
   if (Platform.isMacOS) {
     extraSegments.addAll(const [
       '/opt/homebrew/bin',
@@ -1751,13 +1757,12 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   // 同时支持单 / 双引号包裹的 token，比如 `"node /path with space/x.js"`。
   final tokens = _tokenizeShellCommand(rawCommandField);
   final rawCommand = tokens.isNotEmpty ? tokens.first : rawCommandField;
-  final inlineArgs = tokens.length > 1
-      ? tokens.sublist(1)
-      : const <String>[];
+  final inlineArgs = tokens.length > 1 ? tokens.sublist(1) : const <String>[];
 
   String executable = rawCommand;
   List<String> args = [...inlineArgs, ...server.args];
-  final containsSeparator = rawCommand.contains('/') ||
+  final containsSeparator =
+      rawCommand.contains('/') ||
       (Platform.isWindows && rawCommand.contains('\\'));
 
   if (rawCommand.isNotEmpty && !containsSeparator) {
@@ -1895,9 +1900,7 @@ enum McpMirrorEffectiveSource {
   autoLocaleOther;
 
   bool get injects =>
-      this == envOn ||
-      this == settingForceOn ||
-      this == autoLocaleZh;
+      this == envOn || this == settingForceOn || this == autoLocaleZh;
 }
 
 /// 计算镜像源决策最终命中的来源。供 UI、日志、测试三方共用。
@@ -1990,7 +1993,9 @@ class McpStdioBootstrapStatus extends ChangeNotifier {
 
 String _pickShell() {
   final preferred = Platform.environment['SHELL']?.trim();
-  if (preferred != null && preferred.isNotEmpty && File(preferred).existsSync()) {
+  if (preferred != null &&
+      preferred.isNotEmpty &&
+      File(preferred).existsSync()) {
     return preferred;
   }
   if (File('/bin/zsh').existsSync()) return '/bin/zsh';
@@ -2010,10 +2015,12 @@ String _diagnoseStdioStderr(String stderr) {
   // npm 缓存损坏 / 权限错乱（最常见：曾经 sudo npm install 留下 root 权限的
   // ~/.npm，现在普通用户身份的 GUI 应用写不进去）。EACCES + EEXIST + ENOTEMPTY
   // 任意命中 npm 路径都给同一个建议。
-  final hitsEacces = lower.contains('eacces') || lower.contains('permission denied');
+  final hitsEacces =
+      lower.contains('eacces') || lower.contains('permission denied');
   final hitsEexist = lower.contains('eexist');
   final hitsEnotempty = lower.contains('enotempty');
-  final hitsNpmCache = lower.contains('/.npm/') ||
+  final hitsNpmCache =
+      lower.contains('/.npm/') ||
       lower.contains(r'\.npm\') ||
       lower.contains('_cacache') ||
       lower.contains('_npx');
@@ -2044,7 +2051,8 @@ String _diagnoseStdioStderr(String stderr) {
         '  · 等几秒后重试';
   }
   // python uv / pipx 缺包
-  if (lower.contains('no module named') || lower.contains('modulenotfounderror')) {
+  if (lower.contains('no module named') ||
+      lower.contains('modulenotfounderror')) {
     return '【诊断 / Diagnosis】 Python 依赖未安装。\n'
         '【建议 / Try】 在该 MCP 服务对应 venv 里 `pip install` 缺失模块；'
         '若用 uvx，可尝试 `uv tool install <pkg>` 后再启动。';
@@ -2184,6 +2192,7 @@ class _StdioSession {
   String instructions = '';
   late final StreamSubscription<List<int>> _stdoutSubscription;
   late final StreamSubscription<String> _stderrSubscription;
+  Future<void>? _closeFuture;
 
   Future<Map<String, Object?>?> sendRequest(
     Map<String, Object?> payload, {
@@ -2451,20 +2460,61 @@ class _StdioSession {
     await _process.stdin.flush();
   }
 
-  Future<void> close() async {
-    await _stdoutSubscription.cancel();
-    await _stderrSubscription.cancel();
-    await _process.stdin.close();
+  Future<void> close() {
+    return _closeFuture ??= _closeOnce();
+  }
+
+  Future<void> _closeOnce() async {
     try {
-      await _process.exitCode.timeout(
-        DefaultMcpToolDiscoveryService._stdioShutdownTimeout,
-      );
-    } on TimeoutException {
-      _process.kill();
+      await _process.stdin.close();
+    } catch (error, stack) {
+      silentLog('mcp.stdio', 'close.stdin', error, stack);
     }
     _failPendingResponses(
       McpToolDiscoveryException(_closedUnexpectedlyMessage()),
     );
+    await _waitForExitOrKill();
+    await _cancelSubscription(_stdoutSubscription, 'close.stdout');
+    await _cancelSubscription(_stderrSubscription, 'close.stderr');
+  }
+
+  Future<void> _waitForExitOrKill() async {
+    if (await _waitForExit()) {
+      return;
+    }
+    _process.kill();
+    if (await _waitForExit()) {
+      return;
+    }
+    if (!Platform.isWindows) {
+      _process.kill(ProcessSignal.sigkill);
+      await _waitForExit();
+    }
+  }
+
+  Future<bool> _waitForExit() async {
+    try {
+      await _process.exitCode.timeout(
+        DefaultMcpToolDiscoveryService._stdioShutdownTimeout,
+      );
+      return true;
+    } on TimeoutException {
+      return false;
+    } catch (error, stack) {
+      silentLog('mcp.stdio', 'close.exitCode', error, stack);
+      return true;
+    }
+  }
+
+  Future<void> _cancelSubscription<T>(
+    StreamSubscription<T> subscription,
+    String where,
+  ) async {
+    try {
+      await subscription.cancel();
+    } catch (error, stack) {
+      silentLog('mcp.stdio', where, error, stack);
+    }
   }
 }
 
@@ -2543,7 +2593,8 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
     final shellPath = _cachedLoginShellPath ?? '';
     String pathHint;
     if (shellPath.isNotEmpty) {
-      pathHint = '登录 shell 探测: $shellPath\n  · 进程 PATH: '
+      pathHint =
+          '登录 shell 探测: $shellPath\n  · 进程 PATH: '
           '${processPath.isEmpty ? '(空)' : processPath}';
     } else {
       pathHint = processPath.isEmpty ? '(空)' : processPath;
