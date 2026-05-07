@@ -22,7 +22,7 @@ import 'model/mcp_server_health.dart';
 import 'model/mcp_tool.dart';
 import 'service/mcp_tool_discovery_service.dart';
 
-enum _McpCardAction { edit, delete }
+enum _McpCardAction { edit, delete, viewHistory }
 
 const int _mcpToolPreviewCollapsedLimit = 8;
 const int _mcpToolPreviewExpandedLimit = 48;
@@ -326,12 +326,16 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                           controller.checkServerHealth(server.name),
                       onRefreshTools: () =>
                           controller.refreshServerTools(server.name),
+                      onReconnect: () =>
+                          controller.reconnectServer(server.name),
                       onActionSelected: (action) {
                         switch (action) {
                           case _McpCardAction.edit:
                             _showServerDialog(context, initialServer: server);
                           case _McpCardAction.delete:
                             _confirmDeleteServer(context, server);
+                          case _McpCardAction.viewHistory:
+                            _showHealthHistorySheet(context, server.name);
                         }
                       },
                     );
@@ -423,6 +427,34 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       return;
     }
     _showSnackBar(context, l10n.mcpServerDeleted, kind: _SnackKind.success);
+  }
+
+  /// 弹出半屏 ModalBottomSheet 展示该服务的最近 10 条探测历史，用 Selector 监听
+  /// controller 的健康表，使得 reconnect / 自动健康检查刷新历史时抽屉内容会自动跟新。
+  void _showHealthHistorySheet(BuildContext context, String serverName) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.78,
+              minHeight: 240,
+            ),
+            child: Selector<McpController, McpServerHealth>(
+              selector: (_, controller) => controller.healthStatusFor(
+                serverName,
+              ),
+              builder: (context, health, _) =>
+                  _McpHealthHistorySheet(serverName: serverName, health: health),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _updateServerEnabled(
@@ -1074,6 +1106,7 @@ class _McpServerCard extends StatelessWidget {
     required this.onToggleEnabled,
     required this.onCheckHealth,
     required this.onRefreshTools,
+    required this.onReconnect,
     required this.onActionSelected,
   });
 
@@ -1084,6 +1117,7 @@ class _McpServerCard extends StatelessWidget {
   final ValueChanged<bool> onToggleEnabled;
   final VoidCallback onCheckHealth;
   final VoidCallback onRefreshTools;
+  final VoidCallback onReconnect;
   final ValueChanged<_McpCardAction> onActionSelected;
 
   @override
@@ -1210,6 +1244,25 @@ class _McpServerCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
+                    Tooltip(
+                      message: _localizedText(
+                        context,
+                        zh: '一键重连：重新拉取 Tools 并立即健康复测',
+                        en: 'Reconnect: re-scan Tools and re-run health check',
+                      ),
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: IconButton.filledTonal(
+                          onPressed:
+                              healthStatus.isChecking || toolCatalog.isLoading
+                              ? null
+                              : onReconnect,
+                          icon: const Icon(Icons.cyclone_rounded),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     SizedBox(
                       width: 44,
                       height: 44,
@@ -1217,6 +1270,16 @@ class _McpServerCard extends StatelessWidget {
                         onSelected: onActionSelected,
                         itemBuilder: (context) {
                           return [
+                            PopupMenuItem<_McpCardAction>(
+                              value: _McpCardAction.viewHistory,
+                              child: Text(
+                                _localizedText(
+                                  context,
+                                  zh: '查看探测历史',
+                                  en: 'View probe history',
+                                ),
+                              ),
+                            ),
                             PopupMenuItem<_McpCardAction>(
                               value: _McpCardAction.edit,
                               child: Text(l10n.commonEdit),
@@ -1463,6 +1526,197 @@ class _McpAttentionChip extends StatelessWidget {
             en: 'Needs attention · $consecutiveFailures fails',
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 「最近探测历史」抽屉：渲染最多 10 条 [McpHealthProbeRecord]，按时间倒序，
+/// 健康记录显示绿色对勾 + 耗时，失败记录显示红色叹号 + 截断错误信息（点击可查看完整内容）。
+class _McpHealthHistorySheet extends StatelessWidget {
+  const _McpHealthHistorySheet({
+    required this.serverName,
+    required this.health,
+  });
+
+  final String serverName;
+  final McpServerHealth health;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final probes = health.recentProbes;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.monitor_heart_outlined, color: colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '最近探测历史',
+                        en: 'Recent probe history',
+                      ),
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      serverName,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (probes.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              alignment: Alignment.center,
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '尚无探测记录，请先发起一次健康检测或一键重连。',
+                  en: 'No probes yet. Run a health check or reconnect to populate this list.',
+                ),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: probes.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final probe = probes[index];
+                  return _McpHealthProbeTile(probe: probe);
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpHealthProbeTile extends StatelessWidget {
+  const _McpHealthProbeTile({required this.probe});
+
+  final McpHealthProbeRecord probe;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isHealthy = probe.status == McpServerHealthStatus.healthy;
+    final accentColor = isHealthy ? colorScheme.primary : colorScheme.error;
+    final accentSurface = isHealthy
+        ? colorScheme.primaryContainer
+        : colorScheme.errorContainer;
+    final accentOnSurface = isHealthy
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onErrorContainer;
+    final relative = _formatRelativePast(context, probe.timestamp);
+    final latencyText = probe.latencyMs != null
+        ? _localizedText(
+            context,
+            zh: '耗时 ${probe.latencyMs} ms',
+            en: '${probe.latencyMs} ms',
+          )
+        : null;
+    final statusText = isHealthy
+        ? _localizedText(context, zh: '健康', en: 'Healthy')
+        : _localizedText(context, zh: '失败', en: 'Failed');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: accentSurface,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              isHealthy ? Icons.check_rounded : Icons.priority_high_rounded,
+              size: 18,
+              color: accentOnSurface,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      statusText,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: accentColor,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      relative,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (latencyText != null) ...[
+                      const SizedBox(width: 10),
+                      Text(
+                        latencyText,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (probe.errorMessage != null &&
+                    probe.errorMessage!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    probe.errorMessage!.trim(),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

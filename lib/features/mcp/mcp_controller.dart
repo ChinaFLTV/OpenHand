@@ -329,6 +329,25 @@ class McpController extends ChangeNotifier {
     return _store.openStorageDirectory();
   }
 
+  /// 用户主动「一键重连」：并行触发 Tool 重扫与健康复测，对外作为单次刷新动作。
+  /// 不修改连续失败计数（健康复测内部会自然更新），只清空旧的探测历史，让卡片
+  /// 立即显示最新一次探测结果而非沿用历史快照。
+  Future<void> reconnectServer(String serverName) async {
+    final normalizedServerName = _normalizeServerName(serverName);
+    if (normalizedServerName.isEmpty) {
+      return;
+    }
+    final previousHealth = healthStatusFor(normalizedServerName);
+    _healthByServerName[normalizedServerName] = previousHealth.copyWith(
+      recentProbes: const <McpHealthProbeRecord>[],
+    );
+    notifyListeners();
+    await Future.wait<void>(<Future<void>>[
+      refreshServerTools(normalizedServerName),
+      checkServerHealth(normalizedServerName),
+    ]);
+  }
+
   Future<void> refreshServerTools(String serverName) async {
     final normalizedServerName = _normalizeServerName(serverName);
     if (normalizedServerName.isEmpty) {
