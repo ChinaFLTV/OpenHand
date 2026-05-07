@@ -148,6 +148,7 @@ class SettingsStore {
       'mcp_stdio_mirror_mode': snapshot.mcpStdioMirrorMode.storageValue,
       'mcp_lazy_loading_threshold_tokens':
           snapshot.mcpLazyLoadingThresholdTokens,
+      'mcp_auto_probe_concurrency': snapshot.mcpAutoProbeConcurrency,
       'memory_enabled': snapshot.memoryEnabled,
       'user_memory_file_path': snapshot.userMemoryFilePath,
       'editor_word_wrap': snapshot.editorWordWrap,
@@ -309,6 +310,12 @@ class SettingsStore {
             AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens,
           )
         : AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens;
+    final mcpAutoProbeConcurrency = json['mcp_auto_probe_concurrency'] is int
+        ? (json['mcp_auto_probe_concurrency'] as int).clamp(
+            AppSettingsSnapshot.minMcpAutoProbeConcurrency,
+            AppSettingsSnapshot.maxMcpAutoProbeConcurrency,
+          )
+        : AppSettingsSnapshot.defaultMcpAutoProbeConcurrency;
     final memoryEnabled = json['memory_enabled'] is bool
         ? json['memory_enabled'] as bool
         : true;
@@ -1068,6 +1075,7 @@ class SettingsStore {
       mcpLazyLoadingMode: mcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens: mcpLazyLoadingThresholdTokens,
       mcpStdioMirrorMode: mcpStdioMirrorMode,
+      mcpAutoProbeConcurrency: mcpAutoProbeConcurrency,
       memoryEnabled: memoryEnabled,
       userMemoryFilePath: userMemoryFilePath,
       editorWordWrap: editorWordWrap,
@@ -1145,8 +1153,7 @@ class SettingsStore {
       cronAutoCleanupEnabled: cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: cronAutoCleanupRetentionDays,
       hardnessToolSearchHistoryMaxPhases: hardnessToolSearchHistoryMaxPhases,
-      toolSearchReplayCancelWindowSeconds:
-          toolSearchReplayCancelWindowSeconds,
+      toolSearchReplayCancelWindowSeconds: toolSearchReplayCancelWindowSeconds,
       reduceMotion: reduceMotion,
       proxySettings: proxySettings,
       subprocessGracefulShutdownMs: subprocessGracefulShutdownMs,

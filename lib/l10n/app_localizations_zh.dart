@@ -366,6 +366,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpStdioMirrorModeReconnectDone => '已触发重拉，下一次调用会用新镜像源重新启动进程。';
 
   @override
+  String get mcpAutoProbeConcurrencyLabel => 'MCP 检查/拉取并发数';
+
+  @override
+  String get mcpAutoProbeConcurrencyBody =>
+      '同时执行 MCP 健康检查或 Tools 拉取的服务数量上限。默认 5；调低可减少资源占用，调高可加速大量服务的批量刷新。';
+
+  @override
+  String get mcpAutoProbeConcurrencySave => '保存并发数';
+
+  @override
+  String get mcpAutoProbeConcurrencySaved => 'MCP 检查/拉取并发数已保存。';
+
+  @override
+  String get mcpAutoProbeConcurrencyInvalid => '请输入 1 到 32 之间的整数。';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -5197,6 +5213,22 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpStdioMirrorModeReconnectDone => '已触发重拉，下一次调用会用新镜像源重新启动进程。';
 
   @override
+  String get mcpAutoProbeConcurrencyLabel => 'MCP 检查/拉取并发数';
+
+  @override
+  String get mcpAutoProbeConcurrencyBody =>
+      '同时执行 MCP 健康检查或 Tools 拉取的服务数量上限。默认 5；调低可减少资源占用，调高可加速大量服务的批量刷新。';
+
+  @override
+  String get mcpAutoProbeConcurrencySave => '保存并发数';
+
+  @override
+  String get mcpAutoProbeConcurrencySaved => 'MCP 检查/拉取并发数已保存。';
+
+  @override
+  String get mcpAutoProbeConcurrencyInvalid => '请输入 1 到 32 之间的整数。';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -10025,6 +10057,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpStdioMirrorModeReconnectDone => '已觸發重拉，下次呼叫會用新鏡像源重新啟動進程。';
+
+  @override
+  String get mcpAutoProbeConcurrencyLabel => 'MCP 檢查/拉取並行數';
+
+  @override
+  String get mcpAutoProbeConcurrencyBody =>
+      '同時執行 MCP 健康檢查或 Tools 拉取的服務數量上限。預設 5；調低可減少資源占用，調高可加速大量服務的批量刷新。';
+
+  @override
+  String get mcpAutoProbeConcurrencySave => '儲存並行數';
+
+  @override
+  String get mcpAutoProbeConcurrencySaved => 'MCP 檢查/拉取並行數已儲存。';
+
+  @override
+  String get mcpAutoProbeConcurrencyInvalid => '請輸入 1 到 32 之間的整數。';
 
   @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懶載入';

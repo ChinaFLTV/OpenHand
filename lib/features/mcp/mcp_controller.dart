@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:collection';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+import '../../app/support/silent_log.dart';
 import 'data/mcp_store.dart';
 import 'model/mcp_server.dart';
 import 'model/mcp_server_health.dart';
@@ -13,10 +16,14 @@ class McpController extends ChangeNotifier {
     required McpStore store,
     required McpToolDiscoveryService toolDiscoveryService,
     required Duration healthCheckInterval,
+    required int autoProbeConcurrency,
     bool isLoading = false,
   }) : _store = store,
        _toolDiscoveryService = toolDiscoveryService,
        _healthCheckInterval = healthCheckInterval,
+       _autoProbeConcurrency = _normalizeAutoProbeConcurrency(
+         autoProbeConcurrency,
+       ),
        _isLoading = isLoading;
 
   /// Constructs an [McpController] synchronously without performing the
@@ -32,12 +39,14 @@ class McpController extends ChangeNotifier {
     McpStore? store,
     McpToolDiscoveryService? toolDiscoveryService,
     Duration healthCheckInterval = const Duration(seconds: 30),
+    int autoProbeConcurrency = defaultAutoProbeConcurrency,
   }) {
     return McpController._(
       store: store ?? McpStore(serversFilePath: initialFilePath),
       toolDiscoveryService:
           toolDiscoveryService ?? DefaultMcpToolDiscoveryService(),
       healthCheckInterval: healthCheckInterval,
+      autoProbeConcurrency: autoProbeConcurrency,
       isLoading: true,
     );
   }
@@ -47,12 +56,14 @@ class McpController extends ChangeNotifier {
     McpStore? store,
     McpToolDiscoveryService? toolDiscoveryService,
     Duration healthCheckInterval = const Duration(seconds: 30),
+    int autoProbeConcurrency = defaultAutoProbeConcurrency,
   }) async {
     final controller = McpController._(
       store: store ?? McpStore(serversFilePath: initialFilePath),
       toolDiscoveryService:
           toolDiscoveryService ?? DefaultMcpToolDiscoveryService(),
       healthCheckInterval: healthCheckInterval,
+      autoProbeConcurrency: autoProbeConcurrency,
     );
     await controller.refresh();
     return controller;
@@ -60,10 +71,14 @@ class McpController extends ChangeNotifier {
 
   static const Duration _pageActivationWorkDelay = Duration(milliseconds: 450);
   static const Duration _autoProbeGap = Duration(milliseconds: 80);
+  static const int defaultAutoProbeConcurrency = 5;
+  static const int _minAutoProbeConcurrency = 1;
+  static const int _maxAutoProbeConcurrency = 32;
 
   final McpStore _store;
   final McpToolDiscoveryService _toolDiscoveryService;
   final Duration _healthCheckInterval;
+  int _autoProbeConcurrency;
 
   bool _isLoading;
   String? _errorMessage;
@@ -75,11 +90,13 @@ class McpController extends ChangeNotifier {
   final Map<String, McpServerHealth> _healthByServerName =
       <String, McpServerHealth>{};
   final Map<String, int> _healthCheckGenerationByServerName = <String, int>{};
+  final Queue<Completer<bool>> _autoProbeSlotWaiters = Queue<Completer<bool>>();
   McpPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   bool _isPageActive = false;
   bool _autoToolRefreshInProgress = false;
   bool _autoHealthCheckInProgress = false;
+  int _activeAutoProbeSlots = 0;
   Future<void> _operationQueue = Future<void>.value();
   Timer? _pageActivationWorkTimer;
   Timer? _healthCheckTimer;
@@ -105,6 +122,17 @@ class McpController extends ChangeNotifier {
         const McpServerHealth();
   }
 
+  int get autoProbeConcurrency => _autoProbeConcurrency;
+
+  void updateAutoProbeConcurrency(int value) {
+    final normalized = _normalizeAutoProbeConcurrency(value);
+    if (_autoProbeConcurrency == normalized) {
+      return;
+    }
+    _autoProbeConcurrency = normalized;
+    _drainAutoProbeSlotQueue();
+  }
+
   @override
   void notifyListeners() {
     if (_isDisposed) {
@@ -118,10 +146,11 @@ class McpController extends ChangeNotifier {
     _isDisposed = true;
     _pageActivationWorkTimer?.cancel();
     _healthCheckTimer?.cancel();
+    _cancelQueuedAutoProbeSlots();
     try {
       _toolDiscoveryService.dispose();
-    } catch (_) {
-      // Best-effort cleanup; super.dispose() must still be called.
+    } catch (error, stack) {
+      silentLog('mcp', 'dispose.discoveryService', error, stack);
     }
     _saveSuccessSignal.dispose();
     super.dispose();
@@ -144,6 +173,7 @@ class McpController extends ChangeNotifier {
       _schedulePageActivationWork();
     } else {
       _pageActivationWorkTimer?.cancel();
+      _cancelQueuedAutoProbeSlots();
       _invalidateToolRefreshGenerations();
       _invalidateHealthCheckGenerations();
     }
@@ -546,6 +576,7 @@ class McpController extends ChangeNotifier {
 
   Future<void> _runAutoToolRefreshes({required bool force}) async {
     try {
+      final targets = <McpServer>[];
       for (final server in _servers) {
         if (_isDisposed || !_isPageActive) {
           return;
@@ -560,12 +591,12 @@ class McpController extends ChangeNotifier {
                     catalog.lastScannedAt != null)) {
           continue;
         }
-        await refreshServerTools(server.name);
-        if (_isDisposed || !_isPageActive) {
-          return;
-        }
-        await Future<void>.delayed(_autoProbeGap);
+        targets.add(server);
       }
+      await _runAutoProbeWorkerPool(
+        targets,
+        (server) => refreshServerTools(server.name),
+      );
     } finally {
       _autoToolRefreshInProgress = false;
     }
@@ -582,6 +613,7 @@ class McpController extends ChangeNotifier {
   Future<void> _runAutoHealthChecks({required bool force}) async {
     try {
       final now = DateTime.now().toUtc();
+      final targets = <McpServer>[];
       for (final server in _servers) {
         if (_isDisposed || !_isPageActive) {
           return;
@@ -599,14 +631,104 @@ class McpController extends ChangeNotifier {
             continue;
           }
         }
-        await checkServerHealth(server.name);
-        if (_isDisposed || !_isPageActive) {
-          return;
-        }
-        await Future<void>.delayed(_autoProbeGap);
+        targets.add(server);
       }
+      await _runAutoProbeWorkerPool(
+        targets,
+        (server) => checkServerHealth(server.name),
+      );
     } finally {
       _autoHealthCheckInProgress = false;
+    }
+  }
+
+  Future<void> _runAutoProbeWorkerPool(
+    List<McpServer> targets,
+    Future<void> Function(McpServer server) operation,
+  ) async {
+    if (targets.isEmpty || _isDisposed || !_isPageActive) {
+      return;
+    }
+    var nextIndex = 0;
+    final workerCount = math.min(_autoProbeConcurrency, targets.length);
+    await Future.wait<void>(
+      List<Future<void>>.generate(workerCount, (_) async {
+        while (!_isDisposed && _isPageActive) {
+          final index = nextIndex;
+          nextIndex += 1;
+          if (index >= targets.length) {
+            return;
+          }
+          try {
+            await _runWithAutoProbeSlot(() => operation(targets[index]));
+          } catch (error, stack) {
+            silentLog('mcp', '_runAutoProbeWorkerPool', error, stack);
+          }
+          if (_isDisposed || !_isPageActive) {
+            return;
+          }
+          if (_autoProbeGap > Duration.zero && index < targets.length - 1) {
+            await Future<void>.delayed(_autoProbeGap);
+          }
+        }
+      }),
+    );
+  }
+
+  Future<void> _runWithAutoProbeSlot(Future<void> Function() operation) async {
+    final acquired = await _acquireAutoProbeSlot();
+    if (!acquired) {
+      return;
+    }
+    try {
+      if (!_isDisposed && _isPageActive) {
+        await operation();
+      }
+    } finally {
+      _releaseAutoProbeSlot();
+    }
+  }
+
+  Future<bool> _acquireAutoProbeSlot() {
+    if (_isDisposed || !_isPageActive) {
+      return Future<bool>.value(false);
+    }
+    if (_activeAutoProbeSlots < _autoProbeConcurrency) {
+      _activeAutoProbeSlots += 1;
+      return Future<bool>.value(true);
+    }
+    final waiter = Completer<bool>();
+    _autoProbeSlotWaiters.add(waiter);
+    return waiter.future;
+  }
+
+  void _releaseAutoProbeSlot() {
+    if (_activeAutoProbeSlots > 0) {
+      _activeAutoProbeSlots -= 1;
+    }
+    _drainAutoProbeSlotQueue();
+  }
+
+  void _drainAutoProbeSlotQueue() {
+    while (!_isDisposed &&
+        _isPageActive &&
+        _autoProbeSlotWaiters.isNotEmpty &&
+        _activeAutoProbeSlots < _autoProbeConcurrency) {
+      final waiter = _autoProbeSlotWaiters.removeFirst();
+      if (waiter.isCompleted) {
+        continue;
+      }
+      _activeAutoProbeSlots += 1;
+      waiter.complete(true);
+    }
+  }
+
+  void _cancelQueuedAutoProbeSlots() {
+    while (_autoProbeSlotWaiters.isNotEmpty) {
+      final waiter = _autoProbeSlotWaiters.removeFirst();
+      if (!waiter.isCompleted) {
+        waiter.complete(false);
+      }
     }
   }
 
@@ -669,6 +791,13 @@ class McpController extends ChangeNotifier {
   void _invalidateHealthCheckGeneration(String serverName) {
     _healthCheckGenerationByServerName[serverName] =
         (_healthCheckGenerationByServerName[serverName] ?? 0) + 1;
+  }
+
+  static int _normalizeAutoProbeConcurrency(int value) {
+    if (value < _minAutoProbeConcurrency) {
+      return defaultAutoProbeConcurrency;
+    }
+    return value.clamp(_minAutoProbeConcurrency, _maxAutoProbeConcurrency);
   }
 
   McpToolCatalog _resolvedRefreshCatalog({

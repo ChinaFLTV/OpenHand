@@ -42,6 +42,7 @@ class SettingsController extends ChangeNotifier {
        _mcpLazyLoadingMode = snapshot.mcpLazyLoadingMode,
        _mcpStdioMirrorMode = snapshot.mcpStdioMirrorMode,
        _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens,
+       _mcpAutoProbeConcurrency = snapshot.mcpAutoProbeConcurrency,
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
        _editorWordWrap = snapshot.editorWordWrap,
@@ -176,6 +177,7 @@ class SettingsController extends ChangeNotifier {
   McpLazyLoadingMode _mcpLazyLoadingMode;
   McpStdioMirrorMode _mcpStdioMirrorMode;
   int _mcpLazyLoadingThresholdTokens;
+  int _mcpAutoProbeConcurrency;
   bool _memoryEnabled;
   String _userMemoryFilePath;
   bool _editorWordWrap;
@@ -284,6 +286,7 @@ class SettingsController extends ChangeNotifier {
   McpLazyLoadingMode get mcpLazyLoadingMode => _mcpLazyLoadingMode;
   McpStdioMirrorMode get mcpStdioMirrorMode => _mcpStdioMirrorMode;
   int get mcpLazyLoadingThresholdTokens => _mcpLazyLoadingThresholdTokens;
+  int get mcpAutoProbeConcurrency => _mcpAutoProbeConcurrency;
   String get displayMcpServersFilePath =>
       OpenHandPaths.shortenHomePath(_mcpServersFilePath);
   String get defaultMcpServersFilePath =>
@@ -591,6 +594,22 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _mcpLazyLoadingThresholdTokens = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateMcpAutoProbeConcurrency(int value) async {
+    final clamped = value < AppSettingsSnapshot.minMcpAutoProbeConcurrency
+        ? AppSettingsSnapshot.defaultMcpAutoProbeConcurrency
+        : value.clamp(
+            AppSettingsSnapshot.minMcpAutoProbeConcurrency,
+            AppSettingsSnapshot.maxMcpAutoProbeConcurrency,
+          );
+    return _commitMutation(() {
+      if (_mcpAutoProbeConcurrency == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _mcpAutoProbeConcurrency = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -2081,6 +2100,7 @@ class SettingsController extends ChangeNotifier {
       mcpLazyLoadingMode: _mcpLazyLoadingMode,
       mcpStdioMirrorMode: _mcpStdioMirrorMode,
       mcpLazyLoadingThresholdTokens: _mcpLazyLoadingThresholdTokens,
+      mcpAutoProbeConcurrency: _mcpAutoProbeConcurrency,
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
       editorWordWrap: _editorWordWrap,
@@ -2162,8 +2182,7 @@ class SettingsController extends ChangeNotifier {
       cronAutoCleanupEnabled: _cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: _cronAutoCleanupRetentionDays,
       hardnessToolSearchHistoryMaxPhases: _hardnessToolSearchHistoryMaxPhases,
-      toolSearchReplayCancelWindowSeconds:
-          _toolSearchReplayCancelWindowSeconds,
+      toolSearchReplayCancelWindowSeconds: _toolSearchReplayCancelWindowSeconds,
       reduceMotion: _reduceMotion,
       proxySettings: _proxySettings,
       subprocessGracefulShutdownMs: _subprocessGracefulShutdownMs,
@@ -2181,6 +2200,7 @@ class SettingsController extends ChangeNotifier {
     _mcpLazyLoadingMode = snapshot.mcpLazyLoadingMode;
     _mcpStdioMirrorMode = snapshot.mcpStdioMirrorMode;
     _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens;
+    _mcpAutoProbeConcurrency = snapshot.mcpAutoProbeConcurrency;
     _mcpServersFilePath = snapshot.mcpServersFilePath;
     _memoryEnabled = snapshot.memoryEnabled;
     _userMemoryFilePath = snapshot.userMemoryFilePath;

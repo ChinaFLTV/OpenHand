@@ -1767,6 +1767,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       minimum: const EdgeInsets.all(18),
       child: Dialog(
         insetPadding: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: math.min(mediaSize.width - 36, 960),

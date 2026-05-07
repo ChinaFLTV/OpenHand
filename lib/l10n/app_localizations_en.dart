@@ -381,6 +381,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'Reconnect triggered. Next call will respawn the process with the new mirror.';
 
   @override
+  String get mcpAutoProbeConcurrencyLabel => 'MCP check/fetch concurrency';
+
+  @override
+  String get mcpAutoProbeConcurrencyBody =>
+      'Maximum number of MCP services checked or fetched in parallel. Default 5; lowering reduces resource pressure, raising speeds up many servers.';
+
+  @override
+  String get mcpAutoProbeConcurrencySave => 'Save concurrency';
+
+  @override
+  String get mcpAutoProbeConcurrencySaved =>
+      'MCP check/fetch concurrency saved.';
+
+  @override
+  String get mcpAutoProbeConcurrencyInvalid =>
+      'Please enter an integer between 1 and 32.';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP tool lazy loading';
 
   @override

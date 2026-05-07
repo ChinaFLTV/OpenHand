@@ -383,6 +383,24 @@ class AppLocalizationsDe extends AppLocalizations {
       'Reconnect ausgelöst. Beim nächsten Aufruf wird der Prozess mit dem neuen Mirror neu gestartet.';
 
   @override
+  String get mcpAutoProbeConcurrencyLabel => 'MCP Check/Fetch Parallelität';
+
+  @override
+  String get mcpAutoProbeConcurrencyBody =>
+      'Maximale Anzahl von MCP-Diensten, die parallel geprüft oder abgefragt werden. Standard 5; niedriger reduziert Ressourcenlast, höher beschleunigt viele Dienste.';
+
+  @override
+  String get mcpAutoProbeConcurrencySave => 'Parallelität speichern';
+
+  @override
+  String get mcpAutoProbeConcurrencySaved =>
+      'MCP Check/Fetch Parallelität gespeichert.';
+
+  @override
+  String get mcpAutoProbeConcurrencyInvalid =>
+      'Bitte eine ganze Zahl zwischen 1 und 32 eingeben.';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP-Tool Lazy Loading';
 
   @override

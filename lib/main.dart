@@ -192,6 +192,7 @@ Future<void> _bootstrap() async {
   unawaited(skillsController.refresh());
   final mcpController = McpController.uninitialized(
     initialFilePath: settingsController.mcpServersFilePath,
+    autoProbeConcurrency: settingsController.mcpAutoProbeConcurrency,
   );
   unawaited(mcpController.refresh());
   // 2026-04-25 boot perf — MemoryController is only consumed inside
@@ -280,6 +281,9 @@ Future<void> _bootstrap() async {
     );
   });
   settingsController.addListener(() {
+    mcpController.updateAutoProbeConcurrency(
+      settingsController.mcpAutoProbeConcurrency,
+    );
     selfLearningScheduler.updateConcurrency(
       settingsController.selfLearningConcurrency,
     );

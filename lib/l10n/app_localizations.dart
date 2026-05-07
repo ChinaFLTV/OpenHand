@@ -796,6 +796,36 @@ abstract class AppLocalizations {
   /// **'已触发重拉，下一次调用会用新镜像源重新启动进程。'**
   String get mcpStdioMirrorModeReconnectDone;
 
+  /// No description provided for @mcpAutoProbeConcurrencyLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 检查/拉取并发数'**
+  String get mcpAutoProbeConcurrencyLabel;
+
+  /// No description provided for @mcpAutoProbeConcurrencyBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'同时执行 MCP 健康检查或 Tools 拉取的服务数量上限。默认 5；调低可减少资源占用，调高可加速大量服务的批量刷新。'**
+  String get mcpAutoProbeConcurrencyBody;
+
+  /// No description provided for @mcpAutoProbeConcurrencySave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存并发数'**
+  String get mcpAutoProbeConcurrencySave;
+
+  /// No description provided for @mcpAutoProbeConcurrencySaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 检查/拉取并发数已保存。'**
+  String get mcpAutoProbeConcurrencySaved;
+
+  /// No description provided for @mcpAutoProbeConcurrencyInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 1 到 32 之间的整数。'**
+  String get mcpAutoProbeConcurrencyInvalid;
+
   /// No description provided for @mcpLazyLoadingModeLabel.
   ///
   /// In zh_Hans, this message translates to:

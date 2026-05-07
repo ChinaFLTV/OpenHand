@@ -369,6 +369,22 @@ class AppLocalizationsJa extends AppLocalizations {
       '再接続をトリガーしました。次回呼び出し時に新しいミラーでプロセスを再起動します。';
 
   @override
+  String get mcpAutoProbeConcurrencyLabel => 'MCP チェック/取得の並列数';
+
+  @override
+  String get mcpAutoProbeConcurrencyBody =>
+      'MCP ヘルスチェックまたは Tools 取得を同時に実行するサービス数の上限です。既定は 5。下げるとリソース使用量を抑え、上げると多数のサービス更新を速くできます。';
+
+  @override
+  String get mcpAutoProbeConcurrencySave => '並列数を保存';
+
+  @override
+  String get mcpAutoProbeConcurrencySaved => 'MCP チェック/取得の並列数を保存しました。';
+
+  @override
+  String get mcpAutoProbeConcurrencyInvalid => '1 から 32 までの整数を入力してください。';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCPツールの遅延読み込み';
 
   @override

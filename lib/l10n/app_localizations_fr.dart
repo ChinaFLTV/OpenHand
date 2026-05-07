@@ -382,6 +382,24 @@ class AppLocalizationsFr extends AppLocalizations {
       'Reconnexion déclenchée. Le prochain appel relancera le processus avec le nouveau miroir.';
 
   @override
+  String get mcpAutoProbeConcurrencyLabel => 'Parallélisme MCP check/fetch';
+
+  @override
+  String get mcpAutoProbeConcurrencyBody =>
+      'Nombre maximal de services MCP vérifiés ou interrogés en parallèle. Valeur par défaut : 5. Réduisez-le pour limiter les ressources, augmentez-le pour accélérer de nombreux services.';
+
+  @override
+  String get mcpAutoProbeConcurrencySave => 'Enregistrer le parallélisme';
+
+  @override
+  String get mcpAutoProbeConcurrencySaved =>
+      'Parallélisme MCP check/fetch enregistré.';
+
+  @override
+  String get mcpAutoProbeConcurrencyInvalid =>
+      'Saisissez un entier entre 1 et 32.';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'Chargement différé des outils MCP';
 
   @override

@@ -180,6 +180,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _streamIdleTimeoutFocusNode;
   late final TextEditingController _mcpLazyLoadingThresholdController;
   late final FocusNode _mcpLazyLoadingThresholdFocusNode;
+  late final TextEditingController _mcpAutoProbeConcurrencyController;
+  late final FocusNode _mcpAutoProbeConcurrencyFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
 
   @override
@@ -230,6 +232,8 @@ class _SettingsViewState extends State<SettingsView> {
     _streamIdleTimeoutFocusNode = FocusNode();
     _mcpLazyLoadingThresholdController = TextEditingController();
     _mcpLazyLoadingThresholdFocusNode = FocusNode();
+    _mcpAutoProbeConcurrencyController = TextEditingController();
+    _mcpAutoProbeConcurrencyFocusNode = FocusNode();
   }
 
   @override
@@ -279,6 +283,8 @@ class _SettingsViewState extends State<SettingsView> {
     _streamIdleTimeoutFocusNode.dispose();
     _mcpLazyLoadingThresholdController.dispose();
     _mcpLazyLoadingThresholdFocusNode.dispose();
+    _mcpAutoProbeConcurrencyController.dispose();
+    _mcpAutoProbeConcurrencyFocusNode.dispose();
     super.dispose();
   }
 
@@ -425,6 +431,13 @@ class _SettingsViewState extends State<SettingsView> {
         _mcpLazyLoadingThresholdController.text !=
             mcpLazyLoadingThresholdText) {
       _mcpLazyLoadingThresholdController.text = mcpLazyLoadingThresholdText;
+    }
+    final mcpAutoProbeConcurrencyText =
+        '${settingsController.mcpAutoProbeConcurrency}';
+    if (!_mcpAutoProbeConcurrencyFocusNode.hasFocus &&
+        _mcpAutoProbeConcurrencyController.text !=
+            mcpAutoProbeConcurrencyText) {
+      _mcpAutoProbeConcurrencyController.text = mcpAutoProbeConcurrencyText;
     }
 
     final sections = <_SettingsSection>[
@@ -2792,6 +2805,49 @@ class _SettingsViewState extends State<SettingsView> {
             onReconnect: () => _reconnectMcpServersForMirrorChange(context),
           ),
         ),
+        const SizedBox(height: 14),
+        _ResponsiveSettingRow(
+          title: l10n.mcpAutoProbeConcurrencyLabel,
+          subtitle: l10n.mcpAutoProbeConcurrencyBody,
+          control: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                key: const ValueKey<String>(
+                  'settingsMcpAutoProbeConcurrencyField',
+                ),
+                controller: _mcpAutoProbeConcurrencyController,
+                focusNode: _mcpAutoProbeConcurrencyFocusNode,
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: InputDecoration(
+                  labelText: l10n.mcpAutoProbeConcurrencyLabel,
+                  hintText:
+                      '${AppSettingsSnapshot.defaultMcpAutoProbeConcurrency}',
+                ),
+                onSubmitted: (value) =>
+                    _saveMcpAutoProbeConcurrency(context, value),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  key: const ValueKey<String>(
+                    'settingsMcpAutoProbeConcurrencySaveButton',
+                  ),
+                  onPressed: () => _saveMcpAutoProbeConcurrency(
+                    context,
+                    _mcpAutoProbeConcurrencyController.text,
+                  ),
+                  icon: const Icon(Icons.save_outlined),
+                  label: Text(l10n.mcpAutoProbeConcurrencySave),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 18),
         _McpLazyLoadingHelpBanner(text: l10n.mcpLazyLoadingHowItWorks),
         const SizedBox(height: 8),
@@ -3828,6 +3884,41 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.mcpLazyLoadingThresholdSaved,
+      kind: _SettingsSnackKind.success,
+    );
+  }
+
+  Future<void> _saveMcpAutoProbeConcurrency(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsed = int.tryParse(rawValue.trim());
+    if (parsed == null ||
+        parsed < AppSettingsSnapshot.minMcpAutoProbeConcurrency ||
+        parsed > AppSettingsSnapshot.maxMcpAutoProbeConcurrency) {
+      _showSnackBar(
+        context,
+        l10n.mcpAutoProbeConcurrencyInvalid,
+        kind: _SettingsSnackKind.error,
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateMcpAutoProbeConcurrency(parsed);
+    if (!context.mounted) return;
+    if (!saved) {
+      _mcpAutoProbeConcurrencyController.text =
+          '${context.read<SettingsController>().mcpAutoProbeConcurrency}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _mcpAutoProbeConcurrencyController.text =
+        '${context.read<SettingsController>().mcpAutoProbeConcurrency}';
+    _showSnackBar(
+      context,
+      l10n.mcpAutoProbeConcurrencySaved,
       kind: _SettingsSnackKind.success,
     );
   }

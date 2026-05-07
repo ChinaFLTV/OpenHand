@@ -37,6 +37,7 @@ class AppSettingsSnapshot {
       mcpLazyLoadingMode: defaultMcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens: defaultMcpLazyLoadingThresholdTokens,
       mcpStdioMirrorMode: defaultMcpStdioMirrorMode,
+      mcpAutoProbeConcurrency: defaultMcpAutoProbeConcurrency,
       memoryEnabled: true,
       userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
       editorWordWrap: true,
@@ -154,6 +155,7 @@ class AppSettingsSnapshot {
     required this.mcpLazyLoadingMode,
     required this.mcpLazyLoadingThresholdTokens,
     required this.mcpStdioMirrorMode,
+    required this.mcpAutoProbeConcurrency,
     required this.memoryEnabled,
     required this.userMemoryFilePath,
     required this.editorWordWrap,
@@ -532,6 +534,9 @@ class AppSettingsSnapshot {
   static const int maxMcpLazyLoadingThresholdTokens = 1000000;
   static const McpStdioMirrorMode defaultMcpStdioMirrorMode =
       McpStdioMirrorMode.auto;
+  static const int defaultMcpAutoProbeConcurrency = 5;
+  static const int minMcpAutoProbeConcurrency = 1;
+  static const int maxMcpAutoProbeConcurrency = 32;
 
   final ThemeMode themeMode;
   final OpenHandThemePreset themePreset;
@@ -552,6 +557,10 @@ class AppSettingsSnapshot {
   /// 2026-05-04 — stdio MCP 包管理器镜像源模式。
   /// 决策顺序：`OPENHAND_MCP_MIRROR` 环变 > 该设置 > Platform.localeName。
   final McpStdioMirrorMode mcpStdioMirrorMode;
+
+  /// MCP 服务自动健康检查 / Tools 拉取的并发 worker 数。
+  /// 默认 5，避免慢服务把整批检查串行拖住；范围限制防止资源被打满。
+  final int mcpAutoProbeConcurrency;
   final bool memoryEnabled;
   final String userMemoryFilePath;
   final bool editorWordWrap;
@@ -736,6 +745,7 @@ class AppSettingsSnapshot {
     McpLazyLoadingMode? mcpLazyLoadingMode,
     int? mcpLazyLoadingThresholdTokens,
     McpStdioMirrorMode? mcpStdioMirrorMode,
+    int? mcpAutoProbeConcurrency,
     bool? memoryEnabled,
     String? userMemoryFilePath,
     bool? editorWordWrap,
@@ -830,6 +840,8 @@ class AppSettingsSnapshot {
       mcpLazyLoadingThresholdTokens:
           mcpLazyLoadingThresholdTokens ?? this.mcpLazyLoadingThresholdTokens,
       mcpStdioMirrorMode: mcpStdioMirrorMode ?? this.mcpStdioMirrorMode,
+      mcpAutoProbeConcurrency:
+          mcpAutoProbeConcurrency ?? this.mcpAutoProbeConcurrency,
       memoryEnabled: memoryEnabled ?? this.memoryEnabled,
       userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
       editorWordWrap: editorWordWrap ?? this.editorWordWrap,
