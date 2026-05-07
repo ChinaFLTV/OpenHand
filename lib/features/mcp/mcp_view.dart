@@ -176,6 +176,17 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                       icon: const Icon(Icons.folder_open_rounded),
                       label: Text(l10n.mcpOpenDirectory),
                     ),
+                    OutlinedButton.icon(
+                      onPressed: () => _showSnapshotExportMenu(context),
+                      icon: const Icon(Icons.ios_share_rounded),
+                      label: Text(
+                        _localizedText(
+                          context,
+                          zh: '导出快照',
+                          en: 'Export snapshot',
+                        ),
+                      ),
+                    ),
                     FilledButton.icon(
                       onPressed: () => _showServerDialog(context),
                       icon: const Icon(Icons.add_rounded),
@@ -602,6 +613,146 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         );
       },
     );
+  }
+
+  Future<void> _showSnapshotExportMenu(BuildContext context) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final box = context.findRenderObject() as RenderBox?;
+    if (overlay == null || box == null) {
+      await _exportAllSnapshots(context, _McpHistoryExportFormat.json);
+      return;
+    }
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        box.localToGlobal(Offset.zero, ancestor: overlay),
+        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final selected = await showMenu<_McpHistoryExportFormat>(
+      context: context,
+      position: position,
+      items: [
+        PopupMenuItem(
+          value: _McpHistoryExportFormat.json,
+          child: Text(
+            _localizedText(
+              context,
+              zh: '导出快照 (JSON)',
+              en: 'Export snapshot (JSON)',
+            ),
+          ),
+        ),
+        PopupMenuItem(
+          value: _McpHistoryExportFormat.csv,
+          child: Text(
+            _localizedText(
+              context,
+              zh: '导出快照 (CSV)',
+              en: 'Export snapshot (CSV)',
+            ),
+          ),
+        ),
+      ],
+    );
+    if (selected == null || !context.mounted) {
+      return;
+    }
+    await _exportAllSnapshots(context, selected);
+  }
+
+  Future<void> _exportAllSnapshots(
+    BuildContext context,
+    _McpHistoryExportFormat format,
+  ) async {
+    final controller = context.read<McpController>();
+    final servers = controller.servers;
+    final entries = <Map<String, dynamic>>[];
+    for (final server in servers) {
+      final health = controller.healthStatusFor(server.name);
+      final catalog = controller.toolCatalogFor(server.name);
+      final probes = health.recentProbes;
+      final successCount = probes
+          .where((p) => p.status == McpServerHealthStatus.healthy)
+          .length;
+      entries.add({
+        'name': server.name,
+        'type': server.type.name,
+        'enabled': server.enabled,
+        'status': switch (health.status) {
+          McpServerHealthStatus.healthy => 'healthy',
+          McpServerHealthStatus.unhealthy => 'unhealthy',
+          McpServerHealthStatus.checking => 'checking',
+          McpServerHealthStatus.idle => 'idle',
+        },
+        'consecutiveFailures': health.consecutiveFailures,
+        'lastSuccessAt': health.lastSuccessAt?.toIso8601String(),
+        'latencyMs': health.latencyMs,
+        'recentProbes': probes.length,
+        'recentSuccesses': successCount,
+        'recentFailures': probes.length - successCount,
+        'toolCount': catalog.tools.length,
+        'toolCatalogError': catalog.errorMessage,
+      });
+    }
+
+    final String text;
+    if (format == _McpHistoryExportFormat.json) {
+      text = const JsonEncoder.withIndent('  ').convert({
+        'exportedAt': DateTime.now().toUtc().toIso8601String(),
+        'servers': entries,
+      });
+    } else {
+      final buffer = StringBuffer()
+        ..writeln(
+          'name,type,enabled,status,consecutive_failures,last_success_at,'
+          'latency_ms,recent_probes,recent_successes,recent_failures,tool_count,tool_catalog_error',
+        );
+      for (final e in entries) {
+        buffer.writeln(
+          [
+            _csvFieldString(e['name']),
+            _csvFieldString(e['type']),
+            _csvFieldString(e['enabled']),
+            _csvFieldString(e['status']),
+            _csvFieldString(e['consecutiveFailures']),
+            _csvFieldString(e['lastSuccessAt']),
+            _csvFieldString(e['latencyMs']),
+            _csvFieldString(e['recentProbes']),
+            _csvFieldString(e['recentSuccesses']),
+            _csvFieldString(e['recentFailures']),
+            _csvFieldString(e['toolCount']),
+            _csvFieldString(e['toolCatalogError']),
+          ].join(','),
+        );
+      }
+      text = buffer.toString();
+    }
+
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!context.mounted) {
+      return;
+    }
+    final formatLabel = format == _McpHistoryExportFormat.json ? 'JSON' : 'CSV';
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '已将 ${entries.length} 个服务的快照以 $formatLabel 复制到剪贴板',
+        en: 'Copied snapshot of ${entries.length} servers as $formatLabel to clipboard',
+      ),
+      kind: _SnackKind.success,
+    );
+  }
+
+  String _csvFieldString(Object? value) {
+    if (value == null) return '';
+    final raw = value.toString();
+    final needsQuote =
+        raw.contains(',') || raw.contains('"') || raw.contains('\n');
+    if (!needsQuote) return raw;
+    return '"${raw.replaceAll('"', '""')}"';
   }
 
   Future<void> _updateServerEnabled(
@@ -1902,6 +2053,128 @@ class _McpServerDetailsSheet extends StatelessWidget {
                   multiline: true,
                 ),
             ],
+          ),
+          if (toolCatalog.tools.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _ToolListPreview(tools: toolCatalog.tools),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolListPreview extends StatelessWidget {
+  const _ToolListPreview({required this.tools});
+
+  final List<McpTool> tools;
+
+  static const int _previewLimit = 12;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final preview = tools.take(_previewLimit).toList();
+    final overflow = tools.length - preview.length;
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                _localizedText(context, zh: '工具预览', en: 'Tool preview'),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '${preview.length}/${tools.length}',
+                  en: '${preview.length}/${tools.length}',
+                ),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...preview.map((tool) => _ToolPreviewTile(tool: tool)),
+          if (overflow > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '另有 $overflow 个工具未在此列出',
+                  en: '$overflow more tools not shown here',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolPreviewTile extends StatelessWidget {
+  const _ToolPreviewTile({required this.tool});
+
+  final McpTool tool;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final description = tool.description.trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.handyman_outlined,
+            size: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(
+                  tool.name,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
