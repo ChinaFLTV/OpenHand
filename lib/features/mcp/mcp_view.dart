@@ -3914,9 +3914,14 @@ class _McpToolDetailsDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  FilledButton.tonalIcon(
+                  IconButton(
                     key: ValueKey<String>(
                       'mcpToolDetailsDebugButton-${tool.id}',
+                    ),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '调试 Tool',
+                      en: 'Debug Tool',
                     ),
                     onPressed: () => _showToolDebugDialog(
                       context,
@@ -3926,10 +3931,8 @@ class _McpToolDetailsDialog extends StatelessWidget {
                       initialTool: tool,
                     ),
                     icon: const Icon(Icons.play_circle_outline_rounded),
-                    label: Text(
-                      _localizedText(context, zh: '调试 Tool', en: 'Debug Tool'),
-                    ),
                   ),
+                  const SizedBox(width: 4),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
