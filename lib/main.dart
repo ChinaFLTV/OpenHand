@@ -278,6 +278,24 @@ Future<void> _bootstrap() async {
       }
       return AgentHandlerResult(stdout: stdout, appContext: appContext);
     }
+    if (entry.tags.contains(CronsController.mcpKeywordIndexTag)) {
+      // 2026-05-04 — MCP 关键词倒排索引定时重建。复用 McpController 单飞构建器，
+      // 与 UI 入口共享同一份磁盘缓存。失败由调度器统一记录，不需在此抛错。
+      try {
+        await mcpController.ensureKeywordIndexLoaded();
+        final result = await mcpController.buildKeywordIndex();
+        return AgentHandlerResult(
+          stdout:
+              'ok: servers=${result.index.totalServers} '
+              'tools=${result.index.totalTools} '
+              'skipped=${result.skippedServers} '
+              'duration_ms=${result.index.durationMs}',
+        );
+      } catch (error, stack) {
+        silentLog('main', 'mcp keyword index rebuild', error, stack);
+        return AgentHandlerResult(stdout: 'error: $error');
+      }
+    }
     return AgentHandlerResult(
       stdout: 'noop: unknown agent tag (${entry.tags.join(",")})',
     );
@@ -291,13 +309,35 @@ Future<void> _bootstrap() async {
     );
     SelfLearningRunner.streamFlushIntervalMs =
         settingsController.selfLearningStreamFlushIntervalMs;
+    // 2026-05-04 — 同步 MCP 关键词倒排索引调度，复用同一条系统 cron 条目。
+    unawaited(
+      cronsController.updateMcpKeywordIndexSchedule(
+        mode: settingsController.mcpKeywordIndexUpdateMode,
+        intervalValue: settingsController.mcpKeywordIndexIntervalValue,
+        intervalUnit: settingsController.mcpKeywordIndexIntervalUnit,
+        scheduledTimeOfDay:
+            settingsController.mcpKeywordIndexScheduledTimeOfDay,
+      ),
+    );
   });
   // 启动期同步一次，避免首次 listener 触发前的 race。
   SelfLearningRunner.streamFlushIntervalMs =
       settingsController.selfLearningStreamFlushIntervalMs;
   // Kick off the deferred cron init AFTER the agent handler is registered so
   // any immediate scheduler tick post-init can dispatch correctly.
-  unawaited(cronsController.initialize());
+  // 2026-05-04 — 串接：cron init 完成后立刻把当前设置项推一次到 MCP 关键词
+  // 索引系统 cron 条目（listener 仅在 setter 触发，启动期需要主动同步一次）；
+  // 同时启动期惰性加载磁盘缓存，避免首次手动构建命中 disk-empty。
+  unawaited(mcpController.ensureKeywordIndexLoaded());
+  unawaited(() async {
+    await cronsController.initialize();
+    await cronsController.updateMcpKeywordIndexSchedule(
+      mode: settingsController.mcpKeywordIndexUpdateMode,
+      intervalValue: settingsController.mcpKeywordIndexIntervalValue,
+      intervalUnit: settingsController.mcpKeywordIndexIntervalUnit,
+      scheduledTimeOfDay: settingsController.mcpKeywordIndexScheduledTimeOfDay,
+    );
+  }());
 
   final messageGatewayController = MessageGatewayController.uninitialized(
     sessionController: aiSessionController,

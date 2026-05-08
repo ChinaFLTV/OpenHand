@@ -826,6 +826,84 @@ abstract class AppLocalizations {
   /// **'请输入 1 到 32 之间的整数。'**
   String get mcpAutoProbeConcurrencyInvalid;
 
+  /// No description provided for @mcpKeywordIndexUpdateModeLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更新关键词映射模式'**
+  String get mcpKeywordIndexUpdateModeLabel;
+
+  /// No description provided for @mcpKeywordIndexUpdateModeBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'控制 MCP 工具关键词倒排索引的重建节奏。冷启动模式仅在启动时加载磁盘缓存，需要手动点击「构建关键词映射」；定时间隔模式按设定的「值 + 单位」周期重建并整体覆盖磁盘缓存；每日定点模式在指定时刻自动重建一次。后两者复用同一条系统 cron 任务，避免任务碎片化。'**
+  String get mcpKeywordIndexUpdateModeBody;
+
+  /// No description provided for @mcpKeywordIndexUpdateModeColdStart.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'冷启动'**
+  String get mcpKeywordIndexUpdateModeColdStart;
+
+  /// No description provided for @mcpKeywordIndexUpdateModeInterval.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'定时间隔'**
+  String get mcpKeywordIndexUpdateModeInterval;
+
+  /// No description provided for @mcpKeywordIndexUpdateModeScheduled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每日定点'**
+  String get mcpKeywordIndexUpdateModeScheduled;
+
+  /// No description provided for @mcpKeywordIndexUpdateModeColdStartHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'冷启动模式：仅在 App 启动时加载磁盘上的关键词索引；如需刷新请手动点击「构建关键词映射」。系统 cron 任务保持禁用。'**
+  String get mcpKeywordIndexUpdateModeColdStartHint;
+
+  /// No description provided for @mcpKeywordIndexIntervalValueLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'间隔'**
+  String get mcpKeywordIndexIntervalValueLabel;
+
+  /// No description provided for @mcpKeywordIndexIntervalUnitLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'单位'**
+  String get mcpKeywordIndexIntervalUnitLabel;
+
+  /// No description provided for @mcpKeywordIndexIntervalUnitMinute.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'分钟'**
+  String get mcpKeywordIndexIntervalUnitMinute;
+
+  /// No description provided for @mcpKeywordIndexIntervalUnitHour.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'小时'**
+  String get mcpKeywordIndexIntervalUnitHour;
+
+  /// No description provided for @mcpKeywordIndexIntervalUnitDay.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'天'**
+  String get mcpKeywordIndexIntervalUnitDay;
+
+  /// No description provided for @mcpKeywordIndexScheduledLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每日 {time} 自动重建'**
+  String mcpKeywordIndexScheduledLabel(String time);
+
+  /// No description provided for @mcpKeywordIndexScheduledPickAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择时间'**
+  String get mcpKeywordIndexScheduledPickAction;
+
   /// No description provided for @commonClose.
   ///
   /// In zh_Hans, this message translates to:

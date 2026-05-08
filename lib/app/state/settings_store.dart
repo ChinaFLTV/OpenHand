@@ -14,6 +14,7 @@ import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/data/database_service.dart';
@@ -149,6 +150,14 @@ class SettingsStore {
       'mcp_lazy_loading_threshold_tokens':
           snapshot.mcpLazyLoadingThresholdTokens,
       'mcp_auto_probe_concurrency': snapshot.mcpAutoProbeConcurrency,
+      'mcp_keyword_index_update_mode':
+          snapshot.mcpKeywordIndexUpdateMode.storageValue,
+      'mcp_keyword_index_interval_value':
+          snapshot.mcpKeywordIndexIntervalValue,
+      'mcp_keyword_index_interval_unit':
+          snapshot.mcpKeywordIndexIntervalUnit.storageValue,
+      'mcp_keyword_index_scheduled_time_of_day':
+          snapshot.mcpKeywordIndexScheduledTimeOfDay,
       'memory_enabled': snapshot.memoryEnabled,
       'user_memory_file_path': snapshot.userMemoryFilePath,
       'editor_word_wrap': snapshot.editorWordWrap,
@@ -316,6 +325,23 @@ class SettingsStore {
             AppSettingsSnapshot.maxMcpAutoProbeConcurrency,
           )
         : AppSettingsSnapshot.defaultMcpAutoProbeConcurrency;
+    final mcpKeywordIndexUpdateMode = McpKeywordIndexUpdateMode.fromStorage(
+      '${json['mcp_keyword_index_update_mode'] ?? ''}',
+    );
+    final mcpKeywordIndexIntervalValue =
+        json['mcp_keyword_index_interval_value'] is int
+        ? (json['mcp_keyword_index_interval_value'] as int).clamp(
+            AppSettingsSnapshot.minMcpKeywordIndexIntervalValue,
+            AppSettingsSnapshot.maxMcpKeywordIndexIntervalValue,
+          )
+        : AppSettingsSnapshot.defaultMcpKeywordIndexIntervalValue;
+    final mcpKeywordIndexIntervalUnit = McpKeywordIndexIntervalUnit.fromStorage(
+      '${json['mcp_keyword_index_interval_unit'] ?? ''}',
+    );
+    final mcpKeywordIndexScheduledTimeOfDay =
+        normalizeMcpKeywordIndexScheduledTimeOfDay(
+          '${json['mcp_keyword_index_scheduled_time_of_day'] ?? AppSettingsSnapshot.defaultMcpKeywordIndexScheduledTimeOfDay}',
+        );
     final memoryEnabled = json['memory_enabled'] is bool
         ? json['memory_enabled'] as bool
         : true;
@@ -1076,6 +1102,10 @@ class SettingsStore {
       mcpLazyLoadingThresholdTokens: mcpLazyLoadingThresholdTokens,
       mcpStdioMirrorMode: mcpStdioMirrorMode,
       mcpAutoProbeConcurrency: mcpAutoProbeConcurrency,
+      mcpKeywordIndexUpdateMode: mcpKeywordIndexUpdateMode,
+      mcpKeywordIndexIntervalValue: mcpKeywordIndexIntervalValue,
+      mcpKeywordIndexIntervalUnit: mcpKeywordIndexIntervalUnit,
+      mcpKeywordIndexScheduledTimeOfDay: mcpKeywordIndexScheduledTimeOfDay,
       memoryEnabled: memoryEnabled,
       userMemoryFilePath: userMemoryFilePath,
       editorWordWrap: editorWordWrap,

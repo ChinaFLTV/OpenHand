@@ -401,6 +401,50 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bitte eine ganze Zahl zwischen 1 und 32 eingeben.';
 
   @override
+  String get mcpKeywordIndexUpdateModeLabel =>
+      'Aktualisierungsmodus für Keyword-Index';
+
+  @override
+  String get mcpKeywordIndexUpdateModeBody =>
+      'Steuert, wie der invertierte Keyword-Index der MCP-Tools neu aufgebaut wird. Kaltstart: nur beim Boot vom Datenträger laden; Aktualisierung über die Schaltfläche „Keyword-Index erstellen“. Intervall: zyklisch (Wert + Einheit) neu aufbauen und Cache vollständig überschreiben. Tageszeit: einmal täglich zur festgelegten Zeit. Die letzten beiden teilen sich einen System-Cron-Eintrag, um eine Fragmentierung zu vermeiden.';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStart => 'Kaltstart';
+
+  @override
+  String get mcpKeywordIndexUpdateModeInterval => 'Intervall';
+
+  @override
+  String get mcpKeywordIndexUpdateModeScheduled => 'Tageszeit';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStartHint =>
+      'Kaltstart-Modus: lädt den Keyword-Index nur beim App-Start vom Datenträger; zum Aktualisieren auf „Keyword-Index erstellen“ klicken. Der System-Cron-Eintrag bleibt deaktiviert.';
+
+  @override
+  String get mcpKeywordIndexIntervalValueLabel => 'Intervall';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitLabel => 'Einheit';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitMinute => 'Minute(n)';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitHour => 'Stunde(n)';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitDay => 'Tag(e)';
+
+  @override
+  String mcpKeywordIndexScheduledLabel(String time) {
+    return 'Täglich um $time neu erstellen';
+  }
+
+  @override
+  String get mcpKeywordIndexScheduledPickAction => 'Zeit wählen';
+
+  @override
   String get commonClose => 'Schließen';
 
   @override

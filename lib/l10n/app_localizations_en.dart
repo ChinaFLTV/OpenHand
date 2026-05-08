@@ -399,6 +399,49 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please enter an integer between 1 and 32.';
 
   @override
+  String get mcpKeywordIndexUpdateModeLabel => 'Keyword index update mode';
+
+  @override
+  String get mcpKeywordIndexUpdateModeBody =>
+      'Controls how the MCP tool keyword inverted index is rebuilt. Cold-start: only loads the on-disk cache at boot; click \'Build keyword index\' to refresh. Interval: rebuild on a periodic schedule (value + unit) and fully overwrite the cache. Scheduled: rebuild once per day at a fixed time. The latter two share one system cron entry to avoid scheduler fragmentation.';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStart => 'Cold-start';
+
+  @override
+  String get mcpKeywordIndexUpdateModeInterval => 'Interval';
+
+  @override
+  String get mcpKeywordIndexUpdateModeScheduled => 'Daily time';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStartHint =>
+      'Cold-start mode: only loads the on-disk keyword index at app boot; click \'Build keyword index\' to refresh manually. The system cron entry stays disabled.';
+
+  @override
+  String get mcpKeywordIndexIntervalValueLabel => 'Interval';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitLabel => 'Unit';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitMinute => 'Minute(s)';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitHour => 'Hour(s)';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitDay => 'Day(s)';
+
+  @override
+  String mcpKeywordIndexScheduledLabel(String time) {
+    return 'Rebuild daily at $time';
+  }
+
+  @override
+  String get mcpKeywordIndexScheduledPickAction => 'Pick time';
+
+  @override
   String get commonClose => 'Close';
 
   @override

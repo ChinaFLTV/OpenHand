@@ -400,6 +400,50 @@ class AppLocalizationsFr extends AppLocalizations {
       'Saisissez un entier entre 1 et 32.';
 
   @override
+  String get mcpKeywordIndexUpdateModeLabel =>
+      'Mode de mise à jour de l\'index de mots-clés';
+
+  @override
+  String get mcpKeywordIndexUpdateModeBody =>
+      'Contrôle la reconstruction de l\'index inversé des mots-clés MCP. Démarrage à froid : ne charge que le cache disque au démarrage ; cliquez sur « Construire l\'index de mots-clés » pour rafraîchir. Intervalle : reconstruction périodique (valeur + unité) avec écrasement complet du cache. Heure quotidienne : reconstruction une fois par jour à l\'heure fixée. Les deux derniers partagent une seule tâche cron système pour éviter la fragmentation.';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStart => 'Démarrage à froid';
+
+  @override
+  String get mcpKeywordIndexUpdateModeInterval => 'Intervalle';
+
+  @override
+  String get mcpKeywordIndexUpdateModeScheduled => 'Heure quotidienne';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStartHint =>
+      'Mode démarrage à froid : ne charge l\'index de mots-clés que depuis le disque au démarrage ; cliquez sur « Construire l\'index de mots-clés » pour rafraîchir manuellement. La tâche cron système reste désactivée.';
+
+  @override
+  String get mcpKeywordIndexIntervalValueLabel => 'Intervalle';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitLabel => 'Unité';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitMinute => 'Minute(s)';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitHour => 'Heure(s)';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitDay => 'Jour(s)';
+
+  @override
+  String mcpKeywordIndexScheduledLabel(String time) {
+    return 'Reconstruction quotidienne à $time';
+  }
+
+  @override
+  String get mcpKeywordIndexScheduledPickAction => 'Choisir l\'heure';
+
+  @override
   String get commonClose => 'Fermer';
 
   @override

@@ -136,7 +136,7 @@ class McpController extends ChangeNotifier {
   /// [keywordIndex] 并 notifyListeners。返回构建结果（含跳过统计）。
   /// 调用方负责防抖 / disable 按钮 —— 服务层也做了单飞兜底。
   Future<McpKeywordIndexBuildResult> buildKeywordIndex({
-    required void Function(McpKeywordIndexProgress) onProgress,
+    void Function(McpKeywordIndexProgress)? onProgress,
   }) async {
     final snapshot = List<McpServer>.unmodifiable(_servers);
     final result = await _keywordIndexService.build(
@@ -152,7 +152,7 @@ class McpController extends ChangeNotifier {
         }
         return const <McpTool>[];
       },
-      onProgress: onProgress,
+      onProgress: onProgress ?? (_) {},
     );
     if (!_isDisposed) {
       _keywordIndex = result.index;

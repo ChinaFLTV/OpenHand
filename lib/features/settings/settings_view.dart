@@ -63,6 +63,7 @@ import '../ai/service/web_search/web_search_telemetry_store.dart';
 import '../crons/crons_controller.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
+import '../mcp/model/mcp_keyword_index_update_mode.dart';
 import '../mcp/model/mcp_lazy_loading_mode.dart';
 import '../mcp/model/mcp_stdio_mirror_mode.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart'
@@ -2857,6 +2858,16 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        _ResponsiveSettingRow(
+          title: l10n.mcpKeywordIndexUpdateModeLabel,
+          subtitle: l10n.mcpKeywordIndexUpdateModeBody,
+          control: _McpKeywordIndexUpdateModeControl(
+            settingsController: settingsController,
+            onPersistenceFailure: () =>
+                _showPersistenceFailureSnackBar(context),
+          ),
+        ),
         const SizedBox(height: 18),
         _McpLazyLoadingHelpBanner(text: l10n.mcpLazyLoadingHowItWorks),
         const SizedBox(height: 8),
@@ -4976,6 +4987,299 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
             icon: const Icon(Icons.restart_alt_rounded, size: 18),
             label: Text(l10n.mcpStdioMirrorModeReconnectAction),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpKeywordIndexUpdateModeControl extends StatelessWidget {
+  const _McpKeywordIndexUpdateModeControl({
+    required this.settingsController,
+    required this.onPersistenceFailure,
+  });
+
+  final SettingsController settingsController;
+  final VoidCallback onPersistenceFailure;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final mode = settingsController.mcpKeywordIndexUpdateMode;
+    final intervalValue = settingsController.mcpKeywordIndexIntervalValue;
+    final intervalUnit = settingsController.mcpKeywordIndexIntervalUnit;
+    final scheduledTimeOfDay =
+        settingsController.mcpKeywordIndexScheduledTimeOfDay;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedButton<McpKeywordIndexUpdateMode>(
+          segments: <ButtonSegment<McpKeywordIndexUpdateMode>>[
+            ButtonSegment<McpKeywordIndexUpdateMode>(
+              value: McpKeywordIndexUpdateMode.coldStart,
+              icon: const Icon(Icons.bolt_outlined),
+              label: Text(
+                l10n.mcpKeywordIndexUpdateModeColdStart,
+                softWrap: false,
+              ),
+            ),
+            ButtonSegment<McpKeywordIndexUpdateMode>(
+              value: McpKeywordIndexUpdateMode.interval,
+              icon: const Icon(Icons.timelapse_outlined),
+              label: Text(
+                l10n.mcpKeywordIndexUpdateModeInterval,
+                softWrap: false,
+              ),
+            ),
+            ButtonSegment<McpKeywordIndexUpdateMode>(
+              value: McpKeywordIndexUpdateMode.scheduled,
+              icon: const Icon(Icons.schedule_outlined),
+              label: Text(
+                l10n.mcpKeywordIndexUpdateModeScheduled,
+                softWrap: false,
+              ),
+            ),
+          ],
+          selected: <McpKeywordIndexUpdateMode>{mode},
+          onSelectionChanged: (selection) async {
+            if (selection.isEmpty) return;
+            final saved = await settingsController
+                .updateMcpKeywordIndexUpdateMode(selection.first);
+            if (!context.mounted || saved) return;
+            onPersistenceFailure();
+          },
+        ),
+        const SizedBox(height: 12),
+        if (mode == McpKeywordIndexUpdateMode.interval)
+          _McpKeywordIndexIntervalForm(
+            settingsController: settingsController,
+            intervalValue: intervalValue,
+            intervalUnit: intervalUnit,
+            onPersistenceFailure: onPersistenceFailure,
+          ),
+        if (mode == McpKeywordIndexUpdateMode.scheduled)
+          _McpKeywordIndexScheduledForm(
+            settingsController: settingsController,
+            scheduledTimeOfDay: scheduledTimeOfDay,
+            onPersistenceFailure: onPersistenceFailure,
+          ),
+        if (mode == McpKeywordIndexUpdateMode.coldStart)
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.55,
+              ),
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Text(
+              l10n.mcpKeywordIndexUpdateModeColdStartHint,
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.45),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _McpKeywordIndexIntervalForm extends StatefulWidget {
+  const _McpKeywordIndexIntervalForm({
+    required this.settingsController,
+    required this.intervalValue,
+    required this.intervalUnit,
+    required this.onPersistenceFailure,
+  });
+
+  final SettingsController settingsController;
+  final int intervalValue;
+  final McpKeywordIndexIntervalUnit intervalUnit;
+  final VoidCallback onPersistenceFailure;
+
+  @override
+  State<_McpKeywordIndexIntervalForm> createState() =>
+      _McpKeywordIndexIntervalFormState();
+}
+
+class _McpKeywordIndexIntervalFormState
+    extends State<_McpKeywordIndexIntervalForm> {
+  late final TextEditingController _valueController;
+  late final FocusNode _valueFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _valueController = TextEditingController(text: '${widget.intervalValue}');
+    _valueFocusNode = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(covariant _McpKeywordIndexIntervalForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_valueFocusNode.hasFocus &&
+        _valueController.text != '${widget.intervalValue}') {
+      _valueController.text = '${widget.intervalValue}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _valueController.dispose();
+    _valueFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveValue(String text) async {
+    final parsed = int.tryParse(text.trim());
+    if (parsed == null) {
+      _valueController.text = '${widget.intervalValue}';
+      return;
+    }
+    final saved = await widget.settingsController
+        .updateMcpKeywordIndexIntervalValue(parsed);
+    if (!mounted || saved) return;
+    widget.onPersistenceFailure();
+  }
+
+  Future<void> _saveUnit(McpKeywordIndexIntervalUnit unit) async {
+    final saved = await widget.settingsController
+        .updateMcpKeywordIndexIntervalUnit(unit);
+    if (!mounted || saved) return;
+    widget.onPersistenceFailure();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 2,
+          child: TextField(
+            controller: _valueController,
+            focusNode: _valueFocusNode,
+            keyboardType: TextInputType.number,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.digitsOnly,
+            ],
+            decoration: InputDecoration(
+              labelText: l10n.mcpKeywordIndexIntervalValueLabel,
+              hintText:
+                  '${AppSettingsSnapshot.defaultMcpKeywordIndexIntervalValue}',
+            ),
+            onSubmitted: _saveValue,
+            onEditingComplete: () => _saveValue(_valueController.text),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 3,
+          child: DropdownButtonFormField<McpKeywordIndexIntervalUnit>(
+            initialValue: widget.intervalUnit,
+            decoration: InputDecoration(
+              labelText: l10n.mcpKeywordIndexIntervalUnitLabel,
+            ),
+            items: <DropdownMenuItem<McpKeywordIndexIntervalUnit>>[
+              DropdownMenuItem(
+                value: McpKeywordIndexIntervalUnit.minute,
+                child: Text(l10n.mcpKeywordIndexIntervalUnitMinute),
+              ),
+              DropdownMenuItem(
+                value: McpKeywordIndexIntervalUnit.hour,
+                child: Text(l10n.mcpKeywordIndexIntervalUnitHour),
+              ),
+              DropdownMenuItem(
+                value: McpKeywordIndexIntervalUnit.day,
+                child: Text(l10n.mcpKeywordIndexIntervalUnitDay),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              _saveUnit(value);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpKeywordIndexScheduledForm extends StatelessWidget {
+  const _McpKeywordIndexScheduledForm({
+    required this.settingsController,
+    required this.scheduledTimeOfDay,
+    required this.onPersistenceFailure,
+  });
+
+  final SettingsController settingsController;
+  final String scheduledTimeOfDay;
+  final VoidCallback onPersistenceFailure;
+
+  TimeOfDay get _timeOfDay {
+    final parts = scheduledTimeOfDay.split(':');
+    if (parts.length != 2) return const TimeOfDay(hour: 2, minute: 0);
+    final h = int.tryParse(parts[0]) ?? 2;
+    final m = int.tryParse(parts[1]) ?? 0;
+    return TimeOfDay(hour: h.clamp(0, 23), minute: m.clamp(0, 59));
+  }
+
+  Future<void> _pickTime(BuildContext context) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _timeOfDay,
+    );
+    if (picked == null) return;
+    final hh = picked.hour.toString().padLeft(2, '0');
+    final mm = picked.minute.toString().padLeft(2, '0');
+    final saved = await settingsController
+        .updateMcpKeywordIndexScheduledTimeOfDay('$hh:$mm');
+    if (!context.mounted || saved) return;
+    onPersistenceFailure();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.55,
+              ),
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.schedule_outlined,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.mcpKeywordIndexScheduledLabel(scheduledTimeOfDay),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton.tonalIcon(
+          onPressed: () => _pickTime(context),
+          icon: const Icon(Icons.edit_calendar_outlined),
+          label: Text(l10n.mcpKeywordIndexScheduledPickAction),
         ),
       ],
     );

@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_backend_catalog.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../model/app_language.dart';
@@ -43,6 +44,11 @@ class SettingsController extends ChangeNotifier {
        _mcpStdioMirrorMode = snapshot.mcpStdioMirrorMode,
        _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens,
        _mcpAutoProbeConcurrency = snapshot.mcpAutoProbeConcurrency,
+       _mcpKeywordIndexUpdateMode = snapshot.mcpKeywordIndexUpdateMode,
+       _mcpKeywordIndexIntervalValue = snapshot.mcpKeywordIndexIntervalValue,
+       _mcpKeywordIndexIntervalUnit = snapshot.mcpKeywordIndexIntervalUnit,
+       _mcpKeywordIndexScheduledTimeOfDay =
+           snapshot.mcpKeywordIndexScheduledTimeOfDay,
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
        _editorWordWrap = snapshot.editorWordWrap,
@@ -178,6 +184,10 @@ class SettingsController extends ChangeNotifier {
   McpStdioMirrorMode _mcpStdioMirrorMode;
   int _mcpLazyLoadingThresholdTokens;
   int _mcpAutoProbeConcurrency;
+  McpKeywordIndexUpdateMode _mcpKeywordIndexUpdateMode;
+  int _mcpKeywordIndexIntervalValue;
+  McpKeywordIndexIntervalUnit _mcpKeywordIndexIntervalUnit;
+  String _mcpKeywordIndexScheduledTimeOfDay;
   bool _memoryEnabled;
   String _userMemoryFilePath;
   bool _editorWordWrap;
@@ -287,6 +297,13 @@ class SettingsController extends ChangeNotifier {
   McpStdioMirrorMode get mcpStdioMirrorMode => _mcpStdioMirrorMode;
   int get mcpLazyLoadingThresholdTokens => _mcpLazyLoadingThresholdTokens;
   int get mcpAutoProbeConcurrency => _mcpAutoProbeConcurrency;
+  McpKeywordIndexUpdateMode get mcpKeywordIndexUpdateMode =>
+      _mcpKeywordIndexUpdateMode;
+  int get mcpKeywordIndexIntervalValue => _mcpKeywordIndexIntervalValue;
+  McpKeywordIndexIntervalUnit get mcpKeywordIndexIntervalUnit =>
+      _mcpKeywordIndexIntervalUnit;
+  String get mcpKeywordIndexScheduledTimeOfDay =>
+      _mcpKeywordIndexScheduledTimeOfDay;
   String get displayMcpServersFilePath =>
       OpenHandPaths.shortenHomePath(_mcpServersFilePath);
   String get defaultMcpServersFilePath =>
@@ -610,6 +627,55 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _mcpAutoProbeConcurrency = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateMcpKeywordIndexUpdateMode(
+    McpKeywordIndexUpdateMode value,
+  ) async {
+    return _commitMutation(() {
+      if (_mcpKeywordIndexUpdateMode == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _mcpKeywordIndexUpdateMode = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateMcpKeywordIndexIntervalValue(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minMcpKeywordIndexIntervalValue,
+      AppSettingsSnapshot.maxMcpKeywordIndexIntervalValue,
+    );
+    return _commitMutation(() {
+      if (_mcpKeywordIndexIntervalValue == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _mcpKeywordIndexIntervalValue = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateMcpKeywordIndexIntervalUnit(
+    McpKeywordIndexIntervalUnit value,
+  ) async {
+    return _commitMutation(() {
+      if (_mcpKeywordIndexIntervalUnit == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _mcpKeywordIndexIntervalUnit = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateMcpKeywordIndexScheduledTimeOfDay(String value) async {
+    final normalized = normalizeMcpKeywordIndexScheduledTimeOfDay(value);
+    return _commitMutation(() {
+      if (_mcpKeywordIndexScheduledTimeOfDay == normalized) {
+        return _MutationDisposition.successNoChange;
+      }
+      _mcpKeywordIndexScheduledTimeOfDay = normalized;
       return _MutationDisposition.apply;
     });
   }
@@ -2101,6 +2167,10 @@ class SettingsController extends ChangeNotifier {
       mcpStdioMirrorMode: _mcpStdioMirrorMode,
       mcpLazyLoadingThresholdTokens: _mcpLazyLoadingThresholdTokens,
       mcpAutoProbeConcurrency: _mcpAutoProbeConcurrency,
+      mcpKeywordIndexUpdateMode: _mcpKeywordIndexUpdateMode,
+      mcpKeywordIndexIntervalValue: _mcpKeywordIndexIntervalValue,
+      mcpKeywordIndexIntervalUnit: _mcpKeywordIndexIntervalUnit,
+      mcpKeywordIndexScheduledTimeOfDay: _mcpKeywordIndexScheduledTimeOfDay,
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
       editorWordWrap: _editorWordWrap,
@@ -2201,6 +2271,11 @@ class SettingsController extends ChangeNotifier {
     _mcpStdioMirrorMode = snapshot.mcpStdioMirrorMode;
     _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens;
     _mcpAutoProbeConcurrency = snapshot.mcpAutoProbeConcurrency;
+    _mcpKeywordIndexUpdateMode = snapshot.mcpKeywordIndexUpdateMode;
+    _mcpKeywordIndexIntervalValue = snapshot.mcpKeywordIndexIntervalValue;
+    _mcpKeywordIndexIntervalUnit = snapshot.mcpKeywordIndexIntervalUnit;
+    _mcpKeywordIndexScheduledTimeOfDay =
+        snapshot.mcpKeywordIndexScheduledTimeOfDay;
     _mcpServersFilePath = snapshot.mcpServersFilePath;
     _memoryEnabled = snapshot.memoryEnabled;
     _userMemoryFilePath = snapshot.userMemoryFilePath;

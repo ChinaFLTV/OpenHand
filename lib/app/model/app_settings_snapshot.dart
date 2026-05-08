@@ -13,6 +13,7 @@ import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../model/app_language.dart';
@@ -38,6 +39,11 @@ class AppSettingsSnapshot {
       mcpLazyLoadingThresholdTokens: defaultMcpLazyLoadingThresholdTokens,
       mcpStdioMirrorMode: defaultMcpStdioMirrorMode,
       mcpAutoProbeConcurrency: defaultMcpAutoProbeConcurrency,
+      mcpKeywordIndexUpdateMode: defaultMcpKeywordIndexUpdateMode,
+      mcpKeywordIndexIntervalValue: defaultMcpKeywordIndexIntervalValue,
+      mcpKeywordIndexIntervalUnit: defaultMcpKeywordIndexIntervalUnit,
+      mcpKeywordIndexScheduledTimeOfDay:
+          defaultMcpKeywordIndexScheduledTimeOfDay,
       memoryEnabled: true,
       userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
       editorWordWrap: true,
@@ -156,6 +162,10 @@ class AppSettingsSnapshot {
     required this.mcpLazyLoadingThresholdTokens,
     required this.mcpStdioMirrorMode,
     required this.mcpAutoProbeConcurrency,
+    required this.mcpKeywordIndexUpdateMode,
+    required this.mcpKeywordIndexIntervalValue,
+    required this.mcpKeywordIndexIntervalUnit,
+    required this.mcpKeywordIndexScheduledTimeOfDay,
     required this.memoryEnabled,
     required this.userMemoryFilePath,
     required this.editorWordWrap,
@@ -538,6 +548,16 @@ class AppSettingsSnapshot {
   static const int minMcpAutoProbeConcurrency = 1;
   static const int maxMcpAutoProbeConcurrency = 32;
 
+  /// 2026-05-04 — MCP 关键词倒排索引的更新模式 / 周期 / 计划时间默认值。
+  static const McpKeywordIndexUpdateMode defaultMcpKeywordIndexUpdateMode =
+      McpKeywordIndexUpdateMode.coldStart;
+  static const int defaultMcpKeywordIndexIntervalValue = 6;
+  static const int minMcpKeywordIndexIntervalValue = 1;
+  static const int maxMcpKeywordIndexIntervalValue = 30;
+  static const McpKeywordIndexIntervalUnit
+  defaultMcpKeywordIndexIntervalUnit = McpKeywordIndexIntervalUnit.hour;
+  static const String defaultMcpKeywordIndexScheduledTimeOfDay = '02:00';
+
   final ThemeMode themeMode;
   final OpenHandThemePreset themePreset;
   final AppLanguage language;
@@ -561,6 +581,19 @@ class AppSettingsSnapshot {
   /// MCP 服务自动健康检查 / Tools 拉取的并发 worker 数。
   /// 默认 5，避免慢服务把整批检查串行拖住；范围限制防止资源被打满。
   final int mcpAutoProbeConcurrency;
+
+  /// 2026-05-04 — MCP 关键词倒排索引的更新模式。仅在 [interval]/[scheduled]
+  /// 模式下，内建 cron 任务 `mcp_keyword_index.rebuild` 才会被启用。
+  final McpKeywordIndexUpdateMode mcpKeywordIndexUpdateMode;
+
+  /// [McpKeywordIndexUpdateMode.interval] 模式下的间隔数值（与单位结合）。
+  final int mcpKeywordIndexIntervalValue;
+
+  /// [McpKeywordIndexUpdateMode.interval] 模式下的时间单位（分/时/日）。
+  final McpKeywordIndexIntervalUnit mcpKeywordIndexIntervalUnit;
+
+  /// [McpKeywordIndexUpdateMode.scheduled] 模式下的固定触发时间（HH:mm）。
+  final String mcpKeywordIndexScheduledTimeOfDay;
   final bool memoryEnabled;
   final String userMemoryFilePath;
   final bool editorWordWrap;
@@ -746,6 +779,10 @@ class AppSettingsSnapshot {
     int? mcpLazyLoadingThresholdTokens,
     McpStdioMirrorMode? mcpStdioMirrorMode,
     int? mcpAutoProbeConcurrency,
+    McpKeywordIndexUpdateMode? mcpKeywordIndexUpdateMode,
+    int? mcpKeywordIndexIntervalValue,
+    McpKeywordIndexIntervalUnit? mcpKeywordIndexIntervalUnit,
+    String? mcpKeywordIndexScheduledTimeOfDay,
     bool? memoryEnabled,
     String? userMemoryFilePath,
     bool? editorWordWrap,
@@ -842,6 +879,15 @@ class AppSettingsSnapshot {
       mcpStdioMirrorMode: mcpStdioMirrorMode ?? this.mcpStdioMirrorMode,
       mcpAutoProbeConcurrency:
           mcpAutoProbeConcurrency ?? this.mcpAutoProbeConcurrency,
+      mcpKeywordIndexUpdateMode:
+          mcpKeywordIndexUpdateMode ?? this.mcpKeywordIndexUpdateMode,
+      mcpKeywordIndexIntervalValue:
+          mcpKeywordIndexIntervalValue ?? this.mcpKeywordIndexIntervalValue,
+      mcpKeywordIndexIntervalUnit:
+          mcpKeywordIndexIntervalUnit ?? this.mcpKeywordIndexIntervalUnit,
+      mcpKeywordIndexScheduledTimeOfDay:
+          mcpKeywordIndexScheduledTimeOfDay ??
+          this.mcpKeywordIndexScheduledTimeOfDay,
       memoryEnabled: memoryEnabled ?? this.memoryEnabled,
       userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
       editorWordWrap: editorWordWrap ?? this.editorWordWrap,

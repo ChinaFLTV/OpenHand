@@ -9,6 +9,7 @@ import '../../app/model/cron_config.dart';
 import '../../app/support/openhand_notification_service.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../mcp/model/mcp_keyword_index_update_mode.dart';
 import 'cron_executor.dart';
 import 'cron_parser.dart';
 import 'crons_store.dart';
@@ -97,6 +98,39 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           await _store.saveAll(entries);
         }
       }
+      // 2026-05-04 — MCP 关键词倒排索引重建系统条目。同 Hermes Talker 一样
+      // 由系统管理（不可删除），enabled / cronExpression 由设置项联动维护，
+      // 不会随着每次保存设置而新建条目。
+      final keywordIndex = entries.indexWhere(
+        (e) => e.id == mcpKeywordIndexSystemEntryId,
+      );
+      if (keywordIndex == -1) {
+        entries.add(_buildMcpKeywordIndexSystemEntry());
+        await _store.saveAll(entries);
+      } else {
+        final existing = entries[keywordIndex];
+        final canonical = _buildMcpKeywordIndexSystemEntry();
+        // 仅静态字段（名称 / 描述 / scriptType / 超时 / tags / 通知策略）
+        // 跟随版本刷新；cronExpression 与 enabled 已由 settings 驱动，禁止
+        // 在启动期回滚为「禁用 + 02:00」默认。
+        final refreshed = existing.copyWith(
+          name: canonical.name,
+          description: canonical.description,
+          scriptType: canonical.scriptType,
+          timeoutSeconds: canonical.timeoutSeconds,
+          tags: canonical.tags,
+          onSuccessNotify: canonical.onSuccessNotify,
+          onFailureNotify: canonical.onFailureNotify,
+          onTimeoutNotify: canonical.onTimeoutNotify,
+        );
+        if (existing.name != refreshed.name ||
+            existing.description != refreshed.description ||
+            existing.scriptType != refreshed.scriptType ||
+            existing.timeoutSeconds != refreshed.timeoutSeconds) {
+          entries[keywordIndex] = refreshed;
+          await _store.saveAll(entries);
+        }
+      }
       if (_isDisposed) return;
       _entries = entries;
       _entriesView = List<CronEntry>.unmodifiable(entries);
@@ -136,6 +170,77 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       onFailureNotify: CronNotifyType.log,
       onTimeoutNotify: CronNotifyType.log,
     );
+  }
+
+  /// MCP 关键词倒排索引重建系统条目的稳定 id。
+  static const String mcpKeywordIndexSystemEntryId =
+      'mcp_keyword_index.rebuild';
+
+  /// 标记 MCP 关键词倒排索引系统任务的 tag。
+  static const String mcpKeywordIndexTag = 'mcp_keyword_index';
+
+  static CronEntry _buildMcpKeywordIndexSystemEntry() {
+    return const CronEntry(
+      id: mcpKeywordIndexSystemEntryId,
+      name: 'MCP 关键词倒排索引重建',
+      description:
+          '系统内置：按「全局设置 → MCP → 更新关键词映射模式」周期触发一次倒排索引重建。'
+          '冷启动模式下保持禁用；定时间隔 / 每日定点模式下由系统驱动 cron 表达式 / 启用状态。'
+          '本任务为系统管理，无法删除。',
+      scriptType: CronScriptType.agent,
+      cronExpression: '0 2 * * *',
+      timeoutSeconds: 1800,
+      enabled: false,
+      tags: <String>[systemTag, mcpKeywordIndexTag],
+      onSuccessNotify: CronNotifyType.none,
+      onFailureNotify: CronNotifyType.log,
+      onTimeoutNotify: CronNotifyType.log,
+    );
+  }
+
+  /// 根据「更新关键词映射模式」设置同步系统 cron 条目：
+  ///  - cold-start：禁用任务；
+  ///  - interval/scheduled：启用任务，并写入对应 cron 表达式。
+  /// 改写 in-place，复用同一条 system entry，避免任务碎片化。
+  Future<void> updateMcpKeywordIndexSchedule({
+    required McpKeywordIndexUpdateMode mode,
+    required int intervalValue,
+    required McpKeywordIndexIntervalUnit intervalUnit,
+    required String scheduledTimeOfDay,
+  }) async {
+    if (!_hasInitialized) return;
+    final cronExpression = buildMcpKeywordIndexCronExpression(
+      mode: mode,
+      intervalValue: intervalValue,
+      intervalUnit: intervalUnit,
+      scheduledTimeOfDay: scheduledTimeOfDay,
+    );
+    final shouldEnable = mode != McpKeywordIndexUpdateMode.coldStart;
+    final index = _entries.indexWhere(
+      (e) => e.id == mcpKeywordIndexSystemEntryId,
+    );
+    if (index == -1) return;
+    final existing = _entries[index];
+    if (existing.cronExpression == cronExpression &&
+        existing.enabled == shouldEnable) {
+      return;
+    }
+    final refreshed = existing.copyWith(
+      cronExpression: cronExpression,
+      enabled: shouldEnable,
+    );
+    await _commitMutation(() async {
+      // _commitMutation 内部串行化所有写操作，避免与 toggleEnabled 等并发互踩。
+      _setEntries(<CronEntry>[
+        ..._entries.sublist(0, index),
+        refreshed,
+        ..._entries.sublist(index + 1),
+      ]);
+      await _store.saveAll(_entries);
+      _cancelTimer(refreshed.id);
+      _scheduleJob(refreshed);
+      return true;
+    });
   }
 
   final CronsStore _store;

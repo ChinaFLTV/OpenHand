@@ -385,6 +385,49 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpAutoProbeConcurrencyInvalid => '1 から 32 までの整数を入力してください。';
 
   @override
+  String get mcpKeywordIndexUpdateModeLabel => 'キーワードインデックスの更新モード';
+
+  @override
+  String get mcpKeywordIndexUpdateModeBody =>
+      'MCP ツールのキーワード転置インデックスを再構築するタイミングを制御します。コールドスタート：起動時にディスクキャッシュを読み込むのみ。手動更新は「キーワードインデックスを構築」ボタンから。定期間隔：設定した「値＋単位」の周期で再構築し、キャッシュを丸ごと上書きします。毎日定刻：指定時刻に毎日 1 回再構築します。後者 2 つは同じシステム cron タスクを共有し、タスクの断片化を防ぎます。';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStart => 'コールドスタート';
+
+  @override
+  String get mcpKeywordIndexUpdateModeInterval => '定期間隔';
+
+  @override
+  String get mcpKeywordIndexUpdateModeScheduled => '毎日定刻';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStartHint =>
+      'コールドスタートモード：起動時にディスク上のキーワードインデックスを読み込むのみ。更新が必要な場合は「キーワードインデックスを構築」を手動で押してください。システム cron タスクは無効のままです。';
+
+  @override
+  String get mcpKeywordIndexIntervalValueLabel => '間隔';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitLabel => '単位';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitMinute => '分';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitHour => '時間';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitDay => '日';
+
+  @override
+  String mcpKeywordIndexScheduledLabel(String time) {
+    return '毎日 $time に再構築';
+  }
+
+  @override
+  String get mcpKeywordIndexScheduledPickAction => '時刻を選択';
+
+  @override
   String get commonClose => '閉じる';
 
   @override

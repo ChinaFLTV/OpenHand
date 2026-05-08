@@ -382,6 +382,49 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpAutoProbeConcurrencyInvalid => '请输入 1 到 32 之间的整数。';
 
   @override
+  String get mcpKeywordIndexUpdateModeLabel => '更新关键词映射模式';
+
+  @override
+  String get mcpKeywordIndexUpdateModeBody =>
+      '控制 MCP 工具关键词倒排索引的重建节奏。冷启动模式仅在启动时加载磁盘缓存，需要手动点击「构建关键词映射」；定时间隔模式按设定的「值 + 单位」周期重建并整体覆盖磁盘缓存；每日定点模式在指定时刻自动重建一次。后两者复用同一条系统 cron 任务，避免任务碎片化。';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStart => '冷启动';
+
+  @override
+  String get mcpKeywordIndexUpdateModeInterval => '定时间隔';
+
+  @override
+  String get mcpKeywordIndexUpdateModeScheduled => '每日定点';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStartHint =>
+      '冷启动模式：仅在 App 启动时加载磁盘上的关键词索引；如需刷新请手动点击「构建关键词映射」。系统 cron 任务保持禁用。';
+
+  @override
+  String get mcpKeywordIndexIntervalValueLabel => '间隔';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitLabel => '单位';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitMinute => '分钟';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitHour => '小时';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitDay => '天';
+
+  @override
+  String mcpKeywordIndexScheduledLabel(String time) {
+    return '每日 $time 自动重建';
+  }
+
+  @override
+  String get mcpKeywordIndexScheduledPickAction => '选择时间';
+
+  @override
   String get commonClose => '关闭';
 
   @override
@@ -5272,6 +5315,49 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpAutoProbeConcurrencyInvalid => '请输入 1 到 32 之间的整数。';
 
   @override
+  String get mcpKeywordIndexUpdateModeLabel => '更新关键词映射模式';
+
+  @override
+  String get mcpKeywordIndexUpdateModeBody =>
+      '控制 MCP 工具关键词倒排索引的重建节奏。冷启动模式仅在启动时加载磁盘缓存，需要手动点击「构建关键词映射」；定时间隔模式按设定的「值 + 单位」周期重建并整体覆盖磁盘缓存；每日定点模式在指定时刻自动重建一次。后两者复用同一条系统 cron 任务，避免任务碎片化。';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStart => '冷启动';
+
+  @override
+  String get mcpKeywordIndexUpdateModeInterval => '定时间隔';
+
+  @override
+  String get mcpKeywordIndexUpdateModeScheduled => '每日定点';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStartHint =>
+      '冷启动模式：仅在 App 启动时加载磁盘上的关键词索引；如需刷新请手动点击「构建关键词映射」。系统 cron 任务保持禁用。';
+
+  @override
+  String get mcpKeywordIndexIntervalValueLabel => '间隔';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitLabel => '单位';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitMinute => '分钟';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitHour => '小时';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitDay => '天';
+
+  @override
+  String mcpKeywordIndexScheduledLabel(String time) {
+    return '每日 $time 自动重建';
+  }
+
+  @override
+  String get mcpKeywordIndexScheduledPickAction => '选择时间';
+
+  @override
   String get commonClose => '关闭';
 
   @override
@@ -10159,6 +10245,49 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpAutoProbeConcurrencyInvalid => '請輸入 1 到 32 之間的整數。';
+
+  @override
+  String get mcpKeywordIndexUpdateModeLabel => '更新關鍵字映射模式';
+
+  @override
+  String get mcpKeywordIndexUpdateModeBody =>
+      '控制 MCP 工具關鍵字倒排索引的重建節奏。冷啟動模式僅在啟動時載入磁碟快取，需要手動點擊「建立關鍵字映射」；定時間隔模式按設定的「值 + 單位」週期重建並整體覆寫磁碟快取；每日定點模式在指定時刻自動重建一次。後兩者共用同一個系統 cron 任務，避免任務碎片化。';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStart => '冷啟動';
+
+  @override
+  String get mcpKeywordIndexUpdateModeInterval => '定時間隔';
+
+  @override
+  String get mcpKeywordIndexUpdateModeScheduled => '每日定點';
+
+  @override
+  String get mcpKeywordIndexUpdateModeColdStartHint =>
+      '冷啟動模式：僅在 App 啟動時載入磁碟上的關鍵字索引；如需重新整理請手動點擊「建立關鍵字映射」。系統 cron 任務保持停用。';
+
+  @override
+  String get mcpKeywordIndexIntervalValueLabel => '間隔';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitLabel => '單位';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitMinute => '分鐘';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitHour => '小時';
+
+  @override
+  String get mcpKeywordIndexIntervalUnitDay => '天';
+
+  @override
+  String mcpKeywordIndexScheduledLabel(String time) {
+    return '每日 $time 自動重建';
+  }
+
+  @override
+  String get mcpKeywordIndexScheduledPickAction => '選擇時間';
 
   @override
   String get commonClose => '關閉';
