@@ -15,7 +15,18 @@ describe('service worker cache strategy', () => {
     expect(source).toContain('APP_SHELL_NETWORK_FIRST');
     expect(source).toContain("'/app.js'");
     expect(source).toContain("'/app.css'");
-    expect(source).toContain('event.respondWith(networkFirst(req, \'/\'))');
+    expect(source).toMatch(/if \(APP_SHELL_NETWORK_FIRST\.has\(url\.pathname\)\) \{\s*event\.respondWith\(networkFirst\(req\)\);/);
+  });
+
+  it('only falls back SPA route requests to the HTML shell', () => {
+    expect(source).toContain('APP_SHELL_ROUTE_FALLBACK');
+    expect(source).toMatch(/if \(req\.mode === 'navigate' \|\| APP_SHELL_ROUTE_FALLBACK\.has\(url\.pathname\)\) \{\s*event\.respondWith\(networkFirst\(req, '\/'\)\);/);
+  });
+
+  it('keeps service worker activation resilient to single precache failures', () => {
+    expect(source).toContain('Promise.allSettled');
+    expect(source).toContain('cache.add(url)');
+    expect(source).toContain('self.skipWaiting()');
   });
 
   it('keeps Vite derived asset folders on a cache-first strategy', () => {

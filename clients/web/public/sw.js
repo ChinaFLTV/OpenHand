@@ -8,7 +8,7 @@
  * app.js / app.css 使用确定性文件名, 所以 App Shell 必须网络优先，避免发布后
  * 已安装过 Service Worker 的浏览器继续吃旧 bundle。
  */
-const CACHE_VERSION = 'openhand-shell-v3';
+const CACHE_VERSION = 'openhand-shell-v4';
 const APP_SHELL_PRECACHE = [
   '/',
   '/app.js',
@@ -16,11 +16,14 @@ const APP_SHELL_PRECACHE = [
   '/openhand_logo.png',
   '/manifest.webmanifest',
 ];
-const APP_SHELL_NETWORK_FIRST = new Set([
-  ...APP_SHELL_PRECACHE,
+const APP_SHELL_ROUTE_FALLBACK = new Set([
+  '/',
   '/threads',
   '/thread',
   '/login',
+]);
+const APP_SHELL_NETWORK_FIRST = new Set([
+  ...APP_SHELL_PRECACHE,
   '/threads/app.js',
   '/threads/app.css',
   '/threads/openhand_logo.png',
@@ -64,11 +67,11 @@ async function cacheFirst(req) {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_VERSION)
-      .then((cache) => cache.addAll(APP_SHELL_PRECACHE))
-      .then(() => self.skipWaiting())
-      .catch(() => undefined),
+    (async () => {
+      const cache = await caches.open(CACHE_VERSION);
+      await Promise.allSettled(APP_SHELL_PRECACHE.map((url) => cache.add(url)));
+      await self.skipWaiting();
+    })().catch(() => self.skipWaiting()),
   );
 });
 
@@ -107,9 +110,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // SPA shell 与固定文件名 bundle: 网络优先, 离线回退缓存。
-  if (req.mode === 'navigate' || APP_SHELL_NETWORK_FIRST.has(url.pathname)) {
+  // SPA 路由: 网络优先, 离线时回退 HTML shell。
+  if (req.mode === 'navigate' || APP_SHELL_ROUTE_FALLBACK.has(url.pathname)) {
     event.respondWith(networkFirst(req, '/'));
+    return;
+  }
+
+  // 固定文件名 bundle: 网络优先, 离线只回退同一路径缓存, 避免把 HTML 当 JS/CSS 返回。
+  if (APP_SHELL_NETWORK_FIRST.has(url.pathname)) {
+    event.respondWith(networkFirst(req));
     return;
   }
 
