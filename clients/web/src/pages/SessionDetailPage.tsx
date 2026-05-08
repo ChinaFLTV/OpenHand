@@ -627,6 +627,36 @@ interface QueuedComposerMessage {
   createdAt: number;
 }
 
+export interface ComposerCollapsedSummaryState {
+  textLength: number;
+  attachmentCount: number;
+  queuedCount: number;
+  editing: boolean;
+  responseRunning: boolean;
+}
+
+export interface ComposerCollapsedSummaryLabels {
+  draft: string;
+  charUnit: string;
+  attachments: string;
+  queue: string;
+  editing: string;
+  running: string;
+}
+
+export function composerCollapsedSummaryParts(
+  state: ComposerCollapsedSummaryState,
+  labels: ComposerCollapsedSummaryLabels,
+): string[] {
+  const parts: string[] = [];
+  if (state.editing) parts.push(labels.editing);
+  if (state.responseRunning) parts.push(labels.running);
+  if (state.queuedCount > 0) parts.push(`${labels.queue} ${state.queuedCount}`);
+  if (state.attachmentCount > 0) parts.push(`${labels.attachments} ${state.attachmentCount}`);
+  if (state.textLength > 0) parts.push(`${labels.draft} ${state.textLength.toLocaleString()} ${labels.charUnit}`);
+  return parts;
+}
+
 export function SessionDetailPage() {
   const auth = useAuth();
   const location = useAnimatedLocation();
@@ -2542,6 +2572,33 @@ export function SessionDetailPage() {
     scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   };
 
+  const responseRunning = isRunningPhase(sendPhase);
+  const collapsedComposerSummary = useMemo(() => {
+    const parts = composerCollapsedSummaryParts({
+      textLength: composerText.trim().length,
+      attachmentCount: composerAttachments.length,
+      queuedCount: queuedComposerMessages.length,
+      editing: Boolean(editingDraftMessage),
+      responseRunning,
+    }, {
+      draft: t('composer.collapsedSummary.draft', '草稿'),
+      charUnit: t('composer.charUnit', '字符'),
+      attachments: t('composer.collapsedSummary.attachments', '附件'),
+      queue: t('composer.collapsedSummary.queue', '队列'),
+      editing: t('composer.collapsedSummary.editing', '编辑中'),
+      running: t('composer.collapsedSummary.running', '回复中'),
+    });
+    return parts.length > 0
+      ? parts.join(' · ')
+      : t('composer.collapsedPlaceholder', '输入区已收起，点击展开');
+  }, [
+    composerText,
+    composerAttachments.length,
+    queuedComposerMessages.length,
+    editingDraftMessage,
+    responseRunning,
+  ]);
+
   if (!sessionId) {
     return (
       <main class="min-h-screen flex items-center justify-center">
@@ -2564,7 +2621,6 @@ export function SessionDetailPage() {
         session.compression_point_count ? `${session.compression_point_count} compress` : '',
       ].filter(Boolean).join(' · ')
     : t('detail.loading', '加载会话中…');
-  const responseRunning = isRunningPhase(sendPhase);
   const composerSendDisabled = composerSending || allowedModels.length === 0 || stopping;
 
   return (
@@ -2890,7 +2946,19 @@ export function SessionDetailPage() {
             </button>
 
               </>
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                onClick={toggleComposerCollapsed}
+                class="oh-composer-collapsed-summary oh-tap-press"
+                title={collapsedComposerSummary}
+              >
+                <span class="oh-composer-control-icon" aria-hidden>
+                  <ComposerIcon name="chat" />
+                </span>
+                <span class="truncate">{collapsedComposerSummary}</span>
+              </button>
+            )}
 
             <button
               type="button"

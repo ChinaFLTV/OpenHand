@@ -599,8 +599,32 @@ html, body, #root {
 }
 .oh-composer-toolbar[data-collapsed='true'] {
   justify-content: flex-end;
-  gap: 0;
+  gap: 8px;
   margin-bottom: 0;
+}
+
+.oh-composer-collapsed-summary {
+  min-height: 40px;
+  max-width: min(58vw, 320px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 8px;
+  border-radius: 13px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 30%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 68%, var(--m3-surface));
+  color: var(--m3-on-primary-container);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px -18px color-mix(in srgb, var(--m3-primary) 72%, transparent);
+}
+
+.oh-composer-collapsed-summary > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .oh-composer-control {
@@ -1842,7 +1866,7 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-composer-toolbar[data-collapsed='true'] {
     display: flex;
     justify-content: flex-end;
-    gap: 0;
+    gap: 6px;
     margin-bottom: 0;
   }
   .oh-composer-toolbar > .relative.inline-block {
@@ -2113,8 +2137,14 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-composer-toolbar[data-collapsed='true'] {
     display: flex;
     justify-content: flex-end;
-    gap: 0;
+    gap: 6px;
     margin-bottom: 0;
+  }
+  .oh-composer-collapsed-summary {
+    max-width: min(56vw, 220px);
+    min-height: 38px;
+    padding-inline: 7px 9px;
+    border-radius: 12px;
   }
   .oh-session-composer {
     padding: 10px !important;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionMessage } from '../api/sessions';
-import { mergeServerWindow } from './SessionDetailPage';
+import { composerCollapsedSummaryParts, mergeServerWindow } from './SessionDetailPage';
 
 function message(
   id: string,
@@ -149,5 +149,42 @@ describe('mergeServerWindow', () => {
     const merged = mergeServerWindow([tool], [updated], 0, 0);
 
     expect(merged[0]).toBe(updated);
+  });
+});
+
+describe('composerCollapsedSummaryParts', () => {
+  const labels = {
+    draft: '草稿',
+    charUnit: '字符',
+    attachments: '附件',
+    queue: '队列',
+    editing: '编辑中',
+    running: '回复中',
+  };
+
+  it('surfaces hidden composer state while the composer body is collapsed', () => {
+    expect(composerCollapsedSummaryParts({
+      textLength: 12,
+      attachmentCount: 2,
+      queuedCount: 3,
+      editing: true,
+      responseRunning: true,
+    }, labels)).toEqual([
+      '编辑中',
+      '回复中',
+      '队列 3',
+      '附件 2',
+      '草稿 12 字符',
+    ]);
+  });
+
+  it('returns no parts for an empty collapsed composer', () => {
+    expect(composerCollapsedSummaryParts({
+      textLength: 0,
+      attachmentCount: 0,
+      queuedCount: 0,
+      editing: false,
+      responseRunning: false,
+    }, labels)).toEqual([]);
   });
 });
