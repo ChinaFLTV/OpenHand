@@ -129,6 +129,14 @@ function isRunningPhase(phase: string | null | undefined): boolean {
   return Boolean(phase && phase !== 'idle');
 }
 
+export function shouldApplySessionAsyncResult(
+  currentSessionId: string,
+  requestSessionId: string,
+  componentMounted = true,
+): boolean {
+  return componentMounted && requestSessionId.length > 0 && currentSessionId === requestSessionId;
+}
+
 function isStreamingTailMessage(message: SessionMessage): boolean {
   return message.role === 'assistant' || message.role === 'tool';
 }
@@ -737,6 +745,7 @@ export function SessionDetailPage() {
   const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
   const sessionIdRef = useRef(sessionId);
+  const mountedRef = useRef(true);
   const editingDraftMessageRef = useRef<SessionMessage | null>(null);
   const autoTitleRefreshTimersRef = useRef<number[]>([]);
   const composerChipExitTimersRef = useRef<number[]>([]);
@@ -789,6 +798,13 @@ export function SessionDetailPage() {
   }, [sessionId]);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     queuedComposerMessagesRef.current = queuedComposerMessages;
   }, [queuedComposerMessages]);
 
@@ -799,6 +815,8 @@ export function SessionDetailPage() {
     setEditingQueuedMessageId(null);
     setQueuedEditText('');
     setQueueDispatchingId(null);
+    setComposerSending(false);
+    setStopping(false);
   }, [sessionId]);
 
   useEffect(() => () => {
@@ -1784,7 +1802,7 @@ export function SessionDetailPage() {
         attachments: next.attachments,
         selectedSkill: next.selectedSkill,
       });
-      if (sessionIdRef.current !== dispatchSessionId) return;
+      if (!shouldApplySessionAsyncResult(sessionIdRef.current, dispatchSessionId, mountedRef.current)) return;
       setQueuedComposerMessages((prev) => (
         prev[0]?.id === next.id ? prev.slice(1) : prev.filter((item) => item.id !== next.id)
       ));
@@ -1793,7 +1811,7 @@ export function SessionDetailPage() {
       if (!sseLive) void refresh();
       if (shouldWatchAutoTitleAfterSend(next.content)) scheduleAutoTitleFollowUp();
     } catch (e: unknown) {
-      if (sessionIdRef.current !== dispatchSessionId) return;
+      if (!shouldApplySessionAsyncResult(sessionIdRef.current, dispatchSessionId, mountedRef.current)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       if (e instanceof ApiError) {
@@ -1811,8 +1829,10 @@ export function SessionDetailPage() {
         );
       }
     } finally {
-      queueDispatchingRef.current = false;
-      setQueueDispatchingId(null);
+      if (shouldApplySessionAsyncResult(sessionIdRef.current, dispatchSessionId, mountedRef.current)) {
+        queueDispatchingRef.current = false;
+        setQueueDispatchingId(null);
+      }
     }
   }
 
@@ -2300,22 +2320,25 @@ export function SessionDetailPage() {
     setComposerError(null);
     // 标记「这是本地刚刚发起的 send」, 抑制后续 sendPhase running 触发远端冲突 banner
     lastLocalSendAtRef.current = Date.now();
+    const requestSessionId = sessionId;
     const editTarget = editingDraftMessage;
     let cascadeDeleted = false;
     try {
       if (editTarget) {
-        await deleteMessageCascade(sessionId, editTarget.id);
+        await deleteMessageCascade(requestSessionId, editTarget.id);
         cascadeDeleted = true;
-        setMessages((prev) => {
-          const idx = prev.findIndex((item) => item.id === editTarget.id);
-          return idx >= 0 ? prev.slice(0, idx) : prev;
-        });
-        setTotalKnown((prev) => {
-          const idx = messagesRef.current.findIndex((item) => item.id === editTarget.id);
-          return idx >= 0 ? Math.min(prev, windowOffsetRef.current + idx) : prev;
-        });
+        if (shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) {
+          setMessages((prev) => {
+            const idx = prev.findIndex((item) => item.id === editTarget.id);
+            return idx >= 0 ? prev.slice(0, idx) : prev;
+          });
+          setTotalKnown((prev) => {
+            const idx = messagesRef.current.findIndex((item) => item.id === editTarget.id);
+            return idx >= 0 ? Math.min(prev, windowOffsetRef.current + idx) : prev;
+          });
+        }
       }
-      const res = await sendMessage(sessionId, {
+      const res = await sendMessage(requestSessionId, {
         content: text,
         modelKey: composerModelKey,
         mode: composerMode,
@@ -2327,6 +2350,7 @@ export function SessionDetailPage() {
             }
           : null,
       });
+      if (!shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) return;
       setComposerText('');
       setComposerAttachments([]);
       setComposerAttachmentIds([]);
@@ -2341,6 +2365,7 @@ export function SessionDetailPage() {
       if (!sseLive) void refresh();
       if (shouldTrackAutoTitle) scheduleAutoTitleFollowUp();
     } catch (e: unknown) {
+      if (!shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) return;
       if (cascadeDeleted) {
         editingDraftMessageRef.current = null;
         setEditingDraftMessage(null);
@@ -2362,7 +2387,9 @@ export function SessionDetailPage() {
         );
       }
     } finally {
-      setComposerSending(false);
+      if (shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) {
+        setComposerSending(false);
+      }
     }
   }
 
@@ -2400,17 +2427,22 @@ export function SessionDetailPage() {
   async function handleStop(): Promise<void> {
     if (stopping) return;
     setStopping(true);
+    const requestSessionId = sessionId;
     try {
-      const res = await stopMessage(sessionId);
+      const res = await stopMessage(requestSessionId);
+      if (!shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) return;
       setSendPhase(res.send_phase || 'idle');
       // 拉一次让 finalize 后的内容立刻可见
       void refresh();
     } catch (e: unknown) {
+      if (!shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setLastError(e instanceof Error ? e.message : String(e));
     } finally {
-      setStopping(false);
+      if (shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) {
+        setStopping(false);
+      }
     }
   }
 

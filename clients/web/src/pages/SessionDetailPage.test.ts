@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionMessage } from '../api/sessions';
-import { composerCollapsedSummaryParts, mergeServerWindow } from './SessionDetailPage';
+import { composerCollapsedSummaryParts, mergeServerWindow, shouldApplySessionAsyncResult } from './SessionDetailPage';
 
 function message(
   id: string,
@@ -186,5 +186,22 @@ describe('composerCollapsedSummaryParts', () => {
       editing: false,
       responseRunning: false,
     }, labels)).toEqual([]);
+  });
+});
+
+describe('shouldApplySessionAsyncResult', () => {
+  it('allows applying a result only to the session that started the request', () => {
+    expect(shouldApplySessionAsyncResult('session-a', 'session-a')).toBe(true);
+    expect(shouldApplySessionAsyncResult('session-b', 'session-a')).toBe(false);
+    expect(shouldApplySessionAsyncResult('', 'session-a')).toBe(false);
+    expect(shouldApplySessionAsyncResult('session-a', '')).toBe(false);
+  });
+
+  it('treats an empty request session as stale', () => {
+    expect(shouldApplySessionAsyncResult('', '')).toBe(false);
+  });
+
+  it('blocks results after the owning component has unmounted', () => {
+    expect(shouldApplySessionAsyncResult('session-a', 'session-a', false)).toBe(false);
   });
 });
