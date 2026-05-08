@@ -36,9 +36,9 @@ function mediaKindFromPath(path: string, hintKind?: string): MediaKind {
   const lower = path.toLowerCase();
   if (hintKind) {
     const k = hintKind.toLowerCase();
-    if (k === 'image' || k === 'img' || k === 'picture' || k === 'photo') return 'image';
-    if (k === 'video' || k === 'movie') return 'video';
-    if (k === 'audio' || k === 'sound' || k === 'voice') return 'audio';
+    if (k === 'image' || k === 'img' || k === 'picture' || k === 'photo' || k.startsWith('image/')) return 'image';
+    if (k === 'video' || k === 'movie' || k.startsWith('video/')) return 'video';
+    if (k === 'audio' || k === 'sound' || k === 'voice' || k.startsWith('audio/')) return 'audio';
   }
   if (IMAGE_EXTS.some((e) => lower.endsWith(e))) return 'image';
   if (VIDEO_EXTS.some((e) => lower.endsWith(e))) return 'video';
@@ -51,7 +51,19 @@ function basename(path: string): string {
   return i >= 0 ? path.slice(i + 1) : path;
 }
 
-function pushString(out: MediaItem[], raw: unknown, hintKind?: string): void {
+function firstNonEmptyString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function pushString(
+  out: MediaItem[],
+  raw: unknown,
+  hintKind?: string,
+  displayName?: string,
+): void {
   if (typeof raw !== 'string') return;
   const path = raw.trim();
   if (!path) return;
@@ -59,10 +71,11 @@ function pushString(out: MediaItem[], raw: unknown, hintKind?: string): void {
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
     return;
   }
+  const name = displayName?.trim() || basename(path);
   out.push({
     path,
-    name: basename(path),
-    kind: mediaKindFromPath(path, hintKind),
+    name,
+    kind: mediaKindFromPath(`${path} ${name}`, hintKind),
     hintLabel: hintKind,
   });
 }
@@ -118,15 +131,24 @@ function collectMedia(message: SessionMessage): MediaItem[] {
       for (const entry of atts) {
         if (entry && typeof entry === 'object') {
           const e = entry as Record<string, unknown>;
-          const hintKind = typeof e['kind'] === 'string'
-            ? (e['kind'] as string)
-            : typeof e['type'] === 'string'
-              ? (e['type'] as string)
-              : undefined;
+          const hintKind = firstNonEmptyString(
+            e['kind'],
+            e['type'],
+            e['mime_type'],
+            e['mime'],
+            e['content_type'],
+          );
+          const displayName = firstNonEmptyString(
+            e['name'],
+            e['file_name'],
+            e['original_name'],
+            e['filename'],
+          );
           pushString(
             out,
             e['storage_path'] ?? e['path'] ?? e['file_path'] ?? e['original_source_path'],
             hintKind,
+            displayName,
           );
         } else if (typeof entry === 'string') {
           pushString(out, entry);

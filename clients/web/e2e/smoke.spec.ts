@@ -1,5 +1,27 @@
 import { test, expect } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/meta', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        service: {
+          auth_enabled: true,
+          session_management_enabled: true,
+          plan_mode_enabled: true,
+          ops_enabled: true,
+          logging_enabled: true,
+        },
+        templates: [],
+        conversation_modes: ['chat', 'plan'],
+        message_types: ['text'],
+        models: [],
+      }),
+    });
+  });
+});
+
 // 烟雾测试: 登录页能加载, 标题正确, 关键 input 可见。
 // 跑前需 `pnpm dev` (或将 baseURL 指到任意可访问的 OpenHand Web 实例)。
 test('login page renders', async ({ page }) => {

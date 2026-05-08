@@ -59,7 +59,7 @@ describe('MessageMedia', () => {
             {
               name: 'photo.png',
               kind: 'image',
-              storage_path: '/tmp/session/photo.png',
+              storage_path: '/tmp/session/upload-cache/a1',
             },
           ],
         })}
@@ -80,8 +80,8 @@ describe('MessageMedia', () => {
           attachments: [
             {
               name: 'photo.png',
-              kind: 'image',
-              storage_path: '/tmp/session/photo.png',
+              mime_type: 'image/png',
+              storage_path: '/tmp/session/upload-cache/a1',
             },
           ],
         }, 'user')}

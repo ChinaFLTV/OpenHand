@@ -1,0 +1,4 @@
+# Built web bundles can contain intentional trailing spaces inside minified
+# string literals. Keep whitespace checks strict for source files.
+assets/web/app.js -whitespace
+assets/web/app.css -whitespace
