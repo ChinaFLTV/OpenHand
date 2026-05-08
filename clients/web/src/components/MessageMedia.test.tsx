@@ -48,6 +48,8 @@ describe('MessageMedia', () => {
     expect(image.getAttribute('src')).toContain('source=WEB_PC');
     expect(document.querySelector('video')?.getAttribute('src')).toContain('video_1.mp4');
     expect(document.querySelector('audio')?.getAttribute('src')).toContain('audio_1.mp3');
+    expect(document.querySelector('video')?.getAttribute('preload')).toBe('none');
+    expect(document.querySelector('audio')?.getAttribute('preload')).toBe('none');
   });
 
   it('renders metadata attachment assets with the same browser-safe identity query', () => {

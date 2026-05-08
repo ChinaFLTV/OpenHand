@@ -25,6 +25,12 @@ interface MediaItem {
   hintLabel?: string;
 }
 
+interface MediaEntry {
+  item: MediaItem;
+  url: string;
+  key: string;
+}
+
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.heic', '.svg'];
 const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v'];
 const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
@@ -399,6 +405,11 @@ function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
 
 export function MessageMedia({ message, sessionId, presentation = 'auto' }: MessageMediaProps) {
   const items = useMemo(() => collectMedia(message), [message]);
+  const entries = useMemo<MediaEntry[]>(() => items.map((item, idx) => ({
+    item,
+    url: buildSessionAssetUrl(sessionId, item.path),
+    key: `${item.path}:${idx}`,
+  })), [items, sessionId]);
   const [preview, setPreview] = useState<{ item: MediaItem; url: string } | null>(null);
   if (items.length === 0) return null;
   const resolvedPresentation = presentation === 'auto'
@@ -416,9 +427,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
           class="oh-user-attachment-list"
           aria-label={t('message.context.kind.attachment', '附件')}
         >
-          {items.map((item, idx) => {
-            const url = buildSessionAssetUrl(sessionId, item.path);
-            const key = `${item.path}:${idx}`;
+          {entries.map(({ item, url, key }) => {
             const label = attachmentLabel(item);
             const content = (
               <>
@@ -470,9 +479,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
   return (
     <>
     <div class="mt-3 flex flex-col gap-2">
-      {items.map((item, idx) => {
-        const url = buildSessionAssetUrl(sessionId, item.path);
-        const key = `${item.path}:${idx}`;
+      {entries.map(({ item, url, key }) => {
         if (item.kind === 'image') {
           return (
             <button
@@ -523,7 +530,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
               <video
                 src={url}
                 controls
-                preload="metadata"
+                preload="none"
                 style={{
                   display: 'block',
                   width: '100%',
@@ -581,7 +588,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
               <audio
                 src={url}
                 controls
-                preload="metadata"
+                preload="none"
                 style={{ width: '100%' }}
               />
             </div>
