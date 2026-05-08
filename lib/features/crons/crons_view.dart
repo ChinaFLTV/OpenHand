@@ -373,7 +373,7 @@ class _CronEntryCard extends StatelessWidget {
                   const SizedBox(width: 8),
                 ],
                 // Toggle switch
-                Switch(value: entry.enabled, onChanged: onToggle),
+                // 2026-05-04 \u2014 MCP \u5173\u952e\u8bcd\u5012\u6392\u7d22\u5f15\u91cd\u5efa\u4efb\u52a1\u7684\u542f\u7528\u72b6\u6001\u5b8c\u5168\u7531\u300c\u5168\u5c40\u8bbe\u7f6e \u2192\n                // MCP \u2192 \u66f4\u65b0\u5173\u952e\u8bcd\u6620\u5c04\u6a21\u5f0f\u300d\u9a71\u52a8\uff0c\u5728\u8be5\u9875\u9501\u5b9a\uff0c\u907f\u514d\u4e0e\u8bbe\u7f6e\u9879\u8131\u540c\u3002\n                Builder(\n                  builder: (context) {\n                    final locked = entry.tags.contains(\n                      CronsController.mcpKeywordIndexTag,\n                    );\n                    final toggle = Switch(\n                      value: entry.enabled,\n                      onChanged: locked ? null : onToggle,\n                    );\n                    if (!locked) return toggle;\n                    return Tooltip(\n                      message: isZh\n                          ? '\u7531\u300c\u5168\u5c40\u8bbe\u7f6e \u2192 MCP \u2192 \u66f4\u65b0\u5173\u952e\u8bcd\u6620\u5c04\u6a21\u5f0f\u300d\u63a7\u5236\uff0c\u4e0d\u53ef\u624b\u52a8\u5f00\u5173'\n                          : 'Controlled by Settings \u2192 MCP \u2192 Keyword index update mode',\n                      child: toggle,\n                    );\n                  },\n                ),
                 const SizedBox(width: 8),
                 // 2026-04-25 — system entries (e.g. Hermes Talker self-
                 // learning) no longer show a lock icon. Toggle stays

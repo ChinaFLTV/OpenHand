@@ -98,21 +98,20 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           await _store.saveAll(entries);
         }
       }
-      // 2026-05-04 — MCP 关键词倒排索引重建系统条目。同 Hermes Talker 一样
-      // 由系统管理（不可删除），enabled / cronExpression 由设置项联动维护，
-      // 不会随着每次保存设置而新建条目。
+      // 2026-05-04 — MCP 关键词倒排索引重建系统条目。该条目「特殊」在：
+      //   * 是否存在完全由「全局设置 → MCP → 更新关键词映射模式」驱动；
+      //   * 冷启动模式下条目应不存在（彻底删除）；
+      //   * 定时间隔 / 每日定点模式下条目存在且强制 enabled=true，UI 禁止切换；
+      // 因此启动期不主动 seed —— 由 main.dart 的 IIFE 在 initialize() 之后
+      // 立即调用 updateMcpKeywordIndexSchedule(...) 同步当前设置。这里仅在
+      // 已存在时刷新静态字段（名称/描述/超时/通知策略/tags），保持 cron
+      // 表达式与 enabled 不变 —— 这两项由 settings 联动维护。
       final keywordIndex = entries.indexWhere(
         (e) => e.id == mcpKeywordIndexSystemEntryId,
       );
-      if (keywordIndex == -1) {
-        entries.add(_buildMcpKeywordIndexSystemEntry());
-        await _store.saveAll(entries);
-      } else {
+      if (keywordIndex != -1) {
         final existing = entries[keywordIndex];
         final canonical = _buildMcpKeywordIndexSystemEntry();
-        // 仅静态字段（名称 / 描述 / scriptType / 超时 / tags / 通知策略）
-        // 跟随版本刷新；cronExpression 与 enabled 已由 settings 驱动，禁止
-        // 在启动期回滚为「禁用 + 02:00」默认。
         final refreshed = existing.copyWith(
           name: canonical.name,
           description: canonical.description,
@@ -184,13 +183,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       id: mcpKeywordIndexSystemEntryId,
       name: 'MCP 关键词倒排索引重建',
       description:
-          '系统内置：按「全局设置 → MCP → 更新关键词映射模式」周期触发一次倒排索引重建。'
-          '冷启动模式下保持禁用；定时间隔 / 每日定点模式下由系统驱动 cron 表达式 / 启用状态。'
-          '本任务为系统管理，无法删除。',
+          '系统内置：按「全局设置 → MCP → 更新关键词映射模式」驱动。'
+          '冷启动模式下不存在；定时间隔 / 每日定点模式下由系统创建并保持启用。'
+          '该任务的启用状态由设置项强制锁定，无法手动开关，亦无法删除；'
+          '可查看执行历史 / 立即执行一次。',
       scriptType: CronScriptType.agent,
       cronExpression: '0 2 * * *',
       timeoutSeconds: 1800,
-      enabled: false,
       tags: <String>[systemTag, mcpKeywordIndexTag],
       onSuccessNotify: CronNotifyType.none,
       onFailureNotify: CronNotifyType.log,
@@ -198,10 +197,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  /// 根据「更新关键词映射模式」设置同步系统 cron 条目：
-  ///  - cold-start：禁用任务；
-  ///  - interval/scheduled：启用任务，并写入对应 cron 表达式。
-  /// 改写 in-place，复用同一条 system entry，避免任务碎片化。
+  /// 根据「更新关键词映射模式」设置同步 MCP 关键词倒排索引系统 cron 条目：
+  ///  - cold-start：彻底删除条目（如已存在），并取消已绑定的定时器；
+  ///  - interval / scheduled：若条目不存在则创建，存在则改写 cron 表达式，
+  ///    并强制 enabled = true。
+  ///
+  /// 该任务的存在与否完全由设置项驱动，UI 禁止用户手动启用/停用/删除。
   Future<void> updateMcpKeywordIndexSchedule({
     required McpKeywordIndexUpdateMode mode,
     required int intervalValue,
@@ -209,28 +210,45 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     required String scheduledTimeOfDay,
   }) async {
     if (!_hasInitialized) return;
-    final cronExpression = buildMcpKeywordIndexCronExpression(
-      mode: mode,
-      intervalValue: intervalValue,
-      intervalUnit: intervalUnit,
-      scheduledTimeOfDay: scheduledTimeOfDay,
-    );
-    final shouldEnable = mode != McpKeywordIndexUpdateMode.coldStart;
-    final index = _entries.indexWhere(
-      (e) => e.id == mcpKeywordIndexSystemEntryId,
-    );
-    if (index == -1) return;
-    final existing = _entries[index];
-    if (existing.cronExpression == cronExpression &&
-        existing.enabled == shouldEnable) {
-      return;
-    }
-    final refreshed = existing.copyWith(
-      cronExpression: cronExpression,
-      enabled: shouldEnable,
-    );
     await _commitMutation(() async {
-      // _commitMutation 内部串行化所有写操作，避免与 toggleEnabled 等并发互踩。
+      final index = _entries.indexWhere(
+        (e) => e.id == mcpKeywordIndexSystemEntryId,
+      );
+      if (mode == McpKeywordIndexUpdateMode.coldStart) {
+        if (index == -1) return false;
+        final removed = _entries[index];
+        _setEntries(
+          _entries.where((e) => e.id != mcpKeywordIndexSystemEntryId).toList(),
+        );
+        await _store.saveAll(_entries);
+        _cancelTimer(removed.id);
+        return true;
+      }
+      final cronExpression = buildMcpKeywordIndexCronExpression(
+        mode: mode,
+        intervalValue: intervalValue,
+        intervalUnit: intervalUnit,
+        scheduledTimeOfDay: scheduledTimeOfDay,
+      );
+      if (index == -1) {
+        final canonical = _buildMcpKeywordIndexSystemEntry();
+        final created = canonical.copyWith(
+          cronExpression: cronExpression,
+          enabled: true,
+        );
+        _setEntries(<CronEntry>[..._entries, created]);
+        await _store.saveAll(_entries);
+        _scheduleJob(created);
+        return true;
+      }
+      final existing = _entries[index];
+      if (existing.cronExpression == cronExpression && existing.enabled) {
+        return false;
+      }
+      final refreshed = existing.copyWith(
+        cronExpression: cronExpression,
+        enabled: true,
+      );
       _setEntries(<CronEntry>[
         ..._entries.sublist(0, index),
         refreshed,
