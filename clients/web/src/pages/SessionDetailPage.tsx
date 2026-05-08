@@ -58,6 +58,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { useEventCallback } from '../hooks/useEventCallback';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
@@ -1053,7 +1054,7 @@ export function SessionDetailPage() {
       setWriteApprovalBusy(false);
     }
   };
-  const handleEditMessage = (m: SessionMessage) => {
+  const handleEditMessage = useEventCallback((m: SessionMessage) => {
     if (m.role !== 'user') return;
     editingDraftMessageRef.current = m;
     setEditingDraftMessage(m);
@@ -1068,7 +1069,7 @@ export function SessionDetailPage() {
     void restoreAttachmentsForEdit(m);
     window.setTimeout(() => composerTextareaRef.current?.focus(), 0);
     scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
-  };
+  });
   const handleAuditMessage = useCallback((m: SessionMessage) => {
     setAuditMessage(m);
   }, []);

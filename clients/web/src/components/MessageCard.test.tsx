@@ -165,4 +165,44 @@ describe('MessageCard actions', () => {
       }
     }
   });
+
+  it('skips assistant height measurement for tiny same-line streaming deltas', () => {
+    const animateDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'animate');
+    const animate = vi.fn(function animateMock(
+      _keyframes?: Keyframe[] | PropertyIndexedKeyframes | null,
+      _options?: number | KeyframeAnimationOptions,
+    ) {
+      return {
+        cancel: vi.fn(),
+        finished: Promise.resolve({} as Animation),
+      } as unknown as Animation;
+    });
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      value: animate,
+    });
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue(domRect(80));
+
+    try {
+      const { rerender } = render(
+        <MessageCard message={makeAssistantMessage('assistant-1', '短句')} />,
+      );
+      expect(rectSpy).toHaveBeenCalledTimes(1);
+
+      rerender(
+        <MessageCard message={makeAssistantMessage('assistant-1', '短句继续补几个字')} />,
+      );
+
+      expect(rectSpy).toHaveBeenCalledTimes(1);
+      expect(animate).not.toHaveBeenCalled();
+    } finally {
+      rectSpy.mockRestore();
+      if (animateDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, 'animate', animateDescriptor);
+      } else {
+        delete (HTMLElement.prototype as unknown as { animate?: unknown }).animate;
+      }
+    }
+  });
 });

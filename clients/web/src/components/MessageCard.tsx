@@ -466,6 +466,7 @@ function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
 // 自动 collapse 长正文（thinking / tool stdout）。阈值经验值，避免一屏被 5K 字符卡片占满。
 const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
 const SIZE_MOTION_MIN_DELTA_PX = 1.5;
+const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
 
 function isAssistantSideMessage(message: SessionMessage): boolean {
   return message.role !== 'user';
@@ -477,17 +478,29 @@ function messageSizeMotionSignal(message: SessionMessage, actionsVisible: boolea
     message.id,
     message.role,
     message.kind,
-    message.content?.length ?? 0,
-    message.character_count ?? 0,
+    textLayoutMotionSignal(message.content ?? ''),
+    numberLayoutMotionSignal(message.character_count),
     actionsVisible ? 1 : 0,
     asBool(metadata['tool_arguments_streaming']) ? 1 : 0,
     asString(metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status']),
-    asString(metadata['tool_execution_stdout']).length,
-    asString(metadata['tool_execution_stderr']).length,
-    asString(metadata['tool_execution_result'] ?? metadata['result_text']).length,
+    textLayoutMotionSignal(asString(metadata['tool_execution_stdout'])),
+    textLayoutMotionSignal(asString(metadata['tool_execution_stderr'])),
+    textLayoutMotionSignal(asString(metadata['tool_execution_result'] ?? metadata['result_text'])),
     asString(metadata['file_mutation_kind']),
     asNumber(metadata['round_summary_record_count']) ?? '',
   ].join('|');
+}
+
+function textLayoutMotionSignal(value: string): string {
+  let lineBreaks = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value.charCodeAt(index) === 10) lineBreaks += 1;
+  }
+  return `${lineBreaks}:${Math.floor(value.length / SIZE_MOTION_TEXT_BUCKET_CHARS)}`;
+}
+
+function numberLayoutMotionSignal(value: number | undefined): string {
+  return value == null ? '' : String(Math.floor(value / SIZE_MOTION_TEXT_BUCKET_CHARS));
 }
 
 function useMessageSizeMotion(signal: string, enabled: boolean) {
