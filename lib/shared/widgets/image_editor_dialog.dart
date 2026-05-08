@@ -232,59 +232,59 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                           l10n.imageEditorTitle,
                           style: theme.textTheme.headlineSmall,
                         ),
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.imageEditorCropHint,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildPreviewPanel(context),
-                            const SizedBox(height: 18),
-                            _buildAspectChips(context),
-                            const SizedBox(height: 12),
-                            _buildTransformActions(context),
-                            const SizedBox(height: 16),
-                            _buildAdjustmentSliders(context),
-                            const SizedBox(height: 8),
-                            _buildAdvancedPanels(context),
-                            if (_statusMessage != null) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                _statusMessage!,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                            ],
-                            if (_errorMessage != null) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                _errorMessage!,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.error,
-                                ),
-                              ),
-                            ],
-                          ],
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.imageEditorCropHint,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildPreviewPanel(context),
+                                const SizedBox(height: 18),
+                                _buildAspectChips(context),
+                                const SizedBox(height: 12),
+                                _buildTransformActions(context),
+                                const SizedBox(height: 16),
+                                _buildAdjustmentSliders(context),
+                                const SizedBox(height: 8),
+                                _buildAdvancedPanels(context),
+                                if (_statusMessage != null) ...[
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _statusMessage!,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                                if (_errorMessage != null) ...[
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _errorMessage!,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.error,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (_isSaving || _isProcessing) ...[
+                          const SizedBox(height: 16),
+                          const LinearProgressIndicator(),
+                        ],
+                        const SizedBox(height: 16),
+                        _buildActionBar(context),
+                      ],
                     ),
-                    if (_isSaving || _isProcessing) ...[
-                      const SizedBox(height: 16),
-                      const LinearProgressIndicator(),
-                    ],
-                    const SizedBox(height: 16),
-                    _buildActionBar(context),
-                  ],
-                ),
-              ),
+                  ),
                   Positioned(
                     top: 0,
                     left: 0,
@@ -1150,12 +1150,16 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final messengerState = _messengerKey.currentState;
     if (messengerState == null) return;
     if (isError) {
-      messengerState.showSnackBar(
+      OpenHandSnackBar.show(
+        messengerContext,
+        messengerState,
         OpenHandSnackBar.error(messengerContext, message),
       );
       _errorPulse.value = _errorPulse.value + 1;
     } else {
-      messengerState.showSnackBar(
+      OpenHandSnackBar.show(
+        messengerContext,
+        messengerState,
         OpenHandSnackBar.success(messengerContext, message),
       );
       _successPulse.value = _successPulse.value + 1;
@@ -2157,14 +2161,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         // Use the safe subprocess wrapper so a hung osascript cannot leak
         // and corrupt the host app's input-method context (which would
         // surface as TextFields no longer accepting input/paste).
-        final result = await runProcessWithTimeout(
-          'osascript',
-          <String>[
-            '-e',
-            'set the clipboard to (read POSIX file "${tempFile.path.replaceAll('"', r'\"')}") as ${ext == 'png' ? 'picture' : 'JPEG picture'}',
-          ],
-          tag: 'image_editor_dialog',
-        );
+        final result = await runProcessWithTimeout('osascript', <String>[
+          '-e',
+          'set the clipboard to (read POSIX file "${tempFile.path.replaceAll('"', r'\"')}") as ${ext == 'png' ? 'picture' : 'JPEG picture'}',
+        ], tag: 'image_editor_dialog');
         bitmapCopied = result?.exitCode == 0;
       }
 

@@ -4348,7 +4348,7 @@ class _SettingsViewState extends State<SettingsView> {
 
   Future<void> _resetStdioPackageCache(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -4802,11 +4802,23 @@ class _SettingsViewState extends State<SettingsView> {
       if (messenger == null) return;
       switch (kind) {
         case _SettingsSnackKind.success:
-          messenger.showSnackBar(OpenHandSnackBar.success(context, message));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            OpenHandSnackBar.success(context, message),
+          );
         case _SettingsSnackKind.error:
-          messenger.showSnackBar(OpenHandSnackBar.error(context, message));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            OpenHandSnackBar.error(context, message),
+          );
         case _SettingsSnackKind.info:
-          messenger.showSnackBar(SnackBar(content: Text(message)));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            SnackBar(content: Text(message)),
+          );
       }
     });
   }

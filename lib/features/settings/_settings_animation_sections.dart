@@ -72,7 +72,10 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
             ]);
             if (!context.mounted) return;
             final allSaved = results.every((r) => r);
-            ScaffoldMessenger.of(context).showSnackBar(
+            final messenger = ScaffoldMessenger.of(context);
+            OpenHandSnackBar.show(
+              context,
+              messenger,
               SnackBar(
                 content: Text(
                   allSaved

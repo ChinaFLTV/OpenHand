@@ -137,8 +137,9 @@ class _ThreadSessionManagementDialogState
       // can merge them into the visible list.
       List<AiSession> archived = const <AiSession>[];
       if (_showArchived) {
-        final result =
-            await controller.store.loadAllHeaders(includeArchived: true);
+        final result = await controller.store.loadAllHeaders(
+          includeArchived: true,
+        );
         archived = result.sessions
             .where((s) => flags[s.id]?.archived == true)
             .toList(growable: false);
@@ -231,9 +232,7 @@ class _ThreadSessionManagementDialogState
             content: TextField(
               controller: titleController,
               autofocus: true,
-              decoration: InputDecoration(
-                hintText: dl10n.tsmRenameHint,
-              ),
+              decoration: InputDecoration(hintText: dl10n.tsmRenameHint),
               onSubmitted: (value) =>
                   Navigator.of(dialogContext).pop(value.trim()),
             ),
@@ -243,8 +242,9 @@ class _ThreadSessionManagementDialogState
                 label: l10n.commonCancel,
               ),
               OpenHandDialogActionButton.primary(
-                onPressed: () => Navigator.of(dialogContext)
-                    .pop(titleController.text.trim()),
+                onPressed: () => Navigator.of(
+                  dialogContext,
+                ).pop(titleController.text.trim()),
                 label: l10n.commonSave,
               ),
             ],
@@ -261,7 +261,10 @@ class _ThreadSessionManagementDialogState
     if (!mounted || submitted == null || submitted.isEmpty) return;
     final ok = await controller.renameSession(session.id, submitted);
     if (!mounted || ok) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    OpenHandSnackBar.show(
+      context,
+      messenger,
       OpenHandSnackBar.error(
         context,
         controller.lastErrorMessage ??
@@ -303,19 +306,19 @@ class _ThreadSessionManagementDialogState
       builder: (dialogContext) {
         final dl10n = AppLocalizations.of(dialogContext)!;
         return AlertDialog(
-        title: Text(dl10n.tsmDeleteSelectedTitle),
-        content: Text(dl10n.tsmDeleteSelectedConfirm(ids.length)),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: l10n.commonCancel,
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: l10n.commonDelete,
-          ),
-        ],
-      );
+          title: Text(dl10n.tsmDeleteSelectedTitle),
+          content: Text(dl10n.tsmDeleteSelectedConfirm(ids.length)),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              label: l10n.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              label: l10n.commonDelete,
+            ),
+          ],
+        );
       },
     );
     if (ok != true || !mounted) return;
@@ -354,7 +357,10 @@ class _ThreadSessionManagementDialogState
       _localOrder?.removeWhere((s) => ids.contains(s.id));
     });
     if (failed > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.show(
+        context,
+        messenger,
         OpenHandSnackBar.error(
           context,
           AppLocalizations.of(context)!.tsmDeleteFailedCount(failed),
@@ -385,10 +391,14 @@ class _ThreadSessionManagementDialogState
     }
     if (full == null || !mounted) {
       if (mounted) {
-        messenger.showSnackBar(OpenHandSnackBar.error(
+        OpenHandSnackBar.show(
           context,
-          AppLocalizations.of(context)!.tsmSessionMissing,
-        ));
+          messenger,
+          OpenHandSnackBar.error(
+            context,
+            AppLocalizations.of(context)!.tsmSessionMissing,
+          ),
+        );
         _outcomeErrorSignal.value++;
       }
       return;
@@ -405,7 +415,8 @@ class _ThreadSessionManagementDialogState
     FileSaveLocation? location;
     try {
       location = await getSaveLocation(
-        suggestedName: '${safeTitle.isEmpty ? "session" : safeTitle}_'
+        suggestedName:
+            '${safeTitle.isEmpty ? "session" : safeTitle}_'
             '${full.id}.jsonl',
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
@@ -419,8 +430,9 @@ class _ThreadSessionManagementDialogState
     }
     if (location == null || !mounted) return;
     final cancelToken = ExportCancelToken();
-    final progressController =
-        ExportProgressController(cancelToken: cancelToken);
+    final progressController = ExportProgressController(
+      cancelToken: cancelToken,
+    );
     final dialogFuture = showExportProgressDialog(
       context: context,
       controller: progressController,
@@ -438,12 +450,7 @@ class _ThreadSessionManagementDialogState
         onProgress: progressController.updateProgress,
       );
     } catch (error, stack) {
-      silentLog(
-        'thread_session_management_dialog',
-        'export.run',
-        error,
-        stack,
-      );
+      silentLog('thread_session_management_dialog', 'export.run', error, stack);
       result = ExportResult(kind: ExportResultKind.failure, error: error);
     }
     progressController.markFinished();
@@ -454,7 +461,9 @@ class _ThreadSessionManagementDialogState
     if (!mounted) return;
     final ok = result.kind == ExportResultKind.success;
     final l10n = AppLocalizations.of(context)!;
-    messenger.showSnackBar(
+    OpenHandSnackBar.show(
+      context,
+      messenger,
       ok
           ? OpenHandSnackBar.success(context, l10n.tsmExportComplete)
           : OpenHandSnackBar.error(context, l10n.tsmExportFailed),
@@ -475,8 +484,7 @@ class _ThreadSessionManagementDialogState
     String? folderPath;
     try {
       folderPath = await getDirectoryPath(
-        confirmButtonText:
-            AppLocalizations.of(context)!.tsmChooseExportFolder,
+        confirmButtonText: AppLocalizations.of(context)!.tsmChooseExportFolder,
       );
     } catch (error, stack) {
       silentLog(
@@ -495,13 +503,16 @@ class _ThreadSessionManagementDialogState
     );
     if (config == null || !mounted) return;
     final cancelToken = ExportCancelToken();
-    final progressController =
-        ExportProgressController(cancelToken: cancelToken);
+    final progressController = ExportProgressController(
+      cancelToken: cancelToken,
+    );
     final dialogFuture = showExportProgressDialog(
       context: context,
       controller: progressController,
       title: AppLocalizations.of(context)!.tsmBatchExportTitle,
-      subtitle: AppLocalizations.of(context)!.tsmBatchExportSubtitle(ids.length),
+      subtitle: AppLocalizations.of(
+        context,
+      )!.tsmBatchExportSubtitle(ids.length),
       cancelLabel: AppLocalizations.of(context)!.tsmCancel,
     );
     var ok = 0;
@@ -561,9 +572,12 @@ class _ThreadSessionManagementDialogState
     }
     await dialogFuture;
     if (!mounted) return;
-    final batchMessage =
-        AppLocalizations.of(context)!.tsmBatchExportDone(ok, failed);
-    messenger.showSnackBar(
+    final batchMessage = AppLocalizations.of(
+      context,
+    )!.tsmBatchExportDone(ok, failed);
+    OpenHandSnackBar.show(
+      context,
+      messenger,
       failed == 0
           ? OpenHandSnackBar.success(context, batchMessage)
           : OpenHandSnackBar.error(context, batchMessage),
@@ -616,9 +630,7 @@ class _ThreadSessionManagementDialogState
           child: ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-            ),
+            leading: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined),
             title: Text(isPinned ? l10n.tsmMenuUnpin : l10n.tsmMenuPin),
           ),
         ),
@@ -628,9 +640,7 @@ class _ThreadSessionManagementDialogState
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: Icon(
-              isArchived
-                  ? Icons.unarchive_outlined
-                  : Icons.archive_outlined,
+              isArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
             ),
             title: Text(
               isArchived ? l10n.tsmMenuUnarchive : l10n.tsmMenuArchive,
@@ -689,10 +699,15 @@ class _ThreadSessionManagementDialogState
       });
       await _refreshFlags();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(OpenHandSnackBar.error(
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.show(
         context,
-        AppLocalizations.of(context)!.tsmPinUpdateFailed,
-      ));
+        messenger,
+        OpenHandSnackBar.error(
+          context,
+          AppLocalizations.of(context)!.tsmPinUpdateFailed,
+        ),
+      );
       _outcomeErrorSignal.value++;
     }
   }
@@ -715,10 +730,15 @@ class _ThreadSessionManagementDialogState
       });
       await _refreshFlags();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(OpenHandSnackBar.error(
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.show(
         context,
-        AppLocalizations.of(context)!.tsmArchiveUpdateFailed,
-      ));
+        messenger,
+        OpenHandSnackBar.error(
+          context,
+          AppLocalizations.of(context)!.tsmArchiveUpdateFailed,
+        ),
+      );
       _outcomeErrorSignal.value++;
     }
   }
@@ -922,9 +942,8 @@ class _ThreadSessionManagementDialogState
     // Apply view-controls (search / template filter / sort) to derive
     // the visible list. Reorder mode operates against `sessions` (the
     // raw manual order) so drag indices map back to the underlying list.
-    final templates = <String>{
-      for (final s in sessions) s.templateName.trim(),
-    }..removeWhere((t) => t.isEmpty);
+    final templates = <String>{for (final s in sessions) s.templateName.trim()}
+      ..removeWhere((t) => t.isEmpty);
     final query = _searchQuery.trim().toLowerCase();
     Iterable<AiSession> filtered = sessions;
     if (query.isNotEmpty) {
@@ -933,8 +952,9 @@ class _ThreadSessionManagementDialogState
       );
     }
     if (_templateFilter.isNotEmpty) {
-      filtered = filtered
-          .where((s) => _templateFilter.contains(s.templateName.trim()));
+      filtered = filtered.where(
+        (s) => _templateFilter.contains(s.templateName.trim()),
+      );
     }
     final visible = filtered.toList();
     int sizeOf(AiSession s) => _diskBytes[s.id] ?? _estimateBytes(s);
@@ -949,11 +969,17 @@ class _ThreadSessionManagementDialogState
       case _SortMode.sizeDesc:
         visible.sort((a, b) => sizeOf(b).compareTo(sizeOf(a)));
       case _SortMode.messagesDesc:
-        visible.sort((a, b) => b.statistics.totalMessageCount
-            .compareTo(a.statistics.totalMessageCount));
+        visible.sort(
+          (a, b) => b.statistics.totalMessageCount.compareTo(
+            a.statistics.totalMessageCount,
+          ),
+        );
       case _SortMode.tokenDesc:
-        visible.sort((a, b) => (b.statistics.totalTokens ?? 0)
-            .compareTo(a.statistics.totalTokens ?? 0));
+        visible.sort(
+          (a, b) => (b.statistics.totalTokens ?? 0).compareTo(
+            a.statistics.totalTokens ?? 0,
+          ),
+        );
     }
     final theme = Theme.of(context);
     final mediaWidth = MediaQuery.sizeOf(context).width;
@@ -989,8 +1015,8 @@ class _ThreadSessionManagementDialogState
                       ),
                       AnimatedSize(
                         duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 220),
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.centerLeft,
                         child: _previewSession == null
@@ -1049,11 +1075,9 @@ class _ThreadSessionManagementDialogState
                     decoration: InputDecoration(
                       isDense: true,
                       prefixIcon: const Icon(Icons.search, size: 18),
-                      hintText:
-                          AppLocalizations.of(context)!.tsmSearchHint,
+                      hintText: AppLocalizations.of(context)!.tsmSearchHint,
                       border: const OutlineInputBorder(),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
                     onChanged: (value) => setState(() => _searchQuery = value),
                   ),
@@ -1082,9 +1106,7 @@ class _ThreadSessionManagementDialogState
                     : AppLocalizations.of(context)!.tsmDensityCompact,
                 child: IconButton(
                   icon: Icon(
-                    _denseMode
-                        ? Icons.density_medium
-                        : Icons.density_small,
+                    _denseMode ? Icons.density_medium : Icons.density_small,
                   ),
                   onPressed: () => setState(() => _denseMode = !_denseMode),
                 ),
@@ -1098,9 +1120,7 @@ class _ThreadSessionManagementDialogState
               runSpacing: 4,
               children: [
                 FilterChip(
-                  label: Text(
-                    AppLocalizations.of(context)!.tsmAllTemplates,
-                  ),
+                  label: Text(AppLocalizations.of(context)!.tsmAllTemplates),
                   selected: _templateFilter.isEmpty,
                   onSelected: (_) => setState(() => _templateFilter.clear()),
                 ),
@@ -1125,8 +1145,9 @@ class _ThreadSessionManagementDialogState
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                AppLocalizations.of(context)!
-                    .tsmSortDisabledHint(_sortModeLabel(_sortMode)),
+                AppLocalizations.of(
+                  context,
+                )!.tsmSortDisabledHint(_sortModeLabel(_sortMode)),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -1166,10 +1187,7 @@ class _ThreadSessionManagementDialogState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l10n.tsmTitle,
-                  style: theme.textTheme.titleLarge,
-                ),
+                Text(l10n.tsmTitle, style: theme.textTheme.titleLarge),
                 const SizedBox(height: 4),
                 Text(
                   l10n.tsmHeaderSubtitle(totalCount),
@@ -1221,7 +1239,8 @@ class _ThreadSessionManagementDialogState
   }
 
   Widget _buildSelectionToolbar(ThemeData theme, List<AiSession> sessions) {
-    final allSelected = sessions.isNotEmpty &&
+    final allSelected =
+        sessions.isNotEmpty &&
         sessions.every((s) => _selectedIds.contains(s.id));
     return Container(
       color: theme.colorScheme.surfaceContainerHighest,
@@ -1242,27 +1261,20 @@ class _ThreadSessionManagementDialogState
             },
           ),
           Text(
-            AppLocalizations.of(context)!
-                .tsmSelectedCount(_selectedIds.length),
+            AppLocalizations.of(context)!.tsmSelectedCount(_selectedIds.length),
             style: theme.textTheme.bodyMedium,
           ),
           const Spacer(),
           TextButton.icon(
-            onPressed:
-                _selectedIds.isEmpty ? null : _batchExportSelected,
+            onPressed: _selectedIds.isEmpty ? null : _batchExportSelected,
             icon: const Icon(Icons.download_outlined),
-            label: Text(
-              AppLocalizations.of(context)!.tsmBatchExportButton,
-            ),
+            label: Text(AppLocalizations.of(context)!.tsmBatchExportButton),
           ),
           const SizedBox(width: 8),
           TextButton.icon(
-            onPressed:
-                _selectedIds.isEmpty ? null : _confirmDeleteSelected,
+            onPressed: _selectedIds.isEmpty ? null : _confirmDeleteSelected,
             icon: const Icon(Icons.delete_outline),
-            label: Text(
-              AppLocalizations.of(context)!.tsmDeleteSelectedButton,
-            ),
+            label: Text(AppLocalizations.of(context)!.tsmDeleteSelectedButton),
           ),
         ],
       ),
@@ -1276,15 +1288,16 @@ class _ThreadSessionManagementDialogState
         child: Text(
           AppLocalizations.of(context)!.tsmEmptyState,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
     );
   }
 
   Widget _buildList(List<AiSession> sessions) {
-    final canReorder = _sortMode == _SortMode.manual &&
+    final canReorder =
+        _sortMode == _SortMode.manual &&
         _searchQuery.trim().isEmpty &&
         _templateFilter.isEmpty;
 
@@ -1307,9 +1320,7 @@ class _ThreadSessionManagementDialogState
         formatDateTime: _formatDateTime,
         formatBytes: _formatBytes,
         estimateBytes: _estimateBytes,
-        onTap: _isSelectionMode
-            ? null
-            : () => _openPreview(session),
+        onTap: _isSelectionMode ? null : () => _openPreview(session),
         onToggleSelect: (checked) {
           setState(() {
             if (checked == true) {
@@ -1336,8 +1347,8 @@ class _ThreadSessionManagementDialogState
           alignment: Alignment.topCenter,
           child: AnimatedOpacity(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
             opacity: isAnimatingOut ? 0.0 : 1.0,
             child: isAnimatingOut
                 ? const SizedBox(width: double.infinity, height: 0)
@@ -1372,10 +1383,7 @@ class _ThreadSessionManagementDialogState
             final lerp = Curves.easeInOut.transform(animation.value);
             return Material(
               type: MaterialType.transparency,
-              child: Transform.scale(
-                scale: 1 + 0.02 * lerp,
-                child: child,
-              ),
+              child: Transform.scale(scale: 1 + 0.02 * lerp, child: child),
             );
           },
           child: child,
@@ -1466,29 +1474,25 @@ class _SessionRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final stats = session.statistics;
     final total = stats.totalMessageCount;
-    String pct(int n) =>
-        total == 0 ? '0%' : '${(100 * n / total).round()}%';
+    String pct(int n) => total == 0 ? '0%' : '${(100 * n / total).round()}%';
     final tokenSummary = stats.totalTokens != null
         ? '${stats.totalTokens} '
-            '(in ${stats.totalPromptTokens ?? 0} / out '
-            '${stats.totalCompletionTokens ?? 0})'
+              '(in ${stats.totalPromptTokens ?? 0} / out '
+              '${stats.totalCompletionTokens ?? 0})'
         : l10n.tsmRowUnknown;
     final bytes = diskBytes ?? estimateBytes(session);
     final isApproxBytes = diskBytes == null;
 
     final card = Card(
-      margin: EdgeInsets.symmetric(
-        vertical: denseMode ? 2 : 4,
-        horizontal: 4,
-      ),
+      margin: EdgeInsets.symmetric(vertical: denseMode ? 2 : 4, horizontal: 4),
       elevation: 0,
       shape: RoundedRectangleBorder(
         side: BorderSide(
           color: isPreviewing
               ? theme.colorScheme.primary
               : (isSelected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outlineVariant),
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outlineVariant),
           width: isPreviewing ? 1.4 : 1,
         ),
         borderRadius: BorderRadius.circular(10),
@@ -1560,73 +1564,73 @@ class _SessionRow extends StatelessWidget {
                           ),
                         ],
                       ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 14,
-                      runSpacing: 4,
-                      children: [
-                        _MetaChip(
-                          icon: Icons.add_circle_outline,
-                          label: l10n.tsmRowCreated,
-                          value: formatDateTime(context, session.createdAt),
-                        ),
-                        _MetaChip(
-                          icon: Icons.update,
-                          label: l10n.tsmRowUpdated,
-                          value: formatDateTime(context, session.updatedAt),
-                        ),
-                        _MetaChip(
-                          icon: Icons.storage_outlined,
-                          label: l10n.tsmRowSize,
-                          value: isApproxBytes
-                              ? '~ ${formatBytes(bytes)}'
-                              : formatBytes(bytes),
-                        ),
-                        _MetaChip(
-                          icon: Icons.forum_outlined,
-                          label: l10n.tsmRowMessages,
-                          value: '$total',
-                        ),
-                        _MetaChip(
-                          icon: Icons.bolt_outlined,
-                          label: l10n.tsmRowToken,
-                          value: tokenSummary,
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 4,
+                        children: [
+                          _MetaChip(
+                            icon: Icons.add_circle_outline,
+                            label: l10n.tsmRowCreated,
+                            value: formatDateTime(context, session.createdAt),
+                          ),
+                          _MetaChip(
+                            icon: Icons.update,
+                            label: l10n.tsmRowUpdated,
+                            value: formatDateTime(context, session.updatedAt),
+                          ),
+                          _MetaChip(
+                            icon: Icons.storage_outlined,
+                            label: l10n.tsmRowSize,
+                            value: isApproxBytes
+                                ? '~ ${formatBytes(bytes)}'
+                                : formatBytes(bytes),
+                          ),
+                          _MetaChip(
+                            icon: Icons.forum_outlined,
+                            label: l10n.tsmRowMessages,
+                            value: '$total',
+                          ),
+                          _MetaChip(
+                            icon: Icons.bolt_outlined,
+                            label: l10n.tsmRowToken,
+                            value: tokenSummary,
+                          ),
+                        ],
+                      ),
+                      if (total > 0 && !denseMode) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${l10n.tsmRowByKind}: '
+                          'user ${pct(stats.userMessageCount)} · '
+                          'assistant ${pct(stats.assistantMessageCount)} · '
+                          'tool ${pct(stats.toolMessageCount)} · '
+                          'mcp ${pct(stats.mcpMessageCount)} · '
+                          'skill ${pct(stats.skillMessageCount)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
-                    ),
-                    if (total > 0 && !denseMode) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        '${l10n.tsmRowByKind}: '
-                        'user ${pct(stats.userMessageCount)} · '
-                        'assistant ${pct(stats.assistantMessageCount)} · '
-                        'tool ${pct(stats.toolMessageCount)} · '
-                        'mcp ${pct(stats.mcpMessageCount)} · '
-                        'skill ${pct(stats.skillMessageCount)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
                     ],
-                  ],
-                ),
-              ),
-              if (showDragHandle)
-                ReorderableDragStartListener(
-                  index: index,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 4, top: 4),
-                    child: Icon(
-                      Icons.drag_indicator,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
                   ),
                 ),
-            ],
+                if (showDragHandle)
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 4),
+                      child: Icon(
+                        Icons.drag_indicator,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
-        ),
     );
     return HoverLift(child: card);
   }
@@ -1657,10 +1661,7 @@ class _MetaChip extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        Text(
-          value,
-          style: theme.textTheme.bodySmall,
-        ),
+        Text(value, style: theme.textTheme.bodySmall),
       ],
     );
   }

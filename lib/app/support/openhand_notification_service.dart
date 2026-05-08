@@ -56,7 +56,9 @@ abstract final class OpenHandNotificationService {
 
     final text = body.trim().isEmpty ? title : '$title\n$body';
 
-    messenger.showSnackBar(
+    OpenHandSnackBar.show(
+      context,
+      messenger,
       OpenHandSnackBar.notification(
         context,
         message: text,
@@ -107,14 +109,10 @@ abstract final class OpenHandNotificationService {
   }) async {
     final safeTitle = _escapeAppleScript(title);
     final safeBody = _escapeAppleScript(body);
-    final result = await runProcessWithTimeout(
-      'osascript',
-      [
-        '-e',
-        'display notification "$safeBody" with title "$safeTitle"',
-      ],
-      tag: 'openhand_notification_service',
-    );
+    final result = await runProcessWithTimeout('osascript', [
+      '-e',
+      'display notification "$safeBody" with title "$safeTitle"',
+    ], tag: 'openhand_notification_service');
     return result?.exitCode == 0;
   }
 
@@ -256,11 +254,10 @@ $notifier.Show($toast)
       );
       if (result?.exitCode == 0) return true;
     }
-    final fallback = await runProcessWithTimeout(
-      'osascript',
-      ['-e', 'beep'],
-      tag: 'openhand_notification_service',
-    );
+    final fallback = await runProcessWithTimeout('osascript', [
+      '-e',
+      'beep',
+    ], tag: 'openhand_notification_service');
     return fallback?.exitCode == 0;
   }
 
@@ -285,9 +282,7 @@ $notifier.Show($toast)
       if (await _commandExists('paplay')) {
         final result = await runProcessWithTimeout(
           'paplay',
-          const <String>[
-            '/usr/share/sounds/freedesktop/stereo/message.oga',
-          ],
+          const <String>['/usr/share/sounds/freedesktop/stereo/message.oga'],
           timeout: const Duration(seconds: 5),
           tag: 'openhand_notification_service',
         );

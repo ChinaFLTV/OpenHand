@@ -17,6 +17,7 @@ import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/hover_lift.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import 'instructions_controller.dart';
 import 'model/user_instruction_entry.dart';
 
@@ -1048,9 +1049,12 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
       if (ok) {
         Navigator.of(context).pop();
       } else {
-        ScaffoldMessenger.of(
+        final messenger = ScaffoldMessenger.of(context);
+        OpenHandSnackBar.show(
           context,
-        ).showSnackBar(SnackBar(content: Text(l10n.instructionSaveFailed)));
+          messenger,
+          SnackBar(content: Text(l10n.instructionSaveFailed)),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);

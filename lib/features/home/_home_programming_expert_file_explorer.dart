@@ -8334,7 +8334,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       final isZh = Localizations.localeOf(
         context,
       ).languageCode.startsWith('zh');
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showHomeSnackBar(
+        context,
         SnackBar(
           content: Text(
             isZh

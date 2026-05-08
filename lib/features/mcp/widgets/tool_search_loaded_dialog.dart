@@ -10,6 +10,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/animated_dialog.dart';
+import '../../../shared/widgets/openhand_snack_bar.dart';
 import '../../ai/service/mcp_loaded_tools_tracker.dart';
 import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
@@ -34,6 +35,12 @@ Future<void> showToolSearchLoadedDialog(
       onReplayBatch: onReplayBatch,
     ),
   );
+}
+
+void _showToolSearchSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  OpenHandSnackBar.show(context, messenger, snackBar);
 }
 
 /// 列出本会话已通过 `ToolSearch` 加载的 MCP 工具完整名（含 `mcp__` 前缀）。
@@ -156,7 +163,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     });
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    _showToolSearchSnackBar(
+      context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedClearedToast),
         behavior: SnackBarBehavior.floating,
@@ -169,7 +177,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    _showToolSearchSnackBar(
+      context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedCopiedToast),
         behavior: SnackBarBehavior.floating,
@@ -184,7 +193,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    _showToolSearchSnackBar(
+      context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedCopiedToast),
         behavior: SnackBarBehavior.floating,
@@ -210,7 +220,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    _showToolSearchSnackBar(
+      context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedCopiedToast),
         behavior: SnackBarBehavior.floating,
@@ -225,7 +236,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     });
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    _showToolSearchSnackBar(
+      context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedHistoryClearedToast),
         behavior: SnackBarBehavior.floating,
@@ -243,7 +255,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (l10n == null) return;
     final entries = _filterHistory(_history);
     if (entries.isEmpty) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      _showToolSearchSnackBar(
+        context,
         SnackBar(
           content: Text(l10n.snackToolSearchLoadedHistoryExportEmptyToast),
           behavior: SnackBarBehavior.floating,
@@ -261,7 +274,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (action.destination == _HistoryExportDestination.clipboard) {
       await Clipboard.setData(ClipboardData(text: payload));
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      _showToolSearchSnackBar(
+        context,
         SnackBar(
           content: Text(
             l10n.snackToolSearchLoadedHistoryExportedToast(entries.length),
@@ -299,7 +313,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         stack,
       );
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      _showToolSearchSnackBar(
+        context,
         SnackBar(
           content: Text(
             l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
@@ -320,7 +335,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         stack,
       );
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      _showToolSearchSnackBar(
+        context,
         SnackBar(
           content: Text(
             l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
@@ -334,7 +350,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     final savedPath = location.path;
     // Remember the directory for next export.
     unawaited(ToolSearchHistoryExportPrefs.writeLastDir(p.dirname(savedPath)));
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    _showToolSearchSnackBar(
+      context,
       SnackBar(
         content: Text(
           l10n.snackToolSearchLoadedHistoryExportSavedToast(
@@ -415,7 +432,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         stack,
       );
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      _showToolSearchSnackBar(
+        context,
         SnackBar(
           content: Text(
             l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),
@@ -430,7 +448,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       entries = ToolSearchHistorySerializer.fromJson(raw);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      _showToolSearchSnackBar(
+        context,
         SnackBar(
           content: Text(
             l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),

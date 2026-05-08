@@ -2,6 +2,12 @@
 
 part of 'settings_view.dart';
 
+void _showDataCleanupSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  OpenHandSnackBar.show(context, messenger, snackBar);
+}
+
 /// 2026-04-26 — 全局设置 → 应用数据 → 数据清理 UI section。
 ///
 /// 这是一个独立的 [StatefulWidget]，自己持有 [DataCleanupService] 实例，
@@ -29,12 +35,10 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
   final Map<DataCleanupCategory, DataCleanupSizeReport> _reports = {};
 
   /// 标记某个分类正在执行清理，用以禁用按钮。
-  final Set<DataCleanupCategory> _cleaningCategories =
-      <DataCleanupCategory>{};
+  final Set<DataCleanupCategory> _cleaningCategories = <DataCleanupCategory>{};
 
   /// 标记某个分类正在执行测算，用以展示 progress 占位符。
-  final Set<DataCleanupCategory> _measuringCategories =
-      <DataCleanupCategory>{};
+  final Set<DataCleanupCategory> _measuringCategories = <DataCleanupCategory>{};
 
   /// 自增令牌：保护异步回调对应的 setState 不被旧请求覆盖。
   int _measureToken = 0;
@@ -80,12 +84,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       try {
         report = await task();
       } catch (error, stack) {
-        silentLog(
-          'data_cleanup',
-          'measure/${category.name}',
-          error,
-          stack,
-        );
+        silentLog('data_cleanup', 'measure/${category.name}', error, stack);
         report = DataCleanupSizeReport.unknown;
       }
       if (!mounted || token != _measureToken) {
@@ -143,11 +142,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       builder: (dialogContext) => _DataCleanupConfirmDialog(
         title: _categoryTitle(dialogContext, category),
         body: _categoryConfirmBody(dialogContext, category),
-        confirmLabel: _localizedText(
-          dialogContext,
-          zh: '清理',
-          en: 'Clean',
-        ),
+        confirmLabel: _localizedText(dialogContext, zh: '清理', en: 'Clean'),
         cancelLabel: l10n.commonCancel,
         isDestructive: true,
       ),
@@ -211,10 +206,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
         case DataCleanupCategory.wipeAll:
           final errors = await _service.cleanAll();
           if (errors > 0) {
-            errorText = partialFailureTemplate.replaceAll(
-              '{count}',
-              '$errors',
-            );
+            errorText = partialFailureTemplate.replaceAll('{count}', '$errors');
           }
           break;
       }
@@ -229,11 +221,10 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       }
     }
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
     if (errorText != null) {
-      messenger?.showSnackBar(SnackBar(content: Text(errorText)));
+      _showDataCleanupSnackBar(context, SnackBar(content: Text(errorText)));
     } else {
-      messenger?.showSnackBar(SnackBar(content: Text(successText)));
+      _showDataCleanupSnackBar(context, SnackBar(content: Text(successText)));
     }
     // 重新测算，让 UI 反映最新体积。
     await _measureAll();
@@ -328,7 +319,8 @@ class _DataCleanupRow extends StatelessWidget {
                   en: '$itemCount item${itemCount == 1 ? '' : 's'}',
                 )
               : null);
-    final canClean = !isCleaning &&
+    final canClean =
+        !isCleaning &&
         !isMeasuring &&
         report != null &&
         (report!.bytes > 0 || (report!.itemCount ?? 0) > 0);
@@ -404,33 +396,34 @@ class _DataCleanupRow extends StatelessWidget {
         // 用 ButtonStyle 锁住内边距 / 触控目标 / 文本样式，避免 M3 默认
         // FilledButton.icon 在外层 `SizedBox(height: 40)` 下会把 label
         // 挤出可视区（icon + 文本叠在一起，看起来"按钮文本不见了"）。
-        final buttonStyle = FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          minimumSize: const Size(112, 40),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
-          textStyle: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            height: 1.15,
-          ),
-        ).copyWith(
-          backgroundColor: isDestructive
-              ? WidgetStateProperty.resolveWith<Color?>((states) {
-                  if (states.contains(WidgetState.disabled)) {
-                    return colorScheme.error.withValues(alpha: 0.32);
-                  }
-                  return colorScheme.error;
-                })
-              : null,
-          foregroundColor: isDestructive
-              ? WidgetStateProperty.resolveWith<Color?>((states) {
-                  if (states.contains(WidgetState.disabled)) {
-                    return colorScheme.onError.withValues(alpha: 0.7);
-                  }
-                  return colorScheme.onError;
-                })
-              : null,
-        );
+        final buttonStyle =
+            FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              minimumSize: const Size(112, 40),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
+              textStyle: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                height: 1.15,
+              ),
+            ).copyWith(
+              backgroundColor: isDestructive
+                  ? WidgetStateProperty.resolveWith<Color?>((states) {
+                      if (states.contains(WidgetState.disabled)) {
+                        return colorScheme.error.withValues(alpha: 0.32);
+                      }
+                      return colorScheme.error;
+                    })
+                  : null,
+              foregroundColor: isDestructive
+                  ? WidgetStateProperty.resolveWith<Color?>((states) {
+                      if (states.contains(WidgetState.disabled)) {
+                        return colorScheme.onError.withValues(alpha: 0.7);
+                      }
+                      return colorScheme.onError;
+                    })
+                  : null,
+            );
         final cleanIcon = isCleaning
             ? SizedBox(
                 width: 14,
@@ -537,10 +530,7 @@ class _DataCleanupConfirmDialog extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      title,
-                      style: theme.textTheme.headlineSmall,
-                    ),
+                    child: Text(title, style: theme.textTheme.headlineSmall),
                   ),
                 ],
               ),
@@ -619,10 +609,7 @@ String _categoryTitle(BuildContext context, DataCleanupCategory category) {
   }
 }
 
-String _categorySubtitle(
-  BuildContext context,
-  DataCleanupCategory category,
-) {
+String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
   switch (category) {
     case DataCleanupCategory.multimedia:
       return _localizedText(
@@ -779,14 +766,21 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         setState(() => _lastGcStats = gc);
         _cleanupPulse.value += 1;
         // SnackBar 反馈与 undo/redo 节奏一致：2s。
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        _showDataCleanupSnackBar(
+          context,
           SnackBar(
             duration: const Duration(seconds: 2),
-            content: Text(_localizedText(context,
-                zh: '已清理 · 释放 ${gc.removed} 个 blob · '
+            content: Text(
+              _localizedText(
+                context,
+                zh:
+                    '已清理 · 释放 ${gc.removed} 个 blob · '
                     '${formatHumanBytes(gc.bytesFreed)}',
-                en: 'Cleaned · ${gc.removed} blob(s) · '
-                    '${formatHumanBytes(gc.bytesFreed)} freed')),
+                en:
+                    'Cleaned · ${gc.removed} blob(s) · '
+                    '${formatHumanBytes(gc.bytesFreed)} freed',
+              ),
+            ),
           ),
         );
       }
@@ -805,33 +799,53 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
 
   // ─────────────────────── 阶段⑱：跨会话搜索 / 导出 / 导入 ───────────────────
   Future<void> _exportLedgerToClipboard() async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final pendingText = _localizedText(context,
-        zh: '正在导出全部 ledger…', en: 'Exporting all ledger…');
-    messenger?.showSnackBar(SnackBar(
-      duration: const Duration(seconds: 1),
-      content: Text(pendingText),
-    ));
+    final pendingText = _localizedText(
+      context,
+      zh: '正在导出全部 ledger…',
+      en: 'Exporting all ledger…',
+    );
+    _showDataCleanupSnackBar(
+      context,
+      SnackBar(
+        duration: const Duration(seconds: 1),
+        content: Text(pendingText),
+      ),
+    );
     try {
       final json = await _ledger.exportBundleJson();
       await Clipboard.setData(ClipboardData(text: json));
       _cleanupPulse.value += 1;
       if (!mounted) return;
       final bytes = utf8.encode(json).length;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        duration: const Duration(seconds: 2),
-        content: Text(_localizedText(context,
-            zh: '已复制 ledger bundle · ${formatHumanBytes(bytes)}',
-            en: 'Copied ledger bundle · ${formatHumanBytes(bytes)}')),
-      ));
+      _showDataCleanupSnackBar(
+        context,
+        SnackBar(
+          duration: const Duration(seconds: 2),
+          content: Text(
+            _localizedText(
+              context,
+              zh: '已复制 ledger bundle · ${formatHumanBytes(bytes)}',
+              en: 'Copied ledger bundle · ${formatHumanBytes(bytes)}',
+            ),
+          ),
+        ),
+      );
     } catch (error, stack) {
       silentLog('ledger_export', 'export', error, stack);
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        backgroundColor: Theme.of(context).colorScheme.error,
-        content: Text(_localizedText(context,
-            zh: '导出失败：$error', en: 'Export failed: $error')),
-      ));
+      _showDataCleanupSnackBar(
+        context,
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text(
+            _localizedText(
+              context,
+              zh: '导出失败：$error',
+              en: 'Export failed: $error',
+            ),
+          ),
+        ),
+      );
     }
   }
 
@@ -840,23 +854,34 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     final raw = clip?.text ?? '';
     if (!mounted) return;
     if (raw.trim().isEmpty) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        content: Text(_localizedText(context,
-            zh: '剪贴板为空', en: 'Clipboard is empty')),
-      ));
+      _showDataCleanupSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '剪贴板为空', en: 'Clipboard is empty'),
+          ),
+        ),
+      );
       return;
     }
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => _DataCleanupConfirmDialog(
-        title: _localizedText(ctx,
-            zh: '从剪贴板导入 ledger', en: 'Import ledger from clipboard'),
-        body: _localizedText(ctx,
-            zh: '将合并剪贴板中的 ledger bundle 到当前 file_history 目录。'
-                '同 recordId 的条目会跳过。该操作不可撤销。',
-            en: 'The ledger bundle in your clipboard will be merged into the '
-                'current file_history. Records with duplicate ids are '
-                'skipped. This cannot be undone.'),
+        title: _localizedText(
+          ctx,
+          zh: '从剪贴板导入 ledger',
+          en: 'Import ledger from clipboard',
+        ),
+        body: _localizedText(
+          ctx,
+          zh:
+              '将合并剪贴板中的 ledger bundle 到当前 file_history 目录。'
+              '同 recordId 的条目会跳过。该操作不可撤销。',
+          en:
+              'The ledger bundle in your clipboard will be merged into the '
+              'current file_history. Records with duplicate ids are '
+              'skipped. This cannot be undone.',
+        ),
         confirmLabel: _localizedText(ctx, zh: '导入', en: 'Import'),
         cancelLabel: AppLocalizations.of(ctx)!.commonCancel,
         isDestructive: false,
@@ -869,20 +894,35 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       _cleanupPulse.value += 1;
       await _refreshStats();
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        duration: const Duration(seconds: 2),
-        content: Text(_localizedText(context,
-            zh: '已导入 $imported 条新记录',
-            en: 'Imported $imported new record(s)')),
-      ));
+      _showDataCleanupSnackBar(
+        context,
+        SnackBar(
+          duration: const Duration(seconds: 2),
+          content: Text(
+            _localizedText(
+              context,
+              zh: '已导入 $imported 条新记录',
+              en: 'Imported $imported new record(s)',
+            ),
+          ),
+        ),
+      );
     } catch (error, stack) {
       silentLog('ledger_import', 'import', error, stack);
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        backgroundColor: Theme.of(context).colorScheme.error,
-        content: Text(_localizedText(context,
-            zh: '导入失败：$error', en: 'Import failed: $error')),
-      ));
+      _showDataCleanupSnackBar(
+        context,
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text(
+            _localizedText(
+              context,
+              zh: '导入失败：$error',
+              en: 'Import failed: $error',
+            ),
+          ),
+        ),
+      );
     }
   }
 
@@ -924,159 +964,200 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     return Stack(
       children: [
         Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.tune_rounded, size: 16, color: cs.primary),
-              const SizedBox(width: 8),
-              Text(
-                _localizedText(context,
-                    zh: '文件变动历史 — 高级控制', en: 'File Mutation Ledger — Advanced'),
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(fontWeight: FontWeight.w600),
+              Row(
+                children: [
+                  Icon(Icons.tune_rounded, size: 16, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '文件变动历史 — 高级控制',
+                      en: 'File Mutation Ledger — Advanced',
+                    ),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_stats != null)
+                    Text(
+                      _localizedText(
+                        context,
+                        zh:
+                            '${_stats!.sessionCount} 会话 · '
+                            '${_stats!.recordCount} 条 · '
+                            '${_stats!.blobCount} blobs',
+                        en:
+                            '${_stats!.sessionCount} sessions · '
+                            '${_stats!.recordCount} records · '
+                            '${_stats!.blobCount} blobs',
+                      ),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                ],
               ),
-              const Spacer(),
-              if (_stats != null)
-                Text(
-                  _localizedText(context,
-                      zh: '${_stats!.sessionCount} 会话 · '
-                          '${_stats!.recordCount} 条 · '
-                          '${_stats!.blobCount} blobs',
-                      en: '${_stats!.sessionCount} sessions · '
-                          '${_stats!.recordCount} records · '
-                          '${_stats!.blobCount} blobs'),
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+              const SizedBox(height: 6),
+              _SliderRow(
+                label: _localizedText(
+                  context,
+                  zh: '每文件最多保留 N 条历史',
+                  en: 'Max versions per file',
                 ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          _SliderRow(
-            label: _localizedText(context,
-                zh: '每文件最多保留 N 条历史',
-                en: 'Max versions per file'),
-            valueText: config.maxVersionsPerFile == 0
-                ? _localizedText(context, zh: '不限制', en: 'Unlimited')
-                : '${config.maxVersionsPerFile}',
-            value: config.maxVersionsPerFile.toDouble(),
-            min: LedgerConfig.minMaxVersionsPerFile.toDouble(),
-            max: LedgerConfig.maxMaxVersionsPerFile.toDouble(),
-            divisions: LedgerConfig.maxMaxVersionsPerFile,
-            onChanged: (v) => _scheduleSave(
-                config.copyWith(maxVersionsPerFile: v.round())),
-          ),
-          _SliderRow(
-            label: _localizedText(context,
-                zh: 'N 天前的历史自动清理（启动时）',
-                en: 'Auto-cleanup older than N days (on launch)'),
-            valueText: config.autoCleanupDays == 0
-                ? _localizedText(context, zh: '关闭', en: 'Disabled')
-                : _localizedText(context,
-                    zh: '${config.autoCleanupDays} 天',
-                    en: '${config.autoCleanupDays} days'),
-            value: config.autoCleanupDays.toDouble(),
-            min: LedgerConfig.minAutoCleanupDays.toDouble(),
-            max: LedgerConfig.maxAutoCleanupDays.toDouble(),
-            divisions: LedgerConfig.maxAutoCleanupDays,
-            onChanged: (v) => _scheduleSave(
-                config.copyWith(autoCleanupDays: v.round())),
-          ),
-          // 阶段 ⑬c：mini-diff 阈值（KiB）。在 (阈值, 256 KiB] 区间，
-          // unifiedDiffLineSummary 仅保留 +/- 行。
-          _SliderRow(
-            label: _localizedText(context,
-                zh: 'Mini-diff 阈值（超过则仅保留 +/- 行）',
-                en: 'Mini-diff threshold (drop context above)'),
-            valueText: config.miniDiffMaxBytes == 0
-                ? _localizedText(context, zh: '禁用', en: 'Disabled')
-                : '${(config.miniDiffMaxBytes / 1024).round()} KiB',
-            value: config.miniDiffMaxBytes.toDouble(),
-            min: LedgerConfig.minMiniDiffMaxBytes.toDouble(),
-            max: LedgerConfig.maxMiniDiffMaxBytes.toDouble(),
-            divisions: 32,
-            onChanged: (v) {
-              // 对齐到 8 KiB step
-              const step = 8 * 1024;
-              final snapped = ((v / step).round() * step)
-                  .clamp(LedgerConfig.minMiniDiffMaxBytes,
-                      LedgerConfig.maxMiniDiffMaxBytes);
-              _scheduleSave(
-                  config.copyWith(miniDiffMaxBytes: snapped));
-            },
-          ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 4,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                TextButton.icon(
-                  onPressed: () => _openLedgerSearchDialog(),
-                  icon: Icon(Icons.search_rounded, size: 16, color: cs.primary),
-                  label: Text(_localizedText(context,
-                      zh: '搜索…', en: 'Search…')),
+                valueText: config.maxVersionsPerFile == 0
+                    ? _localizedText(context, zh: '不限制', en: 'Unlimited')
+                    : '${config.maxVersionsPerFile}',
+                value: config.maxVersionsPerFile.toDouble(),
+                min: LedgerConfig.minMaxVersionsPerFile.toDouble(),
+                max: LedgerConfig.maxMaxVersionsPerFile.toDouble(),
+                divisions: LedgerConfig.maxMaxVersionsPerFile,
+                onChanged: (v) => _scheduleSave(
+                  config.copyWith(maxVersionsPerFile: v.round()),
                 ),
-                TextButton.icon(
-                  onPressed: () => _exportLedgerToClipboard(),
-                  icon: Icon(Icons.ios_share_rounded,
-                      size: 16, color: cs.primary),
-                  label: Text(_localizedText(context,
-                      zh: '导出全部', en: 'Export all')),
+              ),
+              _SliderRow(
+                label: _localizedText(
+                  context,
+                  zh: 'N 天前的历史自动清理（启动时）',
+                  en: 'Auto-cleanup older than N days (on launch)',
                 ),
-                TextButton.icon(
-                  onPressed: () => _importLedgerFromClipboard(),
-                  icon: Icon(Icons.download_rounded,
-                      size: 16, color: cs.primary),
-                  label: Text(_localizedText(context,
-                      zh: '从剪贴板导入', en: 'Import from clipboard')),
+                valueText: config.autoCleanupDays == 0
+                    ? _localizedText(context, zh: '关闭', en: 'Disabled')
+                    : _localizedText(
+                        context,
+                        zh: '${config.autoCleanupDays} 天',
+                        en: '${config.autoCleanupDays} days',
+                      ),
+                value: config.autoCleanupDays.toDouble(),
+                min: LedgerConfig.minAutoCleanupDays.toDouble(),
+                max: LedgerConfig.maxAutoCleanupDays.toDouble(),
+                divisions: LedgerConfig.maxAutoCleanupDays,
+                onChanged: (v) =>
+                    _scheduleSave(config.copyWith(autoCleanupDays: v.round())),
+              ),
+              // 阶段 ⑬c：mini-diff 阈值（KiB）。在 (阈值, 256 KiB] 区间，
+              // unifiedDiffLineSummary 仅保留 +/- 行。
+              _SliderRow(
+                label: _localizedText(
+                  context,
+                  zh: 'Mini-diff 阈值（超过则仅保留 +/- 行）',
+                  en: 'Mini-diff threshold (drop context above)',
                 ),
-                TextButton.icon(
-                  onPressed: _pruneNowBusy ? null : _pruneNow,
-                  icon: _pruneNowBusy
-                      ? SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: cs.primary),
-                        )
-                      : Icon(Icons.cleaning_services_rounded,
-                          size: 16, color: cs.primary),
-                  label: Text(_localizedText(context,
-                      zh: '立即清理超期', en: 'Prune now')),
+                valueText: config.miniDiffMaxBytes == 0
+                    ? _localizedText(context, zh: '禁用', en: 'Disabled')
+                    : '${(config.miniDiffMaxBytes / 1024).round()} KiB',
+                value: config.miniDiffMaxBytes.toDouble(),
+                min: LedgerConfig.minMiniDiffMaxBytes.toDouble(),
+                max: LedgerConfig.maxMiniDiffMaxBytes.toDouble(),
+                divisions: 32,
+                onChanged: (v) {
+                  // 对齐到 8 KiB step
+                  const step = 8 * 1024;
+                  final snapped = ((v / step).round() * step).clamp(
+                    LedgerConfig.minMiniDiffMaxBytes,
+                    LedgerConfig.maxMiniDiffMaxBytes,
+                  );
+                  _scheduleSave(config.copyWith(miniDiffMaxBytes: snapped));
+                },
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 4,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _openLedgerSearchDialog(),
+                      icon: Icon(
+                        Icons.search_rounded,
+                        size: 16,
+                        color: cs.primary,
+                      ),
+                      label: Text(
+                        _localizedText(context, zh: '搜索…', en: 'Search…'),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _exportLedgerToClipboard(),
+                      icon: Icon(
+                        Icons.ios_share_rounded,
+                        size: 16,
+                        color: cs.primary,
+                      ),
+                      label: Text(
+                        _localizedText(context, zh: '导出全部', en: 'Export all'),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _importLedgerFromClipboard(),
+                      icon: Icon(
+                        Icons.download_rounded,
+                        size: 16,
+                        color: cs.primary,
+                      ),
+                      label: Text(
+                        _localizedText(
+                          context,
+                          zh: '从剪贴板导入',
+                          en: 'Import from clipboard',
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _pruneNowBusy ? null : _pruneNow,
+                      icon: _pruneNowBusy
+                          ? SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: cs.primary,
+                              ),
+                            )
+                          : Icon(
+                              Icons.cleaning_services_rounded,
+                              size: 16,
+                              color: cs.primary,
+                            ),
+                      label: Text(
+                        _localizedText(context, zh: '立即清理超期', en: 'Prune now'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_lastGcStats != null) ...[
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    _localizedText(
+                      context,
+                      zh: '上次 GC 释放 ${_lastGcStats!.removed} 个 blob · ${formatHumanBytes(_lastGcStats!.bytesFreed)}',
+                      en: 'Last GC freed ${_lastGcStats!.removed} blob(s) · ${formatHumanBytes(_lastGcStats!.bytesFreed)}',
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ],
-            ),
+            ],
           ),
-          if (_lastGcStats != null) ...[
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                _localizedText(context,
-                    zh:
-                        '上次 GC 释放 ${_lastGcStats!.removed} 个 blob · ${formatHumanBytes(_lastGcStats!.bytesFreed)}',
-                    en:
-                        'Last GC freed ${_lastGcStats!.removed} blob(s) · ${formatHumanBytes(_lastGcStats!.bytesFreed)}'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    ),
+        ),
         // 阶段 ⑮a：成功 prune 后顶部发一次 highlight pulse。
         Positioned(
           top: 0,
@@ -1120,9 +1201,12 @@ class _SliderRow extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(label,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Text(valueText, style: theme.textTheme.labelMedium),
@@ -1181,8 +1265,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
 
   void _scheduleSearch() {
     _searchDebounce?.cancel();
-    _searchDebounce =
-        Timer(const Duration(milliseconds: 220), _runSearch);
+    _searchDebounce = Timer(const Duration(milliseconds: 220), _runSearch);
   }
 
   Future<void> _runSearch() async {
@@ -1211,17 +1294,24 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   }
 
   Future<void> _copyResults() async {
-    final json = const JsonEncoder.withIndent('  ').convert(
-      _results.map((v) => v.record.toJson()).toList(),
-    );
+    final json = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(_results.map((v) => v.record.toJson()).toList());
     await Clipboard.setData(ClipboardData(text: json));
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-      duration: const Duration(seconds: 2),
-      content: Text(_localizedText(context,
-          zh: '已复制 ${_results.length} 条结果到剪贴板',
-          en: 'Copied ${_results.length} record(s) to clipboard')),
-    ));
+    _showDataCleanupSnackBar(
+      context,
+      SnackBar(
+        duration: const Duration(seconds: 2),
+        content: Text(
+          _localizedText(
+            context,
+            zh: '已复制 ${_results.length} 条结果到剪贴板',
+            en: 'Copied ${_results.length} record(s) to clipboard',
+          ),
+        ),
+      ),
+    );
   }
 
   /// 阶段⑱b：把当前过滤结果（含 blob）打成 bundle JSON 复制到剪贴板。
@@ -1229,29 +1319,40 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     if (_results.isEmpty) return;
     setState(() => _busy = true);
     try {
-      final bundle = await widget.ledger
-          .exportRecordsAsBundleJson(_results.map((v) => v.record));
+      final bundle = await widget.ledger.exportRecordsAsBundleJson(
+        _results.map((v) => v.record),
+      );
       await Clipboard.setData(ClipboardData(text: bundle));
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        duration: const Duration(seconds: 2),
-        content: Text(_localizedText(context,
-            zh: '已导出 ${_results.length} 条筛选结果（含 blob）到剪贴板',
-            en: 'Exported ${_results.length} filtered record(s) (with blobs)')),
-      ));
-    } catch (error, stack) {
-      silentLog(
-        '_LedgerSearchDialog',
-        'exportFilteredAsBundle',
-        error,
-        stack,
+      _showDataCleanupSnackBar(
+        context,
+        SnackBar(
+          duration: const Duration(seconds: 2),
+          content: Text(
+            _localizedText(
+              context,
+              zh: '已导出 ${_results.length} 条筛选结果（含 blob）到剪贴板',
+              en: 'Exported ${_results.length} filtered record(s) (with blobs)',
+            ),
+          ),
+        ),
       );
+    } catch (error, stack) {
+      silentLog('_LedgerSearchDialog', 'exportFilteredAsBundle', error, stack);
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        backgroundColor: Theme.of(context).colorScheme.errorContainer,
-        content: Text(_localizedText(context,
-            zh: '导出失败：$error', en: 'Export failed: $error')),
-      ));
+      _showDataCleanupSnackBar(
+        context,
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.errorContainer,
+          content: Text(
+            _localizedText(
+              context,
+              zh: '导出失败：$error',
+              en: 'Export failed: $error',
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1268,8 +1369,8 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
       child: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
           // 阶段⑲c：Esc 关闭搜索弹窗。
-          const SingleActivator(LogicalKeyboardKey.escape):
-              () => Navigator.of(context).maybePop(),
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              Navigator.of(context).maybePop(),
         },
         child: Focus(
           autofocus: true,
@@ -1286,105 +1387,115 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                 children: [
                   Row(
                     children: [
-                  Icon(Icons.search_rounded, color: cs.primary, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    _localizedText(context,
-                        zh: '搜索文件变动 ledger',
-                        en: 'Search file mutation ledger'),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _pathCtrl,
-                onChanged: (_) => _scheduleSearch(),
-                decoration: InputDecoration(
-                  isDense: true,
-                  prefixIcon: const Icon(Icons.folder_outlined, size: 16),
-                  hintText: _localizedText(context,
-                      zh: '路径包含（如 lib/features/...）',
-                      en: 'Path contains (e.g. lib/features/...)'),
-                ),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _toolCtrl,
-                onChanged: (_) => _scheduleSearch(),
-                decoration: InputDecoration(
-                  isDense: true,
-                  prefixIcon: const Icon(Icons.build_rounded, size: 16),
-                  hintText: _localizedText(context,
-                      zh: '工具名（逗号或空格分隔，如 Edit, Write）',
-                      en: 'Tool names (comma/space separated, e.g. Edit, Write)'),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  for (final k in FileMutationKind.values)
-                    FilterChip(
-                      label: Text(k.name),
-                      selected: _selectedKinds.contains(k),
-                      onSelected: (sel) {
-                        setState(() {
-                          if (sel) {
-                            _selectedKinds.add(k);
-                          } else {
-                            _selectedKinds.remove(k);
-                          }
-                        });
-                        _scheduleSearch();
-                      },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              // 阶段⑱b：时间范围预设。
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  for (final r in _LedgerTimeRange.values)
-                    ChoiceChip(
-                      label: Text(r.label(context)),
-                      selected: _timeRange == r,
-                      onSelected: (sel) {
-                        if (!sel) return;
-                        setState(() => _timeRange = r);
-                        _scheduleSearch();
-                      },
-                    ),
-                ],
-              ),
-              const Divider(height: 18),
-              Expanded(
-                child: _busy
-                    ? Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 1.8, color: cs.primary),
+                      Icon(Icons.search_rounded, color: cs.primary, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: '搜索文件变动 ledger',
+                          en: 'Search file mutation ledger',
                         ),
-                      )
-                    : _results.isEmpty
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _pathCtrl,
+                    onChanged: (_) => _scheduleSearch(),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.folder_outlined, size: 16),
+                      hintText: _localizedText(
+                        context,
+                        zh: '路径包含（如 lib/features/...）',
+                        en: 'Path contains (e.g. lib/features/...)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _toolCtrl,
+                    onChanged: (_) => _scheduleSearch(),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.build_rounded, size: 16),
+                      hintText: _localizedText(
+                        context,
+                        zh: '工具名（逗号或空格分隔，如 Edit, Write）',
+                        en: 'Tool names (comma/space separated, e.g. Edit, Write)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      for (final k in FileMutationKind.values)
+                        FilterChip(
+                          label: Text(k.name),
+                          selected: _selectedKinds.contains(k),
+                          onSelected: (sel) {
+                            setState(() {
+                              if (sel) {
+                                _selectedKinds.add(k);
+                              } else {
+                                _selectedKinds.remove(k);
+                              }
+                            });
+                            _scheduleSearch();
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // 阶段⑱b：时间范围预设。
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      for (final r in _LedgerTimeRange.values)
+                        ChoiceChip(
+                          label: Text(r.label(context)),
+                          selected: _timeRange == r,
+                          onSelected: (sel) {
+                            if (!sel) return;
+                            setState(() => _timeRange = r);
+                            _scheduleSearch();
+                          },
+                        ),
+                    ],
+                  ),
+                  const Divider(height: 18),
+                  Expanded(
+                    child: _busy
+                        ? Center(
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.8,
+                                color: cs.primary,
+                              ),
+                            ),
+                          )
+                        : _results.isEmpty
                         ? Center(
                             child: Text(
-                              _localizedText(context,
-                                  zh: '没有匹配的记录。',
-                                  en: 'No matching records.'),
+                              _localizedText(
+                                context,
+                                zh: '没有匹配的记录。',
+                                en: 'No matching records.',
+                              ),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),
@@ -1400,31 +1511,40 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                               final greyed = v.isEffectivelyUndone;
                               return Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 4, vertical: 6),
+                                  horizontal: 4,
+                                  vertical: 6,
+                                ),
                                 child: Row(
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 5, vertical: 1),
+                                        horizontal: 5,
+                                        vertical: 1,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: cs.primary.withValues(alpha: 0.10),
+                                        color: cs.primary.withValues(
+                                          alpha: 0.10,
+                                        ),
                                         borderRadius: const BorderRadius.all(
-                                            Radius.circular(4)),
+                                          Radius.circular(4),
+                                        ),
                                       ),
                                       child: Text(
                                         r.kind.name,
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: cs.primary,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: cs.primary,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                       ),
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       r.toolName,
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: cs.onSurfaceVariant,
-                                      ),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                          ),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -1432,62 +1552,85 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                                         path: r.filePath,
                                         query: _pathCtrl.text.trim(),
                                         baseColor: greyed
-                                            ? cs.onSurfaceVariant.withValues(alpha: 0.6)
+                                            ? cs.onSurfaceVariant.withValues(
+                                                alpha: 0.6,
+                                              )
                                             : cs.onSurface,
                                         decoration: greyed
                                             ? TextDecoration.lineThrough
                                             : null,
-                                        highlightBg: cs.primary.withValues(alpha: 0.18),
+                                        highlightBg: cs.primary.withValues(
+                                          alpha: 0.18,
+                                        ),
                                         highlightFg: cs.primary,
                                         textStyle: theme.textTheme.bodySmall,
                                       ),
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      r.createdAt.toLocal().toIso8601String().substring(0, 19),
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: cs.onSurfaceVariant,
-                                        fontFeatures: const [FontFeature.tabularFigures()],
-                                      ),
+                                      r.createdAt
+                                          .toLocal()
+                                          .toIso8601String()
+                                          .substring(0, 19),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
                                     ),
                                   ],
                                 ),
                               );
                             },
                           ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    _localizedText(context,
-                        zh: '${_results.length} 条结果',
-                        en: '${_results.length} result(s)'),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
                   ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: _results.isEmpty || _busy ? null : _exportFilteredAsBundle,
-                    icon: const Icon(Icons.archive_outlined, size: 16),
-                    label: Text(_localizedText(context,
-                        zh: '导出筛选结果（含 blob）',
-                        en: 'Export filtered (with blobs)')),
-                  ),
-                  const SizedBox(width: 4),
-                  TextButton.icon(
-                    onPressed: _results.isEmpty ? null : _copyResults,
-                    icon: const Icon(Icons.copy_all_rounded, size: 16),
-                    label: Text(_localizedText(context,
-                        zh: '复制结果 JSON', en: 'Copy results JSON')),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: '${_results.length} 条结果',
+                          en: '${_results.length} result(s)',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: _results.isEmpty || _busy
+                            ? null
+                            : _exportFilteredAsBundle,
+                        icon: const Icon(Icons.archive_outlined, size: 16),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '导出筛选结果（含 blob）',
+                            en: 'Export filtered (with blobs)',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton.icon(
+                        onPressed: _results.isEmpty ? null : _copyResults,
+                        icon: const Icon(Icons.copy_all_rounded, size: 16),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '复制结果 JSON',
+                            en: 'Copy results JSON',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
         ),
       ),
     );
@@ -1522,8 +1665,12 @@ class _PathHighlightText extends StatelessWidget {
       decoration: decoration,
     );
     if (query.isEmpty) {
-      return Text(path,
-          maxLines: 1, overflow: TextOverflow.ellipsis, style: base);
+      return Text(
+        path,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: base,
+      );
     }
     final lcPath = path.toLowerCase();
     final lcQuery = query.toLowerCase();
@@ -1538,14 +1685,16 @@ class _PathHighlightText extends StatelessWidget {
       if (hit > cursor) {
         spans.add(TextSpan(text: path.substring(cursor, hit), style: base));
       }
-      spans.add(TextSpan(
-        text: path.substring(hit, hit + lcQuery.length),
-        style: base.copyWith(
-          color: highlightFg,
-          fontWeight: FontWeight.w700,
-          backgroundColor: highlightBg,
+      spans.add(
+        TextSpan(
+          text: path.substring(hit, hit + lcQuery.length),
+          style: base.copyWith(
+            color: highlightFg,
+            fontWeight: FontWeight.w700,
+            backgroundColor: highlightBg,
+          ),
         ),
-      ));
+      );
       cursor = hit + lcQuery.length;
     }
     return RichText(
@@ -1590,4 +1739,3 @@ enum _LedgerTimeRange {
     }
   }
 }
-

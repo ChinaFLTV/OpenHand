@@ -502,15 +502,17 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     setState(() {
       _copied = true;
     });
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            _localizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
-          ),
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    _showHomeSnackBarWithMessenger(
+      context,
+      messenger,
+      SnackBar(
+        content: Text(
+          _localizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
         ),
-      );
+      ),
+    );
     _copiedResetTimer = Timer(const Duration(milliseconds: 1600), () {
       if (!mounted) {
         return;
@@ -533,19 +535,17 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       setState(() {
         _copied = false;
       });
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              _localizedText(
-                context,
-                zh: '复制代码块失败。',
-                en: 'Failed to copy code.',
-              ),
-            ),
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '复制代码块失败。', en: 'Failed to copy code.'),
           ),
-        );
+        ),
+      );
     }
   }
 
@@ -573,19 +573,21 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       setState(() {
         _downloaded = true;
       });
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              _localizedText(
-                context,
-                zh: '代码已下载为 ${p.basename(selectedPath)}',
-                en: 'Code downloaded as ${p.basename(selectedPath)}',
-              ),
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '代码已下载为 ${p.basename(selectedPath)}',
+              en: 'Code downloaded as ${p.basename(selectedPath)}',
             ),
           ),
-        );
+        ),
+      );
       _downloadedResetTimer = Timer(const Duration(milliseconds: 1600), () {
         if (!mounted) {
           return;
@@ -598,15 +600,17 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              _localizedText(context, zh: '下载失败。', en: 'Download failed.'),
-            ),
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '下载失败。', en: 'Download failed.'),
           ),
-        );
+        ),
+      );
     }
   }
 
@@ -1254,17 +1258,19 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       setState(() {
         _isCleaning = false;
       });
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              isZh
-                  ? '已清理 $deletedCount 个临时 HTML 缓存目录。'
-                  : 'Cleaned $deletedCount temporary HTML cache directories.',
-            ),
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            isZh
+                ? '已清理 $deletedCount 个临时 HTML 缓存目录。'
+                : 'Cleaned $deletedCount temporary HTML cache directories.',
           ),
-        );
+        ),
+      );
     } catch (e) {
       if (!mounted) {
         return;
@@ -1299,13 +1305,15 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(isZh ? '无法在浏览器中打开。' : 'Could not open in browser.'),
-          ),
-        );
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(isZh ? '无法在浏览器中打开。' : 'Could not open in browser.'),
+        ),
+      );
     }
   }
 }
@@ -1466,9 +1474,9 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
       });
     } catch (e) {
       if (!mounted) return;
-      final isZh = Localizations.localeOf(context).languageCode.startsWith(
-        'zh',
-      );
+      final isZh = Localizations.localeOf(
+        context,
+      ).languageCode.startsWith('zh');
       setState(() {
         _errorMessage = isZh
             ? 'HTML 预览加载失败 (WebView 初始化或写临时文件出错)。\n原始错误：$e'

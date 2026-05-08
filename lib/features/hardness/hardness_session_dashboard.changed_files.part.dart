@@ -306,7 +306,8 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                             Clipboard.setData(
                               ClipboardData(text: diffLines.join('\n')),
                             );
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            _showHardnessSnackBar(
+                              context,
                               SnackBar(
                                 content: Text(
                                   isZh ? 'Diff 已复制' : 'Diff copied',
@@ -570,4 +571,3 @@ List<String> _fallbackDiff(List<String> before, List<String> after) {
 // changes. Uses _SafeMarkdownBody-style manual AST parsing + MarkdownBuilder
 // for reliability and performance during rapid streaming updates.
 // =============================================================================
-

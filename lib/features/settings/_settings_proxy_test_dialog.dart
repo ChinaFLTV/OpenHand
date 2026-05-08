@@ -161,32 +161,60 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     var ok = false;
     String summary;
     try {
-      _log(_ProxyTestLogLevel.head, 'PROBE', '════ Connectivity Diagnostic ════');
+      _log(
+        _ProxyTestLogLevel.head,
+        'PROBE',
+        '════ Connectivity Diagnostic ════',
+      );
       _log(_ProxyTestLogLevel.info, 'PROBE', 'target  = ${uri.toString()}');
-      _log(_ProxyTestLogLevel.debug, 'PROBE',
-          'scheme=${uri.scheme}  host=${uri.host}  port=${uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80)}  path=${uri.path.isEmpty ? '/' : uri.path}${uri.hasQuery ? '?${uri.query}' : ''}');
+      _log(
+        _ProxyTestLogLevel.debug,
+        'PROBE',
+        'scheme=${uri.scheme}  host=${uri.host}  port=${uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80)}  path=${uri.path.isEmpty ? '/' : uri.path}${uri.hasQuery ? '?${uri.query}' : ''}',
+      );
 
-      _log(_ProxyTestLogLevel.head, 'CONFIG', '────────  Proxy Configuration  ────────');
-      _log(_ProxyTestLogLevel.info, 'CONFIG', 'mode = ${_describeMode(settings.mode)}');
+      _log(
+        _ProxyTestLogLevel.head,
+        'CONFIG',
+        '────────  Proxy Configuration  ────────',
+      );
+      _log(
+        _ProxyTestLogLevel.info,
+        'CONFIG',
+        'mode = ${_describeMode(settings.mode)}',
+      );
       if (settings.mode == AppProxyMode.manual) {
         final protos = settings.protocols.map((p) => p.name).join(',');
         _log(_ProxyTestLogLevel.info, 'CONFIG', 'protocols = [$protos]');
-        _log(_ProxyTestLogLevel.info, 'CONFIG',
-            'endpoint  = ${settings.host.isEmpty ? '<empty>' : settings.host}:${settings.port}');
+        _log(
+          _ProxyTestLogLevel.info,
+          'CONFIG',
+          'endpoint  = ${settings.host.isEmpty ? '<empty>' : settings.host}:${settings.port}',
+        );
         if (settings.authEnabled) {
           final maskedPwd = settings.password.isEmpty
               ? '<empty>'
               : '*' * settings.password.length;
-          _log(_ProxyTestLogLevel.info, 'CONFIG',
-              'auth = on  user="${settings.username}"  pwd=$maskedPwd');
+          _log(
+            _ProxyTestLogLevel.info,
+            'CONFIG',
+            'auth = on  user="${settings.username}"  pwd=$maskedPwd',
+          );
         } else {
           _log(_ProxyTestLogLevel.info, 'CONFIG', 'auth = off');
         }
-        _log(_ProxyTestLogLevel.info, 'CONFIG',
-            'exceptions = ${settings.exceptions.length} entr${settings.exceptions.length == 1 ? "y" : "ies"}');
+        _log(
+          _ProxyTestLogLevel.info,
+          'CONFIG',
+          'exceptions = ${settings.exceptions.length} entr${settings.exceptions.length == 1 ? "y" : "ies"}',
+        );
       }
 
-      _log(_ProxyTestLogLevel.head, 'RESOLVE', '────────  findProxyFor()  ────────');
+      _log(
+        _ProxyTestLogLevel.head,
+        'RESOLVE',
+        '────────  findProxyFor()  ────────',
+      );
       final via = resolver.findProxyFor(uri);
       _log(_ProxyTestLogLevel.ok, 'RESOLVE', 'verdict = "$via"');
       final useProxy = via.startsWith('PROXY ');
@@ -205,27 +233,37 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         }
         hopHost = spec.substring(0, colon);
         hopPort = int.parse(spec.substring(colon + 1));
-        _log(_ProxyTestLogLevel.info, 'RESOLVE',
-            'first hop → proxy@$hopHost:$hopPort  (target host left to proxy)');
+        _log(
+          _ProxyTestLogLevel.info,
+          'RESOLVE',
+          'first hop → proxy@$hopHost:$hopPort  (target host left to proxy)',
+        );
       } else {
         hopHost = uri.host;
-        hopPort = uri.hasPort
-            ? uri.port
-            : (uri.scheme == 'https' ? 443 : 80);
-        _log(_ProxyTestLogLevel.info, 'RESOLVE',
-            'first hop → direct@$hopHost:$hopPort');
+        hopPort = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
+        _log(
+          _ProxyTestLogLevel.info,
+          'RESOLVE',
+          'first hop → direct@$hopHost:$hopPort',
+        );
       }
 
       // ── Local network interfaces (split-tunnel diagnostic) ────────────
-      _log(_ProxyTestLogLevel.head, 'NIC',
-          '────────  Local Interfaces  ────────');
+      _log(
+        _ProxyTestLogLevel.head,
+        'NIC',
+        '────────  Local Interfaces  ────────',
+      );
       try {
         final ifaces = await NetworkInterface.list().timeout(
           const Duration(seconds: 2),
         );
         if (ifaces.isEmpty) {
-          _log(_ProxyTestLogLevel.warn, 'NIC',
-              '<no active non-loopback interfaces detected>');
+          _log(
+            _ProxyTestLogLevel.warn,
+            'NIC',
+            '<no active non-loopback interfaces detected>',
+          );
         } else {
           for (final iface in ifaces) {
             final v4 = iface.addresses
@@ -236,8 +274,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                 .where((a) => a.type == InternetAddressType.IPv6)
                 .map((a) => a.address)
                 .toList();
-            _log(_ProxyTestLogLevel.info, 'NIC',
-                '${iface.name}  v4=[${v4.join(",")}]  v6=[${v6.length} addr]');
+            _log(
+              _ProxyTestLogLevel.info,
+              'NIC',
+              '${iface.name}  v4=[${v4.join(",")}]  v6=[${v6.length} addr]',
+            );
           }
         }
       } catch (e) {
@@ -245,8 +286,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       }
 
       // ── DNS resolution: A + AAAA separately ──────────────────────────
-      _log(_ProxyTestLogLevel.head, 'DNS',
-          '────────  Lookup ($hopHost)  ────────');
+      _log(
+        _ProxyTestLogLevel.head,
+        'DNS',
+        '────────  Lookup ($hopHost)  ────────',
+      );
       InternetAddress? selectedAddr;
       for (final family in const <InternetAddressType>[
         InternetAddressType.IPv4,
@@ -255,26 +299,40 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         final famName = family == InternetAddressType.IPv4 ? 'A' : 'AAAA';
         final dnsStart = _totalStopwatch.elapsedMilliseconds;
         try {
-          final addrs = await InternetAddress.lookup(hopHost, type: family)
-              .timeout(const Duration(seconds: 5));
+          final addrs = await InternetAddress.lookup(
+            hopHost,
+            type: family,
+          ).timeout(const Duration(seconds: 5));
           final dnsMs = _totalStopwatch.elapsedMilliseconds - dnsStart;
           if (addrs.isEmpty) {
-            _log(_ProxyTestLogLevel.debug, 'DNS',
-                '$famName → <none>  (${dnsMs}ms)');
+            _log(
+              _ProxyTestLogLevel.debug,
+              'DNS',
+              '$famName → <none>  (${dnsMs}ms)',
+            );
           } else {
             for (final addr in addrs.take(4)) {
-              _log(_ProxyTestLogLevel.ok, 'DNS',
-                  '$famName → ${addr.address}  (${dnsMs}ms)');
+              _log(
+                _ProxyTestLogLevel.ok,
+                'DNS',
+                '$famName → ${addr.address}  (${dnsMs}ms)',
+              );
             }
             if (addrs.length > 4) {
-              _log(_ProxyTestLogLevel.debug, 'DNS',
-                  '… +${addrs.length - 4} more $famName record${addrs.length - 4 == 1 ? "" : "s"}');
+              _log(
+                _ProxyTestLogLevel.debug,
+                'DNS',
+                '… +${addrs.length - 4} more $famName record${addrs.length - 4 == 1 ? "" : "s"}',
+              );
             }
             selectedAddr ??= addrs.first;
           }
         } on TimeoutException {
-          _log(_ProxyTestLogLevel.warn, 'DNS',
-              '$famName lookup timed out (5000ms)');
+          _log(
+            _ProxyTestLogLevel.warn,
+            'DNS',
+            '$famName lookup timed out (5000ms)',
+          );
         } catch (e) {
           _log(_ProxyTestLogLevel.warn, 'DNS', '$famName lookup failed: $e');
         }
@@ -283,45 +341,67 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         final preferredFamily = selectedAddr.type == InternetAddressType.IPv6
             ? 'IPv6 (AAAA)'
             : 'IPv4 (A)';
-        _log(_ProxyTestLogLevel.info, 'DNS',
-            'preferred family = $preferredFamily  (first answer)');
+        _log(
+          _ProxyTestLogLevel.info,
+          'DNS',
+          'preferred family = $preferredFamily  (first answer)',
+        );
         // Reverse DNS (PTR) for selected address.
         try {
-          final ptr = await selectedAddr
-              .reverse()
-              .timeout(const Duration(seconds: 3));
-          _log(_ProxyTestLogLevel.ok, 'PTR',
-              '${selectedAddr.address} ← ${ptr.host}');
+          final ptr = await selectedAddr.reverse().timeout(
+            const Duration(seconds: 3),
+          );
+          _log(
+            _ProxyTestLogLevel.ok,
+            'PTR',
+            '${selectedAddr.address} ← ${ptr.host}',
+          );
         } on TimeoutException {
-          _log(_ProxyTestLogLevel.debug, 'PTR',
-              '${selectedAddr.address} ← <timeout 3000ms>');
+          _log(
+            _ProxyTestLogLevel.debug,
+            'PTR',
+            '${selectedAddr.address} ← <timeout 3000ms>',
+          );
         } catch (e) {
-          _log(_ProxyTestLogLevel.debug, 'PTR',
-              '${selectedAddr.address} ← <unavailable: $e>');
+          _log(
+            _ProxyTestLogLevel.debug,
+            'PTR',
+            '${selectedAddr.address} ← <unavailable: $e>',
+          );
         }
       } else {
         _log(_ProxyTestLogLevel.warn, 'DNS', 'no usable address resolved');
       }
 
       // Raw TCP probe
-      _log(_ProxyTestLogLevel.head, 'TCP',
-          '────────  Socket Connect  ────────');
+      _log(
+        _ProxyTestLogLevel.head,
+        'TCP',
+        '────────  Socket Connect  ────────',
+      );
       final tcpStart = _totalStopwatch.elapsedMilliseconds;
       try {
-        final socket = await Socket.connect(hopHost, hopPort,
-                timeout: const Duration(seconds: 6))
-            .timeout(const Duration(seconds: 6));
+        final socket = await Socket.connect(
+          hopHost,
+          hopPort,
+          timeout: const Duration(seconds: 6),
+        ).timeout(const Duration(seconds: 6));
         final tcpMs = _totalStopwatch.elapsedMilliseconds - tcpStart;
-        _log(_ProxyTestLogLevel.ok, 'TCP',
-            'handshake ok  remote=${socket.remoteAddress.address}:${socket.remotePort}  local=${socket.address.address}:${socket.port}  rtt=${tcpMs}ms');
+        _log(
+          _ProxyTestLogLevel.ok,
+          'TCP',
+          'handshake ok  remote=${socket.remoteAddress.address}:${socket.remotePort}  local=${socket.address.address}:${socket.port}  rtt=${tcpMs}ms',
+        );
         await socket.close();
       } on SocketException catch (e) {
-        _log(_ProxyTestLogLevel.err, 'TCP',
-            'connect failed: ${e.message}${e.osError == null ? '' : ' (errno=${e.osError!.errorCode})'}');
+        _log(
+          _ProxyTestLogLevel.err,
+          'TCP',
+          'connect failed: ${e.message}${e.osError == null ? '' : ' (errno=${e.osError!.errorCode})'}',
+        );
         rethrow;
       } on TimeoutException {
-        _log(_ProxyTestLogLevel.err, 'TCP',
-            'connect timed out after 6000 ms');
+        _log(_ProxyTestLogLevel.err, 'TCP', 'connect timed out after 6000 ms');
         rethrow;
       }
 
@@ -331,8 +411,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       // from outside HttpClient; so we only run a stand-alone SecureSocket
       // probe in the direct-to-https case.
       if (!useProxy && uri.scheme == 'https') {
-        _log(_ProxyTestLogLevel.head, 'TLS',
-            '────────  SecureSocket Handshake  ────────');
+        _log(
+          _ProxyTestLogLevel.head,
+          'TLS',
+          '────────  SecureSocket Handshake  ────────',
+        );
         final tlsStart = _totalStopwatch.elapsedMilliseconds;
         try {
           final secure = await SecureSocket.connect(
@@ -342,31 +425,53 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             supportedProtocols: const <String>['h2', 'http/1.1'],
           );
           final tlsMs = _totalStopwatch.elapsedMilliseconds - tlsStart;
-          _log(_ProxyTestLogLevel.ok, 'TLS',
-              'handshake ok  alpn=${secure.selectedProtocol ?? "<none>"}  rtt=${tlsMs}ms');
+          _log(
+            _ProxyTestLogLevel.ok,
+            'TLS',
+            'handshake ok  alpn=${secure.selectedProtocol ?? "<none>"}  rtt=${tlsMs}ms',
+          );
           final cert = secure.peerCertificate;
           if (cert != null) {
-            _log(_ProxyTestLogLevel.info, 'TLS', 'cert.subject = ${cert.subject.replaceAll("\n", " / ").trim()}');
-            _log(_ProxyTestLogLevel.info, 'TLS', 'cert.issuer  = ${cert.issuer.replaceAll("\n", " / ").trim()}');
-            _log(_ProxyTestLogLevel.debug, 'TLS',
-                'cert.validity = ${cert.startValidity.toIso8601String()} → ${cert.endValidity.toIso8601String()}');
+            _log(
+              _ProxyTestLogLevel.info,
+              'TLS',
+              'cert.subject = ${cert.subject.replaceAll("\n", " / ").trim()}',
+            );
+            _log(
+              _ProxyTestLogLevel.info,
+              'TLS',
+              'cert.issuer  = ${cert.issuer.replaceAll("\n", " / ").trim()}',
+            );
+            _log(
+              _ProxyTestLogLevel.debug,
+              'TLS',
+              'cert.validity = ${cert.startValidity.toIso8601String()} → ${cert.endValidity.toIso8601String()}',
+            );
           } else {
-            _log(_ProxyTestLogLevel.warn, 'TLS',
-                'peerCertificate = <null>  (unexpected)');
+            _log(
+              _ProxyTestLogLevel.warn,
+              'TLS',
+              'peerCertificate = <null>  (unexpected)',
+            );
           }
           await secure.close();
         } on HandshakeException catch (e) {
-          _log(_ProxyTestLogLevel.err, 'TLS',
-              'handshake failed: ${e.message}');
+          _log(_ProxyTestLogLevel.err, 'TLS', 'handshake failed: ${e.message}');
           rethrow;
         } on TimeoutException {
-          _log(_ProxyTestLogLevel.err, 'TLS',
-              'handshake timed out after 8000 ms');
+          _log(
+            _ProxyTestLogLevel.err,
+            'TLS',
+            'handshake timed out after 8000 ms',
+          );
           rethrow;
         }
       } else if (useProxy && uri.scheme == 'https') {
-        _log(_ProxyTestLogLevel.debug, 'TLS',
-            'skipped — TLS handshake will tunnel through proxy CONNECT (observed via HTTP step)');
+        _log(
+          _ProxyTestLogLevel.debug,
+          'TLS',
+          'skipped — TLS handshake will tunnel through proxy CONNECT (observed via HTTP step)',
+        );
       }
 
       // Real HTTP request via HttpClient (handles TLS + CONNECT/forward proxy semantics).
@@ -374,9 +479,21 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       httpClient = resolver.createRawHttpClient(
         connectionTimeout: const Duration(seconds: 8),
       );
-      _log(_ProxyTestLogLevel.info, 'HTTP', '> GET ${uri.path.isEmpty ? '/' : uri.path}${uri.hasQuery ? '?${uri.query}' : ''} HTTP/1.1');
-      _log(_ProxyTestLogLevel.info, 'HTTP', '> Host: ${uri.host}${uri.hasPort ? ':${uri.port}' : ''}');
-      _log(_ProxyTestLogLevel.info, 'HTTP', '> User-Agent: OpenHand-ProxyDiag/1.0');
+      _log(
+        _ProxyTestLogLevel.info,
+        'HTTP',
+        '> GET ${uri.path.isEmpty ? '/' : uri.path}${uri.hasQuery ? '?${uri.query}' : ''} HTTP/1.1',
+      );
+      _log(
+        _ProxyTestLogLevel.info,
+        'HTTP',
+        '> Host: ${uri.host}${uri.hasPort ? ':${uri.port}' : ''}',
+      );
+      _log(
+        _ProxyTestLogLevel.info,
+        'HTTP',
+        '> User-Agent: OpenHand-ProxyDiag/1.0',
+      );
       _log(_ProxyTestLogLevel.info, 'HTTP', '> Accept: */*');
 
       final httpStart = _totalStopwatch.elapsedMilliseconds;
@@ -385,11 +502,15 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           .timeout(const Duration(seconds: 12));
       request.headers.set('User-Agent', 'OpenHand-ProxyDiag/1.0');
       request.headers.set('Accept', '*/*');
-      final response = await request.close()
-          .timeout(const Duration(seconds: 12));
+      final response = await request.close().timeout(
+        const Duration(seconds: 12),
+      );
       final ttfb = _totalStopwatch.elapsedMilliseconds - httpStart;
-      _log(_ProxyTestLogLevel.ok, 'HTTP',
-          '< HTTP/${response.persistentConnection ? '1.1' : '1.0'} ${response.statusCode} ${response.reasonPhrase}');
+      _log(
+        _ProxyTestLogLevel.ok,
+        'HTTP',
+        '< HTTP/${response.persistentConnection ? '1.1' : '1.0'} ${response.statusCode} ${response.reasonPhrase}',
+      );
       response.headers.forEach((name, values) {
         for (final v in values) {
           _log(_ProxyTestLogLevel.debug, 'HTTP', '< $name: $v');
@@ -401,8 +522,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         bodyBytes += chunk.length;
         if (bodyBytes > 64 * 1024) break;
       }
-      _log(_ProxyTestLogLevel.info, 'HTTP',
-          'ttfb=${ttfb}ms  body=$bodyBytes byte${bodyBytes == 1 ? '' : 's'}  contentLength=${response.contentLength}');
+      _log(
+        _ProxyTestLogLevel.info,
+        'HTTP',
+        'ttfb=${ttfb}ms  body=$bodyBytes byte${bodyBytes == 1 ? '' : 's'}  contentLength=${response.contentLength}',
+      );
 
       ok = response.statusCode >= 200 && response.statusCode < 400;
       summary = ok
@@ -412,8 +536,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       silentLog('settings_proxy', 'connectivityTest', error, stack);
       ok = false;
       if (mounted) {
-        summary = AppLocalizations.of(context)!
-            .proxyTestFailure(error.toString());
+        summary = AppLocalizations.of(
+          context,
+        )!.proxyTestFailure(error.toString());
       } else {
         summary = error.toString();
       }
@@ -459,7 +584,10 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     await Clipboard.setData(ClipboardData(text: buffer.toString()));
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(
+    if (messenger == null) return;
+    OpenHandSnackBar.show(
+      context,
+      messenger,
       SnackBar(
         content: Text(AppLocalizations.of(context)!.proxyTestConsoleCopied),
         duration: const Duration(milliseconds: 1400),
@@ -596,15 +724,15 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                   children: <Widget>[
                     Text(
                       statusText,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: statusColor),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: statusColor,
+                      ),
                     ),
                     if (_entries.isNotEmpty)
                       _buildHeaderChip(
                         theme: theme,
                         icon: Icons.timer_outlined,
-                        label:
-                            'total ${_entries.last.elapsedMs}ms',
+                        label: 'total ${_entries.last.elapsedMs}ms',
                         tone: theme.colorScheme.secondaryContainer,
                         fg: theme.colorScheme.onSecondaryContainer,
                       ),
@@ -612,8 +740,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                       _buildHeaderChip(
                         theme: theme,
                         icon: Icons.local_fire_department_outlined,
-                        label:
-                            'hot ${slowest.key} ${slowest.value}ms',
+                        label: 'hot ${slowest.key} ${slowest.value}ms',
                         tone: theme.colorScheme.tertiaryContainer,
                         fg: theme.colorScheme.onTertiaryContainer,
                       ),
@@ -628,9 +755,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                 : l10n.proxyTestConsoleMaximize,
             onPressed: () => setState(() => _maximized = !_maximized),
             icon: Icon(
-              _maximized
-                  ? Icons.close_fullscreen
-                  : Icons.open_in_full,
+              _maximized ? Icons.close_fullscreen : Icons.open_in_full,
               size: 18,
             ),
           ),
@@ -791,15 +916,19 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     //   ≥ 50 ms 的 head：在 body 后缀拼一个 ⚠ Xms。
     final isHead = entry.level == _ProxyTestLogLevel.head;
     final levelBg = switch (entry.level) {
-      _ProxyTestLogLevel.head => const Color(0xFF7DD3FC).withValues(alpha: 0.12),
+      _ProxyTestLogLevel.head => const Color(
+        0xFF7DD3FC,
+      ).withValues(alpha: 0.12),
       _ProxyTestLogLevel.err => const Color(0xFFFCA5A5).withValues(alpha: 0.08),
-      _ProxyTestLogLevel.warn => const Color(0xFFFCD34D).withValues(alpha: 0.06),
+      _ProxyTestLogLevel.warn => const Color(
+        0xFFFCD34D,
+      ).withValues(alpha: 0.06),
       _ => Colors.transparent,
     };
-    final headSlowMs =
-        isHead ? (_sectionDurations[entry.tag] ?? 0) : 0;
-    final headSlowMark =
-        headSlowMs >= _slowSectionThresholdMs ? '  ⚠ ${headSlowMs}ms' : '';
+    final headSlowMs = isHead ? (_sectionDurations[entry.tag] ?? 0) : 0;
+    final headSlowMark = headSlowMs >= _slowSectionThresholdMs
+        ? '  ⚠ ${headSlowMs}ms'
+        : '';
 
     final rowText = Padding(
       padding: const EdgeInsets.fromLTRB(11, 1.5, 0, 1.5),
@@ -871,7 +1000,10 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     );
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(
+    if (messenger == null) return;
+    OpenHandSnackBar.show(
+      context,
+      messenger,
       SnackBar(
         content: Text(AppLocalizations.of(context)!.proxyTestConsoleCopied),
         duration: const Duration(milliseconds: 1200),
@@ -990,20 +1122,20 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 120),
+            ? Duration.zero
+            : const Duration(milliseconds: 120),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: visible
               ? levelColor.withValues(alpha: 0.16)
-              : theme.colorScheme.surfaceContainerHighest
-                  .withValues(alpha: 0.4),
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.4,
+                ),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: visible
                 ? levelColor.withValues(alpha: 0.45)
-                : theme.colorScheme.outlineVariant
-                    .withValues(alpha: 0.4),
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
           ),
         ),
         child: Row(
@@ -1014,8 +1146,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
               size: 12,
               color: visible
                   ? levelColor
-                  : theme.colorScheme.onSurfaceVariant
-                      .withValues(alpha: 0.6),
+                  : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
             const SizedBox(width: 4),
             Text(
@@ -1023,12 +1154,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
               style: theme.textTheme.labelSmall?.copyWith(
                 color: visible
                     ? levelColor
-                    : theme.colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.6),
+                    : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 decoration: visible ? null : TextDecoration.lineThrough,
-                fontFeatures: const <FontFeature>[
-                  FontFeature.tabularFigures(),
-                ],
+                fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
               ),
             ),
           ],

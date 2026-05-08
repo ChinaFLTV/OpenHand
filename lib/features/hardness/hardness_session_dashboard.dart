@@ -23,6 +23,7 @@ import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/oh_pill.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import '../ai/model/ai_model_config.dart';
 import '../home/message_path_linking.dart';
 import 'hardness_cli_catalog.dart';
@@ -49,6 +50,12 @@ part 'hardness_session_dashboard.changed_files.part.dart';
 part 'hardness_session_dashboard.streaming_smart.part.dart';
 part 'hardness_session_dashboard.file_hover.part.dart';
 part 'hardness_session_dashboard.steering.part.dart';
+
+void _showHardnessSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  OpenHandSnackBar.show(context, messenger, snackBar);
+}
 
 // Pre-compiled regex for detecting log-level prefixes in output lines.
 final RegExp _logLevelPattern = RegExp(
@@ -1415,9 +1422,8 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    final messenger = ScaffoldMessenger.of(context);
+    OpenHandSnackBar.show(context, messenger, SnackBar(content: Text(message)));
   }
 
   void _clearPendingFeedAutoFollowState() {
@@ -1894,7 +1900,8 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
 
   void _copyLog(BuildContext context, HardnessPhaseLog log) {
     Clipboard.setData(ClipboardData(text: log.lines.join('\n')));
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHardnessSnackBar(
+      context,
       SnackBar(
         content: Text(widget.isZh ? '日志已复制到剪贴板' : 'Log copied to clipboard'),
         duration: const Duration(seconds: 2),

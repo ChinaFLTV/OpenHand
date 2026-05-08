@@ -673,7 +673,8 @@ Future<void> _openAttachment(
   final file = File(storagePath);
   if (!file.existsSync()) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           _localizedText(
@@ -724,7 +725,8 @@ Future<void> _openLocalPathWithSystemApp(
   final hasLeadingDash = normalizedPath.startsWith('-');
   if (looksLikeUri || hasLeadingDash) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showHomeSnackBar(
+        context,
         SnackBar(
           content: Text(
             _localizedText(
@@ -778,7 +780,8 @@ Future<void> _openLocalPathWithSystemApp(
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           _localizedText(
@@ -2185,7 +2188,9 @@ $mediaTag
     void showSnack(String zh, String en) {
       if (messenger == null) return;
       messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
         SnackBar(
           content: Text(_localizedText(context, zh: zh, en: en)),
         ),

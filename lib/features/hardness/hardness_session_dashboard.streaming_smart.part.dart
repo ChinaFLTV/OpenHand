@@ -177,7 +177,8 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
       recognizer.onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _showHardnessSnackBar(
+            context,
             SnackBar(
               content: Text('Path copied: ${resolvedPath.resolvedPath}'),
               duration: const Duration(seconds: 2),
@@ -203,7 +204,8 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
       ..onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _showHardnessSnackBar(
+            context,
             SnackBar(
               content: Text('Path copied: ${resolvedPath.resolvedPath}'),
               duration: const Duration(seconds: 2),
@@ -608,4 +610,3 @@ class _HeFilePathChipInline extends StatelessWidget {
 // _HeFileHoverPopup — Ctrl/Cmd+hover overlay showing file/directory metadata.
 // Mirrors the _FileHoverPopup pattern from openhand_home_page.dart.
 // =============================================================================
-

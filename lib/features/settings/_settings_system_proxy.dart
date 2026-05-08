@@ -133,8 +133,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
   Future<void> _savePort() async {
     final parsed = int.tryParse(_portCtrl.text.trim());
     if (parsed == null || parsed < 1 || parsed > 65535) {
-      _portCtrl.text =
-          widget.controller.proxySettings.port.toString();
+      _portCtrl.text = widget.controller.proxySettings.port.toString();
       return;
     }
     await widget.controller.updateProxySettings(port: parsed);
@@ -170,24 +169,33 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
     final l10n = AppLocalizations.of(context)!;
     final localizedSaved = saved
         ? (Localizations.localeOf(context).languageCode == 'en'
-            ? 'Test URL saved'
-            : '测试 URL 已保存')
+              ? 'Test URL saved'
+              : '测试 URL 已保存')
         : (Localizations.localeOf(context).languageCode == 'en'
-            ? 'Failed to save test URL'
-            : '测试 URL 保存失败');
+              ? 'Failed to save test URL'
+              : '测试 URL 保存失败');
     // 同步 controller 里可能被清洗为默认值。
     if (!_testEndpointFocus.hasFocus) {
       _testEndpointCtrl.text = widget.controller.proxySettings.testEndpoint;
     }
     if (!saved) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.show(
+        context,
+        messenger,
         SnackBar(content: Text(localizedSaved)),
       );
       return;
     }
     // 避免未使用变量警告：saved=true 路径依然反馈保存成功。
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(localizedSaved), duration: const Duration(seconds: 2)),
+    final messenger = ScaffoldMessenger.of(context);
+    OpenHandSnackBar.show(
+      context,
+      messenger,
+      SnackBar(
+        content: Text(localizedSaved),
+        duration: const Duration(seconds: 2),
+      ),
     );
     // l10n 占位：上面字符串依赖 Localizations.localeOf 而非 l10n 生成的
     // 键，避免增加 7 个 ARB 。

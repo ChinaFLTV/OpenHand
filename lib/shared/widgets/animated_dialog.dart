@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
@@ -29,7 +32,10 @@ Future<T?> showAnimatedDialog<T>({
   bool useRootNavigator = true,
   RouteSettings? routeSettings,
 }) {
-  final themedBuilder = _wrapDialogBuilderWithTheme(builder);
+  final themedBuilder = _wrapDialogBuilderWithTheme(
+    builder,
+    dismissOnEscape: barrierDismissible,
+  );
   final effectiveSettings =
       settings ?? _resolveDialogAnimationSettings(context);
   if (effectiveSettings.entranceStyle == DialogAnimationStyle.none &&
@@ -107,11 +113,14 @@ Future<T?> showAnimatedThemedDialog<T>({
   );
 }
 
-WidgetBuilder _wrapDialogBuilderWithTheme(WidgetBuilder builder) {
+WidgetBuilder _wrapDialogBuilderWithTheme(
+  WidgetBuilder builder, {
+  required bool dismissOnEscape,
+}) {
   return (dialogContext) {
     final theme = Theme.of(dialogContext);
     final colorScheme = theme.colorScheme;
-    return Theme(
+    final themed = Theme(
       data: theme.copyWith(
         dialogTheme: theme.dialogTheme.copyWith(
           backgroundColor: colorScheme.surfaceContainerHigh,
@@ -123,7 +132,35 @@ WidgetBuilder _wrapDialogBuilderWithTheme(WidgetBuilder builder) {
       ),
       child: builder(dialogContext),
     );
+    if (!dismissOnEscape) return themed;
+    return _EscapeDismissDialogScope(child: themed);
   };
+}
+
+class _EscapeDismissDialogScope extends StatelessWidget {
+  const _EscapeDismissDialogScope({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          DismissIntent: CallbackAction<DismissIntent>(
+            onInvoke: (_) {
+              unawaited(Navigator.of(context).maybePop());
+              return null;
+            },
+          ),
+        },
+        child: Focus(autofocus: true, child: child),
+      ),
+    );
+  }
 }
 
 Widget _buildTransition({
@@ -359,10 +396,7 @@ class _SpringScaleTransition extends StatelessWidget {
     );
     return FadeTransition(
       opacity: opacity,
-      child: ScaleTransition(
-        scale: scale,
-        child: child,
-      ),
+      child: ScaleTransition(scale: scale, child: child),
     );
   }
 }

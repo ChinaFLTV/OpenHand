@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 /// Lightweight helpers for building consistent, icon-prefixed
@@ -5,11 +7,32 @@ import 'package:flutter/material.dart';
 ///
 /// Use whenever a transient outcome notice would benefit from a
 /// success/error/info affordance. The plain string-only
-/// `ScaffoldMessenger.showSnackBar(SnackBar(content: Text(...)))`
-/// pattern remains valid for legacy call sites and continues to
-/// pick up the global theme styling.
+/// `OpenHandSnackBar.show(context, messenger, snackBar)` also applies
+/// the app-wide presentation animation so legacy and custom snackbars
+/// can opt into the same motion language.
 class OpenHandSnackBar {
   OpenHandSnackBar._();
+
+  static const AnimationStyle _motionStyle = AnimationStyle(
+    duration: Duration(milliseconds: 360),
+    reverseDuration: Duration(milliseconds: 230),
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
+  static ScaffoldFeatureController<SnackBar, SnackBarClosedReason> show(
+    BuildContext context,
+    ScaffoldMessengerState messenger,
+    SnackBar snackBar,
+  ) {
+    return messenger.showSnackBar(
+      snackBar,
+      snackBarAnimationStyle:
+          MediaQuery.maybeDisableAnimationsOf(context) == true
+          ? AnimationStyle.noAnimation
+          : _motionStyle,
+    );
+  }
 
   /// Green-leaning tick variant. Primary use: confirming a save /
   /// commit / restore action when a `HighlightPulse` is not
@@ -107,7 +130,10 @@ class OpenHandSnackBar {
       action: action,
       backgroundColor: backgroundColor,
       behavior: SnackBarBehavior.floating,
+      dismissDirection: DismissDirection.down,
+      showCloseIcon: action == null,
       content: _OpenHandSnackBarMotion(
+        duration: duration,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -129,12 +155,14 @@ class OpenHandSnackBar {
 }
 
 class _OpenHandSnackBarMotion extends StatefulWidget {
-  const _OpenHandSnackBarMotion({required this.child});
+  const _OpenHandSnackBarMotion({required this.duration, required this.child});
 
+  final Duration duration;
   final Widget child;
 
   @override
-  State<_OpenHandSnackBarMotion> createState() => _OpenHandSnackBarMotionState();
+  State<_OpenHandSnackBarMotion> createState() =>
+      _OpenHandSnackBarMotionState();
 }
 
 class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
@@ -143,6 +171,7 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
   late final Animation<double> _fade;
   late final Animation<Offset> _offset;
   late final Animation<double> _scale;
+  Timer? _reverseTimer;
 
   @override
   void initState() {
@@ -155,10 +184,7 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
       parent: _controller,
       curve: Curves.easeOutBack,
     );
-    _fade = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    );
+    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
     _offset = Tween<Offset>(
       begin: const Offset(0, 0.18),
       end: Offset.zero,
@@ -173,11 +199,23 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
       _controller.value = 1;
     } else if (_controller.status == AnimationStatus.dismissed) {
       _controller.forward();
+      _armReverseTimer();
     }
+  }
+
+  void _armReverseTimer() {
+    _reverseTimer?.cancel();
+    final visibleDuration = widget.duration - const Duration(milliseconds: 230);
+    if (visibleDuration <= Duration.zero) return;
+    _reverseTimer = Timer(visibleDuration, () {
+      if (!mounted || _controller.status != AnimationStatus.completed) return;
+      unawaited(_controller.reverse());
+    });
   }
 
   @override
   void dispose() {
+    _reverseTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -189,10 +227,7 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
       opacity: _fade,
       child: SlideTransition(
         position: _offset,
-        child: ScaleTransition(
-          scale: _scale,
-          child: widget.child,
-        ),
+        child: ScaleTransition(scale: _scale, child: widget.child),
       ),
     );
   }

@@ -16,9 +16,16 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import 'message_gateway_controller.dart';
 import 'model/web_message_platform_config.dart';
 import 'service/web_message_platform_service.dart';
+
+void _showGatewaySnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  OpenHandSnackBar.show(context, messenger, snackBar);
+}
 
 class MessageGatewayView extends StatefulWidget {
   const MessageGatewayView({super.key});
@@ -387,7 +394,8 @@ class _WebPlatformServiceCard extends StatelessWidget {
   ) async {
     final result = await controller.runHealthCheck();
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showGatewaySnackBar(
+      context,
       SnackBar(
         content: Text('${result.summary} (${result.durationMs}ms)'),
         backgroundColor: result.ok ? const Color(0xFF16A34A) : null,
@@ -1097,9 +1105,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('保存失败: $error')));
+      _showGatewaySnackBar(context, SnackBar(content: Text('保存失败: $error')));
       setState(() {
         _saveError = '$error';
         _saving = false;
@@ -1311,7 +1317,8 @@ class _WebGatewayConnectivityDialogState
       ClipboardData(text: encoder.convert(result.toJson())),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showGatewaySnackBar(
+      context,
       const SnackBar(
         content: Text('连通性测试结果已复制'),
         duration: Duration(milliseconds: 1600),
@@ -1921,7 +1928,8 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       _anchorLogId = logs.isEmpty ? 0 : logs.last.id;
       _historyLimit = 0;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showGatewaySnackBar(
+      context,
       const SnackBar(
         content: Text('终端显示已清空，底层日志文件保持不变'),
         duration: Duration(milliseconds: 1600),
@@ -2039,9 +2047,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       ClipboardData(text: logs.map((entry) => entry.toLogLine()).join('\n')),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('日志已保存到剪贴板')));
+    _showGatewaySnackBar(context, const SnackBar(content: Text('日志已保存到剪贴板')));
   }
 
   Future<void> _exportCurrentLog() async {
@@ -2063,7 +2069,8 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       final text = await widget.controller.exportCurrentLogText();
       await File(location.path).writeAsString(text);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showGatewaySnackBar(
+        context,
         SnackBar(
           content: Text(
             '当前日志已导出到 ${location.path}',
@@ -2074,7 +2081,8 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showGatewaySnackBar(
+        context,
         SnackBar(
           content: Text(
             '当前日志导出失败: $error',
@@ -2699,7 +2707,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       await action();
       await _tick();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showGatewaySnackBar(
+        context,
         SnackBar(
           content: Text('$label 已完成'),
           duration: const Duration(milliseconds: 1600),
@@ -2707,7 +2716,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showGatewaySnackBar(
+        context,
         SnackBar(
           content: Text(
             '$label 失败: $error',
@@ -2728,7 +2738,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       final result = await widget.controller.runHealthCheck();
       await _tick();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showGatewaySnackBar(
+        context,
         SnackBar(
           content: Text('${result.summary} (${result.durationMs}ms)'),
           backgroundColor: result.ok ? const Color(0xFF16A34A) : null,
@@ -2737,7 +2748,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showGatewaySnackBar(
+        context,
         SnackBar(
           content: Text(
             '健康诊断失败: $error',
@@ -2760,7 +2772,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
     try {
       final result = await action();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showGatewaySnackBar(
+        context,
         SnackBar(
           content: Text(
             '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
@@ -2770,9 +2783,10 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       await _tick();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
+      _showGatewaySnackBar(
         context,
-      ).showSnackBar(SnackBar(content: Text('$label清理失败: $error')));
+        SnackBar(content: Text('$label清理失败: $error')),
+      );
     } finally {
       if (mounted) setState(() => _isCleaning = false);
     }
@@ -2912,9 +2926,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
   Future<void> _copy(BuildContext context, String url) async {
     await Clipboard.setData(ClipboardData(text: url));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('已复制 $url')));
+    _showGatewaySnackBar(context, SnackBar(content: Text('已复制 $url')));
   }
 
   Future<void> _open(BuildContext context, String url) async {
@@ -2935,20 +2947,14 @@ class _AccessibleUrlsBar extends StatelessWidget {
             ], tag: 'message_gateway.open_url');
       if (!context.mounted) return;
       if (result == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('打开失败: $url')));
+        _showGatewaySnackBar(context, SnackBar(content: Text('打开失败: $url')));
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('正在打开 $url')));
+      _showGatewaySnackBar(context, SnackBar(content: Text('正在打开 $url')));
     } catch (error, stack) {
       silentLog('message_gateway_view', 'open url', error, stack);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('打开失败: $error')));
+      _showGatewaySnackBar(context, SnackBar(content: Text('打开失败: $error')));
     }
   }
 

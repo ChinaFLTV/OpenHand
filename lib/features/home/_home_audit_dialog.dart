@@ -449,7 +449,8 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: rendered));
                         if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        _showHomeSnackBar(
+                          context,
                           SnackBar(
                             content: Text(
                               AppLocalizations.of(
@@ -1114,7 +1115,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 ClipboardData(text: _auditFormatJson(payload)),
               );
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
+              _showHomeSnackBar(
+                context,
                 SnackBar(
                   content: Text(
                     AppLocalizations.of(context)!.auditAuditSnapshotCopied,
@@ -1255,7 +1257,8 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
       }
       await widget.controller.updateSessionMetadata(_liveSession.id, payload);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showHomeSnackBar(
+        context,
         SnackBar(
           content: Text(
             AppLocalizations.of(context)!.auditSessionMetadataSaved,

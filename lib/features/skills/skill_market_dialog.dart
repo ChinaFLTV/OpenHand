@@ -92,56 +92,58 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 18),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 760;
-                      if (compact) {
-                        return Column(
-                          children: [
-                            SizedBox(
-                              height: math.min(
-                                300,
-                                constraints.maxHeight * 0.44,
-                              ),
-                              child: _buildSearchPane(context),
-                            ),
-                            const SizedBox(height: 16),
-                            Expanded(child: _buildDetailPane(context)),
-                          ],
-                        );
-                      }
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(context),
+                    const SizedBox(height: 18),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final compact = constraints.maxWidth < 760;
+                          if (compact) {
+                            return Column(
+                              children: [
+                                SizedBox(
+                                  height: math.min(
+                                    300,
+                                    constraints.maxHeight * 0.44,
+                                  ),
+                                  child: _buildSearchPane(context),
+                                ),
+                                const SizedBox(height: 16),
+                                Expanded(child: _buildDetailPane(context)),
+                              ],
+                            );
+                          }
 
-                      final leftWidth = constraints.maxWidth < 980
-                          ? 340.0
-                          : 392.0;
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            width: leftWidth,
-                            child: _buildSearchPane(context),
-                          ),
-                          const SizedBox(width: 18),
-                          VerticalDivider(
-                            width: 1,
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                          const SizedBox(width: 18),
-                          Expanded(child: _buildDetailPane(context)),
-                        ],
-                      );
-                    },
-                  ),
+                          final leftWidth = constraints.maxWidth < 980
+                              ? 340.0
+                              : 392.0;
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                width: leftWidth,
+                                child: _buildSearchPane(context),
+                              ),
+                              const SizedBox(width: 18),
+                              VerticalDivider(
+                                width: 1,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
+                              const SizedBox(width: 18),
+                              Expanded(child: _buildDetailPane(context)),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _buildActions(context),
+                  ],
                 ),
-                const SizedBox(height: 18),
-                _buildActions(context),
-              ],
-            ),
               ),
               Positioned(
                 left: 0,
@@ -260,8 +262,8 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
         Expanded(
           child: AnimatedSwitcher(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
             child: _searchError != null
                 ? _MarketStateMessage(
                     key: const ValueKey<String>('market-search-error'),
@@ -714,8 +716,11 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     }
   }
 
-  void _showMarketSnackBar(BuildContext context, String message,
-      {_MarketSnackKind kind = _MarketSnackKind.info}) {
+  void _showMarketSnackBar(
+    BuildContext context,
+    String message, {
+    _MarketSnackKind kind = _MarketSnackKind.info,
+  }) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) {
         return;
@@ -724,11 +729,23 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       if (messenger == null) return;
       switch (kind) {
         case _MarketSnackKind.success:
-          messenger.showSnackBar(OpenHandSnackBar.success(context, message));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            OpenHandSnackBar.success(context, message),
+          );
         case _MarketSnackKind.error:
-          messenger.showSnackBar(OpenHandSnackBar.error(context, message));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            OpenHandSnackBar.error(context, message),
+          );
         case _MarketSnackKind.info:
-          messenger.showSnackBar(SnackBar(content: Text(message)));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            SnackBar(content: Text(message)),
+          );
       }
     });
   }
@@ -900,92 +917,92 @@ class _SkillMarketResultTile extends StatelessWidget {
 
     return HoverLift(
       child: Material(
-      color: selected
-          ? colorScheme.primaryContainer.withValues(alpha: 0.52)
-          : colorScheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
+        color: selected
+            ? colorScheme.primaryContainer.withValues(alpha: 0.52)
+            : colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected
-                  ? colorScheme.primary
-                  : colorScheme.outlineVariant,
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SkillMarketAvatar(
-                name: skill.displayName,
-                imageUrl: skill.iconUrl,
-                size: 44,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected
+                    ? colorScheme.primary
+                    : colorScheme.outlineVariant,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      skill.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      skill.ownerName.isEmpty
-                          ? skill.slug
-                          : '${skill.ownerName} / ${skill.slug}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (summary.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SkillMarketAvatar(
+                  name: skill.displayName,
+                  imageUrl: skill.iconUrl,
+                  size: 44,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        summary,
-                        maxLines: 2,
+                        skill.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        skill.ownerName.isEmpty
+                            ? skill.slug
+                            : '${skill.ownerName} / ${skill.slug}',
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _TinyMetric(
-                          icon: Icons.download_rounded,
-                          value: _formatCount(skill.downloads),
-                        ),
-                        _TinyMetric(
-                          icon: Icons.star_rounded,
-                          value: _formatCount(skill.stars),
-                        ),
-                        if (installed)
-                          _TinyTextChip(
-                            label: _t(context, zh: '已安装', en: 'Installed'),
+                      if (summary.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          summary,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
-                        if (skill.category.isNotEmpty)
-                          _TinyTextChip(label: skill.category),
+                        ),
                       ],
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _TinyMetric(
+                            icon: Icons.download_rounded,
+                            value: _formatCount(skill.downloads),
+                          ),
+                          _TinyMetric(
+                            icon: Icons.star_rounded,
+                            value: _formatCount(skill.stars),
+                          ),
+                          if (installed)
+                            _TinyTextChip(
+                              label: _t(context, zh: '已安装', en: 'Installed'),
+                            ),
+                          if (skill.category.isNotEmpty)
+                            _TinyTextChip(label: skill.category),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

@@ -593,11 +593,23 @@ class _SkillsViewState extends State<SkillsView> {
       if (messenger == null) return;
       switch (kind) {
         case _SnackKind.success:
-          messenger.showSnackBar(OpenHandSnackBar.success(context, message));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            OpenHandSnackBar.success(context, message),
+          );
         case _SnackKind.error:
-          messenger.showSnackBar(OpenHandSnackBar.error(context, message));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            OpenHandSnackBar.error(context, message),
+          );
         case _SnackKind.info:
-          messenger.showSnackBar(SnackBar(content: Text(message)));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            SnackBar(content: Text(message)),
+          );
       }
     });
   }

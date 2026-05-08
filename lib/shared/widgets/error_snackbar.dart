@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'animated_dialog.dart';
+import 'openhand_snack_bar.dart';
 
 /// 把可能很长的「现象 / 原因 / 建议」三段式错误文案以**对用户友好**的方式
 /// 展示在 SnackBar 上：
@@ -28,7 +29,9 @@ void showFriendlyErrorSnackBar(
   final hasDetails = lines.length > 1;
   final messenger = ScaffoldMessenger.of(context);
   messenger.hideCurrentSnackBar();
-  messenger.showSnackBar(
+  OpenHandSnackBar.show(
+    context,
+    messenger,
     SnackBar(
       content: Text(headline, maxLines: 2, overflow: TextOverflow.ellipsis),
       duration: hasDetails
@@ -73,14 +76,16 @@ void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: fullText));
               if (!dialogContext.mounted) return;
-              ScaffoldMessenger.of(dialogContext)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  const SnackBar(
-                    content: Text('已复制到剪贴板 / Copied to clipboard'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
+              final messenger = ScaffoldMessenger.of(dialogContext);
+              messenger.hideCurrentSnackBar();
+              OpenHandSnackBar.show(
+                dialogContext,
+                messenger,
+                const SnackBar(
+                  content: Text('已复制到剪贴板 / Copied to clipboard'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
             },
             icon: const Icon(Icons.copy_all_outlined, size: 18),
             label: const Text('复制 / Copy'),

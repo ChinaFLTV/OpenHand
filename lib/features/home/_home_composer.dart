@@ -1885,7 +1885,8 @@ class _ComposerCreationModeButtonState
         _ => '',
       };
       if (label.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showHomeSnackBar(
+          context,
           SnackBar(
             content: Text(label),
             behavior: SnackBarBehavior.floating,

@@ -55,6 +55,7 @@ import '../../shared/widgets/image_editor_dialog.dart';
 import '../../shared/widgets/micro_press_feedback.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_allow_command_rule.dart';
@@ -694,6 +695,20 @@ Future<void> _awaitEndOfFrame() async {
   await Future<void>.delayed(Duration.zero);
 }
 
+void _showHomeSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  OpenHandSnackBar.show(context, messenger, snackBar);
+}
+
+void _showHomeSnackBarWithMessenger(
+  BuildContext context,
+  ScaffoldMessengerState messenger,
+  SnackBar snackBar,
+) {
+  OpenHandSnackBar.show(context, messenger, snackBar);
+}
+
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
 
@@ -1303,7 +1318,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (l10n == null) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
-    messenger.showSnackBar(
+    _showHomeSnackBarWithMessenger(
+      context,
+      messenger,
       SnackBar(
         content: Row(
           children: [
@@ -1398,7 +1415,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       source: AiToolSearchLoadSource.hardnessPhase,
     );
     _touchHardnessHistoryBucket(phaseSessionId).add(entry);
-    messenger.showSnackBar(
+    _showHomeSnackBarWithMessenger(
+      context,
+      messenger,
       SnackBar(
         content: Row(
           children: [
@@ -1485,15 +1504,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _composerController.clear();
       }
       if (mounted && l10n != null && messenger != null) {
-        messenger
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(l10n.snackToolSearchLoadedReplayCancelledToast),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+        messenger.hideCurrentSnackBar();
+        _showHomeSnackBarWithMessenger(
+          context,
+          messenger,
+          SnackBar(
+            content: Text(l10n.snackToolSearchLoadedReplayCancelledToast),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
       if (!completer.isCompleted) completer.complete();
     }
@@ -1511,7 +1531,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final l10nNow = AppLocalizations.of(context);
       final messengerNow = ScaffoldMessenger.maybeOf(context);
       if (l10nNow != null && messengerNow != null) {
-        messengerNow.showSnackBar(
+        _showHomeSnackBarWithMessenger(
+          context,
+          messengerNow,
           SnackBar(
             content: Text(l10nNow.snackToolSearchLoadedReplayedToast),
             behavior: SnackBarBehavior.floating,
@@ -1523,7 +1545,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
 
     if (l10n != null && messenger != null) {
-      messenger.showSnackBar(
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
         SnackBar(
           content: Text(l10n.snackToolSearchLoadedReplayPendingToast),
           behavior: SnackBarBehavior.floating,
@@ -2494,34 +2518,39 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted) return;
       if (outcome.success) {
         final messenger = ScaffoldMessenger.maybeOf(context);
-        messenger?.showSnackBar(
-          SnackBar(
-            content: Text(
-              '${AppLocalizations.of(context)!.fileMutationUndone}: '
-              '${r.filePath}',
+        if (messenger != null) {
+          _showHomeSnackBarWithMessenger(
+            context,
+            messenger,
+            SnackBar(
+              content: Text(
+                '${AppLocalizations.of(context)!.fileMutationUndone}: '
+                '${r.filePath}',
+              ),
+              action: SnackBarAction(
+                label: AppLocalizations.of(context)!.fileMutationRedo,
+                onPressed: () async {
+                  final redoResult = await ledger.redoRecord(
+                    sessionId: sessionId,
+                    recordId: r.recordId,
+                  );
+                  if (!mounted) return;
+                  final msg = redoResult.success
+                      ? '${AppLocalizations.of(context)!.fileMutationRedo}: '
+                            '${r.filePath}'
+                      : AppLocalizations.of(context)!.fileMutationRedoFailed;
+                  _showHomeSnackBar(
+                    context,
+                    SnackBar(
+                      content: Text(msg),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
             ),
-            action: SnackBarAction(
-              label: AppLocalizations.of(context)!.fileMutationRedo,
-              onPressed: () async {
-                final redoResult = await ledger.redoRecord(
-                  sessionId: sessionId,
-                  recordId: r.recordId,
-                );
-                if (!mounted) return;
-                final msg = redoResult.success
-                    ? '${AppLocalizations.of(context)!.fileMutationRedo}: '
-                          '${r.filePath}'
-                    : AppLocalizations.of(context)!.fileMutationRedoFailed;
-                ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                  SnackBar(
-                    content: Text(msg),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
+          );
+        }
         return;
       }
     }
@@ -3747,7 +3776,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           _localizedText(
@@ -3774,14 +3804,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final settingsController = context.read<SettingsController>();
     final selectedModel = settingsController.selectedAiModel;
     if (selectedModel == null) {
-      ScaffoldMessenger.of(
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.show(
         context,
-      ).showSnackBar(SnackBar(content: Text(l10n.aiModelSelectionRequired)));
+        messenger,
+        SnackBar(content: Text(l10n.aiModelSelectionRequired)),
+      );
       return;
     }
     if (pendingAttachments.isNotEmpty &&
         !_selectedModelSupportsAttachments(selectedModel)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showHomeSnackBar(
+        context,
         SnackBar(
           content: Text(
             _localizedText(
@@ -3817,7 +3851,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final slashCommand = parseOpenHandSlashCommand(prompt);
     if (slashCommand != null) {
       if (pendingAttachments.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showHomeSnackBar(
+          context,
           SnackBar(
             content: Text(
               _localizedText(
@@ -3840,7 +3875,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           (a) => aiAttachmentKindForPath(a.filePath) == AiAttachmentKind.image,
         ) &&
         !AiProtocolRegistry.supportsInlineImages(selectedModel)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showHomeSnackBar(
+        context,
         SnackBar(
           content: Text(
             _localizedText(
@@ -4212,9 +4248,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (sessionController.didCompressInLastSendForSession(targetSessionId)) {
-        ScaffoldMessenger.of(
+        final messenger = ScaffoldMessenger.of(context);
+        OpenHandSnackBar.show(
           context,
-        ).showSnackBar(SnackBar(content: Text(l10n.threadCompressionNotice)));
+          messenger,
+          SnackBar(content: Text(l10n.threadCompressionNotice)),
+        );
       }
       _scheduleScrollToBottom(force: true, animated: true);
     } catch (error, stackTrace) {
@@ -4243,7 +4282,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (mounted) {
         final errorMessage = '$error'.trim();
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showHomeSnackBar(
+          context,
           SnackBar(
             content: Text(
               errorMessage.isEmpty ? l10n.chatRequestFailed : errorMessage,
@@ -4307,7 +4347,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showHomeSnackBar(
+        context,
         SnackBar(
           content: Text(
             _localizedText(
@@ -4359,13 +4400,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final l10n = AppLocalizations.of(context)!;
     final selectedModel = context.read<SettingsController>().selectedAiModel;
     if (selectedModel == null) {
-      ScaffoldMessenger.of(
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.show(
         context,
-      ).showSnackBar(SnackBar(content: Text(l10n.aiModelSelectionRequired)));
+        messenger,
+        SnackBar(content: Text(l10n.aiModelSelectionRequired)),
+      );
       return;
     }
     if (!_selectedModelSupportsAttachments(selectedModel)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.show(
+        context,
+        messenger,
         SnackBar(
           content: Text(
             _localizedText(
@@ -4381,7 +4428,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final remainingSlots =
         aiMessageAttachmentLimit - _pendingAttachments.length;
     if (remainingSlots <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.show(
+        context,
+        messenger,
         SnackBar(
           content: Text(
             _localizedText(
@@ -4484,7 +4534,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     if (oversizedCount > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showHomeSnackBar(
+        context,
         SnackBar(
           content: Text(
             _localizedText(
@@ -4891,7 +4942,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case OpenHandSlashCommandKind.status:
         final session = context.read<AiSessionController>().currentSession;
         if (session == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _showHomeSnackBar(
+            context,
             SnackBar(
               content: Text(
                 _localizedText(
@@ -4926,7 +4978,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             currentSessionId != null &&
             sessionController.canStopResponding(currentSessionId);
         if (!hasActiveResponse) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _showHomeSnackBar(
+            context,
             SnackBar(
               content: Text(
                 _localizedText(
@@ -4941,7 +4994,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
         await _stopResponding();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _showHomeSnackBar(
+            context,
             SnackBar(
               content: Text(
                 _localizedText(
@@ -5015,7 +5069,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         en: 'HE Session',
       ),
     };
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           _localizedText(
@@ -5113,11 +5168,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             OpenHandDialogActionButton.primary(
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: feedbackTemplate));
-                if (!dialogContext.mounted) {
+                if (!mounted || !dialogContext.mounted) {
                   return;
                 }
                 Navigator.of(dialogContext).pop();
-                scaffoldMessenger.showSnackBar(
+                _showHomeSnackBarWithMessenger(
+                  context,
+                  scaffoldMessenger,
                   SnackBar(content: Text(copiedLabel)),
                 );
               },
@@ -5180,7 +5237,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || renamed) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
@@ -5223,7 +5281,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
@@ -5370,7 +5429,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
         SnackBar(
           content: Text(
             _localizedText(
@@ -5385,7 +5446,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (loaded == null || !mounted) {
       if (mounted) {
-        messenger.showSnackBar(
+        _showHomeSnackBarWithMessenger(
+          context,
+          messenger,
           SnackBar(
             content: Text(
               _localizedText(
@@ -5425,7 +5488,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
         SnackBar(
           content: Text(
             _localizedText(
@@ -5519,7 +5584,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
         SnackBar(
           content: Text(
             _localizedText(
@@ -5614,7 +5681,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
         break;
     }
-    messenger.showSnackBar(SnackBar(content: Text(message)));
+    OpenHandSnackBar.show(ctx, messenger, SnackBar(content: Text(message)));
   }
 
   Future<void> _editMessage(AiSessionMessage message) async {
@@ -5656,7 +5723,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           _localizedText(context, zh: '消息内容已复制。', en: 'Message copied.'),
@@ -5701,7 +5769,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       return deleted;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
@@ -5752,7 +5821,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       return deleted;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
@@ -5769,7 +5839,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || cancelled) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
@@ -6123,7 +6194,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           if (settingsController.aiInputCacheEnabled &&
               session != null &&
               session.statistics.assistantMessageCount > 0) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            _showHomeSnackBar(
+              context,
               SnackBar(
                 content: Text(
                   _localizedText(

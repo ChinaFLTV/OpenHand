@@ -58,7 +58,9 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     if (_lastTerminalStatus == status) return;
     final wasFresh = _lastTerminalStatus == null;
     _lastTerminalStatus = status;
-    if (!wasFresh) return; // status churn (e.g. success→failure) shouldn't replay
+    if (!wasFresh) {
+      return; // status churn (e.g. success→failure) shouldn't replay
+    }
     if (MediaQuery.disableAnimationsOf(context)) {
       // Skip the 620ms glow ceremony when the user has opted in to
       // reduce motion (or the OS-level a11y flag is on). The glow at
@@ -228,279 +230,286 @@ class _ToolCallBodyState extends State<_ToolCallBody>
               );
             },
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _ToolExecutionChip(
-                    icon: toolCall.presentation.icon,
-                    label: toolCall.primaryChipLabel,
-                  ),
-                  // Badge cross-fades on phase boundaries instead of
-                  // popping in/out, so constructing→submitting→running
-                  // feels like a single fluid morph.
-                  AnimatedSwitcher(
-                    duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 280),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(
-                        scale: Tween<double>(
-                          begin: 0.92,
-                          end: 1.0,
-                        ).animate(animation),
-                        child: child,
-                      ),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _ToolExecutionChip(
+                      icon: toolCall.presentation.icon,
+                      label: toolCall.primaryChipLabel,
                     ),
-                    child: isPreExecution
-                        ? _ToolConstructingBadge(
-                            key: ValueKey<String>(
-                              isSubmitting ? 'submitting' : 'constructing',
-                            ),
-                            label: isSubmitting
-                                ? AppLocalizations.of(
-                                    context,
-                                  )!.tlCallSubmitting
-                                : AppLocalizations.of(
-                                    context,
-                                  )!.tlCallArgumentsConstructing,
-                            hint: isSubmitting
-                                ? AppLocalizations.of(
-                                    context,
-                                  )!.tlCallSubmittingHint
-                                : AppLocalizations.of(
-                                    context,
-                                  )!.tlCallArgumentsConstructingHint,
-                            tone: isSubmitting
-                                ? _ToolConstructingTone.submitting
-                                : _ToolConstructingTone.constructing,
-                          )
-                        : const SizedBox.shrink(
-                            key: ValueKey<String>('no-badge'),
-                          ),
-                  ),
-            if (toolCall.workingDirectory.isNotEmpty)
-              _ToolExecutionChip(
-                icon: Icons.folder_outlined,
-                label:
-                    '${AppLocalizations.of(context)!.tlCallDir}: ${toolCall.workingDirectory}',
-              ),
-            if (toolCall.status.isNotEmpty)
-              _ToolExecutionChip(
-                icon: toolCall.statusIcon,
-                label: toolCall.outcomeLabel,
-              ),
-            if (toolCall.durationMs > 0 || toolCall.status == 'running')
-              _ToolExecutionChip(
-                icon: Icons.timer_outlined,
-                label:
-                    '${AppLocalizations.of(context)!.tlCallElapsed}: ${_formatToolExecutionDuration(toolCall.durationMs)}',
-              ),
-            if (toolCall.exitCode != null)
-              _ToolExecutionChip(
-                icon: Icons.flag_outlined,
-                label:
-                    '${AppLocalizations.of(context)!.tlCallExit}: ${toolCall.exitCode}',
-              ),
-            // 停滞 chip：runtime 通过 metadata 上报 stall warning 时显现，
-            // 命令重新有输出后会被清空（仅在 running 状态保留）。
-            if (message.metadata['tool_execution_stall_warning'] is String &&
-                (message.metadata['tool_execution_stall_warning'] as String)
-                    .trim()
-                    .isNotEmpty &&
-                toolCall.status == 'running')
-              Tooltip(
-                message:
-                    message.metadata['tool_execution_stall_warning'] as String,
-                child: const _ToolExecutionChip(
-                  icon: Icons.warning_amber_outlined,
-                  label: '可能停滞',
-                ),
-              ),
-            // 当工具调用仍登记在执行中心时，提供独立 Stop 按钮：
-            // 单击只杀本调用（区别于全局"停止响应"，不影响并行的兄弟工具）。
-            _ToolCancelButton(
-              toolCallId: '${message.metadata['tool_call_id'] ?? ''}',
-            ),
-          ],
-        ),
-        // Phase swap: keys-row (pre-execution) ⇄ expandable-sections
-        // (executed). Single AnimatedSwitcher keyed on the binary phase
-        // so toggling expand/collapse INSIDE the executed phase does NOT
-        // re-trigger the cross-fade; only the structural transition
-        // does. Slide+fade gives the swap a soft, slick feel; the outer
-        // AnimatedSize already handles overall height.
-        const SizedBox(height: 10),
-        AnimatedSwitcher(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 320),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          layoutBuilder: (current, previous) => Stack(
-            alignment: Alignment.topLeft,
-            children: [...previous, if (current != null) current],
-          ),
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(0, 0.06),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    ),
-                  ),
-              child: child,
-            ),
-          ),
-          child: isPreExecution
-              ? KeyedSubtree(
-                  key: const ValueKey<String>('phase-pre'),
-                  child: _ConstructingArgumentKeysRow(
-                    keys: toolCall.argumentKeys,
-                    collectedLabel: AppLocalizations.of(
-                      context,
-                    )!.tlCallCollectedParameters,
-                    emptyLabel: AppLocalizations.of(
-                      context,
-                    )!.tlCallNoParametersYet,
-                  ),
-                )
-              : KeyedSubtree(
-                  key: const ValueKey<String>('phase-done'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ExpandableToolSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.tlCallToolInput,
-                        preview: toolCall.argumentsPreview,
-                        expanded: argumentsExpanded,
-                        onToggle: () {
-                          setState(() {
-                            _argumentsExpandedOverride = !argumentsExpanded;
-                          });
-                        },
-                        expandedBuilder: (context) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (toolCall.command.isNotEmpty)
-                              _ToolOutputPanel(
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.tlCallCommand,
-                                content: toolCall.formattedCommand,
-                                theme: theme,
-                                selectable: widget.selectable,
-                              ),
-                            if (toolCall.command.isNotEmpty)
-                              const SizedBox(height: 10),
-                            _ToolOutputPanel(
-                              label: AppLocalizations.of(
-                                context,
-                              )!.tlCallArguments,
-                              content: toolCall.formattedArguments,
-                              theme: theme,
-                              selectable: widget.selectable,
-                            ),
-                          ],
+                    // Badge cross-fades on phase boundaries instead of
+                    // popping in/out, so constructing→submitting→running
+                    // feels like a single fluid morph.
+                    AnimatedSwitcher(
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 280),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(
+                            begin: 0.92,
+                            end: 1.0,
+                          ).animate(animation),
+                          child: child,
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      _ExpandableToolSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.tlCallToolOutput,
-                        preview: toolCall.hasResultContent
-                            ? toolCall.resultPreview
-                            : AppLocalizations.of(
-                                context,
-                              )!.tlCallNoOutputYet,
-                        expanded: resultExpanded,
-                        onToggle: () {
-                          setState(() {
-                            _resultExpandedOverride = !resultExpanded;
-                          });
-                        },
-                        expandedBuilder: (context) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (toolCall.stdout.isNotEmpty)
-                              _ToolOutputPanel(
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.tlCallStdout,
-                                content: toolCall.formattedStdout,
-                                theme: theme,
-                                selectable: widget.selectable,
-                                fullContentFile: toolCall.stdoutFile,
+                      child: isPreExecution
+                          ? _ToolConstructingBadge(
+                              key: ValueKey<String>(
+                                isSubmitting ? 'submitting' : 'constructing',
                               ),
-                            if (toolCall.stderr.isNotEmpty) ...[
-                              if (toolCall.stdout.isNotEmpty)
-                                const SizedBox(height: 10),
-                              _ToolOutputPanel(
-                                label: AppLocalizations.of(
+                              label: isSubmitting
+                                  ? AppLocalizations.of(
+                                      context,
+                                    )!.tlCallSubmitting
+                                  : AppLocalizations.of(
+                                      context,
+                                    )!.tlCallArgumentsConstructing,
+                              hint: isSubmitting
+                                  ? AppLocalizations.of(
+                                      context,
+                                    )!.tlCallSubmittingHint
+                                  : AppLocalizations.of(
+                                      context,
+                                    )!.tlCallArgumentsConstructingHint,
+                              tone: isSubmitting
+                                  ? _ToolConstructingTone.submitting
+                                  : _ToolConstructingTone.constructing,
+                            )
+                          : const SizedBox.shrink(
+                              key: ValueKey<String>('no-badge'),
+                            ),
+                    ),
+                    if (toolCall.workingDirectory.isNotEmpty)
+                      _ToolExecutionChip(
+                        icon: Icons.folder_outlined,
+                        label:
+                            '${AppLocalizations.of(context)!.tlCallDir}: ${toolCall.workingDirectory}',
+                      ),
+                    if (toolCall.status.isNotEmpty)
+                      _ToolExecutionChip(
+                        icon: toolCall.statusIcon,
+                        label: toolCall.outcomeLabel,
+                      ),
+                    if (toolCall.durationMs > 0 || toolCall.status == 'running')
+                      _ToolExecutionChip(
+                        icon: Icons.timer_outlined,
+                        label:
+                            '${AppLocalizations.of(context)!.tlCallElapsed}: ${_formatToolExecutionDuration(toolCall.durationMs)}',
+                      ),
+                    if (toolCall.exitCode != null)
+                      _ToolExecutionChip(
+                        icon: Icons.flag_outlined,
+                        label:
+                            '${AppLocalizations.of(context)!.tlCallExit}: ${toolCall.exitCode}',
+                      ),
+                    // 停滞 chip：runtime 通过 metadata 上报 stall warning 时显现，
+                    // 命令重新有输出后会被清空（仅在 running 状态保留）。
+                    if (message.metadata['tool_execution_stall_warning']
+                            is String &&
+                        (message.metadata['tool_execution_stall_warning']
+                                as String)
+                            .trim()
+                            .isNotEmpty &&
+                        toolCall.status == 'running')
+                      Tooltip(
+                        message:
+                            message.metadata['tool_execution_stall_warning']
+                                as String,
+                        child: const _ToolExecutionChip(
+                          icon: Icons.warning_amber_outlined,
+                          label: '可能停滞',
+                        ),
+                      ),
+                    // 当工具调用仍登记在执行中心时，提供独立 Stop 按钮：
+                    // 单击只杀本调用（区别于全局"停止响应"，不影响并行的兄弟工具）。
+                    _ToolCancelButton(
+                      toolCallId: '${message.metadata['tool_call_id'] ?? ''}',
+                    ),
+                  ],
+                ),
+                // Phase swap: keys-row (pre-execution) ⇄ expandable-sections
+                // (executed). Single AnimatedSwitcher keyed on the binary phase
+                // so toggling expand/collapse INSIDE the executed phase does NOT
+                // re-trigger the cross-fade; only the structural transition
+                // does. Slide+fade gives the swap a soft, slick feel; the outer
+                // AnimatedSize already handles overall height.
+                const SizedBox(height: 10),
+                AnimatedSwitcher(
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 320),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: Alignment.topLeft,
+                    children: [...previous, if (current != null) current],
+                  ),
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.06),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                      child: child,
+                    ),
+                  ),
+                  child: isPreExecution
+                      ? KeyedSubtree(
+                          key: const ValueKey<String>('phase-pre'),
+                          child: _ConstructingArgumentKeysRow(
+                            keys: toolCall.argumentKeys,
+                            collectedLabel: AppLocalizations.of(
+                              context,
+                            )!.tlCallCollectedParameters,
+                            emptyLabel: AppLocalizations.of(
+                              context,
+                            )!.tlCallNoParametersYet,
+                          ),
+                        )
+                      : KeyedSubtree(
+                          key: const ValueKey<String>('phase-done'),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _ExpandableToolSection(
+                                title: AppLocalizations.of(
                                   context,
-                                )!.tlCallStderr,
-                                content: toolCall.formattedStderr,
-                                theme: theme,
-                                isError: true,
-                                selectable: widget.selectable,
-                                fullContentFile: toolCall.stderrFile,
-                              ),
-                            ],
-                            if (toolCall.showResultText) ...[
-                              if (toolCall.stdout.isNotEmpty ||
-                                  toolCall.stderr.isNotEmpty)
-                                const SizedBox(height: 10),
-                              _ToolOutputPanel(
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.tlCallResult,
-                                content: toolCall.formattedResult,
-                                theme: theme,
-                                selectable: widget.selectable,
-                              ),
-                            ],
-                            if (toolCall.stdout.isEmpty &&
-                                toolCall.stderr.isEmpty &&
-                                !toolCall.showResultText)
-                              Text(
-                                AppLocalizations.of(
-                                  context,
-                                )!.tlCallThereIsNoToolOutputYet,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                                )!.tlCallToolInput,
+                                preview: toolCall.argumentsPreview,
+                                expanded: argumentsExpanded,
+                                onToggle: () {
+                                  setState(() {
+                                    _argumentsExpandedOverride =
+                                        !argumentsExpanded;
+                                  });
+                                },
+                                expandedBuilder: (context) => Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (toolCall.command.isNotEmpty)
+                                      _ToolOutputPanel(
+                                        label: AppLocalizations.of(
+                                          context,
+                                        )!.tlCallCommand,
+                                        content: toolCall.formattedCommand,
+                                        theme: theme,
+                                        selectable: widget.selectable,
+                                      ),
+                                    if (toolCall.command.isNotEmpty)
+                                      const SizedBox(height: 10),
+                                    _ToolOutputPanel(
+                                      label: AppLocalizations.of(
+                                        context,
+                                      )!.tlCallArguments,
+                                      content: toolCall.formattedArguments,
+                                      theme: theme,
+                                      selectable: widget.selectable,
+                                    ),
+                                  ],
                                 ),
                               ),
-                          ],
+                              const SizedBox(height: 10),
+                              _ExpandableToolSection(
+                                title: AppLocalizations.of(
+                                  context,
+                                )!.tlCallToolOutput,
+                                preview: toolCall.hasResultContent
+                                    ? toolCall.resultPreview
+                                    : AppLocalizations.of(
+                                        context,
+                                      )!.tlCallNoOutputYet,
+                                expanded: resultExpanded,
+                                onToggle: () {
+                                  setState(() {
+                                    _resultExpandedOverride = !resultExpanded;
+                                  });
+                                },
+                                expandedBuilder: (context) => Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (toolCall.stdout.isNotEmpty)
+                                      _ToolOutputPanel(
+                                        label: AppLocalizations.of(
+                                          context,
+                                        )!.tlCallStdout,
+                                        content: toolCall.formattedStdout,
+                                        theme: theme,
+                                        selectable: widget.selectable,
+                                        fullContentFile: toolCall.stdoutFile,
+                                      ),
+                                    if (toolCall.stderr.isNotEmpty) ...[
+                                      if (toolCall.stdout.isNotEmpty)
+                                        const SizedBox(height: 10),
+                                      _ToolOutputPanel(
+                                        label: AppLocalizations.of(
+                                          context,
+                                        )!.tlCallStderr,
+                                        content: toolCall.formattedStderr,
+                                        theme: theme,
+                                        isError: true,
+                                        selectable: widget.selectable,
+                                        fullContentFile: toolCall.stderrFile,
+                                      ),
+                                    ],
+                                    if (toolCall.showResultText) ...[
+                                      if (toolCall.stdout.isNotEmpty ||
+                                          toolCall.stderr.isNotEmpty)
+                                        const SizedBox(height: 10),
+                                      _ToolOutputPanel(
+                                        label: AppLocalizations.of(
+                                          context,
+                                        )!.tlCallResult,
+                                        content: toolCall.formattedResult,
+                                        theme: theme,
+                                        selectable: widget.selectable,
+                                      ),
+                                    ],
+                                    if (toolCall.stdout.isEmpty &&
+                                        toolCall.stderr.isEmpty &&
+                                        !toolCall.showResultText)
+                                      Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.tlCallThereIsNoToolOutputYet,
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
                 ),
-        ),
-        // ── File mutation card (Codex-style multi-file list + ledger undo/redo) ──
-        if (_fileMutationPaths(message).isNotEmpty &&
-            _toolExecutionStatus(message) == 'success') ...[
-          const SizedBox(height: 10),
-          _FileMutationCard(message: message),
-        ],
-      ],
+                // ── File mutation card (Codex-style multi-file list + ledger undo/redo) ──
+                if (_fileMutationPaths(message).isNotEmpty &&
+                    _toolExecutionStatus(message) == 'success') ...[
+                  const SizedBox(height: 10),
+                  _FileMutationCard(message: message),
+                ],
+              ],
             ),
           ),
-          ),
         ),
+      ),
     );
   }
 
@@ -588,8 +597,8 @@ class _ExpandableToolSection extends StatelessWidget {
                     AnimatedRotation(
                       turns: expanded ? 0.25 : 0.0,
                       duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 240),
+                          ? Duration.zero
+                          : const Duration(milliseconds: 240),
                       curve: Curves.easeOutCubic,
                       child: const Icon(
                         Icons.keyboard_arrow_right_rounded,
@@ -614,8 +623,8 @@ class _ExpandableToolSection extends StatelessWidget {
                 // never see a null child.
                 AnimatedSwitcher(
                   duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 240),
+                      ? Duration.zero
+                      : const Duration(milliseconds: 240),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   layoutBuilder: (current, previous) => Stack(
@@ -658,9 +667,7 @@ class _ExpandableToolSection extends StatelessWidget {
                             ),
                           ),
                         )
-                      : const SizedBox.shrink(
-                          key: ValueKey<String>('empty'),
-                        ),
+                      : const SizedBox.shrink(key: ValueKey<String>('empty')),
                 ),
               ],
             ),
@@ -769,7 +776,9 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                     size: 14,
                   ),
                   label: Text(
-                    (_isWrapped ? AppLocalizations.of(context)!.tlCallUnwrap : AppLocalizations.of(context)!.tlCallWrapLines),
+                    (_isWrapped
+                        ? AppLocalizations.of(context)!.tlCallUnwrap
+                        : AppLocalizations.of(context)!.tlCallWrapLines),
                   ),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -791,7 +800,13 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                       size: 14,
                     ),
                     label: Text(
-                      (_isExpanded ? AppLocalizations.of(context)!.tlCallViewCompressedContent : AppLocalizations.of(context)!.tlCallViewFullContent),
+                      (_isExpanded
+                          ? AppLocalizations.of(
+                              context,
+                            )!.tlCallViewCompressedContent
+                          : AppLocalizations.of(
+                              context,
+                            )!.tlCallViewFullContent),
                     ),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1139,7 +1154,6 @@ class _ToolContentSafeRenderState extends State<_ToolContentSafeRender> {
   }
 }
 
-
 class _ToolExecutionChip extends StatelessWidget {
   const _ToolExecutionChip({required this.icon, required this.label});
 
@@ -1173,8 +1187,10 @@ class _ToolExecutionChip extends StatelessWidget {
               return FadeTransition(
                 opacity: animation,
                 child: RotationTransition(
-                  turns:
-                      Tween<double>(begin: -0.25, end: 0.0).animate(animation),
+                  turns: Tween<double>(
+                    begin: -0.25,
+                    end: 0.0,
+                  ).animate(animation),
                   child: child,
                 ),
               );
@@ -1183,11 +1199,7 @@ class _ToolExecutionChip extends StatelessWidget {
               alignment: Alignment.center,
               children: [...previous, if (current != null) current],
             ),
-            child: Icon(
-              icon,
-              size: 14,
-              key: ValueKey<int>(icon.codePoint),
-            ),
+            child: Icon(icon, size: 14, key: ValueKey<int>(icon.codePoint)),
           ),
           const SizedBox(width: 6),
           Text(label, style: theme.textTheme.labelMedium),
@@ -1334,8 +1346,8 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
           final t = _ctrl.value;
           return AnimatedContainer(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 280),
+                ? Duration.zero
+                : const Duration(milliseconds: 280),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
@@ -1359,9 +1371,7 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
                 const SizedBox(width: 6),
                 Text(
                   widget.label,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: fg,
-                  ),
+                  style: theme.textTheme.labelMedium?.copyWith(color: fg),
                 ),
               ],
             ),
@@ -1419,16 +1429,11 @@ class _ConstructingArgumentKeysRow extends StatelessWidget {
           AppearOnce(
             key: ValueKey<String>('arg-key-${entry.key}'),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 3,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHigh.withValues(alpha: 0.7),
                 borderRadius: _borderRadius999,
-                border: Border.all(
-                  color: cs.outline.withValues(alpha: 0.25),
-                ),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.25)),
               ),
               child: RichText(
                 text: TextSpan(
@@ -1447,9 +1452,7 @@ class _ConstructingArgumentKeysRow extends StatelessWidget {
                       ),
                       TextSpan(
                         text: entry.valuePreview,
-                        style: TextStyle(
-                          color: cs.onSurfaceVariant,
-                        ),
+                        style: TextStyle(color: cs.onSurfaceVariant),
                       ),
                     ],
                   ],
@@ -2304,14 +2307,29 @@ String _toolCallStatusActionLabel(
   required bool isCommandLike,
 }) {
   return switch (status) {
-    '' => (isCommandLike ? AppLocalizations.of(context)!.tlCallPreparing : AppLocalizations.of(context)!.tlCallPreparingAlt),
-    'running' => (isCommandLike ? AppLocalizations.of(context)!.tlCallRunning : AppLocalizations.of(context)!.tlCallRunningAlt),
+    '' =>
+      (isCommandLike
+          ? AppLocalizations.of(context)!.tlCallPreparing
+          : AppLocalizations.of(context)!.tlCallPreparingAlt),
+    'running' =>
+      (isCommandLike
+          ? AppLocalizations.of(context)!.tlCallRunning
+          : AppLocalizations.of(context)!.tlCallRunningAlt),
     'cancelled' => AppLocalizations.of(context)!.tlCallStopped,
-    'success' => (isCommandLike ? AppLocalizations.of(context)!.tlCallCompleted : AppLocalizations.of(context)!.tlCallCompletedAlt),
+    'success' =>
+      (isCommandLike
+          ? AppLocalizations.of(context)!.tlCallCompleted
+          : AppLocalizations.of(context)!.tlCallCompletedAlt),
     'denied' => AppLocalizations.of(context)!.tlCallBlocked,
     'rejected' => AppLocalizations.of(context)!.tlCallRejected,
-    'timed_out' => (isCommandLike ? AppLocalizations.of(context)!.tlCallTimedOut : AppLocalizations.of(context)!.tlCallTimedOutAlt),
-    'failed' => (isCommandLike ? AppLocalizations.of(context)!.tlCallFailed : AppLocalizations.of(context)!.tlCallFailedAlt),
+    'timed_out' =>
+      (isCommandLike
+          ? AppLocalizations.of(context)!.tlCallTimedOut
+          : AppLocalizations.of(context)!.tlCallTimedOutAlt),
+    'failed' =>
+      (isCommandLike
+          ? AppLocalizations.of(context)!.tlCallFailed
+          : AppLocalizations.of(context)!.tlCallFailedAlt),
     'invalid_arguments' => AppLocalizations.of(context)!.tlCallInvalid,
     _ => AppLocalizations.of(context)!.tlCallToolCall,
   };
@@ -2492,10 +2510,13 @@ void _showMessageLinkOpenError(BuildContext context, Object error) {
   if (!context.mounted) {
     return;
   }
-  ScaffoldMessenger.of(context).showSnackBar(
+  _showHomeSnackBar(
+    context,
     SnackBar(
       content: Text(
-        AppLocalizations.of(context)!.tlCallFailedToOpenFileLocationError(error),
+        AppLocalizations.of(
+          context,
+        )!.tlCallFailedToOpenFileLocationError(error),
       ),
     ),
   );
@@ -2950,8 +2971,8 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
                       alignment: Alignment.topLeft,
                       child: AnimatedSwitcher(
                         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
                         switchInCurve: Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
                         child: !hasData
@@ -2971,23 +2992,18 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
                                 children: [
                                   Text(
                                     resolvedPath,
-                                    style: theme.textTheme.bodyMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.onSurface,
-                                        ),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onSurface,
+                                    ),
                                   ),
                                   const SizedBox(height: 12),
                                   _StatRow(
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.tlCallType,
+                                    AppLocalizations.of(context)!.tlCallType,
                                     snapshot.data!.type.toString(),
                                   ),
                                   _StatRow(
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.tlCallSize,
+                                    AppLocalizations.of(context)!.tlCallSize,
                                     '${snapshot.data!.size} bytes',
                                   ),
                                   _StatRow(
@@ -3191,7 +3207,9 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
       context,
       widget.message.createdAt,
     );
-    final memoryCountLabel = AppLocalizations.of(context)!.tlCallMemoryitemsLengthMemoriesUpdated(memoryItems.length);
+    final memoryCountLabel = AppLocalizations.of(
+      context,
+    )!.tlCallMemoryitemsLengthMemoriesUpdated(memoryItems.length);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3209,7 +3227,9 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
             if (profileItems.isNotEmpty)
               _ToolExecutionChip(
                 icon: Icons.account_circle_outlined,
-                label: AppLocalizations.of(context)!.tlCallProfileitemsLengthProfileChanges(profileItems.length),
+                label: AppLocalizations.of(
+                  context,
+                )!.tlCallProfileitemsLengthProfileChanges(profileItems.length),
               ),
             _ToolExecutionChip(
               icon: Icons.memory_rounded,
@@ -3218,7 +3238,9 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
             if (skillItems.isNotEmpty)
               _ToolExecutionChip(
                 icon: Icons.extension_rounded,
-                label: AppLocalizations.of(context)!.tlCallSkillitemsLengthSkillsUpdated(skillItems.length),
+                label: AppLocalizations.of(
+                  context,
+                )!.tlCallSkillitemsLengthSkillsUpdated(skillItems.length),
               ),
             _ToolExecutionChip(
               icon: Icons.schedule_rounded,
@@ -3290,7 +3312,9 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
         if (aiReasoning.isNotEmpty) ...[
           const SizedBox(height: 10),
           _ExpandableToolSection(
-            title: (isStreaming ? AppLocalizations.of(context)!.tlCallAiThinkingStreaming : AppLocalizations.of(context)!.tlCallAiThinking),
+            title: (isStreaming
+                ? AppLocalizations.of(context)!.tlCallAiThinkingStreaming
+                : AppLocalizations.of(context)!.tlCallAiThinking),
             preview: _previewText(aiReasoning),
             expanded: _reasoningExpanded,
             onToggle: () {
@@ -3305,7 +3329,9 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
         if (aiResponse.isNotEmpty) ...[
           const SizedBox(height: 10),
           _ExpandableToolSection(
-            title: (isStreaming ? AppLocalizations.of(context)!.tlCallAiResponseStreaming : AppLocalizations.of(context)!.tlCallAiResponse),
+            title: (isStreaming
+                ? AppLocalizations.of(context)!.tlCallAiResponseStreaming
+                : AppLocalizations.of(context)!.tlCallAiResponse),
             preview: _previewText(aiResponse),
             expanded: _responseExpanded,
             onToggle: () {
@@ -3402,8 +3428,8 @@ class _SelfLearningMarkdown extends StatelessWidget {
     return ClipRect(
       child: AnimatedSize(
         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
         child: _SafeMarkdownBody(
@@ -3624,7 +3650,9 @@ String _changeItemsPreview(
       .take(3)
       .join(', ');
   final suffix = items.length > 3
-      ? AppLocalizations.of(context)!.tlCallAndItemsLength3More(items.length - 3, items.length)
+      ? AppLocalizations.of(
+          context,
+        )!.tlCallAndItemsLength3More(items.length - 3, items.length)
       : '';
   return '$names$suffix';
 }

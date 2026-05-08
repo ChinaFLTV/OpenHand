@@ -131,7 +131,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       );
       if (!mounted) return;
       if (!r.success) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        _showHomeSnackBar(
+          context,
           SnackBar(
             content: Text(
               r.errorMessage.isNotEmpty
@@ -162,7 +163,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       );
       if (!mounted) return;
       if (!r.success) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        _showHomeSnackBar(
+          context,
           SnackBar(
             content: Text(
               r.errorMessage.isNotEmpty
@@ -258,7 +260,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     _refresh();
     if (failure > 0) {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      _showHomeSnackBar(
+        context,
         SnackBar(
           content: Text(
             lastError != null && lastError!.isNotEmpty
@@ -305,7 +308,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
     await Clipboard.setData(ClipboardData(text: buf.toString()));
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         content: Text(
           AppLocalizations.of(context)!.fileMutationCopyAllDiffDone,
@@ -1367,7 +1371,8 @@ String? _languageFromFilePath(String path) {
 Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
   await Clipboard.setData(ClipboardData(text: filePath));
   if (!context.mounted) return;
-  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+  _showHomeSnackBar(
+    context,
     SnackBar(
       content: Text(AppLocalizations.of(context)!.fileMutationPathCopied),
       duration: const Duration(seconds: 2),
@@ -2233,7 +2238,8 @@ class _InspectorEntryRow extends StatelessWidget {
       final json = jsonEncode(view.record.toJson());
       await Clipboard.setData(ClipboardData(text: json));
       if (context.mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        _showHomeSnackBar(
+          context,
           SnackBar(
             duration: const Duration(seconds: 2),
             content: Text(isZh ? '已复制 record JSON' : 'Copied record JSON'),
@@ -2243,7 +2249,8 @@ class _InspectorEntryRow extends StatelessWidget {
     } else if (selected == 'copy_id') {
       await Clipboard.setData(ClipboardData(text: view.record.recordId));
       if (context.mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        _showHomeSnackBar(
+          context,
           SnackBar(
             duration: const Duration(seconds: 2),
             content: Text(isZh ? '已复制 record ID' : 'Copied record ID'),
@@ -2734,7 +2741,8 @@ class _RoundFileMutationSummaryCardState
       highlight: true,
     );
     if (!ok && mounted) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      _showHomeSnackBar(
+        context,
         SnackBar(
           duration: const Duration(milliseconds: 2200),
           content: Text(
@@ -2820,9 +2828,14 @@ class _RoundFileMutationSummaryCardState
     });
     _pulseSignal.value += 1;
     if (lastError != null) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(lastError!)));
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger != null) {
+        OpenHandSnackBar.show(
+          context,
+          messenger,
+          SnackBar(content: Text(lastError!)),
+        );
+      }
     }
   }
 
@@ -2852,7 +2865,8 @@ class _RoundFileMutationSummaryCardState
     await Clipboard.setData(ClipboardData(text: encoded));
     if (!mounted) return;
     _pulseSignal.value += 1;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    _showHomeSnackBar(
+      context,
       SnackBar(
         duration: const Duration(milliseconds: 1800),
         content: Text(

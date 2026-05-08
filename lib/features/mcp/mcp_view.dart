@@ -814,11 +814,23 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       if (messenger == null) return;
       switch (kind) {
         case _SnackKind.success:
-          messenger.showSnackBar(OpenHandSnackBar.success(context, message));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            OpenHandSnackBar.success(context, message),
+          );
         case _SnackKind.error:
-          messenger.showSnackBar(OpenHandSnackBar.error(context, message));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            OpenHandSnackBar.error(context, message),
+          );
         case _SnackKind.info:
-          messenger.showSnackBar(SnackBar(content: Text(message)));
+          OpenHandSnackBar.show(
+            context,
+            messenger,
+            SnackBar(content: Text(message)),
+          );
       }
     });
   }
@@ -2626,7 +2638,11 @@ class _ToolSchemaBlock extends StatelessWidget {
                   onPressed: () async {
                     await Clipboard.setData(ClipboardData(text: pretty));
                     if (!context.mounted) return;
-                    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                    final messenger = ScaffoldMessenger.maybeOf(context);
+                    if (messenger == null) return;
+                    OpenHandSnackBar.show(
+                      context,
+                      messenger,
                       OpenHandSnackBar.success(
                         context,
                         _localizedText(
@@ -2883,7 +2899,9 @@ class _McpHealthHistorySheet extends StatelessWidget {
       _McpHistoryExportFormat.json => 'JSON',
       _McpHistoryExportFormat.csv => 'CSV',
     };
-    messenger.showSnackBar(
+    OpenHandSnackBar.show(
+      context,
+      messenger,
       OpenHandSnackBar.success(
         context,
         _localizedText(
@@ -3309,14 +3327,21 @@ class _McpProbeStatusBar extends StatelessWidget {
                             ),
                         ],
                       ),
+                      const SizedBox(height: 14),
+                      Divider(
+                        height: 1,
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.72,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      actions,
                     ],
                   )
                 : const SizedBox.shrink(
                     key: ValueKey<String>('mcp-probe-collapsed'),
                   ),
           ),
-          const SizedBox(height: 14),
-          actions,
         ],
       ),
     );

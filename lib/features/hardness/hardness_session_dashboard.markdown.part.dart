@@ -185,7 +185,8 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       recognizer.onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _showHardnessSnackBar(
+            context,
             SnackBar(
               content: Text('Path copied: ${resolvedPath.resolvedPath}'),
               duration: const Duration(seconds: 2),
@@ -211,7 +212,8 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       ..onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _showHardnessSnackBar(
+            context,
             SnackBar(
               content: Text('Path copied: ${resolvedPath.resolvedPath}'),
               duration: const Duration(seconds: 2),
@@ -990,4 +992,3 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
 // _HeComposer — HE composer with active permission toggle, collapse state,
 // auto-follow control, and a conditional manual-review input.
 // =============================================================================
-

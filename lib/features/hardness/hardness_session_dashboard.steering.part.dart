@@ -568,7 +568,8 @@ class _HeSteeringFileEditorDialogState
         _dirty = false;
         _saving = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showHardnessSnackBar(
+        context,
         SnackBar(
           content: Text(widget.isZh ? '文件已保存' : 'File saved'),
           duration: const Duration(seconds: 1),
