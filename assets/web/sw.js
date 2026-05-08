@@ -5,22 +5,68 @@
  *      网络失败时返回明确的离线 JSON, 让前端显示离线 banner 而非整体崩溃。
  *   3. 静态资源 (chunks/* 与 assets/*) 走 cache-first, 失败回退网络。
  *
- * 缓存版本号在每次发布时手动 bump, 旧缓存在 activate 时清理。
+ * app.js / app.css 使用确定性文件名, 所以 App Shell 必须网络优先，避免发布后
+ * 已安装过 Service Worker 的浏览器继续吃旧 bundle。
  */
-const CACHE_VERSION = 'openhand-shell-v2';
-const APP_SHELL = [
+const CACHE_VERSION = 'openhand-shell-v3';
+const APP_SHELL_PRECACHE = [
   '/',
   '/app.js',
   '/app.css',
   '/openhand_logo.png',
   '/manifest.webmanifest',
 ];
+const APP_SHELL_NETWORK_FIRST = new Set([
+  ...APP_SHELL_PRECACHE,
+  '/threads',
+  '/thread',
+  '/login',
+  '/threads/app.js',
+  '/threads/app.css',
+  '/threads/openhand_logo.png',
+  '/threads/manifest.webmanifest',
+  '/sw.js',
+]);
+const CACHE_FIRST_PREFIXES = [
+  '/chunks/',
+  '/assets/',
+  '/threads/chunks/',
+  '/threads/assets/',
+];
+
+async function cacheResponse(req, res) {
+  if (res && res.status === 200 && res.type === 'basic') {
+    const cache = await caches.open(CACHE_VERSION);
+    await cache.put(req, res.clone());
+  }
+  return res;
+}
+
+async function networkFirst(req, fallbackUrl) {
+  try {
+    return await cacheResponse(req, await fetch(req));
+  } catch {
+    const cached = await caches.match(req);
+    if (cached) return cached;
+    if (fallbackUrl) {
+      const fallback = await caches.match(fallbackUrl);
+      if (fallback) return fallback;
+    }
+    throw new Error('offline');
+  }
+}
+
+async function cacheFirst(req) {
+  const cached = await caches.match(req);
+  if (cached) return cached;
+  return cacheResponse(req, await fetch(req));
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_VERSION)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => cache.addAll(APP_SHELL_PRECACHE))
       .then(() => self.skipWaiting())
       .catch(() => undefined),
   );
@@ -61,23 +107,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // SPA shell + 静态资源: cache-first, 没命中就 fetch 并 put 进缓存。
-  event.respondWith(
-    caches.match(req).then(
-      (cached) =>
-        cached ||
-        fetch(req)
-          .then((res) => {
-            // 只缓存 200 同源响应; opaque/redirect 跳过
-            if (res && res.status === 200 && res.type === 'basic') {
-              const clone = res.clone();
-              caches.open(CACHE_VERSION).then((c) => c.put(req, clone)).catch(() => undefined);
-            }
-            return res;
-          })
-          .catch(() => caches.match('/') as Promise<Response>),
-    ),
-  );
+  // SPA shell 与固定文件名 bundle: 网络优先, 离线回退缓存。
+  if (req.mode === 'navigate' || APP_SHELL_NETWORK_FIRST.has(url.pathname)) {
+    event.respondWith(networkFirst(req, '/'));
+    return;
+  }
+
+  // Vite 派生静态资源: cache-first, 没命中再 fetch 并 put 进缓存。
+  if (CACHE_FIRST_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))) {
+    event.respondWith(cacheFirst(req));
+    return;
+  }
+
+  event.respondWith(networkFirst(req, '/'));
 });
 
 // 来自页面 postMessage 的「新消息桌面通知」请求。
