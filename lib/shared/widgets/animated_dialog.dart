@@ -137,6 +137,13 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
   };
 }
 
+/// Adds Escape-to-dismiss to a dialog without stealing focus from descendant
+/// inputs. Earlier revision wrapped the body in `Focus(autofocus: true, ...)`
+/// + `Shortcuts/Actions`，那会抢走对话框内 `TextField` 的 autofocus，并让
+/// macOS / Web 端的输入法上下文与剪贴板快捷键失效（无法输入/复制/粘贴）。
+/// 改用 [CallbackShortcuts]：它只为子树注册键盘绑定、自身不申请焦点、不与
+/// `DefaultTextEditingShortcuts` 抢同名 Intent。Esc 会从对话框内当前焦点节点
+/// (按钮 / TextField) 沿 `Shortcuts` 链冒泡命中此处，触发 `maybePop`。
 class _EscapeDismissDialogScope extends StatelessWidget {
   const _EscapeDismissDialogScope({required this.child});
 
@@ -144,21 +151,13 @@ class _EscapeDismissDialogScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Shortcuts(
-      shortcuts: const <ShortcutActivator, Intent>{
-        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
-      },
-      child: Actions(
-        actions: <Type, Action<Intent>>{
-          DismissIntent: CallbackAction<DismissIntent>(
-            onInvoke: (_) {
-              unawaited(Navigator.of(context).maybePop());
-              return null;
-            },
-          ),
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          unawaited(Navigator.of(context).maybePop());
         },
-        child: Focus(autofocus: true, child: child),
-      ),
+      },
+      child: child,
     );
   }
 }
