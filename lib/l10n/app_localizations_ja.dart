@@ -385,6 +385,49 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpAutoProbeConcurrencyInvalid => '1 から 32 までの整数を入力してください。';
 
   @override
+  String get commonClose => '閉じる';
+
+  @override
+  String get commonRunInBackground => 'バックグラウンドで実行';
+
+  @override
+  String get mcpBuildKeywordIndex => 'キーワード索引を構築';
+
+  @override
+  String get mcpKeywordIndexBuildTitle => 'キーワード逆引き索引を構築中';
+
+  @override
+  String get mcpKeywordIndexBuildStarting => '準備中…';
+
+  @override
+  String mcpKeywordIndexBuildProgress(
+    int idx,
+    int count,
+    Object server,
+    int tools,
+  ) {
+    return '$idx/$count: $server（$tools 件のツールをスキャン）';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSummary(
+    int servers,
+    int tools,
+    int keys,
+    Object sec,
+  ) {
+    return '$servers サーバ・$tools ツール・$keys キーワードを索引化（${sec}s）';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSkipped(int n) {
+    return '未準備の $n サーバをスキップ';
+  }
+
+  @override
+  String get mcpKeywordIndexBuildFailed => '構築失敗：';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCPツールの遅延読み込み';
 
   @override

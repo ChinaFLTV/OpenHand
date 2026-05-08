@@ -401,6 +401,49 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bitte eine ganze Zahl zwischen 1 und 32 eingeben.';
 
   @override
+  String get commonClose => 'Schließen';
+
+  @override
+  String get commonRunInBackground => 'Im Hintergrund ausführen';
+
+  @override
+  String get mcpBuildKeywordIndex => 'Stichwortindex erstellen';
+
+  @override
+  String get mcpKeywordIndexBuildTitle => 'Stichwort-Invertindex wird erstellt';
+
+  @override
+  String get mcpKeywordIndexBuildStarting => 'Vorbereitung…';
+
+  @override
+  String mcpKeywordIndexBuildProgress(
+    int idx,
+    int count,
+    Object server,
+    int tools,
+  ) {
+    return '$idx/$count: $server ($tools Tools gescannt)';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSummary(
+    int servers,
+    int tools,
+    int keys,
+    Object sec,
+  ) {
+    return 'Indexiert: $servers Server, $tools Tools, $keys Stichwörter in ${sec}s';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSkipped(int n) {
+    return '$n Server ohne bereiten Katalog übersprungen';
+  }
+
+  @override
+  String get mcpKeywordIndexBuildFailed => 'Erstellung fehlgeschlagen:';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP-Tool Lazy Loading';
 
   @override

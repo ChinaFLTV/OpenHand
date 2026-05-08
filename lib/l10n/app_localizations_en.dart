@@ -399,6 +399,49 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please enter an integer between 1 and 32.';
 
   @override
+  String get commonClose => 'Close';
+
+  @override
+  String get commonRunInBackground => 'Run in background';
+
+  @override
+  String get mcpBuildKeywordIndex => 'Build keyword index';
+
+  @override
+  String get mcpKeywordIndexBuildTitle => 'Building keyword inverted index';
+
+  @override
+  String get mcpKeywordIndexBuildStarting => 'Preparing…';
+
+  @override
+  String mcpKeywordIndexBuildProgress(
+    int idx,
+    int count,
+    Object server,
+    int tools,
+  ) {
+    return '$idx/$count: $server ($tools tools scanned)';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSummary(
+    int servers,
+    int tools,
+    int keys,
+    Object sec,
+  ) {
+    return 'Indexed $servers servers, $tools tools, $keys keywords in ${sec}s';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSkipped(int n) {
+    return 'Skipped $n servers without a ready tool catalog';
+  }
+
+  @override
+  String get mcpKeywordIndexBuildFailed => 'Build failed:';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP tool lazy loading';
 
   @override

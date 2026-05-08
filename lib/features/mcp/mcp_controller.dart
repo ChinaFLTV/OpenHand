@@ -9,6 +9,7 @@ import 'data/mcp_store.dart';
 import 'model/mcp_server.dart';
 import 'model/mcp_server_health.dart';
 import 'model/mcp_tool.dart';
+import 'service/mcp_keyword_index.dart';
 import 'service/mcp_tool_discovery_service.dart';
 
 class McpController extends ChangeNotifier {
@@ -107,6 +108,66 @@ class McpController extends ChangeNotifier {
   /// Increments after each successful `_store.save`. UI may listen via
   /// `HighlightPulse` to flash on commit.
   ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
+
+  // ----- Keyword inverted index (Phase 2) -------------------------------
+  final McpKeywordIndexService _keywordIndexService = McpKeywordIndexService();
+  McpKeywordIndex? _keywordIndex;
+  bool _keywordIndexLoadedFromDisk = false;
+
+  /// 当前最近一次构建（或落盘加载）的关键词倒排索引。从未构建则为 null。
+  McpKeywordIndex? get keywordIndex => _keywordIndex;
+
+  /// 是否正在构建（用于按钮 disable / 防抖）。
+  bool get isBuildingKeywordIndex => _keywordIndexService.isBuilding;
+
+  /// 启动期惰性加载落盘索引；幂等。
+  Future<void> ensureKeywordIndexLoaded() async {
+    if (_keywordIndexLoadedFromDisk) return;
+    _keywordIndexLoadedFromDisk = true;
+    final loaded = await _keywordIndexService.loadFromDisk();
+    if (_isDisposed) return;
+    if (loaded != null) {
+      _keywordIndex = loaded;
+      notifyListeners();
+    }
+  }
+
+  /// 触发一次构建。`onProgress` 直接转发自服务层；构建完毕会更新
+  /// [keywordIndex] 并 notifyListeners。返回构建结果（含跳过统计）。
+  /// 调用方负责防抖 / disable 按钮 —— 服务层也做了单飞兜底。
+  Future<McpKeywordIndexBuildResult> buildKeywordIndex({
+    required void Function(McpKeywordIndexProgress) onProgress,
+  }) async {
+    final snapshot = List<McpServer>.unmodifiable(_servers);
+    final result = await _keywordIndexService.build(
+      servers: snapshot,
+      resolveTools: (server) async {
+        // 仅索引「当前可用」的服务 —— 即 catalog 已 ready 且工具列表非空。
+        // 未探测的 stdio 服务首启可达 6 分钟，强行 fresh-discover 会让弹窗
+        // 卡住数分钟，违反「按钮触发的轻量任务」体感。索引刷新依赖
+        // 用户/自动 probe 自行先把 catalog 拉好，未拉到的服务计入 skipped。
+        final cached = toolCatalogFor(server.name);
+        if (cached.status == McpToolCatalogStatus.ready) {
+          return cached.tools;
+        }
+        return const <McpTool>[];
+      },
+      onProgress: onProgress,
+    );
+    if (!_isDisposed) {
+      _keywordIndex = result.index;
+      notifyListeners();
+    }
+    return result;
+  }
+
+  /// 删除已构建的索引（设置项关闭等场景）。
+  Future<void> clearKeywordIndex() async {
+    await _keywordIndexService.deleteFromDisk();
+    if (_isDisposed) return;
+    _keywordIndex = null;
+    notifyListeners();
+  }
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;

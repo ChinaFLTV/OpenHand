@@ -400,6 +400,50 @@ class AppLocalizationsFr extends AppLocalizations {
       'Saisissez un entier entre 1 et 32.';
 
   @override
+  String get commonClose => 'Fermer';
+
+  @override
+  String get commonRunInBackground => 'Exécuter en arrière-plan';
+
+  @override
+  String get mcpBuildKeywordIndex => 'Construire l’index des mots-clés';
+
+  @override
+  String get mcpKeywordIndexBuildTitle =>
+      'Construction de l’index inversé des mots-clés';
+
+  @override
+  String get mcpKeywordIndexBuildStarting => 'Préparation…';
+
+  @override
+  String mcpKeywordIndexBuildProgress(
+    int idx,
+    int count,
+    Object server,
+    int tools,
+  ) {
+    return '$idx/$count : $server ($tools outils analysés)';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSummary(
+    int servers,
+    int tools,
+    int keys,
+    Object sec,
+  ) {
+    return 'Indexé $servers serveurs, $tools outils, $keys mots-clés en ${sec}s';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSkipped(int n) {
+    return '$n serveurs sans catalogue prêt ignorés';
+  }
+
+  @override
+  String get mcpKeywordIndexBuildFailed => 'Échec de la construction :';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'Chargement différé des outils MCP';
 
   @override

@@ -826,6 +826,70 @@ abstract class AppLocalizations {
   /// **'请输入 1 到 32 之间的整数。'**
   String get mcpAutoProbeConcurrencyInvalid;
 
+  /// No description provided for @commonClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get commonClose;
+
+  /// No description provided for @commonRunInBackground.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'后台运行'**
+  String get commonRunInBackground;
+
+  /// No description provided for @mcpBuildKeywordIndex.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'构建关键词映射'**
+  String get mcpBuildKeywordIndex;
+
+  /// No description provided for @mcpKeywordIndexBuildTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'构建关键词倒排索引'**
+  String get mcpKeywordIndexBuildTitle;
+
+  /// No description provided for @mcpKeywordIndexBuildStarting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在准备…'**
+  String get mcpKeywordIndexBuildStarting;
+
+  /// No description provided for @mcpKeywordIndexBuildProgress.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{idx}/{count}：{server}（已扫 {tools} 个工具）'**
+  String mcpKeywordIndexBuildProgress(
+    int idx,
+    int count,
+    Object server,
+    int tools,
+  );
+
+  /// No description provided for @mcpKeywordIndexBuildSummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已索引 {servers} 个服务、{tools} 个工具，关键词 {keys} 个，用时 {sec}s'**
+  String mcpKeywordIndexBuildSummary(
+    int servers,
+    int tools,
+    int keys,
+    Object sec,
+  );
+
+  /// No description provided for @mcpKeywordIndexBuildSkipped.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跳过 {n} 个未就绪服务'**
+  String mcpKeywordIndexBuildSkipped(int n);
+
+  /// No description provided for @mcpKeywordIndexBuildFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'构建失败：'**
+  String get mcpKeywordIndexBuildFailed;
+
   /// No description provided for @mcpLazyLoadingModeLabel.
   ///
   /// In zh_Hans, this message translates to:

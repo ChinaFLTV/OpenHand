@@ -1,0 +1,179 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/widgets/animated_dialog.dart';
+import '../../../shared/widgets/openhand_dialog_action_button.dart';
+import '../mcp_controller.dart';
+import '../service/mcp_keyword_index.dart';
+
+/// 「构建关键词映射」按钮触发的进度弹窗。负责：
+///   * 调用 [McpController.buildKeywordIndex]
+///   * 实时把 [McpKeywordIndexProgress] 渲染为线性进度条 + 当前服务名 + 计数
+///   * 构建完成后切换到摘要态（总服务 / 总工具 / 索引体积 / 用时）
+///
+/// 防抖：调用方在按钮 onPressed 里通过 `controller.isBuildingKeywordIndex`
+/// 自行 disable；服务层亦做了单飞兜底。
+Future<void> showMcpKeywordIndexProgressDialog(BuildContext context) {
+  return showAnimatedDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const _McpKeywordIndexProgressDialog(),
+  );
+}
+
+class _McpKeywordIndexProgressDialog extends StatefulWidget {
+  const _McpKeywordIndexProgressDialog();
+
+  @override
+  State<_McpKeywordIndexProgressDialog> createState() =>
+      _McpKeywordIndexProgressDialogState();
+}
+
+class _McpKeywordIndexProgressDialogState
+    extends State<_McpKeywordIndexProgressDialog> {
+  McpKeywordIndexProgress? _latest;
+  McpKeywordIndexBuildResult? _result;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _kickoff());
+  }
+
+  Future<void> _kickoff() async {
+    final controller = context.read<McpController>();
+    try {
+      final result = await controller.buildKeywordIndex(
+        onProgress: (p) {
+          if (!mounted) return;
+          setState(() => _latest = p);
+        },
+      );
+      if (!mounted) return;
+      setState(() => _result = result);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final progress = _latest;
+    final result = _result;
+    final error = _error;
+    final isDone = result != null || error != null;
+    final ratio = (progress != null && progress.serverCount > 0)
+        ? (progress.serverIndex / progress.serverCount).clamp(0.0, 1.0)
+        : null;
+
+    final body = <Widget>[];
+    if (error != null) {
+      body.add(
+        Text(
+          '${l10n.mcpKeywordIndexBuildFailed}\n$error',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        ),
+      );
+    } else if (result != null) {
+      final idx = result.index;
+      body.add(
+        Text(
+          l10n.mcpKeywordIndexBuildSummary(
+            idx.totalServers,
+            idx.totalTools,
+            idx.byName.length + idx.byDescription.length + idx.bySearchHint.length,
+            (idx.durationMs / 1000).toStringAsFixed(2),
+          ),
+          style: theme.textTheme.bodyMedium,
+        ),
+      );
+      if (result.skippedServers > 0) {
+        body.add(const SizedBox(height: 8));
+        body.add(
+          Text(
+            l10n.mcpKeywordIndexBuildSkipped(result.skippedServers),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        );
+      }
+      if (result.errors.isNotEmpty) {
+        body.add(const SizedBox(height: 8));
+        body.add(
+          Text(
+            result.errors.take(4).join('\n'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        );
+      }
+    } else {
+      body.add(
+        LinearProgressIndicator(
+          value: ratio,
+          minHeight: 4,
+        ),
+      );
+      body.add(const SizedBox(height: 12));
+      body.add(
+        Text(
+          progress == null
+              ? l10n.mcpKeywordIndexBuildStarting
+              : l10n.mcpKeywordIndexBuildProgress(
+                  progress.serverIndex,
+                  progress.serverCount,
+                  progress.serverName,
+                  progress.totalToolsScanned,
+                ),
+          style: theme.textTheme.bodyMedium,
+        ),
+      );
+      if (progress != null && progress.skipped > 0) {
+        body.add(const SizedBox(height: 6));
+        body.add(
+          Text(
+            l10n.mcpKeywordIndexBuildSkipped(progress.skipped),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        );
+      }
+    }
+
+    return AlertDialog(
+      title: Text(l10n.mcpKeywordIndexBuildTitle),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 360, maxWidth: 460),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: body,
+        ),
+      ),
+      actions: <Widget>[
+        if (isDone)
+          OpenHandDialogActionButton.primary(
+            label: l10n.commonClose,
+            onPressed: () => Navigator.of(context).maybePop(),
+          )
+        else
+          TextButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: Text(l10n.commonRunInBackground),
+          ),
+      ],
+    );
+  }
+}

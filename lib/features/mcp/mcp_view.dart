@@ -23,6 +23,7 @@ import 'model/mcp_server.dart';
 import 'model/mcp_server_health.dart';
 import 'model/mcp_tool.dart';
 import 'service/mcp_tool_discovery_service.dart';
+import 'widgets/mcp_keyword_index_progress_dialog.dart';
 
 enum _McpCardAction { edit, delete, viewHistory, viewDetails }
 
@@ -188,6 +189,13 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                           en: 'Export snapshot',
                         ),
                       ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: mcpController.isBuildingKeywordIndex
+                          ? null
+                          : () => _buildKeywordIndex(context),
+                      icon: const Icon(Icons.travel_explore_rounded),
+                      label: Text(l10n.mcpBuildKeywordIndex),
                     ),
                     FilledButton.icon(
                       onPressed: () => _showServerDialog(context),
@@ -436,6 +444,13 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       }
       _showSnackBar(context, l10n.mcpOperationFailed, kind: _SnackKind.error);
     }
+  }
+
+  Future<void> _buildKeywordIndex(BuildContext context) async {
+    // 防抖：服务层已有单飞，但 UI 层也防止快速重复点击进 dialog 队列。
+    final controller = context.read<McpController>();
+    if (controller.isBuildingKeywordIndex) return;
+    await showMcpKeywordIndexProgressDialog(context);
   }
 
   Future<void> _showServerDialog(

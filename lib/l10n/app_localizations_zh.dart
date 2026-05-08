@@ -382,6 +382,49 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpAutoProbeConcurrencyInvalid => '请输入 1 到 32 之间的整数。';
 
   @override
+  String get commonClose => '关闭';
+
+  @override
+  String get commonRunInBackground => '后台运行';
+
+  @override
+  String get mcpBuildKeywordIndex => '构建关键词映射';
+
+  @override
+  String get mcpKeywordIndexBuildTitle => '构建关键词倒排索引';
+
+  @override
+  String get mcpKeywordIndexBuildStarting => '正在准备…';
+
+  @override
+  String mcpKeywordIndexBuildProgress(
+    int idx,
+    int count,
+    Object server,
+    int tools,
+  ) {
+    return '$idx/$count：$server（已扫 $tools 个工具）';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSummary(
+    int servers,
+    int tools,
+    int keys,
+    Object sec,
+  ) {
+    return '已索引 $servers 个服务、$tools 个工具，关键词 $keys 个，用时 ${sec}s';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSkipped(int n) {
+    return '跳过 $n 个未就绪服务';
+  }
+
+  @override
+  String get mcpKeywordIndexBuildFailed => '构建失败：';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -5229,6 +5272,49 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpAutoProbeConcurrencyInvalid => '请输入 1 到 32 之间的整数。';
 
   @override
+  String get commonClose => '关闭';
+
+  @override
+  String get commonRunInBackground => '后台运行';
+
+  @override
+  String get mcpBuildKeywordIndex => '构建关键词映射';
+
+  @override
+  String get mcpKeywordIndexBuildTitle => '构建关键词倒排索引';
+
+  @override
+  String get mcpKeywordIndexBuildStarting => '正在准备…';
+
+  @override
+  String mcpKeywordIndexBuildProgress(
+    int idx,
+    int count,
+    Object server,
+    int tools,
+  ) {
+    return '$idx/$count：$server（已扫 $tools 个工具）';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSummary(
+    int servers,
+    int tools,
+    int keys,
+    Object sec,
+  ) {
+    return '已索引 $servers 个服务、$tools 个工具，关键词 $keys 个，用时 ${sec}s';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSkipped(int n) {
+    return '跳过 $n 个未就绪服务';
+  }
+
+  @override
+  String get mcpKeywordIndexBuildFailed => '构建失败：';
+
+  @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懒加载';
 
   @override
@@ -10073,6 +10159,49 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpAutoProbeConcurrencyInvalid => '請輸入 1 到 32 之間的整數。';
+
+  @override
+  String get commonClose => '關閉';
+
+  @override
+  String get commonRunInBackground => '背景執行';
+
+  @override
+  String get mcpBuildKeywordIndex => '建立關鍵字對映';
+
+  @override
+  String get mcpKeywordIndexBuildTitle => '建立關鍵字倒排索引';
+
+  @override
+  String get mcpKeywordIndexBuildStarting => '正在準備…';
+
+  @override
+  String mcpKeywordIndexBuildProgress(
+    int idx,
+    int count,
+    Object server,
+    int tools,
+  ) {
+    return '$idx/$count：$server（已掃 $tools 個工具）';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSummary(
+    int servers,
+    int tools,
+    int keys,
+    Object sec,
+  ) {
+    return '已索引 $servers 個服務、$tools 個工具，關鍵字 $keys 個，用時 ${sec}s';
+  }
+
+  @override
+  String mcpKeywordIndexBuildSkipped(int n) {
+    return '跳過 $n 個未就緒服務';
+  }
+
+  @override
+  String get mcpKeywordIndexBuildFailed => '建立失敗：';
 
   @override
   String get mcpLazyLoadingModeLabel => 'MCP 工具懶載入';
