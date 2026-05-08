@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:collection';
 
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
+import '../web_engine_concurrency.dart';
 import 'web_fetch_direct_engines.dart';
 import 'web_fetch_engine.dart';
 import 'web_fetch_scrape_engines.dart';
@@ -88,33 +88,25 @@ class WebFetchOrchestrator {
 
     // 处于 cooldown 中或已超 throttle 上限的引擎：跳过。全部被跳时回退原序。
     final telemetry = WebFetchTelemetryStore.instance;
-    final stats = await telemetry.engineStats();
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final filteredConfigs = <AiWebFetchEngineConfig>[];
-    final skippedRuns = <WebFetchEngineResult>[];
-    for (final c in orderedConfigs) {
-      final s = stats[c.kind];
-      final inCooldown = s != null && s.isInCooldown(now);
-      final throttleLimit = settings.throttlePerMinute;
-      var throttled = false;
-      if (throttleLimit > 0) {
-        final calls = await telemetry.callsInLastMinute(c.kind);
-        throttled = calls >= throttleLimit;
-      }
-      if (inCooldown || throttled) {
-        final reason = inCooldown
-            ? 'skipped: cooldown active'
-            : 'skipped: throttle limit reached';
-        skippedRuns.add(WebFetchEngineResult(
-          kind: c.kind,
-          contents: const [],
-          error: reason,
-          attempts: 0,
-        ));
-        continue;
-      }
-      filteredConfigs.add(c);
-    }
+    final outcome = await filterByCooldownAndThrottle<
+        AiWebFetchEngineConfig,
+        AiWebFetchEngineKind>(
+      configs: orderedConfigs,
+      kindOf: (c) => c.kind,
+      telemetry: telemetry,
+      throttlePerMinute: settings.throttlePerMinute,
+    );
+    final filteredConfigs = outcome.usable;
+    final skippedRuns = outcome.skipped
+        .map(
+          (s) => WebFetchEngineResult(
+            kind: s.config.kind,
+            contents: const [],
+            error: s.reason,
+            attempts: 0,
+          ),
+        )
+        .toList(growable: false);
     // 全部被跳时回退原序，否则 cooldown 会让全部引擎同时静默。
     final effectiveConfigs =
         filteredConfigs.isNotEmpty ? filteredConfigs : orderedConfigs;
@@ -228,7 +220,7 @@ class WebFetchOrchestrator {
     WebFetchProgressEmitter onProgress,
   ) async {
     final concurrency = settings.parallelWorkers.clamp(1, engines.length);
-    final semaphore = _Semaphore(concurrency);
+    final semaphore = WebEngineSemaphore(concurrency);
     final futures = engines.map((e) async {
       await semaphore.acquire();
       try {
@@ -305,31 +297,5 @@ class WebFetchOrchestrator {
           providerKeyResolver: ctx.resolveProviderApiKey,
         ) ??
         buildDirectEngine(config: config, httpClient: httpClient);
-  }
-}
-
-class _Semaphore {
-  _Semaphore(this.maxCount) : _available = maxCount;
-
-  final int maxCount;
-  int _available;
-  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
-
-  Future<void> acquire() {
-    if (_available > 0) {
-      _available -= 1;
-      return Future.value();
-    }
-    final c = Completer<void>();
-    _waiters.add(c);
-    return c.future;
-  }
-
-  void release() {
-    if (_waiters.isNotEmpty) {
-      _waiters.removeFirst().complete();
-    } else {
-      _available = (_available + 1).clamp(0, maxCount);
-    }
   }
 }

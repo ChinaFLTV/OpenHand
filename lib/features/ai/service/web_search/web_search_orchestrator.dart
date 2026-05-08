@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:collection';
 
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
+import '../web_engine_concurrency.dart';
 import 'web_search_api_engines.dart';
 import 'web_search_engine.dart';
 import 'web_search_html_engines.dart';
@@ -112,43 +112,21 @@ class WebSearchOrchestrator {
       tier3Seconds: settings.cooldownTier3Seconds,
       quotaSeconds: settings.cooldownQuotaSeconds,
     );
-    final stats = await WebSearchTelemetryStore.instance.engineStats();
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final usableConfigs = <AiWebSearchEngineConfig>[];
-    final skippedKinds = <AiWebSearchEngineKind>[];
-    final throttledKinds = <AiWebSearchEngineKind>[];
-    for (final c in orderedConfigs) {
-      final s = stats[c.kind];
-      if (s != null && s.isInCooldown(nowMs)) {
-        skippedKinds.add(c.kind);
-        continue;
-      }
-      // throttle/min：每个引擎在最近 60s 内最多 N 次。0 = 不限。
-      if (settings.throttlePerMinute > 0) {
-        final used = await WebSearchTelemetryStore.instance
-            .callsInLastMinute(c.kind);
-        if (used >= settings.throttlePerMinute) {
-          throttledKinds.add(c.kind);
-          continue;
-        }
-      }
-      usableConfigs.add(c);
-    }
-    for (final k in skippedKinds) {
+    final outcome = await filterByCooldownAndThrottle<
+        AiWebSearchEngineConfig,
+        AiWebSearchEngineKind>(
+      configs: orderedConfigs,
+      kindOf: (c) => c.kind,
+      telemetry: WebSearchTelemetryStore.instance,
+      throttlePerMinute: settings.throttlePerMinute,
+    );
+    final usableConfigs = outcome.usable;
+    for (final s in outcome.skipped) {
       onProgress(
         WebSearchEngineProgress(
-          kind: k,
+          kind: s.config.kind,
           stage: WebSearchProgressStage.failed,
-          message: 'skipped: cooldown active',
-        ),
-      );
-    }
-    for (final k in throttledKinds) {
-      onProgress(
-        WebSearchEngineProgress(
-          kind: k,
-          stage: WebSearchProgressStage.failed,
-          message: 'skipped: throttle limit reached',
+          message: s.reason,
         ),
       );
     }
@@ -248,7 +226,7 @@ class WebSearchOrchestrator {
     WebSearchProgressEmitter onProgress,
   ) async {
     final concurrency = settings.parallelWorkers.clamp(1, engines.length);
-    final semaphore = _Semaphore(concurrency);
+    final semaphore = WebEngineSemaphore(concurrency);
     final futures = engines.map((e) async {
       await semaphore.acquire();
       try {
@@ -389,31 +367,4 @@ class _MergeBucket {
   DateTime? publishedAt;
   int totalWeight = 0;
   final Set<AiWebSearchEngineKind> engines = <AiWebSearchEngineKind>{};
-}
-
-/// 简单计数信号量，用于并行 fan-out 限流。
-class _Semaphore {
-  _Semaphore(this.maxCount) : _available = maxCount;
-
-  final int maxCount;
-  int _available;
-  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
-
-  Future<void> acquire() {
-    if (_available > 0) {
-      _available -= 1;
-      return Future.value();
-    }
-    final c = Completer<void>();
-    _waiters.add(c);
-    return c.future;
-  }
-
-  void release() {
-    if (_waiters.isNotEmpty) {
-      _waiters.removeFirst().complete();
-    } else {
-      _available = (_available + 1).clamp(0, maxCount);
-    }
-  }
 }
