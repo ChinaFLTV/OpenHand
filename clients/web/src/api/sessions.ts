@@ -173,9 +173,17 @@ export function createSession(
   });
 }
 
-export function getSession(id: string): Promise<SessionDetailResponse> {
+export interface SessionRequestOptions {
+  signal?: AbortSignal;
+}
+
+export function getSession(
+  id: string,
+  options: SessionRequestOptions = {},
+): Promise<SessionDetailResponse> {
   return apiRequest<SessionDetailResponse>(
     `/api/sessions/${encodeURIComponent(id)}`,
+    { signal: options.signal },
   );
 }
 
@@ -231,6 +239,7 @@ export interface ListMessagesOptions {
   limit?: number;
   offset?: number;
   tail?: boolean;
+  signal?: AbortSignal;
 }
 
 export function listMessages(
@@ -244,6 +253,7 @@ export function listMessages(
   const qs = params.toString();
   return apiRequest<SessionMessagesResponse>(
     `/api/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`,
+    { signal: options.signal },
   );
 }
 

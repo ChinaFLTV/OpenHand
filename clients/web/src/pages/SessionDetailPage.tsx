@@ -698,6 +698,7 @@ export function SessionDetailPage() {
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const messagesAbortRef = useRef<AbortController | null>(null);
+  const olderMessagesAbortRef = useRef<AbortController | null>(null);
   const pollTimerRef = useRef<number | null>(null);
   const sseCloseRef = useRef<(() => void) | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1307,6 +1308,7 @@ export function SessionDetailPage() {
       return true;
     }
     const fresh = await getSession(sessionId);
+    if (sessionIdRef.current !== sessionId) return true;
     setDetail((prev) => (
       prev
         ? { ...fresh, session: mergeSessionSummary(prev.session, fresh.session) }
@@ -1342,6 +1344,8 @@ export function SessionDetailPage() {
     const ctrl = new AbortController();
     detailAbortRef.current = ctrl;
     setLoadingDetail(true);
+    setRefreshing(false);
+    setLoadingOlder(false);
     setError(null);
     setMessages([]);
     windowOffsetRef.current = 0;
@@ -1355,8 +1359,8 @@ export function SessionDetailPage() {
     lastTailIdRef.current = null;
     lastTailContentLengthRef.current = 0;
     Promise.all([
-      getSession(sessionId),
-      listMessages(sessionId, { limit: PAGE_SIZE, tail: true }),
+      getSession(sessionId, { signal: ctrl.signal }),
+      listMessages(sessionId, { limit: PAGE_SIZE, tail: true, signal: ctrl.signal }),
     ])
       .then(([d, m]) => {
         if (ctrl.signal.aborted) return;
@@ -1383,10 +1387,14 @@ export function SessionDetailPage() {
   }
 
   async function refresh(): Promise<void> {
-    if (!sessionId || refreshing) return;
+    if (!sessionId || refreshing || messagesAbortRef.current) return;
+    const requestSessionId = sessionId;
+    const ctrl = new AbortController();
+    messagesAbortRef.current = ctrl;
     setRefreshing(true);
     try {
-      const m = await listMessages(sessionId, { limit: PAGE_SIZE, tail: true });
+      const m = await listMessages(requestSessionId, { limit: PAGE_SIZE, tail: true, signal: ctrl.signal });
+      if (ctrl.signal.aborted || sessionIdRef.current !== requestSessionId) return;
       setMessages((prev) => mergeServerWindow(
         prev,
         m.items,
@@ -1405,27 +1413,36 @@ export function SessionDetailPage() {
       setPendingWriteApproval(m.pending_write_approval ?? null);
       if (m.session) mergeSessionSummaryFromPolling(m.session);
     } catch (e: unknown) {
+      if (ctrl.signal.aborted || sessionIdRef.current !== requestSessionId) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setRefreshing(false);
+      if (messagesAbortRef.current === ctrl) {
+        messagesAbortRef.current = null;
+        if (sessionIdRef.current === requestSessionId) setRefreshing(false);
+      }
     }
   }
 
   async function loadOlder(): Promise<void> {
-    if (loadingOlder) return;
+    if (loadingOlder || olderMessagesAbortRef.current) return;
     if (windowOffset <= 0) return;
+    const requestSessionId = sessionId;
+    const ctrl = new AbortController();
+    olderMessagesAbortRef.current = ctrl;
     setLoadingOlder(true);
     const scroller = mainRef.current;
     const beforeHeight = scroller?.scrollHeight ?? 0;
     const beforeY = scroller?.scrollTop ?? 0;
     try {
       const offset = Math.max(0, windowOffset - PAGE_SIZE);
-      const m = await listMessages(sessionId, {
+      const m = await listMessages(requestSessionId, {
         limit: Math.max(1, windowOffset - offset),
         offset,
+        signal: ctrl.signal,
       });
+      if (ctrl.signal.aborted || sessionIdRef.current !== requestSessionId) return;
       setMessages((prev) => {
         const existing = new Set(prev.map((item) => item.id));
         const incoming = m.items.filter((item) => !existing.has(item.id));
@@ -1445,11 +1462,15 @@ export function SessionDetailPage() {
         el.scrollTo({ top: beforeY + delta, behavior: 'auto' });
       });
     } catch (e: unknown) {
+      if (ctrl.signal.aborted || sessionIdRef.current !== requestSessionId) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoadingOlder(false);
+      if (olderMessagesAbortRef.current === ctrl) {
+        olderMessagesAbortRef.current = null;
+        if (sessionIdRef.current === requestSessionId) setLoadingOlder(false);
+      }
     }
   }
 
@@ -1459,7 +1480,11 @@ export function SessionDetailPage() {
     loadDetail();
     return () => {
       detailAbortRef.current?.abort();
+      detailAbortRef.current = null;
       messagesAbortRef.current?.abort();
+      messagesAbortRef.current = null;
+      olderMessagesAbortRef.current?.abort();
+      olderMessagesAbortRef.current = null;
       if (pollTimerRef.current != null) {
         window.clearTimeout(pollTimerRef.current);
         pollTimerRef.current = null;
@@ -1807,13 +1832,17 @@ export function SessionDetailPage() {
       return;
     }
     let cancelled = false;
+    let ctrl: AbortController | null = null;
     async function tick(): Promise<void> {
+      ctrl?.abort();
+      ctrl = new AbortController();
       try {
         const m = await listMessages(sessionId, {
           limit: PAGE_SIZE,
           tail: true,
+          signal: ctrl.signal,
         });
-        if (cancelled) return;
+        if (cancelled || ctrl.signal.aborted) return;
         const offset = m.offset ?? Math.max(0, m.total - m.items.length);
         // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
         setMessages((prev) => mergeServerWindow(
@@ -1834,7 +1863,7 @@ export function SessionDetailPage() {
         setPendingWriteApproval(m.pending_write_approval ?? null);
         if (m.session) mergeSessionSummaryFromPolling(m.session);
       } catch (e: unknown) {
-        if (cancelled) return;
+        if (cancelled || ctrl?.signal.aborted) return;
         if (handleAuthError(e)) return;
         if (handleSessionGoneError(e)) return;
         setLastError(e instanceof Error ? e.message : String(e));
@@ -1852,6 +1881,7 @@ export function SessionDetailPage() {
     );
     return () => {
       cancelled = true;
+      ctrl?.abort();
       if (pollTimerRef.current != null) {
         window.clearTimeout(pollTimerRef.current);
         pollTimerRef.current = null;
