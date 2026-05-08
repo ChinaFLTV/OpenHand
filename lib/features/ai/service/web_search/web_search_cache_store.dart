@@ -161,6 +161,122 @@ class WebSearchCacheStore {
     return total;
   }
 
+  /// 应用启动后的「缓存预热 / 自愈」：扫描磁盘并重建 index.json。
+  ///
+  /// * 删除已过期条目（含其 .txt 文件）。
+  /// * 删除磁盘上 .txt 文件已丢失的孤儿条目。
+  /// * 删除 index 未登记的孤儿 .txt 文件（人为残留 / 上一轮意外中断）。
+  /// * 不在 index 中但磁盘有条目的情形使用默认 TTL=now 即丢弃；这里不做
+  ///   反向重建以避免读取陌生 utf8 内容。
+  ///
+  /// 由 main.dart 在 boot 期间 fire-and-forget 调用，全部失败均 silent。
+  Future<WebSearchCachePrewarmReport> prewarm() async {
+    var removedExpired = 0;
+    var removedOrphanFiles = 0;
+    var removedOrphanEntries = 0;
+    final completer = Completer<WebSearchCachePrewarmReport>();
+    _chain = _chain.then((_) async {
+      final dir = Directory(defaultDirectoryPath());
+      if (!await dir.exists()) {
+        completer.complete(const WebSearchCachePrewarmReport(
+          removedExpired: 0,
+          removedOrphanFiles: 0,
+          removedOrphanEntries: 0,
+        ));
+        return;
+      }
+      final indexFile = File(p.join(dir.path, 'index.json'));
+      Map<String, Object?> root = <String, Object?>{};
+      if (await indexFile.exists()) {
+        try {
+          final raw = await indexFile.readAsString();
+          final decoded = jsonDecode(raw);
+          if (decoded is Map) root = Map<String, Object?>.from(decoded);
+        } catch (_) {/* corrupt index: 视作空 */}
+      }
+      final entries = root['entries'] is Map
+          ? Map<String, Object?>.from(root['entries'] as Map)
+          : <String, Object?>{};
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      // 1) 扫描 entries：过期 + summary 文件丢失
+      final keysToRemove = <String>[];
+      final keepFileNames = <String>{'index.json'};
+      for (final entry in entries.entries) {
+        final value = entry.value;
+        if (value is! Map) {
+          keysToRemove.add(entry.key);
+          continue;
+        }
+        final expiresAt = (value['expires_at'] as num?)?.toInt() ?? 0;
+        final summaryRel = '${value['summary_path'] ?? ''}'.trim();
+        if (expiresAt <= now) {
+          keysToRemove.add(entry.key);
+          if (summaryRel.isNotEmpty) {
+            final f = File(p.join(dir.path, summaryRel));
+            if (await f.exists()) {
+              try {
+                await f.delete();
+              } catch (_) {/* tolerate */}
+            }
+          }
+          removedExpired++;
+        } else if (summaryRel.isEmpty) {
+          keysToRemove.add(entry.key);
+          removedOrphanEntries++;
+        } else {
+          final f = File(p.join(dir.path, summaryRel));
+          if (!await f.exists()) {
+            keysToRemove.add(entry.key);
+            removedOrphanEntries++;
+          } else {
+            keepFileNames.add(summaryRel);
+          }
+        }
+      }
+      for (final k in keysToRemove) {
+        entries.remove(k);
+      }
+
+      // 2) 扫描磁盘：把不在 keep 列表的 .txt 视为孤儿删除
+      try {
+        await for (final entity in dir.list(followLinks: false)) {
+          if (entity is! File) continue;
+          final name = p.basename(entity.path);
+          if (keepFileNames.contains(name)) continue;
+          if (!name.endsWith('.txt')) continue;
+          try {
+            await entity.delete();
+            removedOrphanFiles++;
+          } catch (_) {/* tolerate */}
+        }
+      } catch (_) {/* tolerate listing failure */}
+
+      // 3) 写回 index（即使 entries 为空也保留正确结构）
+      root['entries'] = entries;
+      try {
+        await indexFile.writeAsString(jsonEncode(root), flush: true);
+      } catch (error, stack) {
+        silentLog('web_search_cache', 'prewarm/writeIndex', error, stack);
+      }
+      completer.complete(WebSearchCachePrewarmReport(
+        removedExpired: removedExpired,
+        removedOrphanFiles: removedOrphanFiles,
+        removedOrphanEntries: removedOrphanEntries,
+      ));
+    }).catchError((Object error, StackTrace stack) {
+      silentLog('web_search_cache', 'prewarm', error, stack);
+      if (!completer.isCompleted) {
+        completer.complete(const WebSearchCachePrewarmReport(
+          removedExpired: 0,
+          removedOrphanFiles: 0,
+          removedOrphanEntries: 0,
+        ));
+      }
+    });
+    return completer.future;
+  }
+
   // ---------------------------------------------------------------------------
 
   Future<void> _writeEntry({
@@ -315,4 +431,22 @@ class WebSearchCacheLookup {
   final Map<String, Object?> metadata;
   final DateTime cachedAt;
   final DateTime expiresAt;
+}
+
+/// [WebSearchCacheStore.prewarm] 返回的清理统计，纯诊断用途。
+class WebSearchCachePrewarmReport {
+  const WebSearchCachePrewarmReport({
+    required this.removedExpired,
+    required this.removedOrphanFiles,
+    required this.removedOrphanEntries,
+  });
+
+  final int removedExpired;
+  final int removedOrphanFiles;
+  final int removedOrphanEntries;
+
+  bool get isEmpty =>
+      removedExpired == 0 &&
+      removedOrphanFiles == 0 &&
+      removedOrphanEntries == 0;
 }

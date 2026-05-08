@@ -297,6 +297,17 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                         icon: toolCall.statusIcon,
                         label: toolCall.outcomeLabel,
                       ),
+                    // WebSearch 工具特有：从 metadata 读取 websearch_cache
+                    // 状态，给卡片附一个一眼能识别的「闪电=命中 / 云下载=
+                    // 落盘 / 关闭=未启用」徽标，悬停显示详细信息。
+                    if (message.metadata['websearch_cache'] is String)
+                      _WebSearchCacheChip(
+                        status: message.metadata['websearch_cache'] as String,
+                        cachedAt: message
+                            .metadata['websearch_cache_cached_at'] as String?,
+                        expiresAt: message
+                            .metadata['websearch_cache_expires_at'] as String?,
+                      ),
                     if (toolCall.durationMs > 0 || toolCall.status == 'running')
                       _ToolExecutionChip(
                         icon: Icons.timer_outlined,
@@ -1154,10 +1165,90 @@ class _ToolContentSafeRenderState extends State<_ToolContentSafeRender> {
   }
 }
 
-class _ToolExecutionChip extends StatelessWidget {
-  const _ToolExecutionChip({required this.icon, required this.label});
+/// WebSearch 工具卡片专用：将本次调用是否命中本地持久化缓存以一颗
+/// 立即可识别的徽标暴露在卡片头部。状态来自 metadata.websearch_cache：
+///   - `hit`            ⚡ 命中（绿色 primary tint）
+///   - `miss-stored`    ☁︎⬇ 已落盘（信息色）
+///   - `disabled`       ⊘ 缓存关闭（中性灰）
+///   - 其它/未知        默认中性
+/// Hover 时通过 Tooltip 展示 cached_at / expires_at 详细时间戳。
+class _WebSearchCacheChip extends StatelessWidget {
+  const _WebSearchCacheChip({
+    required this.status,
+    required this.cachedAt,
+    required this.expiresAt,
+  });
 
-  final IconData icon;
+  final String status;
+  final String? cachedAt;
+  final String? expiresAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    late final IconData icon;
+    late final String label;
+    late final Color tint;
+    switch (status) {
+      case 'hit':
+        icon = Icons.flash_on_rounded;
+        label = '缓存命中';
+        tint = cs.primary;
+        break;
+      case 'miss-stored':
+        icon = Icons.cloud_download_outlined;
+        label = '已落盘';
+        tint = cs.tertiary;
+        break;
+      case 'disabled':
+        icon = Icons.do_disturb_alt_outlined;
+        label = '缓存关闭';
+        tint = cs.onSurfaceVariant;
+        break;
+      default:
+        icon = Icons.help_outline;
+        label = '缓存：$status';
+        tint = cs.onSurfaceVariant;
+    }
+    final tooltip = StringBuffer(label);
+    if (cachedAt != null && cachedAt!.isNotEmpty) {
+      tooltip
+        ..write('\n命中时间：')
+        ..write(cachedAt);
+    }
+    if (expiresAt != null && expiresAt!.isNotEmpty) {
+      tooltip
+        ..write('\n过期时间：')
+        ..write(expiresAt);
+    }
+    return Tooltip(
+      message: tooltip.toString(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: 0.12),
+          borderRadius: _borderRadius999,
+          border: Border.all(color: tint.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: tint),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(color: tint),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolExecutionChip extends StatelessWidget {
+  const _ToolExecutionChip({required this.icon, required this.label});  final IconData icon;
   final String label;
 
   @override

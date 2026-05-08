@@ -43,6 +43,10 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
   /// 自增令牌：保护异步回调对应的 setState 不被旧请求覆盖。
   int _measureToken = 0;
 
+  /// 应用缓存内独立测算的 WebSearch 占用，用于在 appCache 行下方显示明细。
+  /// `null` 表示尚未测算或测算失败。
+  int? _webSearchCacheBytes;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -116,6 +120,19 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
         DataCleanupCategory.fileMutationLedger,
         _service.measureMutationLedger,
       ),
+      // WebSearch 缓存是 appCache 的子集，只负责在该行下额外
+      // 顶出一句「其中 WebSearch X」明细，不进入 _reports map。
+      () async {
+        try {
+          final bytes = await WebSearchCacheStore.instance.totalBytesOnDisk();
+          if (!mounted || token != _measureToken) return;
+          setState(() => _webSearchCacheBytes = bytes);
+        } catch (e, st) {
+          silentLog('data_cleanup', 'measure/webSearchCache', e, st);
+          if (!mounted || token != _measureToken) return;
+          setState(() => _webSearchCacheBytes = 0);
+        }
+      }(),
     ]);
     if (!mounted || token != _measureToken) {
       return;
@@ -230,6 +247,30 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     await _measureAll();
   }
 
+  String? _buildAppCacheBreakdown(BuildContext context) {
+    final bytes = _webSearchCacheBytes;
+    if (bytes == null) {
+      return _localizedText(
+        context,
+        zh: '其中 WebSearch 缓存：测算中…',
+        en: 'WebSearch cache: measuring…',
+      );
+    }
+    if (bytes <= 0) {
+      return _localizedText(
+        context,
+        zh: '其中 WebSearch 缓存：0 B',
+        en: 'WebSearch cache: 0 B',
+      );
+    }
+    final human = formatHumanBytes(bytes);
+    return _localizedText(
+      context,
+      zh: '其中 WebSearch 缓存：$human',
+      en: 'WebSearch cache: $human',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return _SettingsSubsectionCard(
@@ -256,6 +297,9 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
               isMeasuring: _measuringCategories.contains(category),
               isCleaning: _cleaningCategories.contains(category),
               isDestructive: category == DataCleanupCategory.wipeAll,
+              breakdown: category == DataCleanupCategory.appCache
+                  ? _buildAppCacheBreakdown(context)
+                  : null,
               onClean: () => _onCleanPressed(category),
             ),
             if (category != DataCleanupCategory.values.last)
@@ -291,6 +335,7 @@ class _DataCleanupRow extends StatelessWidget {
     required this.isCleaning,
     required this.isDestructive,
     required this.onClean,
+    this.breakdown,
   });
 
   final IconData icon;
@@ -301,6 +346,7 @@ class _DataCleanupRow extends StatelessWidget {
   final bool isCleaning;
   final bool isDestructive;
   final VoidCallback onClean;
+  final String? breakdown;
 
   @override
   Widget build(BuildContext context) {
@@ -391,6 +437,27 @@ class _DataCleanupRow extends StatelessWidget {
                 ],
               ],
             ),
+            if (breakdown != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.subdirectory_arrow_right,
+                    size: 14,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      breakdown!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         );
         // 用 ButtonStyle 锁住内边距 / 触控目标 / 文本样式，避免 M3 默认

@@ -22,6 +22,7 @@ import 'features/ai/service/lsp_client_service.dart';
 import 'features/ai/service/self_learning_dispatcher.dart';
 import 'features/ai/service/self_learning_runner.dart';
 import 'features/ai/service/self_learning_scheduler.dart';
+import 'features/ai/service/web_search/web_search_cache_store.dart';
 import 'features/crons/cron_history_cleanup_worker.dart';
 import 'features/crons/crons_controller.dart';
 import 'features/hooks/hooks_controller.dart';
@@ -317,6 +318,11 @@ Future<void> _bootstrap() async {
       crons: cronsController,
     ),
   );
+
+  // 2026-05 — WebSearch 缓存预热 / 自愈：扫描 ~/.openhand/cache/web_search/
+  // 删除已过期、孤儿 entry 与孤儿 .txt，重建 index.json。fire-and-forget,
+  // 全部失败 silentLog；不阻塞 UI 启动。
+  unawaited(WebSearchCacheStore.instance.prewarm());
 
   runApp(
     MultiProvider(
