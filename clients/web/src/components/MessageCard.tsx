@@ -623,6 +623,13 @@ function MessageCardImpl({
       ? 'min(78%, 640px)'
       : 'min(82%, 720px)';
   const contextChips = messageContextChips(message);
+  const media = sessionId ? (
+    <MessageMedia
+      message={message}
+      sessionId={sessionId}
+      presentation={isUserBubble ? 'attachmentList' : 'preview'}
+    />
+  ) : null;
   const sizeMotionSignal = messageSizeMotionSignal(message, actionsVisible);
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
@@ -687,12 +694,13 @@ function MessageCardImpl({
         </span>
         <span class="oh-message-time opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
       </header>
-      {contextChips.length > 0 ? (
+      {!isUserBubble && contextChips.length > 0 ? (
         <div class={`oh-message-context-capsules ${isUserBubble ? 'is-user' : 'is-other'}`}>
           {contextChips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
         </div>
       ) : null}
       <MessageToolMeta message={message} />
+      {isUserBubble ? media : null}
       {message.kind === 'file_mutation_summary' ? (
         <FileMutationSummaryCard message={message} />
       ) : useStructuredToolBody ? (
@@ -706,7 +714,12 @@ function MessageCardImpl({
           mono={style.mono === true}
         />
       )}
-      {sessionId ? <MessageMedia message={message} sessionId={sessionId} /> : null}
+      {isUserBubble && contextChips.length > 0 ? (
+        <div class="oh-message-context-capsules is-user is-after-content">
+          {contextChips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
+        </div>
+      ) : null}
+      {!isUserBubble ? media : null}
       {overflows ? (
         <p class="text-xs mt-2 opacity-70">
           {t('detail.collapsed.hint', '内容已折叠（超过 1200 字符），点击下方刷新或加载更早可在控制台查看完整正文。')}

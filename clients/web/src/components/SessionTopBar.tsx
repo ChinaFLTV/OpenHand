@@ -322,6 +322,30 @@ export function SessionTopBar(props: SessionTopBarProps) {
         ) : null}
 
         <div class="oh-session-topbar-actions flex items-center gap-2 flex-none">
+          {onToggleFullscreen ? (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              class="oh-tap-press oh-icon-button oh-session-fullscreen-button flex-none"
+              style={{
+                color: fullscreenActive ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)',
+                border: fullscreenActive
+                  ? '1px solid color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant))'
+                  : '1px solid var(--m3-outline-variant)',
+                background: fullscreenActive ? 'var(--m3-primary-container)' : 'var(--m3-surface)',
+              }}
+              title={fullscreenActive
+                ? t('topbar.fullscreen.exit', '退出全屏')
+                : t('topbar.fullscreen.enter', '浏览器全屏')}
+              aria-label={fullscreenActive
+                ? t('topbar.fullscreen.exit', '退出全屏')
+                : t('topbar.fullscreen.enter', '浏览器全屏')}
+              aria-pressed={fullscreenActive}
+            >
+              <TopBarIcon name={fullscreenActive ? 'fullscreenExit' : 'fullscreen'} size={17} />
+            </button>
+          ) : null}
+
           <div ref={moreMenuAnchorRef} class="relative flex-none" data-topbar-menu>
             <button
               type="button"

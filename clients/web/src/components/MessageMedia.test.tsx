@@ -3,11 +3,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MessageMedia } from './MessageMedia';
 import type { SessionMessage } from '../api/sessions';
 
-function makeMessage(content: string, metadata?: Record<string, unknown>): SessionMessage {
+function makeMessage(
+  content: string,
+  metadata?: Record<string, unknown>,
+  role: SessionMessage['role'] = 'assistant',
+): SessionMessage {
   return {
     id: 'm1',
     kind: 'assistant',
-    role: 'assistant',
+    role,
     content,
     created_at: '2026-05-07T00:00:00.000Z',
     character_count: content.length,
@@ -66,5 +70,26 @@ describe('MessageMedia', () => {
     expect(image.getAttribute('src')).toContain('/api/sessions/session-2/asset?');
     expect(image.getAttribute('src')).toContain('device_id=device-1');
     expect(image.getAttribute('src')).toContain('source=WEB_PC');
+  });
+
+  it('renders user image attachments as compact attachment rows instead of inline previews', () => {
+    render(
+      <MessageMedia
+        sessionId="session-3"
+        message={makeMessage('请看附件', {
+          attachments: [
+            {
+              name: 'photo.png',
+              kind: 'image',
+              storage_path: '/tmp/session/photo.png',
+            },
+          ],
+        }, 'user')}
+      />,
+    );
+
+    expect(screen.getByText('photo.png')).not.toBeNull();
+    expect(screen.getByText(/(附件|Attachment).*(图片|Image)/)).not.toBeNull();
+    expect(screen.queryByAltText('photo.png')).toBeNull();
   });
 });

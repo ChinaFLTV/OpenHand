@@ -269,6 +269,9 @@ html, body, #root {
 .oh-message-context-capsules.is-user {
   justify-content: flex-end;
 }
+.oh-message-context-capsules.is-after-content {
+  margin: 10px 0 -2px;
+}
 .oh-message-context-capsule {
   max-width: min(100%, 260px);
   display: inline-flex;
@@ -311,6 +314,62 @@ html, body, #root {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.oh-user-attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: -1px 0 10px;
+}
+.oh-user-attachment-pill {
+  max-width: min(100%, 340px);
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: color-mix(in srgb, currentColor 11%, transparent);
+  color: inherit;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 720;
+  line-height: 1.25;
+  text-align: left;
+  box-shadow: 0 8px 18px -18px color-mix(in srgb, currentColor 70%, transparent);
+  transition:
+    background-color 220ms var(--oh-motion-emphasized),
+    border-color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized),
+    transform 260ms var(--oh-motion-spring);
+}
+.oh-user-attachment-pill:hover {
+  border-color: color-mix(in srgb, currentColor 34%, transparent);
+  background: color-mix(in srgb, currentColor 15%, transparent);
+  box-shadow: 0 10px 24px -18px color-mix(in srgb, currentColor 78%, transparent);
+}
+.oh-user-attachment-leading {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.oh-user-attachment-name {
+  min-width: 0;
+  max-width: 180px;
+}
+.oh-user-attachment-kind {
+  flex: none;
+  max-width: 92px;
+  opacity: 0.72;
+  font-size: 10.5px;
+  font-weight: 680;
 }
 
 .oh-session-topbar button,
@@ -411,6 +470,12 @@ html, body, #root {
 
 .oh-session-composer[data-collapsed='true'] {
   transform: translate3d(0, 0, 0) scale(1);
+  width: max-content;
+  max-width: 100%;
+  align-self: flex-end;
+  padding: 8px !important;
+  border-radius: 18px !important;
+  overflow: visible;
 }
 
 .oh-session-capsule-icon {
@@ -528,6 +593,14 @@ html, body, #root {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
+  transition:
+    margin-bottom 260ms var(--oh-motion-emphasized),
+    gap 260ms var(--oh-motion-spring);
+}
+.oh-composer-toolbar[data-collapsed='true'] {
+  justify-content: flex-end;
+  gap: 0;
+  margin-bottom: 0;
 }
 
 .oh-composer-control {
@@ -664,6 +737,9 @@ html, body, #root {
 }
 .oh-composer-icon-control:not(:disabled):active {
   transform: scale(0.96);
+}
+.oh-composer-collapse-control {
+  flex: none;
 }
 
 @keyframes oh-composer-chip-in {
@@ -1017,6 +1093,26 @@ button.oh-composer-pill:not(:disabled):hover {
   font-weight: 700;
   white-space: nowrap;
   border: 1px solid transparent;
+}
+.oh-composer-footer {
+  max-height: 180px;
+  overflow: clip;
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scaleY(1);
+  transform-origin: top center;
+  transition:
+    max-height 340ms var(--oh-motion-spring),
+    margin-top 260ms var(--oh-motion-emphasized),
+    opacity 220ms var(--oh-motion-emphasized),
+    transform 300ms var(--oh-motion-spring);
+  will-change: max-height, opacity, transform;
+}
+.oh-composer-footer[data-collapsed='true'] {
+  max-height: 0;
+  margin-top: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+  transform: scaleY(0.96);
 }
 .oh-composer-footer-action > span:first-child {
   width: 16px;
@@ -1735,6 +1831,12 @@ button.oh-composer-pill:not(:disabled):hover {
     gap: 7px;
     margin-bottom: 10px;
   }
+  .oh-composer-toolbar[data-collapsed='true'] {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0;
+    margin-bottom: 0;
+  }
   .oh-composer-toolbar > .relative.inline-block {
     min-width: 0;
     width: 100%;
@@ -1999,6 +2101,12 @@ button.oh-composer-pill:not(:disabled):hover {
     grid-template-columns: minmax(0, 1fr) 38px 38px;
     gap: 6px;
     margin-bottom: 8px;
+  }
+  .oh-composer-toolbar[data-collapsed='true'] {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0;
+    margin-bottom: 0;
   }
   .oh-session-composer {
     padding: 10px !important;

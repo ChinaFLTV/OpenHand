@@ -2681,7 +2681,12 @@ export function SessionDetailPage() {
             boxShadow: 'var(--m3-elev-1)',
           }}
         >
-          <div class="oh-composer-toolbar">
+          <div
+            class="oh-composer-toolbar"
+            data-collapsed={composerCollapsed ? 'true' : 'false'}
+          >
+            {!composerCollapsed ? (
+              <>
             {sessionModeOptions.length > 1 ? (
               <button
                 type="button"
@@ -2806,11 +2811,16 @@ export function SessionDetailPage() {
               </span>
             </button>
 
+              </>
+            ) : null}
+
             <button
               type="button"
               onClick={toggleComposerCollapsed}
               class="oh-composer-icon-control oh-composer-collapse-control oh-tap-press ml-auto"
               title={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
+              aria-label={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
+              aria-expanded={!composerCollapsed}
             >
               <ComposerIcon name={composerCollapsed ? 'chevronUp' : 'chevronDown'} />
             </button>
@@ -3156,7 +3166,12 @@ export function SessionDetailPage() {
           ) : null}
           </div>
 
-          <div class="oh-composer-footer flex flex-wrap items-center gap-2 mt-3">
+          <div
+            class="oh-composer-footer flex flex-wrap items-center gap-2 mt-3"
+            data-collapsed={composerCollapsed ? 'true' : 'false'}
+            aria-hidden={composerCollapsed ? 'true' : undefined}
+            {...(composerCollapsed ? { inert: true } : {})}
+          >
             {attachmentsAllowed ? (
               <label
                 class="oh-tap-press text-xs px-3 py-2 rounded-m3-sm cursor-pointer flex items-center gap-1.5"

@@ -200,9 +200,39 @@ function mediaKindLabel(kind: MediaKind): string {
   }
 }
 
+function MediaKindIcon({ kind, size = 16 }: { kind: MediaKind; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.9,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  switch (kind) {
+    case 'image':
+      return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2.5" /><path d="m7 16 4-4 3 3 2-2 3 3" /><circle cx="9" cy="9" r="1.2" /></svg>;
+    case 'video':
+      return <svg {...common}><rect x="4" y="7" width="12" height="10" rx="2" /><path d="m16 11 4-2.5v7L16 13" /></svg>;
+    case 'audio':
+      return <svg {...common}><path d="M9 18V6l10-2v12" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="16" r="2" /></svg>;
+    default:
+      return <svg {...common}><path d="M7 3h7l3 3v15H7z" /><path d="M14 3v4h4" /><path d="M9.5 12h5M9.5 16h4" /></svg>;
+  }
+}
+
+function attachmentLabel(item: MediaItem): string {
+  return `${t('message.context.kind.attachment', '附件')} · ${mediaKindLabel(item.kind)}`;
+}
+
 export interface MessageMediaProps {
   message: SessionMessage;
   sessionId: string;
+  presentation?: 'auto' | 'preview' | 'attachmentList';
 }
 
 interface MediaPreviewDialogProps {
@@ -345,14 +375,75 @@ function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
   );
 }
 
-export function MessageMedia({ message, sessionId }: MessageMediaProps) {
+export function MessageMedia({ message, sessionId, presentation = 'auto' }: MessageMediaProps) {
   const items = useMemo(() => collectMedia(message), [message]);
   const [preview, setPreview] = useState<{ item: MediaItem; url: string } | null>(null);
   if (items.length === 0) return null;
+  const resolvedPresentation = presentation === 'auto'
+    ? message.role === 'user' ? 'attachmentList' : 'preview'
+    : presentation;
   const openPreview = (item: MediaItem, url: string) => {
     if (item.kind === 'file') return;
     setPreview({ item, url });
   };
+
+  if (resolvedPresentation === 'attachmentList') {
+    return (
+      <>
+        <div
+          class="oh-user-attachment-list"
+          aria-label={t('message.context.kind.attachment', '附件')}
+        >
+          {items.map((item, idx) => {
+            const url = buildSessionAssetUrl(sessionId, item.path);
+            const key = `${item.path}:${idx}`;
+            const label = attachmentLabel(item);
+            const content = (
+              <>
+                <span class="oh-user-attachment-leading" aria-hidden>
+                  <MediaKindIcon kind={item.kind} size={15} />
+                </span>
+                <span class="oh-user-attachment-name truncate">{item.name}</span>
+                <span class="oh-user-attachment-kind truncate">{label}</span>
+              </>
+            );
+            if (item.kind === 'file') {
+              return (
+                <a
+                  key={key}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  class="oh-user-attachment-pill oh-tap-press"
+                  title={item.path}
+                >
+                  {content}
+                </a>
+              );
+            }
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => openPreview(item, url)}
+                class="oh-user-attachment-pill oh-tap-press"
+                title={`${item.name} · ${label}`}
+              >
+                {content}
+              </button>
+            );
+          })}
+        </div>
+        {preview ? (
+          <MediaPreviewDialog
+            item={preview.item}
+            url={preview.url}
+            onClose={() => setPreview(null)}
+          />
+        ) : null}
+      </>
+    );
+  }
 
   return (
     <>
