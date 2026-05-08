@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../app/support/openhand_notification_service.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/url_validation.dart';
 import '../model/ai_model_config.dart';
@@ -14,6 +15,7 @@ import '../service/ai_tool_runtime_service.dart';
 import '../service/ai_transport_diagnostic_messages.dart';
 import '../service/web_fetch/web_fetch_cache_store.dart';
 import '../service/web_fetch/web_fetch_orchestrator.dart';
+import '../service/web_fetch/web_fetch_telemetry_store.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
@@ -140,6 +142,42 @@ class AiWebFetchTool extends AiTool {
       metadata: meta(),
     );
 
+    void recordTelemetry({
+      required String cacheStatus,
+      required bool success,
+      required int contentChars,
+      WebFetchOrchestrationResult? orchestration,
+      String? errorMessage,
+    }) {
+      final perEngine = <WebFetchPerEngineLog>[];
+      if (orchestration != null) {
+        for (final r in orchestration.engineRuns) {
+          perEngine.add(WebFetchPerEngineLog(
+            kind: r.kind,
+            success: r.isSuccess,
+            contentBytes:
+                r.contents.isEmpty ? 0 : r.contents.first.content.length,
+            elapsedMs: r.elapsedMs,
+            error: r.error,
+          ));
+        }
+      }
+      unawaited(WebFetchTelemetryStore.instance.recordCall(
+        WebFetchCallLog(
+          timestampMs: DateTime.now().millisecondsSinceEpoch,
+          url: rawUrl,
+          cacheStatus: cacheStatus,
+          success: success,
+          totalDurationMs: stopwatch.elapsedMilliseconds,
+          contentChars: contentChars,
+          fallbackUsed: orchestration?.fallbackUsed ?? false,
+          errorMessage: errorMessage,
+          winningEngine: orchestration?.winningKind,
+          perEngine: perEngine,
+        ),
+      ).then((_) => _maybeFireHealthAlerts(settings)));
+    }
+
     // 1) 缓存查询：同一 (url, prompt) 在 TTL 内直接复用。
     final cacheKey = WebFetchCacheStore.computeKey(
       url: rawUrl,
@@ -154,6 +192,11 @@ class AiWebFetchTool extends AiTool {
         'cache.hit',
         'Reused cached fetch (${cached.content.length} chars, '
             'expires ${cached.expiresAt.toIso8601String()}).',
+      );
+      recordTelemetry(
+        cacheStatus: 'hit',
+        success: true,
+        contentChars: cached.content.length,
       );
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.success,
@@ -200,8 +243,20 @@ class AiWebFetchTool extends AiTool {
         },
       );
     } on TimeoutException {
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        contentChars: 0,
+        errorMessage: 'orchestrator_timeout',
+      );
       return timedOut('WebFetch timed out while contacting fetch engines.');
     } catch (error) {
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        contentChars: 0,
+        errorMessage: '$error',
+      );
       return failed(_friendlyFetchTransportError(error));
     }
 
@@ -215,6 +270,12 @@ class AiWebFetchTool extends AiTool {
                 'See `engines` metadata for per-engine diagnostics.'
           : 'No content extracted from any fetch engine.';
       emit('completed', detail);
+      recordTelemetry(
+        cacheStatus: settings.cacheEnabled ? 'miss-empty' : 'disabled',
+        success: false,
+        contentChars: 0,
+        orchestration: orchestrationResult,
+      );
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: command,
@@ -260,6 +321,13 @@ class AiWebFetchTool extends AiTool {
       cancelSignal: context.cancelSignal,
     );
     if (completion == null) {
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        contentChars: 0,
+        orchestration: orchestrationResult,
+        errorMessage: 'cancelled',
+      );
       return AiToolUtils.cancelledResult(
         command: command,
         durationMs: stopwatch.elapsedMilliseconds,
@@ -304,6 +372,13 @@ class AiWebFetchTool extends AiTool {
         silentLog('ai_web_fetch', 'cache_store', error, stack);
       }
     }
+
+    recordTelemetry(
+      cacheStatus: settings.cacheEnabled ? 'miss-stored' : 'disabled',
+      success: true,
+      contentChars: output.length,
+      orchestration: orchestrationResult,
+    );
 
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
@@ -355,6 +430,53 @@ class AiWebFetchTool extends AiTool {
       return null;
     }
     return null;
+  }
+
+  // 进程内已经发过告警的 (engine, reason)，避免连续刷屏。重启进程后清空。
+  final Set<String> _alertedKeys = <String>{};
+
+  /// 健康度告警：在每次 recordCall 之后扫一遍当前 engineStats，命中阈值
+  /// 触发系统通知（同一 key 进程内只发一次，重启 / clearLogs 后重新生效）。
+  Future<void> _maybeFireHealthAlerts(AiWebFetchSettings settings) async {
+    final pctTh = settings.alertSuccessRatePct;
+    final avgTh = settings.alertAvgDurationMs;
+    if (pctTh <= 0 && avgTh <= 0) return;
+    try {
+      final stats = await WebFetchTelemetryStore.instance.engineStats();
+      for (final entry in stats.entries) {
+        final s = entry.value;
+        if (s.totalCalls < 5) continue;
+        if (pctTh > 0) {
+          final pct = (s.successRate * 100).round();
+          if (pct < pctTh) {
+            final key = '${entry.key.name}::low-success::$pct';
+            if (_alertedKeys.add(key)) {
+              await OpenHandNotificationService.showInApp(
+                title: 'WebFetch · ${entry.key.name}',
+                body:
+                    '成功率 $pct% < 阈值 $pctTh%（共 ${s.totalCalls} 次调用）',
+                level: OpenHandNotificationLevel.warning,
+              );
+            }
+          }
+        }
+        if (avgTh > 0) {
+          final avg = s.avgDurationMs.round();
+          if (avg > avgTh) {
+            final key = '${entry.key.name}::slow::$avg';
+            if (_alertedKeys.add(key)) {
+              await OpenHandNotificationService.showInApp(
+                title: 'WebFetch · ${entry.key.name}',
+                body: '平均耗时 ${avg}ms > 阈值 ${avgTh}ms',
+                level: OpenHandNotificationLevel.warning,
+              );
+            }
+          }
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_web_fetch_tool', '_maybeFireHealthAlerts', error, stack);
+    }
   }
 }
 

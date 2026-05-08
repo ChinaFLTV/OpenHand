@@ -181,6 +181,16 @@ class AiWebFetchSettings {
     this.parallelWorkers = defaultParallelWorkers,
     this.cacheTtlSeconds = defaultCacheTtlSeconds,
     this.cacheMaxBytes = defaultCacheMaxBytes,
+    this.cooldownTier1Failures = defaultCooldownTier1Failures,
+    this.cooldownTier1Seconds = defaultCooldownTier1Seconds,
+    this.cooldownTier2Failures = defaultCooldownTier2Failures,
+    this.cooldownTier2Seconds = defaultCooldownTier2Seconds,
+    this.cooldownTier3Failures = defaultCooldownTier3Failures,
+    this.cooldownTier3Seconds = defaultCooldownTier3Seconds,
+    this.cooldownQuotaSeconds = defaultCooldownQuotaSeconds,
+    this.alertSuccessRatePct = 0,
+    this.alertAvgDurationMs = 0,
+    this.throttlePerMinute = 0,
   });
 
   static const int defaultResultCount = 8;
@@ -201,12 +211,52 @@ class AiWebFetchSettings {
   static const int minCacheMaxBytes = 0;
   static const int maxCacheMaxBytes = 2 * 1024 * 1024 * 1024;
 
+  // ===== 失败自动降级（cooldown）阈值，三档可调。=====
+  static const int defaultCooldownTier1Failures = 3;
+  static const int defaultCooldownTier1Seconds = 60;
+  static const int defaultCooldownTier2Failures = 5;
+  static const int defaultCooldownTier2Seconds = 300;
+  static const int defaultCooldownTier3Failures = 7;
+  static const int defaultCooldownTier3Seconds = 900;
+  static const int defaultCooldownQuotaSeconds = 300;
+  static const int minCooldownFailures = 2;
+  static const int maxCooldownFailures = 50;
+  static const int minCooldownSeconds = 5;
+  static const int maxCooldownSeconds = 24 * 60 * 60;
+
+  // ===== 告警阈值。0 = 关闭。=====
+  static const int maxAlertSuccessRatePct = 100;
+  static const int maxAlertAvgDurationMs = 600 * 1000;
+
+  // ===== 每引擎每分钟节流上限。0 = 不限。=====
+  static const int maxThrottlePerMinute = 600;
+
   final List<AiWebFetchEngineConfig> engines;
   final int resultCount;
   final bool parallel;
   final int parallelWorkers;
   final int cacheTtlSeconds;
   final int cacheMaxBytes;
+
+  /// 失败自动降级 (cooldown) 三档阈值与时长（秒）。
+  final int cooldownTier1Failures;
+  final int cooldownTier1Seconds;
+  final int cooldownTier2Failures;
+  final int cooldownTier2Seconds;
+  final int cooldownTier3Failures;
+  final int cooldownTier3Seconds;
+
+  /// 显式 quota / 429 / rate-limit 错误的固定 cooldown 时长（秒）。
+  final int cooldownQuotaSeconds;
+
+  /// 单引擎成功率低于此百分比触发告警。0 = 关闭。
+  final int alertSuccessRatePct;
+
+  /// 单引擎平均耗时高于此毫秒触发告警。0 = 关闭。
+  final int alertAvgDurationMs;
+
+  /// 单引擎 60 秒内最多调用次数。0 = 不限制。
+  final int throttlePerMinute;
 
   bool get cacheEnabled => cacheTtlSeconds > 0;
 
@@ -231,6 +281,16 @@ class AiWebFetchSettings {
     int? parallelWorkers,
     int? cacheTtlSeconds,
     int? cacheMaxBytes,
+    int? cooldownTier1Failures,
+    int? cooldownTier1Seconds,
+    int? cooldownTier2Failures,
+    int? cooldownTier2Seconds,
+    int? cooldownTier3Failures,
+    int? cooldownTier3Seconds,
+    int? cooldownQuotaSeconds,
+    int? alertSuccessRatePct,
+    int? alertAvgDurationMs,
+    int? throttlePerMinute,
   }) {
     return AiWebFetchSettings(
       engines: engines ?? this.engines,
@@ -239,6 +299,23 @@ class AiWebFetchSettings {
       parallelWorkers: parallelWorkers ?? this.parallelWorkers,
       cacheTtlSeconds: cacheTtlSeconds ?? this.cacheTtlSeconds,
       cacheMaxBytes: cacheMaxBytes ?? this.cacheMaxBytes,
+      cooldownTier1Failures:
+          cooldownTier1Failures ?? this.cooldownTier1Failures,
+      cooldownTier1Seconds:
+          cooldownTier1Seconds ?? this.cooldownTier1Seconds,
+      cooldownTier2Failures:
+          cooldownTier2Failures ?? this.cooldownTier2Failures,
+      cooldownTier2Seconds:
+          cooldownTier2Seconds ?? this.cooldownTier2Seconds,
+      cooldownTier3Failures:
+          cooldownTier3Failures ?? this.cooldownTier3Failures,
+      cooldownTier3Seconds:
+          cooldownTier3Seconds ?? this.cooldownTier3Seconds,
+      cooldownQuotaSeconds:
+          cooldownQuotaSeconds ?? this.cooldownQuotaSeconds,
+      alertSuccessRatePct: alertSuccessRatePct ?? this.alertSuccessRatePct,
+      alertAvgDurationMs: alertAvgDurationMs ?? this.alertAvgDurationMs,
+      throttlePerMinute: throttlePerMinute ?? this.throttlePerMinute,
     );
   }
 
@@ -250,6 +327,16 @@ class AiWebFetchSettings {
       'parallel_workers': parallelWorkers,
       'cache_ttl_seconds': cacheTtlSeconds,
       'cache_max_bytes': cacheMaxBytes,
+      'cooldown_tier1_failures': cooldownTier1Failures,
+      'cooldown_tier1_seconds': cooldownTier1Seconds,
+      'cooldown_tier2_failures': cooldownTier2Failures,
+      'cooldown_tier2_seconds': cooldownTier2Seconds,
+      'cooldown_tier3_failures': cooldownTier3Failures,
+      'cooldown_tier3_seconds': cooldownTier3Seconds,
+      'cooldown_quota_seconds': cooldownQuotaSeconds,
+      'alert_success_rate_pct': alertSuccessRatePct,
+      'alert_avg_duration_ms': alertAvgDurationMs,
+      'throttle_per_minute': throttlePerMinute,
     };
   }
 
@@ -314,6 +401,63 @@ class AiWebFetchSettings {
         (json['cache_max_bytes'] as num?)?.toInt() ?? defaultCacheMaxBytes,
         minCacheMaxBytes,
         maxCacheMaxBytes,
+      ),
+      cooldownTier1Failures: clamp(
+        (json['cooldown_tier1_failures'] as num?)?.toInt() ??
+            defaultCooldownTier1Failures,
+        minCooldownFailures,
+        maxCooldownFailures,
+      ),
+      cooldownTier1Seconds: clamp(
+        (json['cooldown_tier1_seconds'] as num?)?.toInt() ??
+            defaultCooldownTier1Seconds,
+        minCooldownSeconds,
+        maxCooldownSeconds,
+      ),
+      cooldownTier2Failures: clamp(
+        (json['cooldown_tier2_failures'] as num?)?.toInt() ??
+            defaultCooldownTier2Failures,
+        minCooldownFailures,
+        maxCooldownFailures,
+      ),
+      cooldownTier2Seconds: clamp(
+        (json['cooldown_tier2_seconds'] as num?)?.toInt() ??
+            defaultCooldownTier2Seconds,
+        minCooldownSeconds,
+        maxCooldownSeconds,
+      ),
+      cooldownTier3Failures: clamp(
+        (json['cooldown_tier3_failures'] as num?)?.toInt() ??
+            defaultCooldownTier3Failures,
+        minCooldownFailures,
+        maxCooldownFailures,
+      ),
+      cooldownTier3Seconds: clamp(
+        (json['cooldown_tier3_seconds'] as num?)?.toInt() ??
+            defaultCooldownTier3Seconds,
+        minCooldownSeconds,
+        maxCooldownSeconds,
+      ),
+      cooldownQuotaSeconds: clamp(
+        (json['cooldown_quota_seconds'] as num?)?.toInt() ??
+            defaultCooldownQuotaSeconds,
+        minCooldownSeconds,
+        maxCooldownSeconds,
+      ),
+      alertSuccessRatePct: clamp(
+        (json['alert_success_rate_pct'] as num?)?.toInt() ?? 0,
+        0,
+        maxAlertSuccessRatePct,
+      ),
+      alertAvgDurationMs: clamp(
+        (json['alert_avg_duration_ms'] as num?)?.toInt() ?? 0,
+        0,
+        maxAlertAvgDurationMs,
+      ),
+      throttlePerMinute: clamp(
+        (json['throttle_per_minute'] as num?)?.toInt() ?? 0,
+        0,
+        maxThrottlePerMinute,
       ),
     );
   }

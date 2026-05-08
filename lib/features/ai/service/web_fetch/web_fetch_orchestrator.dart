@@ -9,6 +9,7 @@ import 'web_fetch_direct_engines.dart';
 import 'web_fetch_engine.dart';
 import 'web_fetch_scrape_engines.dart';
 import 'web_fetch_search_engines.dart';
+import 'web_fetch_telemetry_store.dart';
 
 typedef WebFetchProgressEmitter =
     void Function(WebFetchEngineProgress progress);
@@ -73,12 +74,57 @@ class WebFetchOrchestrator {
         : _fallbackConfigs();
     final fallbackUsed = activeConfigs.isEmpty;
 
+    // 推当前 settings 的 cooldown 阈值到 telemetry store，让 _writeCall 能按
+    // 用户调整后的阈值计算 cooldown。
+    WebFetchTelemetryStore.instance.cooldownConfig = WebFetchCooldownConfig(
+      tier1Failures: settings.cooldownTier1Failures,
+      tier1Seconds: settings.cooldownTier1Seconds,
+      tier2Failures: settings.cooldownTier2Failures,
+      tier2Seconds: settings.cooldownTier2Seconds,
+      tier3Failures: settings.cooldownTier3Failures,
+      tier3Seconds: settings.cooldownTier3Seconds,
+      quotaSeconds: settings.cooldownQuotaSeconds,
+    );
+
+    // 处于 cooldown 中或已超 throttle 上限的引擎：跳过。全部被跳时回退原序。
+    final telemetry = WebFetchTelemetryStore.instance;
+    final stats = await telemetry.engineStats();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final filteredConfigs = <AiWebFetchEngineConfig>[];
+    final skippedRuns = <WebFetchEngineResult>[];
+    for (final c in orderedConfigs) {
+      final s = stats[c.kind];
+      final inCooldown = s != null && s.isInCooldown(now);
+      final throttleLimit = settings.throttlePerMinute;
+      var throttled = false;
+      if (throttleLimit > 0) {
+        final calls = await telemetry.callsInLastMinute(c.kind);
+        throttled = calls >= throttleLimit;
+      }
+      if (inCooldown || throttled) {
+        final reason = inCooldown
+            ? 'skipped: cooldown active'
+            : 'skipped: throttle limit reached';
+        skippedRuns.add(WebFetchEngineResult(
+          kind: c.kind,
+          contents: const [],
+          error: reason,
+          attempts: 0,
+        ));
+        continue;
+      }
+      filteredConfigs.add(c);
+    }
+    // 全部被跳时回退原序，否则 cooldown 会让全部引擎同时静默。
+    final effectiveConfigs =
+        filteredConfigs.isNotEmpty ? filteredConfigs : orderedConfigs;
+
     final ctx = WebFetchEngineContext(
       httpClient: httpClient,
       availableModels: availableModels,
     );
 
-    final engines = orderedConfigs
+    final engines = effectiveConfigs
         .map((c) => _buildEngine(c, ctx))
         .whereType<WebFetchEngine>()
         .toList(growable: false);
@@ -86,9 +132,20 @@ class WebFetchOrchestrator {
     if (engines.isEmpty) {
       return WebFetchOrchestrationResult(
         merged: null,
-        engineRuns: const [],
+        engineRuns: skippedRuns,
         fallbackUsed: fallbackUsed,
         winningKind: null,
+      );
+    }
+
+    // 对被跳过的引擎也 emit failed 事件，便于 UI 进度看到原因。
+    for (final r in skippedRuns) {
+      onProgress(
+        WebFetchEngineProgress(
+          kind: r.kind,
+          stage: WebFetchProgressStage.failed,
+          message: r.error,
+        ),
       );
     }
 
@@ -103,7 +160,7 @@ class WebFetchOrchestrator {
 
     // maxChars: 选 enabled 引擎里最大的 truncationChars 作为 fetch 上限
     // （单个引擎自己再按 config.truncationChars 二次截断）。
-    final maxChars = orderedConfigs.fold<int>(
+    final maxChars = effectiveConfigs.fold<int>(
       0,
       (acc, c) => c.truncationChars > acc ? c.truncationChars : acc,
     );
@@ -121,12 +178,12 @@ class WebFetchOrchestrator {
 
     final winner = _pickWinner(
       results: results,
-      configs: {for (final c in orderedConfigs) c.kind: c},
+      configs: {for (final c in effectiveConfigs) c.kind: c},
     );
 
     return WebFetchOrchestrationResult(
       merged: winner?.contents.isNotEmpty == true ? winner!.contents.first : null,
-      engineRuns: results,
+      engineRuns: [...skippedRuns, ...results],
       fallbackUsed: fallbackUsed,
       winningKind: winner?.kind,
     );

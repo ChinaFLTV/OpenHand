@@ -24,6 +24,8 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/data/database_service.dart';
 import '../../ai/ai_session_controller.dart';
 import '../../ai/service/ai_file_mutation_ledger.dart';
+import '../../ai/service/web_fetch/web_fetch_cache_store.dart';
+import '../../ai/service/web_fetch/web_fetch_telemetry_store.dart';
 import '../../ai/service/web_search/web_search_cache_store.dart';
 import '../../ai/service/web_search/web_search_telemetry_store.dart';
 import '../../crons/crons_controller.dart';
@@ -211,6 +213,8 @@ class DataCleanupService {
     // 避免删除时序与新写入互踩。
     await WebSearchCacheStore.instance.clearAll();
     await WebSearchTelemetryStore.instance.clearAll();
+    await WebFetchCacheStore.instance.clearAll();
+    await WebFetchTelemetryStore.instance.clearAll();
     await compute(
       _isolateDeleteDirectoryContents,
       OpenHandPaths.defaultCacheDirectoryPath(),
