@@ -588,7 +588,10 @@ class AiToolRuntimeService {
         resultText: 'status: invalid_arguments\nerror: $guidanceText',
       );
     }
-    final decodedArguments = AiToolUtils.decodeArguments(toolCall.arguments);
+    final decodedArguments = AiToolUtils.decodeArguments(
+      toolCall.arguments,
+      parameters: resolvedTool.definition.parameters,
+    );
     final hookToolName = _hookToolName(resolvedTool);
     final hookWorkingDirectory = _hookWorkingDirectory(decodedArguments);
     final preHookResult = await _hookService.runHooks(

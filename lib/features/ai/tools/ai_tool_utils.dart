@@ -34,14 +34,20 @@ class AiToolUtils {
     return p.normalize(p.join(defaultWorkingDirectory(), normalizedInput));
   }
 
-  static Map<String, Object?> decodeArguments(String rawArguments) {
+  static Map<String, Object?> decodeArguments(
+    String rawArguments, {
+    Map<String, Object?>? parameters,
+  }) {
     try {
       final decoded = jsonDecode(rawArguments);
       if (decoded is Map<String, Object?>) {
-        return _coerceArgumentMap(decoded);
+        return _coerceArgumentMap(decoded, parameters: parameters);
       }
       if (decoded is Map) {
-        return _coerceArgumentMap(Map<String, Object?>.from(decoded));
+        return _coerceArgumentMap(
+          Map<String, Object?>.from(decoded),
+          parameters: parameters,
+        );
       }
     } catch (error, stack) {
       silentLog('ai_tool_utils', 'decode tool arguments JSON', error, stack);
@@ -62,15 +68,22 @@ class AiToolUtils {
   ///           into a plain list (e.g. `{todos: [...]}`).
   ///   3. `{"query": "<![CDATA[foo]]>"}`
   ///         → strips CDATA wrappers from string values.
-  static Map<String, Object?> _coerceArgumentMap(Map<String, Object?> input) {
+  static Map<String, Object?> _coerceArgumentMap(
+    Map<String, Object?> input, {
+    Map<String, Object?>? parameters,
+  }) {
     final result = <String, Object?>{};
+    final propertySchemas = _propertySchemas(parameters);
     Map<String, Object?> rawExtracted = const <String, Object?>{};
     for (final entry in input.entries) {
       if (entry.key == '_raw' && entry.value is String) {
         rawExtracted = _extractFromXmlBlob('${entry.value}');
         continue;
       }
-      result[entry.key] = _coerceArgumentValue(entry.value);
+      result[entry.key] = _coerceArgumentValue(
+        entry.value,
+        schema: propertySchemas[entry.key],
+      );
     }
     // Merge _raw-extracted keys without overwriting explicit keys.
     for (final entry in rawExtracted.entries) {
@@ -88,7 +101,10 @@ class AiToolUtils {
           value.length == 1 &&
           value.keys.first.toString().toLowerCase() ==
               entry.key.toLowerCase()) {
-        unwrapped[entry.key] = _coerceArgumentValue(value.values.first);
+        unwrapped[entry.key] = _coerceArgumentValue(
+          value.values.first,
+          schema: propertySchemas[entry.key],
+        );
         didUnwrap = true;
       } else {
         unwrapped[entry.key] = value;
@@ -97,27 +113,38 @@ class AiToolUtils {
     return didUnwrap ? unwrapped : result;
   }
 
-  static Object? _coerceArgumentValue(Object? value) {
+  static Object? _coerceArgumentValue(
+    Object? value, {
+    Map<String, Object?>? schema,
+  }) {
     if (value is String) {
       final stripped = _stripCdata(value);
       // 2026-05-02: tolerance — weaker models frequently emit JSON-shaped
       // strings (`"[{...}, ...]"`, `"{\"todos\":[...]}"`) inside DSML
       // parameter slots that the downstream tool expects to receive as
-      // a typed List/Map. When the trimmed payload begins with `[` or
-      // `{` and parses cleanly, lift it to its native shape so tools
-      // like TodoWrite don't reject the call on first try.
+      // a typed List/Map. Decode only when the current tool schema asks for
+      // a non-string shape; otherwise JSON file contents for tools like Write
+      // must remain exact strings.
       final trimmed = stripped.trim();
-      if (trimmed.length >= 2) {
-        final first = trimmed.codeUnitAt(0);
-        if (first == 0x7B /* { */ || first == 0x5B /* [ */) {
-          try {
-            final decoded = jsonDecode(trimmed);
-            if (decoded is List || decoded is Map) {
-              return _coerceArgumentValue(decoded);
-            }
-          } catch (_) {
-            // Not valid JSON — keep the original string.
-          }
+      final schemaType = _schemaType(schema);
+      if (schemaType == 'array' || schemaType == 'object') {
+        final decoded = _tryDecodeJson(trimmed);
+        if (decoded != null) {
+          return _coerceArgumentValue(decoded, schema: schema);
+        }
+      }
+      if (schemaType == 'integer' || schemaType == 'number') {
+        final decoded = _tryDecodeJson(trimmed);
+        if (decoded is num) return decoded;
+        final parsed = num.tryParse(trimmed);
+        if (parsed != null) return parsed;
+      }
+      if (schemaType == 'boolean') {
+        final decoded = _tryDecodeJson(trimmed);
+        if (decoded is bool) return decoded;
+        final normalized = trimmed.toLowerCase();
+        if (normalized == 'true' || normalized == 'false') {
+          return normalized == 'true';
         }
       }
       return stripped;
@@ -139,18 +166,71 @@ class AiToolUtils {
         };
         if (arrayWrapperKeys.contains(onlyKey) && asMap.values.first is List) {
           return (asMap.values.first as List)
-              .map(_coerceArgumentValue)
+              .map((item) => _coerceArgumentValue(item, schema: schema))
               .toList(growable: false);
         }
       }
+      final propertySchemas = _propertySchemas(schema);
       return asMap.map(
-        (k, v) => MapEntry(k.toString(), _coerceArgumentValue(v)),
+        (k, v) => MapEntry(
+          k.toString(),
+          _coerceArgumentValue(v, schema: propertySchemas[k.toString()]),
+        ),
       );
     }
     if (value is List) {
-      return value.map(_coerceArgumentValue).toList(growable: false);
+      final itemSchema = _itemSchema(schema);
+      return value
+          .map((item) => _coerceArgumentValue(item, schema: itemSchema))
+          .toList(growable: false);
     }
     return value;
+  }
+
+  static Map<String, Map<String, Object?>> _propertySchemas(
+    Map<String, Object?>? schema,
+  ) {
+    final properties = schema?['properties'];
+    if (properties is! Map) return const <String, Map<String, Object?>>{};
+    final result = <String, Map<String, Object?>>{};
+    for (final entry in properties.entries) {
+      final key = '${entry.key}';
+      final value = entry.value;
+      if (value is Map<String, Object?>) {
+        result[key] = value;
+      } else if (value is Map) {
+        result[key] = Map<String, Object?>.from(value);
+      }
+    }
+    return result;
+  }
+
+  static Map<String, Object?>? _itemSchema(Map<String, Object?>? schema) {
+    final items = schema?['items'];
+    if (items is Map<String, Object?>) return items;
+    if (items is Map) return Map<String, Object?>.from(items);
+    return null;
+  }
+
+  static String _schemaType(Map<String, Object?>? schema) {
+    final type = schema?['type'];
+    if (type is String) return type.trim().toLowerCase();
+    if (type is List) {
+      for (final item in type) {
+        final value = '$item'.trim().toLowerCase();
+        if (value.isNotEmpty && value != 'null') return value;
+      }
+    }
+    return '';
+  }
+
+  static Object? _tryDecodeJson(String value) {
+    if (value.isEmpty) return null;
+    try {
+      return jsonDecode(value);
+    } catch (_) {
+      return null;
+    }
   }
 
   static String _stripCdata(String value) {
