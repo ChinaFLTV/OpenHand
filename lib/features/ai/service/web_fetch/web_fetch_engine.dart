@@ -1,10 +1,10 @@
-import 'dart:async';
-
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
+import '../web_engine_base.dart';
 
+export '../web_engine_base.dart' show WebEngineRequest;
 export '../web_engine_http_exception.dart' show WebEngineHttpException;
 export '../web_engine_json_utils.dart'
     show stringOf, readJsonPath, maybeJsonDecode;
@@ -46,18 +46,17 @@ class WebFetchEngineContent {
   }
 }
 
-class WebFetchEngineRequest {
+class WebFetchEngineRequest extends WebEngineRequest {
   const WebFetchEngineRequest({
     required this.url,
     required this.prompt,
     required this.maxChars,
-    this.cancelSignal,
+    super.cancelSignal,
   });
 
   final String url;
   final String prompt;
   final int maxChars;
-  final Future<void>? cancelSignal;
 }
 
 class WebFetchEngineResult {
@@ -78,77 +77,52 @@ class WebFetchEngineResult {
   bool get isSuccess => error == null && contents.isNotEmpty;
 }
 
-abstract class WebFetchEngine {
+abstract class WebFetchEngine
+    extends
+        WebEngineBase<
+          AiWebFetchEngineKind,
+          WebFetchEngineContent,
+          WebFetchEngineRequest,
+          WebFetchEngineResult
+        > {
   WebFetchEngine({required this.config, required this.httpClient});
 
   final AiWebFetchEngineConfig config;
   final http.Client httpClient;
 
+  @override
   AiWebFetchEngineKind get kind => config.kind;
 
-  /// 是否准备就绪（API key / endpoint 等就位）。
-  bool get isReady;
+  @override
+  int get maxRetries => config.maxRetries;
 
-  /// 单次执行（不含重试）。
-  Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest request);
+  @override
+  Duration get fetchTimeout => const Duration(seconds: 30);
 
-  /// 带重试的对外 API。指数退避 250ms·2^attempt（上限 4s）。
-  Future<WebFetchEngineResult> run(WebFetchEngineRequest request) async {
-    if (!isReady) {
-      return WebFetchEngineResult(
-        kind: kind,
-        contents: const [],
-        error: 'engine_not_ready',
-      );
-    }
-    final stopwatch = Stopwatch()..start();
-    Object? lastError;
-    final maxAttempts = (config.maxRetries + 1).clamp(1, 8);
-    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
-      if (request.cancelSignal != null) {
-        final cancelled = await Future.any([
-          Future.value(false),
-          request.cancelSignal!.then((_) => true),
-        ]);
-        if (cancelled) {
-          return WebFetchEngineResult(
-            kind: kind,
-            contents: const [],
-            error: 'cancelled',
-            attempts: attempt - 1,
-            elapsedMs: stopwatch.elapsedMilliseconds,
-          );
-        }
-      }
-      try {
-        final raw = await fetch(request).timeout(const Duration(seconds: 30));
-        final truncated = raw
-            .map((c) => c.truncated(config.truncationChars))
-            .toList(growable: false);
-        return WebFetchEngineResult(
-          kind: kind,
-          contents: truncated,
-          attempts: attempt,
-          elapsedMs: stopwatch.elapsedMilliseconds,
-        );
-      } catch (error, _) {
-        lastError = error;
-        if (attempt >= maxAttempts) break;
-        final backoff = Duration(
-          milliseconds: (250 * (1 << (attempt - 1))).clamp(250, 4000),
-        );
-        await Future<void>.delayed(backoff);
-      }
-    }
+  @override
+  WebFetchEngineResult buildResult({
+    required List<WebFetchEngineContent> items,
+    String? error,
+    required int attempts,
+    required int elapsedMs,
+  }) {
     return WebFetchEngineResult(
       kind: kind,
-      contents: const [],
-      error: lastError == null
-          ? 'unknown_error'
-          : '${lastError.runtimeType}: $lastError',
-      attempts: maxAttempts,
-      elapsedMs: stopwatch.elapsedMilliseconds,
+      contents: items,
+      error: error,
+      attempts: attempts,
+      elapsedMs: elapsedMs,
     );
+  }
+
+  @override
+  List<WebFetchEngineContent> postProcess(
+    List<WebFetchEngineContent> raw,
+    WebFetchEngineRequest request,
+  ) {
+    return raw
+        .map((c) => c.truncated(config.truncationChars))
+        .toList(growable: false);
   }
 }
 

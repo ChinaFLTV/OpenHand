@@ -1,10 +1,10 @@
-import 'dart:async';
-
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
+import '../web_engine_base.dart';
 
+export '../web_engine_base.dart' show WebEngineRequest;
 export '../web_engine_json_utils.dart'
     show stringOf, readJsonPath, maybeJsonDecode;
 
@@ -46,20 +46,19 @@ class WebSearchEngineHit {
 }
 
 /// 调用引擎所需的请求信息（query + 过滤）。
-class WebSearchEngineRequest {
+class WebSearchEngineRequest extends WebEngineRequest {
   const WebSearchEngineRequest({
     required this.query,
     required this.maxResults,
     this.allowedDomains = const <String>[],
     this.blockedDomains = const <String>[],
-    this.cancelSignal,
+    super.cancelSignal,
   });
 
   final String query;
   final int maxResults;
   final List<String> allowedDomains;
   final List<String> blockedDomains;
-  final Future<void>? cancelSignal;
 }
 
 /// 引擎执行结果包装：含命中数组 + 错误信息（若有）。
@@ -82,83 +81,60 @@ class WebSearchEngineResult {
   bool get isEmpty => hits.isEmpty;
 }
 
-/// 抽象引擎接口。
-abstract class WebSearchEngine {
+/// 抽象引擎：retry/backoff/cancel/timeout 委托给 [WebEngineBase]，子类只需实现
+/// [fetch] + [isReady]，并通过 [postProcess] 统一做 allow/block 过滤、截断、take。
+abstract class WebSearchEngine
+    extends
+        WebEngineBase<
+          AiWebSearchEngineKind,
+          WebSearchEngineHit,
+          WebSearchEngineRequest,
+          WebSearchEngineResult
+        > {
   WebSearchEngine({required this.config, required this.httpClient});
 
   final AiWebSearchEngineConfig config;
   final http.Client httpClient;
 
+  @override
   AiWebSearchEngineKind get kind => config.kind;
 
-  /// 是否准备就绪（有必要的 API key 等）。
-  bool get isReady;
+  @override
+  int get maxRetries => config.maxRetries;
 
-  /// 单次执行（不含重试）。
-  Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest request);
+  @override
+  Duration get fetchTimeout => const Duration(seconds: 25);
 
-  /// 带重试的对外 API（调用方使用）。指数退避 250ms·2^attempt（上限 4s）。
-  Future<WebSearchEngineResult> run(WebSearchEngineRequest request) async {
-    if (!isReady) {
-      return WebSearchEngineResult(
-        kind: kind,
-        hits: const [],
-        error: 'engine_not_ready',
-      );
-    }
-    final stopwatch = Stopwatch()..start();
-    Object? lastError;
-    final maxAttempts = (config.maxRetries + 1).clamp(1, 8);
-    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
-      if (request.cancelSignal != null) {
-        final cancelled = await Future.any([
-          Future.value(false),
-          request.cancelSignal!.then((_) => true),
-        ]);
-        if (cancelled) {
-          return WebSearchEngineResult(
-            kind: kind,
-            hits: const [],
-            error: 'cancelled',
-            attempts: attempt - 1,
-            elapsedMs: stopwatch.elapsedMilliseconds,
-          );
-        }
-      }
-      try {
-        final raw = await fetch(request).timeout(const Duration(seconds: 25));
-        final filtered = _applyFilters(
-          raw,
-          allowed: request.allowedDomains,
-          blocked: request.blockedDomains,
-        );
-        final truncated = filtered
-            .map((h) => h.truncated(config.truncationChars))
-            .toList(growable: false);
-        return WebSearchEngineResult(
-          kind: kind,
-          hits: truncated.take(request.maxResults).toList(growable: false),
-          attempts: attempt,
-          elapsedMs: stopwatch.elapsedMilliseconds,
-        );
-      } catch (error, _) {
-        lastError = error;
-        if (attempt >= maxAttempts) break;
-        final backoff = Duration(
-          milliseconds: (250 * (1 << (attempt - 1))).clamp(250, 4000),
-        );
-        await Future<void>.delayed(backoff);
-      }
-    }
+  @override
+  WebSearchEngineResult buildResult({
+    required List<WebSearchEngineHit> items,
+    String? error,
+    required int attempts,
+    required int elapsedMs,
+  }) {
     return WebSearchEngineResult(
       kind: kind,
-      hits: const [],
-      error: lastError == null
-          ? 'unknown_error'
-          : '${lastError.runtimeType}: $lastError',
-      attempts: maxAttempts,
-      elapsedMs: stopwatch.elapsedMilliseconds,
+      hits: items,
+      error: error,
+      attempts: attempts,
+      elapsedMs: elapsedMs,
     );
+  }
+
+  @override
+  List<WebSearchEngineHit> postProcess(
+    List<WebSearchEngineHit> raw,
+    WebSearchEngineRequest request,
+  ) {
+    final filtered = _applyFilters(
+      raw,
+      allowed: request.allowedDomains,
+      blocked: request.blockedDomains,
+    );
+    return filtered
+        .map((h) => h.truncated(config.truncationChars))
+        .take(request.maxResults)
+        .toList(growable: false);
   }
 
   static List<WebSearchEngineHit> _applyFilters(
