@@ -912,9 +912,140 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
 
         const SizedBox(height: 16),
+        ..._buildAdvancedSection(context, theme, colorScheme, v),
+
+        const SizedBox(height: 16),
         ..._buildTelemetrySection(context, theme, colorScheme, v),
       ],
     );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 高级设置（cooldown 阈值 / 告警 / throttle）
+  // ───────────────────────────────────────────────────────────────────────────
+  List<Widget> _buildAdvancedSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    AiWebSearchSettings v,
+  ) {
+    return [
+      Text(
+        _localizedText(context, zh: '高级（健壮性）', en: 'Advanced (resilience)'),
+        style: theme.textTheme.titleSmall,
+      ),
+      const SizedBox(height: 8),
+      // cooldown 三档
+      Text(
+        _localizedText(
+          context,
+          zh: '失败自动降级（cooldown）阈值',
+          en: 'Failure auto-cooldown thresholds',
+        ),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+      const SizedBox(height: 6),
+      _AdvancedCooldownTierRow(
+        label: _localizedText(context, zh: '一级', en: 'Tier 1'),
+        failures: v.cooldownTier1Failures,
+        seconds: v.cooldownTier1Seconds,
+        onChangedFailures: (n) =>
+            _updateAdvanced(v.copyWith(cooldownTier1Failures: n)),
+        onChangedSeconds: (n) =>
+            _updateAdvanced(v.copyWith(cooldownTier1Seconds: n)),
+      ),
+      _AdvancedCooldownTierRow(
+        label: _localizedText(context, zh: '二级', en: 'Tier 2'),
+        failures: v.cooldownTier2Failures,
+        seconds: v.cooldownTier2Seconds,
+        onChangedFailures: (n) =>
+            _updateAdvanced(v.copyWith(cooldownTier2Failures: n)),
+        onChangedSeconds: (n) =>
+            _updateAdvanced(v.copyWith(cooldownTier2Seconds: n)),
+      ),
+      _AdvancedCooldownTierRow(
+        label: _localizedText(context, zh: '三级', en: 'Tier 3'),
+        failures: v.cooldownTier3Failures,
+        seconds: v.cooldownTier3Seconds,
+        onChangedFailures: (n) =>
+            _updateAdvanced(v.copyWith(cooldownTier3Failures: n)),
+        onChangedSeconds: (n) =>
+            _updateAdvanced(v.copyWith(cooldownTier3Seconds: n)),
+      ),
+      const SizedBox(height: 4),
+      _AdvancedNumberRow(
+        label: _localizedText(
+          context,
+          zh: '配额/限流冷却（秒）',
+          en: 'Quota cooldown (s)',
+        ),
+        value: v.cooldownQuotaSeconds,
+        min: AiWebSearchSettings.minCooldownSeconds,
+        max: AiWebSearchSettings.maxCooldownSeconds,
+        onChanged: (n) => _updateAdvanced(v.copyWith(cooldownQuotaSeconds: n)),
+      ),
+      const SizedBox(height: 12),
+      // 告警
+      Text(
+        _localizedText(
+          context,
+          zh: '健康度告警（0 = 关闭，至少 5 次调用后才会触发）',
+          en: 'Health alerts (0 = off; needs ≥5 calls)',
+        ),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+      const SizedBox(height: 6),
+      _AdvancedNumberRow(
+        label: _localizedText(
+          context,
+          zh: '成功率低于（%）',
+          en: 'Success rate below (%)',
+        ),
+        value: v.alertSuccessRatePct,
+        min: 0,
+        max: AiWebSearchSettings.maxAlertSuccessRatePct,
+        onChanged: (n) => _updateAdvanced(v.copyWith(alertSuccessRatePct: n)),
+      ),
+      _AdvancedNumberRow(
+        label: _localizedText(
+          context,
+          zh: '平均耗时高于（毫秒）',
+          en: 'Avg duration above (ms)',
+        ),
+        value: v.alertAvgDurationMs,
+        min: 0,
+        max: AiWebSearchSettings.maxAlertAvgDurationMs,
+        onChanged: (n) => _updateAdvanced(v.copyWith(alertAvgDurationMs: n)),
+      ),
+      const SizedBox(height: 12),
+      // throttle
+      Text(
+        _localizedText(
+          context,
+          zh: '速率限制（每引擎每分钟最大调用数；0 = 不限）',
+          en: 'Rate limit (per engine, per minute; 0 = off)',
+        ),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+      const SizedBox(height: 6),
+      _AdvancedNumberRow(
+        label: _localizedText(context, zh: '上限', en: 'Cap'),
+        value: v.throttlePerMinute,
+        min: 0,
+        max: AiWebSearchSettings.maxThrottlePerMinute,
+        onChanged: (n) => _updateAdvanced(v.copyWith(throttlePerMinute: n)),
+      ),
+    ];
+  }
+
+  void _updateAdvanced(AiWebSearchSettings next) {
+    _emit(next);
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -1394,6 +1525,181 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AdvancedCooldownTierRow extends StatelessWidget {
+  const _AdvancedCooldownTierRow({
+    required this.label,
+    required this.failures,
+    required this.seconds,
+    required this.onChangedFailures,
+    required this.onChangedSeconds,
+  });
+
+  final String label;
+  final int failures;
+  final int seconds;
+  final ValueChanged<int> onChangedFailures;
+  final ValueChanged<int> onChangedSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 56,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+          Text(
+            _localizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
+            style: theme.textTheme.bodySmall,
+          ),
+          SizedBox(
+            width: 60,
+            child: _IntField(
+              value: failures,
+              min: AiWebSearchSettings.minCooldownFailures,
+              max: AiWebSearchSettings.maxCooldownFailures,
+              onChanged: onChangedFailures,
+            ),
+          ),
+          Text(
+            _localizedText(context, zh: ' 次  →  冷却 ', en: '  →  cooldown '),
+            style: theme.textTheme.bodySmall,
+          ),
+          SizedBox(
+            width: 80,
+            child: _IntField(
+              value: seconds,
+              min: AiWebSearchSettings.minCooldownSeconds,
+              max: AiWebSearchSettings.maxCooldownSeconds,
+              onChanged: onChangedSeconds,
+            ),
+          ),
+          Text(
+            _localizedText(context, zh: ' 秒', en: ' s'),
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdvancedNumberRow extends StatelessWidget {
+  const _AdvancedNumberRow({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: theme.textTheme.bodySmall),
+          ),
+          SizedBox(
+            width: 100,
+            child: _IntField(
+              value: value,
+              min: min,
+              max: max,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntField extends StatefulWidget {
+  const _IntField({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  State<_IntField> createState() => _IntFieldState();
+}
+
+class _IntFieldState extends State<_IntField> {
+  late TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: '${widget.value}');
+  }
+
+  @override
+  void didUpdateWidget(covariant _IntField old) {
+    super.didUpdateWidget(old);
+    if (widget.value != old.value && _ctrl.text != '${widget.value}') {
+      _ctrl.text = '${widget.value}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _commit(String raw) {
+    final parsed = int.tryParse(raw.trim());
+    if (parsed == null) {
+      _ctrl.text = '${widget.value}';
+      return;
+    }
+    final clamped =
+        parsed < widget.min ? widget.min : (parsed > widget.max ? widget.max : parsed);
+    if (clamped != widget.value) widget.onChanged(clamped);
+    if ('$clamped' != raw.trim()) _ctrl.text = '$clamped';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _ctrl,
+      keyboardType: TextInputType.number,
+      textAlign: TextAlign.right,
+      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+      decoration: const InputDecoration(
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        border: OutlineInputBorder(),
+      ),
+      onSubmitted: _commit,
+      onEditingComplete: () => _commit(_ctrl.text),
     );
   }
 }

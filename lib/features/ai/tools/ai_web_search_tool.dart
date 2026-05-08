@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 
+import '../../../app/support/openhand_notification_service.dart';
+import '../../../app/support/silent_log.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_web_search_settings.dart';
 import '../service/ai_bash_tool_service.dart';
@@ -157,7 +159,7 @@ class AiWebSearchTool extends AiTool {
           modelId: summaryModel?.modelId,
           perEngine: perEngine,
         ),
-      ));
+      ).then((_) => _maybeFireHealthAlerts(settings)));
     }
 
     AiToolExecutionResult timedOut(String message) => AiToolExecutionResult(
@@ -523,6 +525,54 @@ query. Cite each fact as [N]. Never invent results. Match the query
 language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
 [<<MIN_CHARS>>, <<MAX_CHARS>>].
 ''';
+
+  // 进程内已经发过告警的 (engine, reason)，避免连续刷屏。重启进程后清空。
+  final Set<String> _alertedKeys = <String>{};
+
+  /// 健康度告警：在每次 recordCall 之后扫一遍当前 engineStats，命中阈值
+  /// 触发系统通知（同一 key 进程内只发一次，重启 / clearLogs 后重新生效）。
+  Future<void> _maybeFireHealthAlerts(AiWebSearchSettings settings) async {
+    final pctTh = settings.alertSuccessRatePct;
+    final avgTh = settings.alertAvgDurationMs;
+    if (pctTh <= 0 && avgTh <= 0) return;
+    try {
+      final stats = await WebSearchTelemetryStore.instance.engineStats();
+      for (final entry in stats.entries) {
+        final s = entry.value;
+        // 数据太少时不告警，避免 1 次失败就触发。
+        if (s.totalCalls < 5) continue;
+        if (pctTh > 0) {
+          final pct = (s.successRate * 100).round();
+          if (pct < pctTh) {
+            final key = '${entry.key.name}::low-success::$pct';
+            if (_alertedKeys.add(key)) {
+              await OpenHandNotificationService.showInApp(
+                title: 'WebSearch · ${entry.key.name}',
+                body:
+                    '成功率 $pct% < 阈值 $pctTh%（共 ${s.totalCalls} 次调用）',
+                level: OpenHandNotificationLevel.warning,
+              );
+            }
+          }
+        }
+        if (avgTh > 0) {
+          final avg = s.avgDurationMs.round();
+          if (avg > avgTh) {
+            final key = '${entry.key.name}::slow::$avg';
+            if (_alertedKeys.add(key)) {
+              await OpenHandNotificationService.showInApp(
+                title: 'WebSearch · ${entry.key.name}',
+                body: '平均耗时 ${avg}ms > 阈值 ${avgTh}ms',
+                level: OpenHandNotificationLevel.warning,
+              );
+            }
+          }
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_web_search_tool', '_maybeFireHealthAlerts', error, stack);
+    }
+  }
 }
 
 class _SummaryPrompts {

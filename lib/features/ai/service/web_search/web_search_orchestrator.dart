@@ -102,17 +102,37 @@ class WebSearchOrchestrator {
 
     // 失败自动降级：跳过当前 cooldown 中的引擎。一次成功 stat 自动清掉
     // cooldown，所以这里只需要静默过滤 + 汇报 progress.failed("cooldown")。
+    // 同时把用户配置的 cooldown 阈值推到 store，确保下一次失败按用户阈值落库。
+    WebSearchTelemetryStore.instance.cooldownConfig = WebSearchCooldownConfig(
+      tier1Failures: settings.cooldownTier1Failures,
+      tier1Seconds: settings.cooldownTier1Seconds,
+      tier2Failures: settings.cooldownTier2Failures,
+      tier2Seconds: settings.cooldownTier2Seconds,
+      tier3Failures: settings.cooldownTier3Failures,
+      tier3Seconds: settings.cooldownTier3Seconds,
+      quotaSeconds: settings.cooldownQuotaSeconds,
+    );
     final stats = await WebSearchTelemetryStore.instance.engineStats();
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final usableConfigs = <AiWebSearchEngineConfig>[];
     final skippedKinds = <AiWebSearchEngineKind>[];
+    final throttledKinds = <AiWebSearchEngineKind>[];
     for (final c in orderedConfigs) {
       final s = stats[c.kind];
       if (s != null && s.isInCooldown(nowMs)) {
         skippedKinds.add(c.kind);
-      } else {
-        usableConfigs.add(c);
+        continue;
       }
+      // throttle/min：每个引擎在最近 60s 内最多 N 次。0 = 不限。
+      if (settings.throttlePerMinute > 0) {
+        final used = await WebSearchTelemetryStore.instance
+            .callsInLastMinute(c.kind);
+        if (used >= settings.throttlePerMinute) {
+          throttledKinds.add(c.kind);
+          continue;
+        }
+      }
+      usableConfigs.add(c);
     }
     for (final k in skippedKinds) {
       onProgress(
@@ -120,6 +140,15 @@ class WebSearchOrchestrator {
           kind: k,
           stage: WebSearchProgressStage.failed,
           message: 'skipped: cooldown active',
+        ),
+      );
+    }
+    for (final k in throttledKinds) {
+      onProgress(
+        WebSearchEngineProgress(
+          kind: k,
+          stage: WebSearchProgressStage.failed,
+          message: 'skipped: throttle limit reached',
         ),
       );
     }

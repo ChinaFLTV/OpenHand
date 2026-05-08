@@ -27,13 +27,13 @@ class WebSearchTelemetryStore {
   /// 单引擎采样历史上限（趋势图用）。
   static const int maxEngineHistorySamples = 200;
 
-  /// 连续失败 N 次后进入 cooldown，以下为分级时长（毫秒）。
-  static const int _cooldownStep1Ms = 60 * 1000; // 3 次 → 1 分钟
-  static const int _cooldownStep2Ms = 5 * 60 * 1000; // 5 次 → 5 分钟
-  static const int _cooldownStep3Ms = 15 * 60 * 1000; // 7+ 次 → 15 分钟
+  /// orchestrator 在每次 run() 之前用 [setCooldownConfig] 推一份当前 settings
+  /// 的阈值进来；默认值与历史一致（1m / 5m / 15m），保证旧路径行为不变。
+  WebSearchCooldownConfig cooldownConfig = const WebSearchCooldownConfig();
 
   /// 显式 quota / 429 / rate limit 错误的固定 cooldown。
-  static const int _quotaCooldownMs = 5 * 60 * 1000;
+  // ignore: unused_field
+  static const int _legacyQuotaCooldownMs = 5 * 60 * 1000;
 
   static final RegExp _quotaErrorPattern = RegExp(
     r'\b(429|too many requests|rate[\s_-]?limit|quota|exceeded|throttl)\b',
@@ -191,16 +191,17 @@ class WebSearchTelemetryStore {
         cooldownUntilMs = null; // 一次成功立即清掉 cooldown
       } else {
         consecFail += 1;
+        final cfg = cooldownConfig;
         if (looksLikeQuotaError(per.error)) {
           lastQuotaError = per.error;
           lastQuotaAt = call.timestampMs;
-          cooldownUntilMs = call.timestampMs + _quotaCooldownMs;
-        } else if (consecFail >= 7) {
-          cooldownUntilMs = call.timestampMs + _cooldownStep3Ms;
-        } else if (consecFail >= 5) {
-          cooldownUntilMs = call.timestampMs + _cooldownStep2Ms;
-        } else if (consecFail >= 3) {
-          cooldownUntilMs = call.timestampMs + _cooldownStep1Ms;
+          cooldownUntilMs = call.timestampMs + cfg.quotaSeconds * 1000;
+        } else if (consecFail >= cfg.tier3Failures) {
+          cooldownUntilMs = call.timestampMs + cfg.tier3Seconds * 1000;
+        } else if (consecFail >= cfg.tier2Failures) {
+          cooldownUntilMs = call.timestampMs + cfg.tier2Seconds * 1000;
+        } else if (consecFail >= cfg.tier1Failures) {
+          cooldownUntilMs = call.timestampMs + cfg.tier1Seconds * 1000;
         }
       }
 
@@ -340,6 +341,41 @@ class WebSearchTelemetryStore {
     }
     return null;
   }
+
+  /// orchestrator throttle 用：返回 [kind] 在最近 60 秒内的调用次数（基于
+  /// engine_history.json 的样本时间戳）。失败/成功都计入。读取失败返回 0。
+  Future<int> callsInLastMinute(AiWebSearchEngineKind kind) async {
+    final hist = await engineHistory();
+    final samples = hist[kind];
+    if (samples == null || samples.isEmpty) return 0;
+    final cutoff = DateTime.now().millisecondsSinceEpoch - 60 * 1000;
+    var count = 0;
+    for (final s in samples) {
+      if (s.timestampMs >= cutoff) count++;
+    }
+    return count;
+  }
+}
+
+/// orchestrator 在每次 run() 之前注入的 cooldown 阈值（来自 settings）。
+class WebSearchCooldownConfig {
+  const WebSearchCooldownConfig({
+    this.tier1Failures = 3,
+    this.tier1Seconds = 60,
+    this.tier2Failures = 5,
+    this.tier2Seconds = 300,
+    this.tier3Failures = 7,
+    this.tier3Seconds = 900,
+    this.quotaSeconds = 300,
+  });
+
+  final int tier1Failures;
+  final int tier1Seconds;
+  final int tier2Failures;
+  final int tier2Seconds;
+  final int tier3Failures;
+  final int tier3Seconds;
+  final int quotaSeconds;
 }
 
 /// 单次 WebSearch 调用日志。
