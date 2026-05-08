@@ -127,7 +127,10 @@ export function SessionsPage() {
         await document.exitFullscreen();
         return;
       }
-      const target = pageRootRef.current ?? document.documentElement;
+      // 全屏目标固定挂到 <html>：让 OverlayPortal 可以把浮层放到 body 上，
+      // 避开 .oh-page-fade 进场动画残留的 transform 形成的 containing block，
+      // 修复全屏下点击按钮无法弹出 PopMenu / Dialog / Snackbar 的 BUG。
+      const target = document.documentElement;
       if (!target.requestFullscreen) {
         showSnackbar(t('topbar.fullscreen.unsupported', '当前浏览器不支持全屏'), { tone: 'error' });
         return;

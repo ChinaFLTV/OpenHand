@@ -401,10 +401,24 @@ html, body, #root {
 .oh-session-detail-page:fullscreen,
 .oh-session-detail-page:-webkit-full-screen,
 .oh-sessions-page:fullscreen,
-.oh-sessions-page:-webkit-full-screen {
+.oh-sessions-page:-webkit-full-screen,
+:fullscreen .oh-session-detail-page,
+:-webkit-full-screen .oh-session-detail-page,
+:fullscreen .oh-sessions-page,
+:-webkit-full-screen .oh-sessions-page {
   width: 100vw;
   height: 100vh;
   padding: 18px 24px;
+  background: var(--m3-surface);
+}
+
+/* 全屏锁定在 <html> 时，body 主背景需要跟随页面色调避免黑边。 */
+:root:fullscreen,
+:root:-webkit-full-screen {
+  background: var(--m3-surface);
+}
+:root:fullscreen body,
+:root:-webkit-full-screen body {
   background: var(--m3-surface);
 }
 
@@ -1536,7 +1550,11 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-session-detail-page:fullscreen,
   .oh-session-detail-page:-webkit-full-screen,
   .oh-sessions-page:fullscreen,
-  .oh-sessions-page:-webkit-full-screen {
+  .oh-sessions-page:-webkit-full-screen,
+  :fullscreen .oh-session-detail-page,
+  :-webkit-full-screen .oh-session-detail-page,
+  :fullscreen .oh-sessions-page,
+  :-webkit-full-screen .oh-sessions-page {
     height: 100dvh;
     padding:
       calc(10px + env(safe-area-inset-top, 0px))

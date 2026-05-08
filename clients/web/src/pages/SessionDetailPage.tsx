@@ -990,7 +990,10 @@ export function SessionDetailPage() {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        const target = pageRootRef.current ?? document.documentElement;
+        // 见 OverlayPortal 注释：全屏挂到 <html> 而不是 <main>，
+        // 让 OverlayPortal 把 dialog/menu/snackbar 投射到 body，
+        // 避开 oh-page-fade transform 残留 containing block 带来的「点击无效」问题。
+        const target = document.documentElement;
         if (!target.requestFullscreen) {
           showSnackbar(t('topbar.fullscreen.unsupported', '当前浏览器不支持全屏'), { tone: 'error' });
           return;

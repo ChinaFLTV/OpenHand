@@ -29,6 +29,14 @@ describe('OverlayPortal', () => {
     expect(getOverlayPortalTarget()).toBe(fullscreenRoot);
   });
 
+  it('falls back to document.body when fullscreen element is documentElement', () => {
+    // <html> 全屏：body 作为后代仍然在 fullscreen 树中，
+    // 此时浮层应当继续挂载到 body，避免 .oh-page-fade 残留 transform 形成的
+    // containing block 让 dialog/menu 无法响应点击。
+    setFullscreenElement(document.documentElement);
+    expect(getOverlayPortalTarget()).toBe(document.body);
+  });
+
   it('moves rendered overlay content when fullscreen target changes', async () => {
     const firstRoot = document.createElement('section');
     const secondRoot = document.createElement('section');
