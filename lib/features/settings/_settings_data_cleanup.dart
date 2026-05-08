@@ -46,6 +46,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
   /// 应用缓存内独立测算的 WebSearch 占用，用于在 appCache 行下方显示明细。
   /// `null` 表示尚未测算或测算失败。
   int? _webSearchCacheBytes;
+  int? _webFetchCacheBytes;
 
   @override
   void didChangeDependencies() {
@@ -131,6 +132,17 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           silentLog('data_cleanup', 'measure/webSearchCache', e, st);
           if (!mounted || token != _measureToken) return;
           setState(() => _webSearchCacheBytes = 0);
+        }
+      }(),
+      () async {
+        try {
+          final bytes = await WebFetchCacheStore.instance.totalBytesOnDisk();
+          if (!mounted || token != _measureToken) return;
+          setState(() => _webFetchCacheBytes = bytes);
+        } catch (e, st) {
+          silentLog('data_cleanup', 'measure/webFetchCache', e, st);
+          if (!mounted || token != _measureToken) return;
+          setState(() => _webFetchCacheBytes = 0);
         }
       }(),
     ]);
@@ -248,27 +260,44 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
   }
 
   String? _buildAppCacheBreakdown(BuildContext context) {
-    final bytes = _webSearchCacheBytes;
-    if (bytes == null) {
+    String lineFor({
+      required int? bytes,
+      required String zhLabel,
+      required String enLabel,
+    }) {
+      if (bytes == null) {
+        return _localizedText(
+          context,
+          zh: '其中 $zhLabel 缓存：测算中…',
+          en: '$enLabel cache: measuring…',
+        );
+      }
+      if (bytes <= 0) {
+        return _localizedText(
+          context,
+          zh: '其中 $zhLabel 缓存：0 B',
+          en: '$enLabel cache: 0 B',
+        );
+      }
+      final human = formatHumanBytes(bytes);
       return _localizedText(
         context,
-        zh: '其中 WebSearch 缓存：测算中…',
-        en: 'WebSearch cache: measuring…',
+        zh: '其中 $zhLabel 缓存：$human',
+        en: '$enLabel cache: $human',
       );
     }
-    if (bytes <= 0) {
-      return _localizedText(
-        context,
-        zh: '其中 WebSearch 缓存：0 B',
-        en: 'WebSearch cache: 0 B',
-      );
-    }
-    final human = formatHumanBytes(bytes);
-    return _localizedText(
-      context,
-      zh: '其中 WebSearch 缓存：$human',
-      en: 'WebSearch cache: $human',
+
+    final searchLine = lineFor(
+      bytes: _webSearchCacheBytes,
+      zhLabel: 'WebSearch',
+      enLabel: 'WebSearch',
     );
+    final fetchLine = lineFor(
+      bytes: _webFetchCacheBytes,
+      zhLabel: 'WebFetch',
+      enLabel: 'WebFetch',
+    );
+    return '$searchLine\n$fetchLine';
   }
 
   @override
