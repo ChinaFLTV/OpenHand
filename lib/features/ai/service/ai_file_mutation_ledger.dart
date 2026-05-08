@@ -336,6 +336,10 @@ class AiFileMutationLedger {
           return _cachedConfig!;
         }
       }
+    } on FileSystemException catch (error, stack) {
+      if (!_isMissingFileSystemException(error)) {
+        silentLog('ai_file_mutation_ledger', 'loadConfig', error, stack);
+      }
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'loadConfig', error, stack);
     }
@@ -409,6 +413,15 @@ class AiFileMutationLedger {
           try {
             final content = await file.readAsString();
             await _writeBlobIfMissing(_sha256Of(content), content);
+          } on FileSystemException catch (error, stack) {
+            if (!_isMissingFileSystemException(error)) {
+              silentLog(
+                'ai_file_mutation_ledger',
+                'migrate blob',
+                error,
+                stack,
+              );
+            }
           } catch (error, stack) {
             silentLog('ai_file_mutation_ledger', 'migrate blob', error, stack);
           }
@@ -497,9 +510,9 @@ class AiFileMutationLedger {
     if (sessionId.trim().isEmpty) return const <FileMutationRecord>[];
     await _ensureInitialized();
     final ledger = _ledgerFile(sessionId);
-    if (!await ledger.exists()) return const <FileMutationRecord>[];
     final records = <FileMutationRecord>[];
     try {
+      if (!await ledger.exists()) return const <FileMutationRecord>[];
       final lines = await ledger.readAsLines();
       for (final raw in lines) {
         final trimmed = raw.trim();
@@ -519,6 +532,10 @@ class AiFileMutationLedger {
             stack,
           );
         }
+      }
+    } on FileSystemException catch (error, stack) {
+      if (!_isMissingFileSystemException(error)) {
+        silentLog('ai_file_mutation_ledger', 'read ledger', error, stack);
       }
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'read ledger', error, stack);
@@ -625,6 +642,13 @@ class AiFileMutationLedger {
         if (await outFile.exists()) {
           try {
             await outFile.delete();
+          } on FileSystemException catch (error, stack) {
+            if (_isMissingFileSystemException(error)) {
+              // 已被外部删除时，撤销 create 的目标状态已经达成。
+            } else {
+              silentLog('ai_file_mutation_ledger', 'undo delete', error, stack);
+              return FileMutationOutcome.fail('delete-failed:$error');
+            }
           } catch (error, stack) {
             silentLog('ai_file_mutation_ledger', 'undo delete', error, stack);
             return FileMutationOutcome.fail('delete-failed:$error');
@@ -679,6 +703,13 @@ class AiFileMutationLedger {
         if (await outFile.exists()) {
           try {
             await outFile.delete();
+          } on FileSystemException catch (error, stack) {
+            if (_isMissingFileSystemException(error)) {
+              // 已被外部删除时，重做 delete 的目标状态已经达成。
+            } else {
+              silentLog('ai_file_mutation_ledger', 'redo delete', error, stack);
+              return FileMutationOutcome.fail('delete-failed:$error');
+            }
           } catch (error, stack) {
             silentLog('ai_file_mutation_ledger', 'redo delete', error, stack);
             return FileMutationOutcome.fail('delete-failed:$error');
@@ -730,6 +761,15 @@ class AiFileMutationLedger {
             if (!await ledgerFile.exists()) continue;
             final lines = await ledgerFile.readAsLines();
             recordCount += lines.where((l) => l.trim().isNotEmpty).length;
+          } on FileSystemException catch (error, stack) {
+            if (!_isMissingFileSystemException(error)) {
+              silentLog(
+                'ai_file_mutation_ledger',
+                'statsSnapshot.session',
+                error,
+                stack,
+              );
+            }
           } catch (error, stack) {
             silentLog(
               'ai_file_mutation_ledger',
@@ -891,7 +931,7 @@ class AiFileMutationLedger {
     }
     final ledger = _ledgerFile(sessionId);
     if (survivors.isEmpty) {
-      if (await ledger.exists()) await ledger.delete();
+      await _deleteFileIfPresent(ledger, 'trim ledger');
     } else {
       final buffer = StringBuffer();
       for (final r in survivors) {
@@ -936,7 +976,7 @@ class AiFileMutationLedger {
         // 重写 ledger
         final ledger = _ledgerFile(sessionId);
         if (survivors.isEmpty) {
-          if (await ledger.exists()) await ledger.delete();
+          await _deleteFileIfPresent(ledger, 'prune ledger');
         } else {
           final buffer = StringBuffer();
           for (final r in survivors) {
@@ -1068,7 +1108,24 @@ class AiFileMutationLedger {
   }
 
   bool _isMissingFileSystemException(FileSystemException error) {
-    return error.osError?.errorCode == 2;
+    final code = error.osError?.errorCode;
+    if (code == 2 || code == 3) return true;
+    final message = (error.osError?.message ?? error.message).toLowerCase();
+    return message.contains('no such file') ||
+        message.contains('cannot find') ||
+        message.contains('path not found');
+  }
+
+  Future<void> _deleteFileIfPresent(File file, String where) async {
+    try {
+      if (await file.exists()) await file.delete();
+    } on FileSystemException catch (error, stack) {
+      if (!_isMissingFileSystemException(error)) {
+        silentLog('ai_file_mutation_ledger', where, error, stack);
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', where, error, stack);
+    }
   }
 
   // ───────────────────────── 内部工具 ─────────────────────────
@@ -1086,6 +1143,10 @@ class AiFileMutationLedger {
           return list.whereType<String>().toSet();
         }
       }
+    } on FileSystemException catch (error, stack) {
+      if (!_isMissingFileSystemException(error)) {
+        silentLog('ai_file_mutation_ledger', 'loadUndoneSet', error, stack);
+      }
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'loadUndoneSet', error, stack);
     }
@@ -1094,13 +1155,21 @@ class AiFileMutationLedger {
 
   Future<void> _saveUndoneSet(String sessionId, Set<String> undone) async {
     try {
+      final state = _stateFile(sessionId);
+      if (undone.isEmpty) {
+        await _deleteFileIfPresent(state, 'delete empty undone state');
+        return;
+      }
       final dir = _sessionDir(sessionId);
       if (!await dir.exists()) await dir.create(recursive: true);
-      final state = _stateFile(sessionId);
       await writeFileAtomically(
         state,
         jsonEncode(<String, Object?>{'undone': undone.toList()..sort()}),
       );
+    } on FileSystemException catch (error, stack) {
+      if (!_isMissingFileSystemException(error)) {
+        silentLog('ai_file_mutation_ledger', 'saveUndoneSet', error, stack);
+      }
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'saveUndoneSet', error, stack);
     }
@@ -1121,6 +1190,11 @@ class AiFileMutationLedger {
       final file = File(p.join(_blobsDir().path, shard, '$sha.txt'));
       if (!await file.exists()) return null;
       return await file.readAsString();
+    } on FileSystemException catch (error, stack) {
+      if (!_isMissingFileSystemException(error)) {
+        silentLog('ai_file_mutation_ledger', 'readBlob', error, stack);
+      }
+      return null;
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'readBlob', error, stack);
       return null;
@@ -1339,10 +1413,21 @@ class AiFileMutationLedger {
         final existing = await recordsForSession(sid);
         final existingIds = existing.map((r) => r.recordId).toSet();
         final buffer = StringBuffer();
-        if (await ledger.exists()) {
-          buffer.write(await ledger.readAsString());
-          if (!buffer.toString().endsWith('\n') && buffer.isNotEmpty) {
-            buffer.writeln();
+        try {
+          if (await ledger.exists()) {
+            buffer.write(await ledger.readAsString());
+            if (!buffer.toString().endsWith('\n') && buffer.isNotEmpty) {
+              buffer.writeln();
+            }
+          }
+        } on FileSystemException catch (error, stack) {
+          if (!_isMissingFileSystemException(error)) {
+            silentLog(
+              'ai_file_mutation_ledger',
+              'importBundle read existing ledger',
+              error,
+              stack,
+            );
           }
         }
         for (final raw in records) {
