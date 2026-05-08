@@ -318,6 +318,135 @@ class _SettingsStateBox extends StatelessWidget {
   }
 }
 
+class _SettingsElasticExpansion extends StatelessWidget {
+  const _SettingsElasticExpansion({
+    required this.expanded,
+    required this.child,
+  });
+
+  final bool expanded;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final duration = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 280);
+    final reverseDuration = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 190);
+
+    return AnimatedSize(
+      duration: duration,
+      reverseDuration: reverseDuration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topLeft,
+      child: ClipRect(
+        child: AnimatedSwitcher(
+          duration: duration,
+          reverseDuration: reverseDuration,
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: (currentChild, previousChildren) => Stack(
+            alignment: Alignment.topLeft,
+            children: <Widget>[
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          ),
+          transitionBuilder: (transitionChild, animation) {
+            final eased = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutBack,
+              reverseCurve: Curves.easeInCubic,
+            );
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, -0.018),
+                  end: Offset.zero,
+                ).animate(eased),
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.985, end: 1).animate(eased),
+                  alignment: Alignment.topCenter,
+                  child: transitionChild,
+                ),
+              ),
+            );
+          },
+          child: expanded
+              ? Padding(
+                  key: const ValueKey<String>('expanded'),
+                  padding: const EdgeInsets.only(top: 8),
+                  child: child,
+                )
+              : const SizedBox.shrink(key: ValueKey<String>('collapsed')),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsExpandIcon extends StatelessWidget {
+  const _SettingsExpandIcon({required this.expanded});
+
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedRotation(
+      turns: expanded ? 0.5 : 0,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
+      curve: Curves.easeOutBack,
+      child: const Icon(Icons.expand_more_rounded),
+    );
+  }
+}
+
+Widget _settingsTransparentReorderProxy(
+  BuildContext context,
+  Widget child,
+  int index,
+  Animation<double> animation,
+) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final reduceMotion = MediaQuery.disableAnimationsOf(context);
+  final eased = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+
+  return AnimatedBuilder(
+    animation: animation,
+    child: Material(
+      type: MaterialType.transparency,
+      color: Colors.transparent,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      child: child,
+    ),
+    builder: (context, proxyChild) {
+      final t = reduceMotion ? 1.0 : eased.value;
+      return Transform.scale(
+        scale: 1 + 0.018 * t,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.shadow.withValues(alpha: 0.12 * t),
+                blurRadius: 18 * t,
+                offset: Offset(0, 8 * t),
+              ),
+            ],
+          ),
+          child: proxyChild,
+        ),
+      );
+    },
+  );
+}
+
 class _SettingsPersistenceIssueCard extends StatelessWidget {
   const _SettingsPersistenceIssueCard({
     required this.issue,

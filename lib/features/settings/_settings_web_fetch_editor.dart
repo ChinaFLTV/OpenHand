@@ -82,8 +82,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         WebFetchTelemetryStore.instance.engineHistory(),
       ]);
       final calls = results[0] as List<WebFetchCallLog>;
-      final stats =
-          results[1] as Map<AiWebFetchEngineKind, WebFetchEngineStat>;
+      final stats = results[1] as Map<AiWebFetchEngineKind, WebFetchEngineStat>;
       final history =
           results[2] as Map<AiWebFetchEngineKind, List<WebFetchEngineSample>>;
       if (!mounted) return;
@@ -106,38 +105,40 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(_localizedText(
-            dialogContext,
-            zh: '清空 WebFetch 调用日志？',
-            en: 'Clear WebFetch call history?',
-          )),
-          content: Text(_localizedText(
-            dialogContext,
-            zh: '会同时清掉最近 200 条调用记录与每引擎累计成功率/耗时统计。'
-                '本地缓存 (summary) 不受影响。',
-            en: 'Removes the recent call ring buffer (up to 200 entries) and '
-                'all per-engine success-rate/latency aggregates. Cached '
-                'summaries are not affected.',
-          )),
+          title: Text(
+            _localizedText(
+              dialogContext,
+              zh: '清空 WebFetch 调用日志？',
+              en: 'Clear WebFetch call history?',
+            ),
+          ),
+          content: Text(
+            _localizedText(
+              dialogContext,
+              zh:
+                  '会同时清掉最近 200 条调用记录与每引擎累计成功率/耗时统计。'
+                  '本地缓存 (summary) 不受影响。',
+              en:
+                  'Removes the recent call ring buffer (up to 200 entries) and '
+                  'all per-engine success-rate/latency aggregates. Cached '
+                  'summaries are not affected.',
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(_localizedText(
-                dialogContext,
-                zh: '取消',
-                en: 'Cancel',
-              )),
+              child: Text(
+                _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
+              ),
             ),
             FilledButton.tonal(
               style: FilledButton.styleFrom(
                 foregroundColor: Theme.of(dialogContext).colorScheme.error,
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(_localizedText(
-                dialogContext,
-                zh: '确认清空',
-                en: 'Clear',
-              )),
+              child: Text(
+                _localizedText(dialogContext, zh: '确认清空', en: 'Clear'),
+              ),
             ),
           ],
         );
@@ -164,10 +165,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       final location = await getSaveLocation(
         suggestedName: 'webfetch-calls-$ts.$ext',
         acceptedTypeGroups: [
-          XTypeGroup(
-            label: ext.toUpperCase(),
-            extensions: [ext],
-          ),
+          XTypeGroup(label: ext.toUpperCase(), extensions: [ext]),
         ],
       );
       if (location == null) return;
@@ -177,25 +175,29 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       final body = asCsv ? _callsToCsv(calls) : _callsToJson(calls);
       await File(location.path).writeAsString(body, flush: true);
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        duration: const Duration(milliseconds: 1800),
-        content: Text(_localizedText(
-          context,
-          zh: '已导出 ${calls.length} 条记录到 ${location.path}',
-          en: 'Exported ${calls.length} entries to ${location.path}',
-        )),
-      ));
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          duration: const Duration(milliseconds: 1800),
+          content: Text(
+            _localizedText(
+              context,
+              zh: '已导出 ${calls.length} 条记录到 ${location.path}',
+              en: 'Exported ${calls.length} entries to ${location.path}',
+            ),
+          ),
+        ),
+      );
     } catch (e, st) {
       silentLog('settings.webfetch', '_exportTelemetry', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        backgroundColor: Theme.of(context).colorScheme.errorContainer,
-        content: Text(_localizedText(
-          context,
-          zh: '导出失败：$e',
-          en: 'Export failed: $e',
-        )),
-      ));
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.errorContainer,
+          content: Text(
+            _localizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _exportingTelemetry = false);
     }
@@ -203,7 +205,9 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
 
   String _callsToJson(List<WebFetchCallLog> calls) {
     const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(calls.map((c) => c.toJson()).toList(growable: false));
+    return encoder.convert(
+      calls.map((c) => c.toJson()).toList(growable: false),
+    );
   }
 
   String _callsToCsv(List<WebFetchCallLog> calls) {
@@ -221,25 +225,30 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       'content_chars,fallback_used,winning_engine,error_message,per_engine',
     );
     for (final c in calls) {
-      final iso = DateTime.fromMillisecondsSinceEpoch(c.timestampMs)
-          .toIso8601String();
-      final pe = c.perEngine
-          .map((p) =>
-              '${p.kind.name}:${p.success ? "ok" : "fail"}/${p.elapsedMs}ms/${p.contentBytes}B')
-          .join(';');
-      buf.writeln([
+      final iso = DateTime.fromMillisecondsSinceEpoch(
         c.timestampMs,
-        iso,
-        esc(c.url),
-        c.cacheStatus,
-        c.success,
-        c.totalDurationMs,
-        c.contentChars,
-        c.fallbackUsed,
-        esc(c.winningEngine?.name),
-        esc(c.errorMessage),
-        esc(pe),
-      ].join(','));
+      ).toIso8601String();
+      final pe = c.perEngine
+          .map(
+            (p) =>
+                '${p.kind.name}:${p.success ? "ok" : "fail"}/${p.elapsedMs}ms/${p.contentBytes}B',
+          )
+          .join(';');
+      buf.writeln(
+        [
+          c.timestampMs,
+          iso,
+          esc(c.url),
+          c.cacheStatus,
+          c.success,
+          c.totalDurationMs,
+          c.contentChars,
+          c.fallbackUsed,
+          esc(c.winningEngine?.name),
+          esc(c.errorMessage),
+          esc(pe),
+        ].join(','),
+      );
     }
     return buf.toString();
   }
@@ -306,38 +315,40 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(_localizedText(
-            dialogContext,
-            zh: '清理 WebFetch 本地缓存？',
-            en: 'Clear WebFetch local cache?',
-          )),
-          content: Text(_localizedText(
-            dialogContext,
-            zh: '将立即删除所有已落盘的正文文件与映射索引 (index.json)，'
-                '后续相同关键词需要重新发起网络搜索。',
-            en: 'All persisted body files and the mapping index '
-                '(index.json) will be deleted immediately. Future hits with '
-                'the same query will need a fresh online search.',
-          )),
+          title: Text(
+            _localizedText(
+              dialogContext,
+              zh: '清理 WebFetch 本地缓存？',
+              en: 'Clear WebFetch local cache?',
+            ),
+          ),
+          content: Text(
+            _localizedText(
+              dialogContext,
+              zh:
+                  '将立即删除所有已落盘的正文文件与映射索引 (index.json)，'
+                  '后续相同关键词需要重新发起网络搜索。',
+              en:
+                  'All persisted body files and the mapping index '
+                  '(index.json) will be deleted immediately. Future hits with '
+                  'the same query will need a fresh online search.',
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(_localizedText(
-                dialogContext,
-                zh: '取消',
-                en: 'Cancel',
-              )),
+              child: Text(
+                _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
+              ),
             ),
             FilledButton.tonal(
               style: FilledButton.styleFrom(
                 foregroundColor: Theme.of(dialogContext).colorScheme.error,
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(_localizedText(
-                dialogContext,
-                zh: '确认清理',
-                en: 'Clear',
-              )),
+              child: Text(
+                _localizedText(dialogContext, zh: '确认清理', en: 'Clear'),
+              ),
             ),
           ],
         );
@@ -355,14 +366,18 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     await _refreshCacheBytesOnDisk();
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(SnackBar(
-      duration: const Duration(milliseconds: 1800),
-      content: Text(_localizedText(
-        context,
-        zh: 'WebFetch 本地缓存已清空',
-        en: 'WebFetch local cache cleared',
-      )),
-    ));
+    messenger?.showSnackBar(
+      SnackBar(
+        duration: const Duration(milliseconds: 1800),
+        content: Text(
+          _localizedText(
+            context,
+            zh: 'WebFetch 本地缓存已清空',
+            en: 'WebFetch local cache cleared',
+          ),
+        ),
+      ),
+    );
   }
 
   void _emit(AiWebFetchSettings next) => widget.onChanged(next);
@@ -399,9 +414,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         Text(
           _localizedText(
             context,
-            zh: 'WebFetch 内建工具会按以下顺序调用启用的引擎并行抓取目标 URL,'
+            zh:
+                'WebFetch 内建工具会按以下顺序调用启用的引擎并行抓取目标 URL,'
                 '取首个有效结果作为页面正文返回给模型。',
-            en: 'WebFetch fans out URL fetches across the engines below; '
+            en:
+                'WebFetch fans out URL fetches across the engines below; '
                 'the first non-empty extracted body wins.',
           ),
           style: theme.textTheme.bodySmall?.copyWith(
@@ -418,16 +435,20 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           decoration: InputDecoration(
             labelText: _localizedText(
               context,
-              zh: '结果数量 (${AiWebFetchSettings.minResultCount}-'
+              zh:
+                  '结果数量 (${AiWebFetchSettings.minResultCount}-'
                   '${AiWebFetchSettings.maxResultCount})',
-              en: 'Result Count (${AiWebFetchSettings.minResultCount}-'
+              en:
+                  'Result Count (${AiWebFetchSettings.minResultCount}-'
                   '${AiWebFetchSettings.maxResultCount})',
             ),
             helperText: _localizedText(
               context,
-              zh: '默认 ${AiWebFetchSettings.defaultResultCount},'
+              zh:
+                  '默认 ${AiWebFetchSettings.defaultResultCount},'
                   '控制 WebFetch 返回给模型的条目个数。',
-              en: 'Default ${AiWebFetchSettings.defaultResultCount}; '
+              en:
+                  'Default ${AiWebFetchSettings.defaultResultCount}; '
                   'caps how many hits are forwarded to the summary model.',
             ),
           ),
@@ -450,17 +471,14 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  _localizedText(
-                    context,
-                    zh: '并行调度引擎',
-                    en: 'Parallel Engines',
-                  ),
+                  _localizedText(context, zh: '并行调度引擎', en: 'Parallel Engines'),
                 ),
                 subtitle: Text(
                   _localizedText(
                     context,
                     zh: '启用后通过信号量限流并行调用多个引擎,提速明显;关闭后串行依次调用。',
-                    en: 'When on, engines fan out under a semaphore-bounded '
+                    en:
+                        'When on, engines fan out under a semaphore-bounded '
                         'concurrency limit; off = strict serial.',
                   ),
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -478,15 +496,15 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                 enabled: v.parallel,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                controller: TextEditingController(
-                  text: '${v.parallelWorkers}',
-                ),
+                controller: TextEditingController(text: '${v.parallelWorkers}'),
                 decoration: InputDecoration(
                   labelText: _localizedText(
                     context,
-                    zh: 'Workers (${AiWebFetchSettings.minParallelWorkers}-'
+                    zh:
+                        'Workers (${AiWebFetchSettings.minParallelWorkers}-'
                         '${AiWebFetchSettings.maxParallelWorkers})',
-                    en: 'Workers (${AiWebFetchSettings.minParallelWorkers}-'
+                    en:
+                        'Workers (${AiWebFetchSettings.minParallelWorkers}-'
                         '${AiWebFetchSettings.maxParallelWorkers})',
                   ),
                 ),
@@ -517,9 +535,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         Text(
           _localizedText(
             context,
-            zh: '相同 URL 与 prompt 抓取后的正文会写入本地磁盘 (~/.openhand/cache/web_fetch/)，'
+            zh:
+                '相同 URL 与 prompt 抓取后的正文会写入本地磁盘 (~/.openhand/cache/web_fetch/)，'
                 '后续在 TTL 内复用直接返回，零网络消耗。容量上限按 LRU 淘汰。',
-            en: 'Hits with the same URL/prompt persist to disk '
+            en:
+                'Hits with the same URL/prompt persist to disk '
                 '(~/.openhand/cache/web_fetch/) and are reused within TTL. '
                 'Old entries evict on cap.',
           ),
@@ -615,30 +635,37 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             TextButton.icon(
               onPressed: _clearingCache ? null : _refreshCacheBytesOnDisk,
               icon: const Icon(Icons.refresh, size: 16),
-              label: Text(_localizedText(
-                context,
-                zh: '刷新',
-                en: 'Refresh',
-              )),
+              label: Text(_localizedText(context, zh: '刷新', en: 'Refresh')),
             ),
             const SizedBox(width: 4),
             FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(
+                foregroundColor: colorScheme.onPrimary,
+                disabledForegroundColor: colorScheme.onSurface.withValues(
+                  alpha: 0.38,
+                ),
+              ),
               onPressed: _clearingCache ? null : _confirmAndClearCache,
               icon: _clearingCache
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.onPrimary,
+                      ),
                     )
-                  : Icon(Icons.delete_sweep, size: 16,
-                      color: colorScheme.error),
+                  : Icon(
+                      Icons.delete_sweep,
+                      size: 16,
+                      color: colorScheme.onPrimary,
+                    ),
               label: Text(
                 _localizedText(
                   context,
                   zh: _clearingCache ? '清理中…' : '清理缓存',
                   en: _clearingCache ? 'Clearing…' : 'Clear Cache',
                 ),
-                style: TextStyle(color: colorScheme.error),
               ),
             ),
           ],
@@ -654,9 +681,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         Text(
           _localizedText(
             context,
-            zh: '拖拽卡片调整顺序;启用至少一个引擎,'
+            zh:
+                '拖拽卡片调整顺序;启用至少一个引擎,'
                 '若全部禁用则自动启用 Bing/DuckDuckGo 兜底。',
-            en: 'Drag cards to reorder; enable at least one. '
+            en:
+                'Drag cards to reorder; enable at least one. '
                 'If all are disabled, Bing/DuckDuckGo fallback kicks in.',
           ),
           style: theme.textTheme.bodySmall?.copyWith(
@@ -668,6 +697,13 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           shrinkWrap: true,
           buildDefaultDragHandles: false,
           physics: const NeverScrollableScrollPhysics(),
+          proxyDecorator: (child, index, animation) =>
+              _settingsTransparentReorderProxy(
+                context,
+                child,
+                index,
+                animation,
+              ),
           itemCount: v.engines.length,
           onReorder: _reorderEngines,
           itemBuilder: (ctx, idx) {
@@ -842,9 +878,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       Text(
         _localizedText(
           context,
-          zh: '近期 50 条 WebFetch 调用与每引擎累计成功率、平均耗时、累计字节；'
+          zh:
+              '近期 50 条 WebFetch 调用与每引擎累计成功率、平均耗时、累计字节；'
               '数据持久化在 ~/.openhand/cache/web_fetch/telemetry/。',
-          en: 'Recent 50 WebFetch invocations plus per-engine cumulative '
+          en:
+              'Recent 50 WebFetch invocations plus per-engine cumulative '
               'success-rate / avg latency / total hits. Persisted under '
               '~/.openhand/cache/web_fetch/telemetry/.',
         ),
@@ -857,22 +895,22 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         children: [
           const Spacer(),
           TextButton.icon(
-            onPressed: _telemetryLoading ||
+            onPressed:
+                _telemetryLoading ||
                     _clearingTelemetry ||
                     _exportingTelemetry ||
                     _recentCalls.isEmpty
                 ? null
                 : () => _exportTelemetry(asCsv: false),
             icon: const Icon(Icons.code, size: 16),
-            label: Text(_localizedText(
-              context,
-              zh: '导出 JSON',
-              en: 'Export JSON',
-            )),
+            label: Text(
+              _localizedText(context, zh: '导出 JSON', en: 'Export JSON'),
+            ),
           ),
           const SizedBox(width: 4),
           TextButton.icon(
-            onPressed: _telemetryLoading ||
+            onPressed:
+                _telemetryLoading ||
                     _clearingTelemetry ||
                     _exportingTelemetry ||
                     _recentCalls.isEmpty
@@ -885,11 +923,9 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.table_chart, size: 16),
-            label: Text(_localizedText(
-              context,
-              zh: '导出 CSV',
-              en: 'Export CSV',
-            )),
+            label: Text(
+              _localizedText(context, zh: '导出 CSV', en: 'Export CSV'),
+            ),
           ),
           const SizedBox(width: 4),
           TextButton.icon(
@@ -903,11 +939,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh, size: 16),
-            label: Text(_localizedText(
-              context,
-              zh: '刷新',
-              en: 'Refresh',
-            )),
+            label: Text(_localizedText(context, zh: '刷新', en: 'Refresh')),
           ),
           const SizedBox(width: 4),
           TextButton.icon(
@@ -940,7 +972,8 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             _localizedText(
               context,
               zh: '暂无调用记录。下一次 WebFetch 调用结束后会自动记录。',
-              en: 'No calls recorded yet. The next WebFetch invocation '
+              en:
+                  'No calls recorded yet. The next WebFetch invocation '
                   'will be logged automatically.',
             ),
             style: theme.textTheme.bodySmall?.copyWith(
@@ -959,13 +992,15 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           const SizedBox(height: 6),
           ..._engineStats.entries
               .toList(growable: false)
-              .map((e) => _buildEngineStatRow(
-                    context,
-                    theme,
-                    colorScheme,
-                    e.key,
-                    e.value,
-                  )),
+              .map(
+                (e) => _buildEngineStatRow(
+                  context,
+                  theme,
+                  colorScheme,
+                  e.key,
+                  e.value,
+                ),
+              ),
           const SizedBox(height: 12),
         ],
         if (_recentCalls.isNotEmpty) ...[
@@ -1009,8 +1044,8 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     final pctColor = pct >= 80
         ? Colors.green.shade600
         : pct >= 50
-            ? Colors.orange.shade600
-            : colorScheme.error;
+        ? Colors.orange.shade600
+        : colorScheme.error;
     final inCooldown = stat.isInCooldown();
     final samples = _engineHistory[kind] ?? const <WebFetchEngineSample>[];
     return Padding(
@@ -1257,10 +1292,12 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                 Text(
                   _localizedText(
                     context,
-                    zh: '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.contentChars} 字'
+                    zh:
+                        '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.contentChars} 字'
                         '${call.fallbackUsed ? " · fallback" : ""}'
                         '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
-                    en: '${call.success ? "ok" : "fail"} · ${call.totalDurationMs}ms · ${call.contentChars} chars'
+                    en:
+                        '${call.success ? "ok" : "fail"} · ${call.totalDurationMs}ms · ${call.contentChars} chars'
                         '${call.fallbackUsed ? " · fallback" : ""}'
                         '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
                   ),
@@ -1278,16 +1315,18 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                       spacing: 4,
                       runSpacing: 2,
                       children: call.perEngine
-                          .map((p) => Text(
-                                '${p.kind.name}:${p.success ? "✓${p.contentBytes}B" : "✗"}/${p.elapsedMs}ms',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'monospace',
-                                  fontSize: 10,
-                                  color: p.success
-                                      ? colorScheme.onSurfaceVariant
-                                      : colorScheme.error,
-                                ),
-                              ))
+                          .map(
+                            (p) => Text(
+                              '${p.kind.name}:${p.success ? "✓${p.contentBytes}B" : "✗"}/${p.elapsedMs}ms',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                fontSize: 10,
+                                color: p.success
+                                    ? colorScheme.onSurfaceVariant
+                                    : colorScheme.error,
+                              ),
+                            ),
+                          )
                           .toList(growable: false),
                     ),
                   ),
@@ -1324,10 +1363,7 @@ class _FetchAdvancedCooldownTierRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 56,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall,
-            ),
+            child: Text(label, style: theme.textTheme.bodySmall),
           ),
           Text(
             _localizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
@@ -1387,9 +1423,7 @@ class _FetchAdvancedNumberRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Expanded(
-            child: Text(label, style: theme.textTheme.bodySmall),
-          ),
+          Expanded(child: Text(label, style: theme.textTheme.bodySmall)),
           SizedBox(
             width: 100,
             child: _FetchIntField(
@@ -1451,8 +1485,9 @@ class _FetchIntFieldState extends State<_FetchIntField> {
       _ctrl.text = '${widget.value}';
       return;
     }
-    final clamped =
-        parsed < widget.min ? widget.min : (parsed > widget.max ? widget.max : parsed);
+    final clamped = parsed < widget.min
+        ? widget.min
+        : (parsed > widget.max ? widget.max : parsed);
     if (clamped != widget.value) widget.onChanged(clamped);
     if ('$clamped' != raw.trim()) _ctrl.text = '$clamped';
   }
@@ -1501,10 +1536,7 @@ class _FetchStatusChip extends StatelessWidget {
         children: [
           Icon(icon, size: 11, color: fg),
           const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(color: fg, fontSize: 11),
-          ),
+          Text(label, style: TextStyle(color: fg, fontSize: 11)),
         ],
       ),
     );
@@ -1531,9 +1563,14 @@ class _WebFetchSparklinePainter extends CustomPainter {
     final tail = samples.length > 50
         ? samples.sublist(samples.length - 50)
         : samples;
-    final maxDur = tail.fold<int>(0, (m, s) => s.durationMs > m ? s.durationMs : m);
+    final maxDur = tail.fold<int>(
+      0,
+      (m, s) => s.durationMs > m ? s.durationMs : m,
+    );
     final scaleY = maxDur == 0 ? 0.0 : (size.height - 4) / maxDur;
-    final stepX = tail.length == 1 ? size.width : size.width / (tail.length - 1);
+    final stepX = tail.length == 1
+        ? size.width
+        : size.width / (tail.length - 1);
 
     final linePaint = Paint()
       ..color = lineColor
@@ -1612,6 +1649,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
   late TextEditingController _truncationController;
   late TextEditingController _endpointController;
   bool _expanded = false;
+  bool _apiKeyVisible = false;
 
   @override
   void initState() {
@@ -1713,11 +1751,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                     tooltip: _expanded
                         ? _localizedText(context, zh: '收起', en: 'Collapse')
                         : _localizedText(context, zh: '展开', en: 'Expand'),
-                    icon: Icon(
-                      _expanded
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                    ),
+                    icon: _SettingsExpandIcon(expanded: _expanded),
                     onPressed: () => setState(() => _expanded = !_expanded),
                   ),
                   Switch(
@@ -1727,152 +1761,181 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                   ),
                 ],
               ),
-              if (_expanded) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _localizedText(
-                    context,
-                    zh: '权重 ${cfg.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
-                    en: 'Weight ${cfg.weight} (higher = more emphasis in '
-                        'summary)',
-                  ),
-                  style: theme.textTheme.bodySmall,
-                ),
-                Slider(
-                  min: AiWebFetchEngineConfig.minWeight.toDouble(),
-                  max: AiWebFetchEngineConfig.maxWeight.toDouble(),
-                  divisions:
-                      AiWebFetchEngineConfig.maxWeight -
-                      AiWebFetchEngineConfig.minWeight,
-                  value: cfg.weight.toDouble().clamp(
-                    AiWebFetchEngineConfig.minWeight.toDouble(),
-                    AiWebFetchEngineConfig.maxWeight.toDouble(),
-                  ),
-                  label: '${cfg.weight}',
-                  onChanged: (v) =>
-                      widget.onChanged(cfg.copyWith(weight: v.round())),
-                ),
-                Row(
+              _SettingsElasticExpansion(
+                expanded: _expanded,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _retryController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '权重 ${cfg.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
+                        en:
+                            'Weight ${cfg.weight} (higher = more emphasis in '
+                            'summary)',
+                      ),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    Slider(
+                      min: AiWebFetchEngineConfig.minWeight.toDouble(),
+                      max: AiWebFetchEngineConfig.maxWeight.toDouble(),
+                      divisions:
+                          AiWebFetchEngineConfig.maxWeight -
+                          AiWebFetchEngineConfig.minWeight,
+                      value: cfg.weight.toDouble().clamp(
+                        AiWebFetchEngineConfig.minWeight.toDouble(),
+                        AiWebFetchEngineConfig.maxWeight.toDouble(),
+                      ),
+                      label: '${cfg.weight}',
+                      onChanged: (v) =>
+                          widget.onChanged(cfg.copyWith(weight: v.round())),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _retryController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                context,
+                                zh: '重试次数',
+                                en: 'Max Retries',
+                              ),
+                            ),
+                            onChanged: (s) {
+                              final parsed = int.tryParse(s.trim()) ?? 0;
+                              widget.onChanged(
+                                cfg.copyWith(
+                                  maxRetries: parsed.clamp(
+                                    0,
+                                    AiWebFetchEngineConfig.maxRetriesUpperBound,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _truncationController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                context,
+                                zh: '截断阈值 (字符)',
+                                en: 'Truncation (chars)',
+                              ),
+                            ),
+                            onChanged: (s) {
+                              final parsed =
+                                  int.tryParse(s.trim()) ??
+                                  AiWebFetchEngineConfig.defaultTruncationChars;
+                              widget.onChanged(
+                                cfg.copyWith(
+                                  truncationChars: parsed.clamp(
+                                    AiWebFetchEngineConfig.minTruncationChars,
+                                    AiWebFetchEngineConfig.maxTruncationChars,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (cfg.kind.requiresApiKey) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _apiKeyController,
                         decoration: InputDecoration(
                           labelText: _localizedText(
                             context,
-                            zh: '重试次数',
-                            en: 'Max Retries',
+                            zh: 'API Key',
+                            en: 'API Key',
+                          ),
+                          hintText: _fetchApiKeyHint(cfg.kind),
+                          suffixIcon: IconButton(
+                            tooltip: _apiKeyVisible
+                                ? _localizedText(
+                                    context,
+                                    zh: '隐藏 API Key',
+                                    en: 'Hide API Key',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '显示 API Key',
+                                    en: 'Show API Key',
+                                  ),
+                            icon: Icon(
+                              _apiKeyVisible
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                            ),
+                            onPressed: () => setState(
+                              () => _apiKeyVisible = !_apiKeyVisible,
+                            ),
                           ),
                         ),
+                        obscureText: !_apiKeyVisible,
+                        enableSuggestions: false,
+                        autocorrect: false,
                         onChanged: (s) {
-                          final parsed = int.tryParse(s.trim()) ?? 0;
+                          final trimmed = s.trim();
                           widget.onChanged(
                             cfg.copyWith(
-                              maxRetries: parsed.clamp(
-                                0,
-                                AiWebFetchEngineConfig.maxRetriesUpperBound,
-                              ),
+                              apiKey: trimmed.isEmpty ? null : trimmed,
+                              clearApiKey: trimmed.isEmpty,
                             ),
                           );
                         },
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _truncationController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '截断阈值 (字符)',
-                            en: 'Truncation (chars)',
+                      if (_fetchCanLinkProvider(cfg.kind)) ...[
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String?>(
+                          initialValue: cfg.providerConfigId,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: _localizedText(
+                              context,
+                              zh: '复用 Provider 的 API Key (可选)',
+                              en: 'Reuse Provider API Key (optional)',
+                            ),
                           ),
-                        ),
-                        onChanged: (s) {
-                          final parsed =
-                              int.tryParse(s.trim()) ??
-                              AiWebFetchEngineConfig.defaultTruncationChars;
-                          widget.onChanged(
-                            cfg.copyWith(
-                              truncationChars: parsed.clamp(
-                                AiWebFetchEngineConfig.minTruncationChars,
-                                AiWebFetchEngineConfig.maxTruncationChars,
+                          items: [
+                            DropdownMenuItem<String?>(
+                              child: Text(
+                                _localizedText(context, zh: '不复用', en: 'None'),
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
+                            for (final m in widget.availableModels)
+                              DropdownMenuItem<String?>(
+                                value: m.id,
+                                child: Text(
+                                  '${m.providerLabel} (${m.protocolType.storageValue})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: (id) => widget.onChanged(
+                            cfg.copyWith(
+                              providerConfigId: id,
+                              clearProviderConfigId: id == null,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ],
                 ),
-                if (cfg.kind.requiresApiKey) ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _apiKeyController,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: 'API Key',
-                        en: 'API Key',
-                      ),
-                      hintText: _fetchApiKeyHint(cfg.kind),
-                    ),
-                    obscureText: true,
-                    onChanged: (s) {
-                      final trimmed = s.trim();
-                      widget.onChanged(
-                        cfg.copyWith(
-                          apiKey: trimmed.isEmpty ? null : trimmed,
-                          clearApiKey: trimmed.isEmpty,
-                        ),
-                      );
-                    },
-                  ),
-                  if (_fetchCanLinkProvider(cfg.kind)) ...[
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String?>(
-                      initialValue: cfg.providerConfigId,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: _localizedText(
-                          context,
-                          zh: '复用 Provider 的 API Key (可选)',
-                          en: 'Reuse Provider API Key (optional)',
-                        ),
-                      ),
-                      items: [
-                        DropdownMenuItem<String?>(
-                          child: Text(
-                            _localizedText(context, zh: '不复用', en: 'None'),
-                          ),
-                        ),
-                        for (final m in widget.availableModels)
-                          DropdownMenuItem<String?>(
-                            value: m.id,
-                            child: Text(
-                              '${m.providerLabel} (${m.protocolType.storageValue})',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: (id) => widget.onChanged(
-                        cfg.copyWith(
-                          providerConfigId: id,
-                          clearProviderConfigId: id == null,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-                              ],
+              ),
             ],
           ),
         ),
@@ -1904,16 +1967,60 @@ String? _fetchApiKeyHint(AiWebFetchEngineKind kind) {
 
 String _fetchEngineSubtitle(BuildContext context, AiWebFetchEngineKind kind) {
   return switch (kind) {
-    AiWebFetchEngineKind.firecrawl => _localizedText(context, zh: '专业网页抓取 · 渲染 JS', en: 'Pro scrape · renders JS'),
-    AiWebFetchEngineKind.tavily => _localizedText(context, zh: 'Tavily Extract · advanced', en: 'Tavily Extract · advanced'),
-    AiWebFetchEngineKind.exa => _localizedText(context, zh: 'Exa Contents · livecrawl', en: 'Exa Contents · livecrawl'),
-    AiWebFetchEngineKind.kimi => _localizedText(context, zh: 'Moonshot 内置联网 · 以 URL 为查询', en: 'Moonshot web tool · query=URL'),
-    AiWebFetchEngineKind.baidu => _localizedText(context, zh: '百度 AI 搜索 · 以 URL 为查询', en: 'Baidu AI search · query=URL'),
-    AiWebFetchEngineKind.linkup => _localizedText(context, zh: 'Linkup deep · 以 URL 为查询', en: 'Linkup deep · query=URL'),
-    AiWebFetchEngineKind.bocha => _localizedText(context, zh: '博查 · 以 URL 为查询', en: 'Bocha · query=URL'),
-    AiWebFetchEngineKind.duckduckgo => _localizedText(context, zh: '无 Key · HTTP 直连兜底', en: 'No-key · direct HTTP fallback'),
-    AiWebFetchEngineKind.grok => _localizedText(context, zh: 'xAI Live Search · 引用解析 URL', en: 'xAI Live · citations'),
-    AiWebFetchEngineKind.gemini => _localizedText(context, zh: 'Google Grounding · URL 摘录', en: 'Google Grounding · URL excerpt'),
-    AiWebFetchEngineKind.bing => _localizedText(context, zh: '默认兜底 · HTTP 直连', en: 'Default fallback · direct HTTP'),
+    AiWebFetchEngineKind.firecrawl => _localizedText(
+      context,
+      zh: '专业网页抓取 · 渲染 JS',
+      en: 'Pro scrape · renders JS',
+    ),
+    AiWebFetchEngineKind.tavily => _localizedText(
+      context,
+      zh: 'Tavily Extract · advanced',
+      en: 'Tavily Extract · advanced',
+    ),
+    AiWebFetchEngineKind.exa => _localizedText(
+      context,
+      zh: 'Exa Contents · livecrawl',
+      en: 'Exa Contents · livecrawl',
+    ),
+    AiWebFetchEngineKind.kimi => _localizedText(
+      context,
+      zh: 'Moonshot 内置联网 · 以 URL 为查询',
+      en: 'Moonshot web tool · query=URL',
+    ),
+    AiWebFetchEngineKind.baidu => _localizedText(
+      context,
+      zh: '百度 AI 搜索 · 以 URL 为查询',
+      en: 'Baidu AI search · query=URL',
+    ),
+    AiWebFetchEngineKind.linkup => _localizedText(
+      context,
+      zh: 'Linkup deep · 以 URL 为查询',
+      en: 'Linkup deep · query=URL',
+    ),
+    AiWebFetchEngineKind.bocha => _localizedText(
+      context,
+      zh: '博查 · 以 URL 为查询',
+      en: 'Bocha · query=URL',
+    ),
+    AiWebFetchEngineKind.duckduckgo => _localizedText(
+      context,
+      zh: '无 Key · HTTP 直连兜底',
+      en: 'No-key · direct HTTP fallback',
+    ),
+    AiWebFetchEngineKind.grok => _localizedText(
+      context,
+      zh: 'xAI Live Search · 引用解析 URL',
+      en: 'xAI Live · citations',
+    ),
+    AiWebFetchEngineKind.gemini => _localizedText(
+      context,
+      zh: 'Google Grounding · URL 摘录',
+      en: 'Google Grounding · URL excerpt',
+    ),
+    AiWebFetchEngineKind.bing => _localizedText(
+      context,
+      zh: '默认兜底 · HTTP 直连',
+      en: 'Default fallback · direct HTTP',
+    ),
   };
 }

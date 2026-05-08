@@ -114,38 +114,40 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(_localizedText(
-            dialogContext,
-            zh: '清空 WebSearch 调用日志？',
-            en: 'Clear WebSearch call history?',
-          )),
-          content: Text(_localizedText(
-            dialogContext,
-            zh: '会同时清掉最近 200 条调用记录与每引擎累计成功率/耗时统计。'
-                '本地缓存 (summary) 不受影响。',
-            en: 'Removes the recent call ring buffer (up to 200 entries) and '
-                'all per-engine success-rate/latency aggregates. Cached '
-                'summaries are not affected.',
-          )),
+          title: Text(
+            _localizedText(
+              dialogContext,
+              zh: '清空 WebSearch 调用日志？',
+              en: 'Clear WebSearch call history?',
+            ),
+          ),
+          content: Text(
+            _localizedText(
+              dialogContext,
+              zh:
+                  '会同时清掉最近 200 条调用记录与每引擎累计成功率/耗时统计。'
+                  '本地缓存 (summary) 不受影响。',
+              en:
+                  'Removes the recent call ring buffer (up to 200 entries) and '
+                  'all per-engine success-rate/latency aggregates. Cached '
+                  'summaries are not affected.',
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(_localizedText(
-                dialogContext,
-                zh: '取消',
-                en: 'Cancel',
-              )),
+              child: Text(
+                _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
+              ),
             ),
             FilledButton.tonal(
               style: FilledButton.styleFrom(
                 foregroundColor: Theme.of(dialogContext).colorScheme.error,
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(_localizedText(
-                dialogContext,
-                zh: '确认清空',
-                en: 'Clear',
-              )),
+              child: Text(
+                _localizedText(dialogContext, zh: '确认清空', en: 'Clear'),
+              ),
             ),
           ],
         );
@@ -172,10 +174,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       final location = await getSaveLocation(
         suggestedName: 'websearch-calls-$ts.$ext',
         acceptedTypeGroups: [
-          XTypeGroup(
-            label: ext.toUpperCase(),
-            extensions: [ext],
-          ),
+          XTypeGroup(label: ext.toUpperCase(), extensions: [ext]),
         ],
       );
       if (location == null) return;
@@ -185,25 +184,29 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       final body = asCsv ? _callsToCsv(calls) : _callsToJson(calls);
       await File(location.path).writeAsString(body, flush: true);
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        duration: const Duration(milliseconds: 1800),
-        content: Text(_localizedText(
-          context,
-          zh: '已导出 ${calls.length} 条记录到 ${location.path}',
-          en: 'Exported ${calls.length} entries to ${location.path}',
-        )),
-      ));
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          duration: const Duration(milliseconds: 1800),
+          content: Text(
+            _localizedText(
+              context,
+              zh: '已导出 ${calls.length} 条记录到 ${location.path}',
+              en: 'Exported ${calls.length} entries to ${location.path}',
+            ),
+          ),
+        ),
+      );
     } catch (e, st) {
       silentLog('settings.websearch', '_exportTelemetry', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        backgroundColor: Theme.of(context).colorScheme.errorContainer,
-        content: Text(_localizedText(
-          context,
-          zh: '导出失败：$e',
-          en: 'Export failed: $e',
-        )),
-      ));
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.errorContainer,
+          content: Text(
+            _localizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _exportingTelemetry = false);
     }
@@ -211,7 +214,9 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
 
   String _callsToJson(List<WebSearchCallLog> calls) {
     const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(calls.map((c) => c.toJson()).toList(growable: false));
+    return encoder.convert(
+      calls.map((c) => c.toJson()).toList(growable: false),
+    );
   }
 
   String _callsToCsv(List<WebSearchCallLog> calls) {
@@ -230,27 +235,32 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       'model_id,per_engine',
     );
     for (final c in calls) {
-      final iso = DateTime.fromMillisecondsSinceEpoch(c.timestampMs)
-          .toIso8601String();
-      final pe = c.perEngine
-          .map((p) =>
-              '${p.kind.name}:${p.success ? "ok" : "fail"}/${p.elapsedMs}ms/${p.hitCount}h')
-          .join(';');
-      buf.writeln([
+      final iso = DateTime.fromMillisecondsSinceEpoch(
         c.timestampMs,
-        iso,
-        esc(c.query),
-        c.cacheStatus,
-        c.success,
-        c.totalDurationMs,
-        c.mergedHitCount,
-        c.fallbackUsed,
-        c.summaryChars,
-        esc(c.errorMessage),
-        esc(c.modelProtocol),
-        esc(c.modelId),
-        esc(pe),
-      ].join(','));
+      ).toIso8601String();
+      final pe = c.perEngine
+          .map(
+            (p) =>
+                '${p.kind.name}:${p.success ? "ok" : "fail"}/${p.elapsedMs}ms/${p.hitCount}h',
+          )
+          .join(';');
+      buf.writeln(
+        [
+          c.timestampMs,
+          iso,
+          esc(c.query),
+          c.cacheStatus,
+          c.success,
+          c.totalDurationMs,
+          c.mergedHitCount,
+          c.fallbackUsed,
+          c.summaryChars,
+          esc(c.errorMessage),
+          esc(c.modelProtocol),
+          esc(c.modelId),
+          esc(pe),
+        ].join(','),
+      );
     }
     return buf.toString();
   }
@@ -327,38 +337,40 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(_localizedText(
-            dialogContext,
-            zh: '清理 WebSearch 本地缓存？',
-            en: 'Clear WebSearch local cache?',
-          )),
-          content: Text(_localizedText(
-            dialogContext,
-            zh: '将立即删除所有已落盘的 summary 文件与映射索引 (index.json)，'
-                '后续相同关键词需要重新发起网络搜索。',
-            en: 'All persisted summary files and the mapping index '
-                '(index.json) will be deleted immediately. Future hits with '
-                'the same query will need a fresh online search.',
-          )),
+          title: Text(
+            _localizedText(
+              dialogContext,
+              zh: '清理 WebSearch 本地缓存？',
+              en: 'Clear WebSearch local cache?',
+            ),
+          ),
+          content: Text(
+            _localizedText(
+              dialogContext,
+              zh:
+                  '将立即删除所有已落盘的 summary 文件与映射索引 (index.json)，'
+                  '后续相同关键词需要重新发起网络搜索。',
+              en:
+                  'All persisted summary files and the mapping index '
+                  '(index.json) will be deleted immediately. Future hits with '
+                  'the same query will need a fresh online search.',
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(_localizedText(
-                dialogContext,
-                zh: '取消',
-                en: 'Cancel',
-              )),
+              child: Text(
+                _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
+              ),
             ),
             FilledButton.tonal(
               style: FilledButton.styleFrom(
                 foregroundColor: Theme.of(dialogContext).colorScheme.error,
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(_localizedText(
-                dialogContext,
-                zh: '确认清理',
-                en: 'Clear',
-              )),
+              child: Text(
+                _localizedText(dialogContext, zh: '确认清理', en: 'Clear'),
+              ),
             ),
           ],
         );
@@ -376,14 +388,18 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     await _refreshCacheBytesOnDisk();
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(SnackBar(
-      duration: const Duration(milliseconds: 1800),
-      content: Text(_localizedText(
-        context,
-        zh: 'WebSearch 本地缓存已清空',
-        en: 'WebSearch local cache cleared',
-      )),
-    ));
+    messenger?.showSnackBar(
+      SnackBar(
+        duration: const Duration(milliseconds: 1800),
+        content: Text(
+          _localizedText(
+            context,
+            zh: 'WebSearch 本地缓存已清空',
+            en: 'WebSearch local cache cleared',
+          ),
+        ),
+      ),
+    );
   }
 
   void _emit(AiWebSearchSettings next) => widget.onChanged(next);
@@ -445,16 +461,22 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       children: [
         const Divider(height: 28),
         Text(
-          _localizedText(context, zh: 'WebSearch 专属配置', en: 'WebSearch Settings'),
+          _localizedText(
+            context,
+            zh: 'WebSearch 专属配置',
+            en: 'WebSearch Settings',
+          ),
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 4),
         Text(
           _localizedText(
             context,
-            zh: 'WebSearch 内建工具会以 sub-agent 模式按以下顺序调用启用的搜索引擎,'
+            zh:
+                'WebSearch 内建工具会以 sub-agent 模式按以下顺序调用启用的搜索引擎,'
                 '汇总结果交由模型生成最终 summary。',
-            en: 'WebSearch runs as a sub-agent: it calls the enabled engines '
+            en:
+                'WebSearch runs as a sub-agent: it calls the enabled engines '
                 'below in order, then asks a model to summarize the merged hits.',
           ),
           style: theme.textTheme.bodySmall?.copyWith(
@@ -475,11 +497,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               value: AiWebSearchModelMode.followSession,
               icon: const Icon(Icons.link_rounded),
               label: Text(
-                _localizedText(
-                  context,
-                  zh: '跟随会话',
-                  en: 'Follow session',
-                ),
+                _localizedText(context, zh: '跟随会话', en: 'Follow session'),
                 softWrap: false,
               ),
             ),
@@ -507,10 +525,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.auto_awesome_rounded),
                   onPressed: _pickFixedModel,
-                  label: Text(
-                    _modelLabel(),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  label: Text(_modelLabel(), overflow: TextOverflow.ellipsis),
                 ),
               ),
               if (v.fixedModelProviderConfigId != null) ...[
@@ -518,8 +533,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 IconButton(
                   tooltip: _localizedText(context, zh: '清除', en: 'Clear'),
                   icon: const Icon(Icons.clear_rounded),
-                  onPressed: () =>
-                      _emit(v.copyWith(clearFixedModel: true)),
+                  onPressed: () => _emit(v.copyWith(clearFixedModel: true)),
                 ),
               ],
             ],
@@ -535,16 +549,20 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           decoration: InputDecoration(
             labelText: _localizedText(
               context,
-              zh: '结果数量 (${AiWebSearchSettings.minResultCount}-'
+              zh:
+                  '结果数量 (${AiWebSearchSettings.minResultCount}-'
                   '${AiWebSearchSettings.maxResultCount})',
-              en: 'Result Count (${AiWebSearchSettings.minResultCount}-'
+              en:
+                  'Result Count (${AiWebSearchSettings.minResultCount}-'
                   '${AiWebSearchSettings.maxResultCount})',
             ),
             helperText: _localizedText(
               context,
-              zh: '默认 ${AiWebSearchSettings.defaultResultCount},'
+              zh:
+                  '默认 ${AiWebSearchSettings.defaultResultCount},'
                   '控制 WebSearch 返回给模型的条目个数。',
-              en: 'Default ${AiWebSearchSettings.defaultResultCount}; '
+              en:
+                  'Default ${AiWebSearchSettings.defaultResultCount}; '
                   'caps how many hits are forwarded to the summary model.',
             ),
           ),
@@ -567,17 +585,14 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  _localizedText(
-                    context,
-                    zh: '并行调度引擎',
-                    en: 'Parallel Engines',
-                  ),
+                  _localizedText(context, zh: '并行调度引擎', en: 'Parallel Engines'),
                 ),
                 subtitle: Text(
                   _localizedText(
                     context,
                     zh: '启用后通过信号量限流并行调用多个引擎,提速明显;关闭后串行依次调用。',
-                    en: 'When on, engines fan out under a semaphore-bounded '
+                    en:
+                        'When on, engines fan out under a semaphore-bounded '
                         'concurrency limit; off = strict serial.',
                   ),
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -595,15 +610,15 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 enabled: v.parallel,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                controller: TextEditingController(
-                  text: '${v.parallelWorkers}',
-                ),
+                controller: TextEditingController(text: '${v.parallelWorkers}'),
                 decoration: InputDecoration(
                   labelText: _localizedText(
                     context,
-                    zh: 'Workers (${AiWebSearchSettings.minParallelWorkers}-'
+                    zh:
+                        'Workers (${AiWebSearchSettings.minParallelWorkers}-'
                         '${AiWebSearchSettings.maxParallelWorkers})',
-                    en: 'Workers (${AiWebSearchSettings.minParallelWorkers}-'
+                    en:
+                        'Workers (${AiWebSearchSettings.minParallelWorkers}-'
                         '${AiWebSearchSettings.maxParallelWorkers})',
                   ),
                 ),
@@ -754,9 +769,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         Text(
           _localizedText(
             context,
-            zh: '相同关键词与设置的搜索 summary 会写入本地磁盘 (~/.openhand/cache/web_search/)，'
+            zh:
+                '相同关键词与设置的搜索 summary 会写入本地磁盘 (~/.openhand/cache/web_search/)，'
                 '后续在 TTL 内复用直接返回，零网络消耗。容量上限按 LRU 淘汰。',
-            en: 'Hits with the same query/settings persist to disk '
+            en:
+                'Hits with the same query/settings persist to disk '
                 '(~/.openhand/cache/web_search/) and are reused within TTL. '
                 'Old entries evict on cap.',
           ),
@@ -852,30 +869,37 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             TextButton.icon(
               onPressed: _clearingCache ? null : _refreshCacheBytesOnDisk,
               icon: const Icon(Icons.refresh, size: 16),
-              label: Text(_localizedText(
-                context,
-                zh: '刷新',
-                en: 'Refresh',
-              )),
+              label: Text(_localizedText(context, zh: '刷新', en: 'Refresh')),
             ),
             const SizedBox(width: 4),
             FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(
+                foregroundColor: colorScheme.onPrimary,
+                disabledForegroundColor: colorScheme.onSurface.withValues(
+                  alpha: 0.38,
+                ),
+              ),
               onPressed: _clearingCache ? null : _confirmAndClearCache,
               icon: _clearingCache
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.onPrimary,
+                      ),
                     )
-                  : Icon(Icons.delete_sweep, size: 16,
-                      color: colorScheme.error),
+                  : Icon(
+                      Icons.delete_sweep,
+                      size: 16,
+                      color: colorScheme.onPrimary,
+                    ),
               label: Text(
                 _localizedText(
                   context,
                   zh: _clearingCache ? '清理中…' : '清理缓存',
                   en: _clearingCache ? 'Clearing…' : 'Clear Cache',
                 ),
-                style: TextStyle(color: colorScheme.error),
               ),
             ),
           ],
@@ -891,9 +915,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         Text(
           _localizedText(
             context,
-            zh: '拖拽卡片调整顺序;启用至少一个引擎,'
+            zh:
+                '拖拽卡片调整顺序;启用至少一个引擎,'
                 '若全部禁用则自动启用 Bing/DuckDuckGo 兜底。',
-            en: 'Drag cards to reorder; enable at least one. '
+            en:
+                'Drag cards to reorder; enable at least one. '
                 'If all are disabled, Bing/DuckDuckGo fallback kicks in.',
           ),
           style: theme.textTheme.bodySmall?.copyWith(
@@ -905,6 +931,13 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           shrinkWrap: true,
           buildDefaultDragHandles: false,
           physics: const NeverScrollableScrollPhysics(),
+          proxyDecorator: (child, index, animation) =>
+              _settingsTransparentReorderProxy(
+                context,
+                child,
+                index,
+                animation,
+              ),
           itemCount: v.engines.length,
           onReorder: _reorderEngines,
           itemBuilder: (ctx, idx) {
@@ -1079,9 +1112,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       Text(
         _localizedText(
           context,
-          zh: '近期 50 条 WebSearch 调用与每引擎累计成功率、平均耗时、命中数；'
+          zh:
+              '近期 50 条 WebSearch 调用与每引擎累计成功率、平均耗时、命中数；'
               '数据持久化在 ~/.openhand/cache/web_search/telemetry/。',
-          en: 'Recent 50 WebSearch invocations plus per-engine cumulative '
+          en:
+              'Recent 50 WebSearch invocations plus per-engine cumulative '
               'success-rate / avg latency / total hits. Persisted under '
               '~/.openhand/cache/web_search/telemetry/.',
         ),
@@ -1094,22 +1129,22 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         children: [
           const Spacer(),
           TextButton.icon(
-            onPressed: _telemetryLoading ||
+            onPressed:
+                _telemetryLoading ||
                     _clearingTelemetry ||
                     _exportingTelemetry ||
                     _recentCalls.isEmpty
                 ? null
                 : () => _exportTelemetry(asCsv: false),
             icon: const Icon(Icons.code, size: 16),
-            label: Text(_localizedText(
-              context,
-              zh: '导出 JSON',
-              en: 'Export JSON',
-            )),
+            label: Text(
+              _localizedText(context, zh: '导出 JSON', en: 'Export JSON'),
+            ),
           ),
           const SizedBox(width: 4),
           TextButton.icon(
-            onPressed: _telemetryLoading ||
+            onPressed:
+                _telemetryLoading ||
                     _clearingTelemetry ||
                     _exportingTelemetry ||
                     _recentCalls.isEmpty
@@ -1122,11 +1157,9 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.table_chart, size: 16),
-            label: Text(_localizedText(
-              context,
-              zh: '导出 CSV',
-              en: 'Export CSV',
-            )),
+            label: Text(
+              _localizedText(context, zh: '导出 CSV', en: 'Export CSV'),
+            ),
           ),
           const SizedBox(width: 4),
           TextButton.icon(
@@ -1140,11 +1173,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh, size: 16),
-            label: Text(_localizedText(
-              context,
-              zh: '刷新',
-              en: 'Refresh',
-            )),
+            label: Text(_localizedText(context, zh: '刷新', en: 'Refresh')),
           ),
           const SizedBox(width: 4),
           TextButton.icon(
@@ -1177,7 +1206,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             _localizedText(
               context,
               zh: '暂无调用记录。下一次 WebSearch 调用结束后会自动记录。',
-              en: 'No calls recorded yet. The next WebSearch invocation '
+              en:
+                  'No calls recorded yet. The next WebSearch invocation '
                   'will be logged automatically.',
             ),
             style: theme.textTheme.bodySmall?.copyWith(
@@ -1196,13 +1226,15 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           const SizedBox(height: 6),
           ..._engineStats.entries
               .toList(growable: false)
-              .map((e) => _buildEngineStatRow(
-                    context,
-                    theme,
-                    colorScheme,
-                    e.key,
-                    e.value,
-                  )),
+              .map(
+                (e) => _buildEngineStatRow(
+                  context,
+                  theme,
+                  colorScheme,
+                  e.key,
+                  e.value,
+                ),
+              ),
           const SizedBox(height: 12),
         ],
         if (_recentCalls.isNotEmpty) ...[
@@ -1246,8 +1278,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     final pctColor = pct >= 80
         ? Colors.green.shade600
         : pct >= 50
-            ? Colors.orange.shade600
-            : colorScheme.error;
+        ? Colors.orange.shade600
+        : colorScheme.error;
     final inCooldown = stat.isInCooldown();
     final samples = _engineHistory[kind] ?? const <WebSearchEngineSample>[];
     return Padding(
@@ -1494,10 +1526,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 Text(
                   _localizedText(
                     context,
-                    zh: '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} 条结果 · 摘要 ${call.summaryChars} 字'
+                    zh:
+                        '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} 条结果 · 摘要 ${call.summaryChars} 字'
                         '${call.fallbackUsed ? " · fallback" : ""}'
                         '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
-                    en: '${call.success ? "ok" : "fail"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} hits · summary ${call.summaryChars} chars'
+                    en:
+                        '${call.success ? "ok" : "fail"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} hits · summary ${call.summaryChars} chars'
                         '${call.fallbackUsed ? " · fallback" : ""}'
                         '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
                   ),
@@ -1515,16 +1549,18 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                       spacing: 4,
                       runSpacing: 2,
                       children: call.perEngine
-                          .map((p) => Text(
-                                '${p.kind.name}:${p.success ? "✓${p.hitCount}" : "✗"}/${p.elapsedMs}ms',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'monospace',
-                                  fontSize: 10,
-                                  color: p.success
-                                      ? colorScheme.onSurfaceVariant
-                                      : colorScheme.error,
-                                ),
-                              ))
+                          .map(
+                            (p) => Text(
+                              '${p.kind.name}:${p.success ? "✓${p.hitCount}" : "✗"}/${p.elapsedMs}ms',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                fontSize: 10,
+                                color: p.success
+                                    ? colorScheme.onSurfaceVariant
+                                    : colorScheme.error,
+                              ),
+                            ),
+                          )
                           .toList(growable: false),
                     ),
                   ),
@@ -1561,10 +1597,7 @@ class _AdvancedCooldownTierRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 56,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall,
-            ),
+            child: Text(label, style: theme.textTheme.bodySmall),
           ),
           Text(
             _localizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
@@ -1624,9 +1657,7 @@ class _AdvancedNumberRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Expanded(
-            child: Text(label, style: theme.textTheme.bodySmall),
-          ),
+          Expanded(child: Text(label, style: theme.textTheme.bodySmall)),
           SizedBox(
             width: 100,
             child: _IntField(
@@ -1688,8 +1719,9 @@ class _IntFieldState extends State<_IntField> {
       _ctrl.text = '${widget.value}';
       return;
     }
-    final clamped =
-        parsed < widget.min ? widget.min : (parsed > widget.max ? widget.max : parsed);
+    final clamped = parsed < widget.min
+        ? widget.min
+        : (parsed > widget.max ? widget.max : parsed);
     if (clamped != widget.value) widget.onChanged(clamped);
     if ('$clamped' != raw.trim()) _ctrl.text = '$clamped';
   }
@@ -1738,10 +1770,7 @@ class _StatusChip extends StatelessWidget {
         children: [
           Icon(icon, size: 11, color: fg),
           const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(color: fg, fontSize: 11),
-          ),
+          Text(label, style: TextStyle(color: fg, fontSize: 11)),
         ],
       ),
     );
@@ -1768,9 +1797,14 @@ class _WebSearchSparklinePainter extends CustomPainter {
     final tail = samples.length > 50
         ? samples.sublist(samples.length - 50)
         : samples;
-    final maxDur = tail.fold<int>(0, (m, s) => s.durationMs > m ? s.durationMs : m);
+    final maxDur = tail.fold<int>(
+      0,
+      (m, s) => s.durationMs > m ? s.durationMs : m,
+    );
     final scaleY = maxDur == 0 ? 0.0 : (size.height - 4) / maxDur;
-    final stepX = tail.length == 1 ? size.width : size.width / (tail.length - 1);
+    final stepX = tail.length == 1
+        ? size.width
+        : size.width / (tail.length - 1);
 
     final linePaint = Paint()
       ..color = lineColor
@@ -1809,10 +1843,7 @@ class _WebSearchSparklinePainter extends CustomPainter {
       old.lineColor != lineColor;
 }
 
-String _summaryDetailLabel(
-  BuildContext context,
-  AiWebSearchSummaryDetail d,
-) {
+String _summaryDetailLabel(BuildContext context, AiWebSearchSummaryDetail d) {
   return switch (d) {
     AiWebSearchSummaryDetail.brief => _localizedText(
       context,
@@ -1902,6 +1933,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
   late TextEditingController _truncationController;
   late TextEditingController _endpointController;
   bool _expanded = false;
+  bool _apiKeyVisible = false;
 
   @override
   void initState() {
@@ -2003,11 +2035,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                     tooltip: _expanded
                         ? _localizedText(context, zh: '收起', en: 'Collapse')
                         : _localizedText(context, zh: '展开', en: 'Expand'),
-                    icon: Icon(
-                      _expanded
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                    ),
+                    icon: _SettingsExpandIcon(expanded: _expanded),
                     onPressed: () => setState(() => _expanded = !_expanded),
                   ),
                   Switch(
@@ -2017,175 +2045,208 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                   ),
                 ],
               ),
-              if (_expanded) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _localizedText(
-                    context,
-                    zh: '权重 ${cfg.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
-                    en: 'Weight ${cfg.weight} (higher = more emphasis in '
-                        'summary)',
-                  ),
-                  style: theme.textTheme.bodySmall,
-                ),
-                Slider(
-                  min: AiWebSearchEngineConfig.minWeight.toDouble(),
-                  max: AiWebSearchEngineConfig.maxWeight.toDouble(),
-                  divisions:
-                      AiWebSearchEngineConfig.maxWeight -
-                      AiWebSearchEngineConfig.minWeight,
-                  value: cfg.weight.toDouble().clamp(
-                    AiWebSearchEngineConfig.minWeight.toDouble(),
-                    AiWebSearchEngineConfig.maxWeight.toDouble(),
-                  ),
-                  label: '${cfg.weight}',
-                  onChanged: (v) =>
-                      widget.onChanged(cfg.copyWith(weight: v.round())),
-                ),
-                Row(
+              _SettingsElasticExpansion(
+                expanded: _expanded,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _retryController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '权重 ${cfg.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
+                        en:
+                            'Weight ${cfg.weight} (higher = more emphasis in '
+                            'summary)',
+                      ),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    Slider(
+                      min: AiWebSearchEngineConfig.minWeight.toDouble(),
+                      max: AiWebSearchEngineConfig.maxWeight.toDouble(),
+                      divisions:
+                          AiWebSearchEngineConfig.maxWeight -
+                          AiWebSearchEngineConfig.minWeight,
+                      value: cfg.weight.toDouble().clamp(
+                        AiWebSearchEngineConfig.minWeight.toDouble(),
+                        AiWebSearchEngineConfig.maxWeight.toDouble(),
+                      ),
+                      label: '${cfg.weight}',
+                      onChanged: (v) =>
+                          widget.onChanged(cfg.copyWith(weight: v.round())),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _retryController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                context,
+                                zh: '重试次数',
+                                en: 'Max Retries',
+                              ),
+                            ),
+                            onChanged: (s) {
+                              final parsed = int.tryParse(s.trim()) ?? 0;
+                              widget.onChanged(
+                                cfg.copyWith(
+                                  maxRetries: parsed.clamp(
+                                    0,
+                                    AiWebSearchEngineConfig
+                                        .maxRetriesUpperBound,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _truncationController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                context,
+                                zh: '截断阈值 (字符)',
+                                en: 'Truncation (chars)',
+                              ),
+                            ),
+                            onChanged: (s) {
+                              final parsed =
+                                  int.tryParse(s.trim()) ??
+                                  AiWebSearchEngineConfig
+                                      .defaultTruncationChars;
+                              widget.onChanged(
+                                cfg.copyWith(
+                                  truncationChars: parsed.clamp(
+                                    AiWebSearchEngineConfig.minTruncationChars,
+                                    AiWebSearchEngineConfig.maxTruncationChars,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (cfg.kind.requiresApiKey) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _apiKeyController,
                         decoration: InputDecoration(
                           labelText: _localizedText(
                             context,
-                            zh: '重试次数',
-                            en: 'Max Retries',
+                            zh: 'API Key',
+                            en: 'API Key',
+                          ),
+                          hintText: _apiKeyHint(cfg.kind),
+                          suffixIcon: IconButton(
+                            tooltip: _apiKeyVisible
+                                ? _localizedText(
+                                    context,
+                                    zh: '隐藏 API Key',
+                                    en: 'Hide API Key',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '显示 API Key',
+                                    en: 'Show API Key',
+                                  ),
+                            icon: Icon(
+                              _apiKeyVisible
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                            ),
+                            onPressed: () => setState(
+                              () => _apiKeyVisible = !_apiKeyVisible,
+                            ),
                           ),
                         ),
+                        obscureText: !_apiKeyVisible,
+                        enableSuggestions: false,
+                        autocorrect: false,
                         onChanged: (s) {
-                          final parsed = int.tryParse(s.trim()) ?? 0;
+                          final trimmed = s.trim();
                           widget.onChanged(
                             cfg.copyWith(
-                              maxRetries: parsed.clamp(
-                                0,
-                                AiWebSearchEngineConfig.maxRetriesUpperBound,
-                              ),
+                              apiKey: trimmed.isEmpty ? null : trimmed,
+                              clearApiKey: trimmed.isEmpty,
                             ),
                           );
                         },
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _truncationController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
+                      if (_canLinkProvider(cfg.kind)) ...[
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String?>(
+                          initialValue: cfg.providerConfigId,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: _localizedText(
+                              context,
+                              zh: '复用 Provider 的 API Key (可选)',
+                              en: 'Reuse Provider API Key (optional)',
+                            ),
+                          ),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              child: Text(
+                                _localizedText(context, zh: '不复用', en: 'None'),
+                              ),
+                            ),
+                            for (final m in widget.availableModels)
+                              DropdownMenuItem<String?>(
+                                value: m.id,
+                                child: Text(
+                                  '${m.providerLabel} (${m.protocolType.storageValue})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: (id) => widget.onChanged(
+                            cfg.copyWith(
+                              providerConfigId: id,
+                              clearProviderConfigId: id == null,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                    if (cfg.kind == AiWebSearchEngineKind.searxng) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _endpointController,
                         decoration: InputDecoration(
                           labelText: _localizedText(
                             context,
-                            zh: '截断阈值 (字符)',
-                            en: 'Truncation (chars)',
+                            zh: '实例 Endpoint',
+                            en: 'Instance Endpoint',
                           ),
+                          hintText: 'https://searxng.example.com',
                         ),
                         onChanged: (s) {
-                          final parsed =
-                              int.tryParse(s.trim()) ??
-                              AiWebSearchEngineConfig.defaultTruncationChars;
+                          final trimmed = s.trim();
                           widget.onChanged(
                             cfg.copyWith(
-                              truncationChars: parsed.clamp(
-                                AiWebSearchEngineConfig.minTruncationChars,
-                                AiWebSearchEngineConfig.maxTruncationChars,
-                              ),
+                              endpointOverride: trimmed.isEmpty
+                                  ? null
+                                  : trimmed,
+                              clearEndpointOverride: trimmed.isEmpty,
                             ),
                           );
                         },
                       ),
-                    ),
+                    ],
                   ],
                 ),
-                if (cfg.kind.requiresApiKey) ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _apiKeyController,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: 'API Key',
-                        en: 'API Key',
-                      ),
-                      hintText: _apiKeyHint(cfg.kind),
-                    ),
-                    obscureText: true,
-                    onChanged: (s) {
-                      final trimmed = s.trim();
-                      widget.onChanged(
-                        cfg.copyWith(
-                          apiKey: trimmed.isEmpty ? null : trimmed,
-                          clearApiKey: trimmed.isEmpty,
-                        ),
-                      );
-                    },
-                  ),
-                  if (_canLinkProvider(cfg.kind)) ...[
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String?>(
-                      initialValue: cfg.providerConfigId,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: _localizedText(
-                          context,
-                          zh: '复用 Provider 的 API Key (可选)',
-                          en: 'Reuse Provider API Key (optional)',
-                        ),
-                      ),
-                      items: [
-                        DropdownMenuItem<String?>(
-                          child: Text(
-                            _localizedText(context, zh: '不复用', en: 'None'),
-                          ),
-                        ),
-                        for (final m in widget.availableModels)
-                          DropdownMenuItem<String?>(
-                            value: m.id,
-                            child: Text(
-                              '${m.providerLabel} (${m.protocolType.storageValue})',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: (id) => widget.onChanged(
-                        cfg.copyWith(
-                          providerConfigId: id,
-                          clearProviderConfigId: id == null,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-                if (cfg.kind == AiWebSearchEngineKind.searxng) ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _endpointController,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '实例 Endpoint',
-                        en: 'Instance Endpoint',
-                      ),
-                      hintText: 'https://searxng.example.com',
-                    ),
-                    onChanged: (s) {
-                      final trimmed = s.trim();
-                      widget.onChanged(
-                        cfg.copyWith(
-                          endpointOverride: trimmed.isEmpty ? null : trimmed,
-                          clearEndpointOverride: trimmed.isEmpty,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ],
+              ),
             ],
           ),
         ),
