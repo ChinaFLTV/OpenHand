@@ -1,19 +1,29 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/url_validation.dart';
+import '../model/ai_model_config.dart';
+import '../model/ai_web_fetch_settings.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_chat_service.dart';
 import '../service/ai_protocol_adapter.dart';
 import '../service/ai_tool_runtime_service.dart';
 import '../service/ai_transport_diagnostic_messages.dart';
+import '../service/web_fetch/web_fetch_cache_store.dart';
+import '../service/web_fetch/web_fetch_orchestrator.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
+/// WebFetch 工具实现：
+/// 1. 从 [AiBuiltinToolConfig.webFetchSettings] 读取启用的引擎清单 / 缓存策略 /
+///    并行参数；缺省回落到默认配置（自动启用 bing+ddg = 直连兜底）。
+/// 2. 通过 [WebFetchOrchestrator] 并行/串行扇出抓取，按 (weight × content_len)
+///    挑选胜出引擎的内容。
+/// 3. 把胜出内容喂给 background chat client，让模型按 user prompt 聚焦回答。
 class AiWebFetchTool extends AiTool {
   AiWebFetchTool({
     required AiChatClient backgroundChatClient,
@@ -27,12 +37,13 @@ class AiWebFetchTool extends AiTool {
   final http.Client _httpClient;
   final Future<List<InternetAddress>> Function(String host) _hostLookup;
 
-  // Per-instance cache (15-minute TTL)
-  static const Duration _cacheTtl = Duration(minutes: 15);
+  // 由 AiSessionController 推送的运行时参数（保留向后兼容字段）。
+  // 这三项历史 settings 仍由 settings_controller 推到 runtime context；保留即可，
+  // 新代码主要依赖 [AiBuiltinToolConfig.webFetchSettings]。
   int maxRedirects = 5;
   int maxResponseBytes = 1024 * 1024;
-  int maxCacheEntries = 64;
-  final Map<String, _CachedContent> _cache = {};
+  int maxCacheEntries = 64; // 仅作占位，新缓存层走磁盘 LRU
+  List<AiModelConfig> availableModels = const <AiModelConfig>[];
 
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.webFetch;
@@ -40,7 +51,7 @@ class AiWebFetchTool extends AiTool {
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
-    final startedAt = Stopwatch()..start();
+    final stopwatch = Stopwatch()..start();
     final rawUrl = '${args['url'] ?? ''}'.trim();
     final prompt = '${args['prompt'] ?? ''}'.trim();
     if (rawUrl.isEmpty || prompt.isEmpty) {
@@ -57,44 +68,178 @@ class AiWebFetchTool extends AiTool {
     if (blockedReason != null) {
       return AiToolUtils.invalidResult('WebFetch', blockedReason);
     }
-    final fetchResult = await _fetch(uri, cancelSignal: context.cancelSignal);
-    if (fetchResult.cancelled) {
-      return AiToolUtils.cancelledResult(
-        command: 'WebFetch $rawUrl',
-        durationMs: startedAt.elapsedMilliseconds,
+
+    final command = 'WebFetch $rawUrl';
+    final workingDirectory = AiToolUtils.defaultWorkingDirectory();
+
+    final resolved = context.catalog.find(context.toolCall.name);
+    final settings =
+        resolved?.builtinConfig?.webFetchSettings ??
+        AiWebFetchSettings.defaults();
+
+    final progress = StringBuffer()
+      ..writeln('url: $rawUrl')
+      ..writeln('engines_active: ${_engineLabels(settings)}')
+      ..writeln(
+        settings.parallel
+            ? 'mode: parallel (workers=${settings.parallelWorkers})'
+            : 'mode: serial',
+      );
+
+    void emit(String stage, String detail) {
+      if (progress.isNotEmpty) progress.writeln();
+      progress
+        ..writeln('stage: $stage')
+        ..write('detail: $detail');
+      context.onBashUpdate?.call(
+        BashToolExecutionUpdate(
+          phase: BashToolExecutionPhase.running,
+          command: command,
+          workingDirectory: workingDirectory,
+          stdout: progress.toString().trimRight(),
+          stderr: '',
+          durationMs: stopwatch.elapsedMilliseconds,
+        ),
       );
     }
-    if (fetchResult.crossHostRedirectUrl != null) {
-      final redirectUrl = fetchResult.crossHostRedirectUrl!;
-      return AiToolUtils.simpleSuccessResult(
-        command: 'WebFetch $rawUrl',
-        output:
-            'Cross-host redirect detected.\nredirect_url: $redirectUrl\nmessage: WebFetch encountered a redirect to a different host. Make a new WebFetch request with redirect_url to continue.',
-        durationMs: startedAt.elapsedMilliseconds,
+
+    Map<String, Object?> meta({
+      int? contentChars,
+      List<String>? engines,
+      bool? fallbackUsed,
+      AiWebFetchEngineKind? winner,
+    }) {
+      return <String, Object?>{
+        'webfetch_url': rawUrl,
+        if (contentChars != null) 'webfetch_content_chars': contentChars,
+        if (engines != null) 'webfetch_engines': engines,
+        if (fallbackUsed != null) 'webfetch_fallback_used': fallbackUsed,
+        if (winner != null) 'webfetch_winning_engine': winner.name,
+      };
+    }
+
+    AiToolExecutionResult timedOut(String message) => AiToolExecutionResult(
+      status: BashToolExecutionStatus.timedOut,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: progress.toString().trimRight(),
+      stderr: message,
+      durationMs: stopwatch.elapsedMilliseconds,
+      resultText: 'status: timed_out\nerror: $message',
+      metadata: meta(),
+    );
+
+    AiToolExecutionResult failed(String message) => AiToolExecutionResult(
+      status: BashToolExecutionStatus.failed,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: progress.toString().trimRight(),
+      stderr: message,
+      durationMs: stopwatch.elapsedMilliseconds,
+      resultText: 'status: failed\nerror: $message',
+      metadata: meta(),
+    );
+
+    // 1) 缓存查询：同一 (url, prompt) 在 TTL 内直接复用。
+    final cacheKey = WebFetchCacheStore.computeKey(
+      url: rawUrl,
+      prompt: prompt,
+    );
+    final cached = await WebFetchCacheStore.instance.lookup(
+      key: cacheKey,
+      settings: settings,
+    );
+    if (cached != null) {
+      emit(
+        'cache.hit',
+        'Reused cached fetch (${cached.content.length} chars, '
+            'expires ${cached.expiresAt.toIso8601String()}).',
+      );
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.success,
+        command: command,
+        workingDirectory: workingDirectory,
+        stdout: progress.toString().trimRight(),
+        stderr: '',
+        durationMs: stopwatch.elapsedMilliseconds,
+        resultText: cached.content,
         metadata: <String, Object?>{
-          'webfetch_redirect_cross_host': true,
-          'webfetch_redirect_url': redirectUrl,
-          'webfetch_source_url': rawUrl,
+          ...meta(contentChars: cached.content.length),
+          'webfetch_cache': 'hit',
+          'webfetch_cache_key': cacheKey,
+          'webfetch_cache_cached_at': cached.cachedAt.toIso8601String(),
+          'webfetch_cache_expires_at': cached.expiresAt.toIso8601String(),
+          ...cached.metadata,
         },
       );
     }
-    if (fetchResult.errorMessage != null) {
+
+    emit('fetching', 'Dispatching to enabled fetch engines.');
+
+    // 2) Orchestrator fan-out。
+    final orchestrator = WebFetchOrchestrator(
+      settings: settings,
+      httpClient: _httpClient,
+      availableModels: availableModels,
+    );
+
+    final WebFetchOrchestrationResult orchestrationResult;
+    try {
+      orchestrationResult = await orchestrator.run(
+        url: rawUrl,
+        prompt: prompt,
+        cancelSignal: context.cancelSignal,
+        onProgress: (p) {
+          emit(
+            'engine.${p.kind.name}.${p.stage.name}',
+            p.message ??
+                (p.stage == WebFetchProgressStage.succeeded
+                    ? '${p.contentBytes} bytes in ${p.elapsedMs}ms'
+                    : ''),
+          );
+        },
+      );
+    } on TimeoutException {
+      return timedOut('WebFetch timed out while contacting fetch engines.');
+    } catch (error) {
+      return failed(_friendlyFetchTransportError(error));
+    }
+
+    final winner = orchestrationResult.merged;
+    if (winner == null) {
+      final allFailed = orchestrationResult.engineRuns.every(
+        (r) => !r.isSuccess,
+      );
+      final detail = allFailed
+          ? 'All enabled fetch engines failed. '
+                'See `engines` metadata for per-engine diagnostics.'
+          : 'No content extracted from any fetch engine.';
+      emit('completed', detail);
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
-        command: 'WebFetch $rawUrl',
-        workingDirectory: AiToolUtils.defaultWorkingDirectory(),
-        stdout: '',
-        stderr: fetchResult.errorMessage!,
-        durationMs: startedAt.elapsedMilliseconds,
-        resultText: 'status: failed\nerror: ${fetchResult.errorMessage!}',
+        command: command,
+        workingDirectory: workingDirectory,
+        stdout: progress.toString().trimRight(),
+        stderr: detail,
+        durationMs: stopwatch.elapsedMilliseconds,
+        resultText: 'status: failed\nerror: $detail',
+        metadata: meta(
+          contentChars: 0,
+          engines: orchestrationResult.engineRuns
+              .map((r) => '${r.kind.name}:${r.error ?? "ok"}')
+              .toList(growable: false),
+          fallbackUsed: orchestrationResult.fallbackUsed,
+        ),
       );
     }
-    final body = fetchResult.body ?? '';
-    final contentType = fetchResult.contentType ?? '';
-    final normalizedContent = AiToolUtils.truncateContent(
-      AiToolUtils.htmlToText(contentType.contains('html') ? body : body),
-      AiToolUtils.maxWebContentCharacters,
+
+    emit(
+      'extracted',
+      'Winner: ${orchestrationResult.winningKind?.name} '
+          '(${winner.content.length} chars). Asking model to focus on prompt.',
     );
+
+    // 3) 让模型按 user prompt 聚焦回答（保留原 ai_web_fetch_tool 行为）。
     final completion = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
       _backgroundChatClient.sendMessage(
         model: context.model,
@@ -102,12 +247,13 @@ class AiWebFetchTool extends AiTool {
           const AiChatTurn(
             role: AiChatRole.system,
             content:
-                'Answer the prompt using only the fetched page content. If the page content is insufficient, say so briefly.',
+                'Answer the prompt using only the fetched page content. '
+                'If the page content is insufficient, say so briefly.',
           ),
           AiChatTurn(
             role: AiChatRole.user,
             content:
-                'URL: $rawUrl\nPrompt: $prompt\n\nFetched content:\n$normalizedContent',
+                'URL: $rawUrl\nPrompt: $prompt\n\nFetched content:\n${winner.content}',
           ),
         ],
       ),
@@ -115,23 +261,73 @@ class AiWebFetchTool extends AiTool {
     );
     if (completion == null) {
       return AiToolUtils.cancelledResult(
-        command: 'WebFetch $rawUrl',
-        durationMs: startedAt.elapsedMilliseconds,
+        command: command,
+        durationMs: stopwatch.elapsedMilliseconds,
       );
     }
     final output = completion.reply.trim().isEmpty
-        ? normalizedContent
+        ? winner.content
         : completion.reply.trim();
-    return AiToolUtils.simpleSuccessResult(
-      command: 'WebFetch $rawUrl',
-      output: output,
-      durationMs: startedAt.elapsedMilliseconds,
-      metadata: <String, Object?>{
-        'webfetch_final_url': fetchResult.finalUrl ?? uri.toString(),
-        'webfetch_cache_hit': fetchResult.fromCache,
-        'webfetch_content_type': contentType,
-      },
+
+    emit('completed', 'Fetch + focus answer ready.');
+
+    final engineSummaries = orchestrationResult.engineRuns
+        .map(
+          (r) =>
+              '${r.kind.name}:${r.isSuccess ? "ok(${r.contents.isEmpty ? 0 : r.contents.first.content.length})" : (r.error ?? "fail")}',
+        )
+        .toList(growable: false);
+
+    // 4) 写本地持久化缓存（await chain 完成以保证下次可读）。
+    if (settings.cacheEnabled && output.trim().isNotEmpty) {
+      try {
+        await WebFetchCacheStore.instance.store(
+          key: cacheKey,
+          settings: settings,
+          url: rawUrl,
+          content: output,
+          metadata: <String, Object?>{
+            'session_id': context.sessionId,
+            'tool_name': context.toolCall.name,
+            'tool_call_id': context.toolCall.id,
+            'winning_engine': orchestrationResult.winningKind?.name,
+            'engines': engineSummaries,
+            'fallback_used': orchestrationResult.fallbackUsed,
+            'final_url': winner.url,
+            'content_type': winner.contentType,
+            'http_status': winner.statusCode,
+            'response_headers': winner.responseHeaders,
+            'duration_ms': stopwatch.elapsedMilliseconds,
+          },
+        );
+      } catch (error, stack) {
+        silentLog('ai_web_fetch', 'cache_store', error, stack);
+      }
+    }
+
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.success,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: progress.toString().trimRight(),
+      stderr: '',
+      durationMs: stopwatch.elapsedMilliseconds,
+      resultText: output,
+      metadata: meta(
+        contentChars: output.length,
+        engines: engineSummaries,
+        fallbackUsed: orchestrationResult.fallbackUsed,
+        winner: orchestrationResult.winningKind,
+      )..['webfetch_cache'] = settings.cacheEnabled
+          ? 'miss-stored'
+          : 'disabled',
     );
+  }
+
+  String _engineLabels(AiWebFetchSettings settings) {
+    final active = settings.engines.where((e) => e.enabled).toList();
+    if (active.isEmpty) return '<fallback: bing,duckduckgo>';
+    return active.map((e) => e.kind.name).join(',');
   }
 
   Future<String?> _blockedReason(Uri uri) async {
@@ -147,7 +343,8 @@ class AiWebFetchTool extends AiTool {
       for (final address in resolvedAddresses) {
         final addressReason = agentFetchBlockReasonForAddress(address);
         if (addressReason != null) {
-          return 'WebFetch blocked ${uri.host} because it resolved to $addressReason (${address.address}).';
+          return 'WebFetch blocked ${uri.host} because it resolved to '
+              '$addressReason (${address.address}).';
         }
       }
     } on SocketException {
@@ -159,244 +356,6 @@ class AiWebFetchTool extends AiTool {
     }
     return null;
   }
-
-  Future<_FetchResult> _fetch(
-    Uri initialUri, {
-    Future<void>? cancelSignal,
-  }) async {
-    _pruneCache();
-    final cached = _cache[initialUri.toString()];
-    if (cached != null && !_isCacheExpired(cached)) {
-      return _FetchResult(
-        body: cached.body,
-        contentType: cached.contentType,
-        finalUrl: cached.finalUrl,
-        fromCache: true,
-      );
-    }
-    var currentUri = initialUri;
-    final visitedUrls = <String>{};
-    for (
-      var redirectCount = 0;
-      redirectCount <= maxRedirects;
-      redirectCount++
-    ) {
-      final visitKey = currentUri.toString();
-      if (!visitedUrls.add(visitKey)) {
-        return const _FetchResult(
-          errorMessage: 'Redirect loop detected while fetching the URL.',
-        );
-      }
-      final request = http.Request('GET', currentUri)
-        ..followRedirects = false
-        ..maxRedirects = 0;
-      late final http.StreamedResponse response;
-      try {
-        final maybeResponse =
-            await AiToolUtils.awaitWithCancellation<http.StreamedResponse>(
-              _httpClient.send(request).timeout(const Duration(seconds: 20)),
-              cancelSignal: cancelSignal,
-            );
-        if (maybeResponse == null) return const _FetchResult(cancelled: true);
-        response = maybeResponse;
-      } on TimeoutException {
-        return const _FetchResult(
-          errorMessage: 'WebFetch timed out while retrieving the URL.',
-        );
-      } catch (error) {
-        return _FetchResult(errorMessage: _friendlyFetchTransportError(error));
-      }
-      if (_isRedirect(response.statusCode)) {
-        final location = (response.headers['location'] ?? '').trim();
-        if (location.isEmpty) {
-          _discard(response);
-          return _FetchResult(
-            errorMessage:
-                'Received redirect response without a location header from $currentUri.',
-          );
-        }
-        final nextUri = normalizeValidHttpUri(currentUri.resolve(location));
-        if (nextUri == null) {
-          _discard(response);
-          return _FetchResult(
-            errorMessage: 'Invalid redirect target: $location',
-          );
-        }
-        final blocked = await _blockedReason(nextUri);
-        if (blocked != null) {
-          _discard(response);
-          return _FetchResult(errorMessage: blocked);
-        }
-        if (currentUri.host.toLowerCase() != nextUri.host.toLowerCase()) {
-          _discard(response);
-          return _FetchResult(
-            crossHostRedirectUrl: nextUri.toString(),
-            finalUrl: currentUri.toString(),
-          );
-        }
-        _discard(response);
-        currentUri = nextUri;
-        continue;
-      }
-      if (response.statusCode < 200 || response.statusCode >= 400) {
-        _discard(response);
-        return _FetchResult(
-          errorMessage:
-              'WebFetch failed for $currentUri:\n'
-              '${AiTransportDiagnosticMessages.httpStatus(response.statusCode, contextLabel: 'WebFetch')}',
-        );
-      }
-      final bodyBytes = await _readBody(response, cancelSignal: cancelSignal);
-      if (bodyBytes.cancelled) return const _FetchResult(cancelled: true);
-      if (bodyBytes.errorMessage != null) {
-        return _FetchResult(errorMessage: bodyBytes.errorMessage);
-      }
-      final resolvedResponse = http.Response.bytes(
-        bodyBytes.bytes!,
-        response.statusCode,
-        headers: response.headers,
-      );
-      final entry = _CachedContent(
-        body: resolvedResponse.body,
-        contentType: (response.headers['content-type'] ?? '').trim(),
-        finalUrl: currentUri.toString(),
-        fetchedAt: DateTime.now().toUtc(),
-      );
-      _cache[initialUri.toString()] = entry;
-      _cache[currentUri.toString()] = entry;
-      return _FetchResult(
-        body: entry.body,
-        contentType: entry.contentType,
-        finalUrl: entry.finalUrl,
-      );
-    }
-    return const _FetchResult(
-      errorMessage: 'WebFetch exceeded the maximum redirect limit.',
-    );
-  }
-
-  Future<_BodyReadResult> _readBody(
-    http.StreamedResponse response, {
-    Future<void>? cancelSignal,
-  }) async {
-    final completer = Completer<_BodyReadResult>();
-    final buffer = BytesBuilder(copy: false);
-
-    void complete(_BodyReadResult result) {
-      if (!completer.isCompleted) completer.complete(result);
-    }
-
-    late final StreamSubscription<List<int>> subscription;
-    subscription = response.stream.listen(
-      (chunk) {
-        if (buffer.length + chunk.length > maxResponseBytes) {
-          subscription.cancel().ignore();
-          complete(
-            _BodyReadResult(
-              errorMessage:
-                  'WebFetch refused to download the response because it exceeded the $maxResponseBytes-byte safety limit.',
-            ),
-          );
-          return;
-        }
-        buffer.add(chunk);
-      },
-      onError: (Object error) =>
-          complete(_BodyReadResult(errorMessage: '$error')),
-      onDone: () {
-        if (!completer.isCompleted) {
-          completer.complete(_BodyReadResult(bytes: buffer.takeBytes()));
-        }
-      },
-      cancelOnError: true,
-    );
-    cancelSignal?.then((_) {
-      subscription.cancel().ignore();
-      complete(const _BodyReadResult(cancelled: true));
-    });
-    // Cancel the subscription once the completer has a result (e.g. size
-    // limit exceeded) so the underlying connection is released promptly.
-    completer.future.whenComplete(() => subscription.cancel().ignore());
-    return completer.future;
-  }
-
-  bool _isRedirect(int statusCode) =>
-      statusCode == 301 ||
-      statusCode == 302 ||
-      statusCode == 303 ||
-      statusCode == 307 ||
-      statusCode == 308;
-
-  void _discard(http.StreamedResponse response) {
-    response.stream.drain<void>().catchError((Object e, StackTrace st) {
-      // Redirect responses are consumed and discarded; drain errors are not
-      // actionable here, but surface them in debug builds to aid diagnosis.
-      assert(() {
-        // ignore: avoid_print
-        print('ai_web_fetch: response drain failed: $e');
-        return true;
-      }());
-    });
-  }
-
-  void _pruneCache() {
-    _cache.removeWhere((_, v) => _isCacheExpired(v));
-    // Evict oldest entries when the cache exceeds the size limit.
-    if (_cache.length > maxCacheEntries) {
-      final sorted = _cache.entries.toList()
-        ..sort((a, b) => a.value.fetchedAt.compareTo(b.value.fetchedAt));
-      final excess = sorted.length - maxCacheEntries;
-      for (var i = 0; i < excess; i++) {
-        _cache.remove(sorted[i].key);
-      }
-    }
-  }
-
-  bool _isCacheExpired(_CachedContent entry) =>
-      DateTime.now().toUtc().difference(entry.fetchedAt) > _cacheTtl;
-}
-
-class _CachedContent {
-  const _CachedContent({
-    required this.body,
-    required this.contentType,
-    required this.finalUrl,
-    required this.fetchedAt,
-  });
-  final String body;
-  final String contentType;
-  final String finalUrl;
-  final DateTime fetchedAt;
-}
-
-class _FetchResult {
-  const _FetchResult({
-    this.body,
-    this.contentType,
-    this.finalUrl,
-    this.crossHostRedirectUrl,
-    this.errorMessage,
-    this.fromCache = false,
-    this.cancelled = false,
-  });
-  final String? body;
-  final String? contentType;
-  final String? finalUrl;
-  final String? crossHostRedirectUrl;
-  final String? errorMessage;
-  final bool fromCache;
-  final bool cancelled;
-}
-
-class _BodyReadResult {
-  const _BodyReadResult({
-    this.bytes,
-    this.errorMessage,
-    this.cancelled = false,
-  });
-  final List<int>? bytes;
-  final String? errorMessage;
-  final bool cancelled;
 }
 
 /// 把底层 dart:io / http 异常转换成「现象 / 原因 / 建议」三段式中英双语

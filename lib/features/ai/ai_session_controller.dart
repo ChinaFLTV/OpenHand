@@ -552,6 +552,18 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
+  /// 把 settings 层维护的所有 provider 配置注入到 [AiWebFetchTool]，
+  /// 让 orchestrator 可以按 providerConfigId 复用 kimi/grok/gemini 的 API key。
+  /// 由 [openhand_home_page] 在重建 runtime context 前调用以保持同步。
+  void updateAvailableModelsForWebFetch(List<AiModelConfig> models) {
+    final wf = _toolRuntimeService.toolRegistry.getTool(
+      AiBuiltinToolKind.webFetch,
+    );
+    if (wf is AiWebFetchTool) {
+      wf.availableModels = models;
+    }
+  }
+
   int get _effectiveMaxRecentErrors =>
       _latestRuntimeContext?.maxRecentErrors ??
       AppSettingsSnapshot.defaultAiMaxRecentErrors;

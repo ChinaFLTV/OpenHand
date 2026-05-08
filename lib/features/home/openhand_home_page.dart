@@ -3292,6 +3292,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     sessionController.updateAvailableModelsForWebSearch(
       settingsController.aiModels,
     );
+    sessionController.updateAvailableModelsForWebFetch(
+      settingsController.aiModels,
+    );
     final effectiveWorkingDirectory =
         workingDirectory ?? OpenHandPaths.applicationDirectoryPath();
     final gitSnapshotFuture = _gitSnapshotService.loadSnapshot(
