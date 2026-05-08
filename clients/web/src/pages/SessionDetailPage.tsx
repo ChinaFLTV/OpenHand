@@ -817,6 +817,22 @@ export function SessionDetailPage() {
     setQueueDispatchingId(null);
     setComposerSending(false);
     setStopping(false);
+    setPendingDeleteAction(null);
+    setDeleteBusy(false);
+    setPendingSessionDelete(false);
+    setSessionDeleteBusy(false);
+    setPermissionSaving(false);
+    setPendingFullAccess(null);
+    setWriteApprovalBusy(false);
+    setPendingWriteApproval(null);
+    setSessionGone(false);
+    setSessionAuditOpen(false);
+    setAuditMessage(null);
+    setSessionMetadataOpen(false);
+    setTokenStatsOpen(false);
+    imageEditorResolverRef.current?.(null);
+    imageEditorResolverRef.current = null;
+    setImageEditorInput(null);
   }, [sessionId]);
 
   useEffect(() => () => {
@@ -1004,36 +1020,42 @@ export function SessionDetailPage() {
   }, []);
   const confirmDeleteMessage = async () => {
     if (!sessionId || !pendingDeleteAction || deleteBusy) return;
+    const requestSessionId = sessionId;
     setDeleteBusy(true);
     const { message, cascade } = pendingDeleteAction;
     try {
       if (cascade) {
-        await deleteMessageCascade(sessionId, message.id);
+        await deleteMessageCascade(requestSessionId, message.id);
       } else {
-        await deleteMessage(sessionId, message.id);
+        await deleteMessage(requestSessionId, message.id);
       }
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       setPendingDeleteAction(null);
       showSnackbar(cascade
         ? t('detail.deleteAfter.ok', '已删除此条及后续消息')
         : t('detail.delete.ok', '已删除消息'), { tone: 'success' });
     } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
       showSnackbar(t('detail.delete.failed', '删除消息失败'), { tone: 'error' });
     } finally {
-      setDeleteBusy(false);
+      if (ownsSessionAsyncResult(requestSessionId)) setDeleteBusy(false);
     }
   };
 
   const confirmDeleteSession = async () => {
     if (!sessionId || sessionDeleteBusy) return;
+    const requestSessionId = sessionId;
     setSessionDeleteBusy(true);
     try {
-      await deleteSession(sessionId);
+      await deleteSession(requestSessionId);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
       location.route('/threads');
     } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (e instanceof ApiError && e.status === 404) {
         showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
@@ -1044,29 +1066,36 @@ export function SessionDetailPage() {
       setLastError(message);
       showSnackbar(`${t('topbar.delete.failed', '删除会话失败')}：${message}`, { tone: 'error' });
     } finally {
-      setSessionDeleteBusy(false);
-      setPendingSessionDelete(false);
+      if (ownsSessionAsyncResult(requestSessionId)) {
+        setSessionDeleteBusy(false);
+        setPendingSessionDelete(false);
+      }
     }
   };
 
   const applyFullAccessPermission = async (next: boolean) => {
     if (permissionSaving) return;
+    const requestSessionId = sessionId;
     setPermissionSaving(true);
     try {
-      const res = await updateSessionFullAccessPermission(sessionId, next);
+      const res = await updateSessionFullAccessPermission(requestSessionId, next);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       setDetail((prev) =>
         prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev,
       );
       showSnackbar(t('topbar.perm.ok', '已更新权限设置'), { tone: 'success' });
     } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       const message = e instanceof Error ? e.message : String(e);
       setLastError(message);
       showSnackbar(`${t('topbar.perm.failed', '更新权限设置失败')}：${message}`, { tone: 'error' });
     } finally {
-      setPermissionSaving(false);
-      setPendingFullAccess(null);
+      if (ownsSessionAsyncResult(requestSessionId)) {
+        setPermissionSaving(false);
+        setPendingFullAccess(null);
+      }
     }
   };
 
@@ -1081,9 +1110,12 @@ export function SessionDetailPage() {
 
   const handleWriteApproval = async (approved: boolean) => {
     if (!pendingWriteApproval || writeApprovalBusy) return;
+    const requestSessionId = sessionId;
+    const approvalId = pendingWriteApproval.id;
     setWriteApprovalBusy(true);
     try {
-      await respondWriteApproval(sessionId, pendingWriteApproval.id, approved);
+      await respondWriteApproval(requestSessionId, approvalId, approved);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       setPendingWriteApproval(null);
       showSnackbar(
         approved
@@ -1093,13 +1125,14 @@ export function SessionDetailPage() {
       );
       void refresh();
     } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       const message = e instanceof Error ? e.message : String(e);
       setLastError(message);
       showSnackbar(`${t('detail.writeApproval.failed', '处理写操作确认失败')}：${message}`, { tone: 'error' });
     } finally {
-      setWriteApprovalBusy(false);
+      if (ownsSessionAsyncResult(requestSessionId)) setWriteApprovalBusy(false);
     }
   };
   const handleEditMessage = useEventCallback((m: SessionMessage) => {
@@ -1280,6 +1313,10 @@ export function SessionDetailPage() {
   const sseFailRef = useRef<number>(0);
   const [sseLive, setSseLive] = useState<boolean>(false);
 
+  function ownsSessionAsyncResult(requestSessionId: string): boolean {
+    return shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current);
+  }
+
   function handleAuthError(e: unknown): boolean {
     if (e instanceof UnauthorizedError) {
       location.route('/login', true);
@@ -1357,7 +1394,7 @@ export function SessionDetailPage() {
       return true;
     }
     const fresh = await getSession(sessionId);
-    if (sessionIdRef.current !== sessionId) return true;
+    if (!ownsSessionAsyncResult(sessionId)) return true;
     setDetail((prev) => (
       prev
         ? { ...fresh, session: mergeSessionSummary(prev.session, fresh.session) }
@@ -1389,6 +1426,7 @@ export function SessionDetailPage() {
 
   function loadDetail(): void {
     if (!sessionId) return;
+    const requestSessionId = sessionId;
     detailAbortRef.current?.abort();
     const ctrl = new AbortController();
     detailAbortRef.current = ctrl;
@@ -1408,11 +1446,11 @@ export function SessionDetailPage() {
     lastTailIdRef.current = null;
     lastTailContentLengthRef.current = 0;
     Promise.all([
-      getSession(sessionId, { signal: ctrl.signal }),
-      listMessages(sessionId, { limit: PAGE_SIZE, tail: true, signal: ctrl.signal }),
+      getSession(requestSessionId, { signal: ctrl.signal }),
+      listMessages(requestSessionId, { limit: PAGE_SIZE, tail: true, signal: ctrl.signal }),
     ])
       .then(([d, m]) => {
-        if (ctrl.signal.aborted) return;
+        if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
         setDetail(m.session ? { ...d, session: mergeSessionSummary(d.session, m.session) } : d);
         setMessages([...m.items]);
         windowOffsetRef.current = m.offset;
@@ -1424,7 +1462,7 @@ export function SessionDetailPage() {
         setLoadingDetail(false);
       })
       .catch((e: unknown) => {
-        if (ctrl.signal.aborted) return;
+        if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
         if (handleAuthError(e)) return;
         if (handleSessionGoneError(e)) {
           setLoadingDetail(false);
@@ -1443,7 +1481,7 @@ export function SessionDetailPage() {
     setRefreshing(true);
     try {
       const m = await listMessages(requestSessionId, { limit: PAGE_SIZE, tail: true, signal: ctrl.signal });
-      if (ctrl.signal.aborted || sessionIdRef.current !== requestSessionId) return;
+      if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
       setMessages((prev) => mergeServerWindow(
         prev,
         m.items,
@@ -1462,14 +1500,14 @@ export function SessionDetailPage() {
       setPendingWriteApproval(m.pending_write_approval ?? null);
       if (m.session) mergeSessionSummaryFromPolling(m.session);
     } catch (e: unknown) {
-      if (ctrl.signal.aborted || sessionIdRef.current !== requestSessionId) return;
+      if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       if (messagesAbortRef.current === ctrl) {
         messagesAbortRef.current = null;
-        if (sessionIdRef.current === requestSessionId) setRefreshing(false);
+        if (ownsSessionAsyncResult(requestSessionId)) setRefreshing(false);
       }
     }
   }
@@ -1491,7 +1529,7 @@ export function SessionDetailPage() {
         offset,
         signal: ctrl.signal,
       });
-      if (ctrl.signal.aborted || sessionIdRef.current !== requestSessionId) return;
+      if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
       setMessages((prev) => {
         const existing = new Set(prev.map((item) => item.id));
         const incoming = m.items.filter((item) => !existing.has(item.id));
@@ -1505,20 +1543,21 @@ export function SessionDetailPage() {
       setPendingWriteApproval(m.pending_write_approval ?? null);
       if (m.session) mergeSessionSummaryFromPolling(m.session);
       requestAnimationFrame(() => {
+        if (!ownsSessionAsyncResult(requestSessionId)) return;
         const el = mainRef.current;
         if (!el) return;
         const delta = el.scrollHeight - beforeHeight;
         el.scrollTo({ top: beforeY + delta, behavior: 'auto' });
       });
     } catch (e: unknown) {
-      if (ctrl.signal.aborted || sessionIdRef.current !== requestSessionId) return;
+      if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       if (olderMessagesAbortRef.current === ctrl) {
         olderMessagesAbortRef.current = null;
-        if (sessionIdRef.current === requestSessionId) setLoadingOlder(false);
+        if (ownsSessionAsyncResult(requestSessionId)) setLoadingOlder(false);
       }
     }
   }
@@ -1552,14 +1591,17 @@ export function SessionDetailPage() {
   useEffect(() => {
     if (auth.loading || !sessionId) return;
     sseCloseRef.current?.();
+    const eventSessionId = sessionId;
     sseFailRef.current = 0;
     setSseLive(false);
-    const close = subscribeSessionEvents(sessionId, {
+    const close = subscribeSessionEvents(eventSessionId, {
       onOpen: () => {
+        if (!ownsSessionAsyncResult(eventSessionId)) return;
         sseFailRef.current = 0;
         setSseLive(true);
       },
       onSnapshot: (snap) => {
+        if (!ownsSessionAsyncResult(eventSessionId)) return;
         // 增量合并：当 snapshot 与本地 messages 的尾巴 N-1 条 id+content.length 完全一致，
         // 仅末尾消息的 content 变长（流式 token），就只复用前缀对象 + 重建末尾对象，
         // 让 Preact 的 keyed reconciliation 跳过前缀，每帧仅 patch 一个气泡。
@@ -1601,8 +1643,11 @@ export function SessionDetailPage() {
         setPendingWriteApproval(snap.pending_write_approval ?? null);
       },
       onDeleted: () => {
-        sseCloseRef.current?.();
-        sseCloseRef.current = null;
+        if (!ownsSessionAsyncResult(eventSessionId)) return;
+        if (sseCloseRef.current === close) {
+          sseCloseRef.current?.();
+          sseCloseRef.current = null;
+        }
         if (pollTimerRef.current != null) {
           window.clearTimeout(pollTimerRef.current);
           pollTimerRef.current = null;
@@ -1611,6 +1656,7 @@ export function SessionDetailPage() {
         setSessionGone(true);
       },
       onError: () => {
+        if (!ownsSessionAsyncResult(eventSessionId)) return;
         sseFailRef.current += 1;
         if (sseFailRef.current >= SSE_FAIL_THRESHOLD) {
           setSseLive(false);
@@ -1620,7 +1666,7 @@ export function SessionDetailPage() {
     sseCloseRef.current = close;
     return () => {
       close();
-      sseCloseRef.current = null;
+      if (sseCloseRef.current === close) sseCloseRef.current = null;
     };
   }, [auth.loading, sessionId]);
 
@@ -1802,7 +1848,7 @@ export function SessionDetailPage() {
         attachments: next.attachments,
         selectedSkill: next.selectedSkill,
       });
-      if (!shouldApplySessionAsyncResult(sessionIdRef.current, dispatchSessionId, mountedRef.current)) return;
+      if (!ownsSessionAsyncResult(dispatchSessionId)) return;
       setQueuedComposerMessages((prev) => (
         prev[0]?.id === next.id ? prev.slice(1) : prev.filter((item) => item.id !== next.id)
       ));
@@ -1811,7 +1857,7 @@ export function SessionDetailPage() {
       if (!sseLive) void refresh();
       if (shouldWatchAutoTitleAfterSend(next.content)) scheduleAutoTitleFollowUp();
     } catch (e: unknown) {
-      if (!shouldApplySessionAsyncResult(sessionIdRef.current, dispatchSessionId, mountedRef.current)) return;
+      if (!ownsSessionAsyncResult(dispatchSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       if (e instanceof ApiError) {
@@ -1829,7 +1875,7 @@ export function SessionDetailPage() {
         );
       }
     } finally {
-      if (shouldApplySessionAsyncResult(sessionIdRef.current, dispatchSessionId, mountedRef.current)) {
+      if (ownsSessionAsyncResult(dispatchSessionId)) {
         queueDispatchingRef.current = false;
         setQueueDispatchingId(null);
       }
@@ -1883,17 +1929,18 @@ export function SessionDetailPage() {
       return;
     }
     let cancelled = false;
+    const pollSessionId = sessionId;
     let ctrl: AbortController | null = null;
     async function tick(): Promise<void> {
       ctrl?.abort();
       ctrl = new AbortController();
       try {
-        const m = await listMessages(sessionId, {
+        const m = await listMessages(pollSessionId, {
           limit: PAGE_SIZE,
           tail: true,
           signal: ctrl.signal,
         });
-        if (cancelled || ctrl.signal.aborted) return;
+        if (cancelled || ctrl.signal.aborted || !ownsSessionAsyncResult(pollSessionId)) return;
         const offset = m.offset ?? Math.max(0, m.total - m.items.length);
         // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
         setMessages((prev) => mergeServerWindow(
@@ -1914,7 +1961,7 @@ export function SessionDetailPage() {
         setPendingWriteApproval(m.pending_write_approval ?? null);
         if (m.session) mergeSessionSummaryFromPolling(m.session);
       } catch (e: unknown) {
-        if (cancelled || ctrl?.signal.aborted) return;
+        if (cancelled || ctrl?.signal.aborted || !ownsSessionAsyncResult(pollSessionId)) return;
         if (handleAuthError(e)) return;
         if (handleSessionGoneError(e)) return;
         setLastError(e instanceof Error ? e.message : String(e));
@@ -2137,6 +2184,7 @@ export function SessionDetailPage() {
   }
 
   async function restoreAttachmentsForEdit(message: SessionMessage): Promise<void> {
+    const requestSessionId = sessionId;
     const assets = collectEditableAttachmentAssets(message);
     if (assets.length === 0) return;
     const restoredAttachments: SendMessageAttachment[] = [];
@@ -2144,7 +2192,7 @@ export function SessionDetailPage() {
     let failed = 0;
     for (const asset of assets) {
       try {
-        const res = await fetch(buildSessionAssetUrl(sessionId, asset.path), {
+        const res = await fetch(buildSessionAssetUrl(requestSessionId, asset.path), {
           credentials: 'same-origin',
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -2166,7 +2214,7 @@ export function SessionDetailPage() {
         failed += 1;
       }
     }
-    if (editingDraftMessageRef.current?.id !== message.id) return;
+    if (!ownsSessionAsyncResult(requestSessionId) || editingDraftMessageRef.current?.id !== message.id) return;
     setComposerAttachments(restoredAttachments);
     setComposerAttachmentIds(restoredAttachments.map(() => nextAttachmentUiId()));
     setAttachmentPreviews(restoredPreviews);
@@ -2195,6 +2243,7 @@ export function SessionDetailPage() {
   // 从 File[] 追加附件。共用与 file input / drag-drop / paste
   async function appendFiles(files: File[]): Promise<void> {
     if (files.length === 0) return;
+    const requestSessionId = sessionId;
     setComposerError(null);
     const nextAtt: SendMessageAttachment[] = [...composerAttachments];
     const nextPv: { mime: string; dataUrl: string; size: number }[] = [
@@ -2202,7 +2251,9 @@ export function SessionDetailPage() {
     ];
     const nextIds = [...composerAttachmentIds];
     for (const file of files) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (file.size > ATTACHMENT_MAX_BYTES) {
+        if (!ownsSessionAsyncResult(requestSessionId)) return;
         setComposerError(
           t('composer.attachment.tooLarge', '附件超过 ') +
             (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) +
@@ -2212,6 +2263,7 @@ export function SessionDetailPage() {
       }
       try {
         const r = await readFileAsAttachment(file);
+        if (!ownsSessionAsyncResult(requestSessionId)) return;
         if (r.mime.startsWith('image/')) {
           const edited = await openImageEditor({
             name: file.name,
@@ -2219,6 +2271,7 @@ export function SessionDetailPage() {
             dataUrl: r.dataUrl,
             size: file.size,
           });
+          if (!ownsSessionAsyncResult(requestSessionId)) return;
           if (!edited) continue;
           if (edited.size > ATTACHMENT_MAX_BYTES) {
             setComposerError(
@@ -2237,12 +2290,14 @@ export function SessionDetailPage() {
           nextIds.push(nextAttachmentUiId());
         }
       } catch (e: unknown) {
+        if (!ownsSessionAsyncResult(requestSessionId)) return;
         setComposerError(
           t('composer.attachment.readFailed', '附件读取失败：') +
             (e instanceof Error ? e.message : String(e)),
         );
       }
     }
+    if (!ownsSessionAsyncResult(requestSessionId)) return;
     setComposerAttachments(nextAtt);
     setComposerAttachmentIds(nextIds);
     setAttachmentPreviews(nextPv);
@@ -2277,6 +2332,7 @@ export function SessionDetailPage() {
   }
 
   async function editAttachmentAt(idx: number): Promise<void> {
+    const requestSessionId = sessionId;
     const preview = attachmentPreviews[idx];
     const attachment = composerAttachments[idx];
     if (!preview || !attachment || !preview.mime.startsWith('image/')) return;
@@ -2287,6 +2343,7 @@ export function SessionDetailPage() {
       size: preview.size,
     });
     if (!edited) return;
+    if (!ownsSessionAsyncResult(requestSessionId)) return;
     if (edited.size > ATTACHMENT_MAX_BYTES) {
       setComposerError(
         t('composer.attachment.tooLarge', '附件超过 ') +
@@ -2327,7 +2384,7 @@ export function SessionDetailPage() {
       if (editTarget) {
         await deleteMessageCascade(requestSessionId, editTarget.id);
         cascadeDeleted = true;
-        if (shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) {
+        if (ownsSessionAsyncResult(requestSessionId)) {
           setMessages((prev) => {
             const idx = prev.findIndex((item) => item.id === editTarget.id);
             return idx >= 0 ? prev.slice(0, idx) : prev;
@@ -2350,7 +2407,7 @@ export function SessionDetailPage() {
             }
           : null,
       });
-      if (!shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       setComposerText('');
       setComposerAttachments([]);
       setComposerAttachmentIds([]);
@@ -2365,7 +2422,7 @@ export function SessionDetailPage() {
       if (!sseLive) void refresh();
       if (shouldTrackAutoTitle) scheduleAutoTitleFollowUp();
     } catch (e: unknown) {
-      if (!shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (cascadeDeleted) {
         editingDraftMessageRef.current = null;
         setEditingDraftMessage(null);
@@ -2387,7 +2444,7 @@ export function SessionDetailPage() {
         );
       }
     } finally {
-      if (shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) {
+      if (ownsSessionAsyncResult(requestSessionId)) {
         setComposerSending(false);
       }
     }
@@ -2430,17 +2487,17 @@ export function SessionDetailPage() {
     const requestSessionId = sessionId;
     try {
       const res = await stopMessage(requestSessionId);
-      if (!shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       setSendPhase(res.send_phase || 'idle');
       // 拉一次让 finalize 后的内容立刻可见
       void refresh();
     } catch (e: unknown) {
-      if (!shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setLastError(e instanceof Error ? e.message : String(e));
     } finally {
-      if (shouldApplySessionAsyncResult(sessionIdRef.current, requestSessionId, mountedRef.current)) {
+      if (ownsSessionAsyncResult(requestSessionId)) {
         setStopping(false);
       }
     }
@@ -2452,13 +2509,16 @@ export function SessionDetailPage() {
   const canToggleSessionMode = sessionModeOptions.includes(nextSessionMode);
   async function applySessionMode(next: 'chat' | 'plan'): Promise<void> {
     if (!sessionId) return;
+    const requestSessionId = sessionId;
     try {
-      const res = await updateSessionMode(sessionId, next);
+      const res = await updateSessionMode(requestSessionId, next);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       setDetail((prev) =>
         prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev,
       );
       showSnackbar(t('topbar.mode.ok', '已更新会话模式'), { tone: 'success' });
     } catch (e: unknown) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       const message = e instanceof Error ? e.message : String(e);
@@ -2469,8 +2529,10 @@ export function SessionDetailPage() {
 
   async function openSessionMetadataDialog(): Promise<void> {
     if (!sessionId) return;
+    const requestSessionId = sessionId;
     try {
-      const fresh = await getSession(sessionId);
+      const fresh = await getSession(requestSessionId);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       setDetail((prev) =>
         prev
           ? { ...fresh, session: mergeSessionSummary(prev.session, fresh.session) }
@@ -2478,6 +2540,7 @@ export function SessionDetailPage() {
       );
       setSessionMetadataOpen(true);
     } catch (e: unknown) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       const message = e instanceof Error ? e.message : String(e);
@@ -2669,13 +2732,16 @@ export function SessionDetailPage() {
           subtitle={subtitle}
           onBack={() => location.route('/threads')}
           onRename={async (next) => {
+            const requestSessionId = sessionId;
             try {
-              const res = await renameSession(sessionId, next);
+              const res = await renameSession(requestSessionId, next);
+              if (!ownsSessionAsyncResult(requestSessionId)) return;
               setDetail((prev) =>
                 prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev,
               );
               showSnackbar(t('topbar.rename.ok', '已重命名会话'), { tone: 'success' });
             } catch (e) {
+              if (!ownsSessionAsyncResult(requestSessionId)) return;
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
               const message = e instanceof Error ? e.message : String(e);
@@ -2688,14 +2754,17 @@ export function SessionDetailPage() {
             setPendingSessionDelete(true);
           }}
           onExport={async () => {
+            const requestSessionId = sessionId;
             try {
               showSnackbar(t('topbar.export.started', '正在导出会话数据…'));
               const result = await exportSessionDownload(
-                sessionId,
-                session?.title || sessionId,
+                requestSessionId,
+                session?.title || requestSessionId,
               );
+              if (!ownsSessionAsyncResult(requestSessionId)) return;
               showSnackbar(`${t('topbar.export.ok', '已保存导出文件')}：${result.filename}`, { tone: 'success' });
             } catch (e) {
+              if (!ownsSessionAsyncResult(requestSessionId)) return;
               if (e instanceof DOMException && e.name === 'AbortError') return;
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
