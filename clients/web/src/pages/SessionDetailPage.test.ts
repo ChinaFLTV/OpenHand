@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { SessionMessage } from '../api/sessions';
 import { mergeServerWindow } from './SessionDetailPage';
 
-function message(id: string, role: string, content: string): SessionMessage {
+function message(
+  id: string,
+  role: string,
+  content: string,
+  metadata?: Record<string, unknown>,
+): SessionMessage {
   return {
     id,
     kind: 'text',
@@ -10,6 +15,7 @@ function message(id: string, role: string, content: string): SessionMessage {
     content,
     created_at: '2026-05-06T00:00:00.000Z',
     character_count: content.length,
+    ...(metadata ? { metadata } : {}),
   };
 }
 
@@ -109,5 +115,39 @@ describe('mergeServerWindow', () => {
     );
 
     expect(merged.map((item) => item.id)).toEqual(['user-1']);
+  });
+
+  it('preserves references when metadata is structurally unchanged', () => {
+    const tool = message('tool-1', 'tool', 'done', {
+      status: 'success',
+      attachments: [{ name: 'photo.png', storage_path: '/tmp/upload-cache/a1' }],
+    });
+
+    const merged = mergeServerWindow(
+      [tool],
+      [message('tool-1', 'tool', 'done', {
+        status: 'success',
+        attachments: [{ name: 'photo.png', storage_path: '/tmp/upload-cache/a1' }],
+      })],
+      0,
+      0,
+    );
+
+    expect(merged[0]).toBe(tool);
+  });
+
+  it('replaces messages when nested metadata changes', () => {
+    const tool = message('tool-1', 'tool', 'done', {
+      status: 'running',
+      usage: { output_tokens: 10 },
+    });
+    const updated = message('tool-1', 'tool', 'done', {
+      status: 'success',
+      usage: { output_tokens: 10 },
+    });
+
+    const merged = mergeServerWindow([tool], [updated], 0, 0);
+
+    expect(merged[0]).toBe(updated);
   });
 });

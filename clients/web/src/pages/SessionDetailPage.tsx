@@ -15,7 +15,7 @@
 //   POST  /api/sessions/:id/messages  body {content, mode, model_key, attachments}
 //   POST  /api/sessions/:id/stop     body {}
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
 import { createPortal } from 'preact/compat';
@@ -430,15 +430,64 @@ function collectEditableAttachmentAssets(message: SessionMessage): EditableAttac
   });
 }
 
-function sameMetadata(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
+function sameJsonValue(
+  a: unknown,
+  b: unknown,
+  seen: WeakMap<object, WeakSet<object>> = new WeakMap(),
+): boolean {
+  if (Object.is(a, b)) return true;
   if (a == null || b == null) return false;
-  // metadata 是浅扁平 JSON 对象；用 JSON.stringify 比较即可，键顺序由 JSONparse 保留。
-  try {
-    return JSON.stringify(a) === JSON.stringify(b);
-  } catch {
-    return false;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== 'object' || typeof b !== 'object') return false;
+  const aObj = a as Record<string, unknown>;
+  const bObj = b as Record<string, unknown>;
+  let paired = seen.get(aObj);
+  if (paired?.has(bObj)) return true;
+  if (!paired) {
+    paired = new WeakSet<object>();
+    seen.set(aObj, paired);
   }
+  paired.add(bObj);
+
+  const aIsArray = Array.isArray(a);
+  const bIsArray = Array.isArray(b);
+  if (aIsArray || bIsArray) {
+    if (!aIsArray || !bIsArray) return false;
+    const aArray = a as unknown[];
+    const bArray = b as unknown[];
+    if (aArray.length !== bArray.length) return false;
+    for (let i = 0; i < aArray.length; i += 1) {
+      if (!sameJsonValue(aArray[i], bArray[i], seen)) return false;
+    }
+    return true;
+  }
+
+  const aKeys = Object.keys(aObj);
+  const bKeys = Object.keys(bObj);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(bObj, key)) return false;
+    if (!sameJsonValue(aObj[key], bObj[key], seen)) return false;
+  }
+  return true;
+}
+
+function sameMetadata(a: unknown, b: unknown): boolean {
+  return sameJsonValue(a, b);
+}
+
+function compareMessageCreatedAt(a: SessionMessage, b: SessionMessage): number {
+  const ta = new Date(a.created_at).getTime();
+  const tb = new Date(b.created_at).getTime();
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return 0;
+  return ta - tb;
+}
+
+function messagesAreChronological(items: SessionMessage[]): boolean {
+  for (let i = 1; i < items.length; i += 1) {
+    if (compareMessageCreatedAt(items[i - 1]!, items[i]!) > 0) return false;
+  }
+  return true;
 }
 
 function mergeSessionSummary(
@@ -888,7 +937,7 @@ export function SessionDetailPage() {
     }
   };
 
-  const handleCopyMessage = async (m: SessionMessage) => {
+  const handleCopyMessage = useCallback(async (m: SessionMessage) => {
     const text = m.content ?? '';
     const ok = await copyTextToClipboard(text);
     showSnackbar(ok
@@ -896,13 +945,13 @@ export function SessionDetailPage() {
       : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
         tone: ok ? 'success' : 'error',
       });
-  };
-  const handleDeleteMessage = (m: SessionMessage) => {
+  }, []);
+  const handleDeleteMessage = useCallback((m: SessionMessage) => {
     setPendingDeleteAction({ message: m, cascade: false });
-  };
-  const handleDeleteMessageCascade = (m: SessionMessage) => {
+  }, []);
+  const handleDeleteMessageCascade = useCallback((m: SessionMessage) => {
     setPendingDeleteAction({ message: m, cascade: true });
-  };
+  }, []);
   const confirmDeleteMessage = async () => {
     if (!sessionId || !pendingDeleteAction || deleteBusy) return;
     setDeleteBusy(true);
@@ -1019,9 +1068,12 @@ export function SessionDetailPage() {
     window.setTimeout(() => composerTextareaRef.current?.focus(), 0);
     scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   };
-  const handleAuditMessage = (m: SessionMessage) => {
+  const handleAuditMessage = useCallback((m: SessionMessage) => {
     setAuditMessage(m);
-  };
+  }, []);
+  const handleMessageActiveChange = useCallback((message: SessionMessage, active: boolean) => {
+    setActiveMessageId(active ? message.id : null);
+  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -2446,12 +2498,9 @@ export function SessionDetailPage() {
   // 注意：服务端按 created_at 升序返回（store loadMessages 默认升序），
   // 直接渲染即是「上旧下新」。如果出现倒序问题，这里做一次按 created_at 排序兜底。
   const sortedMessages = useMemo(() => {
-    return [...messages].sort((a, b) => {
-      const ta = new Date(a.created_at).getTime();
-      const tb = new Date(b.created_at).getTime();
-      if (Number.isNaN(ta) || Number.isNaN(tb)) return 0;
-      return ta - tb;
-    });
+    return messagesAreChronological(messages)
+      ? messages
+      : [...messages].sort(compareMessageCreatedAt);
   }, [messages]);
 
   const resumeToLatest = () => {
@@ -2652,9 +2701,7 @@ export function SessionDetailPage() {
                         message={m}
                         active={activeMessageId === m.id}
                         sessionId={sessionId}
-                        onActiveChange={(message, active) => {
-                          setActiveMessageId(active ? message.id : null);
-                        }}
+                        onActiveChange={handleMessageActiveChange}
                         onCopy={handleCopyMessage}
                         onDelete={handleDeleteMessage}
                         onDeleteAfter={handleDeleteMessageCascade}
