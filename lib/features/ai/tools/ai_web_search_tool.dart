@@ -1,17 +1,28 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 
+import '../model/ai_model_config.dart';
+import '../model/ai_web_search_settings.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_chat_service.dart';
 import '../service/ai_protocol_adapter.dart';
 import '../service/ai_tool_runtime_service.dart';
 import '../service/ai_transport_diagnostic_messages.dart';
+import '../service/web_search/web_search_orchestrator.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
+/// WebSearch sub-agent 实现：
+/// 1. 从 [AiBuiltinToolConfig.webSearchSettings] 读取引擎清单 / 并行 / 模型策略
+/// 2. 通过 [WebSearchOrchestrator] 并行/串行调用启用的引擎
+/// 3. 把聚合后的命中喂给 background chat client，让模型按 summary prompt 生成
+///    最终回答；总结模型可跟随会话或固定为指定模型
+///
+/// 当 webSearchSettings 缺失（旧用户）时回落到默认配置（自动启用 bing+ddg 兜底）。
 class AiWebSearchTool extends AiTool {
   AiWebSearchTool({
     required AiChatClient backgroundChatClient,
@@ -22,13 +33,19 @@ class AiWebSearchTool extends AiTool {
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;
 
+  /// 由 [AiSessionController._captureLatestRuntimeContext] 注入：
+  /// 当 webSearchSettings.modelMode == fixed 时,我们需要在所有 provider 列表里
+  /// 找出对应的 AiModelConfig 当作 sub-agent 的 model 句柄;
+  /// 同时也会传给 orchestrator 用于 kimi/grok/gemini provider key 复用。
+  List<AiModelConfig> availableModels = const <AiModelConfig>[];
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.webSearch;
 
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
-    final startedAt = Stopwatch()..start();
+    final stopwatch = Stopwatch()..start();
     final query = '${args['query'] ?? ''}'.trim();
     if (query.length < 2) {
       return AiToolUtils.invalidResult(
@@ -42,292 +59,321 @@ class AiWebSearchTool extends AiTool {
     final blockedDomains = AiToolUtils.normalizeStringList(
       args['blocked_domains'],
     );
+
     final command = 'WebSearch $query';
     final workingDirectory = AiToolUtils.defaultWorkingDirectory();
-    final progressBuffer = StringBuffer()..writeln('query: $query');
+
+    final resolved = context.catalog.find(context.toolCall.name);
+    final settings =
+        resolved?.builtinConfig?.webSearchSettings ??
+        AiWebSearchSettings.defaults();
+
+    final progress = StringBuffer()
+      ..writeln('query: $query')
+      ..writeln('engines_active: ${_engineLabels(settings)}');
     if (allowedDomains.isNotEmpty) {
-      progressBuffer.writeln('allowed_domains: ${allowedDomains.join(', ')}');
+      progress.writeln('allowed_domains: ${allowedDomains.join(', ')}');
     }
     if (blockedDomains.isNotEmpty) {
-      progressBuffer.writeln('blocked_domains: ${blockedDomains.join(', ')}');
+      progress.writeln('blocked_domains: ${blockedDomains.join(', ')}');
     }
+    progress.writeln(
+      settings.parallel
+          ? 'mode: parallel (workers=${settings.parallelWorkers})'
+          : 'mode: serial',
+    );
 
-    void emitProgress({
-      required String stage,
-      required String detail,
-      List<_SearchResult> previewResults = const <_SearchResult>[],
-    }) {
-      if (progressBuffer.isNotEmpty) progressBuffer.writeln();
-      progressBuffer.writeln('stage: $stage');
-      if (previewResults.isNotEmpty) {
-        progressBuffer.writeln(
-          'results_preview_count: ${previewResults.length.clamp(0, 3)}',
-        );
-        for (final result in previewResults.take(3)) {
-          final title = AiToolUtils.truncateContent(
-            result.title.replaceAll(RegExp(r'\s+'), ' ').trim(),
-            120,
-          );
-          final url = AiToolUtils.truncateContent(result.url.trim(), 160);
-          progressBuffer
-            ..writeln('- $title')
-            ..writeln('  $url');
-        }
-      }
-      progressBuffer.write('detail: $detail');
+    void emit(String stage, String detail) {
+      if (progress.isNotEmpty) progress.writeln();
+      progress
+        ..writeln('stage: $stage')
+        ..write('detail: $detail');
       context.onBashUpdate?.call(
         BashToolExecutionUpdate(
           phase: BashToolExecutionPhase.running,
           command: command,
           workingDirectory: workingDirectory,
-          stdout: progressBuffer.toString().trimRight(),
+          stdout: progress.toString().trimRight(),
           stderr: '',
-          durationMs: startedAt.elapsedMilliseconds,
+          durationMs: stopwatch.elapsedMilliseconds,
         ),
       );
     }
 
-    Map<String, Object?> webSearchMetadata({int? resultCount}) {
-      final metadata = <String, Object?>{
+    Map<String, Object?> meta({
+      int? resultCount,
+      List<String>? engines,
+      bool? fallbackUsed,
+    }) {
+      return <String, Object?>{
         'websearch_query': query,
         'websearch_allowed_domains': allowedDomains,
         'websearch_blocked_domains': blockedDomains,
+        if (resultCount != null) 'websearch_result_count': resultCount,
+        if (engines != null) 'websearch_engines': engines,
+        if (fallbackUsed != null) 'websearch_fallback_used': fallbackUsed,
       };
-      if (resultCount != null) metadata['websearch_result_count'] = resultCount;
-      return metadata;
     }
 
-    AiToolExecutionResult timedOutResult(String message) =>
-        AiToolExecutionResult(
-          status: BashToolExecutionStatus.timedOut,
-          command: command,
-          workingDirectory: workingDirectory,
-          stdout: progressBuffer.toString().trimRight(),
-          stderr: message,
-          durationMs: startedAt.elapsedMilliseconds,
-          resultText: 'status: timed_out\nerror: $message',
-          metadata: webSearchMetadata(),
-        );
+    AiToolExecutionResult timedOut(String message) => AiToolExecutionResult(
+      status: BashToolExecutionStatus.timedOut,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: progress.toString().trimRight(),
+      stderr: message,
+      durationMs: stopwatch.elapsedMilliseconds,
+      resultText: 'status: timed_out\nerror: $message',
+      metadata: meta(),
+    );
 
-    AiToolExecutionResult failedResult(String message) => AiToolExecutionResult(
+    AiToolExecutionResult failed(String message) => AiToolExecutionResult(
       status: BashToolExecutionStatus.failed,
       command: command,
       workingDirectory: workingDirectory,
-      stdout: progressBuffer.toString().trimRight(),
+      stdout: progress.toString().trimRight(),
       stderr: message,
-      durationMs: startedAt.elapsedMilliseconds,
+      durationMs: stopwatch.elapsedMilliseconds,
       resultText: 'status: failed\nerror: $message',
-      metadata: webSearchMetadata(),
+      metadata: meta(),
     );
 
-    emitProgress(
-      stage: 'searching',
-      detail: 'Requesting DuckDuckGo HTML search results.',
+    emit('searching', 'Dispatching to enabled search engines.');
+
+    final orchestrator = WebSearchOrchestrator(
+      settings: settings,
+      httpClient: _httpClient,
+      availableModels: availableModels,
     );
-    final uri = Uri.https('duckduckgo.com', '/html/', <String, String>{
-      'q': query,
-    });
-    late final http.Response response;
+
+    final WebSearchOrchestrationResult orchestrationResult;
     try {
-      response = await _httpClient
-          .get(uri)
-          .timeout(const Duration(seconds: 20));
+      orchestrationResult = await orchestrator.run(
+        query: query,
+        allowedDomains: allowedDomains,
+        blockedDomains: blockedDomains,
+        cancelSignal: context.cancelSignal,
+        onProgress: (p) {
+          emit(
+            'engine.${p.kind.name}.${p.stage.name}',
+            p.message ??
+                (p.stage == WebSearchProgressStage.succeeded
+                    ? '${p.hitCount} hits in ${p.elapsedMs}ms'
+                    : ''),
+          );
+        },
+      );
     } on TimeoutException {
-      return timedOutResult(
-        'WebSearch timed out while retrieving search results.',
-      );
+      return timedOut('WebSearch timed out while contacting search engines.');
     } catch (error) {
-      final errorMessage = '$error';
-      if (AiToolUtils.looksLikeTimeoutMessage(errorMessage)) {
-        return timedOutResult(
-          'WebSearch timed out while retrieving search results.',
-        );
-      }
-      return failedResult(_friendlySearchTransportError(error));
+      return failed(_friendlySearchTransportError(error));
     }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final errorDetails = AiToolUtils.truncateContent(
-        AiToolUtils.htmlToText(response.body).trim(),
-        400,
+
+    final merged = orchestrationResult.merged;
+    if (merged.isEmpty) {
+      final allFailed = orchestrationResult.engineRuns.every(
+        (r) => !r.isSuccess,
       );
-      return failedResult(
-        AiTransportDiagnosticMessages.httpStatus(
-          response.statusCode,
-          contextLabel: 'WebSearch',
-          serverMessage: errorDetails,
-        ),
-      );
-    }
-    final html = response.body;
-    if (response.statusCode == 202 || _looksLikeDdgChallenge(html)) {
-      return failedResult(
-        'WebSearch could not retrieve results because DuckDuckGo returned an anti-bot challenge page.',
-      );
-    }
-    final results = _parseDdgResults(html)
-        .where((item) {
-          final host = Uri.tryParse(item.url)?.host.toLowerCase() ?? '';
-          if (allowedDomains.isNotEmpty &&
-              !allowedDomains.any((d) => host == d || host.endsWith('.$d'))) {
-            return false;
-          }
-          if (blockedDomains.any((d) => host == d || host.endsWith('.$d'))) {
-            return false;
-          }
-          return true;
-        })
-        .take(8)
-        .toList(growable: false);
-    if (results.isEmpty) {
-      emitProgress(
-        stage: 'completed',
-        detail: 'No search results matched the current filters.',
-      );
+      final detail = allFailed
+          ? 'All enabled engines returned no results or errored. '
+                'See `engines` metadata for per-engine diagnostics.'
+          : 'No search results matched the current filters.';
+      emit('completed', detail);
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.success,
         command: command,
         workingDirectory: workingDirectory,
-        stdout: progressBuffer.toString().trimRight(),
+        stdout: progress.toString().trimRight(),
         stderr: '',
-        durationMs: startedAt.elapsedMilliseconds,
-        resultText: 'No search results found.',
-        metadata: webSearchMetadata(resultCount: 0),
+        durationMs: stopwatch.elapsedMilliseconds,
+        resultText: detail,
+        metadata: meta(
+          resultCount: 0,
+          engines: orchestrationResult.engineRuns
+              .map((r) => '${r.kind.name}:${r.error ?? "ok"}')
+              .toList(growable: false),
+          fallbackUsed: orchestrationResult.fallbackUsed,
+        ),
       );
     }
-    emitProgress(
-      stage: 'summarizing',
-      detail: 'Summarizing the retrieved search results.',
-      previewResults: results,
+
+    emit('summarizing', 'Asking summary model to compose the final answer.');
+
+    final summaryModel = _resolveSummaryModel(
+      settings: settings,
+      sessionModel: context.model,
     );
-    final rawResults = results
-        .map((item) => '- ${item.title}\n  ${item.url}\n  ${item.snippet}')
-        .join('\n');
+
+    final prompt = await _composeSummaryPrompt(settings, query, merged);
+
     late final AiChatCompletion completion;
     try {
-      final maybeCompletion =
+      final maybe =
           await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
             _backgroundChatClient.sendMessage(
-              model: context.model,
+              model: summaryModel,
               messages: <AiChatTurn>[
-                const AiChatTurn(
-                  role: AiChatRole.system,
-                  content:
-                      'Summarize the search results faithfully. Do not invent results that were not provided.',
-                ),
-                AiChatTurn(
-                  role: AiChatRole.user,
-                  content: 'Query: $query\n\nResults:\n$rawResults',
-                ),
+                AiChatTurn(role: AiChatRole.system, content: prompt.system),
+                AiChatTurn(role: AiChatRole.user, content: prompt.user),
               ],
             ),
             cancelSignal: context.cancelSignal,
           );
-      if (maybeCompletion == null) {
+      if (maybe == null) {
         return AiToolUtils.cancelledResult(
           command: command,
-          durationMs: startedAt.elapsedMilliseconds,
-          metadata: webSearchMetadata(resultCount: results.length),
+          durationMs: stopwatch.elapsedMilliseconds,
+          metadata: meta(
+            resultCount: merged.length,
+            fallbackUsed: orchestrationResult.fallbackUsed,
+          ),
         );
       }
-      completion = maybeCompletion;
+      completion = maybe;
     } on TimeoutException {
-      return timedOutResult(
-        'WebSearch timed out while summarizing the retrieved results.',
-      );
+      return timedOut('WebSearch timed out while summarizing the results.');
     } on AiChatException catch (error) {
-      final errorMessage = error.message.trim();
-      return AiToolUtils.looksLikeTimeoutMessage(errorMessage)
-          ? timedOutResult(
-              'WebSearch timed out while summarizing the retrieved results.',
-            )
-          : failedResult(
-              'WebSearch failed while summarizing the retrieved results: $errorMessage',
-            );
+      final msg = error.message.trim();
+      return AiToolUtils.looksLikeTimeoutMessage(msg)
+          ? timedOut('WebSearch timed out while summarizing the results.')
+          : failed('WebSearch failed while summarizing the results: $msg');
     } catch (error) {
-      final errorMessage = '$error';
-      return AiToolUtils.looksLikeTimeoutMessage(errorMessage)
-          ? timedOutResult(
-              'WebSearch timed out while summarizing the retrieved results.',
-            )
-          : failedResult(
-              'WebSearch failed while summarizing the retrieved results: $errorMessage',
-            );
+      final msg = '$error';
+      return AiToolUtils.looksLikeTimeoutMessage(msg)
+          ? timedOut('WebSearch timed out while summarizing the results.')
+          : failed(_friendlySearchTransportError(error));
     }
-    final output = completion.reply.trim().isEmpty
-        ? rawResults
-        : completion.reply.trim();
-    emitProgress(
-      stage: 'completed',
-      detail: 'Search summary is ready.',
-      previewResults: results,
-    );
+
+    final summary = completion.reply.trim();
+    final body = summary.isEmpty ? prompt.rawHits : summary;
+
+    emit('completed', 'Search summary is ready.');
+
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: command,
       workingDirectory: workingDirectory,
-      stdout: progressBuffer.toString().trimRight(),
+      stdout: progress.toString().trimRight(),
       stderr: '',
-      durationMs: startedAt.elapsedMilliseconds,
-      resultText: output,
-      metadata: webSearchMetadata(resultCount: results.length),
+      durationMs: stopwatch.elapsedMilliseconds,
+      resultText: body,
+      metadata: meta(
+        resultCount: merged.length,
+        engines: orchestrationResult.engineRuns
+            .map(
+              (r) =>
+                  '${r.kind.name}:${r.isSuccess ? "ok(${r.hits.length})" : (r.error ?? "fail")}',
+            )
+            .toList(growable: false),
+        fallbackUsed: orchestrationResult.fallbackUsed,
+      ),
     );
   }
 
-  List<_SearchResult> _parseDdgResults(String html) {
-    final matches = RegExp(
-      r'<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)</a>[\s\S]*?<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>',
-      caseSensitive: false,
-    ).allMatches(html);
-    final results = <_SearchResult>[];
-    for (final match in matches) {
-      final url = _resolveUrl(match.group(1) ?? '');
-      final title = AiToolUtils.htmlToText(match.group(2) ?? '');
-      final snippet = AiToolUtils.htmlToText(match.group(3) ?? '');
-      if (url.isEmpty || title.isEmpty) continue;
-      results.add(_SearchResult(title: title, url: url, snippet: snippet));
+  String _engineLabels(AiWebSearchSettings settings) {
+    final active = settings.engines.where((e) => e.enabled).toList();
+    if (active.isEmpty) return '<fallback: bing,duckduckgo>';
+    return active.map((e) => e.kind.name).join(',');
+  }
+
+  AiModelConfig _resolveSummaryModel({
+    required AiWebSearchSettings settings,
+    required AiModelConfig sessionModel,
+  }) {
+    if (settings.modelMode != AiWebSearchModelMode.fixed) {
+      return sessionModel;
     }
-    return results;
+    final cfgId = settings.fixedModelProviderConfigId;
+    final modelId = settings.fixedModelId;
+    if (cfgId == null || modelId == null) return sessionModel;
+    for (final m in availableModels) {
+      if (m.id == cfgId) {
+        return m.copyWith(modelId: modelId);
+      }
+    }
+    return sessionModel;
   }
 
-  String _resolveUrl(String rawUrl) {
-    final normalizedUrl = AiToolUtils.htmlToText(rawUrl).trim();
-    if (normalizedUrl.isEmpty) return '';
-    final resolvedUrl = normalizedUrl.startsWith('//')
-        ? 'https:$normalizedUrl'
-        : normalizedUrl;
-    final parsedUri = Uri.tryParse(resolvedUrl);
-    if (parsedUri == null) return resolvedUrl;
-    final isDdgRedirect =
-        (parsedUri.host == 'duckduckgo.com' ||
-            parsedUri.host == 'www.duckduckgo.com') &&
-        parsedUri.path.startsWith('/l/');
-    if (!isDdgRedirect) return parsedUri.toString();
-    final redirectTarget = parsedUri.queryParameters['uddg']?.trim() ?? '';
-    if (redirectTarget.isEmpty) return parsedUri.toString();
-    final normalizedRedirect = redirectTarget.startsWith('//')
-        ? 'https:$redirectTarget'
-        : redirectTarget;
-    return Uri.tryParse(normalizedRedirect)?.toString() ?? normalizedRedirect;
+  Future<_SummaryPrompts> _composeSummaryPrompt(
+    AiWebSearchSettings settings,
+    String query,
+    List<WebSearchAggregatedHit> hits,
+  ) async {
+    String template;
+    try {
+      template = await rootBundle.loadString(
+        'assets/prompts/common/web_search_summary.md',
+      );
+    } catch (_) {
+      template = _fallbackSummaryTemplate;
+    }
+
+    final detail = settings.summaryDetail.name;
+    final style = settings.summaryStyle.name;
+    final minChars = settings.summaryMinChars;
+    final maxChars = settings.summaryMaxChars;
+
+    final system = template
+        .replaceAll('<<QUERY>>', query)
+        .replaceAll('<<DETAIL>>', detail)
+        .replaceAll('<<STYLE>>', style)
+        .replaceAll('<<MIN_CHARS>>', minChars.toString())
+        .replaceAll('<<MAX_CHARS>>', maxChars.toString());
+
+    final hitBuf = StringBuffer();
+    for (var i = 0; i < hits.length; i++) {
+      final h = hits[i];
+      hitBuf
+        ..writeln('[${i + 1}] ${h.title}')
+        ..writeln('    url: ${h.url}')
+        ..writeln(
+          '    engines: ${h.contributingEngines.map((e) => e.name).join(", ")}'
+          ' (weight=${h.totalWeight})',
+        );
+      if (h.publishedAt != null) {
+        hitBuf.writeln('    published: ${h.publishedAt!.toIso8601String()}');
+      }
+      hitBuf
+        ..writeln('    snippet:')
+        ..writeln('    ${h.snippet.replaceAll("\n", "\n    ")}')
+        ..writeln();
+    }
+
+    final user = StringBuffer()
+      ..writeln('Query:')
+      ..writeln(query)
+      ..writeln()
+      ..writeln('Detail level: $detail')
+      ..writeln('Style: $style')
+      ..writeln('Char bounds: [$minChars, $maxChars]')
+      ..writeln()
+      ..writeln('Hits:')
+      ..write(hitBuf);
+
+    return _SummaryPrompts(
+      system: system,
+      user: user.toString(),
+      rawHits: hitBuf.toString(),
+    );
   }
 
-  bool _looksLikeDdgChallenge(String html) {
-    final normalized = html.toLowerCase();
-    return normalized.contains('challenge-form') ||
-        normalized.contains('anomaly.js') ||
-        normalized.contains('bot challenge') ||
-        normalized.contains('unusual traffic');
-  }
+  static const String _fallbackSummaryTemplate = '''
+You are a faithful summarization sub-agent. Read the hits and answer the
+query. Cite each fact as [N]. Never invent results. Match the query
+language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
+[<<MIN_CHARS>>, <<MAX_CHARS>>].
+''';
 }
 
-class _SearchResult {
-  const _SearchResult({
-    required this.title,
-    required this.url,
-    required this.snippet,
+class _SummaryPrompts {
+  const _SummaryPrompts({
+    required this.system,
+    required this.user,
+    required this.rawHits,
   });
-  final String title;
-  final String url;
-  final String snippet;
+
+  final String system;
+  final String user;
+  final String rawHits;
 }
 
 /// 把底层 dart:io / http 异常转换成「现象 / 原因 / 建议」三段式中英双语

@@ -3288,6 +3288,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final mcpController = context.read<McpController>();
     final instructionsController = context.read<InstructionsController>();
     final appInfo = context.read<AppInfo>();
+    final sessionController = context.read<AiSessionController>();
+    sessionController.updateAvailableModelsForWebSearch(
+      settingsController.aiModels,
+    );
     final effectiveWorkingDirectory =
         workingDirectory ?? OpenHandPaths.applicationDirectoryPath();
     final gitSnapshotFuture = _gitSnapshotService.loadSnapshot(
