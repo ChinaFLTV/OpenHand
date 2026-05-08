@@ -9,7 +9,6 @@
 //
 // 两个弹窗都使用 portal 全屏遮罩 + 中央卡片 + ESC 关闭 + 点击遮罩关闭。
 
-import { createPortal } from 'preact/compat';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel, ApiMetaTemplate } from '../api/meta';
@@ -18,6 +17,7 @@ import { ModelPickerDialog, pushRecentModel } from './ModelPickerDialog';
 import { Appear } from './Appear';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { OverlayPortal } from './OverlayPortal';
 
 interface DialogShellProps {
   title: string;
@@ -104,7 +104,7 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
       </section>
     </div>
   );
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function templateIconGlyph(template: ApiMetaTemplate): string {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { OverlayPortal } from './OverlayPortal';
 
 export type SnackbarTone = 'default' | 'success' | 'warning' | 'error';
 
@@ -89,6 +90,7 @@ export function SnackbarHost() {
   if (items.length === 0) return null;
 
   return (
+    <OverlayPortal>
     <div
       class="fixed left-1/2 bottom-5 z-[3200] flex w-[min(92vw,520px)] -translate-x-1/2 flex-col items-center gap-2 pointer-events-none"
       aria-live="polite"
@@ -109,5 +111,6 @@ export function SnackbarHost() {
         </div>
       ))}
     </div>
+    </OverlayPortal>
   );
 }

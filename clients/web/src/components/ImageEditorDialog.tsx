@@ -1,7 +1,7 @@
-import { createPortal } from 'preact/compat';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
+import { OverlayPortal } from './OverlayPortal';
 
 export interface ImageEditorInput {
   name: string;
@@ -432,7 +432,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     </div>
   );
 
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function EditorSlider({ label, value, min, max, step, onChange }: {

@@ -22,12 +22,14 @@ export interface TopBarProps {
   compact?: boolean;
   /// 标题左侧右侧扩展槽（可选，例如详情页放"返回会话列表"）
   leadingSlot?: ComponentChildren;
+  /// 标题右侧操作槽（可选，例如线程列表页放浏览器全屏按钮）。
+  actionSlot?: ComponentChildren;
   /// 历史属性，向后兼容；当前已无次级导航按钮，传任何值都不会改变渲染。
   hideNav?: boolean;
 }
 
 export function TopBar(props: TopBarProps) {
-  const { compact = false, hideNav = false, title, subtitle, leadingSlot } = props;
+  const { compact = false, hideNav = false, title, subtitle, leadingSlot, actionSlot } = props;
   const auth = useAuth();
   const location = useAnimatedLocation();
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -91,6 +93,7 @@ export function TopBar(props: TopBarProps) {
       </div>
 
       <div class="flex items-center gap-2 flex-wrap justify-end">
+        {actionSlot}
         {!hideNav && auth.authRequired ? (
           <button
             type="button"

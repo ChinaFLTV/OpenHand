@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/widgets/animated_dialog.dart';
 import '../../ai/service/mcp_loaded_tools_tracker.dart';
 import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
@@ -24,7 +25,7 @@ Future<void> showToolSearchLoadedDialog(
       const <AiToolSearchLoadHistoryEntry>[],
   Future<void> Function(List<String> names)? onReplayBatch,
 }) {
-  return showDialog<void>(
+  return showAnimatedDialog<void>(
     context: context,
     builder: (_) => ToolSearchLoadedDialog(
       initialNames: names,
@@ -440,7 +441,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       return;
     }
     if (!mounted) return;
-    await showDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => _ToolSearchHistoryImportPreviewDialog(entries: entries),
     );

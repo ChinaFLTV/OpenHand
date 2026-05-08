@@ -5,11 +5,11 @@
 // - Enter 直接选中第一个匹配
 // - 弹窗 420×520, 无 footer, M3 风格
 
-import { createPortal } from 'preact/compat';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { OverlayPortal } from './OverlayPortal';
 
 const RECENT_KEY = 'openhand.web.recent_models';
 const RECENT_MAX = 6;
@@ -346,7 +346,7 @@ export function ModelPickerDialog({
     </div>
   );
 
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function Section({

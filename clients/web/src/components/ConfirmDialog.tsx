@@ -1,6 +1,6 @@
-import { createPortal } from 'preact/compat';
 import { useEffect } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { OverlayPortal } from './OverlayPortal';
 
 function ConfirmIcon({ danger }: { danger: boolean }) {
   const common = {
@@ -126,5 +126,5 @@ export function ConfirmDialog({
     </div>
   );
 
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }

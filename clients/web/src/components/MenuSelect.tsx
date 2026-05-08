@@ -8,10 +8,10 @@
 //
 // 设计参考：M3 Expressive Menu / Filled Outlined Select Spec
 
-import { createPortal } from 'preact/compat';
 import type { JSX } from 'preact';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 import { useRafScheduler } from '../hooks/useRafScheduler';
+import { OverlayPortal } from './OverlayPortal';
 
 export interface MenuOption<T extends string = string> {
   value: T;
@@ -331,7 +331,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
         </span>
         <Caret open={open && !closing} />
       </button>
-      {menuNode && (typeof document === 'undefined' ? menuNode : createPortal(menuNode, document.body))}
+      {menuNode && <OverlayPortal>{menuNode}</OverlayPortal>}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/silent_log.dart';
 import '../../app/support/url_validation.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
@@ -41,6 +42,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   bool? _pendingPageActiveState;
   bool _showOnlyAttention = false;
   bool _isBatchReconnecting = false;
+  bool _probeStatusExpanded = true;
 
   @override
   void initState() {
@@ -247,6 +249,12 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             ],
             if (mcpSnapshot.servers.isNotEmpty) ...[
               _McpProbeStatusBar(
+                expanded: _probeStatusExpanded,
+                onToggleExpanded: () {
+                  setState(() {
+                    _probeStatusExpanded = !_probeStatusExpanded;
+                  });
+                },
                 maxConcurrency: mcpSnapshot.autoProbeConcurrency,
                 activeSlots: mcpSnapshot.activeAutoProbeSlots,
                 queuedTasks: mcpSnapshot.queuedAutoProbeTasks,
@@ -526,21 +534,46 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           ),
         );
       } else {
+        final sample = _formatServerNameSample(context, names);
         _showSnackBar(
           context,
           _localizedText(
             context,
-            zh: '已重连 ${names.length} 个失败服务',
-            en: 'Reconnected ${names.length} failing services',
+            zh: '已重连 ${names.length} 个失败服务$sample',
+            en: 'Reconnected ${names.length} failing services$sample',
           ),
           kind: _SnackKind.success,
         );
       }
+    } catch (error, stack) {
+      silentLog('mcp', '_runBatchReconnect', error, stack);
+      if (!context.mounted) {
+        return;
+      }
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh: '批量重连失败：$error',
+          en: 'Batch reconnect failed: $error',
+        ),
+        kind: _SnackKind.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _isBatchReconnecting = false);
       }
     }
+  }
+
+  String _formatServerNameSample(BuildContext context, List<String> names) {
+    if (names.isEmpty) {
+      return '';
+    }
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final shown = names.take(3).join(isZh ? '、' : ', ');
+    final suffix = names.length > 3 ? (isZh ? ' 等' : ', etc.') : '';
+    return isZh ? '：$shown$suffix' : ': $shown$suffix';
   }
 
   /// 弹出半屏 ModalBottomSheet 展示该服务的最近 30 条探测历史，用 Selector 监听
@@ -1490,114 +1523,131 @@ class _McpServerCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Tooltip(
-                      message: _localizedText(
-                        context,
-                        zh: '健康检测',
-                        en: 'Health Check',
-                      ),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton.filledTonal(
-                          onPressed: healthStatus.isChecking
-                              ? null
-                              : onCheckHealth,
-                          icon: healthStatus.isChecking
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                  ),
-                                )
-                              : Icon(_healthStatusActionIcon(healthStatus)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Tooltip(
-                      message: _localizedText(
-                        context,
-                        zh: '刷新 Tool 检测',
-                        en: 'Refresh Tool Scan',
-                      ),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton.filledTonal(
-                          onPressed: toolCatalog.isLoading
-                              ? null
-                              : onRefreshTools,
-                          icon: toolCatalog.isLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                  ),
-                                )
-                              : const Icon(Icons.refresh_rounded),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Tooltip(
-                      message: _localizedText(
-                        context,
-                        zh: '一键重连：重新拉取 Tools 并立即健康复测',
-                        en: 'Reconnect: re-scan Tools and re-run health check',
-                      ),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton.filledTonal(
-                          onPressed:
-                              healthStatus.isChecking || toolCatalog.isLoading
-                              ? null
-                              : onReconnect,
-                          icon: const Icon(Icons.cyclone_rounded),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: AnimatedPopupMenuButton<_McpCardAction>(
-                        onSelected: onActionSelected,
-                        itemBuilder: (context) {
-                          return [
-                            PopupMenuItem<_McpCardAction>(
-                              value: _McpCardAction.viewDetails,
-                              child: Text(
-                                _localizedText(
-                                  context,
-                                  zh: '服务详情',
-                                  en: 'Server details',
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            Tooltip(
+                              message: _localizedText(
+                                context,
+                                zh: '健康检测',
+                                en: 'Health Check',
+                              ),
+                              child: SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: IconButton.filledTonal(
+                                  onPressed: healthStatus.isChecking
+                                      ? null
+                                      : onCheckHealth,
+                                  icon: healthStatus.isChecking
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                          ),
+                                        )
+                                      : Icon(
+                                          _healthStatusActionIcon(healthStatus),
+                                        ),
                                 ),
                               ),
                             ),
-                            PopupMenuItem<_McpCardAction>(
-                              value: _McpCardAction.viewHistory,
-                              child: Text(
-                                _localizedText(
-                                  context,
-                                  zh: '查看探测历史',
-                                  en: 'View probe history',
+                            Tooltip(
+                              message: _localizedText(
+                                context,
+                                zh: '刷新 Tool 检测',
+                                en: 'Refresh Tool Scan',
+                              ),
+                              child: SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: IconButton.filledTonal(
+                                  onPressed: toolCatalog.isLoading
+                                      ? null
+                                      : onRefreshTools,
+                                  icon: toolCatalog.isLoading
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.refresh_rounded),
                                 ),
                               ),
                             ),
-                            PopupMenuItem<_McpCardAction>(
-                              value: _McpCardAction.edit,
-                              child: Text(l10n.commonEdit),
+                            Tooltip(
+                              message: _localizedText(
+                                context,
+                                zh: '一键重连：重新拉取 Tools 并立即健康复测',
+                                en: 'Reconnect: re-scan Tools and re-run health check',
+                              ),
+                              child: SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: IconButton.filledTonal(
+                                  onPressed:
+                                      healthStatus.isChecking ||
+                                          toolCatalog.isLoading
+                                      ? null
+                                      : onReconnect,
+                                  icon: const Icon(Icons.cyclone_rounded),
+                                ),
+                              ),
                             ),
-                            PopupMenuItem<_McpCardAction>(
-                              value: _McpCardAction.delete,
-                              child: Text(l10n.commonDelete),
+                            SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: AnimatedPopupMenuButton<_McpCardAction>(
+                                tooltip: _localizedText(
+                                  context,
+                                  zh: '更多操作',
+                                  en: 'More actions',
+                                ),
+                                onSelected: onActionSelected,
+                                itemBuilder: (context) {
+                                  return [
+                                    PopupMenuItem<_McpCardAction>(
+                                      value: _McpCardAction.viewDetails,
+                                      child: Text(
+                                        _localizedText(
+                                          context,
+                                          zh: '服务详情',
+                                          en: 'Server details',
+                                        ),
+                                      ),
+                                    ),
+                                    PopupMenuItem<_McpCardAction>(
+                                      value: _McpCardAction.viewHistory,
+                                      child: Text(
+                                        _localizedText(
+                                          context,
+                                          zh: '查看探测历史',
+                                          en: 'View probe history',
+                                        ),
+                                      ),
+                                    ),
+                                    PopupMenuItem<_McpCardAction>(
+                                      value: _McpCardAction.edit,
+                                      child: Text(l10n.commonEdit),
+                                    ),
+                                    PopupMenuItem<_McpCardAction>(
+                                      value: _McpCardAction.delete,
+                                      child: Text(l10n.commonDelete),
+                                    ),
+                                  ];
+                                },
+                              ),
                             ),
-                          ];
-                        },
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -3039,6 +3089,8 @@ class _McpHealthProbeTile extends StatelessWidget {
 
 class _McpProbeStatusBar extends StatelessWidget {
   const _McpProbeStatusBar({
+    required this.expanded,
+    required this.onToggleExpanded,
     required this.maxConcurrency,
     required this.activeSlots,
     required this.queuedTasks,
@@ -3049,6 +3101,8 @@ class _McpProbeStatusBar extends StatelessWidget {
     required this.nextScheduledProbeAt,
   });
 
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
   final int maxConcurrency;
   final int activeSlots;
   final int queuedTasks;
@@ -3062,6 +3116,7 @@ class _McpProbeStatusBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final hasWork =
         activeSlots > 0 ||
         queuedTasks > 0 ||
@@ -3069,7 +3124,7 @@ class _McpProbeStatusBar extends StatelessWidget {
         healthCheckInProgress;
     final progress = maxConcurrency <= 0
         ? 0.0
-        : (activeSlots / maxConcurrency).clamp(0.0, 1.0);
+        : (activeSlots / maxConcurrency).clamp(0.0, 1.0).toDouble();
     final phaseLabel = _phaseLabel(context);
     final title = hasWork
         ? _localizedText(context, zh: 'MCP 探测池运行中', en: 'MCP Probe Pool Active')
@@ -3085,8 +3140,20 @@ class _McpProbeStatusBar extends StatelessWidget {
             zh: '$enabledServerCount 个已启用服务等待下一轮自动检测。',
             en: '$enabledServerCount enabled services are waiting for the next automatic probe.',
           );
+    final summary = _localizedText(
+      context,
+      zh: '槽位 $activeSlots/$maxConcurrency · 排队 $queuedTasks',
+      en: 'Slots $activeSlots/$maxConcurrency · Queued $queuedTasks',
+    );
+    final toggleLabel = expanded
+        ? _localizedText(context, zh: '折叠探测池状态', en: 'Collapse probe status')
+        : _localizedText(context, zh: '展开探测池状态', en: 'Expand probe status');
 
-    return Container(
+    return AnimatedContainer(
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -3125,7 +3192,7 @@ class _McpProbeStatusBar extends StatelessWidget {
                     Text(title, style: theme.textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text(
-                      subtitle,
+                      summary,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                         height: 1.35,
@@ -3134,73 +3201,120 @@ class _McpProbeStatusBar extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: toggleLabel,
+                child: IconButton.filledTonal(
+                  onPressed: onToggleExpanded,
+                  visualDensity: VisualDensity.compact,
+                  icon: AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 260),
+                    curve: Curves.easeOutBack,
+                    child: const Icon(Icons.expand_more_rounded),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              minHeight: 6,
-              value: progress,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
+          _McpAnimatedProgressBar(
+            value: progress,
+            backgroundColor: colorScheme.surfaceContainerHighest,
+            reduceMotion: reduceMotion,
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _McpStatusChip(
-                icon: Icons.commit_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '槽位 $activeSlots/$maxConcurrency',
-                  en: 'Slots $activeSlots/$maxConcurrency',
-                ),
-              ),
-              _McpStatusChip(
-                icon: Icons.queue_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '排队 $queuedTasks',
-                  en: 'Queued $queuedTasks',
-                ),
-              ),
-              _McpStatusChip(
-                icon: Icons.build_circle_outlined,
-                label: _localizedText(
-                  context,
-                  zh: 'Tools ${toolRefreshInProgress ? '运行中' : '空闲'}',
-                  en: 'Tools ${toolRefreshInProgress ? 'running' : 'idle'}',
-                ),
-              ),
-              _McpStatusChip(
-                icon: Icons.health_and_safety_outlined,
-                label: _localizedText(
-                  context,
-                  zh: '健康 ${healthCheckInProgress ? '运行中' : '空闲'}',
-                  en: 'Health ${healthCheckInProgress ? 'running' : 'idle'}',
-                ),
-              ),
-              if (lastBatchProbeAt != null)
-                _McpStatusChip(
-                  icon: Icons.history_rounded,
-                  label: _localizedText(
-                    context,
-                    zh: '上次 ${_formatRelativePast(context, lastBatchProbeAt!)}',
-                    en: 'Last ${_formatRelativePast(context, lastBatchProbeAt!)}',
+          AnimatedSize(
+            duration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 420),
+            curve: Curves.easeOutBack,
+            alignment: Alignment.topCenter,
+            clipBehavior: Clip.antiAlias,
+            child: expanded
+                ? Column(
+                    key: const ValueKey<String>('mcp-probe-expanded'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 12),
+                      AnimatedSwitcher(
+                        duration: reduceMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        child: Text(
+                          subtitle,
+                          key: ValueKey<String>(subtitle),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _McpStatusChip(
+                            icon: Icons.commit_rounded,
+                            label: _localizedText(
+                              context,
+                              zh: '槽位 $activeSlots/$maxConcurrency',
+                              en: 'Slots $activeSlots/$maxConcurrency',
+                            ),
+                          ),
+                          _McpStatusChip(
+                            icon: Icons.queue_rounded,
+                            label: _localizedText(
+                              context,
+                              zh: '排队 $queuedTasks',
+                              en: 'Queued $queuedTasks',
+                            ),
+                          ),
+                          _McpStatusChip(
+                            icon: Icons.build_circle_outlined,
+                            label: _localizedText(
+                              context,
+                              zh: 'Tools ${toolRefreshInProgress ? '运行中' : '空闲'}',
+                              en: 'Tools ${toolRefreshInProgress ? 'running' : 'idle'}',
+                            ),
+                          ),
+                          _McpStatusChip(
+                            icon: Icons.health_and_safety_outlined,
+                            label: _localizedText(
+                              context,
+                              zh: '健康 ${healthCheckInProgress ? '运行中' : '空闲'}',
+                              en: 'Health ${healthCheckInProgress ? 'running' : 'idle'}',
+                            ),
+                          ),
+                          if (lastBatchProbeAt != null)
+                            _McpStatusChip(
+                              icon: Icons.history_rounded,
+                              label: _localizedText(
+                                context,
+                                zh: '上次 ${_formatRelativePast(context, lastBatchProbeAt!)}',
+                                en: 'Last ${_formatRelativePast(context, lastBatchProbeAt!)}',
+                              ),
+                            ),
+                          if (nextScheduledProbeAt != null && !hasWork)
+                            _McpStatusChip(
+                              icon: Icons.schedule_rounded,
+                              label: _localizedText(
+                                context,
+                                zh: '下次 ${_formatRelativeFuture(context, nextScheduledProbeAt!)}',
+                                en: 'Next ${_formatRelativeFuture(context, nextScheduledProbeAt!)}',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(
+                    key: ValueKey<String>('mcp-probe-collapsed'),
                   ),
-                ),
-              if (nextScheduledProbeAt != null && !hasWork)
-                _McpStatusChip(
-                  icon: Icons.schedule_rounded,
-                  label: _localizedText(
-                    context,
-                    zh: '下次 ${_formatRelativeFuture(context, nextScheduledProbeAt!)}',
-                    en: 'Next ${_formatRelativeFuture(context, nextScheduledProbeAt!)}',
-                  ),
-                ),
-            ],
           ),
         ],
       ),
@@ -3225,7 +3339,40 @@ class _McpProbeStatusBar extends StatelessWidget {
   }
 }
 
-/// 失败热点筛选栏：左侧 FilterChip 切换「仅显示需要处理」，右侧 FilledButton 触发批量重连。
+class _McpAnimatedProgressBar extends StatelessWidget {
+  const _McpAnimatedProgressBar({
+    required this.value,
+    required this.backgroundColor,
+    required this.reduceMotion,
+  });
+
+  final double value;
+  final Color backgroundColor;
+  final bool reduceMotion;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: value),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 520),
+      curve: Curves.easeOutBack,
+      builder: (context, animatedProgress, _) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            minHeight: 6,
+            value: animatedProgress.clamp(0.0, 1.0).toDouble(),
+            backgroundColor: backgroundColor,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 失败热点筛选栏：两枚等尺寸动作按钮，窄屏自动换成一行一个。
 class _McpServerFilterBar extends StatelessWidget {
   const _McpServerFilterBar({
     required this.showOnlyAttention,
@@ -3245,53 +3392,153 @@ class _McpServerFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        FilterChip(
-          selected: showOnlyAttention,
-          onSelected: (_) => onToggleFilter(),
-          avatar: Icon(
-            Icons.priority_high_rounded,
-            size: 18,
-            color: showOnlyAttention
-                ? colorScheme.onSecondaryContainer
-                : (attentionCount > 0
-                      ? colorScheme.error
-                      : colorScheme.onSurfaceVariant),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 456.0;
+        final buttonWidth = availableWidth < 472 ? availableWidth : 226.0;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: buttonWidth,
+              height: 44,
+              child: _McpFilterActionButton(
+                selected: showOnlyAttention,
+                icon: Icons.priority_high_rounded,
+                iconColor: showOnlyAttention
+                    ? colorScheme.onSecondaryContainer
+                    : (attentionCount > 0
+                          ? colorScheme.error
+                          : colorScheme.onSurfaceVariant),
+                label: _localizedText(
+                  context,
+                  zh: attentionCount > 0 ? '只看需要处理（$attentionCount）' : '只看需要处理',
+                  en: attentionCount > 0
+                      ? 'Show only attention ($attentionCount)'
+                      : 'Show only attention',
+                ),
+                onPressed: onToggleFilter,
+              ),
+            ),
+            SizedBox(
+              width: buttonWidth,
+              height: 44,
+              child: _McpFilterActionButton(
+                icon: Icons.cyclone_rounded,
+                busy: isBatchReconnecting,
+                label: _localizedText(
+                  context,
+                  zh: isBatchReconnecting ? '正在批量重连…' : '批量重连失败的服务',
+                  en: isBatchReconnecting
+                      ? 'Reconnecting…'
+                      : 'Reconnect failing servers',
+                ),
+                onPressed: isBatchReconnecting ? null : onBatchReconnect,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _McpFilterActionButton extends StatelessWidget {
+  const _McpFilterActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.selected = false,
+    this.busy = false,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool selected;
+  final bool busy;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final interactive = onPressed != null && !busy;
+    final background = selected
+        ? colorScheme.secondaryContainer
+        : colorScheme.surfaceContainerLow;
+    final foreground = selected
+        ? colorScheme.onSecondaryContainer
+        : colorScheme.onSurface;
+    final borderColor = selected
+        ? colorScheme.secondary.withValues(alpha: 0.42)
+        : colorScheme.outlineVariant;
+
+    return Tooltip(
+      message: label,
+      child: AnimatedOpacity(
+        opacity: onPressed == null && !busy ? 0.56 : 1,
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
+        child: AnimatedContainer(
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: borderColor),
           ),
-          label: Text(
-            _localizedText(
-              context,
-              zh: attentionCount > 0 ? '只看需要处理（$attentionCount）' : '只看需要处理',
-              en: attentionCount > 0
-                  ? 'Show only attention ($attentionCount)'
-                  : 'Show only attention',
+          clipBehavior: Clip.antiAlias,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: interactive ? onPressed : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (busy)
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(foreground),
+                        ),
+                      )
+                    else
+                      Icon(icon, size: 18, color: iconColor ?? foreground),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: foreground,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-        FilledButton.tonalIcon(
-          onPressed: isBatchReconnecting ? null : onBatchReconnect,
-          icon: isBatchReconnecting
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.cyclone_rounded),
-          label: Text(
-            _localizedText(
-              context,
-              zh: isBatchReconnecting ? '正在批量重连…' : '批量重连失败的服务',
-              en: isBatchReconnecting
-                  ? 'Reconnecting…'
-                  : 'Reconnect failing servers',
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

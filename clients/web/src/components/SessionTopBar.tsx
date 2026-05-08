@@ -5,9 +5,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { createPortal } from 'preact/compat';
 import { t } from '../i18n';
 import { useRafScheduler } from '../hooks/useRafScheduler';
+import { OverlayPortal } from './OverlayPortal';
 import { showSnackbar } from './Snackbar';
 
 const TOPBAR_MENU_EXIT_MS = 180;
@@ -565,7 +565,7 @@ function Menu({
       {children}
     </div>
   );
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function MenuItem({

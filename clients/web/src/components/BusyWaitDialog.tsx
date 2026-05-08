@@ -1,7 +1,7 @@
-import { createPortal } from 'preact/compat';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
+import { OverlayPortal } from './OverlayPortal';
 
 export interface BusyWaitDialogProps {
   open: boolean;
@@ -90,5 +90,5 @@ export function BusyWaitDialog({
       </div>
     </div>
   );
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }

@@ -18,7 +18,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
-import { createPortal } from 'preact/compat';
 import {
   deleteMessage,
   deleteMessageCascade,
@@ -61,6 +60,7 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { useEventCallback } from '../hooks/useEventCallback';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
+import { OverlayPortal } from '../components/OverlayPortal';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { buildSessionAssetUrl } from '../utils/session_asset';
 import { PopMenu } from '../components/PopMenu';
@@ -3860,7 +3860,7 @@ function MessageAuditDialog({
       </div>
     </div>
   );
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function SessionTokenStatsDialog({
@@ -3956,7 +3956,7 @@ function SessionTokenStatsDialog({
       </div>
     </div>
   );
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function TokenStatsSection({ title, children }: { title: string; children: ComponentChildren }) {
@@ -4562,7 +4562,7 @@ function SessionMetadataDialog({
       </div>
     </div>
   );
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function SessionAuditDialog({
@@ -4671,5 +4671,5 @@ function SessionAuditDialog({
       </div>
     </div>
   );
-  return typeof document === 'undefined' ? node : createPortal(node, document.body);
+  return <OverlayPortal>{node}</OverlayPortal>;
 }

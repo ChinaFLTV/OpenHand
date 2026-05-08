@@ -4,13 +4,13 @@
 // 路径不直接发给 <img src=>: 走 /api/sessions/<id>/asset?path=...&token=...
 // 由 service 端基于 session 消息 metadata 白名单放行。
 
-import { createPortal } from 'preact/compat';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
+import { OverlayPortal } from './OverlayPortal';
 import { showSnackbar } from './Snackbar';
 
 type MediaKind = 'image' | 'video' | 'audio' | 'file';
@@ -323,7 +323,8 @@ function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
   };
 
   if (typeof document === 'undefined') return null;
-  return createPortal(
+  return (
+    <OverlayPortal>
     <div
       class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
       style={{
@@ -415,8 +416,8 @@ function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
           ) : null}
         </div>
       </section>
-    </div>,
-    document.body,
+    </div>
+    </OverlayPortal>
   );
 }
 

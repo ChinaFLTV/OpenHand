@@ -399,7 +399,9 @@ html, body, #root {
 }
 
 .oh-session-detail-page:fullscreen,
-.oh-session-detail-page:-webkit-full-screen {
+.oh-session-detail-page:-webkit-full-screen,
+.oh-sessions-page:fullscreen,
+.oh-sessions-page:-webkit-full-screen {
   width: 100vw;
   height: 100vh;
   padding: 18px 24px;
@@ -1532,7 +1534,9 @@ button.oh-composer-pill:not(:disabled):hover {
     gap: 10px;
   }
   .oh-session-detail-page:fullscreen,
-  .oh-session-detail-page:-webkit-full-screen {
+  .oh-session-detail-page:-webkit-full-screen,
+  .oh-sessions-page:fullscreen,
+  .oh-sessions-page:-webkit-full-screen {
     height: 100dvh;
     padding:
       calc(10px + env(safe-area-inset-top, 0px))

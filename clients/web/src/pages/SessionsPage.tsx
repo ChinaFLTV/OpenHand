@@ -54,6 +54,26 @@ function modeLabel(mode: string): string {
   return mode;
 }
 
+function BrowserFullscreenIcon({ active }: { active: boolean }) {
+  const common = {
+    width: 17,
+    height: 17,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.9,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  return active ? (
+    <svg {...common}><path d="M10 4v6H4" /><path d="m10 10-6-6" /><path d="M14 4v6h6" /><path d="m14 10 6-6" /><path d="M10 20v-6H4" /><path d="m10 14-6 6" /><path d="M14 20v-6h6" /><path d="m14 14 6 6" /></svg>
+  ) : (
+    <svg {...common}><path d="M8 4H4v4" /><path d="M4 4l6 6" /><path d="M16 4h4v4" /><path d="m20 4-6 6" /><path d="M8 20H4v-4" /><path d="m4 20 6-6" /><path d="M16 20h4v-4" /><path d="m20 20-6-6" /></svg>
+  );
+}
+
 interface RowState {
   draftTitle: string | null;
   busy: boolean;
@@ -75,6 +95,7 @@ export function SessionsPage() {
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
   const [deleteTarget, setDeleteTarget] = useState<SessionSummary | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [fullscreenActive, setFullscreenActive] = useState(false);
 
   // 创建流程：先 picker（选模板），再 config（填参数）。
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -82,6 +103,7 @@ export function SessionsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const pageRootRef = useRef<HTMLElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const templates: ApiMetaTemplate[] = auth.meta?.templates ?? [];
@@ -89,6 +111,33 @@ export function SessionsPage() {
   const planEnabled =
     Boolean(auth.meta?.service?.plan_mode_enabled) && allowedModes.includes('plan');
   const sessionMgmtEnabled = auth.meta?.service?.session_management_enabled !== false;
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const syncFullscreenState = () => setFullscreenActive(Boolean(document.fullscreenElement));
+    syncFullscreenState();
+    document.addEventListener('fullscreenchange', syncFullscreenState);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreenState);
+  }, []);
+
+  async function toggleBrowserFullscreen(): Promise<void> {
+    if (typeof document === 'undefined') return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      const target = pageRootRef.current ?? document.documentElement;
+      if (!target.requestFullscreen) {
+        showSnackbar(t('topbar.fullscreen.unsupported', '当前浏览器不支持全屏'), { tone: 'error' });
+        return;
+      }
+      await target.requestFullscreen();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      showSnackbar(`${t('topbar.fullscreen.failed', '切换全屏失败')}：${message}`, { tone: 'error' });
+    }
+  }
 
   async function refresh(targetPage: number = page): Promise<void> {
     abortRef.current?.abort();
@@ -289,7 +338,8 @@ export function SessionsPage() {
 
   return (
     <main
-      class="h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col"
+      ref={pageRootRef}
+      class="oh-sessions-page h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col"
       style={{ background: 'var(--m3-surface)' }}
     >
       <div class="mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col">
@@ -312,6 +362,29 @@ export function SessionsPage() {
                   : '')
               : t('sessions.subtitle.loading', '加载中…')
           }
+          actionSlot={(
+            <button
+              type="button"
+              onClick={() => void toggleBrowserFullscreen()}
+              class="oh-tap-press oh-icon-button oh-session-fullscreen-button flex-none"
+              style={{
+                color: fullscreenActive ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)',
+                border: fullscreenActive
+                  ? '1px solid color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant))'
+                  : '1px solid var(--m3-outline-variant)',
+                background: fullscreenActive ? 'var(--m3-primary-container)' : 'var(--m3-surface)',
+              }}
+              title={fullscreenActive
+                ? t('topbar.fullscreen.exit', '退出全屏')
+                : t('topbar.fullscreen.enter', '浏览器全屏')}
+              aria-label={fullscreenActive
+                ? t('topbar.fullscreen.exit', '退出全屏')
+                : t('topbar.fullscreen.enter', '浏览器全屏')}
+              aria-pressed={fullscreenActive}
+            >
+              <BrowserFullscreenIcon active={fullscreenActive} />
+            </button>
+          )}
         />
 
         <div class="mb-3 flex items-center justify-between gap-2 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
