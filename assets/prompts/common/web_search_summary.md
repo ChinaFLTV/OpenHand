@@ -13,7 +13,9 @@ provided list.
   - `title`, `url`, `snippet`
   - `engines` — which engines contributed (treat as soft confidence signal)
   - `weight` — aggregate weight across engines (higher ⇒ higher priority)
-  - `publishedAt` — optional ISO date
+   - `source`, `provider_score`, `publishedAt` — optional source metadata
+   - `content_excerpt` — optional richer page/search-provider text; use it ahead
+      of the snippet when it is relevant to the query
 
 ## Output rules
 

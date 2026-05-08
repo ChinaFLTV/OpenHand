@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_model_config.dart';
@@ -57,6 +58,9 @@ class WebSearchAggregatedHit {
     required this.contributingEngines,
     required this.totalWeight,
     this.publishedAt,
+    this.source,
+    this.score,
+    this.rawContent,
   });
 
   final String title;
@@ -65,6 +69,9 @@ class WebSearchAggregatedHit {
   final List<AiWebSearchEngineKind> contributingEngines;
   final int totalWeight;
   final DateTime? publishedAt;
+  final String? source;
+  final double? score;
+  final String? rawContent;
 }
 
 class WebSearchOrchestrator {
@@ -258,6 +265,19 @@ class WebSearchOrchestrator {
 
   // ── 内部：合并 & 排序 ─────────────────────────────────────────────────────
 
+  @visibleForTesting
+  List<WebSearchAggregatedHit> mergeAndRankForTesting({
+    required List<WebSearchEngineResult> results,
+    required Map<AiWebSearchEngineKind, AiWebSearchEngineConfig> configs,
+    required int maxResults,
+  }) {
+    return _mergeAndRank(
+      results: results,
+      configs: configs,
+      maxResults: maxResults,
+    );
+  }
+
   List<WebSearchAggregatedHit> _mergeAndRank({
     required List<WebSearchEngineResult> results,
     required Map<AiWebSearchEngineKind, AiWebSearchEngineConfig> configs,
@@ -267,7 +287,8 @@ class WebSearchOrchestrator {
     for (final result in results) {
       if (!result.isSuccess) continue;
       final weight = configs[result.kind]?.weight ?? 50;
-      for (final hit in result.hits) {
+      for (var index = 0; index < result.hits.length; index += 1) {
+        final hit = result.hits[index];
         final key = _normalizeUrl(hit.url);
         if (key.isEmpty) continue;
         final bucket = byUrl.putIfAbsent(
@@ -277,21 +298,58 @@ class WebSearchOrchestrator {
             url: hit.url,
             snippet: hit.snippet,
             publishedAt: hit.publishedAt,
+            source: hit.source,
+            score: hit.score,
+            rawContent: hit.rawContent,
           ),
         );
-        bucket.totalWeight += weight;
-        bucket.engines.add(result.kind);
+        bucket.recordEngineContribution(
+          result.kind,
+          weight: weight,
+          score: _engineContributionScore(
+            weight: weight,
+            hitIndex: index,
+            hitScore: hit.score,
+          ),
+        );
         if (bucket.snippet.length < hit.snippet.length) {
           bucket.snippet = hit.snippet;
         }
         if (bucket.title.length < hit.title.length) {
           bucket.title = hit.title;
         }
-        bucket.publishedAt ??= hit.publishedAt;
+        if (hit.publishedAt != null &&
+            (bucket.publishedAt == null ||
+                hit.publishedAt!.isAfter(bucket.publishedAt!))) {
+          bucket.publishedAt = hit.publishedAt;
+        }
+        if ((bucket.source ?? '').isEmpty && (hit.source ?? '').isNotEmpty) {
+          bucket.source = hit.source;
+        }
+        if (hit.score != null &&
+            (bucket.score == null || hit.score! > bucket.score!)) {
+          bucket.score = hit.score;
+        }
+        if (_textQualityScore(hit.rawContent) >
+            _textQualityScore(bucket.rawContent)) {
+          bucket.rawContent = hit.rawContent;
+        }
       }
     }
     final sorted = byUrl.values.toList()
-      ..sort((a, b) => b.totalWeight.compareTo(a.totalWeight));
+      ..sort((a, b) {
+        final byScore = b.rankingScore.compareTo(a.rankingScore);
+        if (byScore != 0) return byScore;
+        final byWeight = b.totalWeight.compareTo(a.totalWeight);
+        if (byWeight != 0) return byWeight;
+        final aDate = a.publishedAt;
+        final bDate = b.publishedAt;
+        if (aDate != null && bDate != null) {
+          final byDate = bDate.compareTo(aDate);
+          if (byDate != 0) return byDate;
+        }
+        return a.url.compareTo(b.url);
+      });
     return sorted
         .take(maxResults)
         .map(
@@ -302,19 +360,80 @@ class WebSearchOrchestrator {
             contributingEngines: b.engines.toList(growable: false),
             totalWeight: b.totalWeight,
             publishedAt: b.publishedAt,
+            source: b.source,
+            score: b.score,
+            rawContent: b.rawContent,
           ),
         )
         .toList(growable: false);
   }
 
+  int _textQualityScore(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 0;
+    return text.length.clamp(0, 4000);
+  }
+
+  double _engineContributionScore({
+    required int weight,
+    required int hitIndex,
+    required double? hitScore,
+  }) {
+    final rankScore = weight / (hitIndex + 1);
+    final normalizedHitScore = hitScore == null
+        ? 0.0
+        : hitScore.clamp(0.0, 1.0).toDouble();
+    return rankScore + normalizedHitScore * weight * 0.25;
+  }
+
   String _normalizeUrl(String raw) {
-    final uri = Uri.tryParse(raw);
-    if (uri == null) return raw.trim().toLowerCase();
-    final host = uri.host.toLowerCase();
+    final trimmed = raw.trim();
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || uri.host.trim().isEmpty) return trimmed.toLowerCase();
+    final host = _normalizeHost(uri.host);
     final path = uri.path.endsWith('/') && uri.path.length > 1
         ? uri.path.substring(0, uri.path.length - 1)
         : uri.path;
-    return '$host$path';
+    final query = _normalizeQuery(uri.queryParametersAll);
+    return query.isEmpty ? '$host$path' : '$host$path?$query';
+  }
+
+  String _normalizeHost(String host) {
+    final lower = host.toLowerCase();
+    return lower.startsWith('www.') ? lower.substring(4) : lower;
+  }
+
+  String _normalizeQuery(Map<String, List<String>> queryParameters) {
+    if (queryParameters.isEmpty) return '';
+    final pairs = <String>[];
+    final keys =
+        queryParameters.keys
+            .where((key) => !_isTrackingQueryKey(key))
+            .toList(growable: false)
+          ..sort();
+    for (final key in keys) {
+      final values = [...?queryParameters[key]]..sort();
+      for (final value in values) {
+        pairs.add(
+          '${Uri.encodeQueryComponent(key)}=${Uri.encodeQueryComponent(value)}',
+        );
+      }
+    }
+    return pairs.join('&');
+  }
+
+  bool _isTrackingQueryKey(String key) {
+    final lower = key.toLowerCase();
+    return lower.startsWith('utm_') ||
+        lower == 'fbclid' ||
+        lower == 'gclid' ||
+        lower == 'dclid' ||
+        lower == 'mc_cid' ||
+        lower == 'mc_eid' ||
+        lower == 'igshid' ||
+        lower == 'ref' ||
+        lower == 'ref_src' ||
+        lower == 'spm';
   }
 
   // ── 内部：兜底配置 ────────────────────────────────────────────────────────
@@ -358,12 +477,40 @@ class _MergeBucket {
     required this.url,
     required this.snippet,
     this.publishedAt,
+    this.source,
+    this.score,
+    this.rawContent,
   });
 
   String title;
   final String url;
   String snippet;
   DateTime? publishedAt;
+  String? source;
+  double? score;
+  String? rawContent;
   int totalWeight = 0;
+  double rankingScore = 0;
   final Set<AiWebSearchEngineKind> engines = <AiWebSearchEngineKind>{};
+  final Map<AiWebSearchEngineKind, double> _engineScores =
+      <AiWebSearchEngineKind, double>{};
+
+  void recordEngineContribution(
+    AiWebSearchEngineKind kind, {
+    required int weight,
+    required double score,
+  }) {
+    final previous = _engineScores[kind];
+    if (previous == null) {
+      engines.add(kind);
+      totalWeight += weight;
+      _engineScores[kind] = score;
+      rankingScore += score;
+      return;
+    }
+    if (score > previous) {
+      _engineScores[kind] = score;
+      rankingScore += score - previous;
+    }
+  }
 }

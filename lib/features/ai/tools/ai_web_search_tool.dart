@@ -493,6 +493,7 @@ class AiWebSearchTool extends AiTool {
         .replaceAll('<<MAX_CHARS>>', maxChars.toString());
 
     final hitBuf = StringBuffer();
+    var remainingRawContentChars = 6000;
     for (var i = 0; i < hits.length; i++) {
       final h = hits[i];
       hitBuf
@@ -505,10 +506,28 @@ class AiWebSearchTool extends AiTool {
       if (h.publishedAt != null) {
         hitBuf.writeln('    published: ${h.publishedAt!.toIso8601String()}');
       }
+      if ((h.source ?? '').trim().isNotEmpty) {
+        hitBuf.writeln('    source: ${h.source!.trim()}');
+      }
+      if (h.score != null) {
+        hitBuf.writeln('    provider_score: ${h.score!.toStringAsFixed(3)}');
+      }
       hitBuf
         ..writeln('    snippet:')
         ..writeln('    ${h.snippet.replaceAll("\n", "\n    ")}')
         ..writeln();
+      final rawContent = (h.rawContent ?? '').trim();
+      if (rawContent.isNotEmpty && remainingRawContentChars > 0) {
+        final excerpt = _capForPrompt(
+          rawContent,
+          remainingRawContentChars < 1200 ? remainingRawContentChars : 1200,
+        );
+        remainingRawContentChars -= excerpt.length;
+        hitBuf
+          ..writeln('    content_excerpt:')
+          ..writeln('    ${excerpt.replaceAll("\n", "\n    ")}')
+          ..writeln();
+      }
     }
 
     final user = StringBuffer()
@@ -535,6 +554,11 @@ query. Cite each fact as [N]. Never invent results. Match the query
 language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
 [<<MIN_CHARS>>, <<MAX_CHARS>>].
 ''';
+
+  static String _capForPrompt(String input, int maxChars) {
+    if (maxChars <= 0 || input.length <= maxChars) return input;
+    return '${input.substring(0, maxChars)}…';
+  }
 
   // 进程内已经发过告警的 (engine, reason)，避免连续刷屏。重启进程后清空。
   final Set<String> _alertedKeys = <String>{};

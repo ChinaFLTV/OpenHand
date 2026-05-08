@@ -23,8 +23,7 @@ import 'ai_tool_utils.dart';
 /// WebFetch 工具实现：
 /// 1. 从 [AiBuiltinToolConfig.webFetchSettings] 读取启用的引擎清单 / 缓存策略 /
 ///    并行参数；缺省回落到默认配置（自动启用 bing+ddg = 直连兜底）。
-/// 2. 通过 [WebFetchOrchestrator] 并行/串行扇出抓取，按 (weight × content_len)
-///    挑选胜出引擎的内容。
+/// 2. 通过 [WebFetchOrchestrator] 并行/串行扇出抓取，按质量评分挑选胜出引擎的内容。
 /// 3. 把胜出内容喂给 background chat client，让模型按 user prompt 聚焦回答。
 class AiWebFetchTool extends AiTool {
   AiWebFetchTool({
@@ -322,12 +321,20 @@ class AiWebFetchTool extends AiTool {
               role: AiChatRole.system,
               content:
                   'Answer the prompt using only the fetched page content. '
-                  'If the page content is insufficient, say so briefly.',
+                  'Prefer concrete facts and quote short supporting phrases '
+                  'when useful. If the fetched content is insufficient, say '
+                  'what is missing instead of guessing.',
             ),
             AiChatTurn(
               role: AiChatRole.user,
               content:
-                  'URL: $rawUrl\nPrompt: $prompt\n\nFetched content:\n${winner.content}',
+                  'Requested URL: $rawUrl\n'
+                  'Final URL: ${winner.url}\n'
+                  'Winning engine: ${orchestrationResult.winningKind?.name ?? "unknown"}\n'
+                  'HTTP status: ${winner.statusCode ?? "unknown"}\n'
+                  'Content type: ${winner.contentType ?? "unknown"}\n'
+                  'Prompt: $prompt\n\n'
+                  'Fetched content:\n${winner.content}',
             ),
           ],
         ),

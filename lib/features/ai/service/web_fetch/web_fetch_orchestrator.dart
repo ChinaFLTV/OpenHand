@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_model_config.dart';
@@ -166,6 +168,7 @@ class WebFetchOrchestrator {
         : await _runSerial(engines, request, onProgress);
 
     final winner = _pickWinner(
+      requestedUrl: url,
       results: results,
       configs: {for (final c in effectiveConfigs) c.kind: c},
     );
@@ -254,25 +257,101 @@ class WebFetchOrchestrator {
     return Future.wait(futures);
   }
 
-  /// 选胜：成功的结果中按 (weight × 内容长度) 选最大值。
+  /// 选胜：成功结果中综合权重、URL 命中、抓取类型、HTTP 状态与长度信号。
+  @visibleForTesting
+  WebFetchEngineResult? pickWinnerForTesting({
+    required String requestedUrl,
+    required List<WebFetchEngineResult> results,
+    required Map<AiWebFetchEngineKind, AiWebFetchEngineConfig> configs,
+  }) {
+    return _pickWinner(
+      requestedUrl: requestedUrl,
+      results: results,
+      configs: configs,
+    );
+  }
+
   WebFetchEngineResult? _pickWinner({
+    required String requestedUrl,
     required List<WebFetchEngineResult> results,
     required Map<AiWebFetchEngineKind, AiWebFetchEngineConfig> configs,
   }) {
     WebFetchEngineResult? best;
-    int bestScore = -1;
+    double bestScore = double.negativeInfinity;
     for (final r in results) {
       if (!r.isSuccess) continue;
       final cfg = configs[r.kind];
-      final w = cfg?.weight ?? 50;
-      final len = r.contents.first.content.length;
-      final score = w * len;
+      final score = _winnerScore(
+        requestedUrl: requestedUrl,
+        result: r,
+        weight: cfg?.weight ?? 50,
+      );
       if (score > bestScore) {
         bestScore = score;
         best = r;
       }
     }
     return best;
+  }
+
+  double _winnerScore({
+    required String requestedUrl,
+    required WebFetchEngineResult result,
+    required int weight,
+  }) {
+    final content = result.contents.first;
+    final lengthScore = math.log(content.content.length + 1) / math.ln10 * 50;
+    final urlScore = _urlMatchScore(requestedUrl, content.url);
+    final nativeFetchScore = _isNativeUrlFetchKind(result.kind) ? 100.0 : 0.0;
+    final statusScore = content.statusCode == null
+        ? 0.0
+        : (content.statusCode! >= 200 && content.statusCode! < 300
+              ? 50.0
+              : 0.0);
+    final providerScore = (content.score ?? 0).clamp(0.0, 1.0).toDouble() * 50;
+    return weight * 10 +
+        lengthScore +
+        urlScore +
+        nativeFetchScore +
+        statusScore +
+        providerScore;
+  }
+
+  double _urlMatchScore(String requestedUrl, String resultUrl) {
+    final requested = _normalizedUriForScore(requestedUrl);
+    final result = _normalizedUriForScore(resultUrl);
+    if (requested == null || result == null) return 0;
+    if (requested.host == result.host && requested.path == result.path) {
+      return requested.query == result.query ? 300.0 : 240.0;
+    }
+    if (requested.host == result.host) return 80.0;
+    return -180.0;
+  }
+
+  Uri? _normalizedUriForScore(String raw) {
+    final uri = Uri.tryParse(raw.trim());
+    if (uri == null || uri.host.trim().isEmpty) return null;
+    final host = uri.host.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');
+    final path = uri.path.endsWith('/') && uri.path.length > 1
+        ? uri.path.substring(0, uri.path.length - 1)
+        : uri.path;
+    return Uri(host: host, path: path, query: uri.query);
+  }
+
+  bool _isNativeUrlFetchKind(AiWebFetchEngineKind kind) {
+    return switch (kind) {
+      AiWebFetchEngineKind.firecrawl ||
+      AiWebFetchEngineKind.tavily ||
+      AiWebFetchEngineKind.exa ||
+      AiWebFetchEngineKind.duckduckgo ||
+      AiWebFetchEngineKind.bing => true,
+      AiWebFetchEngineKind.kimi ||
+      AiWebFetchEngineKind.baidu ||
+      AiWebFetchEngineKind.linkup ||
+      AiWebFetchEngineKind.bocha ||
+      AiWebFetchEngineKind.grok ||
+      AiWebFetchEngineKind.gemini => false,
+    };
   }
 
   List<AiWebFetchEngineConfig> _fallbackConfigs() {
