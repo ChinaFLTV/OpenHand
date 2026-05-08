@@ -229,6 +229,8 @@ class AiWebSearchSettings {
     this.summaryStyle = AiWebSearchSummaryStyle.neutral,
     this.summaryMinChars = 0,
     this.summaryMaxChars = defaultSummaryMaxChars,
+    this.cacheTtlSeconds = defaultCacheTtlSeconds,
+    this.cacheMaxBytes = defaultCacheMaxBytes,
   });
 
   static const int defaultResultCount = 8;
@@ -242,6 +244,16 @@ class AiWebSearchSettings {
   static const int defaultSummaryMaxChars = 1500;
   static const int maxSummaryMaxChars = 8000;
 
+  /// 关键词 → summary 元数据的本地缓存默认 TTL（秒）。0 表示停用缓存。
+  static const int defaultCacheTtlSeconds = 300;
+  static const int minCacheTtlSeconds = 0;
+  static const int maxCacheTtlSeconds = 60 * 60 * 24 * 7;
+
+  /// 缓存容量上限（字节）。默认 50 MB；0 表示无上限（不推荐）。
+  static const int defaultCacheMaxBytes = 50 * 1024 * 1024;
+  static const int minCacheMaxBytes = 0;
+  static const int maxCacheMaxBytes = 2 * 1024 * 1024 * 1024;
+
   final List<AiWebSearchEngineConfig> engines;
   final int resultCount;
   final AiWebSearchModelMode modelMode;
@@ -253,6 +265,14 @@ class AiWebSearchSettings {
   final AiWebSearchSummaryStyle summaryStyle;
   final int summaryMinChars;
   final int summaryMaxChars;
+
+  /// 缓存命中有效期（秒）。0 = 关闭。
+  final int cacheTtlSeconds;
+
+  /// 缓存目录磁盘占用上限（字节，含 metadata + summary 内容）。
+  final int cacheMaxBytes;
+
+  bool get cacheEnabled => cacheTtlSeconds > 0;
 
   /// 默认配置：所有引擎按 [AiWebSearchEngineKind] 顺序枚举出来，全部禁用。
   /// 当用户全部禁用时，运行期会自动启用 `bing` / `duckduckgo` 兜底。
@@ -282,6 +302,8 @@ class AiWebSearchSettings {
     AiWebSearchSummaryStyle? summaryStyle,
     int? summaryMinChars,
     int? summaryMaxChars,
+    int? cacheTtlSeconds,
+    int? cacheMaxBytes,
     bool clearFixedModel = false,
   }) {
     return AiWebSearchSettings(
@@ -300,6 +322,8 @@ class AiWebSearchSettings {
       summaryStyle: summaryStyle ?? this.summaryStyle,
       summaryMinChars: summaryMinChars ?? this.summaryMinChars,
       summaryMaxChars: summaryMaxChars ?? this.summaryMaxChars,
+      cacheTtlSeconds: cacheTtlSeconds ?? this.cacheTtlSeconds,
+      cacheMaxBytes: cacheMaxBytes ?? this.cacheMaxBytes,
     );
   }
 
@@ -317,6 +341,8 @@ class AiWebSearchSettings {
       'summary_style': summaryStyle.name,
       'summary_min_chars': summaryMinChars,
       'summary_max_chars': summaryMaxChars,
+      'cache_ttl_seconds': cacheTtlSeconds,
+      'cache_max_bytes': cacheMaxBytes,
     };
   }
 
@@ -418,6 +444,16 @@ class AiWebSearchSettings {
         (json['summary_max_chars'] as num?)?.toInt() ?? defaultSummaryMaxChars,
         0,
         maxSummaryMaxChars,
+      ),
+      cacheTtlSeconds: clamp(
+        (json['cache_ttl_seconds'] as num?)?.toInt() ?? defaultCacheTtlSeconds,
+        minCacheTtlSeconds,
+        maxCacheTtlSeconds,
+      ),
+      cacheMaxBytes: clamp(
+        (json['cache_max_bytes'] as num?)?.toInt() ?? defaultCacheMaxBytes,
+        minCacheMaxBytes,
+        maxCacheMaxBytes,
       ),
     );
   }

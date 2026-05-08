@@ -24,6 +24,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/data/database_service.dart';
 import '../../ai/ai_session_controller.dart';
 import '../../ai/service/ai_file_mutation_ledger.dart';
+import '../../ai/service/web_search/web_search_cache_store.dart';
 import '../../crons/crons_controller.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../memory/memory_controller.dart';
@@ -203,8 +204,12 @@ class DataCleanupService {
   }
 
   /// 清空应用缓存目录。
-  Future<void> cleanAppCache() {
-    return compute(
+  Future<void> cleanAppCache() async {
+    // WebSearch 持久化缓存内部维护写入串行队列；先在主 isolate 走它的
+    // clearAll() 让 index.json 失效，再 compute() 把残余目录一并清空，
+    // 避免删除时序与新写入互踩。
+    await WebSearchCacheStore.instance.clearAll();
+    await compute(
       _isolateDeleteDirectoryContents,
       OpenHandPaths.defaultCacheDirectoryPath(),
     );

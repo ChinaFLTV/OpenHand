@@ -27,6 +27,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   late TextEditingController _resultCountController;
   late TextEditingController _summaryMinController;
   late TextEditingController _summaryMaxController;
+  late TextEditingController _cacheTtlController;
+  late TextEditingController _cacheMaxBytesController;
 
   @override
   void initState() {
@@ -39,6 +41,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     );
     _summaryMaxController = TextEditingController(
       text: '${widget.value.summaryMaxChars}',
+    );
+    _cacheTtlController = TextEditingController(
+      text: '${widget.value.cacheTtlSeconds}',
+    );
+    _cacheMaxBytesController = TextEditingController(
+      text: _bytesToMb(widget.value.cacheMaxBytes),
     );
   }
 
@@ -57,6 +65,15 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         _summaryMaxController.text != '${widget.value.summaryMaxChars}') {
       _summaryMaxController.text = '${widget.value.summaryMaxChars}';
     }
+    if (old.value.cacheTtlSeconds != widget.value.cacheTtlSeconds &&
+        _cacheTtlController.text != '${widget.value.cacheTtlSeconds}') {
+      _cacheTtlController.text = '${widget.value.cacheTtlSeconds}';
+    }
+    if (old.value.cacheMaxBytes != widget.value.cacheMaxBytes &&
+        _cacheMaxBytesController.text !=
+            _bytesToMb(widget.value.cacheMaxBytes)) {
+      _cacheMaxBytesController.text = _bytesToMb(widget.value.cacheMaxBytes);
+    }
   }
 
   @override
@@ -64,7 +81,17 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     _resultCountController.dispose();
     _summaryMinController.dispose();
     _summaryMaxController.dispose();
+    _cacheTtlController.dispose();
+    _cacheMaxBytesController.dispose();
     super.dispose();
+  }
+
+  static String _bytesToMb(int bytes) {
+    if (bytes <= 0) return '0';
+    final mb = bytes / (1024 * 1024);
+    return mb >= 100
+        ? mb.toStringAsFixed(0)
+        : (mb >= 10 ? mb.toStringAsFixed(1) : mb.toStringAsFixed(2));
   }
 
   void _emit(AiWebSearchSettings next) => widget.onChanged(next);
@@ -416,6 +443,95 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                       summaryMaxChars: parsed.clamp(
                         0,
                         AiWebSearchSettings.maxSummaryMaxChars,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // ── 本地持久化缓存 ──
+        Text(
+          _localizedText(context, zh: '本地缓存', en: 'Local Cache'),
+          style: theme.textTheme.titleSmall,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _localizedText(
+            context,
+            zh: '相同关键词与设置的搜索 summary 会写入本地磁盘 (~/.openhand/cache/web_search/)，'
+                '后续在 TTL 内复用直接返回，零网络消耗。容量上限按 LRU 淘汰。',
+            en: 'Hits with the same query/settings persist to disk '
+                '(~/.openhand/cache/web_search/) and are reused within TTL. '
+                'Old entries evict on cap.',
+          ),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _cacheTtlController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  labelText: _localizedText(
+                    context,
+                    zh: '缓存 TTL (秒)',
+                    en: 'Cache TTL (seconds)',
+                  ),
+                  helperText: _localizedText(
+                    context,
+                    zh: '默认 300 秒 = 5 分钟; 设为 0 关闭缓存',
+                    en: 'Default 300s (5 min); 0 disables caching',
+                  ),
+                ),
+                onChanged: (s) {
+                  final parsed = int.tryParse(s.trim()) ?? 0;
+                  _emit(
+                    v.copyWith(
+                      cacheTtlSeconds: parsed.clamp(
+                        AiWebSearchSettings.minCacheTtlSeconds,
+                        AiWebSearchSettings.maxCacheTtlSeconds,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _cacheMaxBytesController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: _localizedText(
+                    context,
+                    zh: '缓存上限 (MB)',
+                    en: 'Cache Cap (MB)',
+                  ),
+                  helperText: _localizedText(
+                    context,
+                    zh: '默认 50 MB; 0 = 不限 (不推荐)',
+                    en: 'Default 50 MB; 0 = unlimited (not recommended)',
+                  ),
+                ),
+                onChanged: (s) {
+                  final parsed = double.tryParse(s.trim()) ?? 0.0;
+                  final bytes = (parsed * 1024 * 1024).round();
+                  _emit(
+                    v.copyWith(
+                      cacheMaxBytes: bytes.clamp(
+                        AiWebSearchSettings.minCacheMaxBytes,
+                        AiWebSearchSettings.maxCacheMaxBytes,
                       ),
                     ),
                   );

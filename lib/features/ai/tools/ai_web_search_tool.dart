@@ -11,6 +11,7 @@ import '../service/ai_chat_service.dart';
 import '../service/ai_protocol_adapter.dart';
 import '../service/ai_tool_runtime_service.dart';
 import '../service/ai_transport_diagnostic_messages.dart';
+import '../service/web_search/web_search_cache_store.dart';
 import '../service/web_search/web_search_orchestrator.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
@@ -139,6 +140,43 @@ class AiWebSearchTool extends AiTool {
 
     emit('searching', 'Dispatching to enabled search engines.');
 
+    // 优先查本地缓存：同一 query+设置在 TTL 内直接复用 summary。
+    final cacheKey = WebSearchCacheStore.computeKey(
+      query: query,
+      settings: settings,
+      allowedDomains: allowedDomains,
+      blockedDomains: blockedDomains,
+      localeTag: Platform.localeName,
+    );
+    final cached = await WebSearchCacheStore.instance.lookup(
+      key: cacheKey,
+      settings: settings,
+    );
+    if (cached != null) {
+      emit(
+        'cache.hit',
+        'Reused cached summary (${cached.summary.length} chars, '
+            'expires ${cached.expiresAt.toIso8601String()}).',
+      );
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.success,
+        command: command,
+        workingDirectory: workingDirectory,
+        stdout: progress.toString().trimRight(),
+        stderr: '',
+        durationMs: stopwatch.elapsedMilliseconds,
+        resultText: cached.summary,
+        metadata: <String, Object?>{
+          ...meta(),
+          'websearch_cache': 'hit',
+          'websearch_cache_key': cacheKey,
+          'websearch_cache_cached_at': cached.cachedAt.toIso8601String(),
+          'websearch_cache_expires_at': cached.expiresAt.toIso8601String(),
+          ...cached.metadata,
+        },
+      );
+    }
+
     final orchestrator = WebSearchOrchestrator(
       settings: settings,
       httpClient: _httpClient,
@@ -248,6 +286,36 @@ class AiWebSearchTool extends AiTool {
 
     emit('completed', 'Search summary is ready.');
 
+    final engineSummaries = orchestrationResult.engineRuns
+        .map(
+          (r) =>
+              '${r.kind.name}:${r.isSuccess ? "ok(${r.hits.length})" : (r.error ?? "fail")}',
+        )
+        .toList(growable: false);
+
+    // 写入本地持久化缓存（异步等待但失败时静默吞掉以不阻塞主流程）。
+    if (settings.cacheEnabled && body.trim().isNotEmpty) {
+      await WebSearchCacheStore.instance.store(
+        key: cacheKey,
+        settings: settings,
+        query: query,
+        summary: body,
+        metadata: <String, Object?>{
+          'session_id': context.sessionId,
+          'tool_name': context.toolCall.name,
+          'tool_call_id': context.toolCall.id,
+          'model_protocol': summaryModel.protocolType,
+          'model_id': summaryModel.modelId,
+          'engines': engineSummaries,
+          'fallback_used': orchestrationResult.fallbackUsed,
+          'merged_hit_count': merged.length,
+          'allowed_domains': allowedDomains,
+          'blocked_domains': blockedDomains,
+          'duration_ms': stopwatch.elapsedMilliseconds,
+        },
+      );
+    }
+
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: command,
@@ -258,14 +326,9 @@ class AiWebSearchTool extends AiTool {
       resultText: body,
       metadata: meta(
         resultCount: merged.length,
-        engines: orchestrationResult.engineRuns
-            .map(
-              (r) =>
-                  '${r.kind.name}:${r.isSuccess ? "ok(${r.hits.length})" : (r.error ?? "fail")}',
-            )
-            .toList(growable: false),
+        engines: engineSummaries,
         fallbackUsed: orchestrationResult.fallbackUsed,
-      ),
+      )..['websearch_cache'] = settings.cacheEnabled ? 'miss-stored' : 'disabled',
     );
   }
 
