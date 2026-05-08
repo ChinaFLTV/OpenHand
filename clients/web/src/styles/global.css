@@ -2098,7 +2098,7 @@ button.oh-composer-pill:not(:disabled):hover {
     padding-inline: 6px;
   }
   .oh-composer-toolbar {
-    grid-template-columns: minmax(0, 1fr) 38px 38px;
+    grid-template-columns: minmax(0, 1fr) 38px 38px 38px;
     gap: 6px;
     margin-bottom: 8px;
   }
@@ -2126,9 +2126,19 @@ button.oh-composer-pill:not(:disabled):hover {
     order: 3;
     grid-column: 1 / 2;
   }
-  .oh-composer-follow-control {
+  .oh-composer-permission-control {
     order: 3;
     grid-column: 2 / 3;
+    width: 38px;
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .oh-composer-permission-control > span:not(.oh-composer-control-icon) {
+    display: none;
+  }
+  .oh-composer-follow-control {
+    order: 3;
+    grid-column: 3 / 4;
     width: 38px;
     justify-content: center;
     padding-inline: 0;
@@ -2138,7 +2148,7 @@ button.oh-composer-pill:not(:disabled):hover {
   }
   .oh-composer-collapse-control {
     order: 3;
-    grid-column: 3 / 4;
+    grid-column: 4 / 5;
   }
   .oh-composer-control {
     height: 38px;
