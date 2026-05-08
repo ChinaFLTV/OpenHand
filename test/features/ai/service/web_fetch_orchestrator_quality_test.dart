@@ -61,6 +61,57 @@ void main() {
         expect(winner?.kind, AiWebFetchEngineKind.firecrawl);
       },
     );
+
+    test(
+      'penalizes repetitive boilerplate when clean content matches prompt',
+      () {
+        final orchestrator = _orchestrator(client);
+
+        final winner = orchestrator.pickWinnerForTesting(
+          requestedUrl: 'https://example.com/release-notes',
+          prompt: 'Summarize release notes breaking changes',
+          results: <WebFetchEngineResult>[
+            WebFetchEngineResult(
+              kind: AiWebFetchEngineKind.firecrawl,
+              contents: <WebFetchEngineContent>[
+                WebFetchEngineContent(
+                  url: 'https://example.com/release-notes',
+                  title: 'Cookie wall',
+                  content: 'Accept cookies\nPrivacy policy\nSign in\n' * 180,
+                  statusCode: 200,
+                ),
+              ],
+            ),
+            WebFetchEngineResult(
+              kind: AiWebFetchEngineKind.exa,
+              contents: <WebFetchEngineContent>[
+                WebFetchEngineContent(
+                  url: 'https://example.com/release-notes',
+                  title: 'Release notes',
+                  content:
+                      'Release notes include breaking changes for cache keys, '
+                          'migration steps, and compatibility notes. ' *
+                      10,
+                  statusCode: 200,
+                ),
+              ],
+            ),
+          ],
+          configs: const <AiWebFetchEngineKind, AiWebFetchEngineConfig>{
+            AiWebFetchEngineKind.firecrawl: AiWebFetchEngineConfig(
+              kind: AiWebFetchEngineKind.firecrawl,
+              weight: 100,
+            ),
+            AiWebFetchEngineKind.exa: AiWebFetchEngineConfig(
+              kind: AiWebFetchEngineKind.exa,
+              weight: 70,
+            ),
+          },
+        );
+
+        expect(winner?.kind, AiWebFetchEngineKind.exa);
+      },
+    );
   });
 }
 

@@ -106,6 +106,49 @@ void main() {
         contains('https://example.com/issues?id=2&utm_medium=social'),
       );
     });
+
+    test('boosts query-relevant hits and skips URL-only noise', () {
+      final orchestrator = _orchestrator(client);
+
+      final merged = orchestrator.mergeAndRankForTesting(
+        query: 'WebFetch cache key settings',
+        results: <WebSearchEngineResult>[
+          WebSearchEngineResult(
+            kind: AiWebSearchEngineKind.bing,
+            hits: <WebSearchEngineHit>[
+              WebSearchEngineHit(
+                title: 'Generic homepage',
+                url: 'https://example.com/',
+                snippet: 'Welcome to the example website.',
+              ),
+              WebSearchEngineHit(
+                title: 'https://example.com/empty',
+                url: 'https://example.com/empty',
+                snippet: '',
+              ),
+              WebSearchEngineHit(
+                title: 'WebFetch cache key settings',
+                url: 'https://example.com/webfetch-cache-key',
+                snippet:
+                    'Explains how WebFetch cache keys include settings and model identity.',
+              ),
+            ],
+          ),
+        ],
+        configs: const <AiWebSearchEngineKind, AiWebSearchEngineConfig>{
+          AiWebSearchEngineKind.bing: AiWebSearchEngineConfig(
+            kind: AiWebSearchEngineKind.bing,
+          ),
+        },
+        maxResults: 10,
+      );
+
+      expect(
+        merged.map((hit) => hit.url),
+        isNot(contains('https://example.com/empty')),
+      );
+      expect(merged.first.url, 'https://example.com/webfetch-cache-key');
+    });
   });
 }
 

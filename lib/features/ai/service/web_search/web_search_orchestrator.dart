@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine_concurrency.dart';
+import '../web_engine_quality.dart';
 import 'web_search_api_engines.dart';
 import 'web_search_engine.dart';
 import 'web_search_html_engines.dart';
@@ -181,6 +182,7 @@ class WebSearchOrchestrator {
         : await _runSerial(engines, request, onProgress);
 
     final merged = _mergeAndRank(
+      query: query,
       results: results,
       configs: {for (final c in effectiveConfigs) c.kind: c},
       maxResults: settings.resultCount,
@@ -267,11 +269,13 @@ class WebSearchOrchestrator {
 
   @visibleForTesting
   List<WebSearchAggregatedHit> mergeAndRankForTesting({
+    String query = '',
     required List<WebSearchEngineResult> results,
     required Map<AiWebSearchEngineKind, AiWebSearchEngineConfig> configs,
     required int maxResults,
   }) {
     return _mergeAndRank(
+      query: query,
       results: results,
       configs: configs,
       maxResults: maxResults,
@@ -279,6 +283,7 @@ class WebSearchOrchestrator {
   }
 
   List<WebSearchAggregatedHit> _mergeAndRank({
+    required String query,
     required List<WebSearchEngineResult> results,
     required Map<AiWebSearchEngineKind, AiWebSearchEngineConfig> configs,
     required int maxResults,
@@ -289,6 +294,14 @@ class WebSearchOrchestrator {
       final weight = configs[result.kind]?.weight ?? 50;
       for (var index = 0; index < result.hits.length; index += 1) {
         final hit = result.hits[index];
+        if (!webHasInformativeSearchText(
+          title: hit.title,
+          url: hit.url,
+          snippet: hit.snippet,
+          rawContent: hit.rawContent,
+        )) {
+          continue;
+        }
         final key = _normalizeUrl(hit.url);
         if (key.isEmpty) continue;
         final bucket = byUrl.putIfAbsent(
@@ -307,6 +320,8 @@ class WebSearchOrchestrator {
           result.kind,
           weight: weight,
           score: _engineContributionScore(
+            query: query,
+            hit: hit,
             weight: weight,
             hitIndex: index,
             hitScore: hit.score,
@@ -375,6 +390,8 @@ class WebSearchOrchestrator {
   }
 
   double _engineContributionScore({
+    required String query,
+    required WebSearchEngineHit hit,
     required int weight,
     required int hitIndex,
     required double? hitScore,
@@ -383,7 +400,13 @@ class WebSearchOrchestrator {
     final normalizedHitScore = hitScore == null
         ? 0.0
         : hitScore.clamp(0.0, 1.0).toDouble();
-    return rankScore + normalizedHitScore * weight * 0.25;
+    final relevanceScore = webTextRelevanceScore(
+      query,
+      '${hit.title}\n${hit.snippet}\n${hit.rawContent ?? ''}',
+    );
+    return rankScore +
+        normalizedHitScore * weight * 0.25 +
+        relevanceScore * weight * 0.9;
   }
 
   String _normalizeUrl(String raw) {

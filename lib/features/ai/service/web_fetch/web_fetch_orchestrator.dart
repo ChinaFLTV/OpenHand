@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine_concurrency.dart';
+import '../web_engine_quality.dart';
 import 'web_fetch_direct_engines.dart';
 import 'web_fetch_engine.dart';
 import 'web_fetch_scrape_engines.dart';
@@ -169,6 +170,7 @@ class WebFetchOrchestrator {
 
     final winner = _pickWinner(
       requestedUrl: url,
+      prompt: prompt,
       results: results,
       configs: {for (final c in effectiveConfigs) c.kind: c},
     );
@@ -261,11 +263,13 @@ class WebFetchOrchestrator {
   @visibleForTesting
   WebFetchEngineResult? pickWinnerForTesting({
     required String requestedUrl,
+    String prompt = '',
     required List<WebFetchEngineResult> results,
     required Map<AiWebFetchEngineKind, AiWebFetchEngineConfig> configs,
   }) {
     return _pickWinner(
       requestedUrl: requestedUrl,
+      prompt: prompt,
       results: results,
       configs: configs,
     );
@@ -273,6 +277,7 @@ class WebFetchOrchestrator {
 
   WebFetchEngineResult? _pickWinner({
     required String requestedUrl,
+    required String prompt,
     required List<WebFetchEngineResult> results,
     required Map<AiWebFetchEngineKind, AiWebFetchEngineConfig> configs,
   }) {
@@ -283,6 +288,7 @@ class WebFetchOrchestrator {
       final cfg = configs[r.kind];
       final score = _winnerScore(
         requestedUrl: requestedUrl,
+        prompt: prompt,
         result: r,
         weight: cfg?.weight ?? 50,
       );
@@ -296,12 +302,15 @@ class WebFetchOrchestrator {
 
   double _winnerScore({
     required String requestedUrl,
+    required String prompt,
     required WebFetchEngineResult result,
     required int weight,
   }) {
     final content = result.contents.first;
     final lengthScore = math.log(content.content.length + 1) / math.ln10 * 50;
     final urlScore = _urlMatchScore(requestedUrl, content.url);
+    final relevanceScore = webTextRelevanceScore(prompt, content.content) * 160;
+    final qualityScore = webContentQualityScore(content.content);
     final nativeFetchScore = _isNativeUrlFetchKind(result.kind) ? 100.0 : 0.0;
     final statusScore = content.statusCode == null
         ? 0.0
@@ -312,6 +321,8 @@ class WebFetchOrchestrator {
     return weight * 10 +
         lengthScore +
         urlScore +
+        relevanceScore +
+        qualityScore +
         nativeFetchScore +
         statusScore +
         providerScore;

@@ -13,6 +13,7 @@ import '../service/ai_chat_service.dart';
 import '../service/ai_protocol_adapter.dart';
 import '../service/ai_tool_runtime_service.dart';
 import '../service/ai_transport_diagnostic_messages.dart';
+import '../service/web_engine_quality.dart';
 import '../service/web_search/web_search_cache_store.dart';
 import '../service/web_search/web_search_orchestrator.dart';
 import '../service/web_search/web_search_telemetry_store.dart';
@@ -518,7 +519,7 @@ class AiWebSearchTool extends AiTool {
         ..writeln();
       final rawContent = (h.rawContent ?? '').trim();
       if (rawContent.isNotEmpty && remainingRawContentChars > 0) {
-        final excerpt = _capForPrompt(
+        final excerpt = webPromptExcerpt(
           rawContent,
           remainingRawContentChars < 1200 ? remainingRawContentChars : 1200,
         );
@@ -554,11 +555,6 @@ query. Cite each fact as [N]. Never invent results. Match the query
 language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
 [<<MIN_CHARS>>, <<MAX_CHARS>>].
 ''';
-
-  static String _capForPrompt(String input, int maxChars) {
-    if (maxChars <= 0 || input.length <= maxChars) return input;
-    return '${input.substring(0, maxChars)}…';
-  }
 
   // 进程内已经发过告警的 (engine, reason)，避免连续刷屏。重启进程后清空。
   final Set<String> _alertedKeys = <String>{};
