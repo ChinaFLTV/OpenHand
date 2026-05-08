@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_web_search_settings.dart';
-import 'web_search_api_engines.dart' show HttpException;
+import '../web_engine_http_exception.dart';
 import 'web_search_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ class WebSearchGrokEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Grok ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException('Grok ${response.statusCode}: ${response.body}');
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final citations = readJsonPath<List>(body, ['citations']) ?? const [];
@@ -131,7 +131,7 @@ class WebSearchGeminiEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Gemini ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException('Gemini ${response.statusCode}: ${response.body}');
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final chunks =

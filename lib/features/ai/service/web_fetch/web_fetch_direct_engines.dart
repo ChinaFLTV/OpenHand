@@ -34,7 +34,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
     );
     final status = response.statusCode;
     if (status < 200 || status >= 400) {
-      throw WebFetchHttpException('${kind.name} HTTP $status');
+      throw WebEngineHttpException('${kind.name} HTTP $status');
     }
     final headers = Map<String, String>.from(response.headers);
     final contentType = (headers['content-type'] ?? '').toLowerCase();
@@ -70,14 +70,14 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
         final loc = stream.headers['location'];
         await stream.stream.drain<void>();
         if (loc == null || loc.isEmpty) {
-          throw WebFetchHttpException('${kind.name} redirect missing Location');
+          throw WebEngineHttpException('${kind.name} redirect missing Location');
         }
         current = current.resolve(loc);
         continue;
       }
       return http.Response.fromStream(stream);
     }
-    throw WebFetchHttpException('${kind.name} too many redirects');
+    throw WebEngineHttpException('${kind.name} too many redirects');
   }
 
   static String _extractTitle(String html) {

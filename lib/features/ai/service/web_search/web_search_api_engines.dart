@@ -4,7 +4,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_web_search_settings.dart';
+import '../web_engine_http_exception.dart';
 import 'web_search_engine.dart';
+
+export '../web_engine_http_exception.dart' show WebEngineHttpException;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure JSON-API engines: tavily, exa, linkup, bocha, baidu(qianfan), kimi
@@ -34,7 +37,7 @@ class WebSearchTavilyEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Tavily ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException('Tavily ${response.statusCode}: ${response.body}');
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final results = (body['results'] as List?) ?? const [];
@@ -75,7 +78,7 @@ class WebSearchExaEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Exa ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException('Exa ${response.statusCode}: ${response.body}');
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final results = (body['results'] as List?) ?? const [];
@@ -115,7 +118,7 @@ class WebSearchLinkupEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Linkup ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException('Linkup ${response.statusCode}: ${response.body}');
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final results = (body['results'] as List?) ?? const [];
@@ -152,7 +155,7 @@ class WebSearchBochaEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Bocha ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException('Bocha ${response.statusCode}: ${response.body}');
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final pages =
@@ -197,7 +200,7 @@ class WebSearchBaiduEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Baidu ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException('Baidu ${response.statusCode}: ${response.body}');
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final references =
@@ -261,7 +264,7 @@ class WebSearchKimiEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Kimi ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException('Kimi ${response.statusCode}: ${response.body}');
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final references =
@@ -282,13 +285,6 @@ class WebSearchKimiEngine extends WebSearchEngine {
         )
         .toList(growable: false);
   }
-}
-
-class HttpException implements Exception {
-  HttpException(this.message);
-  final String message;
-  @override
-  String toString() => 'HttpException: $message';
 }
 
 /// 工厂：根据 [AiWebSearchEngineKind] 构造对应的 WebSearchEngine。

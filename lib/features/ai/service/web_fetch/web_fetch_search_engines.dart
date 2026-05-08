@@ -54,7 +54,7 @@ class WebFetchKimiEngine extends WebFetchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebFetchHttpException(
+      throw WebEngineHttpException(
         'Kimi ${response.statusCode}: ${response.body}',
       );
     }
@@ -110,7 +110,7 @@ class WebFetchBaiduEngine extends WebFetchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebFetchHttpException(
+      throw WebEngineHttpException(
         'Baidu ${response.statusCode}: ${response.body}',
       );
     }
@@ -158,7 +158,7 @@ class WebFetchLinkupEngine extends WebFetchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebFetchHttpException(
+      throw WebEngineHttpException(
         'Linkup ${response.statusCode}: ${response.body}',
       );
     }
@@ -199,7 +199,7 @@ class WebFetchBochaEngine extends WebFetchEngine {
       body: jsonEncode({'query': req.url, 'count': 5, 'summary': true}),
     );
     if (response.statusCode != 200) {
-      throw WebFetchHttpException(
+      throw WebEngineHttpException(
         'Bocha ${response.statusCode}: ${response.body}',
       );
     }
@@ -272,7 +272,7 @@ class WebFetchGrokEngine extends WebFetchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebFetchHttpException(
+      throw WebEngineHttpException(
         'Grok ${response.statusCode}: ${response.body}',
       );
     }
@@ -326,7 +326,7 @@ class WebFetchGeminiEngine extends WebFetchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebFetchHttpException(
+      throw WebEngineHttpException(
         'Gemini ${response.statusCode}: ${response.body}',
       );
     }

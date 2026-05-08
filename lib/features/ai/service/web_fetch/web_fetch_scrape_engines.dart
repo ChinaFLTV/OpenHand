@@ -43,7 +43,7 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebFetchHttpException(
+      throw WebEngineHttpException(
         'Firecrawl ${response.statusCode}: ${response.body}',
       );
     }
@@ -90,7 +90,7 @@ class WebFetchTavilyEngine extends WebFetchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebFetchHttpException(
+      throw WebEngineHttpException(
         'Tavily-extract ${response.statusCode}: ${response.body}',
       );
     }
@@ -129,7 +129,7 @@ class WebFetchExaEngine extends WebFetchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebFetchHttpException(
+      throw WebEngineHttpException(
         'Exa-contents ${response.statusCode}: ${response.body}',
       );
     }

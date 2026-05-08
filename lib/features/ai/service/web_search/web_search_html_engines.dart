@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../model/ai_web_search_settings.dart';
 import '../../tools/ai_tool_utils.dart';
-import 'web_search_api_engines.dart' show HttpException;
+import '../web_engine_http_exception.dart';
 import 'web_search_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,11 +32,11 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
       },
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('DuckDuckGo ${response.statusCode}');
+      throw WebEngineHttpException('DuckDuckGo ${response.statusCode}');
     }
     final html = response.body;
     if (_isChallenge(html)) {
-      throw HttpException('DuckDuckGo anti-bot challenge');
+      throw WebEngineHttpException('DuckDuckGo anti-bot challenge');
     }
     final pattern = RegExp(
       r'<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)</a>'
@@ -109,7 +109,7 @@ class WebSearchBingEngine extends WebSearchEngine {
       },
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('Bing ${response.statusCode}');
+      throw WebEngineHttpException('Bing ${response.statusCode}');
     }
     final html = response.body;
     final hits = <WebSearchEngineHit>[];
@@ -147,7 +147,7 @@ class WebSearchSearxngEngine extends WebSearchEngine {
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
     final base = (config.endpointOverride ?? '').trim();
     if (base.isEmpty) {
-      throw HttpException('SearXNG endpoint not configured');
+      throw WebEngineHttpException('SearXNG endpoint not configured');
     }
     final cleaned = base.endsWith('/')
         ? base.substring(0, base.length - 1)
@@ -164,7 +164,7 @@ class WebSearchSearxngEngine extends WebSearchEngine {
       headers: const {'user-agent': 'OpenHand/1.0 (+websearch)'},
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('SearXNG ${response.statusCode}');
+      throw WebEngineHttpException('SearXNG ${response.statusCode}');
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final results = (body['results'] as List?) ?? const [];

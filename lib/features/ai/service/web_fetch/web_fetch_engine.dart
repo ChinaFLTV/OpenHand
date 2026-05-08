@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
 
+export '../web_engine_http_exception.dart' show WebEngineHttpException;
 export '../web_engine_json_utils.dart'
     show stringOf, readJsonPath, maybeJsonDecode;
 
@@ -167,11 +168,4 @@ class WebFetchEngineContext {
     }
     return null;
   }
-}
-
-class WebFetchHttpException implements Exception {
-  WebFetchHttpException(this.message);
-  final String message;
-  @override
-  String toString() => 'WebFetchHttpException: $message';
 }
