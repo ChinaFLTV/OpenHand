@@ -2,9 +2,11 @@ import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
 import '../service/ai_tool_runtime_service.dart';
+import 'ai_web_fetch_settings.dart';
 import 'ai_web_search_settings.dart';
 
 export '../service/ai_tool_runtime_service.dart' show AiBuiltinToolKind;
+export 'ai_web_fetch_settings.dart';
 export 'ai_web_search_settings.dart';
 
 /// 内建工具的加载策略。
@@ -49,6 +51,7 @@ class AiBuiltinToolConfig {
     this.customDescription,
     this.customParameters,
     this.webSearchSettings,
+    this.webFetchSettings,
   });
 
   /// 单次工具调用未在用户层面显式覆盖时使用的默认超时秒数（2026-04-29）。
@@ -170,6 +173,10 @@ class AiBuiltinToolConfig {
   /// 列表、summary 控制等。其他工具的 [webSearchSettings] 应为 null。
   final AiWebSearchSettings? webSearchSettings;
 
+  /// 仅 [AiBuiltinToolKind.webFetch] 工具会读取该字段：多数据源 fan-out
+  /// 调度 / 本地缓存 / 并行参数。其他工具的 [webFetchSettings] 应为 null。
+  final AiWebFetchSettings? webFetchSettings;
+
   /// 生效的工具名称。
   String get effectiveName {
     if (isCustom &&
@@ -225,6 +232,8 @@ class AiBuiltinToolConfig {
     bool clearCustomParameters = false,
     AiWebSearchSettings? webSearchSettings,
     bool clearWebSearchSettings = false,
+    AiWebFetchSettings? webFetchSettings,
+    bool clearWebFetchSettings = false,
   }) {
     return AiBuiltinToolConfig(
       kind: kind ?? this.kind,
@@ -266,6 +275,9 @@ class AiBuiltinToolConfig {
       webSearchSettings: clearWebSearchSettings
           ? null
           : (webSearchSettings ?? this.webSearchSettings),
+      webFetchSettings: clearWebFetchSettings
+          ? null
+          : (webFetchSettings ?? this.webFetchSettings),
     );
   }
 
@@ -294,6 +306,8 @@ class AiBuiltinToolConfig {
       if (customParameters != null) 'custom_parameters': customParameters,
       if (webSearchSettings != null)
         'web_search_settings': webSearchSettings!.toJson(),
+      if (webFetchSettings != null)
+        'web_fetch_settings': webFetchSettings!.toJson(),
     };
   }
 
@@ -375,6 +389,9 @@ class AiBuiltinToolConfig {
       webSearchSettings: AiWebSearchSettings.fromJson(
         json['web_search_settings'],
       ),
+      webFetchSettings: AiWebFetchSettings.fromJson(
+        json['web_fetch_settings'],
+      ),
     );
   }
 
@@ -387,6 +404,9 @@ class AiBuiltinToolConfig {
             sortOrder: kind.index,
             webSearchSettings: kind == AiBuiltinToolKind.webSearch
                 ? AiWebSearchSettings.defaults()
+                : null,
+            webFetchSettings: kind == AiBuiltinToolKind.webFetch
+                ? AiWebFetchSettings.defaults()
                 : null,
           ),
         )
