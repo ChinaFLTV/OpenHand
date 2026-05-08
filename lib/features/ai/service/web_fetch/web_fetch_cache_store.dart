@@ -9,7 +9,7 @@ import '../web_engine_cache_store_base.dart';
 ///
 /// 公共骨架（`chain` / clearAll / totalBytesOnDisk / prewarm / LRU 淘汰 /
 /// 过期回收 / 孤儿清理）由 [WebEngineCacheStoreBase] 接管；本类只负责：
-/// * 计算 key（URL + prompt 唯一）
+/// * 计算 key（URL + prompt + 会影响最终 focused answer 的设置 / 模型）
 /// * 把基础 [WebEngineCacheRawLookup] 封装成包含 `content` 的领域结构
 /// * 在 store 时塞入领域专属 metadata（`url` 字段 + 调用方传入的扩展元数据）
 class WebFetchCacheStore extends WebEngineCacheStoreBase<AiWebFetchSettings> {
@@ -41,11 +41,30 @@ class WebFetchCacheStore extends WebEngineCacheStoreBase<AiWebFetchSettings> {
   @override
   int cacheMaxBytes(AiWebFetchSettings settings) => settings.cacheMaxBytes;
 
-  /// 缓存键：URL + 用户 prompt（同一 URL 不同 prompt 视为独立缓存）。
-  static String computeKey({required String url, required String prompt}) {
+  /// 缓存键：URL + 用户 prompt + 调度/引擎/模型。
+  ///
+  /// WebFetch 缓存的是最终 focused answer，不只是原始页面正文；因此引擎顺序
+  /// （串行短路）、并行模式、权重、截断阈值与会话模型都要进入 key，避免用户
+  /// 调整设置或切模型后读到旧答案。
+  static String computeKey({
+    required String url,
+    required String prompt,
+    required AiWebFetchSettings settings,
+    required String modelProtocol,
+    required String modelId,
+  }) {
+    final enabled = settings
+        .enabledEnginesInOrder()
+        .map((e) => '${e.kind.name}:${e.weight}:${e.truncationChars}')
+        .toList(growable: false);
     final payload = jsonEncode(<String, Object?>{
       'url': url.trim(),
       'prompt': prompt.trim(),
+      'engines': enabled,
+      'parallel': settings.parallel,
+      'workers': settings.parallelWorkers,
+      'model_protocol': modelProtocol,
+      'model_id': modelId,
     });
     return sha256.convert(utf8.encode(payload)).toString();
   }
@@ -75,10 +94,7 @@ class WebFetchCacheStore extends WebEngineCacheStoreBase<AiWebFetchSettings> {
       key: key,
       settings: settings,
       payload: content,
-      extraEntryFields: <String, Object?>{
-        'url': url,
-        ...metadata,
-      },
+      extraEntryFields: <String, Object?>{'url': url, ...metadata},
     );
   }
 }

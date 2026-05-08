@@ -33,13 +33,7 @@ class WebSearchEngineProgress {
   final int elapsedMs;
 }
 
-enum WebSearchProgressStage {
-  pending,
-  running,
-  succeeded,
-  failed,
-  fallback,
-}
+enum WebSearchProgressStage { pending, running, succeeded, failed, fallback }
 
 /// 编排结果：聚合后的最终命中列表 + 各引擎运行 trace。
 class WebSearchOrchestrationResult {
@@ -95,10 +89,6 @@ class WebSearchOrchestrator {
     final activeConfigs = settings.engines
         .where((c) => c.enabled)
         .toList(growable: false);
-    final orderedConfigs = activeConfigs.isNotEmpty
-        ? activeConfigs
-        : _fallbackConfigs();
-    final fallbackUsed = activeConfigs.isEmpty;
 
     // 失败自动降级：跳过当前 cooldown 中的引擎。一次成功 stat 自动清掉
     // cooldown，所以这里只需要静默过滤 + 汇报 progress.failed("cooldown")。
@@ -112,15 +102,28 @@ class WebSearchOrchestrator {
       tier3Seconds: settings.cooldownTier3Seconds,
       quotaSeconds: settings.cooldownQuotaSeconds,
     );
-    final outcome = await filterByCooldownAndThrottle<
-        AiWebSearchEngineConfig,
-        AiWebSearchEngineKind>(
-      configs: orderedConfigs,
-      kindOf: (c) => c.kind,
-      telemetry: WebSearchTelemetryStore.instance,
-      throttlePerMinute: settings.throttlePerMinute,
-    );
-    final usableConfigs = outcome.usable;
+    final outcome =
+        await filterByCooldownThrottleWithFallback<
+          AiWebSearchEngineConfig,
+          AiWebSearchEngineKind
+        >(
+          primaryConfigs: activeConfigs,
+          fallbackConfigs: _fallbackConfigs(),
+          kindOf: (c) => c.kind,
+          telemetry: WebSearchTelemetryStore.instance,
+          throttlePerMinute: settings.throttlePerMinute,
+        );
+    final effectiveConfigs = outcome.usable;
+    final skippedRuns = outcome.skipped
+        .map(
+          (s) => WebSearchEngineResult(
+            kind: s.config.kind,
+            hits: const [],
+            error: s.reason,
+            attempts: 0,
+          ),
+        )
+        .toList(growable: false);
     for (final s in outcome.skipped) {
       onProgress(
         WebSearchEngineProgress(
@@ -130,8 +133,6 @@ class WebSearchOrchestrator {
         ),
       );
     }
-    final effectiveConfigs =
-        usableConfigs.isNotEmpty ? usableConfigs : orderedConfigs;
 
     final ctx = WebSearchEngineContext(
       httpClient: httpClient,
@@ -139,17 +140,15 @@ class WebSearchOrchestrator {
     );
 
     final engines = effectiveConfigs
-        .map(
-          (c) => _buildEngine(c, ctx),
-        )
+        .map((c) => _buildEngine(c, ctx))
         .whereType<WebSearchEngine>()
         .toList(growable: false);
 
     if (engines.isEmpty) {
       return WebSearchOrchestrationResult(
         merged: const [],
-        engineRuns: const [],
-        fallbackUsed: fallbackUsed,
+        engineRuns: skippedRuns,
+        fallbackUsed: outcome.fallbackUsed,
       );
     }
 
@@ -176,14 +175,14 @@ class WebSearchOrchestrator {
 
     final merged = _mergeAndRank(
       results: results,
-      configs: { for (final c in effectiveConfigs) c.kind: c },
+      configs: {for (final c in effectiveConfigs) c.kind: c},
       maxResults: settings.resultCount,
     );
 
     return WebSearchOrchestrationResult(
       merged: merged,
-      engineRuns: results,
-      fallbackUsed: fallbackUsed,
+      engineRuns: [...skippedRuns, ...results],
+      fallbackUsed: outcome.fallbackUsed,
     );
   }
 

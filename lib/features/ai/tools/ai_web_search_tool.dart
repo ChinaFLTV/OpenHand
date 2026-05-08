@@ -132,34 +132,41 @@ class AiWebSearchTool extends AiTool {
       final perEngine = <WebSearchPerEngineLog>[];
       if (orchestration != null) {
         for (final r in orchestration.engineRuns) {
-          perEngine.add(WebSearchPerEngineLog(
-            kind: r.kind,
-            success: r.isSuccess,
-            hitCount: r.hits.length,
-            elapsedMs: r.elapsedMs,
-            error: r.error,
-          ));
+          if (_isSkippedWebEngineDiagnostic(r.error)) continue;
+          perEngine.add(
+            WebSearchPerEngineLog(
+              kind: r.kind,
+              success: r.isSuccess,
+              hitCount: r.hits.length,
+              elapsedMs: r.elapsedMs,
+              error: r.error,
+            ),
+          );
         }
       }
       // 命中 cache 不会有 orchestration，但仍然要把 cache 这一"伪引擎"
       // 计入历史以便排查；UI 在统计成功率时只考虑 perEngine 不为空的项
       // （orchestrator 真实跑过的）。
-      unawaited(WebSearchTelemetryStore.instance.recordCall(
-        WebSearchCallLog(
-          timestampMs: DateTime.now().millisecondsSinceEpoch,
-          query: query,
-          cacheStatus: cacheStatus,
-          success: success,
-          totalDurationMs: stopwatch.elapsedMilliseconds,
-          mergedHitCount: orchestration?.merged.length ?? 0,
-          fallbackUsed: orchestration?.fallbackUsed ?? false,
-          summaryChars: summaryChars,
-          errorMessage: errorMessage,
-          modelProtocol: summaryModel?.protocolType.name,
-          modelId: summaryModel?.modelId,
-          perEngine: perEngine,
-        ),
-      ).then((_) => _maybeFireHealthAlerts(settings)));
+      unawaited(
+        WebSearchTelemetryStore.instance
+            .recordCall(
+              WebSearchCallLog(
+                timestampMs: DateTime.now().millisecondsSinceEpoch,
+                query: query,
+                cacheStatus: cacheStatus,
+                success: success,
+                totalDurationMs: stopwatch.elapsedMilliseconds,
+                mergedHitCount: orchestration?.merged.length ?? 0,
+                fallbackUsed: orchestration?.fallbackUsed ?? false,
+                summaryChars: summaryChars,
+                errorMessage: errorMessage,
+                modelProtocol: summaryModel?.protocolType.name,
+                modelId: summaryModel?.modelId,
+                perEngine: perEngine,
+              ),
+            )
+            .then((_) => _maybeFireHealthAlerts(settings)),
+      );
     }
 
     AiToolExecutionResult timedOut(String message) => AiToolExecutionResult(
@@ -314,17 +321,16 @@ class AiWebSearchTool extends AiTool {
 
     late final AiChatCompletion completion;
     try {
-      final maybe =
-          await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
-            _backgroundChatClient.sendMessage(
-              model: summaryModel,
-              messages: <AiChatTurn>[
-                AiChatTurn(role: AiChatRole.system, content: prompt.system),
-                AiChatTurn(role: AiChatRole.user, content: prompt.user),
-              ],
-            ),
-            cancelSignal: context.cancelSignal,
-          );
+      final maybe = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
+        _backgroundChatClient.sendMessage(
+          model: summaryModel,
+          messages: <AiChatTurn>[
+            AiChatTurn(role: AiChatRole.system, content: prompt.system),
+            AiChatTurn(role: AiChatRole.user, content: prompt.user),
+          ],
+        ),
+        cancelSignal: context.cancelSignal,
+      );
       if (maybe == null) {
         return AiToolUtils.cancelledResult(
           command: command,
@@ -424,11 +430,15 @@ class AiWebSearchTool extends AiTool {
       stderr: '',
       durationMs: stopwatch.elapsedMilliseconds,
       resultText: body,
-      metadata: meta(
-        resultCount: merged.length,
-        engines: engineSummaries,
-        fallbackUsed: orchestrationResult.fallbackUsed,
-      )..['websearch_cache'] = settings.cacheEnabled ? 'miss-stored' : 'disabled',
+      metadata:
+          meta(
+              resultCount: merged.length,
+              engines: engineSummaries,
+              fallbackUsed: orchestrationResult.fallbackUsed,
+            )
+            ..['websearch_cache'] = settings.cacheEnabled
+                ? 'miss-stored'
+                : 'disabled',
     );
   }
 
@@ -548,8 +558,7 @@ language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
             if (_alertedKeys.add(key)) {
               await OpenHandNotificationService.showInApp(
                 title: 'WebSearch · ${entry.key.name}',
-                body:
-                    '成功率 $pct% < 阈值 $pctTh%（共 ${s.totalCalls} 次调用）',
+                body: '成功率 $pct% < 阈值 $pctTh%（共 ${s.totalCalls} 次调用）',
                 level: OpenHandNotificationLevel.warning,
               );
             }
@@ -597,10 +606,7 @@ String _friendlySearchTransportError(Object error) {
     );
   }
   if (error is TlsException) {
-    return AiTransportDiagnosticMessages.tls(
-      error,
-      contextLabel: 'WebSearch',
-    );
+    return AiTransportDiagnosticMessages.tls(error, contextLabel: 'WebSearch');
   }
   if (error is SocketException) {
     return AiTransportDiagnosticMessages.socket(
@@ -615,4 +621,8 @@ String _friendlySearchTransportError(Object error) {
     );
   }
   return '$error';
+}
+
+bool _isSkippedWebEngineDiagnostic(String? error) {
+  return error?.startsWith('skipped: ') ?? false;
 }

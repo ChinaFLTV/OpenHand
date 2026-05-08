@@ -69,10 +69,6 @@ class WebFetchOrchestrator {
     final activeConfigs = settings.engines
         .where((c) => c.enabled)
         .toList(growable: false);
-    final orderedConfigs = activeConfigs.isNotEmpty
-        ? activeConfigs
-        : _fallbackConfigs();
-    final fallbackUsed = activeConfigs.isEmpty;
 
     // 推当前 settings 的 cooldown 阈值到 telemetry store，让 _writeCall 能按
     // 用户调整后的阈值计算 cooldown。
@@ -86,17 +82,21 @@ class WebFetchOrchestrator {
       quotaSeconds: settings.cooldownQuotaSeconds,
     );
 
-    // 处于 cooldown 中或已超 throttle 上限的引擎：跳过。全部被跳时回退原序。
+    // 处于 cooldown 中或已超 throttle 上限的引擎：跳过。primary 全部被跳时
+    // 只尝试未被跳过的无 Key 兜底引擎，不再把 skipped 引擎放回去偷跑。
     final telemetry = WebFetchTelemetryStore.instance;
-    final outcome = await filterByCooldownAndThrottle<
-        AiWebFetchEngineConfig,
-        AiWebFetchEngineKind>(
-      configs: orderedConfigs,
-      kindOf: (c) => c.kind,
-      telemetry: telemetry,
-      throttlePerMinute: settings.throttlePerMinute,
-    );
-    final filteredConfigs = outcome.usable;
+    final outcome =
+        await filterByCooldownThrottleWithFallback<
+          AiWebFetchEngineConfig,
+          AiWebFetchEngineKind
+        >(
+          primaryConfigs: activeConfigs,
+          fallbackConfigs: _fallbackConfigs(),
+          kindOf: (c) => c.kind,
+          telemetry: telemetry,
+          throttlePerMinute: settings.throttlePerMinute,
+        );
+    final effectiveConfigs = outcome.usable;
     final skippedRuns = outcome.skipped
         .map(
           (s) => WebFetchEngineResult(
@@ -107,9 +107,6 @@ class WebFetchOrchestrator {
           ),
         )
         .toList(growable: false);
-    // 全部被跳时回退原序，否则 cooldown 会让全部引擎同时静默。
-    final effectiveConfigs =
-        filteredConfigs.isNotEmpty ? filteredConfigs : orderedConfigs;
 
     final ctx = WebFetchEngineContext(
       httpClient: httpClient,
@@ -125,7 +122,7 @@ class WebFetchOrchestrator {
       return WebFetchOrchestrationResult(
         merged: null,
         engineRuns: skippedRuns,
-        fallbackUsed: fallbackUsed,
+        fallbackUsed: outcome.fallbackUsed,
         winningKind: null,
       );
     }
@@ -174,9 +171,11 @@ class WebFetchOrchestrator {
     );
 
     return WebFetchOrchestrationResult(
-      merged: winner?.contents.isNotEmpty == true ? winner!.contents.first : null,
+      merged: winner?.contents.isNotEmpty == true
+          ? winner!.contents.first
+          : null,
       engineRuns: [...skippedRuns, ...results],
-      fallbackUsed: fallbackUsed,
+      fallbackUsed: outcome.fallbackUsed,
       winningKind: winner?.kind,
     );
   }
@@ -201,7 +200,9 @@ class WebFetchOrchestrator {
           stage: r.isSuccess
               ? WebFetchProgressStage.succeeded
               : WebFetchProgressStage.failed,
-          contentBytes: r.contents.isEmpty ? 0 : r.contents.first.content.length,
+          contentBytes: r.contents.isEmpty
+              ? 0
+              : r.contents.first.content.length,
           attempt: r.attempts,
           elapsedMs: r.elapsedMs,
           message: r.error,
@@ -237,8 +238,9 @@ class WebFetchOrchestrator {
             stage: r.isSuccess
                 ? WebFetchProgressStage.succeeded
                 : WebFetchProgressStage.failed,
-            contentBytes:
-                r.contents.isEmpty ? 0 : r.contents.first.content.length,
+            contentBytes: r.contents.isEmpty
+                ? 0
+                : r.contents.first.content.length,
             attempt: r.attempts,
             elapsedMs: r.elapsedMs,
             message: r.error,
@@ -275,10 +277,7 @@ class WebFetchOrchestrator {
 
   List<AiWebFetchEngineConfig> _fallbackConfigs() {
     return const [
-      AiWebFetchEngineConfig(
-        kind: AiWebFetchEngineKind.bing,
-        enabled: true,
-      ),
+      AiWebFetchEngineConfig(kind: AiWebFetchEngineKind.bing, enabled: true),
       AiWebFetchEngineConfig(
         kind: AiWebFetchEngineKind.duckduckgo,
         enabled: true,

@@ -47,13 +47,22 @@ class WebEngineSkippedItem<TConfig> {
 }
 
 class WebEngineFilterOutcome<TConfig> {
-  const WebEngineFilterOutcome({
+  const WebEngineFilterOutcome({required this.usable, required this.skipped});
+
+  final List<TConfig> usable;
+  final List<WebEngineSkippedItem<TConfig>> skipped;
+}
+
+class WebEngineFallbackFilterOutcome<TConfig> {
+  const WebEngineFallbackFilterOutcome({
     required this.usable,
     required this.skipped,
+    required this.fallbackUsed,
   });
 
   final List<TConfig> usable;
   final List<WebEngineSkippedItem<TConfig>> skipped;
+  final bool fallbackUsed;
 }
 
 /// 把 cooldown / throttle 过滤逻辑收敛成单一入口，供 WebSearch /
@@ -68,7 +77,7 @@ class WebEngineFilterOutcome<TConfig> {
 /// 所以这里也是 async；语义和老实现 1:1 对齐（一次成功 stat 自动清掉
 /// cooldown 由 base 侧负责，这里不重复处理）。
 Future<WebEngineFilterOutcome<TConfig>>
-    filterByCooldownAndThrottle<TConfig, TKind extends Enum>({
+filterByCooldownAndThrottle<TConfig, TKind extends Enum>({
   required List<TConfig> configs,
   required TKind Function(TConfig) kindOf,
   required WebEngineTelemetryStoreBase<TKind> telemetry,
@@ -81,10 +90,7 @@ Future<WebEngineFilterOutcome<TConfig>>
     final remaining = await telemetry.cooldownRemaining(kind);
     if (remaining > 0) {
       skipped.add(
-        WebEngineSkippedItem(
-          config: c,
-          reason: 'skipped: cooldown active',
-        ),
+        WebEngineSkippedItem(config: c, reason: 'skipped: cooldown active'),
       );
       continue;
     }
@@ -103,4 +109,60 @@ Future<WebEngineFilterOutcome<TConfig>>
     usable.add(c);
   }
   return WebEngineFilterOutcome(usable: usable, skipped: skipped);
+}
+
+/// 在 primary 全部被 cooldown/throttle 跳过时尝试 fallback configs。
+///
+/// 关键语义：被跳过的 primary 不会被偷偷放回执行队列；fallback 只尝试尚未被
+/// primary 过滤命中过的 kind，避免同一引擎先显示 skipped 又继续真实调用。
+Future<WebEngineFallbackFilterOutcome<TConfig>>
+filterByCooldownThrottleWithFallback<TConfig, TKind extends Enum>({
+  required List<TConfig> primaryConfigs,
+  required List<TConfig> fallbackConfigs,
+  required TKind Function(TConfig) kindOf,
+  required WebEngineTelemetryStoreBase<TKind> telemetry,
+  required int throttlePerMinute,
+}) async {
+  final initialConfigs = primaryConfigs.isNotEmpty
+      ? primaryConfigs
+      : fallbackConfigs;
+  final initial = await filterByCooldownAndThrottle<TConfig, TKind>(
+    configs: initialConfigs,
+    kindOf: kindOf,
+    telemetry: telemetry,
+    throttlePerMinute: throttlePerMinute,
+  );
+  if (initial.usable.isNotEmpty || primaryConfigs.isEmpty) {
+    return WebEngineFallbackFilterOutcome(
+      usable: initial.usable,
+      skipped: initial.skipped,
+      fallbackUsed: primaryConfigs.isEmpty,
+    );
+  }
+
+  final skippedKinds = initial.skipped
+      .map((skipped) => kindOf(skipped.config))
+      .toSet();
+  final fallbackCandidates = fallbackConfigs
+      .where((config) => !skippedKinds.contains(kindOf(config)))
+      .toList(growable: false);
+  if (fallbackCandidates.isEmpty) {
+    return WebEngineFallbackFilterOutcome(
+      usable: const [],
+      skipped: initial.skipped,
+      fallbackUsed: false,
+    );
+  }
+
+  final fallback = await filterByCooldownAndThrottle<TConfig, TKind>(
+    configs: fallbackCandidates,
+    kindOf: kindOf,
+    telemetry: telemetry,
+    throttlePerMinute: throttlePerMinute,
+  );
+  return WebEngineFallbackFilterOutcome(
+    usable: fallback.usable,
+    skipped: [...initial.skipped, ...fallback.skipped],
+    fallbackUsed: true,
+  );
 }

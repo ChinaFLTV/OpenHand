@@ -152,36 +152,47 @@ class AiWebFetchTool extends AiTool {
       final perEngine = <WebFetchPerEngineLog>[];
       if (orchestration != null) {
         for (final r in orchestration.engineRuns) {
-          perEngine.add(WebFetchPerEngineLog(
-            kind: r.kind,
-            success: r.isSuccess,
-            contentBytes:
-                r.contents.isEmpty ? 0 : r.contents.first.content.length,
-            elapsedMs: r.elapsedMs,
-            error: r.error,
-          ));
+          if (_isSkippedWebEngineDiagnostic(r.error)) continue;
+          perEngine.add(
+            WebFetchPerEngineLog(
+              kind: r.kind,
+              success: r.isSuccess,
+              contentBytes: r.contents.isEmpty
+                  ? 0
+                  : r.contents.first.content.length,
+              elapsedMs: r.elapsedMs,
+              error: r.error,
+            ),
+          );
         }
       }
-      unawaited(WebFetchTelemetryStore.instance.recordCall(
-        WebFetchCallLog(
-          timestampMs: DateTime.now().millisecondsSinceEpoch,
-          url: rawUrl,
-          cacheStatus: cacheStatus,
-          success: success,
-          totalDurationMs: stopwatch.elapsedMilliseconds,
-          contentChars: contentChars,
-          fallbackUsed: orchestration?.fallbackUsed ?? false,
-          errorMessage: errorMessage,
-          winningEngine: orchestration?.winningKind,
-          perEngine: perEngine,
-        ),
-      ).then((_) => _maybeFireHealthAlerts(settings)));
+      unawaited(
+        WebFetchTelemetryStore.instance
+            .recordCall(
+              WebFetchCallLog(
+                timestampMs: DateTime.now().millisecondsSinceEpoch,
+                url: rawUrl,
+                cacheStatus: cacheStatus,
+                success: success,
+                totalDurationMs: stopwatch.elapsedMilliseconds,
+                contentChars: contentChars,
+                fallbackUsed: orchestration?.fallbackUsed ?? false,
+                errorMessage: errorMessage,
+                winningEngine: orchestration?.winningKind,
+                perEngine: perEngine,
+              ),
+            )
+            .then((_) => _maybeFireHealthAlerts(settings)),
+      );
     }
 
     // 1) 缓存查询：同一 (url, prompt) 在 TTL 内直接复用。
     final cacheKey = WebFetchCacheStore.computeKey(
       url: rawUrl,
       prompt: prompt,
+      settings: settings,
+      modelProtocol: context.model.protocolType.name,
+      modelId: context.model.modelId,
     );
     final cached = await WebFetchCacheStore.instance.lookup(
       key: cacheKey,
@@ -301,25 +312,61 @@ class AiWebFetchTool extends AiTool {
     );
 
     // 3) 让模型按 user prompt 聚焦回答（保留原 ai_web_fetch_tool 行为）。
-    final completion = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
-      _backgroundChatClient.sendMessage(
-        model: context.model,
-        messages: <AiChatTurn>[
-          const AiChatTurn(
-            role: AiChatRole.system,
-            content:
-                'Answer the prompt using only the fetched page content. '
-                'If the page content is insufficient, say so briefly.',
-          ),
-          AiChatTurn(
-            role: AiChatRole.user,
-            content:
-                'URL: $rawUrl\nPrompt: $prompt\n\nFetched content:\n${winner.content}',
-          ),
-        ],
-      ),
-      cancelSignal: context.cancelSignal,
-    );
+    late final AiChatCompletion? completion;
+    try {
+      completion = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
+        _backgroundChatClient.sendMessage(
+          model: context.model,
+          messages: <AiChatTurn>[
+            const AiChatTurn(
+              role: AiChatRole.system,
+              content:
+                  'Answer the prompt using only the fetched page content. '
+                  'If the page content is insufficient, say so briefly.',
+            ),
+            AiChatTurn(
+              role: AiChatRole.user,
+              content:
+                  'URL: $rawUrl\nPrompt: $prompt\n\nFetched content:\n${winner.content}',
+            ),
+          ],
+        ),
+        cancelSignal: context.cancelSignal,
+      );
+    } on TimeoutException {
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        contentChars: 0,
+        orchestration: orchestrationResult,
+        errorMessage: 'focus_timeout',
+      );
+      return timedOut('WebFetch timed out while focusing on the fetched page.');
+    } on AiChatException catch (error) {
+      final msg = error.message.trim();
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        contentChars: 0,
+        orchestration: orchestrationResult,
+        errorMessage: msg,
+      );
+      return AiToolUtils.looksLikeTimeoutMessage(msg)
+          ? timedOut('WebFetch timed out while focusing on the fetched page.')
+          : failed('WebFetch failed while focusing on the fetched page: $msg');
+    } catch (error) {
+      final msg = '$error';
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        contentChars: 0,
+        orchestration: orchestrationResult,
+        errorMessage: msg,
+      );
+      return AiToolUtils.looksLikeTimeoutMessage(msg)
+          ? timedOut('WebFetch timed out while focusing on the fetched page.')
+          : failed(_friendlyFetchTransportError(error));
+    }
     if (completion == null) {
       recordTelemetry(
         cacheStatus: 'bypass',
@@ -388,14 +435,16 @@ class AiWebFetchTool extends AiTool {
       stderr: '',
       durationMs: stopwatch.elapsedMilliseconds,
       resultText: output,
-      metadata: meta(
-        contentChars: output.length,
-        engines: engineSummaries,
-        fallbackUsed: orchestrationResult.fallbackUsed,
-        winner: orchestrationResult.winningKind,
-      )..['webfetch_cache'] = settings.cacheEnabled
-          ? 'miss-stored'
-          : 'disabled',
+      metadata:
+          meta(
+              contentChars: output.length,
+              engines: engineSummaries,
+              fallbackUsed: orchestrationResult.fallbackUsed,
+              winner: orchestrationResult.winningKind,
+            )
+            ..['webfetch_cache'] = settings.cacheEnabled
+                ? 'miss-stored'
+                : 'disabled',
     );
   }
 
@@ -453,8 +502,7 @@ class AiWebFetchTool extends AiTool {
             if (_alertedKeys.add(key)) {
               await OpenHandNotificationService.showInApp(
                 title: 'WebFetch · ${entry.key.name}',
-                body:
-                    '成功率 $pct% < 阈值 $pctTh%（共 ${s.totalCalls} 次调用）',
+                body: '成功率 $pct% < 阈值 $pctTh%（共 ${s.totalCalls} 次调用）',
                 level: OpenHandNotificationLevel.warning,
               );
             }
@@ -505,4 +553,8 @@ String _friendlyFetchTransportError(Object error) {
     );
   }
   return '$error';
+}
+
+bool _isSkippedWebEngineDiagnostic(String? error) {
+  return error?.startsWith('skipped: ') ?? false;
 }
