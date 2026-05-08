@@ -389,9 +389,10 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   }
 
   Future<void> _enforceCap(int maxBytes) async {
-    final total = await totalBytesOnDisk();
-    if (total <= maxBytes) return;
-
+    // 旧实现每次写入都会调用 [totalBytesOnDisk]，递归 list 整个目录并对每个
+    // 文件做 .length()——是热路径上的 O(N) IO。改为先从 index.json 估算总量
+    // （我们在写入时已经把 payloadBytesField 落库），仅在估算超过阈值后再去
+    // 走真实磁盘大小做精确判断 + LRU 淘汰。
     final dir = Directory(defaultDirectoryPath());
     final indexFile = File(p.join(dir.path, 'index.json'));
     if (!await indexFile.exists()) return;
@@ -406,6 +407,18 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     final entries = root['entries'] is Map
         ? Map<String, Object?>.from(root['entries'] as Map)
         : <String, Object?>{};
+
+    var estimatedTotal = 0;
+    for (final entry in entries.values) {
+      if (entry is! Map) continue;
+      estimatedTotal += ((entry[payloadBytesField] as num?)?.toInt() ?? 0);
+    }
+    if (estimatedTotal <= maxBytes) return;
+
+    // 估算超阈值，再做真实磁盘读用于淘汰决策（孤儿文件 / index 字节字段缺失
+    // 时仍需要兜底）。
+    final total = await totalBytesOnDisk();
+    if (total <= maxBytes) return;
 
     final ordered = entries.entries.toList()
       ..sort((a, b) {
