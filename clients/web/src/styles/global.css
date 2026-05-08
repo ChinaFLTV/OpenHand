@@ -476,6 +476,7 @@ html, body, #root {
 }
 
 .oh-session-composer {
+  position: relative;
   transform-origin: bottom center;
   transition:
     box-shadow 260ms var(--oh-motion-emphasized),
@@ -497,8 +498,10 @@ html, body, #root {
   width: max-content;
   max-width: 100%;
   align-self: center;
-  padding: 6px !important;
+  padding: 0 !important;
   border-radius: 999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
   overflow: visible;
   animation: oh-composer-shell-collapse 300ms var(--oh-motion-spring) both;
 }
@@ -623,9 +626,27 @@ html, body, #root {
     gap 260ms var(--oh-motion-spring);
 }
 .oh-composer-toolbar[data-collapsed='true'] {
+  display: inline-flex;
+  width: auto;
   justify-content: center;
+  flex: none;
   gap: 0;
   margin-bottom: 0;
+}
+
+.oh-session-composer[data-collapsed='true'] .oh-composer-body,
+.oh-session-composer[data-collapsed='true'] .oh-composer-footer {
+  position: absolute;
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  height: 0;
+  min-height: 0;
+  max-height: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  visibility: hidden;
 }
 
 .oh-composer-control {
@@ -2246,6 +2267,8 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-session-composer[data-collapsed='true'] {
   max-height: none;
   overflow: visible;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 /* 标签/按钮内文字小幅 hover 上移效果（不破坏布局）。 */
@@ -2391,31 +2414,53 @@ button.oh-composer-pill:not(:disabled):hover {
 
 [data-dialog-enter='none'] .oh-dialog-fade-in,
 [data-dialog-enter='none'] .oh-dialog-pop-in,
+[data-dialog-enter='none'] .oh-popmenu-pop,
 [data-dialog-exit='none'] .oh-dialog-fade-out,
-[data-dialog-exit='none'] .oh-dialog-pop-out {
+[data-dialog-exit='none'] .oh-dialog-pop-out,
+[data-dialog-exit='none'] .oh-menu-pop-out {
   animation: none;
 }
-[data-dialog-enter='fade'] .oh-dialog-pop-in { animation-name: oh-dialog-card-fade-in; }
-[data-dialog-enter='slide_up'] .oh-dialog-pop-in { animation-name: oh-dialog-slide-up-in; }
-[data-dialog-enter='slide_down'] .oh-dialog-pop-in { animation-name: oh-dialog-slide-down-in; }
-[data-dialog-enter='slide_left'] .oh-dialog-pop-in { animation-name: oh-dialog-slide-left-in; }
-[data-dialog-enter='slide_right'] .oh-dialog-pop-in { animation-name: oh-dialog-slide-right-in; }
-[data-dialog-enter='expand'] .oh-dialog-pop-in { animation-name: oh-dialog-expand-in; }
-[data-dialog-enter='rotate_scale'] .oh-dialog-pop-in { animation-name: oh-dialog-rotate-scale-in; }
-[data-dialog-enter='elastic'] .oh-dialog-pop-in { animation-name: oh-dialog-elastic-in; }
-[data-dialog-enter='spring_scale'] .oh-dialog-pop-in { animation-name: oh-dialog-spring-scale-in; }
-[data-dialog-enter='flip_x'] .oh-dialog-pop-in { animation-name: oh-dialog-flip-x-in; }
+[data-dialog-enter='fade'] .oh-dialog-pop-in,
+[data-dialog-enter='fade'] .oh-popmenu-pop { animation-name: oh-dialog-card-fade-in; }
+[data-dialog-enter='slide_up'] .oh-dialog-pop-in,
+[data-dialog-enter='slide_up'] .oh-popmenu-pop { animation-name: oh-dialog-slide-up-in; }
+[data-dialog-enter='slide_down'] .oh-dialog-pop-in,
+[data-dialog-enter='slide_down'] .oh-popmenu-pop { animation-name: oh-dialog-slide-down-in; }
+[data-dialog-enter='slide_left'] .oh-dialog-pop-in,
+[data-dialog-enter='slide_left'] .oh-popmenu-pop { animation-name: oh-dialog-slide-left-in; }
+[data-dialog-enter='slide_right'] .oh-dialog-pop-in,
+[data-dialog-enter='slide_right'] .oh-popmenu-pop { animation-name: oh-dialog-slide-right-in; }
+[data-dialog-enter='expand'] .oh-dialog-pop-in,
+[data-dialog-enter='expand'] .oh-popmenu-pop { animation-name: oh-dialog-expand-in; }
+[data-dialog-enter='rotate_scale'] .oh-dialog-pop-in,
+[data-dialog-enter='rotate_scale'] .oh-popmenu-pop { animation-name: oh-dialog-rotate-scale-in; }
+[data-dialog-enter='elastic'] .oh-dialog-pop-in,
+[data-dialog-enter='elastic'] .oh-popmenu-pop { animation-name: oh-dialog-elastic-in; }
+[data-dialog-enter='spring_scale'] .oh-dialog-pop-in,
+[data-dialog-enter='spring_scale'] .oh-popmenu-pop { animation-name: oh-dialog-spring-scale-in; }
+[data-dialog-enter='flip_x'] .oh-dialog-pop-in,
+[data-dialog-enter='flip_x'] .oh-popmenu-pop { animation-name: oh-dialog-flip-x-in; }
 
-[data-dialog-exit='fade'] .oh-dialog-pop-out { animation-name: oh-dialog-card-fade-out; }
-[data-dialog-exit='slide_up'] .oh-dialog-pop-out { animation-name: oh-dialog-slide-up-out; }
-[data-dialog-exit='slide_down'] .oh-dialog-pop-out { animation-name: oh-dialog-slide-down-out; }
-[data-dialog-exit='slide_left'] .oh-dialog-pop-out { animation-name: oh-dialog-slide-left-out; }
-[data-dialog-exit='slide_right'] .oh-dialog-pop-out { animation-name: oh-dialog-slide-right-out; }
-[data-dialog-exit='expand'] .oh-dialog-pop-out { animation-name: oh-dialog-expand-out; }
-[data-dialog-exit='rotate_scale'] .oh-dialog-pop-out { animation-name: oh-dialog-rotate-scale-out; }
+[data-dialog-exit='fade'] .oh-dialog-pop-out,
+[data-dialog-exit='fade'] .oh-menu-pop-out { animation-name: oh-dialog-card-fade-out; }
+[data-dialog-exit='slide_up'] .oh-dialog-pop-out,
+[data-dialog-exit='slide_up'] .oh-menu-pop-out { animation-name: oh-dialog-slide-up-out; }
+[data-dialog-exit='slide_down'] .oh-dialog-pop-out,
+[data-dialog-exit='slide_down'] .oh-menu-pop-out { animation-name: oh-dialog-slide-down-out; }
+[data-dialog-exit='slide_left'] .oh-dialog-pop-out,
+[data-dialog-exit='slide_left'] .oh-menu-pop-out { animation-name: oh-dialog-slide-left-out; }
+[data-dialog-exit='slide_right'] .oh-dialog-pop-out,
+[data-dialog-exit='slide_right'] .oh-menu-pop-out { animation-name: oh-dialog-slide-right-out; }
+[data-dialog-exit='expand'] .oh-dialog-pop-out,
+[data-dialog-exit='expand'] .oh-menu-pop-out { animation-name: oh-dialog-expand-out; }
+[data-dialog-exit='rotate_scale'] .oh-dialog-pop-out,
+[data-dialog-exit='rotate_scale'] .oh-menu-pop-out { animation-name: oh-dialog-rotate-scale-out; }
 [data-dialog-exit='elastic'] .oh-dialog-pop-out,
-[data-dialog-exit='spring_scale'] .oh-dialog-pop-out { animation-name: oh-dialog-spring-scale-out; }
-[data-dialog-exit='flip_x'] .oh-dialog-pop-out { animation-name: oh-dialog-flip-x-out; }
+[data-dialog-exit='elastic'] .oh-menu-pop-out,
+[data-dialog-exit='spring_scale'] .oh-dialog-pop-out,
+[data-dialog-exit='spring_scale'] .oh-menu-pop-out { animation-name: oh-dialog-spring-scale-out; }
+[data-dialog-exit='flip_x'] .oh-dialog-pop-out,
+[data-dialog-exit='flip_x'] .oh-menu-pop-out { animation-name: oh-dialog-flip-x-out; }
 
 /* 悬浮加号按钮 (FAB)：常态轻浮 + hover 上抬 + active 下沉，外加循环极轻 idle 呼吸。 */
 @keyframes oh-fab-idle {
@@ -2456,7 +2501,7 @@ button.oh-composer-pill:not(:disabled):hover {
   transform: translateY(0) scale(0.96);
 }
 
-/* PopMenu (三点菜单等) 入场：origin top-right，先扩展再回弹，给 Material You 弹性感。 */
+/* PopMenu (三点菜单等) 进退场：跟随 App 端全局弹窗动效设置。 */
 @keyframes oh-popmenu-pop {
   0%   { opacity: 0; transform: scale(0.84); }
   55%  { opacity: 1; transform: scale(1.03); }
@@ -2467,12 +2512,12 @@ button.oh-composer-pill:not(:disabled):hover {
   to   { opacity: 0; transform: scale(0.96); }
 }
 .oh-popmenu-pop {
-  animation: oh-popmenu-pop 200ms var(--oh-motion-spring) both;
+  animation: oh-dialog-fade-scale-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
   transform-origin: top right;
   will-change: transform, opacity;
 }
 .oh-menu-pop-out {
-  animation: oh-menu-pop-out 180ms var(--oh-motion-emphasized) both;
+  animation: oh-dialog-fade-scale-out var(--oh-dialog-duration) var(--oh-dialog-exit-curve) both;
   pointer-events: none;
   will-change: transform, opacity;
 }

@@ -20,4 +20,27 @@ describe('mobile session layout CSS', () => {
     expect(mobileBlock).toContain('env(safe-area-inset-bottom, 0px)');
     expect(mobileBlock).toContain('env(safe-area-inset-left, 0px)');
   });
+
+  it('keeps the collapsed composer shell tight around the expand button', () => {
+    const toolbarBlock = source.match(/\.oh-composer-toolbar\[data-collapsed='true'\] \{[\s\S]*?\n\}/)?.[0] ?? '';
+    const shellBlock = source.match(/\.oh-session-composer\[data-collapsed='true'\] \{[\s\S]*?\n\}/)?.[0] ?? '';
+
+    expect(shellBlock).toContain('padding: 0 !important');
+    expect(shellBlock).toContain('background: transparent !important');
+    expect(shellBlock).toContain('box-shadow: none !important');
+    expect(toolbarBlock).toContain('display: inline-flex');
+    expect(toolbarBlock).toContain('width: auto');
+    expect(source).toContain(".oh-session-composer[data-collapsed='true'] .oh-composer-body,");
+    expect(source).toContain(".oh-session-composer[data-collapsed='true'] .oh-composer-footer");
+    expect(source).toContain('visibility: hidden');
+  });
+
+  it('uses shared dialog motion settings for popup menus', () => {
+    expect(source).toContain('animation: oh-dialog-fade-scale-in var(--oh-dialog-duration) var(--oh-dialog-curve) both');
+    expect(source).toContain('animation: oh-dialog-fade-scale-out var(--oh-dialog-duration) var(--oh-dialog-exit-curve) both');
+    expect(source).toContain("[data-dialog-enter='elastic'] .oh-popmenu-pop");
+    expect(source).toContain("[data-dialog-exit='spring_scale'] .oh-menu-pop-out");
+    expect(source).toContain("[data-dialog-enter='none'] .oh-popmenu-pop");
+    expect(source).toContain("[data-dialog-exit='none'] .oh-menu-pop-out");
+  });
 });

@@ -6,11 +6,11 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
+import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { useRafScheduler } from '../hooks/useRafScheduler';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { OverlayPortal } from './OverlayPortal';
 import { showSnackbar } from './Snackbar';
-
-const TOPBAR_MENU_EXIT_MS = 180;
 
 export interface SessionToolbarCapsule {
   key: string;
@@ -113,6 +113,7 @@ export interface SessionTopBarProps {
 }
 
 export function SessionTopBar(props: SessionTopBarProps) {
+  const reduceMotion = useReducedMotion();
   const {
     title,
     subtitle,
@@ -154,11 +155,17 @@ export function SessionTopBar(props: SessionTopBarProps) {
     if (!showMore || closingMore) return;
     setClosingMore(true);
     clearMoreMenuCloseTimer();
+    const closeMs = reduceMotion ? 0 : getDialogExitDurationMs();
+    if (closeMs <= 0) {
+      setShowMore(false);
+      setClosingMore(false);
+      return;
+    }
     moreMenuCloseTimerRef.current = window.setTimeout(() => {
       setShowMore(false);
       setClosingMore(false);
       moreMenuCloseTimerRef.current = null;
-    }, TOPBAR_MENU_EXIT_MS);
+    }, closeMs);
   }
 
   function toggleMoreMenu() {

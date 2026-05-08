@@ -1,7 +1,7 @@
 // M3 Expressive 下拉菜单（Web 端通用）。
 // - 受控 / 非受控均可：传 value 受控，省略时内部托管
 // - 触发器：M3 outlined "filled tonal" 视觉，圆角 m3-md，按下/悬停受压反馈
-// - 弹层：自适应触发器宽度，圆角 m3-md，elevation-2，220ms 入场（fade + scale + translateY）
+// - 弹层：自适应触发器宽度，圆角 m3-md，elevation-2，跟随全局弹窗动效设置进退场
 // - 行为：点击外部 / Escape / 选中后自动关闭；上下键导航 + Enter 选中；首字母快速跳转
 // - 可访问性：role=button + aria-haspopup + aria-expanded + role=listbox / option，键盘导航完整
 // - 降低动效模式由 global.css 兜底（[data-motion='reduced']），此处无需额外判断
@@ -10,7 +10,9 @@
 
 import type { JSX } from 'preact';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
+import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { useRafScheduler } from '../hooks/useRafScheduler';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { OverlayPortal } from './OverlayPortal';
 
 export interface MenuOption<T extends string = string> {
@@ -54,6 +56,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>): JSX.Element {
+  const reduceMotion = useReducedMotion();
   const {
     options, value, onChange, label, minWidth = 160, menuMaxHeight = 280,
     className, ariaLabel, disabled,
@@ -121,11 +124,17 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
     if (!open || closing) return;
     setClosing(true);
     clearCloseTimer();
+    const closeMs = reduceMotion ? 0 : getDialogExitDurationMs();
+    if (closeMs <= 0) {
+      setOpen(false);
+      setClosing(false);
+      return;
+    }
     closeTimerRef.current = window.setTimeout(() => {
       setOpen(false);
       setClosing(false);
       closeTimerRef.current = null;
-    }, 180);
+    }, closeMs);
   };
 
   useEffect(() => () => clearCloseTimer(), []);
@@ -228,7 +237,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
       id={listboxId}
       role="listbox"
       tabIndex={-1}
-      class={`${closing ? 'oh-menu-pop-out' : 'oh-appear-pop'} fixed rounded-m3-md overflow-auto`}
+      class={`${closing ? 'oh-menu-pop-out' : 'oh-popmenu-pop'} fixed rounded-m3-md overflow-auto`}
       style={{
         top: menuPosition ? `${menuPosition.top}px` : '-9999px',
         left: menuPosition ? `${menuPosition.left}px` : '-9999px',

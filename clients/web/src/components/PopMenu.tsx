@@ -10,7 +10,9 @@
 
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { useRafScheduler } from '../hooks/useRafScheduler';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { OverlayPortal } from './OverlayPortal';
 
 export interface PopMenuItem {
@@ -66,6 +68,7 @@ function PopMenuCheckIcon() {
 }
 
 export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right', width }: PopMenuProps) {
+  const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -90,11 +93,17 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
     if (!open || closing) return;
     setClosing(true);
     clearCloseTimer();
+    const closeMs = reduceMotion ? 0 : getDialogExitDurationMs();
+    if (closeMs <= 0) {
+      setOpen(false);
+      setClosing(false);
+      return;
+    }
     closeTimerRef.current = window.setTimeout(() => {
       setOpen(false);
       setClosing(false);
       closeTimerRef.current = null;
-    }, 180);
+    }, closeMs);
   };
 
   useEffect(() => () => clearCloseTimer(), []);
