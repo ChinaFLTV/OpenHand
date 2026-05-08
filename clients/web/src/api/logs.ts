@@ -25,6 +25,7 @@ export interface ListLogsResponse {
 export interface ListLogsOptions {
   offset?: number;
   limit?: number;
+  signal?: AbortSignal;
 }
 
 export function listLogs(options: ListLogsOptions = {}): Promise<ListLogsResponse> {
@@ -32,7 +33,9 @@ export function listLogs(options: ListLogsOptions = {}): Promise<ListLogsRespons
   if (options.offset != null) params.set('offset', String(options.offset));
   if (options.limit != null) params.set('limit', String(options.limit));
   const qs = params.toString();
-  return apiRequest<ListLogsResponse>(`/api/logs${qs ? `?${qs}` : ''}`);
+  return apiRequest<ListLogsResponse>(`/api/logs${qs ? `?${qs}` : ''}`, {
+    signal: options.signal,
+  });
 }
 
 /// 触发浏览器下载——通过 fetch + Blob，避免 <a download> 失去鉴权头。

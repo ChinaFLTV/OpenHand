@@ -7,7 +7,7 @@
 // - 顶部 Tail 模式：只显示最新 N 条，定时拉取最末页
 // - 「导出 JSON」直接下载
 
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { ApiError } from '../api/client';
 import { LogEntry, exportLogsBundle, listLogs } from '../api/logs';
@@ -43,6 +43,10 @@ function describeApiError(err: unknown): string {
   return String(err);
 }
 
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === 'AbortError';
+}
+
 export function LogsPage() {
   const location = useAnimatedLocation();
   const [items, setItems] = useState<LogEntry[]>([]);
@@ -57,60 +61,94 @@ export function LogsPage() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const tailTimerRef = useRef<number | null>(null);
+  const pageRequestAbortRef = useRef<AbortController | null>(null);
+  const tailRequestAbortRef = useRef<AbortController | null>(null);
 
-  const loadAt = async (newOffset: number) => {
+  const loadAt = useCallback(async (newOffset: number) => {
+    pageRequestAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    pageRequestAbortRef.current = ctrl;
     setLoading(true);
     setError(null);
     try {
-      const res = await listLogs({ offset: newOffset, limit: PAGE_SIZE });
+      const res = await listLogs({ offset: newOffset, limit: PAGE_SIZE, signal: ctrl.signal });
+      if (ctrl.signal.aborted) return;
       setItems(res.items);
       setTotal(res.total);
       setHasMore(res.has_more);
       setOffset(res.offset);
     } catch (err) {
+      if (ctrl.signal.aborted || isAbortError(err)) return;
       setError(describeApiError(err));
     } finally {
-      setLoading(false);
+      if (pageRequestAbortRef.current === ctrl) {
+        pageRequestAbortRef.current = null;
+        if (!ctrl.signal.aborted) setLoading(false);
+      }
     }
-  };
+  }, []);
 
   // Tail 模式：定时拉最后一页
-  const loadTail = async () => {
+  const loadTail = useCallback(async (signal: AbortSignal) => {
     try {
       // 先请求 metadata（offset=0,limit=1）拿 total
-      const head = await listLogs({ offset: 0, limit: 1 });
+      const head = await listLogs({ offset: 0, limit: 1, signal });
+      if (signal.aborted) return;
       const tailOffset = Math.max(0, head.total - PAGE_SIZE);
-      const res = await listLogs({ offset: tailOffset, limit: PAGE_SIZE });
+      const res = await listLogs({ offset: tailOffset, limit: PAGE_SIZE, signal });
+      if (signal.aborted) return;
       setItems(res.items);
       setTotal(res.total);
       setHasMore(res.has_more);
       setOffset(res.offset);
       setError(null);
     } catch (err) {
+      if (signal.aborted || isAbortError(err)) return;
       setError(describeApiError(err));
     }
-  };
+  }, []);
+
+  useEffect(() => () => {
+    pageRequestAbortRef.current?.abort();
+    tailRequestAbortRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     if (tail) {
-      void loadTail();
-      tailTimerRef.current = window.setInterval(() => {
-        void loadTail();
-      }, TAIL_INTERVAL_MS);
+      let stopped = false;
+      const run = async () => {
+        tailRequestAbortRef.current?.abort();
+        const ctrl = new AbortController();
+        tailRequestAbortRef.current = ctrl;
+        try {
+          await loadTail(ctrl.signal);
+        } finally {
+          if (tailRequestAbortRef.current === ctrl) tailRequestAbortRef.current = null;
+          if (!stopped) {
+            tailTimerRef.current = window.setTimeout(run, TAIL_INTERVAL_MS);
+          }
+        }
+      };
+      void run();
       return () => {
+        stopped = true;
         if (tailTimerRef.current != null) {
-          clearInterval(tailTimerRef.current);
+          clearTimeout(tailTimerRef.current);
           tailTimerRef.current = null;
         }
+        tailRequestAbortRef.current?.abort();
+        tailRequestAbortRef.current = null;
       };
     }
     if (tailTimerRef.current != null) {
-      clearInterval(tailTimerRef.current);
+      clearTimeout(tailTimerRef.current);
       tailTimerRef.current = null;
     }
+    tailRequestAbortRef.current?.abort();
+    tailRequestAbortRef.current = null;
     void loadAt(offset);
     // 关闭 tail 时仍以当前 offset 为锚
-  }, [tail]);
+  }, [tail, loadAt, loadTail]);
 
   const filtered = useMemo(() => {
     const tag = tagFilter.trim().toLowerCase();
