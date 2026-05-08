@@ -339,6 +339,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
   late bool? _requireConfirmation;
   late bool _retryOnFailure;
   AiWebSearchSettings? _webSearchSettings;
+  AiWebFetchSettings? _webFetchSettings;
   bool _isSaving = false;
 
   @override
@@ -378,6 +379,10 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     if (c.kind == AiBuiltinToolKind.webSearch) {
       _webSearchSettings =
           c.webSearchSettings ?? AiWebSearchSettings.defaults();
+    }
+    if (c.kind == AiBuiltinToolKind.webFetch) {
+      _webFetchSettings =
+          c.webFetchSettings ?? AiWebFetchSettings.defaults();
     }
   }
 
@@ -449,6 +454,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       maxRetries: maxRetries,
       retryBackoffMs: retryBackoffMs,
       webSearchSettings: _webSearchSettings,
+      webFetchSettings: _webFetchSettings,
       clearDisplayName: displayName.isEmpty,
       clearSummary: summary.isEmpty,
       clearPromptOverride: promptOverride.isEmpty,
@@ -822,6 +828,21 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                 widget.recentModelSelections,
                             onChanged: (next) =>
                                 setState(() => _webSearchSettings = next),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+
+                        // ── WebFetch-specific section ──
+                        if (widget.initial.kind ==
+                                AiBuiltinToolKind.webFetch &&
+                            _webFetchSettings != null) ...[
+                          _WebFetchSettingsEditor(
+                            value: _webFetchSettings!,
+                            availableModels: widget.availableModels,
+                            recentModelSelections:
+                                widget.recentModelSelections,
+                            onChanged: (next) =>
+                                setState(() => _webFetchSettings = next),
                           ),
                           const SizedBox(height: 14),
                         ],
