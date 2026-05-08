@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/preact';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageMedia } from './MessageMedia';
 import type { SessionMessage } from '../api/sessions';
 
@@ -27,6 +27,7 @@ describe('MessageMedia', () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
+    vi.restoreAllMocks();
   });
 
   it('renders generated local markdown media through the protected session asset endpoint', () => {
@@ -93,5 +94,39 @@ describe('MessageMedia', () => {
     expect(screen.getByText('photo.png')).not.toBeNull();
     expect(screen.getByText(/(附件|Attachment).*(图片|Image)/)).not.toBeNull();
     expect(screen.queryByAltText('photo.png')).toBeNull();
+  });
+
+  it('aborts an in-flight media save when the preview dialog closes', async () => {
+    let saveSignal: AbortSignal | undefined;
+    vi.stubGlobal('fetch', vi.fn((_url: string | URL | Request, init?: RequestInit) => {
+      saveSignal = init?.signal ?? undefined;
+      return new Promise<Response>(() => undefined);
+    }));
+
+    render(
+      <MessageMedia
+        sessionId="session-save"
+        message={makeMessage('', {
+          attachments: [
+            {
+              name: 'photo.png',
+              kind: 'image',
+              storage_path: '/tmp/session/upload-cache/photo.png',
+            },
+          ],
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle('photo.png'));
+    await screen.findByRole('dialog', { name: 'photo.png' });
+
+    fireEvent.click(screen.getByRole('button', { name: /保存|Save/ }));
+    await waitFor(() => expect(saveSignal).toBeDefined());
+    expect(saveSignal?.aborted).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: /关闭|Close/ }));
+
+    expect(saveSignal?.aborted).toBe(true);
   });
 });

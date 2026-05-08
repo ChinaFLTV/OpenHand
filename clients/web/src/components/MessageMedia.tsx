@@ -5,7 +5,7 @@
 // 由 service 端基于 session 消息 metadata 白名单放行。
 
 import { createPortal } from 'preact/compat';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
@@ -206,8 +206,8 @@ function pickerTypesForMedia(item: MediaItem): SaveBlobPickerType[] | undefined 
   }
 }
 
-async function saveMediaAsset(item: MediaItem, url: string): Promise<void> {
-  const res = await fetch(url, { credentials: 'same-origin' });
+async function saveMediaAsset(item: MediaItem, url: string, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(url, { credentials: 'same-origin', signal });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
@@ -271,16 +271,26 @@ interface MediaPreviewDialogProps {
 
 function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const saveAbortRef = useRef<AbortController | null>(null);
   const [saving, setSaving] = useState(false);
   const { closing, requestClose } = useDialogExitMotion(onClose);
+  const abortSave = useCallback(() => {
+    saveAbortRef.current?.abort();
+    saveAbortRef.current = null;
+  }, []);
+  const requestCloseWithAbort = useCallback(() => {
+    abortSave();
+    requestClose();
+  }, [abortSave, requestClose]);
+  useEffect(() => () => abortSave(), [abortSave]);
   useEffect(() => {
     if (closing) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') requestClose();
+      if (event.key === 'Escape') requestCloseWithAbort();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closing, requestClose]);
+  }, [closing, requestCloseWithAbort]);
   const requestFullscreen = async () => {
     try {
       await stageRef.current?.requestFullscreen?.();
@@ -290,18 +300,25 @@ function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
   };
   const handleSave = async () => {
     if (saving) return;
+    saveAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    saveAbortRef.current = ctrl;
     setSaving(true);
     try {
-      await saveMediaAsset(item, url);
+      await saveMediaAsset(item, url, ctrl.signal);
+      if (ctrl.signal.aborted) return;
       showSnackbar(t('detail.media.saveOk', '已保存媒体文件'), { tone: 'success' });
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (ctrl.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
       showSnackbar(
         `${t('detail.media.saveFailed', '保存失败')}：${error instanceof Error ? error.message : String(error)}`,
         { tone: 'error' },
       );
     } finally {
-      setSaving(false);
+      if (saveAbortRef.current === ctrl) {
+        saveAbortRef.current = null;
+        if (!ctrl.signal.aborted) setSaving(false);
+      }
     }
   };
 
@@ -318,7 +335,7 @@ function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
       aria-modal="true"
       aria-label={item.name}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) requestClose();
+        if (e.target === e.currentTarget) requestCloseWithAbort();
       }}
     >
       <section
@@ -360,7 +377,7 @@ function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
           </button>
           <button
             type="button"
-            onClick={requestClose}
+            onClick={requestCloseWithAbort}
             class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
             style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
           >
