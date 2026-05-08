@@ -30,6 +30,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   late TextEditingController _cacheTtlController;
   late TextEditingController _cacheMaxBytesController;
 
+  // 当前磁盘上已经落盘的 WebSearch 缓存字节数，由 [_refreshCacheBytesOnDisk]
+  // 异步加载；null 代表尚未读取或读取失败。
+  int? _cacheBytesOnDisk;
+  bool _clearingCache = false;
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +53,19 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     _cacheMaxBytesController = TextEditingController(
       text: _bytesToMb(widget.value.cacheMaxBytes),
     );
+    _refreshCacheBytesOnDisk();
+  }
+
+  Future<void> _refreshCacheBytesOnDisk() async {
+    try {
+      final bytes = await WebSearchCacheStore.instance.totalBytesOnDisk();
+      if (!mounted) return;
+      setState(() => _cacheBytesOnDisk = bytes);
+    } catch (e, st) {
+      silentLog('settings.websearch', '_refreshCacheBytesOnDisk', e, st);
+      if (!mounted) return;
+      setState(() => _cacheBytesOnDisk = 0);
+    }
   }
 
   @override
@@ -92,6 +110,84 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     return mb >= 100
         ? mb.toStringAsFixed(0)
         : (mb >= 10 ? mb.toStringAsFixed(1) : mb.toStringAsFixed(2));
+  }
+
+  static String _formatBytesHuman(int? bytes) {
+    if (bytes == null) return '…';
+    if (bytes <= 0) return '0 B';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  Future<void> _confirmAndClearCache() async {
+    if (_clearingCache) return;
+    final confirmed = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(_localizedText(
+            dialogContext,
+            zh: '清理 WebSearch 本地缓存？',
+            en: 'Clear WebSearch local cache?',
+          )),
+          content: Text(_localizedText(
+            dialogContext,
+            zh: '将立即删除所有已落盘的 summary 文件与映射索引 (index.json)，'
+                '后续相同关键词需要重新发起网络搜索。',
+            en: 'All persisted summary files and the mapping index '
+                '(index.json) will be deleted immediately. Future hits with '
+                'the same query will need a fresh online search.',
+          )),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(_localizedText(
+                dialogContext,
+                zh: '取消',
+                en: 'Cancel',
+              )),
+            ),
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                foregroundColor: Theme.of(dialogContext).colorScheme.error,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(_localizedText(
+                dialogContext,
+                zh: '确认清理',
+                en: 'Clear',
+              )),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _clearingCache = true);
+    try {
+      await WebSearchCacheStore.instance.clearAll();
+    } catch (e, st) {
+      silentLog('settings.websearch', '_confirmAndClearCache', e, st);
+    }
+    if (!mounted) return;
+    setState(() => _clearingCache = false);
+    await _refreshCacheBytesOnDisk();
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(SnackBar(
+      duration: const Duration(milliseconds: 1800),
+      content: Text(_localizedText(
+        context,
+        zh: 'WebSearch 本地缓存已清空',
+        en: 'WebSearch local cache cleared',
+      )),
+    ));
   }
 
   void _emit(AiWebSearchSettings next) => widget.onChanged(next);
@@ -536,6 +632,54 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                     ),
                   );
                 },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // ── 当前已落盘大小 + 显式清理按钮 ──
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '当前已占用：${_formatBytesHuman(_cacheBytesOnDisk)}',
+                  en: 'On disk: ${_formatBytesHuman(_cacheBytesOnDisk)}',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            TextButton.icon(
+              onPressed: _clearingCache ? null : _refreshCacheBytesOnDisk,
+              icon: const Icon(Icons.refresh, size: 16),
+              label: Text(_localizedText(
+                context,
+                zh: '刷新',
+                en: 'Refresh',
+              )),
+            ),
+            const SizedBox(width: 4),
+            FilledButton.tonalIcon(
+              onPressed: _clearingCache ? null : _confirmAndClearCache,
+              icon: _clearingCache
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(Icons.delete_sweep, size: 16,
+                      color: colorScheme.error),
+              label: Text(
+                _localizedText(
+                  context,
+                  zh: _clearingCache ? '清理中…' : '清理缓存',
+                  en: _clearingCache ? 'Clearing…' : 'Clear Cache',
+                ),
+                style: TextStyle(color: colorScheme.error),
               ),
             ),
           ],
