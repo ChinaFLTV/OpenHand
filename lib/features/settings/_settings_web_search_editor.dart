@@ -38,8 +38,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   // ── Telemetry (调用日志 + 引擎健康度) ──
   List<WebSearchCallLog> _recentCalls = const [];
   Map<AiWebSearchEngineKind, WebSearchEngineStat> _engineStats = const {};
+  Map<AiWebSearchEngineKind, List<WebSearchEngineSample>> _engineHistory =
+      const {};
   bool _telemetryLoading = false;
   bool _clearingTelemetry = false;
+  bool _exportingTelemetry = false;
 
   @override
   void initState() {
@@ -82,10 +85,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       final calls =
           await WebSearchTelemetryStore.instance.recentCalls();
       final stats = await WebSearchTelemetryStore.instance.engineStats();
+      final history = await WebSearchTelemetryStore.instance.engineHistory();
       if (!mounted) return;
       setState(() {
         _recentCalls = calls;
         _engineStats = stats;
+        _engineHistory = history;
         _telemetryLoading = false;
       });
     } catch (e, st) {
@@ -147,6 +152,107 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     }
     if (!mounted) return;
     setState(() => _clearingTelemetry = false);
+    await _refreshTelemetry();
+  }
+
+  Future<void> _exportTelemetry({required bool asCsv}) async {
+    if (_exportingTelemetry) return;
+    setState(() => _exportingTelemetry = true);
+    try {
+      final ext = asCsv ? 'csv' : 'json';
+      final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final location = await getSaveLocation(
+        suggestedName: 'websearch-calls-$ts.$ext',
+        acceptedTypeGroups: [
+          XTypeGroup(
+            label: ext.toUpperCase(),
+            extensions: [ext],
+          ),
+        ],
+      );
+      if (location == null) return;
+      final calls = await WebSearchTelemetryStore.instance.recentCalls(
+        limit: WebSearchTelemetryStore.maxRecentCalls,
+      );
+      final body = asCsv ? _callsToCsv(calls) : _callsToJson(calls);
+      await File(location.path).writeAsString(body, flush: true);
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+        duration: const Duration(milliseconds: 1800),
+        content: Text(_localizedText(
+          context,
+          zh: '已导出 ${calls.length} 条记录到 ${location.path}',
+          en: 'Exported ${calls.length} entries to ${location.path}',
+        )),
+      ));
+    } catch (e, st) {
+      silentLog('settings.websearch', '_exportTelemetry', e, st);
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+        backgroundColor: Theme.of(context).colorScheme.errorContainer,
+        content: Text(_localizedText(
+          context,
+          zh: '导出失败：$e',
+          en: 'Export failed: $e',
+        )),
+      ));
+    } finally {
+      if (mounted) setState(() => _exportingTelemetry = false);
+    }
+  }
+
+  String _callsToJson(List<WebSearchCallLog> calls) {
+    const encoder = JsonEncoder.withIndent('  ');
+    return encoder.convert(calls.map((c) => c.toJson()).toList(growable: false));
+  }
+
+  String _callsToCsv(List<WebSearchCallLog> calls) {
+    String esc(Object? v) {
+      final s = v?.toString() ?? '';
+      if (s.contains(',') || s.contains('"') || s.contains('\n')) {
+        return '"${s.replaceAll('"', '""')}"';
+      }
+      return s;
+    }
+
+    final buf = StringBuffer();
+    buf.writeln(
+      'timestamp_ms,timestamp_iso,query,cache_status,success,total_duration_ms,'
+      'merged_hit_count,fallback_used,summary_chars,error_message,model_protocol,'
+      'model_id,per_engine',
+    );
+    for (final c in calls) {
+      final iso = DateTime.fromMillisecondsSinceEpoch(c.timestampMs)
+          .toIso8601String();
+      final pe = c.perEngine
+          .map((p) =>
+              '${p.kind.name}:${p.success ? "ok" : "fail"}/${p.elapsedMs}ms/${p.hitCount}h')
+          .join(';');
+      buf.writeln([
+        c.timestampMs,
+        iso,
+        esc(c.query),
+        c.cacheStatus,
+        c.success,
+        c.totalDurationMs,
+        c.mergedHitCount,
+        c.fallbackUsed,
+        c.summaryChars,
+        esc(c.errorMessage),
+        esc(c.modelProtocol),
+        esc(c.modelId),
+        esc(pe),
+      ].join(','));
+    }
+    return buf.toString();
+  }
+
+  Future<void> _resetEngineCooldown(AiWebSearchEngineKind kind) async {
+    try {
+      await WebSearchTelemetryStore.instance.clearEngineCooldown(kind);
+    } catch (e, st) {
+      silentLog('settings.websearch', '_resetEngineCooldown', e, st);
+    }
     await _refreshTelemetry();
   }
 
@@ -849,6 +955,42 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         children: [
           const Spacer(),
           TextButton.icon(
+            onPressed: _telemetryLoading ||
+                    _clearingTelemetry ||
+                    _exportingTelemetry ||
+                    _recentCalls.isEmpty
+                ? null
+                : () => _exportTelemetry(asCsv: false),
+            icon: const Icon(Icons.code, size: 16),
+            label: Text(_localizedText(
+              context,
+              zh: '导出 JSON',
+              en: 'Export JSON',
+            )),
+          ),
+          const SizedBox(width: 4),
+          TextButton.icon(
+            onPressed: _telemetryLoading ||
+                    _clearingTelemetry ||
+                    _exportingTelemetry ||
+                    _recentCalls.isEmpty
+                ? null
+                : () => _exportTelemetry(asCsv: true),
+            icon: _exportingTelemetry
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.table_chart, size: 16),
+            label: Text(_localizedText(
+              context,
+              zh: '导出 CSV',
+              en: 'Export CSV',
+            )),
+          ),
+          const SizedBox(width: 4),
+          TextButton.icon(
             onPressed: _telemetryLoading || _clearingTelemetry
                 ? null
                 : _refreshTelemetry,
@@ -967,78 +1109,164 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         : pct >= 50
             ? Colors.orange.shade600
             : colorScheme.error;
+    final inCooldown = stat.isInCooldown();
+    final samples = _engineHistory[kind] ?? const <WebSearchEngineSample>[];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 92,
-            child: Text(
-              kind.name,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 6),
-          SizedBox(
-            width: 84,
-            child: Stack(
-              children: [
-                Container(
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(4),
+          Row(
+            children: [
+              SizedBox(
+                width: 92,
+                child: Text(
+                  kind.name,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                FractionallySizedBox(
-                  widthFactor: stat.successRate.clamp(0.0, 1.0),
-                  child: Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: pctColor,
-                      borderRadius: BorderRadius.circular(4),
+              ),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 84,
+                child: Stack(
+                  children: [
+                    Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
+                    FractionallySizedBox(
+                      widthFactor: stat.successRate.clamp(0.0, 1.0),
+                      child: Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: pctColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 48,
+                child: Text(
+                  '${pct.toStringAsFixed(0)}%',
+                  style: theme.textTheme.bodySmall?.copyWith(color: pctColor),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  _localizedText(
+                    context,
+                    zh: '${stat.totalCalls} 次 · 平均 ${stat.avgDurationMs.toStringAsFixed(0)}ms · 累计 ${stat.totalHits} 命中',
+                    en: '${stat.totalCalls} calls · avg ${stat.avgDurationMs.toStringAsFixed(0)}ms · ${stat.totalHits} hits',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (stat.lastError != null)
+                Tooltip(
+                  message: stat.lastError ?? '',
+                  child: Icon(
+                    Icons.error_outline,
+                    size: 14,
+                    color: colorScheme.error,
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 48,
-            child: Text(
-              '${pct.toStringAsFixed(0)}%',
-              style: theme.textTheme.bodySmall?.copyWith(color: pctColor),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              _localizedText(
-                context,
-                zh: '${stat.totalCalls} 次 · 平均 ${stat.avgDurationMs.toStringAsFixed(0)}ms · 累计 ${stat.totalHits} 命中',
-                en: '${stat.totalCalls} calls · avg ${stat.avgDurationMs.toStringAsFixed(0)}ms · ${stat.totalHits} hits',
+          if (inCooldown || stat.lastQuotaError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 92 + 6),
+              child: Row(
+                children: [
+                  if (inCooldown) ...[
+                    _StatusChip(
+                      icon: Icons.pause_circle_outline,
+                      label: _localizedText(
+                        context,
+                        zh: '降级中 · 剩余 ${_formatRemaining(stat.cooldownUntilMs)}',
+                        en: 'cooldown · ${_formatRemaining(stat.cooldownUntilMs)} left',
+                      ),
+                      bg: colorScheme.errorContainer,
+                      fg: colorScheme.onErrorContainer,
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () => _resetEngineCooldown(kind),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        child: Text(
+                          _localizedText(context, zh: '重置', en: 'Reset'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.primary,
+                            decoration: TextDecoration.underline,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (stat.lastQuotaError != null) ...[
+                    if (inCooldown) const SizedBox(width: 6),
+                    Tooltip(
+                      message: stat.lastQuotaError ?? '',
+                      child: _StatusChip(
+                        icon: Icons.speed,
+                        label: _localizedText(
+                          context,
+                          zh: '配额/限流',
+                          en: 'rate limit',
+                        ),
+                        bg: colorScheme.tertiaryContainer,
+                        fg: colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          if (stat.lastError != null)
-            Tooltip(
-              message: stat.lastError ?? '',
-              child: Icon(
-                Icons.error_outline,
-                size: 14,
-                color: colorScheme.error,
+          if (samples.length >= 2)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 92 + 6),
+              child: SizedBox(
+                width: 240,
+                height: 28,
+                child: CustomPaint(
+                  painter: _WebSearchSparklinePainter(
+                    samples: samples,
+                    successColor: Colors.green.shade600,
+                    failureColor: colorScheme.error,
+                    lineColor: colorScheme.primary.withValues(alpha: 0.6),
+                  ),
+                ),
               ),
             ),
         ],
       ),
     );
+  }
+
+  String _formatRemaining(int? untilMs) {
+    if (untilMs == null) return '0s';
+    final remain = untilMs - DateTime.now().millisecondsSinceEpoch;
+    if (remain <= 0) return '0s';
+    if (remain < 60 * 1000) return '${(remain / 1000).round()}s';
+    if (remain < 60 * 60 * 1000) return '${(remain / 60000).round()}m';
+    return '${(remain / 3600000).round()}h';
   }
 
   Widget _buildCallLogRow(
@@ -1168,6 +1396,103 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       ),
     );
   }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({
+    required this.icon,
+    required this.label,
+    required this.bg,
+    required this.fg,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color bg;
+  final Color fg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: fg),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(color: fg, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WebSearchSparklinePainter extends CustomPainter {
+  _WebSearchSparklinePainter({
+    required this.samples,
+    required this.successColor,
+    required this.failureColor,
+    required this.lineColor,
+  });
+
+  final List<WebSearchEngineSample> samples;
+  final Color successColor;
+  final Color failureColor;
+  final Color lineColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (samples.length < 2) return;
+    // 取最近 50 个样本，duration 归一化成 y。
+    final tail = samples.length > 50
+        ? samples.sublist(samples.length - 50)
+        : samples;
+    final maxDur = tail.fold<int>(0, (m, s) => s.durationMs > m ? s.durationMs : m);
+    final scaleY = maxDur == 0 ? 0.0 : (size.height - 4) / maxDur;
+    final stepX = tail.length == 1 ? size.width : size.width / (tail.length - 1);
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    final path = Path();
+    for (var i = 0; i < tail.length; i++) {
+      final x = i * stepX;
+      final y = size.height - 2 - tail[i].durationMs * scaleY;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, linePaint);
+
+    final dotSuccess = Paint()..color = successColor;
+    final dotFailure = Paint()..color = failureColor;
+    for (var i = 0; i < tail.length; i++) {
+      final x = i * stepX;
+      final y = size.height - 2 - tail[i].durationMs * scaleY;
+      canvas.drawCircle(
+        Offset(x, y),
+        1.6,
+        tail[i].success ? dotSuccess : dotFailure,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WebSearchSparklinePainter old) =>
+      old.samples != samples ||
+      old.successColor != successColor ||
+      old.failureColor != failureColor ||
+      old.lineColor != lineColor;
 }
 
 String _summaryDetailLabel(

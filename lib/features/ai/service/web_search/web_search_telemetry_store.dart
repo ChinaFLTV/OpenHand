@@ -24,6 +24,28 @@ class WebSearchTelemetryStore {
   /// 调用日志 ring buffer 上限。超过后裁掉最旧的若干条。
   static const int maxRecentCalls = 200;
 
+  /// 单引擎采样历史上限（趋势图用）。
+  static const int maxEngineHistorySamples = 200;
+
+  /// 连续失败 N 次后进入 cooldown，以下为分级时长（毫秒）。
+  static const int _cooldownStep1Ms = 60 * 1000; // 3 次 → 1 分钟
+  static const int _cooldownStep2Ms = 5 * 60 * 1000; // 5 次 → 5 分钟
+  static const int _cooldownStep3Ms = 15 * 60 * 1000; // 7+ 次 → 15 分钟
+
+  /// 显式 quota / 429 / rate limit 错误的固定 cooldown。
+  static const int _quotaCooldownMs = 5 * 60 * 1000;
+
+  static final RegExp _quotaErrorPattern = RegExp(
+    r'\b(429|too many requests|rate[\s_-]?limit|quota|exceeded|throttl)\b',
+    caseSensitive: false,
+  );
+
+  /// 判断 engine 错误信息是否属于配额/限流类。
+  static bool looksLikeQuotaError(String? message) {
+    if (message == null || message.isEmpty) return false;
+    return _quotaErrorPattern.hasMatch(message);
+  }
+
   Future<void> _chain = Future.value();
 
   static String defaultDirectoryPath() => p.join(
@@ -158,12 +180,40 @@ class WebSearchTelemetryStore {
           ((cur['total_duration_ms'] as num?)?.toInt() ?? 0) + per.elapsedMs;
       final totalHits =
           ((cur['total_hits'] as num?)?.toInt() ?? 0) + per.hitCount;
+
+      // 连续失败计数 → 失败自动降级（cooldown）。
+      var consecFail = (cur['consecutive_failures'] as num?)?.toInt() ?? 0;
+      int? cooldownUntilMs = (cur['cooldown_until_ms'] as num?)?.toInt();
+      String? lastQuotaError = cur['last_quota_error'] as String?;
+      int? lastQuotaAt = (cur['last_quota_at'] as num?)?.toInt();
+      if (per.success) {
+        consecFail = 0;
+        cooldownUntilMs = null; // 一次成功立即清掉 cooldown
+      } else {
+        consecFail += 1;
+        if (looksLikeQuotaError(per.error)) {
+          lastQuotaError = per.error;
+          lastQuotaAt = call.timestampMs;
+          cooldownUntilMs = call.timestampMs + _quotaCooldownMs;
+        } else if (consecFail >= 7) {
+          cooldownUntilMs = call.timestampMs + _cooldownStep3Ms;
+        } else if (consecFail >= 5) {
+          cooldownUntilMs = call.timestampMs + _cooldownStep2Ms;
+        } else if (consecFail >= 3) {
+          cooldownUntilMs = call.timestampMs + _cooldownStep1Ms;
+        }
+      }
+
       final updated = <String, Object?>{
         'total_calls': totalCalls,
         'success_calls': successCalls,
         'total_duration_ms': totalDur,
         'total_hits': totalHits,
         'last_invoked_at': call.timestampMs,
+        'consecutive_failures': consecFail,
+        if (cooldownUntilMs != null) 'cooldown_until_ms': cooldownUntilMs,
+        if (lastQuotaError != null) 'last_quota_error': lastQuotaError,
+        if (lastQuotaAt != null) 'last_quota_at': lastQuotaAt,
       };
       if (!per.success) {
         updated['last_error'] = per.error ?? cur['last_error'];
@@ -175,6 +225,113 @@ class WebSearchTelemetryStore {
       agg[key] = updated;
     }
     await enginesFile.writeAsString(jsonEncode(agg), flush: true);
+
+    // 3) 追加 engine_history.json（每引擎 200 个采样，趋势图用）。
+    if (call.perEngine.isNotEmpty) {
+      final histFile = File(p.join(dir.path, 'engine_history.json'));
+      final hist = <String, List<Map<String, Object?>>>{};
+      if (await histFile.exists()) {
+        try {
+          final raw = await histFile.readAsString();
+          final decoded = jsonDecode(raw);
+          if (decoded is Map) {
+            for (final entry in decoded.entries) {
+              if (entry.value is List) {
+                hist['${entry.key}'] = (entry.value as List)
+                    .whereType<Map>()
+                    .map((m) => Map<String, Object?>.from(m))
+                    .toList();
+              }
+            }
+          }
+        } catch (_) {/* corrupted */}
+      }
+      for (final per in call.perEngine) {
+        final key = per.kind.name;
+        final list = hist[key] ?? <Map<String, Object?>>[];
+        list.add(<String, Object?>{
+          'ts': call.timestampMs,
+          'dur': per.elapsedMs,
+          'ok': per.success,
+          'hits': per.hitCount,
+        });
+        if (list.length > maxEngineHistorySamples) {
+          list.removeRange(0, list.length - maxEngineHistorySamples);
+        }
+        hist[key] = list;
+      }
+      await histFile.writeAsString(jsonEncode(hist), flush: true);
+    }
+  }
+
+  /// 读取 engine_history.json，按引擎返回采样列表（按时间升序）。
+  Future<Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>>
+      engineHistory() async {
+    final f = File(p.join(defaultDirectoryPath(), 'engine_history.json'));
+    if (!await f.exists()) return const {};
+    try {
+      final raw = await f.readAsString();
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const {};
+      final out = <AiWebSearchEngineKind, List<WebSearchEngineSample>>{};
+      for (final entry in decoded.entries) {
+        final kind = _parseKind('${entry.key}');
+        if (kind == null) continue;
+        if (entry.value is! List) continue;
+        out[kind] = (entry.value as List)
+            .whereType<Map>()
+            .map((m) => WebSearchEngineSample(
+                  timestampMs: (m['ts'] as num?)?.toInt() ?? 0,
+                  durationMs: (m['dur'] as num?)?.toInt() ?? 0,
+                  success: m['ok'] == true,
+                  hitCount: (m['hits'] as num?)?.toInt() ?? 0,
+                ))
+            .toList(growable: false);
+      }
+      return out;
+    } catch (error, stack) {
+      silentLog('web_search_telemetry', 'engineHistory', error, stack);
+      return const {};
+    }
+  }
+
+  /// orchestrator 用：判断某引擎当前是否处于 cooldown（暂停调用）。
+  /// 返回剩余毫秒数；0 表示可调用。
+  Future<int> cooldownRemaining(AiWebSearchEngineKind kind) async {
+    final stats = await engineStats();
+    final s = stats[kind];
+    if (s == null) return 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final until = s.cooldownUntilMs ?? 0;
+    return until > now ? (until - now) : 0;
+  }
+
+  /// 手动清掉某引擎的 cooldown（用于设置 UI 上的"重置"动作）。
+  Future<void> clearEngineCooldown(AiWebSearchEngineKind kind) async {
+    _chain = _chain.then((_) async {
+      final f = File(p.join(defaultDirectoryPath(), 'engines.json'));
+      if (!await f.exists()) return;
+      try {
+        final raw = await f.readAsString();
+        final decoded = jsonDecode(raw);
+        if (decoded is! Map) return;
+        final agg = <String, Map<String, Object?>>{};
+        for (final entry in decoded.entries) {
+          if (entry.value is Map) {
+            agg['${entry.key}'] = Map<String, Object?>.from(entry.value as Map);
+          }
+        }
+        final cur = agg[kind.name];
+        if (cur == null) return;
+        cur.remove('cooldown_until_ms');
+        cur['consecutive_failures'] = 0;
+        agg[kind.name] = cur;
+        await f.writeAsString(jsonEncode(agg), flush: true);
+      } catch (error, stack) {
+        silentLog('web_search_telemetry', 'clearEngineCooldown', error, stack);
+      }
+    });
+    await _chain;
   }
 
   AiWebSearchEngineKind? _parseKind(String name) {
@@ -305,6 +462,10 @@ class WebSearchEngineStat {
     this.lastError,
     this.lastFailureAt,
     this.lastInvokedAt,
+    this.consecutiveFailures = 0,
+    this.cooldownUntilMs,
+    this.lastQuotaError,
+    this.lastQuotaAt,
   });
 
   factory WebSearchEngineStat.fromJson(Map<String, Object?> m) =>
@@ -316,6 +477,11 @@ class WebSearchEngineStat {
         lastError: m['last_error'] as String?,
         lastFailureAt: (m['last_failure_at'] as num?)?.toInt(),
         lastInvokedAt: (m['last_invoked_at'] as num?)?.toInt(),
+        consecutiveFailures:
+            (m['consecutive_failures'] as num?)?.toInt() ?? 0,
+        cooldownUntilMs: (m['cooldown_until_ms'] as num?)?.toInt(),
+        lastQuotaError: m['last_quota_error'] as String?,
+        lastQuotaAt: (m['last_quota_at'] as num?)?.toInt(),
       );
 
   final int totalCalls;
@@ -325,8 +491,32 @@ class WebSearchEngineStat {
   final String? lastError;
   final int? lastFailureAt;
   final int? lastInvokedAt;
+  final int consecutiveFailures;
+  final int? cooldownUntilMs;
+  final String? lastQuotaError;
+  final int? lastQuotaAt;
 
   double get successRate => totalCalls == 0 ? 0 : successCalls / totalCalls;
   double get avgDurationMs =>
       totalCalls == 0 ? 0 : totalDurationMs / totalCalls;
+
+  bool isInCooldown([int? nowMs]) {
+    final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
+    return cooldownUntilMs != null && cooldownUntilMs! > now;
+  }
+}
+
+/// 单次引擎调用采样（趋势图用）。
+class WebSearchEngineSample {
+  const WebSearchEngineSample({
+    required this.timestampMs,
+    required this.durationMs,
+    required this.success,
+    required this.hitCount,
+  });
+
+  final int timestampMs;
+  final int durationMs;
+  final bool success;
+  final int hitCount;
 }

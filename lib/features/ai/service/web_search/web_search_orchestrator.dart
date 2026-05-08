@@ -9,6 +9,7 @@ import 'web_search_api_engines.dart';
 import 'web_search_engine.dart';
 import 'web_search_html_engines.dart';
 import 'web_search_provider_engines.dart';
+import 'web_search_telemetry_store.dart';
 
 /// 单个引擎运行进度回调（用于在 BashToolExecutionUpdate 里推送状态）。
 typedef WebSearchProgressEmitter =
@@ -99,12 +100,38 @@ class WebSearchOrchestrator {
         : _fallbackConfigs();
     final fallbackUsed = activeConfigs.isEmpty;
 
+    // 失败自动降级：跳过当前 cooldown 中的引擎。一次成功 stat 自动清掉
+    // cooldown，所以这里只需要静默过滤 + 汇报 progress.failed("cooldown")。
+    final stats = await WebSearchTelemetryStore.instance.engineStats();
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final usableConfigs = <AiWebSearchEngineConfig>[];
+    final skippedKinds = <AiWebSearchEngineKind>[];
+    for (final c in orderedConfigs) {
+      final s = stats[c.kind];
+      if (s != null && s.isInCooldown(nowMs)) {
+        skippedKinds.add(c.kind);
+      } else {
+        usableConfigs.add(c);
+      }
+    }
+    for (final k in skippedKinds) {
+      onProgress(
+        WebSearchEngineProgress(
+          kind: k,
+          stage: WebSearchProgressStage.failed,
+          message: 'skipped: cooldown active',
+        ),
+      );
+    }
+    final effectiveConfigs =
+        usableConfigs.isNotEmpty ? usableConfigs : orderedConfigs;
+
     final ctx = WebSearchEngineContext(
       httpClient: httpClient,
       availableModels: availableModels,
     );
 
-    final engines = orderedConfigs
+    final engines = effectiveConfigs
         .map(
           (c) => _buildEngine(c, ctx),
         )
@@ -142,7 +169,7 @@ class WebSearchOrchestrator {
 
     final merged = _mergeAndRank(
       results: results,
-      configs: { for (final c in orderedConfigs) c.kind: c },
+      configs: { for (final c in effectiveConfigs) c.kind: c },
       maxResults: settings.resultCount,
     );
 
