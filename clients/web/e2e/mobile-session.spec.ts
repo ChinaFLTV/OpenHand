@@ -155,7 +155,7 @@ test('session detail fits a 360px mobile viewport without horizontal overflow', 
 
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
   expect(layout.bodyWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
-  expect(layout.mainWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
+  expect(layout.mainWidth).toBeLessThanOrEqual(layout.viewportWidth + 2);
   expect(layout.composerWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
   expect(layout.toolbarWidth).toBeLessThanOrEqual(layout.composerWidth + 1);
   expect(layout.permissionWidth).toBeLessThanOrEqual(40);

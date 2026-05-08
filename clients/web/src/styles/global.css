@@ -1497,7 +1497,11 @@ button.oh-composer-pill:not(:disabled):hover {
 @media (max-width: 720px) {
   .oh-session-detail-page {
     height: 100dvh;
-    padding: 10px 10px 12px;
+    padding:
+      calc(10px + env(safe-area-inset-top, 0px))
+      calc(10px + env(safe-area-inset-right, 0px))
+      calc(12px + env(safe-area-inset-bottom, 0px))
+      calc(10px + env(safe-area-inset-left, 0px));
   }
   .oh-session-detail-shell {
     max-width: none;
@@ -1506,7 +1510,11 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-session-detail-page:fullscreen,
   .oh-session-detail-page:-webkit-full-screen {
     height: 100dvh;
-    padding: 10px;
+    padding:
+      calc(10px + env(safe-area-inset-top, 0px))
+      calc(10px + env(safe-area-inset-right, 0px))
+      calc(10px + env(safe-area-inset-bottom, 0px))
+      calc(10px + env(safe-area-inset-left, 0px));
   }
   .oh-session-topbar-row {
     flex-wrap: wrap;
