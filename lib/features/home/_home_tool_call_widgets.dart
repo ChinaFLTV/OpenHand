@@ -308,6 +308,16 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                         expiresAt: message
                             .metadata['websearch_cache_expires_at'] as String?,
                       ),
+                    // WebFetch 工具特有：复用同一套缓存徽标 UX，但读取
+                    // webfetch_cache 系列 metadata。
+                    if (message.metadata['webfetch_cache'] is String)
+                      _WebFetchCacheChip(
+                        status: message.metadata['webfetch_cache'] as String,
+                        cachedAt: message
+                            .metadata['webfetch_cache_cached_at'] as String?,
+                        expiresAt: message
+                            .metadata['webfetch_cache_expires_at'] as String?,
+                      ),
                     if (toolCall.durationMs > 0 || toolCall.status == 'running')
                       _ToolExecutionChip(
                         icon: Icons.timer_outlined,
@@ -1209,6 +1219,83 @@ class _WebSearchCacheChip extends StatelessWidget {
       default:
         icon = Icons.help_outline;
         label = '缓存：$status';
+        tint = cs.onSurfaceVariant;
+    }
+    final tooltip = StringBuffer(label);
+    if (cachedAt != null && cachedAt!.isNotEmpty) {
+      tooltip
+        ..write('\n命中时间：')
+        ..write(cachedAt);
+    }
+    if (expiresAt != null && expiresAt!.isNotEmpty) {
+      tooltip
+        ..write('\n过期时间：')
+        ..write(expiresAt);
+    }
+    return Tooltip(
+      message: tooltip.toString(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: 0.12),
+          borderRadius: _borderRadius999,
+          border: Border.all(color: tint.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: tint),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(color: tint),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// WebFetch 工具卡片专用：UX 复用 [_WebSearchCacheChip]，文案对应抓取
+/// 缓存语境（命中=直出本地内容 / 已落盘=新抓取并写入缓存 / 缓存关闭）。
+class _WebFetchCacheChip extends StatelessWidget {
+  const _WebFetchCacheChip({
+    required this.status,
+    required this.cachedAt,
+    required this.expiresAt,
+  });
+
+  final String status;
+  final String? cachedAt;
+  final String? expiresAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    late final IconData icon;
+    late final String label;
+    late final Color tint;
+    switch (status) {
+      case 'hit':
+        icon = Icons.flash_on_rounded;
+        label = '抓取缓存命中';
+        tint = cs.primary;
+        break;
+      case 'miss-stored':
+        icon = Icons.cloud_download_outlined;
+        label = '已落盘';
+        tint = cs.tertiary;
+        break;
+      case 'disabled':
+        icon = Icons.do_disturb_alt_outlined;
+        label = '缓存关闭';
+        tint = cs.onSurfaceVariant;
+        break;
+      default:
+        icon = Icons.help_outline;
+        label = '抓取缓存：$status';
         tint = cs.onSurfaceVariant;
     }
     final tooltip = StringBuffer(label);
