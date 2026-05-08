@@ -36,6 +36,7 @@ import '../../shared/widgets/first_frame_pulse_box.dart';
 import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/key_tweakable_slider.dart';
 import '../../shared/widgets/micro_press_feedback.dart';
+import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import '../../shared/widgets/rolling_text.dart';
@@ -81,6 +82,7 @@ part '_settings_command_rules.dart';
 part '_settings_shortcut_widgets.dart';
 part '_settings_animation_sections.dart';
 part '_settings_builtin_tools.dart';
+part '_settings_web_search_editor.dart';
 part '_settings_helper_widgets.dart';
 part '_settings_user_profile.dart';
 part '_settings_data_cleanup.dart';
@@ -2740,6 +2742,8 @@ class _SettingsViewState extends State<SettingsView> {
           defaultName: defaults?.definition.name,
           defaultDescription: defaults?.definition.description,
           defaultParameters: defaults?.definition.parameters,
+          availableModels: settingsController.aiModels,
+          recentModelSelections: settingsController.recentModelSelections,
         );
       },
     );

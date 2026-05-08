@@ -1,0 +1,424 @@
+import 'dart:convert';
+
+import '../../../app/support/silent_log.dart';
+
+/// 受支持的搜索引擎种类。顺序与默认渲染顺序一致；用户可在设置中拖拽改变实际优先级。
+enum AiWebSearchEngineKind {
+  /// Tavily Search API — 专业 AI 搜索；需要 `TAVILY_API_KEY`。
+  tavily,
+
+  /// Exa（formerly Metaphor）— 神经搜索；需要 `EXA_API_KEY`。
+  exa,
+
+  /// Moonshot Kimi 联网搜索（`/v1/tools/web_search` 兼容协议）。
+  kimi,
+
+  /// 百度 AI 搜索 API（千帆 / `aip.baidubce.com/...`）。
+  baidu,
+
+  /// Linkup Web Search（`https://api.linkup.so/v1/search`）。
+  linkup,
+
+  /// 博查（Bocha）AI 搜索（`https://api.bochaai.com/v1/web-search`）。
+  bocha,
+
+  /// DuckDuckGo HTML 抓取（无需 key，结果质量较低，作为兜底）。
+  duckduckgo,
+
+  /// xAI Grok Live Search（`messages` body 的 `search_parameters`）。
+  grok,
+
+  /// Google Gemini Grounding Search（`tools.googleSearch`）。
+  gemini,
+
+  /// Bing HTML 抓取（无需 key，作为最终兜底）。
+  bing,
+
+  /// SearXNG / Startpage 兼容元搜索实例（用户自填 endpoint）。
+  searxng;
+
+  /// 是否需要 API key 才能使用。
+  bool get requiresApiKey {
+    return switch (this) {
+      AiWebSearchEngineKind.duckduckgo => false,
+      AiWebSearchEngineKind.bing => false,
+      AiWebSearchEngineKind.searxng => false,
+      _ => true,
+    };
+  }
+
+  /// 是否为兜底引擎（即使用户全禁也会启用）。
+  bool get isFallback {
+    return this == AiWebSearchEngineKind.bing ||
+        this == AiWebSearchEngineKind.duckduckgo ||
+        this == AiWebSearchEngineKind.searxng;
+  }
+}
+
+/// summary 详细程度档位。
+enum AiWebSearchSummaryDetail {
+  /// 简明扼要：≤ 200 字。
+  brief,
+
+  /// 中规中矩：200–600 字。
+  balanced,
+
+  /// 全面详细：600–1500 字。
+  comprehensive,
+
+  /// 细致入微：1500+ 字，多段落带引用。
+  exhaustive,
+}
+
+/// summary 语言风格档位。
+enum AiWebSearchSummaryStyle {
+  /// 中性百科风（默认）。
+  neutral,
+
+  /// 技术分析风（结构化、含术语）。
+  technical,
+
+  /// 通俗轻松风。
+  casual,
+
+  /// 严格结构化（要点列表 + 来源段）。
+  structured,
+}
+
+/// summary 子代理使用的模型策略。
+enum AiWebSearchModelMode {
+  /// 自动跟随当前会话模型（默认）。
+  followSession,
+
+  /// 固定使用指定 provider/model。
+  fixed,
+}
+
+/// 单个搜索引擎的配置。
+class AiWebSearchEngineConfig {
+  const AiWebSearchEngineConfig({
+    required this.kind,
+    this.enabled = false,
+    this.weight = defaultWeight,
+    this.maxRetries = defaultMaxRetries,
+    this.truncationChars = defaultTruncationChars,
+    this.apiKey,
+    this.providerConfigId,
+    this.endpointOverride,
+  });
+
+  static const int defaultWeight = 50;
+  static const int minWeight = 1;
+  static const int maxWeight = 100;
+  static const int defaultMaxRetries = 3;
+  static const int maxRetriesUpperBound = 10;
+
+  /// 默认截断阈值（字符数）。用户层面以「tokens」标注，按 ~4 字符 / token 估算
+  /// 即 20000 tokens ≈ 80000 字符；为保守起见取 80000。
+  static const int defaultTruncationChars = 80000;
+  static const int minTruncationChars = 1000;
+  static const int maxTruncationChars = 400000;
+
+  final AiWebSearchEngineKind kind;
+  final bool enabled;
+  final int weight;
+  final int maxRetries;
+  final int truncationChars;
+
+  /// 用户直接粘贴的 API key（明文，与 `AiServiceProvider` apiKey 体系并行存在）。
+  final String? apiKey;
+
+  /// 关联到某个 `AiModelConfig.id`，复用该 provider 的 apiKey；优先级高于 [apiKey]。
+  /// 仅对 kimi / grok / gemini 等与已注册 provider 重叠的引擎有意义。
+  final String? providerConfigId;
+
+  /// 自定义 endpoint（仅对 searxng 等需要用户提供实例 URL 的引擎有意义）。
+  final String? endpointOverride;
+
+  AiWebSearchEngineConfig copyWith({
+    bool? enabled,
+    int? weight,
+    int? maxRetries,
+    int? truncationChars,
+    String? apiKey,
+    String? providerConfigId,
+    String? endpointOverride,
+    bool clearApiKey = false,
+    bool clearProviderConfigId = false,
+    bool clearEndpointOverride = false,
+  }) {
+    return AiWebSearchEngineConfig(
+      kind: kind,
+      enabled: enabled ?? this.enabled,
+      weight: weight ?? this.weight,
+      maxRetries: maxRetries ?? this.maxRetries,
+      truncationChars: truncationChars ?? this.truncationChars,
+      apiKey: clearApiKey ? null : (apiKey ?? this.apiKey),
+      providerConfigId: clearProviderConfigId
+          ? null
+          : (providerConfigId ?? this.providerConfigId),
+      endpointOverride: clearEndpointOverride
+          ? null
+          : (endpointOverride ?? this.endpointOverride),
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'kind': kind.name,
+      'enabled': enabled,
+      'weight': weight,
+      'max_retries': maxRetries,
+      'truncation_chars': truncationChars,
+      if (apiKey != null && apiKey!.isNotEmpty) 'api_key': apiKey,
+      if (providerConfigId != null && providerConfigId!.isNotEmpty)
+        'provider_config_id': providerConfigId,
+      if (endpointOverride != null && endpointOverride!.isNotEmpty)
+        'endpoint_override': endpointOverride,
+    };
+  }
+
+  static AiWebSearchEngineConfig? fromJson(Map<String, Object?> json) {
+    final rawKind = '${json['kind'] ?? ''}'.trim();
+    final kind = AiWebSearchEngineKind.values
+        .where((e) => e.name == rawKind)
+        .firstOrNull;
+    if (kind == null) return null;
+    int clamp(int value, int lo, int hi) =>
+        value < lo ? lo : (value > hi ? hi : value);
+    return AiWebSearchEngineConfig(
+      kind: kind,
+      enabled: json['enabled'] is bool ? json['enabled'] as bool : false,
+      weight: clamp(
+        (json['weight'] as num?)?.toInt() ?? defaultWeight,
+        minWeight,
+        maxWeight,
+      ),
+      maxRetries: clamp(
+        (json['max_retries'] as num?)?.toInt() ?? defaultMaxRetries,
+        0,
+        maxRetriesUpperBound,
+      ),
+      truncationChars: clamp(
+        (json['truncation_chars'] as num?)?.toInt() ?? defaultTruncationChars,
+        minTruncationChars,
+        maxTruncationChars,
+      ),
+      apiKey: json['api_key'] is String ? json['api_key'] as String : null,
+      providerConfigId: json['provider_config_id'] is String
+          ? json['provider_config_id'] as String
+          : null,
+      endpointOverride: json['endpoint_override'] is String
+          ? json['endpoint_override'] as String
+          : null,
+    );
+  }
+}
+
+/// WebSearch 内建工具的全部 sub-agent / 数据源 / summary 配置。
+class AiWebSearchSettings {
+  const AiWebSearchSettings({
+    required this.engines,
+    this.resultCount = defaultResultCount,
+    this.modelMode = AiWebSearchModelMode.followSession,
+    this.fixedModelProviderConfigId,
+    this.fixedModelId,
+    this.parallel = true,
+    this.parallelWorkers = defaultParallelWorkers,
+    this.summaryDetail = AiWebSearchSummaryDetail.balanced,
+    this.summaryStyle = AiWebSearchSummaryStyle.neutral,
+    this.summaryMinChars = 0,
+    this.summaryMaxChars = defaultSummaryMaxChars,
+  });
+
+  static const int defaultResultCount = 8;
+  static const int minResultCount = 1;
+  static const int maxResultCount = 30;
+
+  static const int defaultParallelWorkers = 3;
+  static const int minParallelWorkers = 1;
+  static const int maxParallelWorkers = 9;
+
+  static const int defaultSummaryMaxChars = 1500;
+  static const int maxSummaryMaxChars = 8000;
+
+  final List<AiWebSearchEngineConfig> engines;
+  final int resultCount;
+  final AiWebSearchModelMode modelMode;
+  final String? fixedModelProviderConfigId;
+  final String? fixedModelId;
+  final bool parallel;
+  final int parallelWorkers;
+  final AiWebSearchSummaryDetail summaryDetail;
+  final AiWebSearchSummaryStyle summaryStyle;
+  final int summaryMinChars;
+  final int summaryMaxChars;
+
+  /// 默认配置：所有引擎按 [AiWebSearchEngineKind] 顺序枚举出来，全部禁用。
+  /// 当用户全部禁用时，运行期会自动启用 `bing` / `duckduckgo` 兜底。
+  // ignore: sort_constructors_first
+  factory AiWebSearchSettings.defaults() {
+    return AiWebSearchSettings(
+      engines: [
+        for (final kind in AiWebSearchEngineKind.values)
+          AiWebSearchEngineConfig(kind: kind),
+      ],
+    );
+  }
+
+  /// 把 [engines] 中已启用的部分按当前顺序返回。
+  List<AiWebSearchEngineConfig> enabledEnginesInOrder() =>
+      engines.where((e) => e.enabled).toList(growable: false);
+
+  AiWebSearchSettings copyWith({
+    List<AiWebSearchEngineConfig>? engines,
+    int? resultCount,
+    AiWebSearchModelMode? modelMode,
+    String? fixedModelProviderConfigId,
+    String? fixedModelId,
+    bool? parallel,
+    int? parallelWorkers,
+    AiWebSearchSummaryDetail? summaryDetail,
+    AiWebSearchSummaryStyle? summaryStyle,
+    int? summaryMinChars,
+    int? summaryMaxChars,
+    bool clearFixedModel = false,
+  }) {
+    return AiWebSearchSettings(
+      engines: engines ?? this.engines,
+      resultCount: resultCount ?? this.resultCount,
+      modelMode: modelMode ?? this.modelMode,
+      fixedModelProviderConfigId: clearFixedModel
+          ? null
+          : (fixedModelProviderConfigId ?? this.fixedModelProviderConfigId),
+      fixedModelId: clearFixedModel
+          ? null
+          : (fixedModelId ?? this.fixedModelId),
+      parallel: parallel ?? this.parallel,
+      parallelWorkers: parallelWorkers ?? this.parallelWorkers,
+      summaryDetail: summaryDetail ?? this.summaryDetail,
+      summaryStyle: summaryStyle ?? this.summaryStyle,
+      summaryMinChars: summaryMinChars ?? this.summaryMinChars,
+      summaryMaxChars: summaryMaxChars ?? this.summaryMaxChars,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'engines': engines.map((e) => e.toJson()).toList(growable: false),
+      'result_count': resultCount,
+      'model_mode': modelMode.name,
+      if (fixedModelProviderConfigId != null)
+        'fixed_model_provider_config_id': fixedModelProviderConfigId,
+      if (fixedModelId != null) 'fixed_model_id': fixedModelId,
+      'parallel': parallel,
+      'parallel_workers': parallelWorkers,
+      'summary_detail': summaryDetail.name,
+      'summary_style': summaryStyle.name,
+      'summary_min_chars': summaryMinChars,
+      'summary_max_chars': summaryMaxChars,
+    };
+  }
+
+  static AiWebSearchSettings? fromJson(Object? raw) {
+    Map<String, Object?>? json;
+    if (raw is Map) {
+      json = Map<String, Object?>.from(raw);
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          json = Map<String, Object?>.from(decoded);
+        }
+      } catch (error, stack) {
+        silentLog(
+          'ai_web_search_settings',
+          'decode JSON string',
+          error,
+          stack,
+        );
+        return null;
+      }
+    }
+    if (json == null) return null;
+
+    final rawEngines = json['engines'];
+    final engines = <AiWebSearchEngineConfig>[];
+    final seenKinds = <AiWebSearchEngineKind>{};
+    if (rawEngines is List) {
+      for (final entry in rawEngines) {
+        if (entry is Map) {
+          final cfg = AiWebSearchEngineConfig.fromJson(
+            Map<String, Object?>.from(entry),
+          );
+          if (cfg != null && seenKinds.add(cfg.kind)) engines.add(cfg);
+        }
+      }
+    }
+    // 补齐缺失的 kind（默认禁用），保留用户保存的顺序。
+    for (final kind in AiWebSearchEngineKind.values) {
+      if (!seenKinds.contains(kind)) {
+        engines.add(AiWebSearchEngineConfig(kind: kind));
+      }
+    }
+
+    final rawModelMode = '${json['model_mode'] ?? ''}'.trim();
+    final modelMode =
+        AiWebSearchModelMode.values
+            .where((m) => m.name == rawModelMode)
+            .firstOrNull ??
+        AiWebSearchModelMode.followSession;
+
+    final rawDetail = '${json['summary_detail'] ?? ''}'.trim();
+    final summaryDetail =
+        AiWebSearchSummaryDetail.values
+            .where((d) => d.name == rawDetail)
+            .firstOrNull ??
+        AiWebSearchSummaryDetail.balanced;
+
+    final rawStyle = '${json['summary_style'] ?? ''}'.trim();
+    final summaryStyle =
+        AiWebSearchSummaryStyle.values
+            .where((s) => s.name == rawStyle)
+            .firstOrNull ??
+        AiWebSearchSummaryStyle.neutral;
+
+    int clamp(int value, int lo, int hi) =>
+        value < lo ? lo : (value > hi ? hi : value);
+
+    return AiWebSearchSettings(
+      engines: engines,
+      resultCount: clamp(
+        (json['result_count'] as num?)?.toInt() ?? defaultResultCount,
+        minResultCount,
+        maxResultCount,
+      ),
+      modelMode: modelMode,
+      fixedModelProviderConfigId:
+          json['fixed_model_provider_config_id'] is String
+          ? json['fixed_model_provider_config_id'] as String
+          : null,
+      fixedModelId: json['fixed_model_id'] is String
+          ? json['fixed_model_id'] as String
+          : null,
+      parallel: json['parallel'] is bool ? json['parallel'] as bool : true,
+      parallelWorkers: clamp(
+        (json['parallel_workers'] as num?)?.toInt() ?? defaultParallelWorkers,
+        minParallelWorkers,
+        maxParallelWorkers,
+      ),
+      summaryDetail: summaryDetail,
+      summaryStyle: summaryStyle,
+      summaryMinChars: clamp(
+        (json['summary_min_chars'] as num?)?.toInt() ?? 0,
+        0,
+        maxSummaryMaxChars,
+      ),
+      summaryMaxChars: clamp(
+        (json['summary_max_chars'] as num?)?.toInt() ?? defaultSummaryMaxChars,
+        0,
+        maxSummaryMaxChars,
+      ),
+    );
+  }
+}

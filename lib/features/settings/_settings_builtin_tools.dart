@@ -296,6 +296,8 @@ class _BuiltinToolEditorDialog extends StatefulWidget {
     this.defaultName,
     this.defaultDescription,
     this.defaultParameters,
+    this.availableModels = const <AiModelConfig>[],
+    this.recentModelSelections = const <RecentModelSelection>[],
   });
 
   final AiBuiltinToolConfig initial;
@@ -308,6 +310,12 @@ class _BuiltinToolEditorDialog extends StatefulWidget {
 
   /// Default tool parameters schema from the built-in tool catalog.
   final Map<String, Object?>? defaultParameters;
+
+  /// Provider configs available to the WebSearch sub-agent model picker.
+  final List<AiModelConfig> availableModels;
+
+  /// Recent model selections, fed into the model picker dialog.
+  final List<RecentModelSelection> recentModelSelections;
 
   @override
   State<_BuiltinToolEditorDialog> createState() =>
@@ -330,6 +338,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
   late AiBuiltinToolLoadStrategy _loadStrategy;
   late bool? _requireConfirmation;
   late bool _retryOnFailure;
+  AiWebSearchSettings? _webSearchSettings;
   bool _isSaving = false;
 
   @override
@@ -366,6 +375,10 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     _loadStrategy = c.loadStrategy;
     _requireConfirmation = c.requireConfirmation;
     _retryOnFailure = c.retryOnFailure;
+    if (c.kind == AiBuiltinToolKind.webSearch) {
+      _webSearchSettings =
+          c.webSearchSettings ?? AiWebSearchSettings.defaults();
+    }
   }
 
   @override
@@ -435,6 +448,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       retryOnFailure: _retryOnFailure,
       maxRetries: maxRetries,
       retryBackoffMs: retryBackoffMs,
+      webSearchSettings: _webSearchSettings,
       clearDisplayName: displayName.isEmpty,
       clearSummary: summary.isEmpty,
       clearPromptOverride: promptOverride.isEmpty,
@@ -796,6 +810,21 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                               setState(() => _requireConfirmation = v),
                         ),
                         const SizedBox(height: 14),
+
+                        // ── WebSearch-specific section ──
+                        if (widget.initial.kind ==
+                                AiBuiltinToolKind.webSearch &&
+                            _webSearchSettings != null) ...[
+                          _WebSearchSettingsEditor(
+                            value: _webSearchSettings!,
+                            availableModels: widget.availableModels,
+                            recentModelSelections:
+                                widget.recentModelSelections,
+                            onChanged: (next) =>
+                                setState(() => _webSearchSettings = next),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
 
                         // Tags
                         TextField(
