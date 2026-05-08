@@ -135,6 +135,7 @@ Future<void> showExportProgressDialog({
   return showAnimatedDialog<void>(
     context: context,
     barrierDismissible: false,
+    dismissOnEscape: false,
     builder: (dialogContext) => ExportProgressDialog(
       controller: controller,
       title: title,

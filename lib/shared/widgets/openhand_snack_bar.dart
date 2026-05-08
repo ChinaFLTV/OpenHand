@@ -25,12 +25,46 @@ class OpenHandSnackBar {
     ScaffoldMessengerState messenger,
     SnackBar snackBar,
   ) {
+    final wrapped = _ensureMotionWrapped(snackBar);
     return messenger.showSnackBar(
-      snackBar,
+      wrapped,
       snackBarAnimationStyle:
           MediaQuery.maybeDisableAnimationsOf(context) == true
           ? AnimationStyle.noAnimation
           : _motionStyle,
+    );
+  }
+
+  /// Re-emits a [SnackBar] with its content wrapped in [_OpenHandSnackBarMotion]
+  /// (idempotent — already-wrapped content is left untouched), preserving every
+  /// caller-supplied field. Ensures every snackbar that flows through
+  /// [OpenHandSnackBar.show] receives the same Q-bouncy entry / decay-out
+  /// motion regardless of where it was constructed.
+  static SnackBar _ensureMotionWrapped(SnackBar snackBar) {
+    final content = snackBar.content;
+    if (content is _OpenHandSnackBarMotion) return snackBar;
+    return SnackBar(
+      key: snackBar.key,
+      content: _OpenHandSnackBarMotion(
+        duration: snackBar.duration,
+        child: content,
+      ),
+      action: snackBar.action,
+      duration: snackBar.duration,
+      backgroundColor: snackBar.backgroundColor,
+      behavior: snackBar.behavior,
+      dismissDirection: snackBar.dismissDirection,
+      elevation: snackBar.elevation,
+      margin: snackBar.margin,
+      padding: snackBar.padding,
+      width: snackBar.width,
+      shape: snackBar.shape,
+      showCloseIcon: snackBar.showCloseIcon,
+      closeIconColor: snackBar.closeIconColor,
+      onVisible: snackBar.onVisible,
+      hitTestBehavior: snackBar.hitTestBehavior,
+      clipBehavior: snackBar.clipBehavior,
+      actionOverflowThreshold: snackBar.actionOverflowThreshold,
     );
   }
 
@@ -131,59 +165,25 @@ class OpenHandSnackBar {
       backgroundColor: backgroundColor,
       behavior: SnackBarBehavior.floating,
       dismissDirection: DismissDirection.down,
-      showCloseIcon: false,
-      content: _OpenHandSnackBarMotion(
-        duration: duration,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, color: tint, size: 20),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                message,
-                maxLines: maxLines,
-                overflow: maxLines == null ? null : TextOverflow.ellipsis,
-                style: textStyle,
-              ),
+      // Material's built-in close icon is enabled globally via SnackBarThemeData
+      // (see openhand_theme.dart). We deliberately do NOT pass `showCloseIcon`
+      // here so the theme default wins, and snackbars that have an action still
+      // get a close affordance — fixing the long-stuck "auth-failed" bar that
+      // previously could only be dismissed by waiting out the duration.
+      content: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, color: tint, size: 20),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              message,
+              maxLines: maxLines,
+              overflow: maxLines == null ? null : TextOverflow.ellipsis,
+              style: textStyle,
             ),
-            if (action == null) ...[
-              const SizedBox(width: 10),
-              _OpenHandSnackBarCloseButton(foregroundColor: foregroundColor),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OpenHandSnackBarCloseButton extends StatelessWidget {
-  const _OpenHandSnackBarCloseButton({this.foregroundColor});
-
-  final Color? foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = foregroundColor ?? theme.colorScheme.onInverseSurface;
-    return Tooltip(
-      message: MaterialLocalizations.of(context).closeButtonTooltip,
-      child: IconButton(
-        onPressed: () {
-          ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
-        },
-        icon: Icon(Icons.close_rounded, size: 18, color: color),
-        style: IconButton.styleFrom(
-          foregroundColor: color,
-          hoverColor: color.withValues(alpha: 0.08),
-          highlightColor: color.withValues(alpha: 0.12),
-          minimumSize: const Size(30, 30),
-          maximumSize: const Size(30, 30),
-          padding: EdgeInsets.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.compact,
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -213,18 +213,27 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 340),
+      duration: const Duration(milliseconds: 380),
+      reverseDuration: const Duration(milliseconds: 240),
     );
-    final curve = CurvedAnimation(
+    // Entry rides easeOutBack for a Q-bouncy overshoot (~1.7×); the reverse
+    // (close-button tap or auto-dismiss timer) decays via easeInCubic so the
+    // snackbar settles back without a second visible bounce.
+    final entry = CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
     );
-    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _fade = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
     _offset = Tween<Offset>(
-      begin: const Offset(0, 0.18),
+      begin: const Offset(0, 0.22),
       end: Offset.zero,
-    ).animate(curve);
-    _scale = Tween<double>(begin: 0.965, end: 1).animate(curve);
+    ).animate(entry);
+    _scale = Tween<double>(begin: 0.94, end: 1).animate(entry);
   }
 
   @override

@@ -22,11 +22,17 @@ Color resolveAnimatedDialogBarrierColor(
 /// When [settings] is null, the animation configuration is automatically
 /// read from the nearest [SettingsController] in the widget tree.
 /// Falls back to default animation settings if no controller is found.
+///
+/// [dismissOnEscape] is decoupled from [barrierDismissible]: by default ESC
+/// always closes the dialog, even when outside-tap is blocked. Long-running
+/// task dialogs (export progress / image processing) opt out via
+/// `dismissOnEscape: false`.
 Future<T?> showAnimatedDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   DialogAnimationSettings? settings,
   bool barrierDismissible = true,
+  bool dismissOnEscape = true,
   String? barrierLabel,
   Color? barrierColor,
   bool useRootNavigator = true,
@@ -34,7 +40,7 @@ Future<T?> showAnimatedDialog<T>({
 }) {
   final themedBuilder = _wrapDialogBuilderWithTheme(
     builder,
-    dismissOnEscape: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
   );
   final effectiveSettings =
       settings ?? _resolveDialogAnimationSettings(context);
@@ -96,6 +102,7 @@ Future<T?> showAnimatedThemedDialog<T>({
   required WidgetBuilder builder,
   DialogAnimationSettings? settings,
   bool barrierDismissible = true,
+  bool dismissOnEscape = true,
   String? barrierLabel,
   Color? barrierColor,
   bool useRootNavigator = true,
@@ -105,6 +112,7 @@ Future<T?> showAnimatedThemedDialog<T>({
     context: context,
     settings: settings,
     barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
     barrierLabel: barrierLabel,
     barrierColor: barrierColor,
     useRootNavigator: useRootNavigator,

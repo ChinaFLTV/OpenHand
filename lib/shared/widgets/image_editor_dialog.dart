@@ -1373,6 +1373,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     showAnimatedThemedDialog<void>(
       context: context,
       barrierDismissible: false,
+      dismissOnEscape: false,
       builder: (dialogContext) {
         _processingDialogContext = dialogContext;
         if (_processingDialogCloseRequested) {
