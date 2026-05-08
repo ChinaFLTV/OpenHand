@@ -81,5 +81,22 @@ line 1
         expect(args['limit'], 2);
       },
     );
+
+    test('extracts lower-case direct DSML tags', () {
+      final result = extractDsmlToolCalls('''
+<dsml:function_calls>
+  <dsml:invoke name="Write">
+    <dsml:parameter name="content"><![CDATA[
+hello
+]]></dsml:parameter>
+  </dsml:invoke>
+</dsml:function_calls>
+''');
+
+      expect(result.toolCalls, hasLength(1));
+      expect(result.toolCalls.single.name, 'Write');
+      final args = jsonDecode(result.toolCalls.single.arguments) as Map;
+      expect(args['content'], '\nhello\n');
+    });
   });
 }

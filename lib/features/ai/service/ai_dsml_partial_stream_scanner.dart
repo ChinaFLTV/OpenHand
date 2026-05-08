@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'ai_dsml_tool_call_parser.dart' show canonicalizeDsmlMarkup;
+import 'ai_dsml_tool_call_parser.dart'
+    show canonicalizeDsmlMarkup, decodeDsmlParameterValue;
 
 /// Partial DSML invoke parsed from a still-streaming text buffer.
 class PartialDsmlInvoke {
@@ -50,14 +51,14 @@ final RegExp _parameterPattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _attrPattern = RegExp(
-  r'''(\w+)\s*=\s*("([^"]*)"|'([^']*)')''',
+  r'''([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))''',
 );
 
 Map<String, String> _parseAttributes(String raw) {
   final out = <String, String>{};
   for (final m in _attrPattern.allMatches(raw)) {
     final key = m.group(1)!.toLowerCase();
-    final value = m.group(3) ?? m.group(4) ?? '';
+    final value = m.group(2) ?? m.group(3) ?? m.group(4) ?? '';
     out[key] = value;
   }
   return out;
@@ -114,7 +115,12 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
       final pAttrs = _parseAttributes(pm.group(1) ?? '');
       final key = (pAttrs['name'] ?? '').trim();
       if (key.isEmpty) continue;
-      args[key] = pm.group(2) ?? '';
+      final treatAsString =
+          (pAttrs['string'] ?? '').trim().toLowerCase() != 'false';
+      args[key] = decodeDsmlParameterValue(
+        pm.group(2) ?? '',
+        treatAsString: treatAsString,
+      );
     }
     if (name.isNotEmpty) {
       ordinal += 1;
@@ -165,34 +171,53 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
 /// false-positives are fine (we just pay one regex pass), but
 /// false-negatives would silently drop the partial preview.
 bool _mayContainToolCallMarker(String buffer) {
+  final lower = buffer.toLowerCase();
   // Already-canonical form.
-  if (buffer.contains('<DSML:invoke')) return true;
+  if (lower.contains('<dsml:invoke')) return true;
   // Bracket-pipe wrappers (ASCII + fullwidth + doubled).
-  if (buffer.contains('<|DSML') ||
-      buffer.contains('<｜DSML') ||
-      buffer.contains('<｜｜DSML') ||
-      buffer.contains('<||DSML')) {
+  if (lower.contains('<|dsml') ||
+      lower.contains('<｜dsml') ||
+      lower.contains('<｜｜dsml') ||
+      lower.contains('<||dsml')) {
     return true;
   }
   // Bracket-style wrappers used by some weak fine-tunes.
-  if (buffer.contains('<<DSML') ||
-      buffer.contains('<【DSML') ||
-      buffer.contains('<《DSML') ||
-      buffer.contains('<[DSML') ||
-      buffer.contains('<「DSML') ||
-      buffer.contains('<『DSML')) {
+  if (lower.contains('<<dsml') ||
+      lower.contains('<【dsml') ||
+      lower.contains('<《dsml') ||
+      lower.contains('<[dsml') ||
+      lower.contains('<「dsml') ||
+      lower.contains('<『dsml')) {
     return true;
   }
   // Raw or namespaced invoke / function_calls openers.
-  if (buffer.contains('<invoke') ||
-      buffer.contains('<function_calls') ||
-      buffer.contains('<tool_calls') ||
-      buffer.contains('.invoke') ||
-      buffer.contains(':invoke')) {
+  if (lower.contains('<invoke') ||
+      lower.contains('<function_calls') ||
+      lower.contains('<tool_calls') ||
+      lower.contains('.invoke') ||
+      lower.contains(':invoke')) {
     return true;
   }
-  // ##TOOL_CALL##{...}##END_CALL## envelope.
-  if (buffer.contains('##TOOL_CALL##')) return true;
+  // JSON/YAML envelope variants recognized by the final extractor.
+  if (lower.contains('##tool_call##') ||
+      lower.contains('[tool_call]') ||
+      lower.contains('[tool_use]') ||
+      lower.contains('[openai_fn]') ||
+      lower.contains('[function_call]') ||
+      lower.contains('<tool_call') ||
+      lower.contains('<tool_use') ||
+      lower.contains('<function_call') ||
+      lower.contains('<openai_fn') ||
+      lower.contains('<fn_call') ||
+      lower.contains('```tool') ||
+      lower.contains('```dsml') ||
+      lower.contains('```openai') ||
+      lower.contains('tool_call:') ||
+      lower.contains('tool_use:') ||
+      lower.contains('function_call:') ||
+      lower.contains('openai_fn:')) {
+    return true;
+  }
   return false;
 }
 

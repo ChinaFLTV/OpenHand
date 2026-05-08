@@ -61,7 +61,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
       }
       final treatAsString =
           (parameterAttributes['string'] ?? '').trim().toLowerCase() != 'false';
-      arguments[parameterName] = _decodeDsmlParameterValue(
+      arguments[parameterName] = decodeDsmlParameterValue(
         parameterMatch.group(2) ?? '',
         treatAsString: treatAsString,
       );
@@ -227,6 +227,10 @@ String _canonicalizeDsmlMarkup(String value) {
   // tags. Convert these to canonical DSML *before* anything else so the
   // rest of the pipeline (extraction + sanitization) can swallow them.
   var normalized = _convertHashTagToolCalls(value);
+  normalized = normalized.replaceAllMapped(_directDsmlPrefixPattern, (match) {
+    final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
+    return isClosing ? '</DSML:' : '<DSML:';
+  });
   normalized = normalized
       .replaceAll('<｜DSML｜', '<DSML:')
       .replaceAll('</｜DSML｜', '</DSML:')
@@ -338,6 +342,11 @@ String _canonicalizeDsmlMarkup(String value) {
   return normalized;
 }
 
+final RegExp _directDsmlPrefixPattern = RegExp(
+  r'<\s*(/?)\s*DSML\s*:\s*',
+  caseSensitive: false,
+);
+
 // Match any DSML tag (open or close) that has one or more stray pipe
 // characters immediately before the closing `>`. Capture everything up
 // to (but excluding) the run of pipes so we can rewrite it as `…>`.
@@ -387,7 +396,7 @@ Map<String, String> _parseDsmlAttributes(String rawAttributes) {
   return attributes;
 }
 
-Object? _decodeDsmlParameterValue(
+Object? decodeDsmlParameterValue(
   String rawValue, {
   required bool treatAsString,
 }) {
