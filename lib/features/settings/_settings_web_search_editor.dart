@@ -35,6 +35,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   int? _cacheBytesOnDisk;
   bool _clearingCache = false;
 
+  // ── Telemetry (调用日志 + 引擎健康度) ──
+  List<WebSearchCallLog> _recentCalls = const [];
+  Map<AiWebSearchEngineKind, WebSearchEngineStat> _engineStats = const {};
+  bool _telemetryLoading = false;
+  bool _clearingTelemetry = false;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +60,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       text: _bytesToMb(widget.value.cacheMaxBytes),
     );
     _refreshCacheBytesOnDisk();
+    _refreshTelemetry();
   }
 
   Future<void> _refreshCacheBytesOnDisk() async {
@@ -66,6 +73,81 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = 0);
     }
+  }
+
+  Future<void> _refreshTelemetry() async {
+    if (_telemetryLoading) return;
+    setState(() => _telemetryLoading = true);
+    try {
+      final calls =
+          await WebSearchTelemetryStore.instance.recentCalls();
+      final stats = await WebSearchTelemetryStore.instance.engineStats();
+      if (!mounted) return;
+      setState(() {
+        _recentCalls = calls;
+        _engineStats = stats;
+        _telemetryLoading = false;
+      });
+    } catch (e, st) {
+      silentLog('settings.websearch', '_refreshTelemetry', e, st);
+      if (!mounted) return;
+      setState(() => _telemetryLoading = false);
+    }
+  }
+
+  Future<void> _confirmAndClearTelemetry() async {
+    if (_clearingTelemetry) return;
+    final confirmed = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(_localizedText(
+            dialogContext,
+            zh: '清空 WebSearch 调用日志？',
+            en: 'Clear WebSearch call history?',
+          )),
+          content: Text(_localizedText(
+            dialogContext,
+            zh: '会同时清掉最近 200 条调用记录与每引擎累计成功率/耗时统计。'
+                '本地缓存 (summary) 不受影响。',
+            en: 'Removes the recent call ring buffer (up to 200 entries) and '
+                'all per-engine success-rate/latency aggregates. Cached '
+                'summaries are not affected.',
+          )),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(_localizedText(
+                dialogContext,
+                zh: '取消',
+                en: 'Cancel',
+              )),
+            ),
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                foregroundColor: Theme.of(dialogContext).colorScheme.error,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(_localizedText(
+                dialogContext,
+                zh: '确认清空',
+                en: 'Clear',
+              )),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _clearingTelemetry = true);
+    try {
+      await WebSearchTelemetryStore.instance.clearAll();
+    } catch (e, st) {
+      silentLog('settings.websearch', '_confirmAndClearTelemetry', e, st);
+    }
+    if (!mounted) return;
+    setState(() => _clearingTelemetry = false);
+    await _refreshTelemetry();
   }
 
   @override
@@ -722,7 +804,368 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             );
           },
         ),
+
+        const SizedBox(height: 16),
+        ..._buildTelemetrySection(context, theme, colorScheme, v),
       ],
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Telemetry UI（调用日志 + 引擎健康度）
+  // ───────────────────────────────────────────────────────────────────────────
+  List<Widget> _buildTelemetrySection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    AiWebSearchSettings v,
+  ) {
+    final hasData = _recentCalls.isNotEmpty || _engineStats.isNotEmpty;
+    return [
+      Text(
+        _localizedText(
+          context,
+          zh: '调用日志 / 引擎健康度',
+          en: 'Call History / Engine Health',
+        ),
+        style: theme.textTheme.titleSmall,
+      ),
+      const SizedBox(height: 4),
+      Text(
+        _localizedText(
+          context,
+          zh: '近期 50 条 WebSearch 调用与每引擎累计成功率、平均耗时、命中数；'
+              '数据持久化在 ~/.openhand/cache/web_search/telemetry/。',
+          en: 'Recent 50 WebSearch invocations plus per-engine cumulative '
+              'success-rate / avg latency / total hits. Persisted under '
+              '~/.openhand/cache/web_search/telemetry/.',
+        ),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          const Spacer(),
+          TextButton.icon(
+            onPressed: _telemetryLoading || _clearingTelemetry
+                ? null
+                : _refreshTelemetry,
+            icon: _telemetryLoading
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh, size: 16),
+            label: Text(_localizedText(
+              context,
+              zh: '刷新',
+              en: 'Refresh',
+            )),
+          ),
+          const SizedBox(width: 4),
+          TextButton.icon(
+            onPressed: !hasData || _clearingTelemetry
+                ? null
+                : _confirmAndClearTelemetry,
+            icon: _clearingTelemetry
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(Icons.delete_sweep, size: 16, color: colorScheme.error),
+            label: Text(
+              _localizedText(
+                context,
+                zh: _clearingTelemetry ? '清空中…' : '清空记录',
+                en: _clearingTelemetry ? 'Clearing…' : 'Clear Logs',
+              ),
+              style: TextStyle(color: colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      if (!hasData && !_telemetryLoading)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            _localizedText(
+              context,
+              zh: '暂无调用记录。下一次 WebSearch 调用结束后会自动记录。',
+              en: 'No calls recorded yet. The next WebSearch invocation '
+                  'will be logged automatically.',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        )
+      else ...[
+        if (_engineStats.isNotEmpty) ...[
+          Text(
+            _localizedText(context, zh: '引擎健康度', en: 'Engine Health'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ..._engineStats.entries
+              .toList(growable: false)
+              .map((e) => _buildEngineStatRow(
+                    context,
+                    theme,
+                    colorScheme,
+                    e.key,
+                    e.value,
+                  )),
+          const SizedBox(height: 12),
+        ],
+        if (_recentCalls.isNotEmpty) ...[
+          Text(
+            _localizedText(context, zh: '最近调用', en: 'Recent Calls'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ..._recentCalls
+              .take(20)
+              .map((c) => _buildCallLogRow(context, theme, colorScheme, c)),
+          if (_recentCalls.length > 20)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '… 还有 ${_recentCalls.length - 20} 条更早记录',
+                  en: '… ${_recentCalls.length - 20} older entries',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ],
+    ];
+  }
+
+  Widget _buildEngineStatRow(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    AiWebSearchEngineKind kind,
+    WebSearchEngineStat stat,
+  ) {
+    final pct = (stat.successRate * 100);
+    final pctColor = pct >= 80
+        ? Colors.green.shade600
+        : pct >= 50
+            ? Colors.orange.shade600
+            : colorScheme.error;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              kind.name,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 84,
+            child: Stack(
+              children: [
+                Container(
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                FractionallySizedBox(
+                  widthFactor: stat.successRate.clamp(0.0, 1.0),
+                  child: Container(
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: pctColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 48,
+            child: Text(
+              '${pct.toStringAsFixed(0)}%',
+              style: theme.textTheme.bodySmall?.copyWith(color: pctColor),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              _localizedText(
+                context,
+                zh: '${stat.totalCalls} 次 · 平均 ${stat.avgDurationMs.toStringAsFixed(0)}ms · 累计 ${stat.totalHits} 命中',
+                en: '${stat.totalCalls} calls · avg ${stat.avgDurationMs.toStringAsFixed(0)}ms · ${stat.totalHits} hits',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (stat.lastError != null)
+            Tooltip(
+              message: stat.lastError ?? '',
+              child: Icon(
+                Icons.error_outline,
+                size: 14,
+                color: colorScheme.error,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCallLogRow(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    WebSearchCallLog call,
+  ) {
+    final ts = DateTime.fromMillisecondsSinceEpoch(call.timestampMs);
+    final timeStr =
+        '${ts.month.toString().padLeft(2, '0')}-${ts.day.toString().padLeft(2, '0')} '
+        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+    final (chipBg, chipFg, chipLabel) = switch (call.cacheStatus) {
+      'hit' => (
+        colorScheme.primaryContainer,
+        colorScheme.onPrimaryContainer,
+        'cache hit',
+      ),
+      'miss-stored' => (
+        colorScheme.tertiaryContainer,
+        colorScheme.onTertiaryContainer,
+        'fresh',
+      ),
+      'miss-empty' => (
+        colorScheme.surfaceContainerHighest,
+        colorScheme.onSurfaceVariant,
+        'empty',
+      ),
+      'disabled' => (
+        colorScheme.surfaceContainerHighest,
+        colorScheme.onSurfaceVariant,
+        'cache off',
+      ),
+      'bypass' => (
+        colorScheme.errorContainer,
+        colorScheme.onErrorContainer,
+        'bypass',
+      ),
+      _ => (
+        colorScheme.surfaceContainerHighest,
+        colorScheme.onSurfaceVariant,
+        call.cacheStatus,
+      ),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              timeStr,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: chipBg,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              chipLabel,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: chipFg,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  call.query,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} 条结果 · 摘要 ${call.summaryChars} 字'
+                        '${call.fallbackUsed ? " · fallback" : ""}'
+                        '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
+                    en: '${call.success ? "ok" : "fail"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} hits · summary ${call.summaryChars} chars'
+                        '${call.fallbackUsed ? " · fallback" : ""}'
+                        '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (call.perEngine.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      children: call.perEngine
+                          .map((p) => Text(
+                                '${p.kind.name}:${p.success ? "✓${p.hitCount}" : "✗"}/${p.elapsedMs}ms',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontFamily: 'monospace',
+                                  fontSize: 10,
+                                  color: p.success
+                                      ? colorScheme.onSurfaceVariant
+                                      : colorScheme.error,
+                                ),
+                              ))
+                          .toList(growable: false),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

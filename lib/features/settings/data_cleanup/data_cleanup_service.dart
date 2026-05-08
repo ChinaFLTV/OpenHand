@@ -25,6 +25,7 @@ import '../../../shared/data/database_service.dart';
 import '../../ai/ai_session_controller.dart';
 import '../../ai/service/ai_file_mutation_ledger.dart';
 import '../../ai/service/web_search/web_search_cache_store.dart';
+import '../../ai/service/web_search/web_search_telemetry_store.dart';
 import '../../crons/crons_controller.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../memory/memory_controller.dart';
@@ -209,6 +210,7 @@ class DataCleanupService {
     // clearAll() 让 index.json 失效，再 compute() 把残余目录一并清空，
     // 避免删除时序与新写入互踩。
     await WebSearchCacheStore.instance.clearAll();
+    await WebSearchTelemetryStore.instance.clearAll();
     await compute(
       _isolateDeleteDirectoryContents,
       OpenHandPaths.defaultCacheDirectoryPath(),

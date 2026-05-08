@@ -13,6 +13,7 @@ import '../service/ai_tool_runtime_service.dart';
 import '../service/ai_transport_diagnostic_messages.dart';
 import '../service/web_search/web_search_cache_store.dart';
 import '../service/web_search/web_search_orchestrator.dart';
+import '../service/web_search/web_search_telemetry_store.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
@@ -116,6 +117,49 @@ class AiWebSearchTool extends AiTool {
       };
     }
 
+    // 记录一次完整调用到 telemetry store。失败 silentLog（store 内部
+    // 已 swallow），不阻塞主流程：fire-and-forget。
+    void recordTelemetry({
+      required String cacheStatus,
+      required bool success,
+      required int summaryChars,
+      WebSearchOrchestrationResult? orchestration,
+      AiModelConfig? summaryModel,
+      String? errorMessage,
+    }) {
+      final perEngine = <WebSearchPerEngineLog>[];
+      if (orchestration != null) {
+        for (final r in orchestration.engineRuns) {
+          perEngine.add(WebSearchPerEngineLog(
+            kind: r.kind,
+            success: r.isSuccess,
+            hitCount: r.hits.length,
+            elapsedMs: r.elapsedMs,
+            error: r.error,
+          ));
+        }
+      }
+      // 命中 cache 不会有 orchestration，但仍然要把 cache 这一"伪引擎"
+      // 计入历史以便排查；UI 在统计成功率时只考虑 perEngine 不为空的项
+      // （orchestrator 真实跑过的）。
+      unawaited(WebSearchTelemetryStore.instance.recordCall(
+        WebSearchCallLog(
+          timestampMs: DateTime.now().millisecondsSinceEpoch,
+          query: query,
+          cacheStatus: cacheStatus,
+          success: success,
+          totalDurationMs: stopwatch.elapsedMilliseconds,
+          mergedHitCount: orchestration?.merged.length ?? 0,
+          fallbackUsed: orchestration?.fallbackUsed ?? false,
+          summaryChars: summaryChars,
+          errorMessage: errorMessage,
+          modelProtocol: summaryModel?.protocolType.name,
+          modelId: summaryModel?.modelId,
+          perEngine: perEngine,
+        ),
+      ));
+    }
+
     AiToolExecutionResult timedOut(String message) => AiToolExecutionResult(
       status: BashToolExecutionStatus.timedOut,
       command: command,
@@ -157,6 +201,11 @@ class AiWebSearchTool extends AiTool {
         'cache.hit',
         'Reused cached summary (${cached.summary.length} chars, '
             'expires ${cached.expiresAt.toIso8601String()}).',
+      );
+      recordTelemetry(
+        cacheStatus: 'hit',
+        success: true,
+        summaryChars: cached.summary.length,
       );
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.success,
@@ -201,8 +250,20 @@ class AiWebSearchTool extends AiTool {
         },
       );
     } on TimeoutException {
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        summaryChars: 0,
+        errorMessage: 'orchestrator_timeout',
+      );
       return timedOut('WebSearch timed out while contacting search engines.');
     } catch (error) {
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        summaryChars: 0,
+        errorMessage: '$error',
+      );
       return failed(_friendlySearchTransportError(error));
     }
 
@@ -216,6 +277,12 @@ class AiWebSearchTool extends AiTool {
                 'See `engines` metadata for per-engine diagnostics.'
           : 'No search results matched the current filters.';
       emit('completed', detail);
+      recordTelemetry(
+        cacheStatus: settings.cacheEnabled ? 'miss-empty' : 'disabled',
+        success: !allFailed,
+        summaryChars: 0,
+        orchestration: orchestrationResult,
+      );
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.success,
         command: command,
@@ -268,14 +335,38 @@ class AiWebSearchTool extends AiTool {
       }
       completion = maybe;
     } on TimeoutException {
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        summaryChars: 0,
+        orchestration: orchestrationResult,
+        summaryModel: summaryModel,
+        errorMessage: 'summary_timeout',
+      );
       return timedOut('WebSearch timed out while summarizing the results.');
     } on AiChatException catch (error) {
       final msg = error.message.trim();
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        summaryChars: 0,
+        orchestration: orchestrationResult,
+        summaryModel: summaryModel,
+        errorMessage: msg,
+      );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
           ? timedOut('WebSearch timed out while summarizing the results.')
           : failed('WebSearch failed while summarizing the results: $msg');
     } catch (error) {
       final msg = '$error';
+      recordTelemetry(
+        cacheStatus: 'bypass',
+        success: false,
+        summaryChars: 0,
+        orchestration: orchestrationResult,
+        summaryModel: summaryModel,
+        errorMessage: msg,
+      );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
           ? timedOut('WebSearch timed out while summarizing the results.')
           : failed(_friendlySearchTransportError(error));
@@ -316,6 +407,13 @@ class AiWebSearchTool extends AiTool {
       );
     }
 
+    recordTelemetry(
+      cacheStatus: settings.cacheEnabled ? 'miss-stored' : 'disabled',
+      success: true,
+      summaryChars: body.length,
+      orchestration: orchestrationResult,
+      summaryModel: summaryModel,
+    );
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: command,

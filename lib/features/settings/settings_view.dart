@@ -57,6 +57,7 @@ import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_tool_execution_registry.dart';
 import '../ai/service/ai_tool_runtime_service.dart';
 import '../ai/service/web_search/web_search_cache_store.dart';
+import '../ai/service/web_search/web_search_telemetry_store.dart';
 import '../crons/crons_controller.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
