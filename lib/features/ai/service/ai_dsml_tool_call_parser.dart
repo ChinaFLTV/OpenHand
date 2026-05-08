@@ -75,13 +75,10 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
     if (arguments.isEmpty) {
       for (final loose in _looseInvokeBodyTagPattern.allMatches(body)) {
         final paramKey = (loose.group(1) ?? '').trim();
-        if (paramKey.isEmpty ||
-            paramKey.toLowerCase() == 'dsml:parameter') {
+        if (paramKey.isEmpty || paramKey.toLowerCase() == 'dsml:parameter') {
           continue;
         }
-        final paramValue = _stripCdataWrappers(
-          (loose.group(2) ?? '').trim(),
-        );
+        final paramValue = _stripCdataWrappers((loose.group(2) ?? '').trim());
         arguments.putIfAbsent(paramKey, () => paramValue);
       }
     }
@@ -111,9 +108,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
 String sanitizeVisibleDsmlContent(String value) {
   final canonical = canonicalizeDsmlMarkup(value);
   if (!canonical.contains('<DSML:')) {
-    return _stripDanglingHashTagToolCallMarker(
-      _convertHashTagToolCalls(value),
-    );
+    return _stripDanglingHashTagToolCallMarker(_convertHashTagToolCalls(value));
   }
   var sanitized = canonical
       .replaceAll(_dsmlFunctionCallsPattern, '')
@@ -222,8 +217,7 @@ final RegExp _dsmlAttributePattern = RegExp(
 /// namespaced (`<functions.invoke …>`, `<invoke …>`) and the
 /// `##TOOL_CALL## … ##END_CALL##` envelope — are all canonicalized to
 /// `<DSML:invoke …>` / `<DSML:parameter …>` / `<DSML:function_calls>`.
-String canonicalizeDsmlMarkup(String value) =>
-    _canonicalizeDsmlMarkup(value);
+String canonicalizeDsmlMarkup(String value) => _canonicalizeDsmlMarkup(value);
 
 String _canonicalizeDsmlMarkup(String value) {
   // 2026-04-26: Some weaker models (notably ones that pretend to follow a
@@ -403,6 +397,13 @@ Object? _decodeDsmlParameterValue(
   final unwrapped = _stripCdataWrappers(rawValue);
   final trimmed = unwrapped.trim();
   if (treatAsString) {
+    final cdataOnlyRemainder = rawValue.replaceAll(_cdataPattern, '').trim();
+    if (cdataOnlyRemainder.isEmpty && _cdataPattern.hasMatch(rawValue)) {
+      return _cdataPattern
+          .allMatches(rawValue)
+          .map((match) => match.group(1) ?? '')
+          .join();
+    }
     return trimmed;
   }
   if (trimmed.isEmpty) {
@@ -561,14 +562,14 @@ String _convertHashTagToolCalls(String value) {
       }
     }
   }
-  if (current.contains('<') && _tagWrappedJsonEnvelopePattern.hasMatch(current)) {
+  if (current.contains('<') &&
+      _tagWrappedJsonEnvelopePattern.hasMatch(current)) {
     current = current.replaceAllMapped(
       _tagWrappedJsonEnvelopePattern,
       (m) => _renderEnvelopeAsDsml(m.group(2) ?? ''),
     );
   }
-  if (current.contains('```') &&
-      _codeFenceEnvelopePattern.hasMatch(current)) {
+  if (current.contains('```') && _codeFenceEnvelopePattern.hasMatch(current)) {
     current = current.replaceAllMapped(
       _codeFenceEnvelopePattern,
       (m) => _renderEnvelopeAsDsml(m.group(1) ?? ''),
@@ -667,11 +668,14 @@ String _renderEnvelopeAsDsml(String rawBody) {
   if (decoded is! Map) {
     return '';
   }
-  final name = '${decoded['name'] ?? decoded['tool_name'] ?? decoded['function'] ?? ''}'.trim();
+  final name =
+      '${decoded['name'] ?? decoded['tool_name'] ?? decoded['function'] ?? ''}'
+          .trim();
   if (name.isEmpty) {
     return '';
   }
-  final argsRaw = decoded['input'] ??
+  final argsRaw =
+      decoded['input'] ??
       decoded['arguments'] ??
       decoded['parameters'] ??
       decoded['args'] ??
@@ -684,16 +688,35 @@ String _renderEnvelopeAsDsml(String rawBody) {
     ..write(_escapeDsmlAttributeValue(name))
     ..write('">');
   argsMap.forEach((key, val) {
-    final encoded = val is String ? val : jsonEncode(val);
+    final isString = val is String;
+    final encoded = isString
+        ? _renderCdataValue(val)
+        : _jsonEncodeForDsmlParameter(val);
     buffer
       ..write('<DSML:parameter name="')
       ..write(_escapeDsmlAttributeValue(key))
-      ..write('">')
+      ..write('"');
+    if (!isString) {
+      buffer.write(' string="false"');
+    }
+    buffer
+      ..write('>')
       ..write(encoded)
       ..write('</DSML:parameter>');
   });
   buffer.write('</DSML:invoke>');
   return buffer.toString();
+}
+
+String _renderCdataValue(String value) {
+  if (value.isEmpty) return '';
+  return '<![CDATA[${value.replaceAll(']]>', ']]]]><![CDATA[>')}]]>';
+}
+
+String _jsonEncodeForDsmlParameter(Object? value) {
+  return jsonEncode(
+    value,
+  ).replaceAll('<', r'\u003C').replaceAll('>', r'\u003E');
 }
 
 /// Normalize fullwidth JSON punctuation (`"` `"` `'` `'` `：` `，` `｛` `｝`)
