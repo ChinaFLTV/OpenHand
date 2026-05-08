@@ -1,382 +1,108 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
-import '../../../../app/support/openhand_paths.dart';
-import '../../../../app/support/silent_log.dart';
 import '../../model/ai_web_search_settings.dart';
+import '../web_engine_telemetry_store_base.dart';
 
 /// WebSearch 调用日志 + 引擎健康度的本地持久化存储。
 ///
-/// 目录：`~/.openhand/cache/web_search/telemetry/`
-///   * `calls.json`   —— 最近 N 条调用日志（FIFO，[maxRecentCalls] 上限）。
-///   * `engines.json` —— 每引擎累计统计 { totalCalls, successCalls,
-///                        totalDurationMs, lastError, lastFailureAt }。
-///
-/// 读写经过同一 `_chain` 串行，保证不会与 [WebSearchCacheStore] 互踩。
-class WebSearchTelemetryStore {
+/// 公共骨架（写盘 / cooldown / FIFO / engine history）由
+/// [WebEngineTelemetryStoreBase] 接管；本类只负责：
+///   * 维护领域 typed 包装（[WebSearchCallLog] / [WebSearchPerEngineLog] /
+///     [WebSearchEngineStat] / [WebSearchEngineSample]）；
+///   * 在 typed `recordCall` 里把 perEngine 拍平成 [WebEngineCallEvent]，
+///     并把 `total_hits` / `hits` 走"领域累加器"通道。
+class WebSearchTelemetryStore
+    extends WebEngineTelemetryStoreBase<AiWebSearchEngineKind> {
   WebSearchTelemetryStore._();
 
   static final WebSearchTelemetryStore instance = WebSearchTelemetryStore._();
 
-  /// 调用日志 ring buffer 上限。超过后裁掉最旧的若干条。
   static const int maxRecentCalls = 200;
-
-  /// 单引擎采样历史上限（趋势图用）。
   static const int maxEngineHistorySamples = 200;
 
-  /// orchestrator 在每次 run() 之前用 [setCooldownConfig] 推一份当前 settings
-  /// 的阈值进来；默认值与历史一致（1m / 5m / 15m），保证旧路径行为不变。
-  WebSearchCooldownConfig cooldownConfig = const WebSearchCooldownConfig();
+  @override
+  String get subdir => 'web_search';
 
-  /// 显式 quota / 429 / rate limit 错误的固定 cooldown。
-  // ignore: unused_field
-  static const int _legacyQuotaCooldownMs = 5 * 60 * 1000;
+  @override
+  String get logTag => 'web_search_telemetry';
 
-  static final RegExp _quotaErrorPattern = RegExp(
-    r'\b(429|too many requests|rate[\s_-]?limit|quota|exceeded|throttl)\b',
-    caseSensitive: false,
-  );
+  @override
+  List<AiWebSearchEngineKind> get kindValues => AiWebSearchEngineKind.values;
 
-  /// 判断 engine 错误信息是否属于配额/限流类。
-  static bool looksLikeQuotaError(String? message) {
-    if (message == null || message.isEmpty) return false;
-    return _quotaErrorPattern.hasMatch(message);
-  }
-
-  Future<void> _chain = Future.value();
-
-  static String defaultDirectoryPath() => p.join(
-        OpenHandPaths.defaultCacheDirectoryPath(),
-        'web_search',
-        'telemetry',
-      );
-
-  /// 记录一次完整调用：把 call log 追加到 calls.json，并把 perEngine 增量
-  /// 折叠到 engines.json。永不抛异常，全部失败 silentLog。
-  Future<void> recordCall(WebSearchCallLog call) async {
-    _chain = _chain.then((_) => _writeCall(call)).catchError((
-      Object error,
-      StackTrace stack,
-    ) {
-      silentLog('web_search_telemetry', 'recordCall', error, stack);
-    });
-    await _chain;
-  }
-
-  Future<List<WebSearchCallLog>> recentCalls({int limit = 50}) async {
-    final f = File(p.join(defaultDirectoryPath(), 'calls.json'));
-    if (!await f.exists()) return const [];
-    try {
-      final raw = await f.readAsString();
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return const [];
-      final list = decoded
-          .whereType<Map>()
-          .map((m) => WebSearchCallLog.fromJson(Map<String, Object?>.from(m)))
-          .toList(growable: false);
-      // 文件存的是 append 顺序（最旧→最新），UI 多半要按新→旧展示。
-      final reversed = list.reversed.toList(growable: false);
-      if (reversed.length <= limit) return reversed;
-      return reversed.sublist(0, limit);
-    } catch (error, stack) {
-      silentLog('web_search_telemetry', 'recentCalls', error, stack);
-      return const [];
-    }
-  }
-
-  Future<Map<AiWebSearchEngineKind, WebSearchEngineStat>> engineStats() async {
-    final f = File(p.join(defaultDirectoryPath(), 'engines.json'));
-    if (!await f.exists()) return const {};
-    try {
-      final raw = await f.readAsString();
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return const {};
-      final out = <AiWebSearchEngineKind, WebSearchEngineStat>{};
-      for (final entry in decoded.entries) {
-        final kind = _parseKind('${entry.key}');
-        if (kind == null) continue;
-        if (entry.value is! Map) continue;
-        out[kind] = WebSearchEngineStat.fromJson(
-          Map<String, Object?>.from(entry.value as Map),
-        );
-      }
-      return out;
-    } catch (error, stack) {
-      silentLog('web_search_telemetry', 'engineStats', error, stack);
-      return const {};
-    }
-  }
-
-  Future<void> clearAll() async {
-    _chain = _chain.then((_) async {
-      final dir = Directory(defaultDirectoryPath());
-      if (!await dir.exists()) return;
-      try {
-        await for (final entity in dir.list(followLinks: false)) {
-          await entity.delete(recursive: true);
-        }
-      } catch (error, stack) {
-        silentLog('web_search_telemetry', 'clearAll', error, stack);
-      }
-    });
-    await _chain;
-  }
-
-  // ---------------------------------------------------------------------------
-
-  Future<void> _writeCall(WebSearchCallLog call) async {
-    final dir = Directory(defaultDirectoryPath());
-    if (!await dir.exists()) await dir.create(recursive: true);
-
-    // 1) 追加 calls.json
-    final callsFile = File(p.join(dir.path, 'calls.json'));
-    final calls = <Map<String, Object?>>[];
-    if (await callsFile.exists()) {
-      try {
-        final raw = await callsFile.readAsString();
-        final decoded = jsonDecode(raw);
-        if (decoded is List) {
-          for (final item in decoded) {
-            if (item is Map) {
-              calls.add(Map<String, Object?>.from(item));
-            }
-          }
-        }
-      } catch (_) {/* corrupted: 抛弃 */}
-    }
-    calls.add(call.toJson());
-    if (calls.length > maxRecentCalls) {
-      calls.removeRange(0, calls.length - maxRecentCalls);
-    }
-    await callsFile.writeAsString(jsonEncode(calls), flush: true);
-
-    // 2) 折叠 engines.json
-    final enginesFile = File(p.join(dir.path, 'engines.json'));
-    final agg = <String, Map<String, Object?>>{};
-    if (await enginesFile.exists()) {
-      try {
-        final raw = await enginesFile.readAsString();
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          for (final entry in decoded.entries) {
-            if (entry.value is Map) {
-              agg['${entry.key}'] =
-                  Map<String, Object?>.from(entry.value as Map);
-            }
-          }
-        }
-      } catch (_) {/* corrupted: 重建 */}
-    }
-    for (final per in call.perEngine) {
-      final key = per.kind.name;
-      final cur = agg[key] ?? <String, Object?>{};
-      final totalCalls = ((cur['total_calls'] as num?)?.toInt() ?? 0) + 1;
-      final successCalls =
-          ((cur['success_calls'] as num?)?.toInt() ?? 0) + (per.success ? 1 : 0);
-      final totalDur =
-          ((cur['total_duration_ms'] as num?)?.toInt() ?? 0) + per.elapsedMs;
-      final totalHits =
-          ((cur['total_hits'] as num?)?.toInt() ?? 0) + per.hitCount;
-
-      // 连续失败计数 → 失败自动降级（cooldown）。
-      var consecFail = (cur['consecutive_failures'] as num?)?.toInt() ?? 0;
-      int? cooldownUntilMs = (cur['cooldown_until_ms'] as num?)?.toInt();
-      String? lastQuotaError = cur['last_quota_error'] as String?;
-      int? lastQuotaAt = (cur['last_quota_at'] as num?)?.toInt();
-      if (per.success) {
-        consecFail = 0;
-        cooldownUntilMs = null; // 一次成功立即清掉 cooldown
-      } else {
-        consecFail += 1;
-        final cfg = cooldownConfig;
-        if (looksLikeQuotaError(per.error)) {
-          lastQuotaError = per.error;
-          lastQuotaAt = call.timestampMs;
-          cooldownUntilMs = call.timestampMs + cfg.quotaSeconds * 1000;
-        } else if (consecFail >= cfg.tier3Failures) {
-          cooldownUntilMs = call.timestampMs + cfg.tier3Seconds * 1000;
-        } else if (consecFail >= cfg.tier2Failures) {
-          cooldownUntilMs = call.timestampMs + cfg.tier2Seconds * 1000;
-        } else if (consecFail >= cfg.tier1Failures) {
-          cooldownUntilMs = call.timestampMs + cfg.tier1Seconds * 1000;
-        }
-      }
-
-      final updated = <String, Object?>{
-        'total_calls': totalCalls,
-        'success_calls': successCalls,
-        'total_duration_ms': totalDur,
-        'total_hits': totalHits,
-        'last_invoked_at': call.timestampMs,
-        'consecutive_failures': consecFail,
-        if (cooldownUntilMs != null) 'cooldown_until_ms': cooldownUntilMs,
-        if (lastQuotaError != null) 'last_quota_error': lastQuotaError,
-        if (lastQuotaAt != null) 'last_quota_at': lastQuotaAt,
-      };
-      if (!per.success) {
-        updated['last_error'] = per.error ?? cur['last_error'];
-        updated['last_failure_at'] = call.timestampMs;
-      } else {
-        updated['last_error'] = cur['last_error'];
-        updated['last_failure_at'] = cur['last_failure_at'];
-      }
-      agg[key] = updated;
-    }
-    await enginesFile.writeAsString(jsonEncode(agg), flush: true);
-
-    // 3) 追加 engine_history.json（每引擎 200 个采样，趋势图用）。
-    if (call.perEngine.isNotEmpty) {
-      final histFile = File(p.join(dir.path, 'engine_history.json'));
-      final hist = <String, List<Map<String, Object?>>>{};
-      if (await histFile.exists()) {
-        try {
-          final raw = await histFile.readAsString();
-          final decoded = jsonDecode(raw);
-          if (decoded is Map) {
-            for (final entry in decoded.entries) {
-              if (entry.value is List) {
-                hist['${entry.key}'] = (entry.value as List)
-                    .whereType<Map>()
-                    .map((m) => Map<String, Object?>.from(m))
-                    .toList();
-              }
-            }
-          }
-        } catch (_) {/* corrupted */}
-      }
-      for (final per in call.perEngine) {
-        final key = per.kind.name;
-        final list = hist[key] ?? <Map<String, Object?>>[];
-        list.add(<String, Object?>{
-          'ts': call.timestampMs,
-          'dur': per.elapsedMs,
-          'ok': per.success,
-          'hits': per.hitCount,
-        });
-        if (list.length > maxEngineHistorySamples) {
-          list.removeRange(0, list.length - maxEngineHistorySamples);
-        }
-        hist[key] = list;
-      }
-      await histFile.writeAsString(jsonEncode(hist), flush: true);
-    }
-  }
-
-  /// 读取 engine_history.json，按引擎返回采样列表（按时间升序）。
-  Future<Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>>
-      engineHistory() async {
-    final f = File(p.join(defaultDirectoryPath(), 'engine_history.json'));
-    if (!await f.exists()) return const {};
-    try {
-      final raw = await f.readAsString();
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return const {};
-      final out = <AiWebSearchEngineKind, List<WebSearchEngineSample>>{};
-      for (final entry in decoded.entries) {
-        final kind = _parseKind('${entry.key}');
-        if (kind == null) continue;
-        if (entry.value is! List) continue;
-        out[kind] = (entry.value as List)
-            .whereType<Map>()
-            .map((m) => WebSearchEngineSample(
-                  timestampMs: (m['ts'] as num?)?.toInt() ?? 0,
-                  durationMs: (m['dur'] as num?)?.toInt() ?? 0,
-                  success: m['ok'] == true,
-                  hitCount: (m['hits'] as num?)?.toInt() ?? 0,
-                ))
-            .toList(growable: false);
-      }
-      return out;
-    } catch (error, stack) {
-      silentLog('web_search_telemetry', 'engineHistory', error, stack);
-      return const {};
-    }
-  }
-
-  /// orchestrator 用：判断某引擎当前是否处于 cooldown（暂停调用）。
-  /// 返回剩余毫秒数；0 表示可调用。
-  Future<int> cooldownRemaining(AiWebSearchEngineKind kind) async {
-    final stats = await engineStats();
-    final s = stats[kind];
-    if (s == null) return 0;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final until = s.cooldownUntilMs ?? 0;
-    return until > now ? (until - now) : 0;
-  }
-
-  /// 手动清掉某引擎的 cooldown（用于设置 UI 上的"重置"动作）。
-  Future<void> clearEngineCooldown(AiWebSearchEngineKind kind) async {
-    _chain = _chain.then((_) async {
-      final f = File(p.join(defaultDirectoryPath(), 'engines.json'));
-      if (!await f.exists()) return;
-      try {
-        final raw = await f.readAsString();
-        final decoded = jsonDecode(raw);
-        if (decoded is! Map) return;
-        final agg = <String, Map<String, Object?>>{};
-        for (final entry in decoded.entries) {
-          if (entry.value is Map) {
-            agg['${entry.key}'] = Map<String, Object?>.from(entry.value as Map);
-          }
-        }
-        final cur = agg[kind.name];
-        if (cur == null) return;
-        cur.remove('cooldown_until_ms');
-        cur['consecutive_failures'] = 0;
-        agg[kind.name] = cur;
-        await f.writeAsString(jsonEncode(agg), flush: true);
-      } catch (error, stack) {
-        silentLog('web_search_telemetry', 'clearEngineCooldown', error, stack);
-      }
-    });
-    await _chain;
-  }
-
-  AiWebSearchEngineKind? _parseKind(String name) {
+  @override
+  AiWebSearchEngineKind? parseKind(String name) {
     for (final k in AiWebSearchEngineKind.values) {
       if (k.name == name) return k;
     }
     return null;
   }
 
-  /// orchestrator throttle 用：返回 [kind] 在最近 60 秒内的调用次数（基于
-  /// engine_history.json 的样本时间戳）。失败/成功都计入。读取失败返回 0。
-  Future<int> callsInLastMinute(AiWebSearchEngineKind kind) async {
-    final hist = await engineHistory();
-    final samples = hist[kind];
-    if (samples == null || samples.isEmpty) return 0;
-    final cutoff = DateTime.now().millisecondsSinceEpoch - 60 * 1000;
-    var count = 0;
-    for (final s in samples) {
-      if (s.timestampMs >= cutoff) count++;
+  /// 记录一次完整调用：把 call log 追加到 calls.json，并把 perEngine 增量
+  /// 折叠到 engines.json。永不抛异常。
+  Future<void> recordCall(WebSearchCallLog call) {
+    return recordCallRaw(
+      callJson: call.toJson(),
+      timestampMs: call.timestampMs,
+      perEngine: call.perEngine
+          .map(
+            (per) => WebEngineCallEvent(
+              kindName: per.kind.name,
+              success: per.success,
+              elapsedMs: per.elapsedMs,
+              error: per.error,
+              aggregateBumps: <String, num>{'total_hits': per.hitCount},
+              historyExtras: <String, Object?>{'hits': per.hitCount},
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  Future<List<WebSearchCallLog>> recentCalls({int limit = 50}) async {
+    final list = await rawCalls();
+    final reversed = list.reversed
+        .map((m) => WebSearchCallLog.fromJson(m))
+        .toList(growable: false);
+    if (reversed.length <= limit) return reversed;
+    return reversed.sublist(0, limit);
+  }
+
+  Future<Map<AiWebSearchEngineKind, WebSearchEngineStat>> engineStats() async {
+    final raw = await rawEngineStats();
+    final out = <AiWebSearchEngineKind, WebSearchEngineStat>{};
+    for (final entry in raw.entries) {
+      final kind = parseKind(entry.key);
+      if (kind == null) continue;
+      out[kind] = WebSearchEngineStat.fromJson(entry.value);
     }
-    return count;
+    return out;
+  }
+
+  /// 读取 engine_history.json，按引擎返回采样列表（按时间升序）。
+  Future<Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>>
+      engineHistory() async {
+    final raw = await rawEngineHistory();
+    final out = <AiWebSearchEngineKind, List<WebSearchEngineSample>>{};
+    for (final entry in raw.entries) {
+      final kind = parseKind(entry.key);
+      if (kind == null) continue;
+      out[kind] = entry.value
+          .map(
+            (m) => WebSearchEngineSample(
+              timestampMs: (m['ts'] as num?)?.toInt() ?? 0,
+              durationMs: (m['dur'] as num?)?.toInt() ?? 0,
+              success: m['ok'] == true,
+              hitCount: (m['hits'] as num?)?.toInt() ?? 0,
+            ),
+          )
+          .toList(growable: false);
+    }
+    return out;
   }
 }
 
-/// orchestrator 在每次 run() 之前注入的 cooldown 阈值（来自 settings）。
-class WebSearchCooldownConfig {
-  const WebSearchCooldownConfig({
-    this.tier1Failures = 3,
-    this.tier1Seconds = 60,
-    this.tier2Failures = 5,
-    this.tier2Seconds = 300,
-    this.tier3Failures = 7,
-    this.tier3Seconds = 900,
-    this.quotaSeconds = 300,
-  });
-
-  final int tier1Failures;
-  final int tier1Seconds;
-  final int tier2Failures;
-  final int tier2Seconds;
-  final int tier3Failures;
-  final int tier3Seconds;
-  final int quotaSeconds;
-}
+/// WebSearch 共享 [WebEngineCooldownConfig]：保留旧名做无破坏切换。
+typedef WebSearchCooldownConfig = WebEngineCooldownConfig;
 
 /// 单次 WebSearch 调用日志。
 class WebSearchCallLog {
@@ -400,8 +126,10 @@ class WebSearchCallLog {
     final perEngine = perEngineRaw is List
         ? perEngineRaw
             .whereType<Map>()
-            .map((e) =>
-                WebSearchPerEngineLog.fromJson(Map<String, Object?>.from(e)))
+            .map(
+              (e) =>
+                  WebSearchPerEngineLog.fromJson(Map<String, Object?>.from(e)),
+            )
             .toList(growable: false)
         : const <WebSearchPerEngineLog>[];
     return WebSearchCallLog(
