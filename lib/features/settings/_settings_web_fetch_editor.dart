@@ -74,10 +74,18 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     if (_telemetryLoading) return;
     setState(() => _telemetryLoading = true);
     try {
-      final calls =
-          await WebFetchTelemetryStore.instance.recentCalls();
-      final stats = await WebFetchTelemetryStore.instance.engineStats();
-      final history = await WebFetchTelemetryStore.instance.engineHistory();
+      // Parallelize three independent reads—bound by max(read) instead
+      // of their sum (used to be ~3× disk read latency on cold open).
+      final results = await Future.wait<Object>([
+        WebFetchTelemetryStore.instance.recentCalls(),
+        WebFetchTelemetryStore.instance.engineStats(),
+        WebFetchTelemetryStore.instance.engineHistory(),
+      ]);
+      final calls = results[0] as List<WebFetchCallLog>;
+      final stats =
+          results[1] as Map<AiWebFetchEngineKind, WebFetchEngineStat>;
+      final history =
+          results[2] as Map<AiWebFetchEngineKind, List<WebFetchEngineSample>>;
       if (!mounted) return;
       setState(() {
         _recentCalls = calls;

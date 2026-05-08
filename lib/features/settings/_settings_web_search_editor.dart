@@ -82,10 +82,18 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     if (_telemetryLoading) return;
     setState(() => _telemetryLoading = true);
     try {
-      final calls =
-          await WebSearchTelemetryStore.instance.recentCalls();
-      final stats = await WebSearchTelemetryStore.instance.engineStats();
-      final history = await WebSearchTelemetryStore.instance.engineHistory();
+      // Three independent reads on the same store: parallelize so the
+      // refresh latency is bounded by max(read) instead of sum(read).
+      final results = await Future.wait<Object>([
+        WebSearchTelemetryStore.instance.recentCalls(),
+        WebSearchTelemetryStore.instance.engineStats(),
+        WebSearchTelemetryStore.instance.engineHistory(),
+      ]);
+      final calls = results[0] as List<WebSearchCallLog>;
+      final stats =
+          results[1] as Map<AiWebSearchEngineKind, WebSearchEngineStat>;
+      final history =
+          results[2] as Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>;
       if (!mounted) return;
       setState(() {
         _recentCalls = calls;
