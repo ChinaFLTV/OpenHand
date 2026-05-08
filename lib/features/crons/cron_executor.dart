@@ -9,6 +9,7 @@ import '../../app/support/app_runtime_context.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/exponential_backoff.dart';
 
 /// Maximum characters to collect from cron script stdout / stderr.
 const int _maxCronOutputCharacters = 8000;
@@ -122,11 +123,13 @@ class CronExecutor {
       }
 
       if (attempt > 0) {
-        // Exponential back-off with cap.
+        // Exponential back-off with cap (shared with WebEngineBase via
+        // [exponentialBackoffSeconds]; both keep a base=1 unit, cap=user/cap_max).
         final delay = Duration(
-          seconds: (1 << (attempt - 1)).clamp(
-            1,
-            entry.maxRetryDelaySeconds.clamp(1, 300),
+          seconds: exponentialBackoffSeconds(
+            attempt: attempt,
+            baseSeconds: 1,
+            capSeconds: entry.maxRetryDelaySeconds.clamp(1, 300),
           ),
         );
         await Future.any<void>(<Future<void>>[

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../../../shared/util/exponential_backoff.dart';
+
 /// WebSearch / WebFetch 引擎共用的请求基类。
 ///
 /// 两个领域的请求 (query / url+prompt) 长得不一样，但都需要可选的
@@ -80,7 +82,11 @@ abstract class WebEngineBase<TKind, TItem, TRequest extends WebEngineRequest,
         lastError = error;
         if (attempt >= maxAttempts) break;
         final backoff = Duration(
-          milliseconds: (250 * (1 << (attempt - 1))).clamp(250, 4000),
+          milliseconds: exponentialBackoffMs(
+            attempt: attempt,
+            baseMs: 250,
+            capMs: 4000,
+          ),
         );
         await Future<void>.delayed(backoff);
       }
