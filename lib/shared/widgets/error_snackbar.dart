@@ -28,6 +28,12 @@ void showFriendlyErrorSnackBar(
   final headline = lines.isEmpty ? fallback : lines.first;
   final hasDetails = lines.length > 1;
   final messenger = ScaffoldMessenger.of(context);
+  // SnackBarAction 的 onPressed 触发时，调用方 context 往往已离开树
+  // （例如发出 SnackBar 的临时 widget 已 dispose），此时再用它去
+  // showAnimatedDialog 会触发「Looking up a deactivated widget's
+  // ancestor is unsafe」断言。这里提前抓住根 Navigator 的 context，
+  // 它由 MaterialApp 持有，生命周期与 App 一致，可在异步回调里安全使用。
+  final rootContext = Navigator.of(context, rootNavigator: true).context;
   messenger.hideCurrentSnackBar();
   OpenHandSnackBar.show(
     context,
@@ -41,7 +47,11 @@ void showFriendlyErrorSnackBar(
           ? SnackBarAction(
               label: '详情 / Details',
               onPressed: () {
-                showFriendlyErrorDetailsDialog(context, fullText: effective);
+                if (!rootContext.mounted) return;
+                showFriendlyErrorDetailsDialog(
+                  rootContext,
+                  fullText: effective,
+                );
               },
             )
           : null,
