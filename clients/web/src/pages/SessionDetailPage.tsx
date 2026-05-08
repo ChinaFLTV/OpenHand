@@ -125,6 +125,11 @@ interface MergeServerWindowOptions {
   preserveLocalStreamingTail?: boolean;
 }
 
+export interface MergeServerWindowResult {
+  items: SessionMessage[];
+  offset: number;
+}
+
 function isRunningPhase(phase: string | null | undefined): boolean {
   return Boolean(phase && phase !== 'idle');
 }
@@ -217,15 +222,17 @@ function appendLocalStreamingTail(
   return [...merged, ...suffix];
 }
 
-export function mergeServerWindow(
+export function mergeServerWindowResult(
   prev: SessionMessage[],
   latest: SessionMessage[],
   currentOffset: number,
   nextOffset: number,
   options: MergeServerWindowOptions = {},
-): SessionMessage[] {
-  if (prev.length === 0) return latest;
-  if (options.preserveLocalStreamingTail && latest.length === 0) return prev;
+): MergeServerWindowResult {
+  if (prev.length === 0) return { items: latest, offset: nextOffset };
+  if (options.preserveLocalStreamingTail && latest.length === 0) {
+    return { items: prev, offset: currentOffset };
+  }
   if (nextOffset < currentOffset) {
     if (options.preserveLocalStreamingTail) {
       const firstPrev = prev[0];
@@ -234,35 +241,66 @@ export function mergeServerWindow(
         : -1;
       if (overlapIndex >= 0) {
         const merged = mergeStream(prev, latest.slice(overlapIndex), options);
-        return appendLocalStreamingTail(prev, merged);
+        return {
+          items: appendLocalStreamingTail(prev, merged),
+          offset: currentOffset,
+        };
       }
-      return prev;
+      return { items: prev, offset: currentOffset };
     }
-    return latest;
+    return { items: latest, offset: nextOffset };
   }
   const prefixCount = nextOffset - currentOffset;
   if (prefixCount <= 0) {
     const merged = mergeStream(prev, latest, options);
-    return options.preserveLocalStreamingTail
-      ? appendLocalStreamingTail(prev, merged)
-      : merged;
+    return {
+      items: options.preserveLocalStreamingTail
+        ? appendLocalStreamingTail(prev, merged)
+        : merged,
+      offset: currentOffset,
+    };
   }
-  if (prefixCount > prev.length) return latest;
+  if (prefixCount > prev.length) return { items: latest, offset: nextOffset };
+  if (options.preserveLocalStreamingTail && latest.length > 0) {
+    const suffix = prev.slice(prefixCount);
+    const firstLatestId = latest[0]?.id;
+    const expectedFirstId = suffix[0]?.id;
+    if (suffix.length > 0 && firstLatestId && expectedFirstId !== firstLatestId) {
+      const overlapIndex = suffix.findIndex((item) => item.id === firstLatestId);
+      if (overlapIndex > 0) {
+        const prefix = prev.slice(0, prefixCount + overlapIndex);
+        const merged = [
+          ...prefix,
+          ...mergeStream(prev.slice(prefixCount + overlapIndex), latest, options),
+        ];
+        return {
+          items: appendLocalStreamingTail(prev, merged),
+          offset: currentOffset,
+        };
+      }
+      if (overlapIndex < 0 && suffix.some(isStreamingTailMessage)) {
+        return { items: prev, offset: currentOffset };
+      }
+    }
+  }
   const prefix = prev.slice(0, prefixCount);
   const merged = [...prefix, ...mergeStream(prev.slice(prefixCount), latest, options)];
-  return options.preserveLocalStreamingTail
-    ? appendLocalStreamingTail(prev, merged)
-    : merged;
+  return {
+    items: options.preserveLocalStreamingTail
+      ? appendLocalStreamingTail(prev, merged)
+      : merged,
+    offset: currentOffset,
+  };
 }
 
-function nextWindowOffset(
+export function mergeServerWindow(
+  prev: SessionMessage[],
+  latest: SessionMessage[],
   currentOffset: number,
-  currentLength: number,
   nextOffset: number,
-): number {
-  if (currentLength === 0) return nextOffset;
-  if (nextOffset <= currentOffset) return nextOffset;
-  return nextOffset - currentOffset <= currentLength ? currentOffset : nextOffset;
+  options: MergeServerWindowOptions = {},
+): SessionMessage[] {
+  return mergeServerWindowResult(prev, latest, currentOffset, nextOffset, options).items;
 }
 
 function sessionModeLabel(mode: string): string {
@@ -1390,6 +1428,28 @@ export function SessionDetailPage() {
     }
   }
 
+  function replaceMessageWindow(items: SessionMessage[], offset: number): void {
+    messagesRef.current = items;
+    windowOffsetRef.current = offset;
+    setMessages(items);
+    setWindowOffset(offset);
+  }
+
+  function applyServerMessageWindow(
+    latest: SessionMessage[],
+    nextOffset: number,
+    options: MergeServerWindowOptions = {},
+  ): void {
+    const result = mergeServerWindowResult(
+      messagesRef.current,
+      latest,
+      windowOffsetRef.current,
+      nextOffset,
+      options,
+    );
+    replaceMessageWindow(result.items, result.offset);
+  }
+
   async function refreshAutoTitleSummary(): Promise<boolean> {
     if (!sessionId) return true;
     const current = detailRef.current?.session;
@@ -1437,9 +1497,7 @@ export function SessionDetailPage() {
     setRefreshing(false);
     setLoadingOlder(false);
     setError(null);
-    setMessages([]);
-    windowOffsetRef.current = 0;
-    setWindowOffset(0);
+    replaceMessageWindow([], 0);
     setTotalKnown(0);
     setActiveMessageId(null);
     setComposerModelKey('');
@@ -1455,9 +1513,7 @@ export function SessionDetailPage() {
       .then(([d, m]) => {
         if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
         setDetail(m.session ? { ...d, session: mergeSessionSummary(d.session, m.session) } : d);
-        setMessages([...m.items]);
-        windowOffsetRef.current = m.offset;
-        setWindowOffset(m.offset);
+        replaceMessageWindow([...m.items], m.offset);
         setTotalKnown(m.total);
         setSendPhase(m.send_phase || d.runtime.send_phase || 'idle');
         setLastError(m.last_error ?? d.runtime.last_error ?? null);
@@ -1485,18 +1541,11 @@ export function SessionDetailPage() {
     try {
       const m = await listMessages(requestSessionId, { limit: PAGE_SIZE, tail: true, signal: ctrl.signal });
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
-      setMessages((prev) => mergeServerWindow(
-        prev,
+      applyServerMessageWindow(
         m.items,
-        windowOffsetRef.current,
         m.offset,
         { preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase) },
-      ));
-      setWindowOffset((prev) => {
-        const next = nextWindowOffset(prev, messagesRef.current.length, m.offset);
-        windowOffsetRef.current = next;
-        return next;
-      });
+      );
       setTotalKnown(m.total);
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
@@ -1533,13 +1582,10 @@ export function SessionDetailPage() {
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
-      setMessages((prev) => {
-        const existing = new Set(prev.map((item) => item.id));
-        const incoming = m.items.filter((item) => !existing.has(item.id));
-        return [...incoming, ...prev];
-      });
-      windowOffsetRef.current = m.offset;
-      setWindowOffset(m.offset);
+      const currentMessages = messagesRef.current;
+      const existing = new Set(currentMessages.map((item) => item.id));
+      const incoming = m.items.filter((item) => !existing.has(item.id));
+      replaceMessageWindow([...incoming, ...currentMessages], m.offset);
       setTotalKnown(m.total);
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
@@ -1615,18 +1661,11 @@ export function SessionDetailPage() {
           0,
           (snap.session.message_count ?? snap.messages.length) - snap.messages.length,
         );
-        setMessages((prev) => mergeServerWindow(
-          prev,
+        applyServerMessageWindow(
           snap.messages,
-          windowOffsetRef.current,
           snapOffset,
           { preserveLocalStreamingTail: isRunningPhase(snap.send_phase) },
-        ));
-        setWindowOffset((prev) => {
-          const next = nextWindowOffset(prev, messagesRef.current.length, snapOffset);
-          windowOffsetRef.current = next;
-          return next;
-        });
+        );
         setTotalKnown(snap.session.message_count ?? snap.messages.length);
         setDetail((prev) => {
           const runtime = {
@@ -1946,18 +1985,11 @@ export function SessionDetailPage() {
         if (cancelled || ctrl.signal.aborted || !ownsSessionAsyncResult(pollSessionId)) return;
         const offset = m.offset ?? Math.max(0, m.total - m.items.length);
         // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
-        setMessages((prev) => mergeServerWindow(
-          prev,
+        applyServerMessageWindow(
           m.items,
-          windowOffsetRef.current,
           offset,
           { preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase) },
-        ));
-        setWindowOffset((prev) => {
-          const next = nextWindowOffset(prev, messagesRef.current.length, offset);
-          windowOffsetRef.current = next;
-          return next;
-        });
+        );
         setTotalKnown(m.total);
         setSendPhase(m.send_phase);
         setLastError(m.last_error);
@@ -2388,12 +2420,12 @@ export function SessionDetailPage() {
         await deleteMessageCascade(requestSessionId, editTarget.id);
         cascadeDeleted = true;
         if (ownsSessionAsyncResult(requestSessionId)) {
-          setMessages((prev) => {
-            const idx = prev.findIndex((item) => item.id === editTarget.id);
-            return idx >= 0 ? prev.slice(0, idx) : prev;
-          });
+          const currentMessages = messagesRef.current;
+          const idx = currentMessages.findIndex((item) => item.id === editTarget.id);
+          if (idx >= 0) {
+            replaceMessageWindow(currentMessages.slice(0, idx), windowOffsetRef.current);
+          }
           setTotalKnown((prev) => {
-            const idx = messagesRef.current.findIndex((item) => item.id === editTarget.id);
             return idx >= 0 ? Math.min(prev, windowOffsetRef.current + idx) : prev;
           });
         }
@@ -2671,31 +2703,6 @@ export function SessionDetailPage() {
   };
 
   const responseRunning = isRunningPhase(sendPhase);
-  const collapsedComposerSummary = useMemo(() => {
-    const parts = composerCollapsedSummaryParts({
-      textLength: composerText.trim().length,
-      attachmentCount: composerAttachments.length,
-      queuedCount: queuedComposerMessages.length,
-      editing: Boolean(editingDraftMessage),
-      responseRunning,
-    }, {
-      draft: t('composer.collapsedSummary.draft', '草稿'),
-      charUnit: t('composer.charUnit', '字符'),
-      attachments: t('composer.collapsedSummary.attachments', '附件'),
-      queue: t('composer.collapsedSummary.queue', '队列'),
-      editing: t('composer.collapsedSummary.editing', '编辑中'),
-      running: t('composer.collapsedSummary.running', '回复中'),
-    });
-    return parts.length > 0
-      ? parts.join(' · ')
-      : t('composer.collapsedPlaceholder', '输入区已收起，点击展开');
-  }, [
-    composerText,
-    composerAttachments.length,
-    queuedComposerMessages.length,
-    editingDraftMessage,
-    responseRunning,
-  ]);
 
   if (!sessionId) {
     return (
@@ -3050,24 +3057,12 @@ export function SessionDetailPage() {
             </button>
 
               </>
-            ) : (
-              <button
-                type="button"
-                onClick={toggleComposerCollapsed}
-                class="oh-composer-collapsed-summary oh-tap-press"
-                title={collapsedComposerSummary}
-              >
-                <span class="oh-composer-control-icon" aria-hidden>
-                  <ComposerIcon name="chat" />
-                </span>
-                <span class="truncate">{collapsedComposerSummary}</span>
-              </button>
-            )}
+            ) : null}
 
             <button
               type="button"
               onClick={toggleComposerCollapsed}
-              class="oh-composer-icon-control oh-composer-collapse-control oh-tap-press ml-auto"
+              class={`oh-composer-icon-control oh-composer-collapse-control oh-tap-press ${composerCollapsed ? '' : 'ml-auto'}`}
               title={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
               aria-label={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
               aria-expanded={!composerCollapsed}

@@ -299,7 +299,7 @@ abstract final class OpenHandTheme {
         ),
         actionTextColor: colorScheme.inversePrimary,
         closeIconColor: colorScheme.onInverseSurface.withValues(alpha: 0.78),
-        showCloseIcon: true,
+        showCloseIcon: false,
         dismissDirection: DismissDirection.down,
         elevation: 6,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),

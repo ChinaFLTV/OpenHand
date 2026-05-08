@@ -131,7 +131,7 @@ class OpenHandSnackBar {
       backgroundColor: backgroundColor,
       behavior: SnackBarBehavior.floating,
       dismissDirection: DismissDirection.down,
-      showCloseIcon: action == null,
+      showCloseIcon: false,
       content: _OpenHandSnackBarMotion(
         duration: duration,
         child: Row(
@@ -147,7 +147,42 @@ class OpenHandSnackBar {
                 style: textStyle,
               ),
             ),
+            if (action == null) ...[
+              const SizedBox(width: 10),
+              _OpenHandSnackBarCloseButton(foregroundColor: foregroundColor),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OpenHandSnackBarCloseButton extends StatelessWidget {
+  const _OpenHandSnackBarCloseButton({this.foregroundColor});
+
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = foregroundColor ?? theme.colorScheme.onInverseSurface;
+    return Tooltip(
+      message: MaterialLocalizations.of(context).closeButtonTooltip,
+      child: IconButton(
+        onPressed: () {
+          ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+        },
+        icon: Icon(Icons.close_rounded, size: 18, color: color),
+        style: IconButton.styleFrom(
+          foregroundColor: color,
+          hoverColor: color.withValues(alpha: 0.08),
+          highlightColor: color.withValues(alpha: 0.12),
+          minimumSize: const Size(30, 30),
+          maximumSize: const Size(30, 30),
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
         ),
       ),
     );

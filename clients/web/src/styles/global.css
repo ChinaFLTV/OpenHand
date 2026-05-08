@@ -476,22 +476,31 @@ html, body, #root {
 }
 
 .oh-session-composer {
-  transform-origin: top center;
+  transform-origin: bottom center;
   transition:
     box-shadow 260ms var(--oh-motion-emphasized),
     background-color 260ms var(--oh-motion-emphasized),
+    border-radius 320ms var(--oh-motion-spring),
+    padding 320ms var(--oh-motion-spring),
     transform 320ms var(--oh-motion-spring);
   will-change: transform;
+}
+
+.oh-session-composer[data-collapsed='false'] {
+  width: 100%;
+  align-self: stretch;
+  animation: oh-composer-shell-expand 360ms var(--oh-motion-spring) both;
 }
 
 .oh-session-composer[data-collapsed='true'] {
   transform: translate3d(0, 0, 0) scale(1);
   width: max-content;
   max-width: 100%;
-  align-self: flex-end;
-  padding: 8px !important;
-  border-radius: 18px !important;
+  align-self: center;
+  padding: 6px !important;
+  border-radius: 999px !important;
   overflow: visible;
+  animation: oh-composer-shell-collapse 300ms var(--oh-motion-spring) both;
 }
 
 .oh-session-capsule-icon {
@@ -614,33 +623,9 @@ html, body, #root {
     gap 260ms var(--oh-motion-spring);
 }
 .oh-composer-toolbar[data-collapsed='true'] {
-  justify-content: flex-end;
-  gap: 8px;
+  justify-content: center;
+  gap: 0;
   margin-bottom: 0;
-}
-
-.oh-composer-collapsed-summary {
-  min-height: 40px;
-  max-width: min(58vw, 320px);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px 0 8px;
-  border-radius: 13px;
-  border: 1px solid color-mix(in srgb, var(--m3-primary) 30%, var(--m3-outline-variant));
-  background: color-mix(in srgb, var(--m3-primary-container) 68%, var(--m3-surface));
-  color: var(--m3-on-primary-container);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  box-shadow: 0 8px 20px -18px color-mix(in srgb, var(--m3-primary) 72%, transparent);
-}
-
-.oh-composer-collapsed-summary > span:last-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .oh-composer-control {
@@ -780,6 +765,27 @@ html, body, #root {
 }
 .oh-composer-collapse-control {
   flex: none;
+}
+
+.oh-session-composer[data-collapsed='true'] .oh-composer-collapse-control {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--m3-primary) 34%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 74%, var(--m3-surface));
+  color: var(--m3-on-primary-container);
+  box-shadow: 0 8px 20px -18px color-mix(in srgb, var(--m3-primary) 72%, transparent);
+}
+
+@keyframes oh-composer-shell-expand {
+  0%   { opacity: 0.92; transform: translate3d(0, 10px, 0) scale(0.88); }
+  62%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.012); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes oh-composer-shell-collapse {
+  0%   { opacity: 1; transform: translate3d(0, -3px, 0) scale(1.018); }
+  100% { opacity: 0.98; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 @keyframes oh-composer-chip-in {
@@ -1887,8 +1893,8 @@ button.oh-composer-pill:not(:disabled):hover {
   }
   .oh-composer-toolbar[data-collapsed='true'] {
     display: flex;
-    justify-content: flex-end;
-    gap: 6px;
+    justify-content: center;
+    gap: 0;
     margin-bottom: 0;
   }
   .oh-composer-toolbar > .relative.inline-block {
@@ -2158,15 +2164,9 @@ button.oh-composer-pill:not(:disabled):hover {
   }
   .oh-composer-toolbar[data-collapsed='true'] {
     display: flex;
-    justify-content: flex-end;
-    gap: 6px;
+    justify-content: center;
+    gap: 0;
     margin-bottom: 0;
-  }
-  .oh-composer-collapsed-summary {
-    max-width: min(56vw, 220px);
-    min-height: 38px;
-    padding-inline: 7px 9px;
-    border-radius: 12px;
   }
   .oh-session-composer {
     padding: 10px !important;
@@ -2241,6 +2241,11 @@ button.oh-composer-pill:not(:disabled):hover {
     min-height: 38px;
     padding-block: 7px;
   }
+}
+
+.oh-session-composer[data-collapsed='true'] {
+  max-height: none;
+  overflow: visible;
 }
 
 /* 标签/按钮内文字小幅 hover 上移效果（不破坏布局）。 */

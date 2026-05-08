@@ -565,7 +565,10 @@ class _AiProviderModelChip extends StatelessWidget {
       ),
     );
 
-    Widget result = chip;
+    Widget result = ConstrainedBox(
+      constraints: BoxConstraints(minHeight: compact ? 26 : 32),
+      child: chip,
+    );
     if (enabled && effectiveOnPressed != null) {
       result = MicroPressFeedback(child: result);
     }
@@ -577,7 +580,71 @@ class _AiProviderModelChip extends StatelessWidget {
   }
 }
 
-class _AiModelTile extends StatelessWidget {
+class _AiProviderOverflowChip extends StatelessWidget {
+  const _AiProviderOverflowChip({
+    required this.hiddenCount,
+    required this.onPressed,
+    required this.tooltip,
+  });
+
+  final int hiddenCount;
+  final VoidCallback onPressed;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final child = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 26),
+      child: Material(
+        clipBehavior: Clip.antiAlias,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.94),
+          ),
+        ),
+        color: colorScheme.surfaceContainerHighest.withValues(
+          alpha: theme.brightness == Brightness.dark ? 0.54 : 0.94,
+        ),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onPressed,
+          hoverColor: colorScheme.primary.withValues(alpha: 0.07),
+          highlightColor: colorScheme.primary.withValues(alpha: 0.10),
+          splashColor: colorScheme.primary.withValues(alpha: 0.12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  Icons.more_horiz_rounded,
+                  size: 14,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '+$hiddenCount',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    return Tooltip(
+      message: tooltip,
+      child: MicroPressFeedback(child: child),
+    );
+  }
+}
+
+class _AiModelTile extends StatefulWidget {
   const _AiModelTile({
     required this.model,
     required this.isSelected,
@@ -607,211 +674,306 @@ class _AiModelTile extends StatelessWidget {
   final void Function(String modelId) onActiveModelChanged;
 
   @override
+  State<_AiModelTile> createState() => _AiModelTileState();
+}
+
+class _AiModelTileState extends State<_AiModelTile> {
+  bool _modelChipsExpanded = false;
+
+  @override
+  void didUpdateWidget(covariant _AiModelTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.model.id != widget.model.id) {
+      _modelChipsExpanded = false;
+    } else if (_modelChipsExpanded &&
+        widget.model.allModelIds.length <= _aiModelChipPreviewLimit) {
+      _modelChipsExpanded = false;
+    }
+  }
+
+  void _toggleModelChipsExpanded() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _modelChipsExpanded = !_modelChipsExpanded;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final allModels = model.allModelIds;
+    final allModels = widget.model.allModelIds;
     final modelCountLabel = allModels.isNotEmpty
         ? l10n.aiModelCount(allModels.length)
         : _localizedText(context, zh: '无模型', en: 'No models');
+    final canExpandModels = allModels.length > _aiModelChipPreviewLimit;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return MicroPressFeedback(
       child: InkWell(
-      onTap: onSelect,
-      borderRadius: BorderRadius.circular(24),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colorScheme.primaryContainer.withValues(alpha: 0.52)
-              : colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected
-                ? colorScheme.primary
-                : colorScheme.outlineVariant,
+        onTap: widget.onSelect,
+        borderRadius: BorderRadius.circular(24),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? colorScheme.primaryContainer.withValues(alpha: 0.52)
+                : colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: widget.isSelected
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant,
+            ),
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          model.providerLabel,
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${model.protocolType.label(l10n)} · ${model.authScheme.label(l10n)} · $modelCountLabel',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.model.providerLabel,
+                            style: theme.textTheme.titleLarge,
                           ),
-                        ),
-                        if (model.modelId.trim().isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            _localizedText(
-                              context,
-                              zh: '当前模型：${model.modelId}',
-                              en: 'Active: ${model.modelId}',
-                            ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w600,
+                            '${widget.model.protocolType.label(l10n)} · ${widget.model.authScheme.label(l10n)} · $modelCountLabel',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
+                          if (widget.model.modelId.trim().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _localizedText(
+                                context,
+                                zh: '当前模型：${widget.model.modelId}',
+                                en: 'Active: ${widget.model.modelId}',
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Wrap(
+                      spacing: 4,
+                      children: [
+                        if (canExpandModels)
+                          IconButton(
+                            onPressed: _toggleModelChipsExpanded,
+                            tooltip: _modelChipsExpanded
+                                ? _localizedText(
+                                    context,
+                                    zh: '折叠模型列表',
+                                    en: 'Collapse model list',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '展开全部模型',
+                                    en: 'Show all models',
+                                  ),
+                            icon: AnimatedSwitcher(
+                              duration: reduceMotion
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 220),
+                              switchInCurve: Curves.easeOutBack,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                    opacity: animation,
+                                    child: ScaleTransition(
+                                      scale: animation,
+                                      child: child,
+                                    ),
+                                  ),
+                              child: Icon(
+                                _modelChipsExpanded
+                                    ? Icons.unfold_less_rounded
+                                    : Icons.unfold_more_rounded,
+                                key: ValueKey<bool>(_modelChipsExpanded),
+                              ),
+                            ),
+                          ),
+                        IconButton(
+                          onPressed: widget.isFirst ? null : widget.onMoveUp,
+                          tooltip: l10n.aiModelMoveUp,
+                          icon: const Icon(Icons.arrow_upward_rounded),
+                        ),
+                        IconButton(
+                          onPressed: widget.isLast ? null : widget.onMoveDown,
+                          tooltip: l10n.aiModelMoveDown,
+                          icon: const Icon(Icons.arrow_downward_rounded),
+                        ),
+                        IconButton(
+                          onPressed: widget.onEdit,
+                          tooltip: l10n.commonEdit,
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                        IconButton(
+                          onPressed: widget.onDelete,
+                          tooltip: l10n.commonDelete,
+                          icon: const Icon(Icons.delete_outline_rounded),
+                        ),
+                        IconButton(
+                          onPressed: widget.isTesting ? null : widget.onTest,
+                          tooltip: widget.isTesting
+                              ? l10n.aiModelTesting
+                              : l10n.aiModelTest,
+                          icon: widget.isTesting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.network_check_rounded),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Wrap(
-                    spacing: 4,
-                    children: [
-                      IconButton(
-                        onPressed: isFirst ? null : onMoveUp,
-                        tooltip: l10n.aiModelMoveUp,
-                        icon: const Icon(Icons.arrow_upward_rounded),
-                      ),
-                      IconButton(
-                        onPressed: isLast ? null : onMoveDown,
-                        tooltip: l10n.aiModelMoveDown,
-                        icon: const Icon(Icons.arrow_downward_rounded),
-                      ),
-                      IconButton(
-                        onPressed: onEdit,
-                        tooltip: l10n.commonEdit,
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                      IconButton(
-                        onPressed: onDelete,
-                        tooltip: l10n.commonDelete,
-                        icon: const Icon(Icons.delete_outline_rounded),
-                      ),
-                      IconButton(
-                        onPressed: isTesting ? null : onTest,
-                        tooltip: isTesting
-                            ? l10n.aiModelTesting
-                            : l10n.aiModelTest,
-                        icon: isTesting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.network_check_rounded),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  Chip(
-                    avatar: const Icon(Icons.link_rounded, size: 18),
-                    label: Text(model.normalizedBaseUrl),
-                  ),
-                  Chip(
-                    avatar: const Icon(Icons.vpn_key_outlined, size: 18),
-                    label: Text(
-                      model.maskedToken.isEmpty
-                          ? l10n.aiModelNoToken
-                          : model.maskedToken,
-                    ),
-                  ),
-                  if (isSelected)
-                    Chip(
-                      avatar: const Icon(
-                        Icons.check_circle_outline_rounded,
-                        size: 18,
-                      ),
-                      label: Text(l10n.aiModelSelected),
-                    ),
-                ],
-              ),
-              // Show available models as small chips; active model is highlighted.
-              // When a provider has many models, truncate to avoid excessive
-              // card height and reduce widget-build cost during scrolling.
-              if (allModels.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                RepaintBoundary(
-                  child: Builder(
-                    builder: (ctx) {
-                      final activeId = model.modelId;
-                      // Ensure the active model always appears first.
-                      final ordered = <String>[
-                        if (allModels.contains(activeId)) activeId,
-                        ...allModels.where((id) => id != activeId),
-                      ];
-                      final visible = ordered.length <= _aiModelChipPreviewLimit
-                          ? ordered
-                          : ordered.sublist(0, _aiModelChipPreviewLimit);
-                      final hiddenCount = ordered.length - visible.length;
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          for (final id in visible)
-                            _AiProviderModelChip(
-                              modelId: id,
-                              isActive: id == activeId,
-                              compact: true,
-                              tooltip: id == activeId
-                                  ? _localizedText(
-                                      ctx,
-                                      zh: '当前活跃模型',
-                                      en: 'Currently active model',
-                                    )
-                                  : _localizedText(
-                                      ctx,
-                                      zh: '点击切换为活跃模型',
-                                      en: 'Click to set as active model',
-                                    ),
-                              onPressed: id == activeId
-                                  ? () {}
-                                  : () => onActiveModelChanged(id),
-                            ),
-                          if (hiddenCount > 0)
-                            Tooltip(
-                              message: _localizedText(
-                                ctx,
-                                zh: '还有 $hiddenCount 个模型，点击编辑查看全部',
-                                en: '$hiddenCount more models – edit to see all',
-                              ),
-                              child: Chip(
-                                avatar: const Icon(
-                                  Icons.more_horiz_rounded,
-                                  size: 16,
-                                ),
-                                label: Text('+$hiddenCount'),
-                                visualDensity: VisualDensity.compact,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
+                  ],
                 ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    Chip(
+                      avatar: const Icon(Icons.link_rounded, size: 18),
+                      label: Text(widget.model.normalizedBaseUrl),
+                    ),
+                    Chip(
+                      avatar: const Icon(Icons.vpn_key_outlined, size: 18),
+                      label: Text(
+                        widget.model.maskedToken.isEmpty
+                            ? l10n.aiModelNoToken
+                            : widget.model.maskedToken,
+                      ),
+                    ),
+                    if (widget.isSelected)
+                      Chip(
+                        avatar: const Icon(
+                          Icons.check_circle_outline_rounded,
+                          size: 18,
+                        ),
+                        label: Text(l10n.aiModelSelected),
+                      ),
+                  ],
+                ),
+                // Show available models as small chips; active model is highlighted.
+                // When a provider has many models, truncate to avoid excessive
+                // card height and reduce widget-build cost during scrolling.
+                if (allModels.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  RepaintBoundary(
+                    child: Builder(
+                      builder: (ctx) {
+                        final activeId = widget.model.modelId;
+                        // Ensure the active model always appears first.
+                        final ordered = <String>[
+                          if (allModels.contains(activeId)) activeId,
+                          ...allModels.where((id) => id != activeId),
+                        ];
+                        final visible =
+                            _modelChipsExpanded ||
+                                ordered.length <= _aiModelChipPreviewLimit
+                            ? ordered
+                            : ordered.sublist(0, _aiModelChipPreviewLimit);
+                        final hiddenCount = ordered.length - visible.length;
+                        return AnimatedSize(
+                          alignment: Alignment.topLeft,
+                          duration: reduceMotion
+                              ? Duration.zero
+                              : const Duration(milliseconds: 420),
+                          reverseDuration: reduceMotion
+                              ? Duration.zero
+                              : const Duration(milliseconds: 260),
+                          curve: Curves.easeOutBack,
+                          child: AnimatedSwitcher(
+                            duration: reduceMotion
+                                ? Duration.zero
+                                : const Duration(milliseconds: 260),
+                            switchInCurve: Curves.easeOutBack,
+                            switchOutCurve: Curves.easeInCubic,
+                            layoutBuilder: (currentChild, previousChildren) {
+                              return Stack(
+                                children: <Widget>[
+                                  ...previousChildren,
+                                  if (currentChild != null) currentChild,
+                                ],
+                              );
+                            },
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                                  opacity: animation,
+                                  child: ScaleTransition(
+                                    alignment: Alignment.topLeft,
+                                    scale: Tween<double>(
+                                      begin: 0.98,
+                                      end: 1,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                ),
+                            child: Wrap(
+                              key: ValueKey<bool>(_modelChipsExpanded),
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                for (final id in visible)
+                                  _AiProviderModelChip(
+                                    modelId: id,
+                                    isActive: id == activeId,
+                                    compact: true,
+                                    tooltip: id == activeId
+                                        ? _localizedText(
+                                            ctx,
+                                            zh: '当前活跃模型',
+                                            en: 'Currently active model',
+                                          )
+                                        : _localizedText(
+                                            ctx,
+                                            zh: '点击切换为活跃模型',
+                                            en: 'Click to set as active model',
+                                          ),
+                                    onPressed: id == activeId
+                                        ? () {}
+                                        : () => widget.onActiveModelChanged(id),
+                                  ),
+                                if (hiddenCount > 0)
+                                  _AiProviderOverflowChip(
+                                    hiddenCount: hiddenCount,
+                                    onPressed: _toggleModelChipsExpanded,
+                                    tooltip: _localizedText(
+                                      ctx,
+                                      zh: '展开剩余 $hiddenCount 个模型',
+                                      en: 'Show $hiddenCount more models',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -844,5 +1006,3 @@ class _SettingsSavePulse extends StatelessWidget {
 /// + onKeyEvent 样板。
 ///
 /// 真身已抽到 `lib/shared/widgets/key_tweakable_slider.dart`，这里仅保留注释作历史索引。
-
-

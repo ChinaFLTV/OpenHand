@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionMessage } from '../api/sessions';
-import { composerCollapsedSummaryParts, mergeServerWindow, shouldApplySessionAsyncResult } from './SessionDetailPage';
+import {
+  composerCollapsedSummaryParts,
+  mergeServerWindow,
+  mergeServerWindowResult,
+  shouldApplySessionAsyncResult,
+} from './SessionDetailPage';
 
 function message(
   id: string,
@@ -101,6 +106,39 @@ describe('mergeServerWindow', () => {
     );
 
     expect(merged.map((item) => item.id)).toEqual(['user-80', 'assistant-81']);
+  });
+
+  it('keeps the current offset when preserving a stale empty streaming window', () => {
+    const user = message('user-80', 'user', '继续');
+    const assistant = message('assistant-81', 'assistant', '正在分析第一段内容');
+
+    const merged = mergeServerWindowResult(
+      [user, assistant],
+      [],
+      80,
+      0,
+      { preserveLocalStreamingTail: true },
+    );
+
+    expect(merged.items.map((item) => item.id)).toEqual(['user-80', 'assistant-81']);
+    expect(merged.offset).toBe(80);
+  });
+
+  it('does not drop a local streaming tail when an advanced window has no suffix overlap', () => {
+    const old = message('old-1', 'user', '上一条');
+    const user = message('user-2', 'user', '继续');
+    const assistant = message('assistant-live', 'assistant', '正在分析第一段内容');
+
+    const merged = mergeServerWindowResult(
+      [old, user, assistant],
+      [message('stale-other', 'assistant', '较旧落盘片段')],
+      0,
+      2,
+      { preserveLocalStreamingTail: true },
+    );
+
+    expect(merged.items.map((item) => item.id)).toEqual(['old-1', 'user-2', 'assistant-live']);
+    expect(merged.offset).toBe(0);
   });
 
   it('keeps normal non-streaming replacement behavior by default', () => {
