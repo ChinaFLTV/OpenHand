@@ -1,10 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
+
+export '../web_engine_json_utils.dart'
+    show stringOf, readJsonPath, maybeJsonDecode;
 
 /// 单个 URL 抓取的统一返回。
 class WebFetchEngineContent {
@@ -165,40 +167,6 @@ class WebFetchEngineContext {
     }
     return null;
   }
-}
-
-/// JSON 解析容错。
-String stringOf(Object? raw, {String fallback = ''}) {
-  if (raw == null) return fallback;
-  if (raw is String) return raw.trim();
-  return '$raw'.trim();
-}
-
-T? readJsonPath<T>(Object? root, List<Object> path) {
-  Object? cur = root;
-  for (final seg in path) {
-    if (cur is Map && seg is String && cur.containsKey(seg)) {
-      cur = cur[seg];
-    } else if (cur is List && seg is int && seg >= 0 && seg < cur.length) {
-      cur = cur[seg];
-    } else {
-      return null;
-    }
-  }
-  return cur is T ? cur : null;
-}
-
-Object? maybeJsonDecode(Object? raw) {
-  if (raw is String) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-    try {
-      return jsonDecode(trimmed);
-    } catch (_) {
-      return null;
-    }
-  }
-  return raw;
 }
 
 class WebFetchHttpException implements Exception {
