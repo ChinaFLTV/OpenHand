@@ -265,24 +265,21 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                     .length,
                 lastBatchProbeAt: mcpSnapshot.lastBatchProbeAt,
                 nextScheduledProbeAt: mcpSnapshot.nextScheduledProbeAt,
+                actions: _McpServerFilterBar(
+                  showOnlyAttention: _showOnlyAttention,
+                  attentionCount: mcpSnapshot.attentionCount,
+                  isBatchReconnecting: _isBatchReconnecting,
+                  onToggleFilter: () {
+                    setState(() {
+                      _showOnlyAttention = !_showOnlyAttention;
+                    });
+                  },
+                  onBatchReconnect: mcpSnapshot.attentionCount == 0
+                      ? null
+                      : () => _runBatchReconnect(context),
+                ),
               ),
               const SizedBox(height: 16),
-            ],
-            if (mcpSnapshot.servers.isNotEmpty) ...[
-              _McpServerFilterBar(
-                showOnlyAttention: _showOnlyAttention,
-                attentionCount: mcpSnapshot.attentionCount,
-                isBatchReconnecting: _isBatchReconnecting,
-                onToggleFilter: () {
-                  setState(() {
-                    _showOnlyAttention = !_showOnlyAttention;
-                  });
-                },
-                onBatchReconnect: mcpSnapshot.attentionCount == 0
-                    ? null
-                    : () => _runBatchReconnect(context),
-              ),
-              const SizedBox(height: 12),
             ],
             Expanded(
               child: AnimatedSwitcher(
@@ -3099,6 +3096,7 @@ class _McpProbeStatusBar extends StatelessWidget {
     required this.enabledServerCount,
     required this.lastBatchProbeAt,
     required this.nextScheduledProbeAt,
+    required this.actions,
   });
 
   final bool expanded;
@@ -3111,6 +3109,7 @@ class _McpProbeStatusBar extends StatelessWidget {
   final int enabledServerCount;
   final DateTime? lastBatchProbeAt;
   final DateTime? nextScheduledProbeAt;
+  final Widget actions;
 
   @override
   Widget build(BuildContext context) {
@@ -3316,6 +3315,8 @@ class _McpProbeStatusBar extends StatelessWidget {
                     key: ValueKey<String>('mcp-probe-collapsed'),
                   ),
           ),
+          const SizedBox(height: 14),
+          actions,
         ],
       ),
     );
