@@ -10,7 +10,8 @@
 
 import { createPortal } from 'preact/compat';
 import type { ComponentChildren } from 'preact';
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useRafScheduler } from '../hooks/useRafScheduler';
 
 export interface PopMenuItem {
   key: string;
@@ -120,7 +121,7 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
   }, [open, closing]);
 
   // 计算菜单坐标：fixed 定位 + 视口内夹紧。
-  const recompute = () => {
+  const recompute = useCallback(() => {
     const trig = wrapRef.current;
     if (!trig) return;
     const r = trig.getBoundingClientRect();
@@ -141,23 +142,25 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
       if (above >= VIEWPORT_PADDING) top = above;
     }
     setPos({ top, left, width: desiredWidth });
-  };
+  }, [align, width]);
+  const { schedule: scheduleRecompute, flush: recomputeNow, cancel: cancelRecompute } = useRafScheduler(recompute);
 
   useLayoutEffect(() => {
     if (!menuVisible) {
+      cancelRecompute();
       setPos(null);
       return;
     }
-    recompute();
-    const onScrollOrResize = () => recompute();
+    recomputeNow();
+    const onScrollOrResize = () => scheduleRecompute();
     window.addEventListener('scroll', onScrollOrResize, true);
     window.addEventListener('resize', onScrollOrResize);
     return () => {
       window.removeEventListener('scroll', onScrollOrResize, true);
       window.removeEventListener('resize', onScrollOrResize);
+      cancelRecompute();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuVisible]);
+  }, [menuVisible, recompute, recomputeNow, scheduleRecompute, cancelRecompute]);
 
   // 第一次渲染拿到菜单实际尺寸后再校准一次（避免 minWidth 估算偏差）。
   useLayoutEffect(() => {

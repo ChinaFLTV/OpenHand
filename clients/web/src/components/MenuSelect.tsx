@@ -10,7 +10,8 @@
 
 import { createPortal } from 'preact/compat';
 import type { JSX } from 'preact';
-import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
+import { useRafScheduler } from '../hooks/useRafScheduler';
 
 export interface MenuOption<T extends string = string> {
   value: T;
@@ -72,7 +73,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
 
   const current = useMemo(() => options.find((o) => o.value === value), [options, value]);
 
-  const computeMenuPosition = (measuredHeight?: number): MenuPosition | null => {
+  const computeMenuPosition = useCallback((measuredHeight?: number): MenuPosition | null => {
     if (typeof window === 'undefined') return null;
     const trigger = triggerRef.current;
     if (!trigger) return null;
@@ -94,12 +95,14 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
       maxHeight: available,
       transformOrigin: openUp ? 'bottom center' : 'top center',
     };
-  };
+  }, [minWidth, menuMaxHeight]);
 
-  const updateMenuPosition = () => {
+  const updateMenuPosition = useCallback(() => {
     const measuredHeight = menuRef.current?.getBoundingClientRect().height;
     setMenuPosition(computeMenuPosition(measuredHeight));
-  };
+  }, [computeMenuPosition]);
+  const { schedule: scheduleMenuPosition, flush: updateMenuPositionNow, cancel: cancelMenuPosition } =
+    useRafScheduler(updateMenuPosition);
 
   const clearCloseTimer = () => {
     if (closeTimerRef.current == null) return;
@@ -136,16 +139,16 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
 
   useEffect(() => {
     if (!menuVisible) return;
-    updateMenuPosition();
-    const frame = window.requestAnimationFrame(updateMenuPosition);
-    window.addEventListener('resize', updateMenuPosition);
-    window.addEventListener('scroll', updateMenuPosition, true);
+    updateMenuPositionNow();
+    scheduleMenuPosition();
+    window.addEventListener('resize', scheduleMenuPosition);
+    window.addEventListener('scroll', scheduleMenuPosition, true);
     return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener('resize', updateMenuPosition);
-      window.removeEventListener('scroll', updateMenuPosition, true);
+      window.removeEventListener('resize', scheduleMenuPosition);
+      window.removeEventListener('scroll', scheduleMenuPosition, true);
+      cancelMenuPosition();
     };
-  }, [menuVisible, minWidth, menuMaxHeight, options.length]);
+  }, [menuVisible, minWidth, menuMaxHeight, options.length, updateMenuPositionNow, scheduleMenuPosition, cancelMenuPosition]);
 
   useEffect(() => {
     if (menuVisible) return;

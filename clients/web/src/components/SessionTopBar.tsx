@@ -3,10 +3,11 @@
 // - 工具区: 仅接收上层按 App 端顺序构造好的胶囊；会话模式 / 权限不在 TopBar 重复展示。
 // - More 菜单 (重命名 / 删除 / 导出 / 复制 ID)。
 
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { createPortal } from 'preact/compat';
 import { t } from '../i18n';
+import { useRafScheduler } from '../hooks/useRafScheduler';
 import { showSnackbar } from './Snackbar';
 
 const TOPBAR_MENU_EXIT_MS = 180;
@@ -523,22 +524,25 @@ function Menu({
     computeTopBarMenuPosition(anchorRef.current)
   ));
 
-  useEffect(() => {
-    const update = () => {
-      setPosition(computeTopBarMenuPosition(
-        anchorRef.current,
-        menuRef.current?.offsetWidth ?? MENU_MIN_WIDTH,
-        menuRef.current?.offsetHeight ?? 0,
-      ));
-    };
-    update();
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, true);
-    return () => {
-      window.removeEventListener('resize', update);
-      window.removeEventListener('scroll', update, true);
-    };
+  const update = useCallback(() => {
+    setPosition(computeTopBarMenuPosition(
+      anchorRef.current,
+      menuRef.current?.offsetWidth ?? MENU_MIN_WIDTH,
+      menuRef.current?.offsetHeight ?? 0,
+    ));
   }, [anchorRef]);
+  const { schedule: schedulePosition, flush: updatePositionNow, cancel: cancelPosition } = useRafScheduler(update);
+
+  useEffect(() => {
+    updatePositionNow();
+    window.addEventListener('resize', schedulePosition);
+    window.addEventListener('scroll', schedulePosition, true);
+    return () => {
+      window.removeEventListener('resize', schedulePosition);
+      window.removeEventListener('scroll', schedulePosition, true);
+      cancelPosition();
+    };
+  }, [updatePositionNow, schedulePosition, cancelPosition]);
 
   const node = (
     <div
