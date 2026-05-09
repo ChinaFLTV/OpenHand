@@ -172,6 +172,26 @@ function isStreamingTailMessage(message: SessionMessage): boolean {
   return message.role === 'assistant' || message.role === 'tool';
 }
 
+function isAssistantTextLikeMessage(message: SessionMessage): boolean {
+  if (message.role !== 'assistant') return false;
+  return ![
+    'tool',
+    'tool_call',
+    'mcp',
+    'skill',
+    'hook',
+    'status',
+    'compression_point',
+    'file_mutation_summary',
+    'self_learning',
+  ].includes(message.kind);
+}
+
+function messageMetadataStreaming(message: SessionMessage): boolean {
+  const value = message.metadata?.streaming;
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
+
 function shouldKeepLongerStreamingMessage(
   existing: SessionMessage | undefined,
   incoming: SessionMessage,
@@ -3029,6 +3049,15 @@ export function SessionDetailPage() {
   };
 
   const responseRunning = isRunningPhase(sendPhase);
+  const latestStreamingTextMessageId = useMemo(() => {
+    for (let index = sortedMessages.length - 1; index >= 0; index -= 1) {
+      const message = sortedMessages[index];
+      if (!message || !isAssistantTextLikeMessage(message)) continue;
+      if (messageMetadataStreaming(message) || responseRunning) return message.id;
+      break;
+    }
+    return null;
+  }, [sortedMessages, responseRunning]);
   const followStatusLabel = autoFollowPaused || unreadCount > 0
     ? unreadCount > 0
       ? `${unreadCount.toLocaleString()} ${t('detail.unreadUnit', '条新消息')}`
@@ -3251,6 +3280,7 @@ export function SessionDetailPage() {
                       <MessageCard
                         message={m}
                         active={activeMessageId === m.id}
+                        streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)}
                         sessionId={sessionId}
                         onActiveChange={handleMessageActiveChange}
                         onCopy={handleCopyMessage}
@@ -3945,9 +3975,25 @@ export function SessionDetailPage() {
       {pendingWriteApproval ? (
         <ConfirmDialog
           title={t('detail.writeApproval.title', '确认写操作')}
-          body={`${t('detail.writeApproval.body', '当前默认权限模式需要确认后才会继续执行写文件或命令操作。')}\n\n${t('detail.writeApproval.cwd', '工作目录')}：${pendingWriteApproval.working_directory || '-'}\n${t('detail.writeApproval.command', '命令')}：${pendingWriteApproval.command || '-'}`}
+          body={(
+            <div class="oh-write-approval-dialog-content">
+              <p class="oh-write-approval-dialog-copy">
+                {t('detail.writeApproval.body', '当前默认权限模式需要确认后才会继续执行写文件或命令操作。')}
+              </p>
+              <div class="oh-write-approval-dialog-field">
+                <span class="oh-write-approval-dialog-label">{t('detail.writeApproval.cwd', '工作目录')}</span>
+                <code class="oh-write-approval-dialog-path">{pendingWriteApproval.working_directory || '-'}</code>
+              </div>
+              <div class="oh-write-approval-dialog-field">
+                <span class="oh-write-approval-dialog-label">{t('detail.writeApproval.command', '命令')}</span>
+                <pre class="oh-write-approval-dialog-command">{pendingWriteApproval.command || '-'}</pre>
+              </div>
+            </div>
+          )}
           danger
           busy={writeApprovalBusy}
+          wide
+          scrollBody
           confirmLabel={writeApprovalBusy
             ? t('common.processing', '处理中…')
             : t('detail.writeApproval.approve', '允许执行')}

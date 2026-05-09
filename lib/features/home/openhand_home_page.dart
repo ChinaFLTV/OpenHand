@@ -108,6 +108,7 @@ import '../mcp/service/tool_search_replay_dispatcher.dart';
 import '../mcp/widgets/tool_search_loaded_dialog.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
+import '../message_gateway/message_gateway_controller.dart';
 import '../message_gateway/message_gateway_view.dart';
 import '../settings/settings_view.dart';
 import '../skills/model/local_skill.dart';
@@ -746,6 +747,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   AiCreationOptions _creationOptions = AiCreationOptions.empty;
   double _composerHeight = _composerDefaultHeight;
   bool _composerCollapsed = false;
+
   /// 最近一次量到的 composer panel 高度，供折叠/展开时反向补偿 transcript scroll。
   double? _lastComposerHeight;
   bool _composerLayoutMeasureScheduled = false;
@@ -779,6 +781,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   int? _runtimeToolPreviewCacheKey;
   AiRuntimeToolPreview? _runtimeToolPreviewCacheValue;
   AiSessionController? _observedSessionController;
+  MessageGatewayController? _observedMessageGatewayController;
+  StreamSubscription<List<WebWriteApprovalRequest>>? _writeApprovalSubscription;
+  final Set<String> _handledWriteApprovalDialogIds = <String>{};
+  String? _scheduledWriteApprovalDialogId;
+  String? _presentingWriteApprovalDialogId;
+  String? _presentingWriteApprovalSessionId;
+  BuildContext? _activeWriteApprovalDialogContext;
+  bool _suppressWriteApprovalDialogResponse = false;
   AiSessionMode _detachedComposerMode = AiSessionMode.chat;
   bool _detachedFullAccessPermission = false;
   String? _activeComposerSessionId;
@@ -1177,6 +1187,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     _activeComposerSessionId = sessionController.currentSessionId;
     _activeTranscriptSessionId = sessionController.currentSessionId;
+    final messageGatewayController = _readMessageGatewayController();
+    if (!identical(
+      _observedMessageGatewayController,
+      messageGatewayController,
+    )) {
+      _writeApprovalSubscription?.cancel();
+      _observedMessageGatewayController = messageGatewayController;
+      _writeApprovalSubscription = messageGatewayController
+          ?.pendingWriteApprovalsStream
+          .listen(_handlePendingWriteApprovalsChanged);
+      _handlePendingWriteApprovalsChanged(
+        messageGatewayController?.pendingWriteApprovals ??
+            const <WebWriteApprovalRequest>[],
+      );
+    }
   }
 
   @override
@@ -1205,6 +1230,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _observedSessionController?.toolSearchLoadedSignal.removeListener(
       _handleToolSearchLoadedSignal,
     );
+    _writeApprovalSubscription?.cancel();
+    _writeApprovalSubscription = null;
+    _observedMessageGatewayController = null;
     _messageScrollController.removeListener(_handleMessageScroll);
     HardwareKeyboard.instance.removeHandler(_handleGlobalShortcutKeyEvent);
     _disposeAskUserChoicePresenter?.call();
@@ -1267,8 +1295,147 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final sessionController = _observedSessionController;
     _maybePresentExternalSessionDeletionNotice(sessionController);
+    _dismissWriteApprovalDialogIfSessionChanged(
+      sessionController?.currentSessionId,
+    );
+    _handlePendingWriteApprovalsChanged(
+      _observedMessageGatewayController?.pendingWriteApprovals ??
+          const <WebWriteApprovalRequest>[],
+    );
     _scheduleSessionControllerUiSync();
     _processMessageQueueIfNeeded(sessionController);
+  }
+
+  MessageGatewayController? _readMessageGatewayController() {
+    try {
+      return context.read<MessageGatewayController>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _dismissWriteApprovalDialogIfSessionChanged(String? currentSessionId) {
+    final presentingSessionId = _presentingWriteApprovalSessionId;
+    if (presentingSessionId == null ||
+        presentingSessionId == currentSessionId) {
+      return;
+    }
+    _suppressWriteApprovalDialogResponse = true;
+    final dialogContext = _activeWriteApprovalDialogContext;
+    if (dialogContext != null && Navigator.of(dialogContext).canPop()) {
+      Navigator.of(dialogContext).pop();
+    }
+  }
+
+  void _handlePendingWriteApprovalsChanged(
+    List<WebWriteApprovalRequest> approvals,
+  ) {
+    if (!mounted ||
+        _presentingWriteApprovalDialogId != null ||
+        _scheduledWriteApprovalDialogId != null) {
+      return;
+    }
+    final currentSessionId = _observedSessionController?.currentSessionId;
+    if (currentSessionId == null || currentSessionId.isEmpty) {
+      return;
+    }
+    for (final approval in approvals) {
+      if (approval.sessionId != currentSessionId) {
+        continue;
+      }
+      if (_handledWriteApprovalDialogIds.contains(approval.id)) {
+        continue;
+      }
+      _scheduledWriteApprovalDialogId = approval.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scheduledWriteApprovalDialogId == approval.id) {
+          _scheduledWriteApprovalDialogId = null;
+        }
+        if (!mounted) {
+          return;
+        }
+        unawaited(_presentSharedWriteApprovalDialog(approval));
+      });
+      return;
+    }
+  }
+
+  Future<void> _presentSharedWriteApprovalDialog(
+    WebWriteApprovalRequest approval,
+  ) async {
+    final gatewayController =
+        _observedMessageGatewayController ?? _readMessageGatewayController();
+    if (gatewayController == null || !mounted) {
+      return;
+    }
+    if (_presentingWriteApprovalDialogId != null ||
+        _handledWriteApprovalDialogIds.contains(approval.id)) {
+      return;
+    }
+    if (_observedSessionController?.currentSessionId != approval.sessionId) {
+      return;
+    }
+    if (!gatewayController.pendingWriteApprovals.any(
+      (item) => item.id == approval.id,
+    )) {
+      return;
+    }
+
+    _presentingWriteApprovalDialogId = approval.id;
+    _presentingWriteApprovalSessionId = approval.sessionId;
+    _suppressWriteApprovalDialogResponse = false;
+    _handledWriteApprovalDialogIds.add(approval.id);
+    var resolvedElsewhere = false;
+    late final StreamSubscription<List<WebWriteApprovalRequest>> sub;
+    sub = gatewayController.pendingWriteApprovalsStream.listen((items) {
+      if (items.any((item) => item.id == approval.id)) {
+        return;
+      }
+      resolvedElsewhere = true;
+      final contextToClose = _activeWriteApprovalDialogContext;
+      if (contextToClose != null &&
+          contextToClose.mounted &&
+          Navigator.of(contextToClose).canPop()) {
+        Navigator.of(contextToClose).pop();
+      }
+    });
+    try {
+      final confirmed = await showWriteCommandConfirmationDialog(
+        context,
+        request: approval.toBashCommandApprovalRequest(),
+        onDialogContext: (context) {
+          _activeWriteApprovalDialogContext = context;
+        },
+      );
+      if (!mounted ||
+          resolvedElsewhere ||
+          _suppressWriteApprovalDialogResponse) {
+        return;
+      }
+      gatewayController.respondWriteApproval(
+        approval.id,
+        approved: confirmed == true,
+      );
+    } finally {
+      await sub.cancel();
+      final suppressed = _suppressWriteApprovalDialogResponse;
+      if (suppressed) {
+        _handledWriteApprovalDialogIds.remove(approval.id);
+      }
+      if (_presentingWriteApprovalDialogId == approval.id) {
+        _presentingWriteApprovalDialogId = null;
+      }
+      if (_presentingWriteApprovalSessionId == approval.sessionId) {
+        _presentingWriteApprovalSessionId = null;
+      }
+      _activeWriteApprovalDialogContext = null;
+      _suppressWriteApprovalDialogResponse = false;
+      if (mounted) {
+        _handlePendingWriteApprovalsChanged(
+          gatewayController.pendingWriteApprovals,
+        );
+      }
+    }
   }
 
   void _maybePresentExternalSessionDeletionNotice(
@@ -4961,6 +5128,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final effectiveSessionId = trackSessionBadge
         ? (sessionId ?? sessionController.currentSessionId)
         : null;
+    final gatewayController =
+        _observedMessageGatewayController ?? _readMessageGatewayController();
+    if (effectiveSessionId != null && gatewayController != null) {
+      return gatewayController.requestWriteApproval(
+        sessionId: effectiveSessionId,
+        request: request,
+      );
+    }
     if (effectiveSessionId != null) {
       sessionController.setSessionAwaitingApproval(effectiveSessionId);
     }

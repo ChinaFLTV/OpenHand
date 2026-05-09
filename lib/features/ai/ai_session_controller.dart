@@ -686,9 +686,11 @@ class AiSessionController extends ChangeNotifier {
       <String, AiSendPhase>{};
   final Map<String, bool> _didCompressInLastSendBySession = <String, bool>{};
   final Map<String, int> _compressionFailureCountsBySession = <String, int>{};
+
   /// 手动压缩防抖 — 同一会话两次手动压缩之间的最小间隔。
   /// 值不可低于 [_manualCompactionMinIntervalMs]，与「Cooldown」错误一并消化。
   final Map<String, DateTime> _lastManualCompactionAt = <String, DateTime>{};
+
   /// 同一会话上是否有手动压缩正在进行（避免重复并发触发）。
   final Set<String> _manualCompactionInflight = <String>{};
   String? _currentSessionId;
@@ -2221,6 +2223,10 @@ class AiSessionController extends ChangeNotifier {
     );
     final cancelHandler = _sessionCancelHandlers[sessionId];
     if (cancelHandler == null) {
+      if (!_sessionOperationQueues.containsKey(sessionId)) {
+        _clearSessionExecutionState(sessionId);
+        notifyListeners();
+      }
       return;
     }
     await cancelHandler().catchError((Object _, StackTrace stackTrace) {});
@@ -5867,7 +5873,9 @@ class AiSessionController extends ChangeNotifier {
     }
     final meta = session.lastPromptMetadata;
     final percentLeftRaw = meta['context_budget_percent_left'];
-    final percentLeft = percentLeftRaw is num ? percentLeftRaw.toDouble() : null;
+    final percentLeft = percentLeftRaw is num
+        ? percentLeftRaw.toDouble()
+        : null;
     if (percentLeft != null &&
         percentLeft > _manualCompactionRefusePercentLeftAbove) {
       return const AiManualCompactionResult(
@@ -5885,7 +5893,11 @@ class AiSessionController extends ChangeNotifier {
             status: AiManualCompactionStatus.noSession,
           );
         }
-        if (!_shouldCompressSessionHistory(freshSession, runtimeContext, model)) {
+        if (!_shouldCompressSessionHistory(
+          freshSession,
+          runtimeContext,
+          model,
+        )) {
           return const AiManualCompactionResult(
             status: AiManualCompactionStatus.notNeeded,
             message: 'nothing_to_compress',

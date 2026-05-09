@@ -3,11 +3,14 @@ part of 'openhand_home_page.dart';
 Future<bool?> showWriteCommandConfirmationDialog(
   BuildContext context, {
   required BashCommandApprovalRequest request,
+  ValueChanged<BuildContext>? onDialogContext,
 }) {
   return showAnimatedDialog<bool>(
     context: context,
-    builder: (dialogContext) =>
-        _WriteCommandConfirmationDialog(request: request),
+    builder: (dialogContext) {
+      onDialogContext?.call(dialogContext);
+      return _WriteCommandConfirmationDialog(request: request);
+    },
   );
 }
 

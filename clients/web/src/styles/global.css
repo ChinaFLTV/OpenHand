@@ -1706,6 +1706,81 @@ html, body, #root {
   transform: translateY(-1px);
 }
 
+.oh-confirm-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.oh-confirm-dialog.is-scroll-body {
+  min-height: 0;
+}
+.oh-confirm-dialog-head {
+  min-height: 0;
+}
+.oh-confirm-dialog.is-scroll-body .oh-confirm-dialog-head {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.oh-confirm-dialog-main {
+  min-height: 0;
+}
+.oh-confirm-dialog.is-scroll-body .oh-confirm-dialog-main {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+.oh-confirm-dialog-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.oh-confirm-dialog.is-scroll-body .oh-confirm-dialog-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+}
+.oh-confirm-dialog-actions {
+  flex: none;
+}
+.oh-write-approval-dialog-content {
+  display: grid;
+  gap: 12px;
+}
+.oh-write-approval-dialog-copy {
+  margin: 0;
+}
+.oh-write-approval-dialog-field {
+  display: grid;
+  gap: 5px;
+}
+.oh-write-approval-dialog-label {
+  color: var(--m3-on-surface);
+  font-size: 11px;
+  font-weight: 800;
+}
+.oh-write-approval-dialog-path,
+.oh-write-approval-dialog-command {
+  margin: 0;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: var(--m3-radius-sm);
+  background: var(--m3-surface);
+  color: var(--m3-on-surface);
+  font-family: ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.oh-write-approval-dialog-path {
+  padding: 7px 9px;
+}
+.oh-write-approval-dialog-command {
+  max-height: min(48dvh, 420px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+}
+
 .oh-session-composer {
   position: relative;
   transform-origin: bottom center;
@@ -1790,6 +1865,28 @@ html, body, #root {
   text-overflow: ellipsis;
 }
 
+.oh-message-collapse-button {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: currentColor;
+  font-size: 11px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+.oh-message-collapse-button > svg {
+  flex: none;
+  transition: transform 240ms var(--oh-motion-spring);
+}
+.oh-message-collapse-button[aria-expanded='true'] > svg {
+  transform: translateY(-1px);
+}
+
 .oh-tool-section-pre,
 .oh-tool-result-pre {
   transition:
@@ -1838,6 +1935,9 @@ html, body, #root {
     opacity 220ms var(--oh-motion-emphasized),
     transform 320ms var(--oh-motion-spring);
   will-change: max-height, opacity, transform;
+}
+.oh-composer-body[data-collapsed='false'] {
+  overflow: visible;
 }
 .oh-composer-body[data-collapsed='true'] {
   max-height: 0;
@@ -2065,6 +2165,9 @@ html, body, #root {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  overflow: visible;
+  padding-top: 3px;
+  margin-top: -3px;
 }
 .oh-composer-pill {
   min-height: 32px;
@@ -2135,6 +2238,9 @@ button.oh-composer-pill:not(:disabled):hover {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 10px;
+  overflow: visible;
+  padding-top: 3px;
+  margin-top: -3px;
 }
 .oh-composer-instructions-strip-label {
   flex: none;
@@ -2151,6 +2257,9 @@ button.oh-composer-pill:not(:disabled):hover {
   gap: 6px 8px;
   align-items: center;
   min-width: 0;
+  overflow: visible;
+  padding-top: 3px;
+  margin-top: -3px;
 }
 .oh-composer-instruction-pill {
   display: inline-flex;
@@ -2634,6 +2743,11 @@ button.oh-composer-pill:not(:disabled):hover {
     opacity 220ms var(--oh-motion-emphasized),
     transform 300ms var(--oh-motion-spring);
   will-change: max-height, opacity, transform;
+}
+.oh-composer-footer[data-collapsed='false'] {
+  overflow: visible;
+  padding-top: 3px;
+  margin-top: calc(0.75rem - 3px) !important;
 }
 .oh-composer-footer[data-collapsed='true'] {
   max-height: 0;
@@ -3148,6 +3262,18 @@ button.oh-composer-pill:not(:disabled):hover {
     font-size: 13px !important;
     line-height: 1.55 !important;
   }
+  .oh-confirm-dialog.is-scroll-body .oh-confirm-dialog-body {
+    display: block;
+    grid-column: 2;
+    min-height: 0;
+    overflow: auto;
+  }
+  .oh-confirm-dialog.is-scroll-body .oh-confirm-dialog-main {
+    display: flex;
+  }
+  .oh-write-approval-dialog-command {
+    max-height: min(44dvh, 360px);
+  }
   .oh-confirm-dialog-actions {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -3557,6 +3683,11 @@ button.oh-composer-pill:not(:disabled):hover {
     -webkit-line-clamp: 6;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+  .oh-confirm-dialog.is-scroll-body .oh-confirm-dialog-body {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: auto;
   }
   .oh-confirm-dialog-actions {
     margin-top: 14px !important;

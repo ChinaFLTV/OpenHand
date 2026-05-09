@@ -1,4 +1,5 @@
 import { useEffect } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { OverlayPortal } from './OverlayPortal';
 
@@ -22,11 +23,14 @@ function ConfirmIcon({ danger }: { danger: boolean }) {
 
 export interface ConfirmDialogProps {
   title: string;
-  body?: string;
+  body?: ComponentChildren;
   confirmLabel: string;
   cancelLabel?: string;
   danger?: boolean;
   busy?: boolean;
+  wide?: boolean;
+  scrollBody?: boolean;
+  bodyClassName?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -38,6 +42,9 @@ export function ConfirmDialog({
   cancelLabel = '取消',
   danger = false,
   busy = false,
+  wide = false,
+  scrollBody = false,
+  bodyClassName = '',
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -61,12 +68,14 @@ export function ConfirmDialog({
       <div
         role="dialog"
         aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} oh-confirm-dialog w-full max-w-md rounded-m3-xl p-5`}
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} oh-confirm-dialog ${wide ? 'is-wide' : ''} ${scrollBody ? 'is-scroll-body' : ''} w-full rounded-m3-xl p-5`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
           boxShadow: 'var(--m3-elev-3)',
           border: '1px solid var(--m3-outline)',
+          maxWidth: wide ? 'min(720px, calc(100vw - 32px))' : 'min(448px, calc(100vw - 32px))',
+          maxHeight: scrollBody ? 'min(86dvh, 760px)' : undefined,
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -88,9 +97,9 @@ export function ConfirmDialog({
               {title}
             </h2>
             {body ? (
-              <p class="oh-confirm-dialog-body mt-2 text-sm leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <div class={`oh-confirm-dialog-body mt-2 text-sm leading-relaxed ${bodyClassName}`} style={{ color: 'var(--m3-on-surface-variant)' }}>
                 {body}
-              </p>
+              </div>
             ) : null}
           </div>
         </div>

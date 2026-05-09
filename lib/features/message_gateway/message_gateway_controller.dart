@@ -6,6 +6,8 @@ import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_thread_template.dart';
+import '../ai/service/ai_bash_tool_service.dart'
+    show BashCommandApprovalRequest;
 import '../crons/crons_controller.dart';
 import '../instructions/instructions_controller.dart';
 import '../mcp/mcp_controller.dart';
@@ -14,6 +16,8 @@ import '../skills/skills_controller.dart';
 import 'data/message_gateway_store.dart';
 import 'model/web_message_platform_config.dart';
 import 'service/web_message_platform_service.dart';
+
+export 'service/web_message_platform_service.dart' show WebWriteApprovalRequest;
 
 class WebGatewayModelOption {
   const WebGatewayModelOption({
@@ -112,6 +116,10 @@ class MessageGatewayController extends ChangeNotifier {
   WebGatewayRuntimeState get runtimeState => _service.state;
   bool get isRunning => _service.isRunning;
   String get webUrl => _service.boundUrl;
+  Stream<List<WebWriteApprovalRequest>> get pendingWriteApprovalsStream =>
+      _service.pendingWriteApprovalsStream;
+  List<WebWriteApprovalRequest> get pendingWriteApprovals =>
+      _service.pendingWriteApprovals;
 
   /// 当前可访问该 Web 服务的全部 URL（监听通配符地址时含 LAN IP）。
   /// view 与设置面板可直接 `Wrap`/`SelectableText.rich` 渲染。
@@ -123,6 +131,26 @@ class MessageGatewayController extends ChangeNotifier {
     final snapshot = await _service.runtimeSnapshotAsync();
     notifyListeners();
     return snapshot;
+  }
+
+  Future<bool> requestWriteApproval({
+    required String sessionId,
+    required BashCommandApprovalRequest request,
+    String source = 'app',
+  }) {
+    return _service.requestWriteApproval(sessionId, request, source: source);
+  }
+
+  bool respondWriteApproval(
+    String approvalId, {
+    required bool approved,
+    String source = 'app',
+  }) {
+    return _service.respondWriteApproval(
+      approvalId,
+      approved: approved,
+      source: source,
+    );
   }
 
   List<AiThreadTemplate> get templates => _sessionController.templates;
@@ -370,9 +398,7 @@ class MessageGatewayController extends ChangeNotifier {
     final memories = memoryIds.toSet();
     final tools = builtinToolNames.toSet();
     final models = modelOptions.map((item) => item.key).toSet();
-    final instructions = instructionOptions
-        .map((item) => item.id)
-        .toSet();
+    final instructions = instructionOptions.map((item) => item.id).toSet();
     List<String> keep(List<String> source, Set<String> allowed) {
       if (source.contains(webGatewayDenyAllSelectionMarker)) {
         return const <String>[webGatewayDenyAllSelectionMarker];

@@ -91,6 +91,8 @@ type MessageIconName =
   | 'audit'
   | 'trash'
   | 'cascade'
+  | 'chevronDown'
+  | 'chevronUp'
   | 'write'
   | 'delete'
   | 'mutate';
@@ -159,6 +161,10 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 14h10l1-14" /><path d="M9 7V4h6v3" /></svg>;
     case 'cascade':
       return <svg {...common}><path d="M5 6h14" /><path d="M8 12h8" /><path d="M10 18h4" /><path d="M18 6v5a7 7 0 0 1-7 7" /></svg>;
+    case 'chevronDown':
+      return <svg {...common}><path d="m6 9 6 6 6-6" /></svg>;
+    case 'chevronUp':
+      return <svg {...common}><path d="m18 15-6-6-6 6" /></svg>;
     case 'write':
       return <svg {...common}><path d="M12 5v14M5 12h14" /></svg>;
     case 'delete':
@@ -472,6 +478,21 @@ function isAssistantSideMessage(message: SessionMessage): boolean {
   return message.role !== 'user';
 }
 
+function isAssistantResponseMessage(message: SessionMessage): boolean {
+  if (message.role !== 'assistant') return false;
+  return ![
+    'tool',
+    'tool_call',
+    'mcp',
+    'skill',
+    'hook',
+    'status',
+    'compression_point',
+    'file_mutation_summary',
+    'self_learning',
+  ].includes(message.kind);
+}
+
 function messageSizeMotionSignal(message: SessionMessage, actionsVisible: boolean): string {
   const metadata = message.metadata ?? {};
   return [
@@ -580,6 +601,8 @@ export interface MessageCardProps {
   active?: boolean;
   /// 默认 false；调用方可设为 true 强制展开。
   forceExpanded?: boolean;
+  /// 当前消息是否仍在流式增长；长正文在流式期间保持展开，结束后自动折叠。
+  streaming?: boolean;
   /// 媒体资产 URL 构造需要 sessionId; 缺省则不渲染媒体卡。
   sessionId?: string;
   /// 复制本条消息正文（必传时显示「复制」按钮）。
@@ -599,6 +622,7 @@ function MessageCardImpl({
   message,
   active = false,
   forceExpanded = false,
+  streaming = false,
   sessionId,
   onCopy,
   onDelete,
@@ -615,9 +639,20 @@ function MessageCardImpl({
     message.kind === 'tool_call' ||
     message.kind === 'mcp';
   const useToolBody = useStructuredToolBody || message.kind === 'file_mutation_summary';
-  const overflows =
-    !useToolBody && style.collapsible && !forceExpanded && content.length > AUTO_COLLAPSE_CHAR_LIMIT;
-  const visibleContent = overflows
+  const metadata = message.metadata ?? {};
+  const streamingContent = streaming || asBool(metadata['streaming']);
+  const canCollapse =
+    !useToolBody &&
+    !forceExpanded &&
+    (style.collapsible || isAssistantResponseMessage(message)) &&
+    content.length > AUTO_COLLAPSE_CHAR_LIMIT;
+  const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null);
+  useEffect(() => {
+    setExpandedOverride(null);
+  }, [message.id]);
+  const expanded = forceExpanded || streamingContent || expandedOverride === true || !canCollapse;
+  const collapsed = canCollapse && !expanded;
+  const visibleContent = collapsed
     ? content.slice(0, AUTO_COLLAPSE_CHAR_LIMIT) + '…'
     : content;
 
@@ -643,7 +678,7 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
-  const sizeMotionSignal = messageSizeMotionSignal(message, actionsVisible);
+  const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}`;
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
     !reduceMotion && isAssistantSideMessage(message),
@@ -727,17 +762,28 @@ function MessageCardImpl({
           mono={style.mono === true}
         />
       )}
+      {canCollapse && !streamingContent ? (
+        <button
+          type="button"
+          class="oh-tap-press oh-message-collapse-button mt-2"
+          aria-expanded={expanded ? 'true' : 'false'}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpandedOverride((value) => (value === true ? false : true));
+          }}
+        >
+          <MessageIcon name={expanded ? 'chevronUp' : 'chevronDown'} size={14} />
+          <span>{expanded
+            ? t('detail.tool.body.collapse', '折叠')
+            : t('detail.tool.body.expand', '展开全部')}</span>
+        </button>
+      ) : null}
       {isUserBubble && contextChips.length > 0 ? (
         <div class="oh-message-context-capsules is-user is-after-content">
           {contextChips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
         </div>
       ) : null}
       {!isUserBubble ? media : null}
-      {overflows ? (
-        <p class="text-xs mt-2 opacity-70">
-          {t('detail.collapsed.hint', '内容已折叠（超过 1200 字符），点击下方刷新或加载更早可在控制台查看完整正文。')}
-        </p>
-      ) : null}
       {actionsVisible ? (
         <div
           class="oh-appear-up mt-3 pt-3 flex flex-wrap items-center gap-2 text-xs"

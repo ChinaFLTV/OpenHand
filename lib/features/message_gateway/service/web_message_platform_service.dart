@@ -84,6 +84,48 @@ class _WebWriteApprovalRequest {
   }
 }
 
+class WebWriteApprovalRequest {
+  const WebWriteApprovalRequest({
+    required this.id,
+    required this.sessionId,
+    required this.command,
+    required this.workingDirectory,
+    required this.isWriteCommand,
+    required this.createdAt,
+    required this.expiresAt,
+  });
+
+  factory WebWriteApprovalRequest._fromInternal(
+    _WebWriteApprovalRequest approval,
+  ) {
+    return WebWriteApprovalRequest(
+      id: approval.id,
+      sessionId: approval.sessionId,
+      command: approval.command,
+      workingDirectory: approval.workingDirectory,
+      isWriteCommand: approval.isWriteCommand,
+      createdAt: approval.createdAt,
+      expiresAt: approval.expiresAt,
+    );
+  }
+
+  final String id;
+  final String sessionId;
+  final String command;
+  final String workingDirectory;
+  final bool isWriteCommand;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+
+  BashCommandApprovalRequest toBashCommandApprovalRequest() {
+    return BashCommandApprovalRequest(
+      command: command,
+      workingDirectory: workingDirectory,
+      isWriteCommand: isWriteCommand,
+    );
+  }
+}
+
 class _HttpByteRange {
   const _HttpByteRange({required this.start, required this.endInclusive});
 
@@ -142,6 +184,9 @@ class WebMessagePlatformService {
   final _WebGatewayRotatingLogger _fileLogger;
   final StreamController<WebGatewayLogEntry> _logStreamController =
       StreamController<WebGatewayLogEntry>.broadcast();
+  final StreamController<List<WebWriteApprovalRequest>>
+  _pendingWriteApprovalStreamController =
+      StreamController<List<WebWriteApprovalRequest>>.broadcast(sync: true);
   final List<WebGatewayLogEntry> _memoryLogs = <WebGatewayLogEntry>[];
   final List<WebGatewayCleanupResult> _cleanupHistory =
       <WebGatewayCleanupResult>[];
@@ -214,8 +259,12 @@ class WebMessagePlatformService {
   DateTime? _localAddressesAt;
 
   Stream<WebGatewayLogEntry> get logStream => _logStreamController.stream;
+  Stream<List<WebWriteApprovalRequest>> get pendingWriteApprovalsStream =>
+      _pendingWriteApprovalStreamController.stream;
   List<WebGatewayLogEntry> get logs =>
       List<WebGatewayLogEntry>.unmodifiable(_memoryLogs);
+  List<WebWriteApprovalRequest> get pendingWriteApprovals =>
+      _pendingWriteApprovalSnapshot();
   List<WebGatewayCleanupResult> get cleanupHistory =>
       List<WebGatewayCleanupResult>.unmodifiable(_cleanupHistory);
   WebGatewayRuntimeState get state => _state;
@@ -375,6 +424,7 @@ class WebMessagePlatformService {
   Future<void> dispose() async {
     await stop();
     await _logStreamController.close();
+    await _pendingWriteApprovalStreamController.close();
   }
 
   WebGatewayRuntimeSnapshot runtimeSnapshot() {
@@ -1717,30 +1767,29 @@ class WebMessagePlatformService {
       // 暴露给 Web 端「指令胶囊条」展示用的可用用户指令清单。
       // 仅返回 allowedInstructionIds 过滤后的 enabled 条目，与 App 端
       // _ComposerInstructionsStrip 的 enabledEntries 完全对齐。
-      'instructions': (webGatewayIsDenyAllSelection(
-                _config.allowedInstructionIds,
+      'instructions':
+          (webGatewayIsDenyAllSelection(_config.allowedInstructionIds)
+                  ? const <UserInstructionEntry>[]
+                  : _instructionsController.entries.where((entry) {
+                      if (!entry.enabled) return false;
+                      if (_config.allowedInstructionIds.isEmpty) return true;
+                      return _config.allowedInstructionIds.contains(entry.id);
+                    }))
+              .map(
+                (entry) => <String, Object?>{
+                  'id': entry.id,
+                  'name': entry.name,
+                  'description': entry.description,
+                  // body 截断到 4 KiB 防止巨型指令把 /api/meta payload 撑爆。
+                  // Web 端 hover 卡片预览只用于「快速一瞥」，超过截断长度的指令，
+                  // 用户在 App 端原始编辑面板查看完整 body。
+                  'body': entry.body.length > 4096
+                      ? '${entry.body.substring(0, 4096)}…'
+                      : entry.body,
+                  'body_truncated': entry.body.length > 4096,
+                },
               )
-              ? const <UserInstructionEntry>[]
-              : _instructionsController.entries.where((entry) {
-                  if (!entry.enabled) return false;
-                  if (_config.allowedInstructionIds.isEmpty) return true;
-                  return _config.allowedInstructionIds.contains(entry.id);
-                }))
-          .map(
-            (entry) => <String, Object?>{
-              'id': entry.id,
-              'name': entry.name,
-              'description': entry.description,
-              // body 截断到 4 KiB 防止巨型指令把 /api/meta payload 撑爆。
-              // Web 端 hover 卡片预览只用于「快速一瞥」，超过截断长度的指令，
-              // 用户在 App 端原始编辑面板查看完整 body。
-              'body': entry.body.length > 4096
-                  ? '${entry.body.substring(0, 4096)}…'
-                  : entry.body,
-              'body_truncated': entry.body.length > 4096,
-            },
-          )
-          .toList(growable: false),
+              .toList(growable: false),
       'models': _allowedModels()
           .map(
             (item) => <String, Object?>{
@@ -2570,8 +2619,7 @@ class WebMessagePlatformService {
       model: model,
       runtimeContext: _buildRuntimeContext(templateId: session.templateId),
     );
-    final updated =
-        _findAuthorizedSession(auth, sessionId) ?? session;
+    final updated = _findAuthorizedSession(auth, sessionId) ?? session;
     final statusName = switch (result.status) {
       AiManualCompactionStatus.success => 'success',
       AiManualCompactionStatus.notNeeded => 'not_needed',
@@ -2623,19 +2671,16 @@ class WebMessagePlatformService {
     }
     final body = await _readJsonBody(request);
     final approved = body['approved'] == true;
-    if (!approval.completer.isCompleted) {
-      approval.completer.complete(approved);
+    if (!_completePendingWriteApproval(
+      approval,
+      approved: approved,
+      source: 'web',
+      deviceId: auth.deviceId,
+    )) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'write_approval_not_found',
+      });
     }
-    _log(
-      approved ? WebGatewayLogLevel.success : WebGatewayLogLevel.warn,
-      'APPROVAL',
-      approved ? 'Web 批准写操作' : 'Web 拒绝写操作',
-      <String, Object?>{
-        'session_id': session.id,
-        'approval_id': approvalId,
-        'device_id': auth.deviceId,
-      },
-    );
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
       'approved': approved,
@@ -3558,10 +3603,56 @@ class WebMessagePlatformService {
     return null;
   }
 
+  List<WebWriteApprovalRequest> _pendingWriteApprovalSnapshot() {
+    return _pendingWriteApprovals.values
+        .where((approval) => !approval.completer.isCompleted)
+        .map(WebWriteApprovalRequest._fromInternal)
+        .toList(growable: false);
+  }
+
+  void _notifyPendingWriteApprovals() {
+    if (_pendingWriteApprovalStreamController.isClosed) {
+      return;
+    }
+    _pendingWriteApprovalStreamController.add(_pendingWriteApprovalSnapshot());
+  }
+
+  Future<bool> requestWriteApproval(
+    String sessionId,
+    BashCommandApprovalRequest request, {
+    String source = 'app',
+  }) {
+    return _registerPendingWriteApproval(sessionId, request, source: source);
+  }
+
+  bool respondWriteApproval(
+    String approvalId, {
+    required bool approved,
+    String source = 'app',
+  }) {
+    final approval = _pendingWriteApprovals[approvalId];
+    if (approval == null) {
+      return false;
+    }
+    return _completePendingWriteApproval(
+      approval,
+      approved: approved,
+      source: source,
+    );
+  }
+
   Future<bool> _confirmWebWriteCommand(
     String sessionId,
     BashCommandApprovalRequest request,
   ) async {
+    return _registerPendingWriteApproval(sessionId, request, source: 'web');
+  }
+
+  Future<bool> _registerPendingWriteApproval(
+    String sessionId,
+    BashCommandApprovalRequest request, {
+    required String source,
+  }) async {
     final createdAt = DateTime.now().toUtc();
     final timeoutMs = _settingsController.aiWriteConfirmationTimeoutMs;
     final completer = Completer<bool>();
@@ -3577,13 +3668,19 @@ class WebMessagePlatformService {
     );
     _pendingWriteApprovals[approval.id] = approval;
     _sessionController.setSessionAwaitingApproval(sessionId);
-    _log(WebGatewayLogLevel.warn, 'APPROVAL', 'Web 等待写操作确认', <String, Object?>{
+    _notifyPendingWriteApprovals();
+    _log(WebGatewayLogLevel.warn, 'APPROVAL', '等待写操作确认', <String, Object?>{
       'session_id': sessionId,
       'approval_id': approval.id,
+      'source': source,
       'working_directory': request.workingDirectory,
     });
     final timer = Timer(Duration(milliseconds: timeoutMs), () {
-      if (!completer.isCompleted) completer.complete(false);
+      _completePendingWriteApproval(
+        approval,
+        approved: false,
+        source: 'timeout',
+      );
     });
     try {
       return await completer.future;
@@ -3591,7 +3688,34 @@ class WebMessagePlatformService {
       timer.cancel();
       _pendingWriteApprovals.remove(approval.id);
       _sessionController.clearSessionAwaitingApproval(sessionId);
+      _notifyPendingWriteApprovals();
     }
+  }
+
+  bool _completePendingWriteApproval(
+    _WebWriteApprovalRequest approval, {
+    required bool approved,
+    required String source,
+    String? deviceId,
+  }) {
+    if (approval.completer.isCompleted) {
+      return false;
+    }
+    approval.completer.complete(approved);
+    _notifyPendingWriteApprovals();
+    _sessionController.notifyListeners();
+    _log(
+      approved ? WebGatewayLogLevel.success : WebGatewayLogLevel.warn,
+      'APPROVAL',
+      approved ? '批准写操作' : '拒绝写操作',
+      <String, Object?>{
+        'session_id': approval.sessionId,
+        'approval_id': approval.id,
+        'source': source,
+        if (deviceId != null) 'device_id': deviceId,
+      },
+    );
+    return true;
   }
 
   void _resolvePendingWriteApprovals(
@@ -3599,8 +3723,12 @@ class WebMessagePlatformService {
     required bool approved,
   }) {
     for (final approval in _pendingWriteApprovals.values.toList()) {
-      if (approval.sessionId == sessionId && !approval.completer.isCompleted) {
-        approval.completer.complete(approved);
+      if (approval.sessionId == sessionId) {
+        _completePendingWriteApproval(
+          approval,
+          approved: approved,
+          source: 'session_stop',
+        );
       }
     }
   }
@@ -3832,8 +3960,7 @@ class WebMessagePlatformService {
           ? _instructionsController.entries
           : _instructionsController.entries
                 .where(
-                  (entry) =>
-                      _config.allowedInstructionIds.contains(entry.id),
+                  (entry) => _config.allowedInstructionIds.contains(entry.id),
                 )
                 .toList(growable: false),
     );

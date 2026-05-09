@@ -205,4 +205,26 @@ describe('MessageCard actions', () => {
       }
     }
   });
+
+  it('keeps long assistant text expanded while streaming and collapses after completion', () => {
+    const tail = 'UNIQUE_TAIL_AFTER_COLLAPSE';
+    const longText = `${'A'.repeat(1280)}${tail}`;
+    const { rerender } = render(
+      <MessageCard message={makeAssistantMessage('assistant-long', longText)} streaming />,
+    );
+
+    expect(screen.queryByRole('button', { name: /^(展开全部|Expand all)/ })).toBeNull();
+    expect(screen.getByText(longText)).not.toBeNull();
+
+    rerender(<MessageCard message={makeAssistantMessage('assistant-long', longText)} />);
+
+    const expand = screen.getByRole('button', { name: /^(展开全部|Expand all)/ });
+    expect(expand).not.toBeNull();
+    expect(document.body.textContent ?? '').not.toContain(tail);
+
+    fireEvent.click(expand);
+
+    expect(screen.getByRole('button', { name: /^(折叠|Collapse)/ })).not.toBeNull();
+    expect(document.body.textContent ?? '').toContain(tail);
+  });
 });
