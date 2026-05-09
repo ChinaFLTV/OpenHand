@@ -425,6 +425,179 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
   }
 }
 
+/// Web composer 用户指令胶囊条（与 App 端 _ComposerInstructionsStrip 1:1 对齐）。
+///
+/// 增强：
+/// - hover/focus 1 秒延时弹出预览卡片，显示 description / 截断后的 body；
+///   预览卡片走 OverlayPortal 投射到 body，避开 oh-composer-body 的 overflow: clip
+///   与 fullscreen containing block。
+/// - Ctrl+1..Ctrl+9（macOS 同时也响应 Meta+1..Meta+9）切换前 9 个胶囊的跳过状态，
+///   Ctrl+0 / Meta+0 重置：所有指令重新生效（清空跳过集合）。
+function ComposerInstructionsStrip({
+  entries,
+  skipped,
+  disabled,
+  onToggle,
+  onResetAll,
+  t,
+}: {
+  entries: ApiMetaInstruction[];
+  skipped: Set<string>;
+  disabled: boolean;
+  onToggle: (id: string) => void;
+  onResetAll?: () => void;
+  t: (key: string, fallback: string) => string;
+}) {
+  const [hoverEntry, setHoverEntry] = useState<{
+    entry: ApiMetaInstruction;
+    rect: DOMRect;
+  } | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
+  const cancelHover = useCallback(() => {
+    if (hoverTimerRef.current != null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoverEntry(null);
+  }, []);
+  useEffect(() => () => cancelHover(), [cancelHover]);
+
+  // Ctrl/Meta + 0..9 快捷键：与 App 端 hardness 同款思路，
+  // 全局监听 keydown，仅在没有命中文本输入复合键（IME composing）时生效。
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent): void {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.altKey || e.shiftKey) return;
+      if (e.isComposing) return;
+      const key = e.key;
+      if (key.length !== 1) return;
+      const digit = key.charCodeAt(0) - 48;
+      if (digit < 0 || digit > 9) return;
+      e.preventDefault();
+      if (disabled) return;
+      if (digit === 0) {
+        if (onResetAll) {
+          onResetAll();
+        } else {
+          // 兜底：逐个清空。
+          for (const id of skipped) onToggle(id);
+        }
+        return;
+      }
+      const entry = entries[digit - 1];
+      if (!entry) return;
+      onToggle(entry.id);
+    }
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true } as EventListenerOptions);
+  }, [entries, skipped, disabled, onToggle, onResetAll]);
+
+  function scheduleHover(entry: ApiMetaInstruction, target: HTMLElement): void {
+    if (hoverTimerRef.current != null) window.clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      setHoverEntry({ entry, rect: target.getBoundingClientRect() });
+    }, 480);
+  }
+
+  return (
+    <div class="oh-composer-instructions-strip mb-3" role="group" aria-label={t('composer.instructions.aria', '当前会话生效的用户指令')}>
+      <span class="oh-composer-instructions-strip-label">
+        {t('composer.instructions.label', '用户指令')}
+      </span>
+      <div class="oh-composer-instructions-strip-list">
+        {entries.map((entry, index) => {
+          const isSkipped = skipped.has(entry.id);
+          const baseTip = entry.description?.trim()
+            ? entry.description
+            : isSkipped
+              ? t('composer.instructions.tooltipSkipped', '点击恢复：本轮临时跳过此指令')
+              : t('composer.instructions.tooltipActive', '点击跳过：本轮临时不携带此指令');
+          // 前 9 项追加快捷键提示
+          const hotkey = index < 9
+            ? ` · ${navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'}${index + 1}`
+            : '';
+          return (
+            <button
+              key={entry.id}
+              type="button"
+              class={`oh-composer-instruction-pill oh-tap-press${isSkipped ? ' is-skipped' : ''}`}
+              data-skipped={isSkipped ? 'true' : 'false'}
+              title={baseTip + hotkey}
+              aria-pressed={isSkipped ? 'false' : 'true'}
+              onClick={() => onToggle(entry.id)}
+              onMouseEnter={(e) => scheduleHover(entry, e.currentTarget as HTMLElement)}
+              onMouseLeave={cancelHover}
+              onFocus={(e) => scheduleHover(entry, e.currentTarget as HTMLElement)}
+              onBlur={cancelHover}
+              disabled={disabled}
+            >
+              <span class="oh-composer-instruction-pill-icon" aria-hidden="true">
+                <ComposerIcon name="spark" size={14} />
+              </span>
+              <span class="oh-composer-instruction-pill-label">
+                {entry.name?.trim() || entry.id}
+              </span>
+              <span class="oh-composer-instruction-pill-toggle" aria-hidden="true">
+                <ComposerIcon name={isSkipped ? 'plus' : 'close'} size={13} />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {hoverEntry ? (
+        <ComposerInstructionPreviewCard hover={hoverEntry} t={t} />
+      ) : null}
+    </div>
+  );
+}
+
+function ComposerInstructionPreviewCard({
+  hover,
+  t,
+}: {
+  hover: { entry: ApiMetaInstruction; rect: DOMRect };
+  t: (key: string, fallback: string) => string;
+}) {
+  const { entry, rect } = hover;
+  // 与 OverlayPortal 注释一致：position: fixed 锚定胶囊矩形之上 8px。
+  // 卡片宽度 360，向右溢出屏幕时改为右贴边。
+  const cardWidth = 360;
+  const margin = 8;
+  const left = Math.max(margin, Math.min(rect.left, window.innerWidth - cardWidth - margin));
+  const bottom = Math.max(margin, window.innerHeight - rect.top + 8);
+  const description = entry.description?.trim();
+  const body = entry.body?.trim();
+  return (
+    <OverlayPortal>
+      <div
+        class="oh-composer-instruction-preview"
+        role="tooltip"
+        style={{ position: 'fixed', left: `${left}px`, bottom: `${bottom}px`, width: `${cardWidth}px` }}
+      >
+        <div class="oh-composer-instruction-preview-title">
+          {entry.name?.trim() || entry.id}
+        </div>
+        {description ? (
+          <div class="oh-composer-instruction-preview-desc">{description}</div>
+        ) : null}
+        {body ? (
+          <pre class="oh-composer-instruction-preview-body">{body}</pre>
+        ) : (
+          <div class="oh-composer-instruction-preview-empty">
+            {t('composer.instructions.previewEmpty', '此指令暂无正文。')}
+          </div>
+        )}
+        {entry.body_truncated ? (
+          <div class="oh-composer-instruction-preview-foot">
+            {t('composer.instructions.previewTruncated', '正文已截断 · 完整内容请在 App 端查看')}
+          </div>
+        ) : null}
+      </div>
+    </OverlayPortal>
+  );
+}
+
 interface EditableAttachmentAsset {
   path: string;
   name: string;
@@ -3187,53 +3360,24 @@ export function SessionDetailPage() {
             {...(composerCollapsed ? { inert: true } : {})}
           >
           {availableInstructions.length > 0 ? (
-            <div class="oh-composer-instructions-strip mb-3" role="group" aria-label={t('composer.instructions.aria', '当前会话生效的用户指令')}>
-              <span class="oh-composer-instructions-strip-label">
-                {t('composer.instructions.label', '用户指令')}
-              </span>
-              <div class="oh-composer-instructions-strip-list">
-                {availableInstructions.map((entry) => {
-                  const skipped = skippedInstructionIds.has(entry.id);
-                  const tooltip = entry.description?.trim()
-                    ? entry.description
-                    : skipped
-                      ? t('composer.instructions.tooltipSkipped', '点击恢复：本轮临时跳过此指令')
-                      : t('composer.instructions.tooltipActive', '点击跳过：本轮临时不携带此指令');
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      class={`oh-composer-instruction-pill oh-tap-press${skipped ? ' is-skipped' : ''}`}
-                      data-skipped={skipped ? 'true' : 'false'}
-                      title={tooltip}
-                      aria-pressed={skipped ? 'false' : 'true'}
-                      onClick={() => {
-                        setSkippedInstructionIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(entry.id)) {
-                            next.delete(entry.id);
-                          } else {
-                            next.add(entry.id);
-                          }
-                          return next;
-                        });
-                      }}
-                      disabled={composerSending}
-                    >
-                      <span class="oh-composer-instruction-pill-icon" aria-hidden="true">
-                        <ComposerIcon name="spark" size={14} />
-                      </span>
-                      <span class="oh-composer-instruction-pill-label">
-                        {entry.name?.trim() || entry.id}
-                      </span>
-                      <span class="oh-composer-instruction-pill-toggle" aria-hidden="true">
-                        <ComposerIcon name={skipped ? 'plus' : 'close'} size={13} />
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <ComposerInstructionsStrip
+              entries={availableInstructions}
+              skipped={skippedInstructionIds}
+              disabled={composerSending}
+              onToggle={(id) => {
+                setSkippedInstructionIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) {
+                    next.delete(id);
+                  } else {
+                    next.add(id);
+                  }
+                  return next;
+                });
+              }}
+              onResetAll={() => setSkippedInstructionIds(new Set())}
+              t={t}
+            />
           ) : null}
           <div class="oh-composer-chip-rail mb-3">
             {editingDraftMessage ? (

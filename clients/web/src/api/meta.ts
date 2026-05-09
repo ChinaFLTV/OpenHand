@@ -98,6 +98,10 @@ export interface ApiMetaInstruction {
   id: string;
   name: string;
   description?: string;
+  /// 指令正文，已被 service 端截断到 4 KiB 以内（超出会带省略号），
+  /// 仅用于 Web composer 胶囊 hover 卡片快速预览。
+  body?: string;
+  body_truncated?: boolean;
 }
 
 export interface ApiMetaResponse {

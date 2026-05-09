@@ -996,6 +996,70 @@ button.oh-composer-pill:not(:disabled):hover {
   background: color-mix(in srgb, currentColor 18%, transparent);
   transform: scale(1.08);
 }
+/* —— hover/focus 预览卡片：position: fixed 经 OverlayPortal 投射到 body —— */
+.oh-composer-instruction-preview {
+  z-index: 1200;
+  max-height: min(60vh, 480px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--m3-outline-variant);
+  background: color-mix(in srgb, var(--m3-surface-container-high) 96%, var(--m3-surface));
+  color: var(--m3-on-surface);
+  box-shadow:
+    0 22px 44px -22px color-mix(in srgb, var(--m3-shadow, #000) 38%, transparent),
+    0 4px 14px -10px color-mix(in srgb, var(--m3-shadow, #000) 28%, transparent);
+  pointer-events: none;
+  animation: oh-instruction-preview-in 180ms var(--oh-motion-emphasized) both;
+}
+@keyframes oh-instruction-preview-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.oh-composer-instruction-preview-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--m3-on-surface);
+  word-break: break-all;
+}
+.oh-composer-instruction-preview-desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--m3-on-surface-variant);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.oh-composer-instruction-preview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--m3-surface-container-low) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 70%, transparent);
+  color: var(--m3-on-surface);
+  font-family: ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+}
+.oh-composer-instruction-preview-empty {
+  font-size: 12px;
+  color: var(--m3-on-surface-variant);
+  opacity: 0.7;
+  font-style: italic;
+}
+.oh-composer-instruction-preview-foot {
+  font-size: 10.5px;
+  color: var(--m3-on-surface-variant);
+  opacity: 0.78;
+  letter-spacing: 0.02em;
+}
 .oh-composer-attachment-chip {
   position: relative;
   display: inline-flex;

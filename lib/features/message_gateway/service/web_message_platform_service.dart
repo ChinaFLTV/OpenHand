@@ -1731,6 +1731,13 @@ class WebMessagePlatformService {
               'id': entry.id,
               'name': entry.name,
               'description': entry.description,
+              // body 截断到 4 KiB 防止巨型指令把 /api/meta payload 撑爆。
+              // Web 端 hover 卡片预览只用于「快速一瞥」，超过截断长度的指令，
+              // 用户在 App 端原始编辑面板查看完整 body。
+              'body': entry.body.length > 4096
+                  ? '${entry.body.substring(0, 4096)}…'
+                  : entry.body,
+              'body_truncated': entry.body.length > 4096,
             },
           )
           .toList(growable: false),
