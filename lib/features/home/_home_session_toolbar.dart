@@ -94,16 +94,6 @@ class _SessionToolbar extends StatelessWidget {
                                     .toolbarRuntimeNotices(
                                       runtimeStatus.notices.length,
                                     ),
-                                onTap: () {
-                                  _showSessionMetadataDialog(
-                                    context,
-                                    session,
-                                    liveRuntimeToolPreview:
-                                        liveRuntimeToolPreview,
-                                    activeProfile: activeProfile,
-                                    claudeStyle: claudeStyle,
-                                  );
-                                },
                               ),
                             ],
                             const SizedBox(width: 8),
@@ -136,16 +126,6 @@ class _SessionToolbar extends StatelessWidget {
                               _ToolbarPill(
                                 icon: Icons.speed_rounded,
                                 label: contextBudgetLabel,
-                                onTap: () {
-                                  _showSessionMetadataDialog(
-                                    context,
-                                    session,
-                                    liveRuntimeToolPreview:
-                                        liveRuntimeToolPreview,
-                                    activeProfile: activeProfile,
-                                    claudeStyle: claudeStyle,
-                                  );
-                                },
                               ),
                             ],
                             const SizedBox(width: 8),

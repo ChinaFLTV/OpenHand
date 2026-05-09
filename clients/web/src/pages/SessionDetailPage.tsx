@@ -2723,7 +2723,6 @@ export function SessionDetailPage() {
         icon: 'runtime',
         label: t('topbar.runtimeNotices', '{count} 项运行时 Notice').replace('{count}', String(runtimeNotices.length)),
         title: runtimeNotices.join('\n'),
-        onClick: () => void openSessionMetadataDialog(),
       });
     }
     capsules.push(
@@ -2756,7 +2755,6 @@ export function SessionDetailPage() {
         key: 'context-budget',
         icon: 'runtime',
         label: contextBudgetLabel,
-        onClick: () => void openSessionMetadataDialog(),
       });
     }
     if (session.template_id === 'programming_expert') {

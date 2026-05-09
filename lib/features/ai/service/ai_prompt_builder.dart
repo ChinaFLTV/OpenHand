@@ -501,22 +501,15 @@ class AiPromptBuilder {
       1,
       (promptCharacterCount / _contextBudgetEstimatedCharsPerToken).ceil(),
     );
-    final maxContextTokens = model.maxContextTokens;
-    if (maxContextTokens == null || maxContextTokens <= 0) {
-      return <String, Object?>{
-        'context_budget_status': 'unknown',
-        'context_budget_estimated_prompt_tokens': estimatedPromptTokens,
-        'context_budget_estimated_chars_per_token':
-            _contextBudgetEstimatedCharsPerToken,
-        'context_budget_model_max_tokens': null,
-        'context_budget_effective_window_tokens': null,
-        'context_budget_auto_compact_threshold_tokens': null,
-        'context_budget_blocking_limit_tokens': null,
-        'context_budget_remaining_tokens': null,
-        'context_budget_usage_percent': null,
-        'context_budget_percent_left': null,
-      };
-    }
+    // 用户未在模型配置里填 maxContextTokens 时，回退到 128k 默认，避免
+    // TopBar 上下文胶囊永远显示 “0% · 未知”。回退值仅用于 UI 估算，
+    // 不影响实际拼装；通过 context_budget_window_inferred 标识。
+    const int inferredMaxContextTokens = 128000;
+    final configuredMaxContextTokens = model.maxContextTokens;
+    final bool windowInferred =
+        configuredMaxContextTokens == null || configuredMaxContextTokens <= 0;
+    final int maxContextTokens =
+        windowInferred ? inferredMaxContextTokens : configuredMaxContextTokens;
     final summaryReserveTokens = math.min(
       _contextBudgetSummaryReserveTokens,
       math.max(1, maxContextTokens ~/ 2),
@@ -581,6 +574,7 @@ class AiPromptBuilder {
         : 'ok';
     return <String, Object?>{
       'context_budget_status': status,
+      'context_budget_window_inferred': windowInferred,
       'context_budget_estimated_prompt_tokens': estimatedPromptTokens,
       'context_budget_estimated_chars_per_token':
           _contextBudgetEstimatedCharsPerToken,
