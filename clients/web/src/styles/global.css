@@ -1013,9 +1013,18 @@ button.oh-composer-pill:not(:disabled):hover {
     0 4px 14px -10px color-mix(in srgb, var(--m3-shadow, #000) 28%, transparent);
   pointer-events: none;
   animation: oh-instruction-preview-in 180ms var(--oh-motion-emphasized) both;
+  transform-origin: bottom left;
+}
+.oh-composer-instruction-preview[data-placement='below'] {
+  animation-name: oh-instruction-preview-in-below;
+  transform-origin: top left;
 }
 @keyframes oh-instruction-preview-in {
   from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes oh-instruction-preview-in-below {
+  from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .oh-composer-instruction-preview-title {

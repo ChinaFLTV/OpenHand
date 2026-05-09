@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/model/dialog_animation_settings.dart';
+import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_scroll_physics.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
@@ -3954,6 +3956,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
         alignmentOffset: const Offset(0, 8),
         menuChildren: [
           _MultiSelectDropdownMenu<T>(
+            label: widget.label,
             options: widget.options,
             selected: widget.selected,
             emptyMeansAll: widget.emptyMeansAll,
@@ -4007,6 +4010,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
 
 class _MultiSelectDropdownMenu<T> extends StatefulWidget {
   const _MultiSelectDropdownMenu({
+    required this.label,
     required this.options,
     required this.selected,
     required this.emptyMeansAll,
@@ -4015,6 +4019,7 @@ class _MultiSelectDropdownMenu<T> extends StatefulWidget {
     required this.onClose,
   });
 
+  final String label;
   final List<_SelectOption<T>> options;
   final Set<T> selected;
   final bool emptyMeansAll;
@@ -4028,16 +4033,38 @@ class _MultiSelectDropdownMenu<T> extends StatefulWidget {
 }
 
 class _MultiSelectDropdownMenuState<T>
-    extends State<_MultiSelectDropdownMenu<T>> {
+    extends State<_MultiSelectDropdownMenu<T>>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
+  late final AnimationController _transitionController;
   late Set<T> _selected;
   bool _closing = false;
+  DialogAnimationSettings? _lastMotionSettings;
 
   @override
   void initState() {
     super.initState();
+    _transitionController = AnimationController(vsync: this);
     _selected = Set<T>.from(widget.selected);
     _searchController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final settings = _dialogMotionSettingsOf(context);
+    _lastMotionSettings = settings;
+    _transitionController
+      ..duration = settings.duration
+      ..reverseDuration = settings.duration;
+    if (_transitionController.value == 0 && !_closing) {
+      if (MediaQuery.disableAnimationsOf(context) ||
+          settings.duration == Duration.zero) {
+        _transitionController.value = 1;
+      } else {
+        unawaited(_transitionController.forward());
+      }
+    }
   }
 
   @override
@@ -4050,159 +4077,266 @@ class _MultiSelectDropdownMenuState<T>
 
   @override
   void dispose() {
+    _transitionController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final settings = _lastMotionSettings ?? _dialogMotionSettingsOf(context);
     final query = _searchController.text.trim().toLowerCase();
     final filtered = query.isEmpty
         ? widget.options
         : widget.options
               .where((option) => option.label.toLowerCase().contains(query))
               .toList(growable: false);
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: _closing ? 1 : 0, end: _closing ? 0 : 1),
-      duration: _motionDuration(context, _closing ? 170 : 280),
-      curve: _closing ? Curves.easeInCubic : Curves.easeOutBack,
-      onEnd: () {
-        if (_closing) widget.onClose();
-      },
-      builder: (context, value, child) => Opacity(
-        opacity: value.clamp(0.0, 1.0).toDouble(),
-        child: Transform.translate(
-          offset: Offset(0, (1 - value) * -8),
-          child: Transform.scale(
-            scale: 0.96 + value * 0.04,
-            alignment: Alignment.topCenter,
-            child: child,
+    final filteredValues = filtered.map((option) => option.value).toSet();
+    final totalValues = widget.options.map((option) => option.value).toSet();
+    final effectiveSelected = _effectiveSelectedValues();
+    final selectedCount = effectiveSelected.length;
+    final scopeText = query.isEmpty ? '全部条目' : '当前筛选 ${filtered.length} 项';
+    return buildAnimationStyleTransition(
+      animation: _transitionController,
+      settings: settings,
+      child: Material(
+        type: MaterialType.card,
+        clipBehavior: Clip.antiAlias,
+        elevation: 14,
+        shadowColor: colorScheme.shadow.withValues(alpha: 0.18),
+        surfaceTintColor: colorScheme.surfaceTint,
+        color: colorScheme.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.72),
           ),
         ),
-      ),
-      child: SizedBox(
-        width: 420,
-        height: 360,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  isDense: true,
-                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                  hintText: '搜索',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  suffixIcon: _searchController.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: '清空搜索',
-                          onPressed: _searchController.clear,
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                        ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
+        child: SizedBox(
+          width: 460,
+          height: 410,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 14, 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(
+                        Icons.tune_rounded,
+                        size: 18,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _MenuActionButton(
-                            onPressed: () => _setSelected(
-                              widget.emptyMeansAll
-                                  ? <T>{}
-                                  : widget.options
-                                        .map((option) => option.value)
-                                        .toSet(),
+                          Text(
+                            widget.label,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
                             ),
-                            icon: const Icon(Icons.done_all_rounded, size: 18),
-                            label: Text(widget.emptyMeansAll ? '全部' : '全选'),
                           ),
-                          const SizedBox(width: 8),
-                          _MenuActionButton(
-                            onPressed: () => _setSelected(_noneSelection()),
-                            icon: const Icon(
-                              Icons.disabled_by_default_outlined,
-                              size: 18,
+                          const SizedBox(height: 2),
+                          Text(
+                            _selectionSummaryText(
+                              selectedCount,
+                              totalValues.length,
+                              scopeText,
                             ),
-                            label: const Text('全不选'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  _MenuActionButton(
-                    onPressed: _applyAndClose,
-                    icon: const Icon(Icons.check_rounded, size: 18),
-                    label: const Text('完成'),
-                    filled: true,
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: filtered.isEmpty
-                  ? const Center(child: Text('没有匹配项'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
-                        final option = filtered[index];
-                        final explicitNone = _isExplicitNone(
-                          _selected,
-                          widget.noneValue,
-                        );
-                        final isImplicitAll =
-                            widget.emptyMeansAll &&
-                            _selected.isEmpty &&
-                            !explicitNone;
-                        return CheckboxListTile(
-                          dense: true,
-                          value:
-                              !explicitNone &&
-                              (isImplicitAll ||
-                                  _selected.contains(option.value)),
-                          onChanged: (_) => _toggle(option.value),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(
-                            option.label,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      },
+                    const SizedBox(width: 8),
+                    _GatewayRoundIconActionButton(
+                      tooltip: query.isEmpty ? '全选' : '当前筛选全选',
+                      icon: Icons.done_all_rounded,
+                      onPressed: filteredValues.isEmpty
+                          ? null
+                          : () => _selectValues(filteredValues),
                     ),
-            ),
-          ],
+                    const SizedBox(width: 8),
+                    _GatewayRoundIconActionButton(
+                      tooltip: query.isEmpty ? '全不选' : '当前筛选全不选',
+                      icon: Icons.remove_done_rounded,
+                      onPressed: filteredValues.isEmpty
+                          ? null
+                          : () => _deselectValues(filteredValues),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: true,
+                    fillColor: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.58,
+                    ),
+                    prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                    hintText: '搜索',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.72,
+                        ),
+                      ),
+                    ),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: '清空搜索',
+                            onPressed: _searchController.clear,
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                          ),
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: colorScheme.outlineVariant),
+              Expanded(
+                child: filtered.isEmpty
+                    ? Center(
+                        child: Text(
+                          '没有匹配项',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                        itemCount: filtered.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 4),
+                        itemBuilder: (context, index) {
+                          final option = filtered[index];
+                          final selected = effectiveSelected.contains(
+                            option.value,
+                          );
+                          return Material(
+                            color: selected
+                                ? colorScheme.primaryContainer.withValues(
+                                    alpha: 0.36,
+                                  )
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(14),
+                            child: CheckboxListTile(
+                              dense: true,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              value: selected,
+                              onChanged: (_) => _toggle(option.value),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: Text(
+                                option.label,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              Divider(height: 1, color: colorScheme.outlineVariant),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        query.isEmpty ? '对全部条目生效' : '仅对当前筛选结果生效',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    _MenuActionButton(
+                      onPressed: _applyAndClose,
+                      icon: const Icon(Icons.check_rounded, size: 18),
+                      label: const Text('完成'),
+                      filled: true,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   void _toggle(T value) {
-    final next = Set<T>.from(_selected);
-    final noneValue = widget.noneValue;
-    if (noneValue != null) next.remove(noneValue);
+    final next = _effectiveSelectedValues();
     if (next.contains(value)) {
       next.remove(value);
     } else {
       next.add(value);
     }
-    _setSelected(next);
+    _setEffectiveSelected(next);
   }
 
-  Set<T> _noneSelection() {
-    final noneValue = widget.noneValue;
-    return noneValue == null ? <T>{} : <T>{noneValue};
+  Set<T> _effectiveSelectedValues() {
+    if (_isExplicitNone(_selected, widget.noneValue)) return <T>{};
+    if (widget.emptyMeansAll && _selected.isEmpty) {
+      return widget.options.map((option) => option.value).toSet();
+    }
+    final values = widget.options.map((option) => option.value).toSet();
+    return _selected.where(values.contains).toSet();
+  }
+
+  void _selectValues(Set<T> values) {
+    final next = _effectiveSelectedValues()..addAll(values);
+    _setEffectiveSelected(next);
+  }
+
+  void _deselectValues(Set<T> values) {
+    final next = _effectiveSelectedValues()..removeAll(values);
+    _setEffectiveSelected(next);
+  }
+
+  void _setEffectiveSelected(Set<T> values) {
+    final allValues = widget.options.map((option) => option.value).toSet();
+    if (values.isEmpty) {
+      final noneValue = widget.noneValue;
+      _setSelected(noneValue == null ? <T>{} : <T>{noneValue});
+      return;
+    }
+    if (widget.emptyMeansAll && values.length == allValues.length) {
+      _setSelected(<T>{});
+      return;
+    }
+    _setSelected(values.intersection(allValues));
   }
 
   void _setSelected(Set<T> next) {
@@ -4212,16 +4346,69 @@ class _MultiSelectDropdownMenuState<T>
   void _applyAndClose() {
     if (_closing) return;
     widget.onApply(Set<T>.from(_selected));
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (MediaQuery.disableAnimationsOf(context) ||
+        _transitionController.duration == Duration.zero) {
       widget.onClose();
       return;
     }
-    setState(() => _closing = true);
+    _closing = true;
+    unawaited(
+      _transitionController.reverse().whenComplete(() {
+        if (mounted) widget.onClose();
+      }),
+    );
+  }
+
+  String _selectionSummaryText(
+    int selectedCount,
+    int totalCount,
+    String scope,
+  ) {
+    if (_isExplicitNone(_selected, widget.noneValue)) return '$scope · 全部不可用';
+    if (widget.emptyMeansAll && _selected.isEmpty) return '$scope · 全部可用';
+    return '$scope · 已选 $selectedCount/$totalCount';
   }
 }
 
 bool _isExplicitNone<T>(Set<T> selected, T? noneValue) {
   return noneValue != null && selected.contains(noneValue);
+}
+
+DialogAnimationSettings _dialogMotionSettingsOf(BuildContext context) {
+  try {
+    return context.read<SettingsController>().dialogAnimationSettings;
+  } catch (_) {
+    return const DialogAnimationSettings();
+  }
+}
+
+class _GatewayRoundIconActionButton extends StatelessWidget {
+  const _GatewayRoundIconActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton.filledTonal(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        style: IconButton.styleFrom(
+          fixedSize: const Size(38, 38),
+          minimumSize: const Size(38, 38),
+          padding: EdgeInsets.zero,
+          shape: const CircleBorder(),
+        ),
+      ),
+    );
+  }
 }
 
 class _MenuActionButton extends StatelessWidget {
@@ -4384,6 +4571,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final query = _searchController.text.trim().toLowerCase();
     final filtered = query.isEmpty
         ? widget.options
@@ -4405,51 +4593,79 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
     final rows = <Object>[];
     for (final pid in providerOrder) {
       rows
-        ..add(_ProviderGroupHeader(
-          providerId: pid,
-          providerLabel: providerLabels[pid] ?? pid,
-          options: grouped[pid]!,
-        ))
+        ..add(
+          _ProviderGroupHeader(
+            providerId: pid,
+            providerLabel: providerLabels[pid] ?? pid,
+            options: grouped[pid]!,
+          ),
+        )
         ..addAll(grouped[pid]!);
     }
+    final visibleKeys = filtered.map((option) => option.key).toSet();
+    final totalKeys = _allModelKeys();
+    final effectiveSelected = _effectiveSelectedModelKeys();
+    final scopeText = query.isEmpty ? '全部模型' : '当前筛选 ${filtered.length} 个模型';
     return Dialog(
       clipBehavior: Clip.antiAlias,
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      surfaceTintColor: colorScheme.surfaceTint,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 620),
+        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 680),
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 12, 10),
+              padding: const EdgeInsets.fromLTRB(22, 18, 14, 12),
               child: Row(
                 children: [
-                  const Icon(Icons.hub_outlined),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text('选择可用模型', style: theme.textTheme.titleMedium),
-                  ),
-                  _MenuActionButton(
-                    onPressed: () => setState(() {
-                      _selected = widget.emptyMeansAll
-                          ? <String>{}
-                          : widget.options.map((item) => item.key).toSet();
-                    }),
-                    icon: const Icon(Icons.done_all_rounded, size: 18),
-                    label: Text(widget.emptyMeansAll ? '全部' : '全选'),
-                  ),
-                  const SizedBox(width: 6),
-                  _MenuActionButton(
-                    onPressed: () => setState(() {
-                      _selected = const <String>{
-                        webGatewayDenyAllSelectionMarker,
-                      };
-                    }),
-                    icon: const Icon(
-                      Icons.disabled_by_default_outlined,
-                      size: 18,
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(17),
                     ),
-                    label: const Text('全不选'),
+                    child: Icon(
+                      Icons.hub_outlined,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('选择可用模型', style: theme.textTheme.titleMedium),
+                        const SizedBox(height: 3),
+                        Text(
+                          '$scopeText · ${_modelSelectionCountText(effectiveSelected.length, totalKeys.length)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _GatewayRoundIconActionButton(
+                    tooltip: query.isEmpty ? '全选' : '当前筛选全选',
+                    icon: Icons.done_all_rounded,
+                    onPressed: visibleKeys.isEmpty
+                        ? null
+                        : () => _selectModelKeys(visibleKeys),
+                  ),
+                  const SizedBox(width: 8),
+                  _GatewayRoundIconActionButton(
+                    tooltip: query.isEmpty ? '全不选' : '当前筛选全不选',
+                    icon: Icons.remove_done_rounded,
+                    onPressed: visibleKeys.isEmpty
+                        ? null
+                        : () => _deselectModelKeys(visibleKeys),
+                  ),
+                  const SizedBox(width: 8),
                   IconButton(
                     tooltip: '关闭',
                     onPressed: () => Navigator.of(context).pop(),
@@ -4459,15 +4675,25 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
               child: TextField(
                 controller: _searchController,
                 focusNode: _searchFocusNode,
                 decoration: InputDecoration(
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.58,
+                  ),
                   prefixIcon: const Icon(Icons.search_rounded),
                   hintText: '搜索模型',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                    ),
                   ),
                   suffixIcon: _searchController.text.isEmpty
                       ? null
@@ -4479,12 +4705,19 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
               ),
             ),
-            const Divider(height: 1),
+            Divider(height: 1, color: colorScheme.outlineVariant),
             Expanded(
               child: filtered.isEmpty
-                  ? const Center(child: Text('没有匹配的模型'))
+                  ? Center(
+                      child: Text(
+                        '没有匹配的模型',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                       itemCount: rows.length,
                       itemBuilder: (context, index) {
                         final row = rows[index];
@@ -4492,22 +4725,14 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                           final groupKeys = row.options
                               .map((option) => option.key)
                               .toSet();
-                          final explicitNone = _selected.contains(
-                            webGatewayDenyAllSelectionMarker,
-                          );
-                          final selectedInGroup = explicitNone
-                              ? 0
-                              : groupKeys
-                                    .where(_selected.contains)
-                                    .length;
+                          final selectedInGroup = groupKeys
+                              .where(effectiveSelected.contains)
+                              .length;
                           final allSelected =
-                              !explicitNone &&
                               selectedInGroup == groupKeys.length;
-                          final noneSelected =
-                              explicitNone || selectedInGroup == 0;
+                          final noneSelected = selectedInGroup == 0;
                           return Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(18, 10, 12, 4),
+                            padding: const EdgeInsets.fromLTRB(4, 12, 0, 5),
                             child: Row(
                               children: [
                                 Expanded(
@@ -4526,62 +4751,60 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                                 Text(
                                   '$selectedInGroup/${groupKeys.length}',
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                IconButton(
+                                const SizedBox(width: 10),
+                                _GatewayRoundIconActionButton(
                                   tooltip: '本服务商全选',
-                                  visualDensity: VisualDensity.compact,
+                                  icon: Icons.done_all_rounded,
                                   onPressed: allSelected
                                       ? null
                                       : () => _selectGroup(groupKeys),
-                                  icon: const Icon(
-                                    Icons.done_all_rounded,
-                                    size: 18,
-                                  ),
                                 ),
-                                IconButton(
+                                const SizedBox(width: 8),
+                                _GatewayRoundIconActionButton(
                                   tooltip: '本服务商全不选',
-                                  visualDensity: VisualDensity.compact,
+                                  icon: Icons.remove_done_rounded,
                                   onPressed: noneSelected
                                       ? null
                                       : () => _deselectGroup(groupKeys),
-                                  icon: const Icon(
-                                    Icons.remove_done_rounded,
-                                    size: 18,
-                                  ),
                                 ),
                               ],
                             ),
                           );
                         }
                         final option = row as WebGatewayModelOption;
-                        final explicitNone = _selected.contains(
-                          webGatewayDenyAllSelectionMarker,
-                        );
+                        final selected = effectiveSelected.contains(option.key);
                         return CheckboxListTile(
                           dense: true,
-                          value: explicitNone
-                              ? false
-                              : widget.emptyMeansAll && _selected.isEmpty
-                              ? true
-                              : _selected.contains(option.key),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          tileColor: selected
+                              ? colorScheme.primaryContainer.withValues(
+                                  alpha: 0.30,
+                                )
+                              : null,
+                          value: selected,
                           controlAffinity: ListTileControlAffinity.leading,
                           title: Text(
                             option.modelId,
                             overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
                           ),
                           onChanged: (_) => _toggle(option.key),
                         );
                       },
                     ),
             ),
-            const Divider(height: 1),
+            Divider(height: 1, color: colorScheme.outlineVariant),
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+              padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
               child: Row(
                 children: [
                   Expanded(
@@ -4610,28 +4833,64 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
   }
 
   void _toggle(String key) {
-    setState(() {
-      _selected.remove(webGatewayDenyAllSelectionMarker);
-      if (_selected.contains(key)) {
-        _selected.remove(key);
-      } else {
-        _selected.add(key);
-      }
-    });
+    final next = _effectiveSelectedModelKeys();
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    _setEffectiveSelectedModels(next);
   }
 
   void _selectGroup(Set<String> keys) {
-    setState(() {
-      _selected.remove(webGatewayDenyAllSelectionMarker);
-      _selected.addAll(keys);
-    });
+    _selectModelKeys(keys);
   }
 
   void _deselectGroup(Set<String> keys) {
-    setState(() {
-      _selected.removeAll(keys);
-      // 保持「全不选」语义只在用户主动全局触发时使用，组级反选只是清掉本组。
-    });
+    _deselectModelKeys(keys);
+  }
+
+  Set<String> _allModelKeys() =>
+      widget.options.map((option) => option.key).toSet();
+
+  Set<String> _effectiveSelectedModelKeys() {
+    if (_selected.contains(webGatewayDenyAllSelectionMarker)) {
+      return <String>{};
+    }
+    final allKeys = _allModelKeys();
+    if (widget.emptyMeansAll && _selected.isEmpty) return allKeys;
+    return _selected.intersection(allKeys);
+  }
+
+  void _selectModelKeys(Set<String> keys) {
+    final next = _effectiveSelectedModelKeys()..addAll(keys);
+    _setEffectiveSelectedModels(next);
+  }
+
+  void _deselectModelKeys(Set<String> keys) {
+    final next = _effectiveSelectedModelKeys()..removeAll(keys);
+    _setEffectiveSelectedModels(next);
+  }
+
+  void _setEffectiveSelectedModels(Set<String> keys) {
+    final allKeys = _allModelKeys();
+    if (keys.isEmpty) {
+      setState(() {
+        _selected = const <String>{webGatewayDenyAllSelectionMarker};
+      });
+      return;
+    }
+    if (widget.emptyMeansAll && keys.length == allKeys.length) {
+      setState(() => _selected = <String>{});
+      return;
+    }
+    setState(() => _selected = keys.intersection(allKeys));
+  }
+
+  String _modelSelectionCountText(int selectedCount, int totalCount) {
+    if (_selected.contains(webGatewayDenyAllSelectionMarker)) return '全部不可用';
+    if (widget.emptyMeansAll && _selected.isEmpty) return '全部可用';
+    return '已选 $selectedCount/$totalCount';
   }
 }
 

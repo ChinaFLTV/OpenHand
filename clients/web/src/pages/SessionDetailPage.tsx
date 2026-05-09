@@ -560,20 +560,39 @@ function ComposerInstructionPreviewCard({
   t: (key: string, fallback: string) => string;
 }) {
   const { entry, rect } = hover;
-  // 与 OverlayPortal 注释一致：position: fixed 锚定胶囊矩形之上 8px。
-  // 卡片宽度 360，向右溢出屏幕时改为右贴边。
+  // 与 OverlayPortal 注释一致：position: fixed 锚定胶囊矩形。
+  // 上方空间不足时下翻，并把 max-height 限在可用空间内，避免上边缘被视口裁切。
   const cardWidth = 360;
-  const margin = 8;
+  const margin = 12;
+  const gap = 10;
   const left = Math.max(margin, Math.min(rect.left, window.innerWidth - cardWidth - margin));
-  const bottom = Math.max(margin, window.innerHeight - rect.top + 8);
+  const rawAbove = Math.max(0, rect.top - margin - gap);
+  const rawBelow = Math.max(0, window.innerHeight - rect.bottom - margin - gap);
+  const placeAbove = rawAbove >= 180 || rawAbove >= rawBelow;
+  const availableHeight = Math.max(
+    120,
+    Math.min(480, placeAbove ? rawAbove : rawBelow, window.innerHeight - margin * 2),
+  );
+  const cardStyle: Record<string, string> = {
+    position: 'fixed',
+    left: `${left}px`,
+    width: `${cardWidth}px`,
+    maxHeight: `${availableHeight}px`,
+  };
+  if (placeAbove) {
+    cardStyle.bottom = `${Math.max(margin, window.innerHeight - rect.top + gap)}px`;
+  } else {
+    cardStyle.top = `${Math.min(window.innerHeight - margin - availableHeight, rect.bottom + gap)}px`;
+  }
   const description = entry.description?.trim();
   const body = entry.body?.trim();
   return (
     <OverlayPortal>
       <div
         class="oh-composer-instruction-preview"
+        data-placement={placeAbove ? 'above' : 'below'}
         role="tooltip"
-        style={{ position: 'fixed', left: `${left}px`, bottom: `${bottom}px`, width: `${cardWidth}px` }}
+        style={cardStyle}
       >
         <div class="oh-composer-instruction-preview-title">
           {entry.name?.trim() || entry.id}
