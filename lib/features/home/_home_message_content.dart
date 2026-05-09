@@ -170,11 +170,12 @@ class _ReasoningBody extends StatelessWidget {
         parseKey: parseKey,
       );
     }
+    // 折叠态一比一对齐用户诉求：完全不展示任何正文预览（对齐 WEB 端
+    // CollapsibleCardBody 的 height: 0 行为）。动画时长跟随全局弹窗设置，
+    // 让折叠/展开与 dialog 进退场的节奏保持一致。
     return ClipRect(
       child: AnimatedSize(
-        duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+        duration: _reasoningBodyAnimDuration(context),
         curve: Curves.easeInOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -190,18 +191,8 @@ class _ReasoningBody extends StatelessWidget {
                   parseKey: parseKey,
                 ),
               )
-            : KeyedSubtree(
-                key: const ValueKey<String>('reasoning-preview'),
-                child: _MarkdownPreviewBody(
-                  data: content.isEmpty ? ' ' : content,
-                  maxHeight: 142,
-                  styleSheet: styleSheet,
-                  builders: builders,
-                  inlineSyntaxes: inlineSyntaxes,
-                  pathRoots: pathRoots,
-                  parseKey: '$parseKey|reasoning-preview',
-                  fadeColor: fadeColor,
-                ),
+            : const SizedBox.shrink(
+                key: ValueKey<String>('reasoning-collapsed-empty'),
               ),
       ),
     );
@@ -236,11 +227,15 @@ class _StreamingReasoningBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveContent = content.isEmpty ? ' ' : content;
+    // 流式期间若用户主动折叠（expanded=false），与非流式折叠态对齐：
+    // 完全收起正文，不保留任何预览行。
     return ClipRect(
       child: AnimatedSize(
-        duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+        duration: _reasoningBodyAnimDuration(
+          context,
+          minMs: 140,
+          maxMs: 300,
+        ),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -258,23 +253,33 @@ class _StreamingReasoningBody extends StatelessWidget {
                   parseKey: '$parseKey|streaming-markdown',
                 ),
               )
-            : KeyedSubtree(
-                key: const ValueKey<String>(
-                  'streaming-reasoning-markdown-preview',
-                ),
-                child: _MarkdownPreviewBody(
-                  data: effectiveContent,
-                  maxHeight: 142,
-                  styleSheet: styleSheet,
-                  builders: builders,
-                  inlineSyntaxes: inlineSyntaxes,
-                  pathRoots: pathRoots,
-                  parseKey: '$parseKey|streaming-markdown-preview',
-                  fadeColor: fadeColor,
+            : const SizedBox.shrink(
+                key: ValueKey<String>(
+                  'streaming-reasoning-collapsed-empty',
                 ),
               ),
       ),
     );
+  }
+}
+
+/// 统一读取 SettingsController.dialogAnimationSettings 的时长并 clamp 到
+/// reasoning/tool_call 卡片折叠动画合理区间；若用户开启了「减少动画」/
+/// MediaQuery disableAnimations，则直接返回 Duration.zero。
+Duration _reasoningBodyAnimDuration(
+  BuildContext context, {
+  int minMs = 160,
+  int maxMs = 360,
+}) {
+  if (MediaQuery.disableAnimationsOf(context)) {
+    return Duration.zero;
+  }
+  try {
+    final settings = context.read<SettingsController>().dialogAnimationSettings;
+    final clamped = settings.durationMs.clamp(minMs, maxMs).toInt();
+    return Duration(milliseconds: clamped);
+  } catch (_) {
+    return const Duration(milliseconds: 220);
   }
 }
 

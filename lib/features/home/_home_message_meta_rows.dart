@@ -117,9 +117,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
         const SizedBox(width: 6),
         AnimatedRotation(
           turns: widget.expanded ? 0.5 : 0,
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+          duration: _reasoningBodyAnimDuration(context, minMs: 180, maxMs: 320),
           curve: Curves.easeOutCubic,
           child: Icon(
             Icons.keyboard_arrow_down_rounded,

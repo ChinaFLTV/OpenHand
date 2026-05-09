@@ -21,7 +21,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preac
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
-import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
+import {
+  getDialogMotionCurve,
+  getDialogMotionDurationMs,
+  getDialogMotionExitCurve,
+} from '../hooks/useDialogMotionSettings';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -473,6 +477,10 @@ function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
 
 // 自动 collapse 长正文（thinking / tool stdout）。阈值经验值，避免一屏被 5K 字符卡片占满。
 const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
+// reasoning（思考）专用阈值：流式结束后若内容过长则默认折叠胶囊。
+// 与 APP 端 _messageMarkdownCollapseCharThreshold 使用同一量级，
+// 保证 iOS/Android/Web 三端视觉节奏一致。
+const REASONING_AUTO_COLLAPSE_CHAR_LIMIT = 1200;
 const SIZE_MOTION_MIN_DELTA_PX = 1.5;
 const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
 
@@ -674,14 +682,23 @@ function MessageCardImpl({
     ? content.slice(0, AUTO_COLLAPSE_CHAR_LIMIT) + '…'
     : content;
 
-  // ── 工具调用类型消息的折叠/展开（由胶囊按钮控制） ──
+  // ── 工具调用/思考类型消息的胶囊折叠/展开（与 APP 端 _ReasoningBody 对齐） ──
+  // - 工具调用 / 工具结果 / hook / mcp / skill / reasoning：支持点击胶囊折叠
+  // - 流式期间始终展开，便于实时观察
+  // - 流式结束后，超长 reasoning 默认折叠（与 _shouldDefaultExpandReasoning 对齐）
+  // - 用户一旦手动切换，记住其选择，不被流式结束事件回撤
   const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
   const isToolResultKind = message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'skill';
   const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
-  const [badgeCollapsed, setBadgeCollapsed] = useState(false);
+  const isLongReasoning =
+    message.kind === 'reasoning' &&
+    content.length > REASONING_AUTO_COLLAPSE_CHAR_LIMIT;
+  const defaultBadgeCollapsed = !streamingContent && isLongReasoning;
+  const [badgeCollapsedOverride, setBadgeCollapsedOverride] = useState<boolean | null>(null);
   useEffect(() => {
-    setBadgeCollapsed(false);
+    setBadgeCollapsedOverride(null);
   }, [message.id]);
+  const badgeCollapsed = badgeCollapsedOverride ?? defaultBadgeCollapsed;
 
   // ── 入场动画：仅首次挂载时播放，防止流式更新重播 ──
   const shouldAnimate = !appearedMessageIds.has(message.id);
@@ -721,8 +738,11 @@ function MessageCardImpl({
 
   const handleBadgeToggle = useCallback((e: Event) => {
     e.stopPropagation();
-    setBadgeCollapsed((v) => !v);
-  }, []);
+    setBadgeCollapsedOverride((current) => {
+      const next = current == null ? !defaultBadgeCollapsed : !current;
+      return next;
+    });
+  }, [defaultBadgeCollapsed]);
 
   return (
     <article
@@ -941,8 +961,12 @@ function ActionBtn({
 export const MessageCard = memo(MessageCardImpl);
 
 /// 可折叠卡片正文容器：由胶囊按钮控制展开/折叠。
-/// 动画跟随全局弹窗动画设置（时长 + 曲线），使用 CSS transition 实现
-/// max-height + opacity 的 Q 弹进退场。
+/// 动画跟随全局弹窗动画设置（时长 + 曲线），折叠时 body 完全隐藏（0 高度 +
+/// aria-hidden），与 APP 端 _ReasoningBody 折叠行为一比一对齐。
+///
+/// 关键：JSX 不预先注入 height/opacity 内联样式，避免 React commit 时
+/// 浏览器抢先以 0 高度布局，让 useLayoutEffect 来不及测量前一帧高度、
+/// 动画降级为「瞬时跳变」。effect 自己负责所有 style 切换与 WAAPI 动画。
 function CollapsibleCardBody({
   collapsed,
   reduceMotion,
@@ -954,65 +978,95 @@ function CollapsibleCardBody({
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<Animation | null>(null);
+  const mountedRef = useRef(false);
 
-  // 用 Web Animations API 实现 Q 弹展开/折叠
   useLayoutEffect(() => {
     const el = contentRef.current;
     if (!el) return;
 
-    animationRef.current?.cancel();
+    // 取消上一次正在播的动画；保留其当前可视高度作为新动画起点。
+    const previousAnimation = animationRef.current;
+    const visualHeightBeforeCancel = previousAnimation
+      ? el.getBoundingClientRect().height
+      : null;
+    previousAnimation?.cancel();
     animationRef.current = null;
 
+    // 首帧直接落位，不播动画（避免进场叠加闪一下）。
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      applyCollapsedStyles(el, collapsed);
+      return;
+    }
+
     if (reduceMotion || typeof el.animate !== 'function') {
-      el.style.overflow = collapsed ? 'hidden' : '';
-      el.style.height = collapsed ? '0px' : '';
-      el.style.opacity = collapsed ? '0' : '';
+      applyCollapsedStyles(el, collapsed);
       return;
     }
 
-    const durationMs = Math.max(160, Math.min(400, getDialogExitDurationMs() || 280));
-    const currentHeight = el.getBoundingClientRect().height;
+    // 读取「动画开始前」高度：若上一个动画仍在途中，用其可视高度；
+    // 否则先清掉残留高度锁，测量 body 的自然高度。
+    let startHeight = visualHeightBeforeCancel;
+    if (startHeight == null) {
+      // 先把上一次的 clamp（若有）解开再测，避免读到 0 或锁定值。
+      const cachedInlineHeight = el.style.height;
+      const cachedInlineOverflow = el.style.overflow;
+      const cachedInlineOpacity = el.style.opacity;
+      el.style.height = '';
+      el.style.overflow = '';
+      el.style.opacity = '';
+      startHeight = el.getBoundingClientRect().height;
+      // 若即将折叠，保持这个测量值作为起点再让动画推进到 0；
+      // 若即将展开，起点应为 0（之前就是折叠态），所以恢复回原值。
+      if (collapsed) {
+        el.style.overflow = 'clip';
+      } else {
+        el.style.height = cachedInlineHeight;
+        el.style.overflow = cachedInlineOverflow;
+        el.style.opacity = cachedInlineOpacity;
+      }
+    }
+
     const targetHeight = collapsed ? 0 : el.scrollHeight;
+    const from = collapsed ? startHeight : 0;
+    const to = targetHeight;
 
-    if (Math.abs(currentHeight - targetHeight) < 1) {
-      el.style.overflow = collapsed ? 'hidden' : '';
-      el.style.height = collapsed ? '0px' : '';
-      el.style.opacity = collapsed ? '0' : '';
+    if (Math.abs(from - to) < 1) {
+      applyCollapsedStyles(el, collapsed);
       return;
     }
 
+    const durationMs = Math.max(160, Math.min(400, getDialogMotionDurationMs() || 280));
     el.style.overflow = 'clip';
+    el.style.willChange = 'height, opacity';
     const animation = el.animate(
       collapsed
         ? [
-            { height: `${currentHeight}px`, opacity: 1, offset: 0 },
+            { height: `${from}px`, opacity: 1, offset: 0 },
             { height: '0px', opacity: 0, offset: 1 },
           ]
         : [
-            { height: `${currentHeight}px`, opacity: 0, offset: 0 },
-            { height: `${targetHeight + Math.min(6, targetHeight * 0.04)}px`, opacity: 1, offset: 0.78 },
-            { height: `${targetHeight}px`, opacity: 1, offset: 1 },
+            { height: '0px', opacity: 0, offset: 0 },
+            { height: `${to + Math.min(6, to * 0.04)}px`, opacity: 1, offset: 0.78 },
+            { height: `${to}px`, opacity: 1, offset: 1 },
           ],
       {
         duration: durationMs,
-        easing: collapsed
-          ? 'cubic-bezier(0.2, 0, 0, 1)'
-          : 'cubic-bezier(0.22, 1.12, 0.36, 1)',
+        easing: collapsed ? getDialogMotionExitCurve() : getDialogMotionCurve(),
         fill: 'forwards',
       },
     );
     animationRef.current = animation;
-    void animation.finished.then(() => {
+    const finalize = () => {
       if (animationRef.current !== animation) return;
       animationRef.current = null;
-      el.style.overflow = collapsed ? 'hidden' : '';
-      el.style.height = collapsed ? '0px' : '';
-      el.style.opacity = collapsed ? '0' : '';
-      animation.cancel();
-    }).catch(() => {});
+      applyCollapsedStyles(el, collapsed);
+      el.style.willChange = '';
+      try { animation.cancel(); } catch { /* noop */ }
+    };
+    animation.finished.then(finalize, finalize);
   }, [collapsed, reduceMotion]);
 
-  // 清理
   useEffect(() => () => {
     animationRef.current?.cancel();
     animationRef.current = null;
@@ -1022,15 +1076,23 @@ function CollapsibleCardBody({
     <div
       ref={contentRef}
       class="oh-collapsible-body"
-      style={{
-        overflow: collapsed ? 'hidden' : undefined,
-        height: collapsed ? '0px' : undefined,
-        opacity: collapsed ? '0' : undefined,
-      }}
+      aria-hidden={collapsed ? 'true' : undefined}
     >
       {children}
     </div>
   );
+}
+
+function applyCollapsedStyles(el: HTMLElement, collapsed: boolean): void {
+  if (collapsed) {
+    el.style.overflow = 'hidden';
+    el.style.height = '0px';
+    el.style.opacity = '0';
+  } else {
+    el.style.overflow = '';
+    el.style.height = '';
+    el.style.opacity = '';
+  }
 }
 
 function ToolExecutionCard({ message }: { message: SessionMessage }) {

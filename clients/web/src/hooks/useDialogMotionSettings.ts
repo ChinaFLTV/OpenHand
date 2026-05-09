@@ -113,3 +113,26 @@ export function syncRemoteDialogMotionSettings(
 export function getDialogExitDurationMs(): number {
   return currentSettings.exitStyle === 'none' ? 0 : currentSettings.durationMs;
 }
+
+/// 进场（展开）动画时长：entrance_style=none 时返回 0；否则使用全局 durationMs。
+export function getDialogEnterDurationMs(): number {
+  return currentSettings.entranceStyle === 'none' ? 0 : currentSettings.durationMs;
+}
+
+/// 供 CollapsibleCardBody 等复用：同时反映进场 + 退场 duration（取较大值作
+/// 为“一个交互的完整节奏”）。避免 collapse 与 expand 节奏相差过大。
+export function getDialogMotionDurationMs(): number {
+  const enter = getDialogEnterDurationMs();
+  const exit = getDialogExitDurationMs();
+  return enter === 0 && exit === 0 ? 0 : Math.max(enter, exit);
+}
+
+/// 展开（enter 方向）缓动曲线，CSS 字符串形式，可直接传给 WAAPI。
+export function getDialogMotionCurve(): string {
+  return curveToCss(currentSettings.curve);
+}
+
+/// 折叠（exit 方向）缓动曲线，CSS 字符串形式，可直接传给 WAAPI。
+export function getDialogMotionExitCurve(): string {
+  return reverseCurveToCss(currentSettings.curve);
+}

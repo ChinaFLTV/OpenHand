@@ -227,4 +227,73 @@ describe('MessageCard actions', () => {
     expect(screen.getByRole('button', { name: /^(折叠|Collapse)/ })).not.toBeNull();
     expect(document.body.textContent ?? '').toContain(tail);
   });
+
+  it('auto-collapses long reasoning body once streaming completes', () => {
+    const reasoningText = `${'B'.repeat(1600)}TAIL_REASONING`;
+    const message: SessionMessage = {
+      id: 'reasoning-1',
+      kind: 'reasoning',
+      role: 'assistant',
+      content: reasoningText,
+      created_at: '2026-05-09T00:00:00.000Z',
+      character_count: reasoningText.length,
+    };
+
+    // 流式期间 → 胶囊展开 (aria-expanded=true)
+    const { rerender, container } = render(
+      <MessageCard message={message} streaming />,
+    );
+    const badgeStreaming = container.querySelector<HTMLElement>(
+      '.oh-message-badge-toggle',
+    );
+    expect(badgeStreaming).not.toBeNull();
+    expect(badgeStreaming!.getAttribute('aria-expanded')).toBe('true');
+
+    // 流式结束 → 自动折叠胶囊 (aria-expanded=false) 且正文容器高度为 0
+    rerender(<MessageCard message={message} />);
+    const badgeDone = container.querySelector<HTMLElement>(
+      '.oh-message-badge-toggle',
+    );
+    expect(badgeDone!.getAttribute('aria-expanded')).toBe('false');
+    const body = container.querySelector<HTMLElement>('.oh-collapsible-body');
+    expect(body).not.toBeNull();
+    // useLayoutEffect 同步将内联 style 设为 height: 0px / opacity: 0，
+    // 与 CollapsibleCardBody applyCollapsedStyles 一比一对齐。
+    expect(body!.style.height).toBe('0px');
+    expect(body!.style.opacity).toBe('0');
+    expect(body!.style.overflow).toBe('hidden');
+    expect(body!.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('toggles reasoning badge overrides default collapsed state', () => {
+    const reasoningText = `${'C'.repeat(1600)}TAIL_TOGGLE`;
+    const message: SessionMessage = {
+      id: 'reasoning-2',
+      kind: 'reasoning',
+      role: 'assistant',
+      content: reasoningText,
+      created_at: '2026-05-09T00:00:00.000Z',
+      character_count: reasoningText.length,
+    };
+    const { container } = render(<MessageCard message={message} />);
+    const badge = container.querySelector<HTMLElement>(
+      '.oh-message-badge-toggle',
+    )!;
+    const body = container.querySelector<HTMLElement>('.oh-collapsible-body')!;
+
+    // 默认折叠
+    expect(badge.getAttribute('aria-expanded')).toBe('false');
+    expect(body.style.height).toBe('0px');
+
+    // 点击展开
+    fireEvent.click(badge);
+    expect(badge.getAttribute('aria-expanded')).toBe('true');
+    expect(body.style.height).toBe('');
+    expect(body.getAttribute('aria-hidden')).toBe(null);
+
+    // 再次点击折叠
+    fireEvent.click(badge);
+    expect(badge.getAttribute('aria-expanded')).toBe('false');
+    expect(body.style.height).toBe('0px');
+  });
 });

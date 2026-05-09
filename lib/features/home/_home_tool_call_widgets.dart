@@ -1923,8 +1923,18 @@ bool _shouldTrackMessageLayout({
 }
 
 bool _shouldDefaultExpandReasoning(AiSessionMessage message) {
-  return _isStreamingReasoningMessage(message);
+  // 流式期间保持展开，便于实时观察。
+  if (_isStreamingReasoningMessage(message)) return true;
+  // 流式结束后：超长内容默认折叠（对齐 WEB 端 badgeCollapsed 默认行为）；
+  // 较短内容继续展开，节省用户一次点击。
+  final chars = message.content.length;
+  return chars <= _reasoningDefaultCollapseCharLimit;
 }
+
+/// 思考类型消息的默认折叠阈值（字符数）。
+/// 超过此阈值且非流式时，AiSession 详情页默认折叠该消息，避免长内容
+/// 首次打开会话时占据大面积可视区域。
+const int _reasoningDefaultCollapseCharLimit = 1200;
 
 bool _shouldDefaultExpandToolStatus(String status) {
   return status.isEmpty;
