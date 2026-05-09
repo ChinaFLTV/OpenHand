@@ -10,16 +10,18 @@
 // Web 端不执行撤销/重做等本地文件 ledger 操作，只做只读审阅展示。
 
 import type { SessionMessage } from '../api/sessions';
+import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
 import { Markdown } from './Markdown';
 import { MessageMedia } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
 import { memo } from 'preact/compat';
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -474,6 +476,22 @@ const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
 const SIZE_MOTION_MIN_DELTA_PX = 1.5;
 const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
 
+// 已经完成入场动画的消息 id 集合。防止 SSE 流式更新导致 Preact 卸载/重挂时
+// CSS 入场动画重播，从而引发消息列表"闪烁→消失→重现"的鬼畜抖动。
+const appearedMessageIds = new Set<string>();
+
+// 限制集合大小，防止长时间运行时内存泄漏。
+// 当集合超过 500 条时，清除最早的一半。
+function trackMessageAppeared(id: string): void {
+  appearedMessageIds.add(id);
+  if (appearedMessageIds.size > 500) {
+    const entries = [...appearedMessageIds];
+    for (let i = 0; i < 250; i++) {
+      appearedMessageIds.delete(entries[i]!);
+    }
+  }
+}
+
 function isAssistantSideMessage(message: SessionMessage): boolean {
   return message.role !== 'user';
 }
@@ -656,6 +674,23 @@ function MessageCardImpl({
     ? content.slice(0, AUTO_COLLAPSE_CHAR_LIMIT) + '…'
     : content;
 
+  // ── 工具调用类型消息的折叠/展开（由胶囊按钮控制） ──
+  const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
+  const isToolResultKind = message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'skill';
+  const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
+  const [badgeCollapsed, setBadgeCollapsed] = useState(false);
+  useEffect(() => {
+    setBadgeCollapsed(false);
+  }, [message.id]);
+
+  // ── 入场动画：仅首次挂载时播放，防止流式更新重播 ──
+  const shouldAnimate = !appearedMessageIds.has(message.id);
+  useEffect(() => {
+    if (shouldAnimate) {
+      trackMessageAppeared(message.id);
+    }
+  }, [message.id, shouldAnimate]);
+
   const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
   const actionsVisible = hasAnyAction && active;
   const isUserBubble = message.role === 'user';
@@ -678,16 +713,21 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
-  const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}`;
+  const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
     !reduceMotion && isAssistantSideMessage(message),
   );
 
+  const handleBadgeToggle = useCallback((e: Event) => {
+    e.stopPropagation();
+    setBadgeCollapsed((v) => !v);
+  }, []);
+
   return (
     <article
       ref={cardRef}
-      class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} rounded-m3-md p-4 oh-appear-up`}
+      class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} rounded-m3-md p-4${shouldAnimate ? ' oh-appear-up' : ''}`}
       style={{
         display: 'block',
         width: 'fit-content',
@@ -717,17 +757,53 @@ function MessageCardImpl({
       <header class="oh-message-card-header flex items-center justify-between gap-3 text-xs mb-2 opacity-90">
         <span class="oh-message-card-meta flex items-center gap-2 min-w-0">
           {style.badge ? (
-            <span
-              class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
-              style={{
-                background: 'color-mix(in srgb, currentColor 14%, transparent)',
-              }}
-            >
-              <span class="oh-message-kind-icon" aria-hidden>
-                <MessageIcon name={style.icon} size={14} />
+            isCollapsibleByBadge ? (
+              <button
+                type="button"
+                class="oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+                style={{
+                  background: 'color-mix(in srgb, currentColor 14%, transparent)',
+                  border: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  fontSize: 'inherit',
+                  lineHeight: 'inherit',
+                }}
+                onClick={handleBadgeToggle}
+                aria-expanded={!badgeCollapsed ? 'true' : 'false'}
+                title={badgeCollapsed
+                  ? t('detail.tool.body.expand', '展开全部')
+                  : t('detail.tool.body.collapse', '折叠')}
+              >
+                <span class="oh-message-kind-icon" aria-hidden>
+                  <MessageIcon name={style.icon} size={14} />
+                </span>
+                <span>{style.label}</span>
+                <span
+                  class="oh-badge-chevron"
+                  aria-hidden
+                  style={{
+                    display: 'inline-flex',
+                    transition: reduceMotion ? 'none' : 'transform 220ms cubic-bezier(0.2, 0, 0, 1)',
+                    transform: badgeCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+                  }}
+                >
+                  <MessageIcon name="chevronDown" size={12} />
+                </span>
+              </button>
+            ) : (
+              <span
+                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+                style={{
+                  background: 'color-mix(in srgb, currentColor 14%, transparent)',
+                }}
+              >
+                <span class="oh-message-kind-icon" aria-hidden>
+                  <MessageIcon name={style.icon} size={14} />
+                </span>
+                <span>{style.label}</span>
               </span>
-              <span>{style.label}</span>
-            </span>
+            )
           ) : (
             <span class="opacity-90">
               {roleLabel(message.role)}
@@ -749,20 +825,22 @@ function MessageCardImpl({
       ) : null}
       <MessageToolMeta message={message} />
       {isUserBubble ? media : null}
-      {message.kind === 'file_mutation_summary' ? (
-        <FileMutationSummaryCard message={message} />
-      ) : useStructuredToolBody ? (
-        <ToolExecutionCard message={message} />
-      ) : useToolBody ? (
-        content.length > 0 ? <ToolResultBody content={content} /> : null
-      ) : (
-        <Markdown
-          source={visibleContent}
-          raw={style.mono === true || message.kind === 'reasoning'}
-          mono={style.mono === true}
-        />
-      )}
-      {canCollapse && !streamingContent ? (
+      <CollapsibleCardBody collapsed={isCollapsibleByBadge && badgeCollapsed} reduceMotion={reduceMotion}>
+        {message.kind === 'file_mutation_summary' ? (
+          <FileMutationSummaryCard message={message} />
+        ) : useStructuredToolBody ? (
+          <ToolExecutionCard message={message} />
+        ) : useToolBody ? (
+          content.length > 0 ? <ToolResultBody content={content} /> : null
+        ) : (
+          <Markdown
+            source={visibleContent}
+            raw={style.mono === true || message.kind === 'reasoning'}
+            mono={style.mono === true}
+          />
+        )}
+      </CollapsibleCardBody>
+      {canCollapse && !streamingContent && !badgeCollapsed ? (
         <button
           type="button"
           class="oh-tap-press oh-message-collapse-button mt-2"
@@ -786,7 +864,7 @@ function MessageCardImpl({
       {!isUserBubble ? media : null}
       {actionsVisible ? (
         <div
-          class="oh-appear-up mt-3 pt-3 flex flex-wrap items-center gap-2 text-xs"
+          class="mt-3 pt-3 flex flex-wrap items-center gap-2 text-xs"
           style={{
             borderTop: '1px solid color-mix(in srgb, currentColor 18%, transparent)',
           }}
@@ -861,6 +939,99 @@ function ActionBtn({
 // 不再重做 markdown 解析 / 高亮 / 媒体解码，达到肉眼"逐字 / 逐 token 增长"。
 // 我们仅依赖父级 mergeStream 已经保证不变前缀的引用稳定，因此默认 shallow compare 已足够。
 export const MessageCard = memo(MessageCardImpl);
+
+/// 可折叠卡片正文容器：由胶囊按钮控制展开/折叠。
+/// 动画跟随全局弹窗动画设置（时长 + 曲线），使用 CSS transition 实现
+/// max-height + opacity 的 Q 弹进退场。
+function CollapsibleCardBody({
+  collapsed,
+  reduceMotion,
+  children,
+}: {
+  collapsed: boolean;
+  reduceMotion: boolean;
+  children: ComponentChildren;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const animationRef = useRef<Animation | null>(null);
+
+  // 用 Web Animations API 实现 Q 弹展开/折叠
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    animationRef.current?.cancel();
+    animationRef.current = null;
+
+    if (reduceMotion || typeof el.animate !== 'function') {
+      el.style.overflow = collapsed ? 'hidden' : '';
+      el.style.height = collapsed ? '0px' : '';
+      el.style.opacity = collapsed ? '0' : '';
+      return;
+    }
+
+    const durationMs = Math.max(160, Math.min(400, getDialogExitDurationMs() || 280));
+    const currentHeight = el.getBoundingClientRect().height;
+    const targetHeight = collapsed ? 0 : el.scrollHeight;
+
+    if (Math.abs(currentHeight - targetHeight) < 1) {
+      el.style.overflow = collapsed ? 'hidden' : '';
+      el.style.height = collapsed ? '0px' : '';
+      el.style.opacity = collapsed ? '0' : '';
+      return;
+    }
+
+    el.style.overflow = 'clip';
+    const animation = el.animate(
+      collapsed
+        ? [
+            { height: `${currentHeight}px`, opacity: 1, offset: 0 },
+            { height: '0px', opacity: 0, offset: 1 },
+          ]
+        : [
+            { height: `${currentHeight}px`, opacity: 0, offset: 0 },
+            { height: `${targetHeight + Math.min(6, targetHeight * 0.04)}px`, opacity: 1, offset: 0.78 },
+            { height: `${targetHeight}px`, opacity: 1, offset: 1 },
+          ],
+      {
+        duration: durationMs,
+        easing: collapsed
+          ? 'cubic-bezier(0.2, 0, 0, 1)'
+          : 'cubic-bezier(0.22, 1.12, 0.36, 1)',
+        fill: 'forwards',
+      },
+    );
+    animationRef.current = animation;
+    void animation.finished.then(() => {
+      if (animationRef.current !== animation) return;
+      animationRef.current = null;
+      el.style.overflow = collapsed ? 'hidden' : '';
+      el.style.height = collapsed ? '0px' : '';
+      el.style.opacity = collapsed ? '0' : '';
+      animation.cancel();
+    }).catch(() => {});
+  }, [collapsed, reduceMotion]);
+
+  // 清理
+  useEffect(() => () => {
+    animationRef.current?.cancel();
+    animationRef.current = null;
+  }, []);
+
+  return (
+    <div
+      ref={contentRef}
+      class="oh-collapsible-body"
+      style={{
+        overflow: collapsed ? 'hidden' : undefined,
+        height: collapsed ? '0px' : undefined,
+        opacity: collapsed ? '0' : undefined,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function ToolExecutionCard({ message }: { message: SessionMessage }) {
   const metadata = message.metadata ?? {};
