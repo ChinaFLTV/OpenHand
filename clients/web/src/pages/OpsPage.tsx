@@ -19,6 +19,7 @@ import { t, tBytes, tDateTime, tDuration, tFmt, tPlural } from '../i18n';
 import { MenuSelect } from '../components/MenuSelect';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
+import { TopBar } from '../components/TopBar';
 
 const REFRESH_INTERVAL_MS = 5_000;
 
@@ -246,72 +247,58 @@ export function OpsPage() {
         ? t('ops.cleanup.target.uploads', '仅上传缓存')
         : t('ops.cleanup.target.all', '全部');
 
-  const stateBadge = useMemo(() => {
-    const state = snapshot?.state ?? 'stopped';
-    const colorByState: Record<string, string> = {
-      running: 'var(--m3-primary)',
-      starting: 'var(--m3-on-surface-variant)',
-      stopping: 'var(--m3-on-surface-variant)',
-      stopped: 'var(--m3-outline)',
-      crashed: 'var(--m3-error)',
-    };
-    return { state, color: colorByState[state] ?? 'var(--m3-outline)' };
-  }, [snapshot?.state]);
+  const stateBadge = useMemo(() => snapshot?.state ?? 'stopped', [snapshot?.state]);
   const health = useMemo(() => snapshot ? buildOpsHealth(snapshot) : null, [snapshot]);
+  const subtitle = snapshot
+    ? `${t('ops.metric.uptime', '运行时长')} ${tDuration(snapshot.uptime_ms)} · ${t('ops.metric.totalReq', '总请求')} ${snapshot.total_requests}`
+    : snapLoading
+      ? t('common.loading', '加载中…')
+      : t('ops.subtitle', '运行时状态、请求指标与资源清理');
 
   return (
-    <main class="min-h-screen p-4 sm:p-6">
-      <div class="max-w-6xl mx-auto">
-        <header class="flex items-center justify-between gap-3 mb-4 flex-wrap">
-          <div class="flex items-center gap-3">
+    <main class="oh-ops-page min-h-screen p-4 sm:p-6">
+      <div class="max-w-7xl mx-auto">
+        <TopBar
+          title={t('ops.title', 'Ops 运行时仪表盘')}
+          subtitle={subtitle}
+          hideNav
+          leadingSlot={(
             <button
               type="button"
               onClick={() => location.route('/')}
-              class="text-sm px-3 py-1.5 rounded-m3-sm"
-              style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
+              class="oh-tap-press oh-topbar-action text-sm rounded-m3-sm px-3 py-1.5"
             >
               ← {t('ops.backHome', '返回首页')}
             </button>
-            <h1 class="text-xl font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
-              {t('ops.title', 'Ops 运行时仪表盘')}
-            </h1>
-            <span
-              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-m3-sm text-xs font-mono"
-              style={{
-                backgroundColor: stateBadge.color,
-                color: 'var(--m3-on-primary)',
-              }}
-            >
-              {stateBadge.state}
-            </span>
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="flex items-center gap-1 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(ev) => setAutoRefresh((ev.target as HTMLInputElement).checked)}
-              />
-              {t('ops.autoRefresh', '自动刷新 5s')}
-            </label>
-            <button
-              type="button"
-              onClick={() => void refreshSnapshot()}
-              disabled={snapLoading}
-              class="text-sm px-3 py-1.5 rounded-m3-sm"
-              style={{
-                color: 'var(--m3-on-surface-variant)',
-                border: '1px solid var(--m3-outline)',
-                opacity: snapLoading ? 0.6 : 1,
-              }}
-            >
-              {snapLoading ? t('common.loading') : t('common.refresh', '刷新')}
-            </button>
-          </div>
-        </header>
+          )}
+          actionSlot={(
+            <>
+              <span class={`oh-ops-state-pill is-${stateBadge}`}>
+                <span aria-hidden />
+                {stateBadge}
+              </span>
+              <label class="oh-ops-auto-refresh">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(ev) => setAutoRefresh((ev.target as HTMLInputElement).checked)}
+                />
+                <span>{t('ops.autoRefresh', '自动刷新 5s')}</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => void refreshSnapshot()}
+                disabled={snapLoading}
+                class="oh-tap-press oh-topbar-action text-sm rounded-m3-sm px-3 py-1.5 disabled:opacity-60"
+              >
+                {snapLoading ? t('common.loading') : t('common.refresh', '刷新')}
+              </button>
+            </>
+          )}
+        />
 
         {snapError && (
-          <p class="text-sm mb-3" style={{ color: 'var(--m3-error)' }}>
+          <p class="oh-admin-status is-error mb-3">
             {snapError}
           </p>
         )}
@@ -321,9 +308,7 @@ export function OpsPage() {
             {health && <OpsHealthPanel health={health} />}
 
             {/* 运行指标 */}
-            <section class="oh-appear-up rounded-m3-md p-4 mb-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
-              style={{ backgroundColor: 'var(--m3-surface-container)' }}
-            >
+            <section class="oh-appear-up oh-ops-panel oh-ops-metric-grid mb-3">
               <Metric label={t('ops.metric.startedAt', '启动时间')} value={tDateTime(snapshot.started_at)} />
               <Metric label={t('ops.metric.uptime', '运行时长')} value={tDuration(snapshot.uptime_ms)} />
               <Metric label={t('ops.metric.bound', '监听 URL')} value={snapshot.bound_url || '—'} mono />
@@ -693,9 +678,7 @@ export function OpsPage() {
         )}
 
         {/* 清理面板 */}
-        <section class="oh-appear-up rounded-m3-md p-4 mb-3"
-          style={{ backgroundColor: 'var(--m3-surface-container)' }}
-        >
+        <section class="oh-appear-up oh-ops-panel mb-3">
           <h2 class="text-base font-semibold mb-3" style={{ color: 'var(--m3-on-surface)' }}>
             {t('ops.cleanup.title', '资源清理')}
           </h2>
@@ -765,9 +748,7 @@ export function OpsPage() {
         ) : null}
 
         {/* 历史 */}
-        <section class="oh-appear-up rounded-m3-md p-4"
-          style={{ backgroundColor: 'var(--m3-surface-container)' }}
-        >
+        <section class="oh-appear-up oh-ops-panel">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
               {t('ops.cleanup.history', '清理历史（最近 50 条）')}
@@ -837,9 +818,9 @@ function OpsHealthPanel({ health }: { health: OpsHealthSummary }) {
   const color = healthToneColor(health.tone);
   return (
     <section
-      class="oh-appear-up rounded-m3-md p-4 mb-3"
+      class="oh-appear-up oh-ops-health-panel mb-3"
+      data-tone={health.tone}
       style={{
-        backgroundColor: 'var(--m3-surface-container)',
         border: `1px solid color-mix(in srgb, ${color} 32%, transparent)`,
       }}
     >
@@ -924,16 +905,12 @@ function OpsHealthPanel({ health }: { health: OpsHealthSummary }) {
 
 function Metric(props: { label: string; value: string; mono?: boolean }) {
   return (
-    <div
-      class="rounded-m3-sm p-2"
-      style={{ backgroundColor: 'var(--m3-surface)', border: '1px solid var(--m3-outline)' }}
-    >
-      <p class="text-xs mb-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
+    <div class="oh-ops-metric-card">
+      <p class="oh-ops-metric-label">
         {props.label}
       </p>
       <p
-        class={`text-sm ${props.mono ? 'font-mono' : 'font-semibold'} truncate`}
-        style={{ color: 'var(--m3-on-surface)' }}
+        class={`oh-ops-metric-value ${props.mono ? 'font-mono' : 'font-semibold'} truncate`}
         title={props.value}
       >
         {props.value}

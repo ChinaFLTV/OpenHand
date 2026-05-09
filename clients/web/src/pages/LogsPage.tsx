@@ -14,6 +14,7 @@ import { LogEntry, exportLogsBundle, listLogs } from '../api/logs';
 import { t, tTime } from '../i18n';
 import { MenuSelect } from '../components/MenuSelect';
 import { showSnackbar } from '../components/Snackbar';
+import { TopBar } from '../components/TopBar';
 
 const PAGE_SIZE = 200;
 const TAIL_INTERVAL_MS = 3_000;
@@ -160,6 +161,14 @@ export function LogsPage() {
       return true;
     });
   }, [items, levelFilter, tagFilter]);
+  const levelCounts = useMemo(() => {
+    const counts = new Map<LogEntry['level'], number>();
+    for (const item of items) {
+      counts.set(item.level, (counts.get(item.level) ?? 0) + 1);
+    }
+    return counts;
+  }, [items]);
+  const activeFilterCount = (levelFilter !== 'all' ? 1 : 0) + (tagFilter.trim() ? 1 : 0);
 
   const handleExport = async () => {
     setExporting(true);
@@ -178,35 +187,51 @@ export function LogsPage() {
   };
 
   return (
-    <main class="min-h-screen p-4 sm:p-6">
-      <div class="max-w-6xl mx-auto">
-        <header class="flex items-center justify-between gap-4 mb-3 flex-wrap">
-          <div class="flex items-center gap-3">
+    <main class="oh-logs-page min-h-screen p-4 sm:p-6">
+      <div class="max-w-7xl mx-auto">
+        <TopBar
+          title={t('logs.title', '日志')}
+          subtitle={tail
+            ? t('logs.subtitle.tail', 'Tail 模式正在追踪最新日志')
+            : t('logs.subtitle.page', '按页审阅历史日志')}
+          hideNav
+          leadingSlot={(
             <button
               type="button"
               onClick={() => location.route('/')}
-              class="text-sm px-3 py-1.5 rounded-m3-sm"
-              style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
+              class="oh-tap-press oh-topbar-action text-sm rounded-m3-sm px-3 py-1.5"
             >
               ← {t('logs.backHome', '返回首页')}
             </button>
-            <h1 class="text-xl font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
-              {t('logs.title', '日志')}
-            </h1>
-            <span class="text-xs font-mono" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {t('logs.stat.total', '总：')}
-              {total} · {t('logs.stat.shown', '当前页：')}
-              {items.length}
-            </span>
-          </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <label class="flex items-center gap-1 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          )}
+          actionSlot={(
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              disabled={exporting}
+              class="oh-tap-press oh-topbar-action oh-logs-export-button text-sm rounded-m3-sm px-3 py-1.5"
+            >
+              {exporting ? t('logs.exporting', '导出中…') : t('logs.export', '导出 JSON')}
+            </button>
+          )}
+        />
+
+        <section class="oh-logs-summary-grid mb-3" aria-label={t('logs.summary', '日志概览')}>
+          <SummaryTile label={t('logs.stat.total', '总计')} value={String(total)} />
+          <SummaryTile label={t('logs.stat.shown', '当前页')} value={String(items.length)} />
+          <SummaryTile label={t('logs.stat.matched', '筛选命中')} value={String(filtered.length)} />
+          <SummaryTile label={t('logs.stat.filters', '已用筛选')} value={String(activeFilterCount)} />
+        </section>
+
+        <section class="oh-logs-control-panel mb-3">
+          <div class="oh-logs-control-row">
+            <label class="oh-logs-tail-toggle">
               <input
                 type="checkbox"
                 checked={tail}
                 onChange={(ev) => setTail((ev.target as HTMLInputElement).checked)}
               />
-              {t('logs.tail', 'Tail 模式 3s 自动')}
+              <span>{t('logs.tail', 'Tail 模式 3s 自动')}</span>
             </label>
             <MenuSelect
               value={levelFilter}
@@ -227,51 +252,39 @@ export function LogsPage() {
               value={tagFilter}
               onInput={(ev) => setTagFilter((ev.target as HTMLInputElement).value)}
               placeholder={t('logs.tag.placeholder', '按 tag / message 模糊过滤')}
-              class="text-sm px-2 py-1 rounded-m3-sm"
-              style={{
-                backgroundColor: 'var(--m3-surface)',
-                color: 'var(--m3-on-surface)',
-                border: '1px solid var(--m3-outline)',
-                minWidth: '180px',
-              }}
+              class="oh-logs-filter-input"
             />
-            <button
-              type="button"
-              onClick={() => void handleExport()}
-              disabled={exporting}
-              class="text-sm px-3 py-1.5 rounded-m3-sm"
-              style={{
-                color: 'var(--m3-on-primary)',
-                backgroundColor: 'var(--m3-primary)',
-                opacity: exporting ? 0.6 : 1,
-              }}
-            >
-              {exporting ? t('logs.exporting', '导出中…') : t('logs.export', '导出 JSON')}
-            </button>
           </div>
-        </header>
+
+          <div class="oh-logs-level-strip" aria-label={t('logs.level.summary', '级别分布')}>
+            {(['info', 'success', 'warn', 'error', 'debug', 'telemetry'] as const).map((level) => (
+              <span key={level} class="oh-logs-level-chip" data-level={level}>
+                <span>{level}</span>
+                <strong>{levelCounts.get(level) ?? 0}</strong>
+              </span>
+            ))}
+          </div>
+        </section>
 
         {/* 分页（仅在非 tail 模式可用） */}
         {!tail && (
-          <div class="flex items-center gap-2 mb-3">
+          <div class="oh-logs-pagination mb-3">
             <button
               type="button"
               onClick={() => void loadAt(Math.max(0, offset - PAGE_SIZE))}
               disabled={loading || offset === 0}
-              class="text-sm px-2 py-1 rounded-m3-sm"
-              style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
+              class="oh-tap-press oh-logs-secondary-button"
             >
               ← {t('logs.prev', '上一页')}
             </button>
-            <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <span class="oh-logs-page-indicator">
               offset {offset} / {total}
             </span>
             <button
               type="button"
               onClick={() => void loadAt(offset + PAGE_SIZE)}
               disabled={loading || !hasMore}
-              class="text-sm px-2 py-1 rounded-m3-sm"
-              style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
+              class="oh-tap-press oh-logs-secondary-button"
             >
               {t('logs.next', '下一页')} →
             </button>
@@ -279,8 +292,7 @@ export function LogsPage() {
               type="button"
               onClick={() => void loadAt(offset)}
               disabled={loading}
-              class="text-sm px-2 py-1 rounded-m3-sm"
-              style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
+              class="oh-tap-press oh-logs-secondary-button"
             >
               {t('common.refresh', '刷新')}
             </button>
@@ -288,57 +300,44 @@ export function LogsPage() {
         )}
 
         {error && (
-          <p class="text-sm mb-3" style={{ color: 'var(--m3-error)' }}>
+          <p class="oh-admin-status is-error mb-3">
             {error}
           </p>
         )}
         {exportError && (
-          <p class="text-sm mb-3" style={{ color: 'var(--m3-error)' }}>
+          <p class="oh-admin-status is-error mb-3">
             {exportError}
           </p>
         )}
 
-        <section class="oh-appear-up rounded-m3-md p-2"
-          style={{
-            backgroundColor: 'var(--m3-surface-container)',
-            maxHeight: '70vh',
-            overflowY: 'auto',
-          }}
-        >
+        <section class="oh-appear-up oh-logs-panel">
           {filtered.length === 0 ? (
-            <p class="text-sm py-4 text-center" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <p class="oh-logs-empty-state">
               {loading ? t('common.loading') : t('logs.empty', '没有匹配的日志')}
             </p>
           ) : (
-            <ul class="flex flex-col gap-0.5">
+            <ul class="oh-logs-list">
               {filtered.map((it) => (
                 <li
                   key={it.id}
-                  class="px-2 py-1 rounded-m3-sm font-mono text-xs"
-                  style={{ backgroundColor: 'var(--m3-surface)', color: 'var(--m3-on-surface)' }}
+                  class="oh-log-row"
+                  data-level={it.level}
                 >
-                  <div class="flex items-baseline gap-2">
-                    <span style={{ color: 'var(--m3-on-surface-variant)', minWidth: '90px' }}>
+                  <div class="oh-log-row-main">
+                    <span class="oh-log-time">
                       {fmtTime(it.timestamp)}
                     </span>
-                    <span
-                      class="uppercase"
-                      style={{ color: LEVEL_COLORS[it.level], minWidth: '64px' }}
-                    >
+                    <span class="oh-log-level" style={{ color: LEVEL_COLORS[it.level] }}>
                       {it.level}
                     </span>
-                    <span style={{ color: 'var(--m3-primary)', minWidth: '120px' }}>{it.tag}</span>
-                    <span class="flex-1" style={{ wordBreak: 'break-word' }}>
+                    <span class="oh-log-tag">{it.tag}</span>
+                    <span class="oh-log-message">
                       {it.message}
                     </span>
                   </div>
                   {it.data && Object.keys(it.data).length > 0 && (
                     <pre
-                      class="mt-1 px-2 py-1 rounded-m3-sm overflow-x-auto"
-                      style={{
-                        backgroundColor: 'var(--m3-surface-container)',
-                        color: 'var(--m3-on-surface-variant)',
-                      }}
+                      class="oh-log-data"
                     >
                       {JSON.stringify(it.data, null, 2)}
                     </pre>
@@ -350,5 +349,14 @@ export function LogsPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div class="oh-logs-summary-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
