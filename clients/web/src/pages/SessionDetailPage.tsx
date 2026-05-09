@@ -46,7 +46,7 @@ import { listSessions } from '../api/sessions';
 import { SessionGoneDialog } from '../components/SessionGoneDialog';
 import { t } from '../i18n';
 import { useAuth } from '../state/auth';
-import type { ApiMetaModel, ApiMetaShortcutBinding } from '../api/meta';
+import type { ApiMetaInstruction, ApiMetaModel, ApiMetaShortcutBinding } from '../api/meta';
 import { MessageCard } from '../components/MessageCard';
 import { PlanTimeline } from '../components/PlanTimeline';
 import { notifyIfHidden } from '../services/pwa';
@@ -327,6 +327,7 @@ type ComposerIconName =
   | 'mode'
   | 'plan'
   | 'permission'
+  | 'plus'
   | 'research'
   | 'refresh'
   | 'send'
@@ -405,6 +406,8 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
       return <svg {...common}><path {...stroke} d="M12 3 5 6v5c0 4.4 2.8 8.4 7 10 4.2-1.6 7-5.6 7-10V6z" /><path {...stroke} d="m9.5 12 1.7 1.7 3.6-4" /></svg>;
     case 'plan':
       return <svg {...common}><path {...stroke} d="M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2z" /><path {...stroke} d="M9 8h6M9 12h6M9 16h3" /><path {...stroke} d="m15 16 1.2 1.2L19 14.4" /></svg>;
+    case 'plus':
+      return <svg {...common}><path {...stroke} d="M12 5v14M5 12h14" /></svg>;
     case 'research':
       return <svg {...common}><path {...stroke} d="M10.5 18a7.5 7.5 0 1 1 5.3-2.2L21 21" /><path {...stroke} d="M8 10h5M8 13h3" /></svg>;
     case 'send':
@@ -674,6 +677,9 @@ interface QueuedComposerMessage {
     relative_directory_path: string;
   } | null;
   skillLabel: string | null;
+  /// 排队时快照下来的本轮跳过指令 id；与 send 时实参一致，
+  /// 保证排队消息被实际派发时仍按用户最初意图过滤指令。
+  skippedInstructionIds: string[];
   createdAt: number;
 }
 
@@ -744,6 +750,9 @@ export function SessionDetailPage() {
   const [editingDraftMessage, setEditingDraftMessage] =
     useState<SessionMessage | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillSummary | null>(null);
+  // 与 App 端 `_skippedInstructionIds` 1:1 对齐：本轮临时跳过的用户指令 id 集合，
+  // 仅作用于本次发送，不持久化。每次切换会话时清空，避免上一会话的跳过状态泄漏。
+  const [skippedInstructionIds, setSkippedInstructionIds] = useState<Set<string>>(() => new Set());
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [skillPickerOpen, setSkillPickerOpen] = useState(false);
   const [skillPickerQuery, setSkillPickerQuery] = useState('');
@@ -885,6 +894,9 @@ export function SessionDetailPage() {
     imageEditorResolverRef.current?.(null);
     imageEditorResolverRef.current = null;
     setImageEditorInput(null);
+    // 与 App 端 _skippedInstructionIds 一致：会话切换时清空跳过集合，
+    // 避免上一会话的跳过状态泄漏到新会话。
+    setSkippedInstructionIds(new Set());
   }, [sessionId]);
 
   useEffect(() => () => {
@@ -1759,6 +1771,12 @@ export function SessionDetailPage() {
     () => meta?.conversation_modes ?? ['normal'],
     [meta],
   );
+  // 与 App 端 _ComposerInstructionsStrip 1:1 对齐：meta.instructions 已在
+  // service 端按 allowedInstructionIds + enabled 过滤，前端直接消费。
+  const availableInstructions = useMemo<ApiMetaInstruction[]>(
+    () => meta?.instructions ?? [],
+    [meta],
+  );
   const shortcutBindings = useMemo(
     () => meta?.shortcut_bindings ?? {},
     [meta],
@@ -1852,6 +1870,7 @@ export function SessionDetailPage() {
       mode: composerMode,
       selectedSkill: queuedSelectedSkillPayload(),
       skillLabel: selectedSkill?.name ?? null,
+      skippedInstructionIds: Array.from(skippedInstructionIds),
       createdAt: Date.now(),
     };
     setQueuedComposerMessages((prev) => [...prev, queued]);
@@ -1925,6 +1944,7 @@ export function SessionDetailPage() {
         mode: next.mode,
         attachments: next.attachments,
         selectedSkill: next.selectedSkill,
+        skippedInstructionIds: next.skippedInstructionIds,
       });
       if (!ownsSessionAsyncResult(dispatchSessionId)) return;
       setQueuedComposerMessages((prev) => (
@@ -2539,6 +2559,7 @@ export function SessionDetailPage() {
               relative_directory_path: selectedSkill.relative_directory_path,
             }
           : null,
+        skippedInstructionIds: Array.from(skippedInstructionIds),
       });
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       setComposerText('');
@@ -3165,6 +3186,55 @@ export function SessionDetailPage() {
             aria-hidden={composerCollapsed ? 'true' : undefined}
             {...(composerCollapsed ? { inert: true } : {})}
           >
+          {availableInstructions.length > 0 ? (
+            <div class="oh-composer-instructions-strip mb-3" role="group" aria-label={t('composer.instructions.aria', '当前会话生效的用户指令')}>
+              <span class="oh-composer-instructions-strip-label">
+                {t('composer.instructions.label', '用户指令')}
+              </span>
+              <div class="oh-composer-instructions-strip-list">
+                {availableInstructions.map((entry) => {
+                  const skipped = skippedInstructionIds.has(entry.id);
+                  const tooltip = entry.description?.trim()
+                    ? entry.description
+                    : skipped
+                      ? t('composer.instructions.tooltipSkipped', '点击恢复：本轮临时跳过此指令')
+                      : t('composer.instructions.tooltipActive', '点击跳过：本轮临时不携带此指令');
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      class={`oh-composer-instruction-pill oh-tap-press${skipped ? ' is-skipped' : ''}`}
+                      data-skipped={skipped ? 'true' : 'false'}
+                      title={tooltip}
+                      aria-pressed={skipped ? 'false' : 'true'}
+                      onClick={() => {
+                        setSkippedInstructionIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(entry.id)) {
+                            next.delete(entry.id);
+                          } else {
+                            next.add(entry.id);
+                          }
+                          return next;
+                        });
+                      }}
+                      disabled={composerSending}
+                    >
+                      <span class="oh-composer-instruction-pill-icon" aria-hidden="true">
+                        <ComposerIcon name="spark" size={14} />
+                      </span>
+                      <span class="oh-composer-instruction-pill-label">
+                        {entry.name?.trim() || entry.id}
+                      </span>
+                      <span class="oh-composer-instruction-pill-toggle" aria-hidden="true">
+                        <ComposerIcon name={skipped ? 'plus' : 'close'} size={13} />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           <div class="oh-composer-chip-rail mb-3">
             {editingDraftMessage ? (
               <button

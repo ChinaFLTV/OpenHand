@@ -94,6 +94,12 @@ export interface ApiMetaModel {
   supports_audio_generation?: boolean;
 }
 
+export interface ApiMetaInstruction {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 export interface ApiMetaResponse {
   service?: ApiMetaService;
   workspace_files?: ApiMetaWorkspaceFiles;
@@ -104,6 +110,7 @@ export interface ApiMetaResponse {
   conversation_modes?: string[];
   message_types?: string[];
   models?: ApiMetaModel[];
+  instructions?: ApiMetaInstruction[];
   config?: Record<string, unknown>;
 }
 

@@ -487,6 +487,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late Set<String> _mcpServers;
   late Set<String> _memories;
   late Set<String> _tools;
+  late Set<String> _instructions;
   late Set<String> _models;
   late Set<WebGatewayMessageType> _messageTypes;
   late Set<WebGatewayConversationMode> _modes;
@@ -568,6 +569,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _mcpServers = config.allowedMcpServerNames.toSet();
     _memories = config.allowedMemoryIds.toSet();
     _tools = config.allowedBuiltinToolNames.toSet();
+    _instructions = config.allowedInstructionIds.toSet();
     _models = config.allowedModelKeys.toSet();
     _messageTypes = config.allowedMessageTypes.toSet();
     _modes = config.allowedConversationModes.toSet();
@@ -859,6 +861,24 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             selected: _tools,
                             onChanged: (next) => setState(() => _tools = next),
                           ),
+                          _MultiSelectDropdown<String>(
+                            label: '可用的用户指令',
+                            emptyMeansAll: true,
+                            noneValue: webGatewayDenyAllSelectionMarker,
+                            options: [
+                              for (final option
+                                  in widget.controller.instructionOptions)
+                                _SelectOption(
+                                  value: option.id,
+                                  label: option.enabled
+                                      ? option.label
+                                      : '${option.label}（已禁用）',
+                                ),
+                            ],
+                            selected: _instructions,
+                            onChanged: (next) =>
+                                setState(() => _instructions = next),
+                          ),
                           _EnumMultiSelectDropdown<WebGatewayMessageType>(
                             label: '可发送的消息类型',
                             values: WebGatewayMessageType.values,
@@ -1055,6 +1075,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       allowedMcpServerNames: _mcpServers.toList(growable: false),
       allowedMemoryIds: _memories.toList(growable: false),
       allowedBuiltinToolNames: _tools.toList(growable: false),
+      allowedInstructionIds: _instructions.toList(growable: false),
       allowedMessageTypes: _messageTypes,
       allowedConversationModes: _modes,
       allowedModelKeys: _models.toList(growable: false),
@@ -4369,16 +4390,27 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
         : widget.options
               .where((option) => option.label.toLowerCase().contains(query))
               .toList(growable: false);
+    // 按 providerId 顺序保留首次出现的 providerLabel，避免标签碰撞造成串组。
+    final providerOrder = <String>[];
+    final providerLabels = <String, String>{};
     final grouped = <String, List<WebGatewayModelOption>>{};
     for (final option in filtered) {
-      final providerLabel = option.label.split(' / ').first;
-      (grouped[providerLabel] ??= <WebGatewayModelOption>[]).add(option);
+      final pid = option.providerId;
+      if (!grouped.containsKey(pid)) {
+        providerOrder.add(pid);
+        providerLabels[pid] = option.providerLabel;
+      }
+      (grouped[pid] ??= <WebGatewayModelOption>[]).add(option);
     }
     final rows = <Object>[];
-    for (final entry in grouped.entries) {
+    for (final pid in providerOrder) {
       rows
-        ..add(entry.key)
-        ..addAll(entry.value);
+        ..add(_ProviderGroupHeader(
+          providerId: pid,
+          providerLabel: providerLabels[pid] ?? pid,
+          options: grouped[pid]!,
+        ))
+        ..addAll(grouped[pid]!);
     }
     return Dialog(
       clipBehavior: Clip.antiAlias,
@@ -4456,15 +4488,73 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                       itemCount: rows.length,
                       itemBuilder: (context, index) {
                         final row = rows[index];
-                        if (row is String) {
+                        if (row is _ProviderGroupHeader) {
+                          final groupKeys = row.options
+                              .map((option) => option.key)
+                              .toSet();
+                          final explicitNone = _selected.contains(
+                            webGatewayDenyAllSelectionMarker,
+                          );
+                          final selectedInGroup = explicitNone
+                              ? 0
+                              : groupKeys
+                                    .where(_selected.contains)
+                                    .length;
+                          final allSelected =
+                              !explicitNone &&
+                              selectedInGroup == groupKeys.length;
+                          final noneSelected =
+                              explicitNone || selectedInGroup == 0;
                           return Padding(
-                            padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
-                            child: Text(
-                              row,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w700,
-                              ),
+                            padding:
+                                const EdgeInsets.fromLTRB(18, 10, 12, 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    row.providerLabel,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.labelMedium
+                                        ?.copyWith(
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ),
+                                Text(
+                                  '$selectedInGroup/${groupKeys.length}',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  tooltip: '本服务商全选',
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: allSelected
+                                      ? null
+                                      : () => _selectGroup(groupKeys),
+                                  icon: const Icon(
+                                    Icons.done_all_rounded,
+                                    size: 18,
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: '本服务商全不选',
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: noneSelected
+                                      ? null
+                                      : () => _deselectGroup(groupKeys),
+                                  icon: const Icon(
+                                    Icons.remove_done_rounded,
+                                    size: 18,
+                                  ),
+                                ),
+                              ],
                             ),
                           );
                         }
@@ -4482,10 +4572,6 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                           controlAffinity: ListTileControlAffinity.leading,
                           title: Text(
                             option.modelId,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            option.providerId,
                             overflow: TextOverflow.ellipsis,
                           ),
                           onChanged: (_) => _toggle(option.key),
@@ -4533,6 +4619,32 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
       }
     });
   }
+
+  void _selectGroup(Set<String> keys) {
+    setState(() {
+      _selected.remove(webGatewayDenyAllSelectionMarker);
+      _selected.addAll(keys);
+    });
+  }
+
+  void _deselectGroup(Set<String> keys) {
+    setState(() {
+      _selected.removeAll(keys);
+      // 保持「全不选」语义只在用户主动全局触发时使用，组级反选只是清掉本组。
+    });
+  }
+}
+
+class _ProviderGroupHeader {
+  const _ProviderGroupHeader({
+    required this.providerId,
+    required this.providerLabel,
+    required this.options,
+  });
+
+  final String providerId;
+  final String providerLabel;
+  final List<WebGatewayModelOption> options;
 }
 
 class _AnimatedLogLine extends StatelessWidget {

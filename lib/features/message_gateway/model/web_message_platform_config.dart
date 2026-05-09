@@ -225,6 +225,7 @@ class WebMessagePlatformConfig {
     this.allowedMcpServerNames = const <String>[],
     this.allowedMemoryIds = const <String>[],
     this.allowedBuiltinToolNames = const <String>[],
+    this.allowedInstructionIds = const <String>[],
     this.allowedMessageTypes = const <WebGatewayMessageType>{
       WebGatewayMessageType.text,
       WebGatewayMessageType.attachment,
@@ -275,6 +276,7 @@ class WebMessagePlatformConfig {
       allowedMcpServerNames: _stringList(json['allowed_mcp_server_names']),
       allowedMemoryIds: _stringList(json['allowed_memory_ids']),
       allowedBuiltinToolNames: _stringList(json['allowed_builtin_tool_names']),
+      allowedInstructionIds: _stringList(json['allowed_instruction_ids']),
       allowedMessageTypes: _enumSet(
         json['allowed_message_types'],
         WebGatewayMessageType.fromStorage,
@@ -367,6 +369,7 @@ class WebMessagePlatformConfig {
   final List<String> allowedMcpServerNames;
   final List<String> allowedMemoryIds;
   final List<String> allowedBuiltinToolNames;
+  final List<String> allowedInstructionIds;
   final Set<WebGatewayMessageType> allowedMessageTypes;
   final Set<WebGatewayConversationMode> allowedConversationModes;
   final List<String> allowedModelKeys;
@@ -404,6 +407,7 @@ class WebMessagePlatformConfig {
     List<String>? allowedMcpServerNames,
     List<String>? allowedMemoryIds,
     List<String>? allowedBuiltinToolNames,
+    List<String>? allowedInstructionIds,
     Set<WebGatewayMessageType>? allowedMessageTypes,
     Set<WebGatewayConversationMode>? allowedConversationModes,
     List<String>? allowedModelKeys,
@@ -442,6 +446,8 @@ class WebMessagePlatformConfig {
       allowedMemoryIds: allowedMemoryIds ?? this.allowedMemoryIds,
       allowedBuiltinToolNames:
           allowedBuiltinToolNames ?? this.allowedBuiltinToolNames,
+      allowedInstructionIds:
+          allowedInstructionIds ?? this.allowedInstructionIds,
       allowedMessageTypes: allowedMessageTypes ?? this.allowedMessageTypes,
       allowedConversationModes:
           allowedConversationModes ?? this.allowedConversationModes,
@@ -491,6 +497,7 @@ class WebMessagePlatformConfig {
       'allowed_mcp_server_names': allowedMcpServerNames,
       'allowed_memory_ids': allowedMemoryIds,
       'allowed_builtin_tool_names': allowedBuiltinToolNames,
+      'allowed_instruction_ids': allowedInstructionIds,
       'allowed_message_types': allowedMessageTypes
           .map((item) => item.storageValue)
           .toList(growable: false),

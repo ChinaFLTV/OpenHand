@@ -20,13 +20,29 @@ class WebGatewayModelOption {
     required this.key,
     required this.label,
     required this.providerId,
+    required this.providerLabel,
     required this.modelId,
   });
 
   final String key;
   final String label;
   final String providerId;
+  final String providerLabel;
   final String modelId;
+}
+
+/// 单条用户指令在 Web 通用消息平台编辑弹窗里的展示项。
+/// `id` 与持久化的 `allowedInstructionIds` 一一对应，`label` 用于 UI 渲染。
+class WebGatewayInstructionOption {
+  const WebGatewayInstructionOption({
+    required this.id,
+    required this.label,
+    required this.enabled,
+  });
+
+  final String id;
+  final String label;
+  final bool enabled;
 }
 
 class MessageGatewayController extends ChangeNotifier {
@@ -46,6 +62,7 @@ class MessageGatewayController extends ChangeNotifier {
        _skillsController = skillsController,
        _mcpController = mcpController,
        _memoryController = memoryController,
+       _instructionsController = instructionsController,
        _store = store ?? MessageGatewayStore(),
        _service =
            service ??
@@ -67,6 +84,7 @@ class MessageGatewayController extends ChangeNotifier {
   final SkillsController _skillsController;
   final McpController _mcpController;
   final MemoryController _memoryController;
+  final InstructionsController _instructionsController;
   final MessageGatewayStore _store;
   final WebMessagePlatformService _service;
   late final StreamSubscription<WebGatewayLogEntry> _logSub;
@@ -134,12 +152,32 @@ class MessageGatewayController extends ChangeNotifier {
             key: key,
             label: '${provider.providerLabel} / $modelId',
             providerId: provider.id,
+            providerLabel: provider.providerLabel,
             modelId: modelId,
           ),
         );
       }
     }
     return options;
+  }
+
+  /// 全部用户指令（含未启用），用于 Web 通用消息平台编辑弹窗的多选列表。
+  /// `label` 优先使用指令名称，回退到 id；UI 据 `enabled` 渲染灰字副标题。
+  List<WebGatewayInstructionOption> get instructionOptions {
+    final result = <WebGatewayInstructionOption>[];
+    for (final entry in _instructionsController.entries) {
+      final id = entry.id.trim();
+      if (id.isEmpty) continue;
+      final name = entry.name.trim();
+      result.add(
+        WebGatewayInstructionOption(
+          id: id,
+          label: name.isEmpty ? id : name,
+          enabled: entry.enabled,
+        ),
+      );
+    }
+    return result;
   }
 
   Future<void> initialize() async {
@@ -332,6 +370,9 @@ class MessageGatewayController extends ChangeNotifier {
     final memories = memoryIds.toSet();
     final tools = builtinToolNames.toSet();
     final models = modelOptions.map((item) => item.key).toSet();
+    final instructions = instructionOptions
+        .map((item) => item.id)
+        .toSet();
     List<String> keep(List<String> source, Set<String> allowed) {
       if (source.contains(webGatewayDenyAllSelectionMarker)) {
         return const <String>[webGatewayDenyAllSelectionMarker];
@@ -347,6 +388,7 @@ class MessageGatewayController extends ChangeNotifier {
       allowedMemoryIds: keep(value.allowedMemoryIds, memories),
       allowedBuiltinToolNames: keep(value.allowedBuiltinToolNames, tools),
       allowedModelKeys: keep(value.allowedModelKeys, models),
+      allowedInstructionIds: keep(value.allowedInstructionIds, instructions),
     );
   }
 

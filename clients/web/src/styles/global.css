@@ -898,6 +898,104 @@ button.oh-composer-pill:not(:disabled):hover {
   background: color-mix(in srgb, var(--m3-tertiary-container) 74%, transparent);
   color: var(--m3-on-tertiary-container);
 }
+/* —— 用户指令胶囊（与 App 端 _ComposerInstructionsStrip 1:1 对齐）—— */
+.oh-composer-instructions-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.oh-composer-instructions-strip-label {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--m3-on-surface-variant);
+  opacity: 0.78;
+}
+.oh-composer-instructions-strip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  min-width: 0;
+}
+.oh-composer-instruction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  max-width: min(100%, 220px);
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 28%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 60%, transparent);
+  color: var(--m3-on-primary-container);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 3px 10px -10px color-mix(in srgb, var(--m3-primary) 60%, transparent);
+  transition:
+    background-color 220ms var(--oh-motion-emphasized),
+    border-color 220ms var(--oh-motion-emphasized),
+    color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized),
+    opacity 220ms var(--oh-motion-emphasized);
+}
+.oh-composer-instruction-pill:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--m3-primary) 44%, var(--m3-outline-variant));
+  box-shadow: 0 8px 18px -14px color-mix(in srgb, var(--m3-primary) 70%, transparent);
+}
+.oh-composer-instruction-pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.oh-composer-instruction-pill.is-skipped {
+  background: color-mix(in srgb, var(--m3-surface-container-high) 92%, transparent);
+  border-color: color-mix(in srgb, var(--m3-outline-variant) 80%, transparent);
+  color: var(--m3-on-surface-variant);
+  box-shadow: none;
+}
+.oh-composer-instruction-pill-icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  color: currentColor;
+  opacity: 0.9;
+}
+.oh-composer-instruction-pill.is-skipped .oh-composer-instruction-pill-icon {
+  opacity: 0.55;
+}
+.oh-composer-instruction-pill-label {
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: text-decoration-color 220ms var(--oh-motion-emphasized);
+}
+.oh-composer-instruction-pill.is-skipped .oh-composer-instruction-pill-label {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, currentColor 60%, transparent);
+}
+.oh-composer-instruction-pill-toggle {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  margin-left: 2px;
+  transition:
+    background-color 180ms var(--oh-motion-emphasized),
+    transform 220ms var(--oh-motion-spring);
+}
+.oh-composer-instruction-pill:not(:disabled):hover .oh-composer-instruction-pill-toggle {
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  transform: scale(1.08);
+}
 .oh-composer-attachment-chip {
   position: relative;
   display: inline-flex;

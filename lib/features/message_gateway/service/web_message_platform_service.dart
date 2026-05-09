@@ -30,6 +30,7 @@ import '../../ai/service/ai_image_generation_service.dart';
 import '../../crons/crons_controller.dart';
 import '../../hardness/hardness_session_store.dart';
 import '../../instructions/instructions_controller.dart';
+import '../../instructions/model/user_instruction_entry.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../mcp/model/mcp_tool.dart';
 import '../../memory/memory_controller.dart';
@@ -1713,6 +1714,26 @@ class WebMessagePlatformService {
       'message_types': _config.allowedMessageTypes
           .map((item) => item.storageValue)
           .toList(growable: false),
+      // 暴露给 Web 端「指令胶囊条」展示用的可用用户指令清单。
+      // 仅返回 allowedInstructionIds 过滤后的 enabled 条目，与 App 端
+      // _ComposerInstructionsStrip 的 enabledEntries 完全对齐。
+      'instructions': (webGatewayIsDenyAllSelection(
+                _config.allowedInstructionIds,
+              )
+              ? const <UserInstructionEntry>[]
+              : _instructionsController.entries.where((entry) {
+                  if (!entry.enabled) return false;
+                  if (_config.allowedInstructionIds.isEmpty) return true;
+                  return _config.allowedInstructionIds.contains(entry.id);
+                }))
+          .map(
+            (entry) => <String, Object?>{
+              'id': entry.id,
+              'name': entry.name,
+              'description': entry.description,
+            },
+          )
+          .toList(growable: false),
       'models': _allowedModels()
           .map(
             (item) => <String, Object?>{
@@ -2363,6 +2384,16 @@ class WebMessagePlatformService {
         'error': selectedSkill.error,
       });
     }
+    // 本轮临时跳过的用户指令（与 App 端 _ComposerInstructionsStrip 一致），
+    // 仅作用于本次 send，不持久化。
+    final skippedInstructionIds = <String>{};
+    final skippedRaw = body['skipped_instruction_ids'];
+    if (skippedRaw is List) {
+      for (final item in skippedRaw) {
+        final id = '$item'.trim();
+        if (id.isNotEmpty) skippedInstructionIds.add(id);
+      }
+    }
     final creationRequest = _creationRequestFor(conversationMode);
     if (!_modelSupportsConversationMode(model, conversationMode)) {
       return _json(HttpStatus.badRequest, <String, Object?>{
@@ -2406,6 +2437,7 @@ class WebMessagePlatformService {
             model: model,
             runtimeContext: _buildRuntimeContext(
               templateId: session.templateId,
+              skippedInstructionIds: skippedInstructionIds,
             ),
             attachmentFilePaths: attachments,
             responseModalities: responseModalities,
@@ -3714,7 +3746,10 @@ class WebMessagePlatformService {
     };
   }
 
-  AiSessionRuntimeContext _buildRuntimeContext({required String templateId}) {
+  AiSessionRuntimeContext _buildRuntimeContext({
+    required String templateId,
+    Set<String> skippedInstructionIds = const <String>{},
+  }) {
     final now = DateTime.now().toLocal();
     final mcpToolCatalogsByServerName = <String, McpToolCatalog>{
       for (final server in _mcpController.servers)
@@ -3782,7 +3817,18 @@ class WebMessagePlatformService {
                 )
                 .toList(growable: false),
       autoTitleEnabled: _settingsController.aiAutoTitleEnabled,
-      userInstructions: _instructionsController.entries,
+      skippedInstructionIds: skippedInstructionIds,
+      userInstructions:
+          webGatewayIsDenyAllSelection(_config.allowedInstructionIds)
+          ? const []
+          : _config.allowedInstructionIds.isEmpty
+          ? _instructionsController.entries
+          : _instructionsController.entries
+                .where(
+                  (entry) =>
+                      _config.allowedInstructionIds.contains(entry.id),
+                )
+                .toList(growable: false),
     );
   }
 
