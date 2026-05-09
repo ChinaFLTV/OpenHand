@@ -1200,20 +1200,17 @@ button.oh-composer-pill:not(:disabled):hover {
   box-shadow: var(--m3-elev-1);
 }
 .oh-skill-picker {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 10px);
+  /* 浮窗坐标由 SessionDetailPage 通过 inline style 写入（position: fixed），
+     交由 OverlayPortal 渲染到 body / fullscreen root，避免被 oh-composer-body
+     的 overflow: clip 截断或被祖先 transform 形成 containing block 错位。 */
   display: flex;
   flex-direction: column;
-  width: min(480px, calc(100vw - 48px));
-  max-height: min(360px, max(180px, calc(100vh - 430px)));
   overflow: hidden;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 80%, transparent);
   background: color-mix(in srgb, var(--m3-surface-container-high) 96%, transparent);
   color: var(--m3-on-surface);
   box-shadow: var(--m3-elev-3);
-  z-index: 80;
   transform-origin: bottom left;
   backdrop-filter: blur(12px);
 }

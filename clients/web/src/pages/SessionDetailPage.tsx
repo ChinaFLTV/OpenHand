@@ -57,6 +57,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { useEventCallback } from '../hooks/useEventCallback';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
@@ -746,6 +747,14 @@ export function SessionDetailPage() {
   const [skillPickerLoading, setSkillPickerLoading] = useState(false);
   const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = useState(0);
   const [slashDismissedToken, setSlashDismissedToken] = useState<string | null>(null);
+  // 技能浮窗渲染态：用 visible+closing 双层让退场动效跑完再卸载，
+  // 配合全局 dialog 动画设置（oh-dialog-pop-in / oh-dialog-pop-out）。
+  const [skillPickerVisible, setSkillPickerVisible] = useState(false);
+  const [skillPickerClosing, setSkillPickerClosing] = useState(false);
+  const [skillPickerAnchor, setSkillPickerAnchor] = useState<
+    { bottomGap: number; left: number; width: number; maxHeight: number } | null
+  >(null);
+  const skillPickerCloseTimerRef = useRef<number | null>(null);
   // 附件预览 (image/* → dataURL); key 与 composerAttachments 同序
   const [attachmentPreviews, setAttachmentPreviews] = useState<
     { mime: string; dataUrl: string; size: number }[]
@@ -2072,6 +2081,68 @@ export function SessionDetailPage() {
     });
   }, [skillPickerResults.length]);
 
+  // —— 浮窗坐标：position: fixed 直接锚到 textarea 矩形之上，避免被 oh-composer-body
+  // 的 overflow: clip 截断；同时无视祖先 transform 而成为新 containing block 的尴尬。
+  const recomputeSkillPickerAnchor = useCallback(() => {
+    const node = composerTextareaRef.current;
+    if (!node || typeof window === 'undefined') return;
+    const rect = node.getBoundingClientRect();
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const width = Math.min(480, Math.max(220, rect.width));
+    const left = Math.max(12, Math.min(rect.left, viewportW - width - 12));
+    const bottomGap = Math.max(8, viewportH - rect.top + 10);
+    const maxHeight = Math.max(160, Math.min(360, rect.top - 16));
+    setSkillPickerAnchor({ bottomGap, left, width, maxHeight });
+  }, []);
+
+  // 浮窗 open ↔ visible 同步：尊重全局 dialog 动画设置。
+  useEffect(() => {
+    if (skillPickerOpen) {
+      if (skillPickerCloseTimerRef.current != null) {
+        window.clearTimeout(skillPickerCloseTimerRef.current);
+        skillPickerCloseTimerRef.current = null;
+      }
+      setSkillPickerClosing(false);
+      setSkillPickerVisible(true);
+      recomputeSkillPickerAnchor();
+      return;
+    }
+    if (!skillPickerVisible) return;
+    setSkillPickerClosing(true);
+    const exitMs = getDialogExitDurationMs();
+    if (exitMs <= 0) {
+      setSkillPickerVisible(false);
+      setSkillPickerClosing(false);
+      return;
+    }
+    skillPickerCloseTimerRef.current = window.setTimeout(() => {
+      skillPickerCloseTimerRef.current = null;
+      setSkillPickerVisible(false);
+      setSkillPickerClosing(false);
+    }, exitMs);
+  }, [skillPickerOpen, skillPickerVisible, recomputeSkillPickerAnchor]);
+
+  // 卸载时清理动效定时器，避免 leak。
+  useEffect(() => () => {
+    if (skillPickerCloseTimerRef.current != null) {
+      window.clearTimeout(skillPickerCloseTimerRef.current);
+      skillPickerCloseTimerRef.current = null;
+    }
+  }, []);
+
+  // 滚动 / resize 时让浮窗锚点跟随 textarea。
+  useEffect(() => {
+    if (!skillPickerVisible) return;
+    const handler = () => recomputeSkillPickerAnchor();
+    window.addEventListener('scroll', handler, true);
+    window.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('scroll', handler, true);
+      window.removeEventListener('resize', handler);
+    };
+  }, [skillPickerVisible, recomputeSkillPickerAnchor]);
+
   async function ensureSkillsLoadedForPicker(): Promise<void> {
     if (skillsLoadedRef.current || skillPickerLoading) return;
     setSkillPickerLoading(true);
@@ -3307,8 +3378,20 @@ export function SessionDetailPage() {
               if (files.length > 0) void appendFiles(files);
             }}
           >
-          {skillPickerOpen ? (
-            <div class="oh-skill-picker oh-appear-pop" role="listbox">
+          {skillPickerVisible && skillPickerAnchor ? (
+            <OverlayPortal>
+              <div
+                class={`oh-skill-picker ${skillPickerClosing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
+                role="listbox"
+                style={{
+                  position: 'fixed',
+                  bottom: `${skillPickerAnchor.bottomGap}px`,
+                  left: `${skillPickerAnchor.left}px`,
+                  width: `${skillPickerAnchor.width}px`,
+                  maxHeight: `${skillPickerAnchor.maxHeight}px`,
+                  zIndex: 2400,
+                }}
+              >
               <div class="oh-skill-picker-title">
                 <span aria-hidden><ComposerIcon name="spark" size={16} /></span>
                 {t('composer.skill.pick', '选择一个技能')}
@@ -3344,7 +3427,8 @@ export function SessionDetailPage() {
                   ))}
                 </ul>
               )}
-            </div>
+              </div>
+            </OverlayPortal>
           ) : null}
           <textarea
             ref={composerTextareaRef}
