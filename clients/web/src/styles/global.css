@@ -446,6 +446,273 @@ html, body, #root {
   background: color-mix(in srgb, var(--m3-primary-container) 50%, transparent);
 }
 
+.oh-settings-page {
+  background: var(--m3-surface);
+  color: var(--m3-on-surface);
+}
+.oh-settings-shell {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.oh-settings-sidebar {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 12px;
+}
+.oh-settings-summary-card,
+.oh-settings-boundary-card,
+.oh-settings-card,
+.oh-settings-empty-card {
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container) 82%, var(--m3-surface));
+  box-shadow: 0 14px 30px -32px color-mix(in srgb, var(--m3-shadow, #000) 38%, transparent);
+}
+.oh-settings-summary-card,
+.oh-settings-boundary-card {
+  padding: 15px;
+}
+.oh-settings-summary-card h2 {
+  margin: 4px 0 14px;
+  color: var(--m3-on-surface);
+  font-size: 18px;
+  font-weight: 780;
+}
+.oh-settings-eyebrow {
+  margin: 0;
+  color: var(--m3-primary);
+  font-size: 12px;
+  font-weight: 780;
+  letter-spacing: 0;
+}
+.oh-settings-boundary-card p:last-child {
+  margin: 8px 0 0;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.oh-settings-summary-list,
+.oh-settings-stack {
+  display: grid;
+  gap: 10px;
+}
+.oh-settings-summary-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+}
+.oh-settings-summary-line strong {
+  min-width: 0;
+  color: var(--m3-on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 760;
+}
+.oh-settings-summary-list .oh-settings-summary-line {
+  padding: 8px 10px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--m3-surface-container-lowest) 72%, transparent);
+}
+.oh-settings-status {
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.oh-settings-status.is-success {
+  border: 1px solid color-mix(in srgb, #16a34a 32%, transparent);
+  background: color-mix(in srgb, #16a34a 11%, transparent);
+  color: #15803d;
+}
+.oh-settings-status.is-error {
+  border: 1px solid color-mix(in srgb, var(--m3-error) 34%, transparent);
+  background: color-mix(in srgb, var(--m3-error-container) 42%, transparent);
+  color: var(--m3-error);
+}
+.oh-settings-empty-card {
+  padding: 24px 16px;
+  color: var(--m3-on-surface-variant);
+  font-size: 13px;
+  text-align: center;
+}
+.oh-settings-card {
+  padding: 15px;
+}
+.oh-settings-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.oh-settings-card h3 {
+  margin: 0;
+  color: var(--m3-on-surface);
+  font-size: 14px;
+  font-weight: 780;
+}
+.oh-settings-card-head p {
+  margin: 5px 0 0;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.oh-settings-card-meta {
+  flex: none;
+}
+.oh-settings-card-body {
+  margin-top: 14px;
+}
+.oh-settings-saving-pill,
+.oh-settings-readonly-pill,
+.oh-settings-state-pill,
+.oh-settings-inline-note {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container-high) 62%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  font-weight: 720;
+  white-space: nowrap;
+}
+.oh-settings-saving-pill.is-saving {
+  border-color: color-mix(in srgb, var(--m3-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--m3-primary-container) 48%, transparent);
+  color: var(--m3-primary);
+}
+.oh-settings-state-pill.is-on {
+  border-color: color-mix(in srgb, #16a34a 32%, transparent);
+  background: color-mix(in srgb, #16a34a 11%, transparent);
+  color: #15803d;
+}
+.oh-settings-control-row,
+.oh-settings-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.oh-settings-control-label {
+  color: var(--m3-on-surface);
+  font-size: 13px;
+  font-weight: 720;
+}
+.oh-settings-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.oh-settings-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.oh-settings-switch-track {
+  width: 48px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 88%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container-highest) 72%, transparent);
+  transition:
+    background-color 180ms var(--oh-motion-emphasized),
+    border-color 180ms var(--oh-motion-emphasized),
+    box-shadow 220ms var(--oh-motion-emphasized);
+}
+.oh-settings-switch-track span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--m3-on-surface-variant);
+  box-shadow: 0 4px 10px -7px color-mix(in srgb, var(--m3-shadow, #000) 50%, transparent);
+  transition:
+    transform 220ms var(--oh-motion-spring),
+    background-color 180ms var(--oh-motion-emphasized);
+}
+.oh-settings-switch input:checked + .oh-settings-switch-track {
+  border-color: color-mix(in srgb, var(--m3-primary) 48%, transparent);
+  background: var(--m3-primary-container);
+}
+.oh-settings-switch input:checked + .oh-settings-switch-track span {
+  transform: translateX(20px);
+  background: var(--m3-primary);
+}
+.oh-settings-switch input:focus-visible + .oh-settings-switch-track {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--m3-primary) 15%, transparent);
+}
+.oh-settings-switch input:disabled + .oh-settings-switch-track,
+.oh-settings-range:disabled,
+.oh-settings-number:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+.oh-settings-range {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--m3-primary);
+}
+.oh-settings-number {
+  width: 128px;
+  min-height: 36px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container-lowest) 80%, var(--m3-surface));
+  color: var(--m3-on-surface);
+  font-family: ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+  outline: none;
+}
+.oh-settings-number:focus {
+  border-color: color-mix(in srgb, var(--m3-primary) 68%, var(--m3-outline-variant));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--m3-primary) 14%, transparent);
+}
+.oh-settings-meter {
+  height: 6px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-surface-container-highest) 62%, transparent);
+}
+.oh-settings-meter span {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--m3-primary), var(--m3-tertiary));
+}
+.oh-settings-range-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+}
+.oh-settings-motion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+.oh-settings-motion-grid .oh-settings-summary-line {
+  padding: 8px 10px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--m3-surface-container-lowest) 72%, transparent);
+}
+
 .oh-toolbox-tabs {
   display: flex;
   flex-wrap: wrap;
