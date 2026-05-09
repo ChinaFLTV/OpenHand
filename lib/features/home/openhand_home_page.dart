@@ -748,6 +748,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _composerCollapsed = false;
   /// 最近一次量到的 composer panel 高度，供折叠/展开时反向补偿 transcript scroll。
   double? _lastComposerHeight;
+  bool _composerLayoutMeasureScheduled = false;
   bool _autoFollowEnabled = true;
   // True when auto-follow mode is ON but the user has scrolled away from the
   // bottom, so auto-scrolling is temporarily paused until the user scrolls
@@ -4845,35 +4846,51 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _handleComposerLayoutChanged() {
+    // SizeChangedLayoutNotification 在 layout 阶段同步派发，此时读取
+    // `RenderBox.size` 会触发 `sizeAccessAllowed` 断言；而我们也想在补偿
+    // scrollOffset 时避开 layout 临界期。统一推迟到下一帧再处理 —— 既能拿到
+    // 稳定的 composer 高度，也避免 jumpTo 与正在进行的 layout 互相打架。
+    if (_composerLayoutMeasureScheduled) {
+      return;
+    }
+    _composerLayoutMeasureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _composerLayoutMeasureScheduled = false;
+      if (!mounted) return;
+      _measureComposerHeightAndCompensate();
+      if (_shouldDeferAutoFollowScheduling()) {
+        return;
+      }
+      _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
+    });
+  }
+
+  void _measureComposerHeightAndCompensate() {
     // 折叠/展开期间稳住消息：用 composer panel size delta 反向补偿 transcript
     // scrollOffset，让用户「未在底部」时上方消息不被挤上去 / 压下来。
     final composerCtx = _composerPanelKey.currentContext;
     final renderObject = composerCtx?.findRenderObject();
-    if (renderObject is RenderBox && renderObject.hasSize) {
-      final newHeight = renderObject.size.height;
-      final prev = _lastComposerHeight;
-      _lastComposerHeight = newHeight;
-      if (prev != null) {
-        final delta = newHeight - prev;
-        if (delta.abs() > 0.5 && _messageScrollController.hasClients) {
-          final position = _messageScrollController.position;
-          final distanceFromBottom =
-              position.maxScrollExtent - position.pixels;
-          // 与 web 一致：32px 以内视为贴底，让 auto-follow 接管。
-          if (distanceFromBottom > 32) {
-            final target = (position.pixels + delta).clamp(
-              position.minScrollExtent,
-              position.maxScrollExtent,
-            );
-            position.jumpTo(target);
-          }
-        }
-      }
-    }
-    if (_shouldDeferAutoFollowScheduling()) {
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
       return;
     }
-    _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
+    final newHeight = renderObject.size.height;
+    final prev = _lastComposerHeight;
+    _lastComposerHeight = newHeight;
+    if (prev == null) return;
+    final delta = newHeight - prev;
+    if (delta.abs() <= 0.5 || !_messageScrollController.hasClients) {
+      return;
+    }
+    final position = _messageScrollController.position;
+    // 无论是否贴底都反向补偿：贴底时能同帧重新锥住底部，
+    // 避免 composer 展开 / 折叠出现一帧闪动；未贴底时保证可视错位不变。
+    final target = (position.pixels + delta).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() > 0.5) {
+      position.jumpTo(target);
+    }
   }
 
   void _handleTranscriptLayoutChanged() {

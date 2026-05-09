@@ -74,14 +74,6 @@ class _SessionToolbar extends StatelessWidget {
                         physics: const ClampingScrollPhysics(),
                         child: Row(
                           children: [
-                            _ToolbarPill(
-                              icon: _runtimeModeIcon(runtimeStatus),
-                              label: _runtimeModeLabel(
-                                context,
-                                runtimeStatus,
-                                compact: true,
-                              ),
-                            ),
                             if (runtimeStatus.notices.isNotEmpty) ...[
                               ..._buildMcpLazyLoadingPills(
                                 context,
@@ -131,11 +123,6 @@ class _SessionToolbar extends StatelessWidget {
                                 },
                               ),
                             ],
-                            const SizedBox(width: 8),
-                            _ToolbarPill(
-                              icon: Icons.update_rounded,
-                              label: _formatDateTime(session.updatedAt),
-                            ),
                             if (_isInputCacheLocked(context, session)) ...[
                               const SizedBox(width: 8),
                               Tooltip(
@@ -1993,7 +1980,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         ],
       ),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
+        constraints: const BoxConstraints(maxWidth: 560),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2157,9 +2144,10 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        FilledButton.tonalIcon(
           onPressed: _busy ? null : () => Navigator.of(context).maybePop(),
-          child: Text(_localizedText(context, zh: '关闭', en: 'Close')),
+          icon: const Icon(Icons.close_rounded),
+          label: Text(_localizedText(context, zh: '关闭', en: 'Close')),
         ),
         FilledButton.icon(
           onPressed: (_busy || disableCompact) ? null : _handleCompactPressed,

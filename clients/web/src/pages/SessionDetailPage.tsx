@@ -1303,11 +1303,8 @@ export function SessionDetailPage() {
       const delta = measured - lastH;
       lastH = measured;
       if (delta === 0) return;
-      // 距离底部 32px 内视为贴底，让 auto-follow 接管，不补偿。
-      const distanceFromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-      if (distanceFromBottom <= 32) return;
-      // composer 高度变 +Δ → transcript 可视高度 -Δ；让视口底部内容偏移恒定 →
-      // newScrollTop = oldScrollTop + Δ。
+      // 无论是否贴底都反向补偿：贴底时同帧重新锥住底部，避免 闪动；
+      // 未贴底时保持可视位置锡定。
       scroller.scrollTop = scroller.scrollTop + delta;
     });
     observer.observe(composerEl);
@@ -2701,12 +2698,6 @@ export function SessionDetailPage() {
     const capsules: SessionToolbarCapsule[] = [];
     capsules.push(
       {
-        key: 'updated-at',
-        icon: 'runtime',
-        label: formatToolbarDate(session.updated_at),
-        title: `${t('topbar.updatedAt', '更新时间')} · ${formatDialogDate(session.updated_at)}`,
-      },
-      {
         key: 'audit',
         icon: 'audit',
         label: t('topbar.audit', '会话审计'),
@@ -2817,9 +2808,6 @@ export function SessionDetailPage() {
   const subtitle = session
     ? [
         session.template_name || session.template_id,
-        session.mode === 'plan'
-          ? t('sessions.mode.plan', '计划模式')
-          : t('sessions.mode.chat', '聊天模式'),
         `${totalKnown} ${t('sessions.messageUnit', '条消息')}`,
         session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : '',
         session.tool_message_count ? `${session.tool_message_count} tool` : '',
@@ -4569,14 +4557,6 @@ function mcpLazyLoadingCapsule(notices: string[]): SessionToolbarCapsule | null 
     };
   }
   return null;
-}
-
-function formatToolbarDate(value?: string | null): string {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function metadataValue(value: unknown): string {
