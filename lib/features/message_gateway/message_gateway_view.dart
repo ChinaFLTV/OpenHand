@@ -605,6 +605,8 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final mediaSize = MediaQuery.sizeOf(context);
     final dialogMaxHeight = math.min(
       720.0,
@@ -614,6 +616,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       minimum: const EdgeInsets.all(18),
       child: Dialog(
         insetPadding: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        surfaceTintColor: colorScheme.surfaceTint,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: math.min(mediaSize.width - 36, 920),
@@ -622,26 +628,69 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 18, 12, 12),
+              Container(
+                padding: const EdgeInsets.fromLTRB(22, 18, 14, 16),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHigh,
+                  border: Border(
+                    bottom: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.language_rounded),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        webMessagePlatformBuiltinName,
-                        style: Theme.of(context).textTheme.titleLarge,
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(19),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.primary.withValues(alpha: .14),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.language_rounded,
+                        color: colorScheme.onPrimaryContainer,
                       ),
                     ),
-                    IconButton(
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            webMessagePlatformBuiltinName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '配置 Web 端可见能力、访问边界与运行保护策略',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton.filledTonal(
+                      tooltip: '关闭',
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
               Expanded(
                 child: SingleChildScrollView(
                   primary: false,
@@ -650,7 +699,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                   ),
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
+                  padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final twoColumns = constraints.maxWidth >= 760;
@@ -998,9 +1047,14 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                   ),
                 ),
               ),
-              const Divider(height: 1),
-              Padding(
+              Container(
                 padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainer,
+                  border: Border(
+                    top: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -3162,11 +3216,63 @@ class _MetricTile extends StatelessWidget {
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
   final String text;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Text(text, style: Theme.of(context).textTheme.titleMedium),
-  );
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: .74),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              _sectionIconFor(text),
+              size: 15,
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 9),
+          Text(
+            text,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: .72),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _sectionIconFor(String text) {
+  if (text.contains('基础')) return Icons.info_outline_rounded;
+  if (text.contains('鉴权')) return Icons.lock_outline_rounded;
+  if (text.contains('安全')) return Icons.shield_outlined;
+  if (text.contains('项目') || text.contains('资源')) {
+    return Icons.folder_open_rounded;
+  }
+  if (text.contains('健康') || text.contains('入口')) {
+    return Icons.monitor_heart_outlined;
+  }
+  if (text.contains('日志') || text.contains('错误')) return Icons.article_outlined;
+  if (text.contains('吞吐') || text.contains('趋势')) return Icons.show_chart;
+  if (text.contains('清理')) return Icons.cleaning_services_outlined;
+  return Icons.tune_rounded;
 }
 
 class _NaturalCardGrid extends StatelessWidget {
@@ -3823,9 +3929,9 @@ class _SwitchGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GridView.count(
     crossAxisCount: twoColumns ? 2 : 1,
-    childAspectRatio: twoColumns ? 5.2 : 6,
-    crossAxisSpacing: 10,
-    mainAxisSpacing: 10,
+    childAspectRatio: twoColumns ? 5.0 : 5.8,
+    crossAxisSpacing: 12,
+    mainAxisSpacing: 12,
     shrinkWrap: true,
     physics: const NeverScrollableScrollPhysics(),
     children: children,
@@ -3842,16 +3948,39 @@ class _SwitchTile extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
   @override
-  Widget build(BuildContext context) => SwitchListTile(
-    value: value,
-    onChanged: onChanged,
-    title: Text(label),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return AnimatedContainer(
+      duration: _motionDuration(context, 180),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: value
+            ? colorScheme.primaryContainer.withValues(alpha: .34)
+            : colorScheme.surfaceContainerHighest.withValues(alpha: .42),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: value
+              ? colorScheme.primary.withValues(alpha: .32)
+              : colorScheme.outlineVariant.withValues(alpha: .78),
+        ),
+      ),
+      child: SwitchListTile(
+        value: value,
+        onChanged: onChanged,
+        title: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: value ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+        contentPadding: const EdgeInsetsDirectional.fromSTEB(14, 0, 10, 0),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+    );
+  }
 }
 
 class _TextArea extends StatelessWidget {
@@ -3865,10 +3994,7 @@ class _TextArea extends StatelessWidget {
       controller: controller,
       minLines: 3,
       maxLines: 5,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
+      decoration: _gatewayInputDecoration(context, label),
     ),
   );
 }
@@ -3893,7 +4019,7 @@ class _ResponsiveFields extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GridView.count(
     crossAxisCount: twoColumns ? 2 : 1,
-    childAspectRatio: twoColumns ? 5.2 : 6.2,
+    childAspectRatio: twoColumns ? 5.0 : 6.0,
     crossAxisSpacing: 12,
     mainAxisSpacing: 12,
     shrinkWrap: true,
@@ -3904,13 +4030,32 @@ class _ResponsiveFields extends StatelessWidget {
             controller: spec.controller,
             keyboardType: spec.keyboardType,
             obscureText: spec.obscureText,
-            decoration: InputDecoration(
-              labelText: spec.label,
-              border: const OutlineInputBorder(),
-            ),
+            decoration: _gatewayInputDecoration(context, spec.label),
           ),
         )
         .toList(growable: false),
+  );
+}
+
+InputDecoration _gatewayInputDecoration(BuildContext context, String label) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final radius = BorderRadius.circular(16);
+  final border = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(
+      color: colorScheme.outlineVariant.withValues(alpha: .78),
+    ),
+  );
+  return InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: .44),
+    border: border,
+    enabledBorder: border,
+    focusedBorder: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+    ),
   );
 }
 
@@ -3971,17 +4116,19 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
             borderRadius: BorderRadius.circular(12),
             onTap: () => open ? controller.close() : controller.open(),
             child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: widget.emptyMeansAll
-                    ? '${widget.label}（空=全部）'
-                    : widget.label,
-                border: const OutlineInputBorder(),
-                suffixIcon: Icon(
-                  open
-                      ? Icons.arrow_drop_up_rounded
-                      : Icons.arrow_drop_down_rounded,
-                ),
-              ),
+              decoration:
+                  _gatewayInputDecoration(
+                    context,
+                    widget.emptyMeansAll
+                        ? '${widget.label}（空=全部）'
+                        : widget.label,
+                  ).copyWith(
+                    suffixIcon: Icon(
+                      open
+                          ? Icons.arrow_drop_up_rounded
+                          : Icons.arrow_drop_down_rounded,
+                    ),
+                  ),
               child: Text(
                 _summary(),
                 maxLines: 1,
@@ -4513,11 +4660,10 @@ class _ModelMultiSelectField extends StatelessWidget {
           if (result != null) onChanged(result);
         },
         child: InputDecorator(
-          decoration: InputDecoration(
-            labelText: emptyMeansAll ? '$label（空=全部）' : label,
-            border: const OutlineInputBorder(),
-            suffixIcon: const Icon(Icons.manage_search_rounded),
-          ),
+          decoration: _gatewayInputDecoration(
+            context,
+            emptyMeansAll ? '$label（空=全部）' : label,
+          ).copyWith(suffixIcon: const Icon(Icons.manage_search_rounded)),
           child: Text(
             _modelSummary(options, selected, emptyMeansAll),
             maxLines: 1,
