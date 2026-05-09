@@ -1861,9 +1861,18 @@ html, body, #root {
   opacity: 0.7;
 }
 
-/* 可折叠卡片正文容器 */
-.oh-collapsible-body {
-  will-change: height, opacity;
+/* 思考/工具调用类型消息卡片的折叠正文容器。展开时无附加样式，折叠时
+   JSX 通过 inline style 设置 max-height + mask-image；data-collapsed 属性
+   用作状态 hook 以便未来扩展（如深色主题调色）。 */
+.oh-reasoning-collapsible-body {
+  display: block;
+  /* 给 mask-image 留一个微妙的透出缓冲，避免最后一行紧贴底部。 */
+  padding-bottom: 2px;
+}
+.oh-reasoning-collapsible-body[data-collapsed='true'] {
+  /* mask-image 已在 inline style 处给出，这里只负责固定 box-sizing，
+     防止 box 继承 border-box 计算偏离。 */
+  box-sizing: border-box;
 }
 
 .oh-message-action-button {

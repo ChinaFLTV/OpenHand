@@ -1925,16 +1925,27 @@ bool _shouldTrackMessageLayout({
 bool _shouldDefaultExpandReasoning(AiSessionMessage message) {
   // 流式期间保持展开，便于实时观察。
   if (_isStreamingReasoningMessage(message)) return true;
-  // 流式结束后：超长内容默认折叠（对齐 WEB 端 badgeCollapsed 默认行为）；
-  // 较短内容继续展开，节省用户一次点击。
-  final chars = message.content.length;
-  return chars <= _reasoningDefaultCollapseCharLimit;
+  // 流式结束后：超过 5-6 行的思考内容默认折叠（对齐 WEB 端
+  // ReasoningCollapsibleBody 默认行为）；较短内容继续展开，省一次点击。
+  return !_isReasoningContentLong(message.content);
 }
 
-/// 思考类型消息的默认折叠阈值（字符数）。
-/// 超过此阈值且非流式时，AiSession 详情页默认折叠该消息，避免长内容
-/// 首次打开会话时占据大面积可视区域。
-const int _reasoningDefaultCollapseCharLimit = 1200;
+/// 思考类型消息「是否算超长」的判定，与 WEB 端 isReasoningLong 对齐：
+/// - 硬换行 `\n` 数 ≥ 5（即内容占 6 行及以上） → 超长；
+/// - 否则回退到字符数阈值（避免长段无换行文本被误判为短）。
+const int _reasoningLongCharThreshold = 260;
+const int _reasoningLongLineBreakThreshold = 5;
+bool _isReasoningContentLong(String content) {
+  if (content.length > _reasoningLongCharThreshold) return true;
+  var lineBreaks = 0;
+  for (final unit in content.codeUnits) {
+    if (unit == 0x0A) {
+      lineBreaks += 1;
+      if (lineBreaks >= _reasoningLongLineBreakThreshold) return true;
+    }
+  }
+  return false;
+}
 
 bool _shouldDefaultExpandToolStatus(String status) {
   return status.isEmpty;

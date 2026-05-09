@@ -170,32 +170,39 @@ class _ReasoningBody extends StatelessWidget {
         parseKey: parseKey,
       );
     }
-    // 折叠态一比一对齐用户诉求：完全不展示任何正文预览（对齐 WEB 端
-    // CollapsibleCardBody 的 height: 0 行为）。动画时长跟随全局弹窗设置，
-    // 让折叠/展开与 dialog 进退场的节奏保持一致。
-    return ClipRect(
-      child: AnimatedSize(
-        duration: _reasoningBodyAnimDuration(context),
-        curve: Curves.easeInOutCubic,
-        alignment: Alignment.topLeft,
-        child: expanded
-            ? KeyedSubtree(
-                key: const ValueKey<String>('reasoning-expanded'),
-                child: _SafeMarkdownBody(
-                  data: content.isEmpty ? ' ' : content,
-                  selectable: selectable,
-                  builders: builders,
-                  styleSheet: styleSheet,
-                  inlineSyntaxes: inlineSyntaxes,
-                  pathRoots: pathRoots,
-                  parseKey: parseKey,
-                ),
-              )
-            : const SizedBox.shrink(
-                key: ValueKey<String>('reasoning-collapsed-empty'),
-              ),
-      ),
-    );
+    // 折叠态：展示前 5-6 行预览（maxHeight ≈ 142）并在底部叠渐隐遮罩，
+    // 给用户「开始阅读」的锚点，与 WEB 端 ReasoningCollapsibleBody 对齐。
+    //
+    // 注意：这里刻意不再额外套一层 AnimatedSize。外层 _MessageBubble 已经
+    // 给 Column 套了 AnimatedSize(200ms)，再嵌一层内部动画会让两个
+    // AnimatedSize 互相竞争、时长不同步，肉眼呈「抽搐鬼畜」。仅用
+    // KeyedSubtree 做内容切换，把高度动画交给外层单独负责。
+    return expanded
+        ? KeyedSubtree(
+            key: const ValueKey<String>('reasoning-expanded'),
+            child: _SafeMarkdownBody(
+              data: content.isEmpty ? ' ' : content,
+              selectable: selectable,
+              builders: builders,
+              styleSheet: styleSheet,
+              inlineSyntaxes: inlineSyntaxes,
+              pathRoots: pathRoots,
+              parseKey: parseKey,
+            ),
+          )
+        : KeyedSubtree(
+            key: const ValueKey<String>('reasoning-preview'),
+            child: _MarkdownPreviewBody(
+              data: content.isEmpty ? ' ' : content,
+              maxHeight: _reasoningPreviewMaxHeight,
+              styleSheet: styleSheet,
+              builders: builders,
+              inlineSyntaxes: inlineSyntaxes,
+              pathRoots: pathRoots,
+              parseKey: '$parseKey|reasoning-preview',
+              fadeColor: fadeColor,
+            ),
+          );
   }
 }
 
@@ -227,41 +234,45 @@ class _StreamingReasoningBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveContent = content.isEmpty ? ' ' : content;
-    // 流式期间若用户主动折叠（expanded=false），与非流式折叠态对齐：
-    // 完全收起正文，不保留任何预览行。
-    return ClipRect(
-      child: AnimatedSize(
-        duration: _reasoningBodyAnimDuration(
-          context,
-          minMs: 140,
-          maxMs: 300,
-        ),
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.topLeft,
-        child: expanded
-            ? KeyedSubtree(
-                key: const ValueKey<String>(
-                  'streaming-reasoning-markdown-expanded',
-                ),
-                child: _SafeMarkdownBody(
-                  data: effectiveContent,
-                  selectable: selectable,
-                  builders: builders,
-                  styleSheet: styleSheet,
-                  inlineSyntaxes: inlineSyntaxes,
-                  pathRoots: pathRoots,
-                  parseKey: '$parseKey|streaming-markdown',
-                ),
-              )
-            : const SizedBox.shrink(
-                key: ValueKey<String>(
-                  'streaming-reasoning-collapsed-empty',
-                ),
-              ),
-      ),
-    );
+    // 流式期间若用户主动折叠（expanded=false），也展示前 5-6 行预览。
+    // 同样不再嵌内部 AnimatedSize：外层 bubble 已经负责高度动画，
+    // 这里只做内容 keyed 切换，避免双动画抖动。
+    return expanded
+        ? KeyedSubtree(
+            key: const ValueKey<String>(
+              'streaming-reasoning-markdown-expanded',
+            ),
+            child: _SafeMarkdownBody(
+              data: effectiveContent,
+              selectable: selectable,
+              builders: builders,
+              styleSheet: styleSheet,
+              inlineSyntaxes: inlineSyntaxes,
+              pathRoots: pathRoots,
+              parseKey: '$parseKey|streaming-markdown',
+            ),
+          )
+        : KeyedSubtree(
+            key: const ValueKey<String>(
+              'streaming-reasoning-markdown-preview',
+            ),
+            child: _MarkdownPreviewBody(
+              data: effectiveContent,
+              maxHeight: _reasoningPreviewMaxHeight,
+              styleSheet: styleSheet,
+              builders: builders,
+              inlineSyntaxes: inlineSyntaxes,
+              pathRoots: pathRoots,
+              parseKey: '$parseKey|streaming-markdown-preview',
+              fadeColor: fadeColor,
+            ),
+          );
   }
 }
+
+/// 思考卡片的折叠预览高度。≈ 6 行 × 22px line-height + 小呼吸，
+/// 和 WEB 端 REASONING_PREVIEW_MAX_HEIGHT_PX 对齐。
+const double _reasoningPreviewMaxHeight = 142;
 
 /// 统一读取 SettingsController.dialogAnimationSettings 的时长并 clamp 到
 /// reasoning/tool_call 卡片折叠动画合理区间；若用户开启了「减少动画」/

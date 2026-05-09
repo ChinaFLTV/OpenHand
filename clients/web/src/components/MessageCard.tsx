@@ -21,11 +21,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preac
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
-import {
-  getDialogMotionCurve,
-  getDialogMotionDurationMs,
-  getDialogMotionExitCurve,
-} from '../hooks/useDialogMotionSettings';
+import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -477,10 +473,13 @@ function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
 
 // 自动 collapse 长正文（thinking / tool stdout）。阈值经验值，避免一屏被 5K 字符卡片占满。
 const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
-// reasoning（思考）专用阈值：流式结束后若内容过长则默认折叠胶囊。
-// 与 APP 端 _messageMarkdownCollapseCharThreshold 使用同一量级，
-// 保证 iOS/Android/Web 三端视觉节奏一致。
-const REASONING_AUTO_COLLAPSE_CHAR_LIMIT = 1200;
+// reasoning（思考）专用：超过 5-6 行文本即默认折叠到预览态。
+// 以 14px 行高 + 1.55 line-height ≈ 22px / 行换算，5-6 行约 110-130 字符的单行长度；
+// 保守取 6 行 + 一个字符容差 ≈ 260 字符作为「超长」阈值。
+const REASONING_AUTO_COLLAPSE_CHAR_LIMIT = 260;
+// 折叠预览容器 max-height，像素值。≈ 6 行 × 22px = 132px，多给 10px 呼吸量，
+// 对应 APP 端 _MarkdownPreviewBody maxHeight: 142。
+const REASONING_PREVIEW_MAX_HEIGHT_PX = 142;
 const SIZE_MOTION_MIN_DELTA_PX = 1.5;
 const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
 
@@ -498,6 +497,21 @@ function trackMessageAppeared(id: string): void {
       appearedMessageIds.delete(entries[i]!);
     }
   }
+}
+
+// 判定 reasoning 正文是否超过「5-6 行」：
+// - 硬换行 (\n) 数 ≥ 5（即内容占 6 行及以上） → 超长；
+// - 无硬换行时回退到字符数阈值（避免一大段未换行的文本被误判为短）。
+function isReasoningLong(content: string): boolean {
+  if (content.length > REASONING_AUTO_COLLAPSE_CHAR_LIMIT) return true;
+  let lineBreaks = 0;
+  for (let i = 0; i < content.length; i++) {
+    if (content.charCodeAt(i) === 10) {
+      lineBreaks += 1;
+      if (lineBreaks >= 5) return true;
+    }
+  }
+  return false;
 }
 
 function isAssistantSideMessage(message: SessionMessage): boolean {
@@ -589,7 +603,11 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
 
     const growing = delta > 0;
     const overshoot = growing ? Math.min(10, Math.max(2, delta * 0.12)) : 0;
-    const duration = growing ? 360 : 230;
+    // 高度动画节奏跟随全局弹窗设置：展开略长收一点弹性，折叠略短偏精准。
+    const baseDuration = getDialogMotionDurationMs() || 280;
+    const duration = growing
+      ? Math.max(260, Math.min(420, Math.round(baseDuration * 1.15)))
+      : Math.max(180, Math.min(300, Math.round(baseDuration * 0.8)));
     overflowBeforeAnimationRef.current = element.style.overflow;
     element.style.overflow = 'clip';
     const animation = element.animate(
@@ -685,14 +703,13 @@ function MessageCardImpl({
   // ── 工具调用/思考类型消息的胶囊折叠/展开（与 APP 端 _ReasoningBody 对齐） ──
   // - 工具调用 / 工具结果 / hook / mcp / skill / reasoning：支持点击胶囊折叠
   // - 流式期间始终展开，便于实时观察
-  // - 流式结束后，超长 reasoning 默认折叠（与 _shouldDefaultExpandReasoning 对齐）
+  // - 流式结束后，超过 5-6 行的 reasoning 默认折叠（用 max-height 预览态）
   // - 用户一旦手动切换，记住其选择，不被流式结束事件回撤
   const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
   const isToolResultKind = message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'skill';
   const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
   const isLongReasoning =
-    message.kind === 'reasoning' &&
-    content.length > REASONING_AUTO_COLLAPSE_CHAR_LIMIT;
+    message.kind === 'reasoning' && isReasoningLong(content);
   const defaultBadgeCollapsed = !streamingContent && isLongReasoning;
   const [badgeCollapsedOverride, setBadgeCollapsedOverride] = useState<boolean | null>(null);
   useEffect(() => {
@@ -845,7 +862,10 @@ function MessageCardImpl({
       ) : null}
       <MessageToolMeta message={message} />
       {isUserBubble ? media : null}
-      <CollapsibleCardBody collapsed={isCollapsibleByBadge && badgeCollapsed} reduceMotion={reduceMotion}>
+      <ReasoningCollapsibleBody
+        collapsed={isCollapsibleByBadge && badgeCollapsed}
+        previewMaxHeight={REASONING_PREVIEW_MAX_HEIGHT_PX}
+      >
         {message.kind === 'file_mutation_summary' ? (
           <FileMutationSummaryCard message={message} />
         ) : useStructuredToolBody ? (
@@ -859,7 +879,7 @@ function MessageCardImpl({
             mono={style.mono === true}
           />
         )}
-      </CollapsibleCardBody>
+      </ReasoningCollapsibleBody>
       {canCollapse && !streamingContent && !badgeCollapsed ? (
         <button
           type="button"
@@ -960,139 +980,44 @@ function ActionBtn({
 // 我们仅依赖父级 mergeStream 已经保证不变前缀的引用稳定，因此默认 shallow compare 已足够。
 export const MessageCard = memo(MessageCardImpl);
 
-/// 可折叠卡片正文容器：由胶囊按钮控制展开/折叠。
-/// 动画跟随全局弹窗动画设置（时长 + 曲线），折叠时 body 完全隐藏（0 高度 +
-/// aria-hidden），与 APP 端 _ReasoningBody 折叠行为一比一对齐。
+/// 思考/工具调用类型消息卡片的可折叠正文容器：
+/// - 展开：正文完整呈现。
+/// - 折叠：限制 max-height ≈ 5-6 行，用 mask-image 在底部做渐隐，
+///   让预览像被「窗帘」半遮住，与 APP 端 _MarkdownPreviewBody 一比一对齐。
 ///
-/// 关键：JSX 不预先注入 height/opacity 内联样式，避免 React commit 时
-/// 浏览器抢先以 0 高度布局，让 useLayoutEffect 来不及测量前一帧高度、
-/// 动画降级为「瞬时跳变」。effect 自己负责所有 style 切换与 WAAPI 动画。
-function CollapsibleCardBody({
+/// 单一高度动画来源：不在这里播 WAAPI，交由外层 `useMessageSizeMotion`
+/// 统一动画文章卡整体高度，避免父子两套 height transition 叠加产生
+/// 抽搐 / 鬼畜感。本容器只负责内容切换 + 渐隐遮罩。
+function ReasoningCollapsibleBody({
   collapsed,
-  reduceMotion,
+  previewMaxHeight,
   children,
 }: {
   collapsed: boolean;
-  reduceMotion: boolean;
+  previewMaxHeight: number;
   children: ComponentChildren;
 }) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<Animation | null>(null);
-  const mountedRef = useRef(false);
-
-  useLayoutEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-
-    // 取消上一次正在播的动画；保留其当前可视高度作为新动画起点。
-    const previousAnimation = animationRef.current;
-    const visualHeightBeforeCancel = previousAnimation
-      ? el.getBoundingClientRect().height
-      : null;
-    previousAnimation?.cancel();
-    animationRef.current = null;
-
-    // 首帧直接落位，不播动画（避免进场叠加闪一下）。
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      applyCollapsedStyles(el, collapsed);
-      return;
-    }
-
-    if (reduceMotion || typeof el.animate !== 'function') {
-      applyCollapsedStyles(el, collapsed);
-      return;
-    }
-
-    // 读取「动画开始前」高度：若上一个动画仍在途中，用其可视高度；
-    // 否则先清掉残留高度锁，测量 body 的自然高度。
-    let startHeight = visualHeightBeforeCancel;
-    if (startHeight == null) {
-      // 先把上一次的 clamp（若有）解开再测，避免读到 0 或锁定值。
-      const cachedInlineHeight = el.style.height;
-      const cachedInlineOverflow = el.style.overflow;
-      const cachedInlineOpacity = el.style.opacity;
-      el.style.height = '';
-      el.style.overflow = '';
-      el.style.opacity = '';
-      startHeight = el.getBoundingClientRect().height;
-      // 若即将折叠，保持这个测量值作为起点再让动画推进到 0；
-      // 若即将展开，起点应为 0（之前就是折叠态），所以恢复回原值。
-      if (collapsed) {
-        el.style.overflow = 'clip';
-      } else {
-        el.style.height = cachedInlineHeight;
-        el.style.overflow = cachedInlineOverflow;
-        el.style.opacity = cachedInlineOpacity;
-      }
-    }
-
-    const targetHeight = collapsed ? 0 : el.scrollHeight;
-    const from = collapsed ? startHeight : 0;
-    const to = targetHeight;
-
-    if (Math.abs(from - to) < 1) {
-      applyCollapsedStyles(el, collapsed);
-      return;
-    }
-
-    const durationMs = Math.max(160, Math.min(400, getDialogMotionDurationMs() || 280));
-    el.style.overflow = 'clip';
-    el.style.willChange = 'height, opacity';
-    const animation = el.animate(
-      collapsed
-        ? [
-            { height: `${from}px`, opacity: 1, offset: 0 },
-            { height: '0px', opacity: 0, offset: 1 },
-          ]
-        : [
-            { height: '0px', opacity: 0, offset: 0 },
-            { height: `${to + Math.min(6, to * 0.04)}px`, opacity: 1, offset: 0.78 },
-            { height: `${to}px`, opacity: 1, offset: 1 },
-          ],
-      {
-        duration: durationMs,
-        easing: collapsed ? getDialogMotionExitCurve() : getDialogMotionCurve(),
-        fill: 'forwards',
-      },
-    );
-    animationRef.current = animation;
-    const finalize = () => {
-      if (animationRef.current !== animation) return;
-      animationRef.current = null;
-      applyCollapsedStyles(el, collapsed);
-      el.style.willChange = '';
-      try { animation.cancel(); } catch { /* noop */ }
-    };
-    animation.finished.then(finalize, finalize);
-  }, [collapsed, reduceMotion]);
-
-  useEffect(() => () => {
-    animationRef.current?.cancel();
-    animationRef.current = null;
-  }, []);
-
   return (
     <div
-      ref={contentRef}
-      class="oh-collapsible-body"
-      aria-hidden={collapsed ? 'true' : undefined}
+      class="oh-reasoning-collapsible-body"
+      data-collapsed={collapsed ? 'true' : 'false'}
+      aria-expanded={collapsed ? 'false' : 'true'}
+      style={collapsed
+        ? {
+            maxHeight: `${previewMaxHeight}px`,
+            overflow: 'hidden',
+            // 底部渐隐：mask-image 让 65%-100% 的像素在垂直方向上
+            // 由 100% 不透明渐变到 0%，保留文字原色，不额外叠气泡色。
+            WebkitMaskImage:
+              'linear-gradient(to bottom, #000 0, #000 65%, transparent 100%)',
+            maskImage:
+              'linear-gradient(to bottom, #000 0, #000 65%, transparent 100%)',
+          }
+        : undefined}
     >
       {children}
     </div>
   );
-}
-
-function applyCollapsedStyles(el: HTMLElement, collapsed: boolean): void {
-  if (collapsed) {
-    el.style.overflow = 'hidden';
-    el.style.height = '0px';
-    el.style.opacity = '0';
-  } else {
-    el.style.overflow = '';
-    el.style.height = '';
-    el.style.opacity = '';
-  }
 }
 
 function ToolExecutionCard({ message }: { message: SessionMessage }) {

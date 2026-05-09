@@ -229,7 +229,8 @@ describe('MessageCard actions', () => {
   });
 
   it('auto-collapses long reasoning body once streaming completes', () => {
-    const reasoningText = `${'B'.repeat(1600)}TAIL_REASONING`;
+    const reasoningText = ['第一行', '第二行', '第三行', '第四行', '第五行', '第六行', '第七行', 'TAIL_REASONING']
+      .join('\n');
     const message: SessionMessage = {
       id: 'reasoning-1',
       kind: 'reasoning',
@@ -249,24 +250,26 @@ describe('MessageCard actions', () => {
     expect(badgeStreaming).not.toBeNull();
     expect(badgeStreaming!.getAttribute('aria-expanded')).toBe('true');
 
-    // 流式结束 → 自动折叠胶囊 (aria-expanded=false) 且正文容器高度为 0
+    // 流式结束 → 自动折叠胶囊 (aria-expanded=false)；正文容器以
+    // data-collapsed='true' 渲染为前 5-6 行预览（非完全隐藏）。
     rerender(<MessageCard message={message} />);
     const badgeDone = container.querySelector<HTMLElement>(
       '.oh-message-badge-toggle',
     );
     expect(badgeDone!.getAttribute('aria-expanded')).toBe('false');
-    const body = container.querySelector<HTMLElement>('.oh-collapsible-body');
+    const body = container.querySelector<HTMLElement>(
+      '.oh-reasoning-collapsible-body',
+    );
     expect(body).not.toBeNull();
-    // useLayoutEffect 同步将内联 style 设为 height: 0px / opacity: 0，
-    // 与 CollapsibleCardBody applyCollapsedStyles 一比一对齐。
-    expect(body!.style.height).toBe('0px');
-    expect(body!.style.opacity).toBe('0');
+    expect(body!.getAttribute('data-collapsed')).toBe('true');
+    // 预览态保留前若干行文字（可被选中 / 复制），渐隐由 mask-image 完成。
+    expect(document.body.textContent ?? '').toContain('第一行');
+    expect(body!.style.maxHeight).toMatch(/^\d+px$/);
     expect(body!.style.overflow).toBe('hidden');
-    expect(body!.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('toggles reasoning badge overrides default collapsed state', () => {
-    const reasoningText = `${'C'.repeat(1600)}TAIL_TOGGLE`;
+    const reasoningText = Array.from({ length: 10 }, (_, i) => `段落 ${i + 1}`).join('\n');
     const message: SessionMessage = {
       id: 'reasoning-2',
       kind: 'reasoning',
@@ -279,21 +282,45 @@ describe('MessageCard actions', () => {
     const badge = container.querySelector<HTMLElement>(
       '.oh-message-badge-toggle',
     )!;
-    const body = container.querySelector<HTMLElement>('.oh-collapsible-body')!;
+    const body = container.querySelector<HTMLElement>(
+      '.oh-reasoning-collapsible-body',
+    )!;
 
-    // 默认折叠
+    // 默认折叠：data-collapsed='true'，max-height 被设定。
     expect(badge.getAttribute('aria-expanded')).toBe('false');
-    expect(body.style.height).toBe('0px');
+    expect(body.getAttribute('data-collapsed')).toBe('true');
+    expect(body.style.maxHeight).toMatch(/^\d+px$/);
 
-    // 点击展开
+    // 点击展开：data-collapsed='false'，内联样式清空。
     fireEvent.click(badge);
     expect(badge.getAttribute('aria-expanded')).toBe('true');
-    expect(body.style.height).toBe('');
-    expect(body.getAttribute('aria-hidden')).toBe(null);
+    expect(body.getAttribute('data-collapsed')).toBe('false');
+    expect(body.style.maxHeight).toBe('');
 
-    // 再次点击折叠
+    // 再次点击恢复折叠。
     fireEvent.click(badge);
     expect(badge.getAttribute('aria-expanded')).toBe('false');
-    expect(body.style.height).toBe('0px');
+    expect(body.getAttribute('data-collapsed')).toBe('true');
+  });
+
+  it('keeps short reasoning messages expanded by default', () => {
+    const shortReasoning = '短短的一句思考';
+    const message: SessionMessage = {
+      id: 'reasoning-short',
+      kind: 'reasoning',
+      role: 'assistant',
+      content: shortReasoning,
+      created_at: '2026-05-09T00:00:00.000Z',
+      character_count: shortReasoning.length,
+    };
+    const { container } = render(<MessageCard message={message} />);
+    const badge = container.querySelector<HTMLElement>(
+      '.oh-message-badge-toggle',
+    )!;
+    const body = container.querySelector<HTMLElement>(
+      '.oh-reasoning-collapsible-body',
+    )!;
+    expect(badge.getAttribute('aria-expanded')).toBe('true');
+    expect(body.getAttribute('data-collapsed')).toBe('false');
   });
 });
