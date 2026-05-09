@@ -326,6 +326,7 @@ export function ModelPickerDialog({
                   highlightKey={highlightKey}
                   onPick={handleSelect}
                   onHover={setHighlightKey}
+                  showProviderSubtitle
                 />
               ) : null}
               {grouped.map((group) => (
@@ -356,6 +357,7 @@ function Section({
   highlightKey,
   onPick,
   onHover,
+  showProviderSubtitle = false,
 }: {
   label: string;
   items: ApiMetaModel[];
@@ -363,6 +365,8 @@ function Section({
   highlightKey: string;
   onPick(key: string): void;
   onHover(key: string): void;
+  /** 「最近使用」分组下显示 provider+protocol 副标题，避免不同服务商的同名模型混淆。 */
+  showProviderSubtitle?: boolean;
 }) {
   return (
     <div>
@@ -427,6 +431,19 @@ function Section({
               <span class="block text-sm truncate" style={{ fontWeight: active ? 600 : 500 }}>
                 {m.model_id || m.label || m.key}
               </span>
+              {showProviderSubtitle ? (
+                <span
+                  class="block text-[11px] truncate"
+                  style={{
+                    color: active
+                      ? 'color-mix(in srgb, var(--m3-on-primary-container) 78%, transparent)'
+                      : 'var(--m3-on-surface-variant)',
+                    marginTop: 1,
+                  }}
+                >
+                  {m.protocol ? `${m.provider}  (${m.protocol})` : m.provider}
+                </span>
+              ) : null}
             </span>
           </button>
         );

@@ -276,6 +276,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                               isActive:
                                   entry.configId == widget.selectedConfigId &&
                                   entry.modelId == widget.selectedModelId,
+                              showProviderSubtitle: true,
                               onTap: () {
                                 Navigator.of(
                                   context,
@@ -351,16 +352,24 @@ class _ModelTile extends StatelessWidget {
     required this.entry,
     required this.isActive,
     required this.onTap,
+    this.showProviderSubtitle = false,
   });
 
   final ModelEntry entry;
   final bool isActive;
   final VoidCallback onTap;
 
+  /// 「最近使用」分组下显示 provider+protocol 副标题，
+  /// 避免不同服务商的同名模型在视觉上无法区分。
+  final bool showProviderSubtitle;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final subtitle = entry.protocolLabel.isEmpty
+        ? entry.providerLabel
+        : '${entry.providerLabel}  (${entry.protocolLabel})';
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -376,13 +385,31 @@ class _ModelTile extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                entry.modelId,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                  color: isActive ? colorScheme.primary : null,
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.modelId,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight:
+                          isActive ? FontWeight.w600 : FontWeight.normal,
+                      color: isActive ? colorScheme.primary : null,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (showProviderSubtitle)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Text(
+                        subtitle,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
