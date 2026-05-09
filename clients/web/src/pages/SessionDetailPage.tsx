@@ -138,6 +138,28 @@ function isRunningPhase(phase: string | null | undefined): boolean {
   return Boolean(phase && phase !== 'idle');
 }
 
+function sendPhaseLabel(phase: string | null | undefined): string {
+  switch ((phase ?? '').trim()) {
+    case '':
+    case 'idle':
+      return t('detail.phase.idle', '空闲');
+    case 'sendingMessage':
+    case 'sending_message':
+      return t('detail.phase.sending', '发送中');
+    case 'awaiting_plan_approval':
+    case 'awaitingPlanApproval':
+      return t('detail.phase.awaitingPlanApproval', '等待批准');
+    case 'running_tool':
+    case 'runningTool':
+      return t('detail.phase.runningTool', '工具执行中');
+    case 'responding':
+    case 'streaming':
+      return t('detail.phase.responding', '生成中');
+    default:
+      return phase ?? t('detail.phase.idle', '空闲');
+  }
+}
+
 export function shouldApplySessionAsyncResult(
   currentSessionId: string,
   requestSessionId: string,
@@ -3007,6 +3029,13 @@ export function SessionDetailPage() {
   };
 
   const responseRunning = isRunningPhase(sendPhase);
+  const followStatusLabel = autoFollowPaused || unreadCount > 0
+    ? unreadCount > 0
+      ? `${unreadCount.toLocaleString()} ${t('detail.unreadUnit', '条新消息')}`
+      : t('detail.follow.paused', '已暂停跟随')
+    : autoFollow
+      ? t('composer.autoFollow', '自动跟随')
+      : t('detail.follow.manual', '手动浏览');
 
   if (!sessionId) {
     return (
@@ -3117,14 +3146,7 @@ export function SessionDetailPage() {
         ) : null}
 
         {remoteRunning ? (
-          <div
-            class="oh-remote-running-banner rounded-md px-3 py-2 mb-4 text-xs flex items-start gap-2"
-            style={{
-              background: 'var(--m3-tertiary-container)',
-              color: 'var(--m3-on-tertiary-container)',
-              border: '1px solid color-mix(in srgb, var(--m3-tertiary) 36%, transparent)',
-            }}
-          >
+          <div class="oh-remote-running-banner rounded-md px-3 py-2 text-xs flex items-start gap-2">
             <span class="oh-remote-running-text">
               {t(
                 'detail.remoteRunning',
@@ -3134,26 +3156,59 @@ export function SessionDetailPage() {
           </div>
         ) : null}
 
+        {session ? (
+          <div class="oh-session-status-strip" aria-label={t('detail.statusStrip', '会话状态')}>
+            <span class={`oh-session-status-chip ${sseLive ? 'is-live' : 'is-muted'}`}>
+              <span class="oh-session-status-dot" aria-hidden />
+              <span>{sseLive ? t('detail.sync.live', '实时同步') : t('detail.sync.polling', '轮询同步')}</span>
+            </span>
+            <span class={`oh-session-status-chip ${responseRunning ? 'is-running' : 'is-muted'}`}>
+              <span class={`oh-session-status-icon ${responseRunning ? 'oh-spin' : ''}`} aria-hidden>
+                <ComposerIcon name="refresh" size={13} />
+              </span>
+              <span>{sendPhaseLabel(sendPhase)}</span>
+            </span>
+            <button
+              type="button"
+              class={`oh-session-status-chip oh-tap-press ${autoFollowPaused || unreadCount > 0 ? 'is-accent' : autoFollow ? 'is-live' : 'is-muted'}`}
+              onClick={autoFollowPaused || unreadCount > 0 ? resumeToLatest : undefined}
+              disabled={!autoFollowPaused && unreadCount === 0}
+              title={autoFollowPaused || unreadCount > 0
+                ? t('detail.resumeToLatest', '回到底部')
+                : t('composer.autoFollow', '自动跟随到底部')}
+            >
+              <span class="oh-session-status-icon" aria-hidden>
+                <ComposerIcon name="follow" size={13} />
+              </span>
+              <span>{followStatusLabel}</span>
+            </button>
+            {queuedComposerMessages.length > 0 ? (
+              <span class="oh-session-status-chip is-accent">
+                <span class="oh-session-status-icon" aria-hidden>
+                  <ComposerIcon name="send" size={13} />
+                </span>
+                <span>{queuedComposerMessages.length.toLocaleString()} {t('composer.queue.unit', '条')} {t('composer.queue.title', '自动发送等待队列')}</span>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
         {/* 主区：只有这块滚动，顶部 TopBar / 底部 Composer 固定在视口内。 */}
         <section ref={mainRef} class="oh-session-messages relative flex-1 min-h-0 overflow-y-auto pr-1 pb-3">
           <div ref={messagesContentRef} class="oh-session-message-content">
           {loadingDetail ? (
-            <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {t('detail.loading', '加载会话中…')}
-            </p>
+            <div class="oh-session-state-card is-loading">
+              <span class="oh-session-state-icon oh-spin" aria-hidden><ComposerIcon name="refresh" size={18} /></span>
+              <span>{t('detail.loading', '加载会话中…')}</span>
+            </div>
           ) : error ? (
-            <div
-              class="rounded-md p-4 text-sm"
-              style={{
-                background: 'var(--m3-surface-container)',
-                color: 'var(--m3-error)',
-              }}
-            >
-              {error}
+            <div class="oh-session-state-card is-error">
+              <span class="oh-session-state-icon" aria-hidden><ComposerIcon name="refresh" size={18} /></span>
+              <span>{error}</span>
               <button
                 type="button"
                 onClick={loadDetail}
-                class="ml-3 underline"
+                class="oh-session-state-action oh-tap-press"
               >
                 {t('sessions.retry', '重试')}
               </button>
@@ -3167,12 +3222,11 @@ export function SessionDetailPage() {
                     type="button"
                     onClick={loadOlder}
                     disabled={loadingOlder}
-                    class="text-xs px-3 py-1.5 rounded-md disabled:opacity-50"
-                    style={{
-                      border: '1px solid var(--m3-outline)',
-                      color: 'var(--m3-on-surface-variant)',
-                    }}
+                    class="oh-session-load-older-button oh-tap-press disabled:opacity-50"
                   >
+                    <span class={loadingOlder ? 'oh-spin' : undefined} aria-hidden>
+                      <ComposerIcon name="refresh" size={13} />
+                    </span>
                     {loadingOlder
                       ? t('detail.loadingOlder', '加载中…')
                       : t('detail.loadOlder', '加载更早 ') +
@@ -3182,12 +3236,10 @@ export function SessionDetailPage() {
               ) : null}
 
             {sortedMessages.length === 0 ? (
-              <p
-                class="text-center py-12 text-sm"
-                style={{ color: 'var(--m3-on-surface-variant)' }}
-              >
-                {t('detail.empty', '该会话尚无消息。')}
-              </p>
+              <div class="oh-session-empty-state">
+                <span class="oh-session-empty-icon" aria-hidden><ComposerIcon name="chat" size={20} /></span>
+                <span>{t('detail.empty', '该会话尚无消息。')}</span>
+              </div>
             ) : (
               <>
                 {detail?.session ? (
@@ -3720,24 +3772,11 @@ export function SessionDetailPage() {
             disabled={composerSending || composerCollapsed}
             rows={4}
             placeholder={t('composer.placeholder', '输入消息')}
-            class="w-full px-3 py-2 rounded-md text-sm"
-            style={{
-              background: 'var(--m3-surface)',
-              color: 'var(--m3-on-surface)',
-              border: '1px solid var(--m3-outline)',
-              resize: 'none',
-              fontFamily: 'inherit',
-            }}
+            class="oh-composer-textarea w-full px-3 py-2 rounded-md text-sm"
           />
           {dragOver ? (
             <div
-              class="absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up"
-              style={{
-                background: 'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
-                border: '2px dashed var(--m3-primary)',
-                color: 'var(--m3-primary)',
-                fontWeight: 600,
-              }}
+              class="oh-composer-drop-overlay absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up"
             >
               {t('composer.attachment.drop', '松开即可添加附件')}
             </div>
@@ -3759,12 +3798,7 @@ export function SessionDetailPage() {
           >
             {attachmentsAllowed ? (
               <label
-                class="oh-tap-press text-xs px-3 py-2 rounded-m3-sm cursor-pointer flex items-center gap-1.5"
-                style={{
-                  border: '1px solid var(--m3-outline)',
-                  color: 'var(--m3-on-surface-variant)',
-                  background: 'var(--m3-surface)',
-                }}
+                class="oh-tap-press oh-composer-footer-action is-attachment cursor-pointer"
               >
                 <span class="oh-composer-action-icon"><ComposerIcon name="attachment" size={16} /></span>
                 {t('composer.attachment.add', '添加附件')}
@@ -3792,10 +3826,6 @@ export function SessionDetailPage() {
                 onClick={handleStop}
                 disabled={stopping}
                 class="oh-tap-press oh-composer-footer-action is-stop disabled:opacity-50"
-                style={{
-                  border: '1px solid var(--m3-error)',
-                  color: 'var(--m3-error)',
-                }}
               >
                 <span class={stopping ? 'oh-spin' : undefined}>
                   <ComposerIcon name={stopping ? 'refresh' : 'stop'} size={16} />
@@ -3810,10 +3840,6 @@ export function SessionDetailPage() {
               onClick={handleSend}
               disabled={composerSendDisabled}
               class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${responseRunning ? 'is-queueing' : ''}`}
-              style={{
-                background: 'var(--m3-primary)',
-                color: 'var(--m3-on-primary)',
-              }}
             >
               <span class={composerSending ? 'oh-spin' : undefined}>
                 <ComposerIcon name={composerSending ? 'refresh' : 'send'} size={16} />
