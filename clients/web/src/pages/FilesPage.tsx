@@ -24,6 +24,7 @@ import { CodeEditor } from '../components/CodeEditor';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { showSnackbar } from '../components/Snackbar';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { TopBar } from '../components/TopBar';
 
 function parentOf(path: string): string {
   const trimmed = path.replace(/\/+$/, '');
@@ -237,98 +238,72 @@ export function FilesPage() {
   };
 
   return (
-    <main class="min-h-screen p-4 sm:p-6">
+    <main class="oh-files-page min-h-screen p-4 sm:p-6">
       <div class="max-w-7xl mx-auto">
-        {/* 顶部 toolbar */}
-        <header class="flex items-center justify-between gap-3 mb-4 flex-wrap">
-          <div class="flex items-center gap-3 min-w-0 flex-wrap">
+        <TopBar
+          title={t('files.title', '工作区文件')}
+          subtitle={list ? `root: ${list.root}` : t('files.subtitle.loading', '正在加载工作区根目录…')}
+          hideNav
+          leadingSlot={(
             <button
               type="button"
               onClick={() => location.route('/')}
-              class="text-sm px-3 py-1.5 rounded-m3-sm"
-              style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
+              class="oh-tap-press oh-topbar-action text-sm rounded-m3-sm px-3 py-1.5"
             >
               ← {t('files.backHome', '返回首页')}
             </button>
-            <h1 class="text-xl font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
-              {t('files.title', '工作区文件')}
-            </h1>
-            {list && (
-              <span
-                class="text-xs font-mono min-w-0 truncate max-w-full sm:max-w-[520px]"
-                style={{ color: 'var(--m3-on-surface-variant)' }}
-                title={`root: ${list.root}`}
+          )}
+          actionSlot={(
+            <>
+              {list ? (
+                <span
+                  class={`oh-files-mode-pill${fileOperationsEnabled ? ' is-writeable' : ''}`}
+                >
+                  {fileOperationsEnabled
+                    ? t('files.operations.enabled', '文件操作已开启')
+                    : t('files.operations.readOnly', '只读浏览')}
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                class="oh-tap-press oh-topbar-action text-sm rounded-m3-sm px-3 py-1.5"
               >
-                root: {list.root}
-              </span>
-            )}
-          </div>
-          <div class="flex items-center gap-2">
-            {list ? (
-              <span
-                class="text-xs px-2 py-1 rounded-m3-sm"
-                style={{
-                  color: fileOperationsEnabled ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)',
-                  border: '1px solid var(--m3-outline)',
-                  background: 'var(--m3-surface)',
-                }}
-              >
-                {fileOperationsEnabled
-                  ? t('files.operations.enabled', '文件操作已开启')
-                  : t('files.operations.readOnly', '只读浏览')}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void refresh()}
-              class="text-sm px-3 py-1.5 rounded-m3-sm"
-              style={{ color: 'var(--m3-on-surface-variant)', border: '1px solid var(--m3-outline)' }}
-            >
-              {t('common.refresh', '刷新')}
-            </button>
-          </div>
-        </header>
+                {t('common.refresh', '刷新')}
+              </button>
+            </>
+          )}
+        />
 
         {/* 面包屑 + 路径输入 */}
-        <div
-          class="rounded-m3-md p-3 mb-3 flex items-center gap-2 flex-wrap"
-          style={{ backgroundColor: 'var(--m3-surface-container)' }}
-        >
+        <div class="oh-files-path-card mb-3">
           {breadcrumbs.map((b, i) => (
             <span key={`${b.path}-${i}`} class="flex items-center gap-2">
-              {i > 0 && <span style={{ color: 'var(--m3-on-surface-variant)' }}>/</span>}
+              {i > 0 && <span class="oh-files-path-separator">/</span>}
               <button
                 type="button"
                 onClick={() => {
                   setPath(b.path);
                   setSelected(null);
                 }}
-                class="text-sm hover:underline"
-                style={{ color: 'var(--m3-primary)' }}
+                class="oh-files-breadcrumb"
               >
                 {b.name}
               </button>
             </span>
           ))}
           <span class="flex-1" />
-          <form onSubmit={onPathSubmit} class="flex items-center gap-2">
+          <form onSubmit={onPathSubmit} class="oh-files-path-form">
             <input
               type="text"
               value={pathInput}
               onInput={(ev) => setPathInput((ev.target as HTMLInputElement).value)}
               placeholder={t('files.path.placeholder', '直接输入相对路径…')}
-              class="text-sm px-2 py-1 rounded-m3-sm"
-              style={{
-                backgroundColor: 'var(--m3-surface)',
-                border: '1px solid var(--m3-outline)',
-                color: 'var(--m3-on-surface)',
-                minWidth: '220px',
-              }}
+              class="oh-files-input"
             />
             <button
               type="submit"
-              class="text-xs px-2 py-1 rounded-m3-sm"
-              style={{ color: 'var(--m3-on-primary)', backgroundColor: 'var(--m3-primary)' }}
+              class="oh-tap-press oh-files-primary-button"
             >
               {t('files.path.go', '跳转')}
             </button>
@@ -338,21 +313,18 @@ export function FilesPage() {
         {/* 列表 + 详情 */}
         <div class="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-3">
           {/* 左：列表 */}
-          <section class="oh-appear-up rounded-m3-md p-3"
-            style={{ backgroundColor: 'var(--m3-surface-container)' }}
-          >
+          <section class="oh-appear-up oh-files-panel">
+            <div class="oh-files-panel-heading">
+              <span>{t('files.list.heading', '当前目录')}</span>
+              {list ? <span>{list.items.length}</span> : null}
+            </div>
             <div class="flex items-center gap-2 mb-3">
               <input
                 type="text"
                 value={query}
                 onInput={(ev) => setQuery((ev.target as HTMLInputElement).value)}
                 placeholder={t('files.search.placeholder', '按文件名搜索…')}
-                class="flex-1 text-sm px-2 py-1 rounded-m3-sm"
-                style={{
-                  backgroundColor: 'var(--m3-surface)',
-                  border: '1px solid var(--m3-outline)',
-                  color: 'var(--m3-on-surface)',
-                }}
+                class="oh-files-input flex-1"
               />
               <MenuSelect
                 value={typeFilter}
@@ -368,7 +340,7 @@ export function FilesPage() {
 
             {/* 创建行：仅在 write_enabled 时显示。先点选 [文件]/[目录]，再输入名字回车 */}
             {fileOperationsEnabled ? (
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
+              <div class="oh-files-create-row">
                 <button
                   type="button"
                   onClick={() => {
@@ -376,12 +348,7 @@ export function FilesPage() {
                     setCreateName('');
                     setActionError(null);
                   }}
-                  class="text-xs px-2 py-1 rounded-m3-sm"
-                  style={{
-                    color: creating === 'file' ? 'var(--m3-on-primary)' : 'var(--m3-primary)',
-                    backgroundColor: creating === 'file' ? 'var(--m3-primary)' : 'transparent',
-                    border: '1px solid var(--m3-primary)',
-                  }}
+                  class={`oh-tap-press oh-files-secondary-button${creating === 'file' ? ' is-active' : ''}`}
                 >
                   + {t('files.newFile', '新建文件')}
                 </button>
@@ -392,12 +359,7 @@ export function FilesPage() {
                     setCreateName('');
                     setActionError(null);
                   }}
-                  class="text-xs px-2 py-1 rounded-m3-sm"
-                  style={{
-                    color: creating === 'directory' ? 'var(--m3-on-primary)' : 'var(--m3-primary)',
-                    backgroundColor: creating === 'directory' ? 'var(--m3-primary)' : 'transparent',
-                    border: '1px solid var(--m3-primary)',
-                  }}
+                  class={`oh-tap-press oh-files-secondary-button${creating === 'directory' ? ' is-active' : ''}`}
                 >
                   + {t('files.newDir', '新建目录')}
                 </button>
@@ -407,7 +369,7 @@ export function FilesPage() {
                       ev.preventDefault();
                       void handleCreate();
                     }}
-                    class="flex-1 flex items-center gap-1 min-w-[160px]"
+                    class="flex-1 flex items-center gap-2 min-w-[180px]"
                   >
                     <input
                       type="text"
@@ -419,22 +381,12 @@ export function FilesPage() {
                           ? t('files.newFile.placeholder', '新文件名…')
                           : t('files.newDir.placeholder', '新目录名…')
                       }
-                      class="flex-1 text-xs px-2 py-1 rounded-m3-sm"
-                      style={{
-                        backgroundColor: 'var(--m3-surface)',
-                        border: '1px solid var(--m3-outline)',
-                        color: 'var(--m3-on-surface)',
-                      }}
+                      class="oh-files-input flex-1"
                     />
                     <button
                       type="submit"
                       disabled={createBusy || !createName.trim()}
-                      class="text-xs px-2 py-1 rounded-m3-sm"
-                      style={{
-                        color: 'var(--m3-on-primary)',
-                        backgroundColor: 'var(--m3-primary)',
-                        opacity: createBusy || !createName.trim() ? 0.5 : 1,
-                      }}
+                      class="oh-tap-press oh-files-primary-button"
                     >
                       {createBusy ? t('files.creating', '创建中…') : t('files.create', '创建')}
                     </button>
@@ -442,14 +394,7 @@ export function FilesPage() {
                 )}
               </div>
             ) : list ? (
-              <div
-                class="mb-2 rounded-m3-sm px-3 py-2 text-xs leading-snug"
-                style={{
-                  backgroundColor: 'var(--m3-surface)',
-                  border: '1px solid var(--m3-outline)',
-                  color: 'var(--m3-on-surface-variant)',
-                }}
-              >
+              <div class="oh-files-notice">
                 {t(
                   'files.operations.disabledHint',
                   '项目文件浏览与读取已开放；创建、保存、删除需要在 App 端 Web 通用消息平台里开启“是否支持操作文件”。',
@@ -469,8 +414,7 @@ export function FilesPage() {
                   setPath(parentOf(path));
                   setSelected(null);
                 }}
-                class="block w-full text-left px-2 py-1.5 rounded-m3-sm text-sm mb-1"
-                style={{ color: 'var(--m3-on-surface-variant)', backgroundColor: 'var(--m3-surface)' }}
+                class="oh-files-parent-row"
               >
                 ../  ({t('files.parent', '上级目录')})
               </button>
@@ -492,29 +436,20 @@ export function FilesPage() {
               </p>
             )}
 
-            <ul class="flex flex-col gap-0.5 max-h-[60vh] overflow-y-auto">
+            <ul class="oh-files-list">
               {list?.items.map((it) => {
                 const isActive = selected?.path === it.path;
                 return (
-                  <li key={it.path} class="flex items-center gap-1">
+                  <li key={it.path} class="oh-files-list-item">
                     <button
                       type="button"
                       onClick={() => onOpenItem(it)}
-                      class="flex-1 min-w-0 text-left px-2 py-1.5 rounded-m3-sm text-sm flex items-center gap-2"
-                      style={{
-                        backgroundColor: isActive ? 'var(--m3-primary)' : 'transparent',
-                        color: isActive ? 'var(--m3-on-primary)' : 'var(--m3-on-surface)',
-                      }}
+                      class={`oh-files-row${isActive ? ' is-active' : ''}`}
                       title={it.path}
                     >
-                      <span style={{ width: '26px', fontSize: '11px', fontWeight: 700 }}>{it.type === 'directory' ? 'DIR' : 'FILE'}</span>
-                      <span class="flex-1 truncate font-mono">{it.name}</span>
-                      <span
-                        class="text-xs"
-                        style={{
-                          color: isActive ? 'var(--m3-on-primary)' : 'var(--m3-on-surface-variant)',
-                        }}
-                      >
+                      <span class="oh-files-kind">{it.type === 'directory' ? 'DIR' : 'FILE'}</span>
+                      <span class="oh-files-name">{it.name}</span>
+                      <span class="oh-files-size">
                         {it.type === 'file' ? tBytes(it.size) : ''}
                       </span>
                     </button>
@@ -527,13 +462,7 @@ export function FilesPage() {
                         }}
                         disabled={deleteBusy}
                         title={t('files.delete', '删除')}
-                        class="text-xs px-1.5 py-1 rounded-m3-sm shrink-0"
-                        style={{
-                          color: 'var(--m3-on-surface-variant)',
-                          backgroundColor: 'transparent',
-                          border: '1px solid var(--m3-outline)',
-                          opacity: deleteBusy ? 0.55 : 1,
-                        }}
+                        class="oh-tap-press oh-files-delete-button"
                       >
                         {t('files.delete', '删除')}
                       </button>
@@ -544,7 +473,7 @@ export function FilesPage() {
             </ul>
 
             {list && (
-              <p class="mt-3 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="oh-files-footnote">
                 {t('files.writeEnabled', '可写入：')}
                 {fileOperationsEnabled ? t('common.on', '开启') : t('common.off', '关闭')} ·{' '}
                 {t('files.maxBytes', '单文件上限：')}
@@ -554,36 +483,35 @@ export function FilesPage() {
           </section>
 
           {/* 右：详情/编辑器 */}
-          <section ref={detailSectionRef} class="oh-appear-up rounded-m3-md p-3 flex flex-col"
-            style={{ backgroundColor: 'var(--m3-surface-container)', minHeight: '60vh' }}
-          >
+          <section ref={detailSectionRef} class="oh-appear-up oh-files-panel oh-files-detail-panel">
             {!selected ? (
-              <div class="flex-1 flex items-center justify-center">
-                <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <div class="oh-files-empty-detail">
+                <p class="oh-files-empty-mark">/</p>
+                <p>
                   {t('files.selectHint', '从左侧选择一个文件以查看 / 编辑')}
                 </p>
               </div>
             ) : (
               <>
-                <header class="flex items-center justify-between gap-2 mb-2">
+                <header class="oh-files-detail-header">
                   <div class="min-w-0">
-                    <p class="text-sm font-mono truncate" style={{ color: 'var(--m3-on-surface)' }}>
+                    <p class="oh-files-detail-path">
                       {selected.path}
                     </p>
                     {contentMeta && (
-                      <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      <p class="oh-files-detail-meta">
                         {tBytes(contentMeta.size)} · {tDateTime(contentMeta.modified_at)}
                       </p>
                     )}
                   </div>
                   <div class="flex items-center gap-2">
                     {dirty && (
-                      <span class="text-xs" style={{ color: 'var(--m3-error)' }}>
+                      <span class="oh-files-status is-dirty">
                         {t('files.dirty', '未保存')}
                       </span>
                     )}
                     {saveOk && (
-                      <span class="text-xs" style={{ color: 'var(--m3-primary)' }}>
+                      <span class="oh-files-status is-saved">
                         ✓ {t('files.saveOk', '已保存')}
                       </span>
                     )}
@@ -591,12 +519,7 @@ export function FilesPage() {
                       type="button"
                       onClick={() => void handleSave()}
                       disabled={writeDisabled || !dirty || saving}
-                      class="text-sm px-3 py-1.5 rounded-m3-sm"
-                      style={{
-                        color: 'var(--m3-on-primary)',
-                        backgroundColor: 'var(--m3-primary)',
-                        opacity: writeDisabled || !dirty || saving ? 0.5 : 1,
-                      }}
+                      class="oh-tap-press oh-files-primary-button"
                       title={writeDisabled ? t('files.writeDisabledHint', '该文件不可写入') : undefined}
                     >
                       {saving ? t('files.saving', '保存中…') : t('files.save', '保存')}
