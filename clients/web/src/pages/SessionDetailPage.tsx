@@ -1284,6 +1284,31 @@ export function SessionDetailPage() {
     persistComposerCollapsed(composerCollapsed);
   }, [composerCollapsed]);
 
+  // 折叠/展开期间稳住消息：observer 跟踪 composer 高度变化，
+  // 当用户「未在底部」时把 transcript scrollTop 反向补偿，让可视区底部
+  // 锚到原始内容偏移，从而上方消息不被「挤上去 / 压下来」。
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') return;
+    const composerEl = composerSectionRef.current;
+    const scroller = mainRef.current;
+    if (!composerEl || !scroller) return;
+    let lastH = composerEl.getBoundingClientRect().height;
+    const observer = new ResizeObserver(() => {
+      const measured = composerEl.getBoundingClientRect().height;
+      const delta = measured - lastH;
+      lastH = measured;
+      if (delta === 0) return;
+      // 距离底部 32px 内视为贴底，让 auto-follow 接管，不补偿。
+      const distanceFromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+      if (distanceFromBottom <= 32) return;
+      // composer 高度变 +Δ → transcript 可视高度 -Δ；让视口底部内容偏移恒定 →
+      // newScrollTop = oldScrollTop + Δ。
+      scroller.scrollTop = scroller.scrollTop + delta;
+    });
+    observer.observe(composerEl);
+    return () => observer.disconnect();
+  }, []);
+
   useLayoutEffect(() => {
     if (shouldFollowPinnedMessages()) scheduleFollowToBottom('auto');
   }, [
@@ -3172,19 +3197,25 @@ export function SessionDetailPage() {
               {composerModeLabel(composerMode)}
             </span>
             {selectedSkill ? (
-              <button
-                type="button"
-                class={`oh-composer-pill oh-composer-chip-motion ${composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`) ? 'is-exiting' : ''}`}
-                onClick={() => runAfterComposerChipExit(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`, () => setSelectedSkill(null))}
-                disabled={composerSending || composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`)}
-                title={t('composer.skill.clear', '移除已选择技能')}
+              <span
+                class={`oh-composer-pill oh-composer-skill-pill oh-composer-chip-motion ${composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`) ? 'is-exiting' : ''}`}
+                title={selectedSkill.name}
               >
                 <span class="oh-composer-pill-icon">
                   {selectedSkill.emoji_icon || <ComposerIcon name="spark" size={16} />}
                 </span>
                 <span class="truncate max-w-[180px]">{selectedSkill.name}</span>
-                <span class="oh-composer-pill-icon"><ComposerIcon name="close" size={15} /></span>
-              </button>
+                <button
+                  type="button"
+                  class="oh-composer-pill-close oh-tap-press"
+                  onClick={() => runAfterComposerChipExit(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`, () => setSelectedSkill(null))}
+                  disabled={composerSending || composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`)}
+                  aria-label={t('composer.skill.clear', '移除已选择技能')}
+                  title={t('composer.skill.clear', '移除已选择技能')}
+                >
+                  <ComposerIcon name="close" size={15} />
+                </button>
+              </span>
             ) : null}
           </div>
 

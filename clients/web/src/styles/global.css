@@ -868,6 +868,31 @@ button.oh-composer-pill:not(:disabled):hover {
   place-items: center;
   color: currentColor;
 }
+.oh-composer-pill-close {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  margin: 0 -2px 0 2px;
+  padding: 0;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: currentColor;
+  cursor: pointer;
+  transition:
+    background-color 180ms var(--oh-motion-emphasized),
+    transform 220ms var(--oh-motion-spring);
+}
+.oh-composer-pill-close:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  transform: scale(1.06);
+}
+.oh-composer-pill-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .oh-composer-edit-pill {
   border-color: color-mix(in srgb, var(--m3-tertiary) 45%, var(--m3-outline-variant));
   background: color-mix(in srgb, var(--m3-tertiary-container) 74%, transparent);

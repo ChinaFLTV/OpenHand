@@ -740,6 +740,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   AiCreationOptions _creationOptions = AiCreationOptions.empty;
   double _composerHeight = _composerDefaultHeight;
   bool _composerCollapsed = false;
+  /// 最近一次量到的 composer panel 高度，供折叠/展开时反向补偿 transcript scroll。
+  double? _lastComposerHeight;
   bool _autoFollowEnabled = true;
   // True when auto-follow mode is ON but the user has scrolled away from the
   // bottom, so auto-scrolling is temporarily paused until the user scrolls
@@ -4833,6 +4835,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _handleComposerLayoutChanged() {
+    // 折叠/展开期间稳住消息：用 composer panel size delta 反向补偿 transcript
+    // scrollOffset，让用户「未在底部」时上方消息不被挤上去 / 压下来。
+    final composerCtx = _composerPanelKey.currentContext;
+    final renderObject = composerCtx?.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      final newHeight = renderObject.size.height;
+      final prev = _lastComposerHeight;
+      _lastComposerHeight = newHeight;
+      if (prev != null) {
+        final delta = newHeight - prev;
+        if (delta.abs() > 0.5 && _messageScrollController.hasClients) {
+          final position = _messageScrollController.position;
+          final distanceFromBottom =
+              position.maxScrollExtent - position.pixels;
+          // 与 web 一致：32px 以内视为贴底，让 auto-follow 接管。
+          if (distanceFromBottom > 32) {
+            final target = (position.pixels + delta).clamp(
+              position.minScrollExtent,
+              position.maxScrollExtent,
+            );
+            position.jumpTo(target);
+          }
+        }
+      }
+    }
     if (_shouldDeferAutoFollowScheduling()) {
       return;
     }
