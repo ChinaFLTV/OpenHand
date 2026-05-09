@@ -137,20 +137,16 @@ export function ToolboxPage() {
           </div>
         ) : null}
 
-        <div class="flex flex-wrap gap-2 mb-4">
+        <div class="oh-toolbox-tabs mb-4" role="tablist" aria-label={t('toolbox.tabs.aria', '工具箱分类')}>
           {tabs.map((tab) => {
             const isActive = active === tab.key;
             return (
               <button
                 key={tab.key}
                 type="button"
-                class="oh-tap-press text-sm rounded-m3-sm transition-colors"
-                style={{
-                  padding: '6px 14px',
-                  background: isActive ? 'var(--m3-primary-container)' : 'transparent',
-                  color: isActive ? 'var(--m3-on-primary-container)' : 'var(--m3-on-surface-variant)',
-                  border: '1px solid var(--m3-outline-variant)',
-                }}
+                class={`oh-tap-press oh-toolbox-tab${isActive ? ' is-active' : ''}`}
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => setActive(tab.key)}
               >
                 {tab.label}
@@ -178,12 +174,7 @@ function emptyHint(label: string) {
   return (
     <Appear variant="up">
       <p
-        class="rounded-m3-md px-4 py-6 text-sm text-center"
-        style={{
-          background: 'var(--m3-surface-container-low)',
-          color: 'var(--m3-on-surface-variant)',
-          border: '1px dashed var(--m3-outline-variant)',
-        }}
+        class="oh-toolbox-empty"
       >
         {label}
       </p>
@@ -199,25 +190,19 @@ function McpList(props: { items: McpServerSummary[] }) {
         const badge = statusBadge(srv.enabled ? 'success' : 'disabled');
         return (
           <Appear key={srv.name} variant="up" index={idx}>
-            <li
-              class="rounded-m3-md p-3"
-              style={{
-                background: 'var(--m3-surface-container)',
-                border: '1px solid var(--m3-outline-variant)',
-              }}
-            >
+            <li class="oh-toolbox-card">
               <div class="flex items-baseline justify-between gap-3">
                 <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
                   {srv.name}
                 </h3>
                 <span
-                  class="text-xs px-2 py-0.5 rounded-m3-xs"
+                  class="oh-toolbox-badge"
                   style={{ color: badge.color, background: badge.bg }}
                 >
                   {srv.enabled ? t('toolbox.mcp.enabled', '已启用') : t('toolbox.mcp.disabled', '未启用')}
                 </span>
               </div>
-              <div class="mt-2 grid grid-cols-2 gap-2 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <div class="oh-toolbox-meta-grid">
                 <div>{t('toolbox.mcp.type', '类型')}: <code>{srv.type}</code></div>
                 <div>{t('toolbox.mcp.tools', '工具数')}: {srv.tool_count}</div>
                 {srv.url ? <div class="col-span-2">URL: <code>{srv.url}</code></div> : null}
@@ -241,20 +226,14 @@ function SkillsList(props: { items: SkillSummary[]; root: string }) {
   return (
     <>
       {props.root ? (
-        <p class="text-xs mb-3" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="oh-toolbox-section-note">
           {t('toolbox.skills.root', '存储位置')}: <code>{props.root}</code>
         </p>
       ) : null}
       <ul class="space-y-2">
         {props.items.map((sk, idx) => (
           <Appear key={sk.name} variant="up" index={idx}>
-            <li
-              class="rounded-m3-md p-3"
-              style={{
-                background: 'var(--m3-surface-container)',
-                border: '1px solid var(--m3-outline-variant)',
-              }}
-            >
+            <li class="oh-toolbox-card">
               <div class="flex items-baseline gap-2">
                 {sk.emoji_icon ? <span style={{ fontSize: 16 }}>{sk.emoji_icon}</span> : null}
                 <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{sk.name}</h3>
@@ -289,13 +268,7 @@ function MemoriesList(props: { items: MemoryEntrySummary[] }) {
     <ul class="space-y-2">
       {props.items.map((m, idx) => (
         <Appear key={m.id} variant="up" index={idx}>
-          <li
-            class="rounded-m3-md p-3"
-            style={{
-              background: 'var(--m3-surface-container)',
-              border: '1px solid var(--m3-outline-variant)',
-            }}
-          >
+          <li class="oh-toolbox-card">
             <div class="flex items-baseline justify-between gap-3">
               <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{m.title}</h3>
               <span class="text-[10px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -344,17 +317,11 @@ function CronsList(props: { items: CronEntrySummary[] }) {
         const badge = statusBadge(c.enabled ? c.status : 'disabled');
         return (
           <Appear key={c.id} variant="up" index={idx}>
-            <li
-              class="rounded-m3-md p-3"
-              style={{
-                background: 'var(--m3-surface-container)',
-                border: '1px solid var(--m3-outline-variant)',
-              }}
-            >
+            <li class="oh-toolbox-card">
               <div class="flex items-baseline justify-between gap-3">
                 <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{c.name}</h3>
                 <span
-                  class="text-xs px-2 py-0.5 rounded-m3-xs"
+                  class="oh-toolbox-badge"
                   style={{ color: badge.color, background: badge.bg }}
                 >
                   {badge.label}
@@ -363,7 +330,7 @@ function CronsList(props: { items: CronEntrySummary[] }) {
               {c.description ? (
                 <p class="text-xs mt-1.5" style={{ color: 'var(--m3-on-surface-variant)' }}>{c.description}</p>
               ) : null}
-              <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <div class="oh-toolbox-meta-grid">
                 <div>{t('toolbox.cron.expr', '表达式')}: <code>{c.cron_expression}</code></div>
                 <div>{t('toolbox.cron.scriptType', '脚本类型')}: <code>{c.script_type}</code></div>
                 <div>

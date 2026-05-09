@@ -389,6 +389,157 @@ html, body, #root {
   line-height: 1;
 }
 
+.oh-topbar {
+  position: relative;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--m3-surface-container-low) 82%, var(--m3-surface));
+  box-shadow: 0 14px 34px -32px color-mix(in srgb, var(--m3-shadow, #000) 38%, transparent);
+}
+.oh-topbar.is-compact {
+  padding: 9px 11px;
+  border-radius: 18px;
+}
+.oh-topbar-logo-wrap {
+  width: 50px;
+  height: 50px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--m3-primary-container) 72%, var(--m3-surface));
+  box-shadow:
+    0 10px 22px -18px color-mix(in srgb, var(--m3-primary) 70%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--m3-primary) 18%, transparent);
+}
+.oh-topbar.is-compact .oh-topbar-logo-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+}
+.oh-topbar-logo {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  border-radius: 14px;
+}
+.oh-topbar.is-compact .oh-topbar-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+}
+.oh-topbar-title {
+  color: var(--m3-on-surface);
+}
+.oh-topbar-subtitle {
+  color: var(--m3-on-surface-variant);
+}
+.oh-topbar-action {
+  color: var(--m3-on-surface-variant);
+  border: 1px solid var(--m3-outline-variant);
+  background: color-mix(in srgb, var(--m3-surface-container-high) 64%, transparent);
+}
+.oh-topbar-action:hover:not(:disabled) {
+  color: var(--m3-primary);
+  border-color: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 50%, transparent);
+}
+
+.oh-toolbox-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 78%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--m3-surface-container-low) 78%, transparent);
+}
+.oh-toolbox-tab {
+  min-height: 34px;
+  padding: 7px 14px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  color: var(--m3-on-surface-variant);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+}
+.oh-toolbox-tab.is-active {
+  color: var(--m3-on-primary-container);
+  border-color: color-mix(in srgb, var(--m3-primary) 22%, transparent);
+  background: var(--m3-primary-container);
+  box-shadow: 0 8px 18px -16px color-mix(in srgb, var(--m3-primary) 70%, transparent);
+}
+.oh-toolbox-empty {
+  padding: 24px 16px;
+  border-radius: 18px;
+  border: 1px dashed color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container-low) 82%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 13px;
+  text-align: center;
+}
+.oh-toolbox-section-note {
+  margin: 0 0 12px;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+}
+.oh-toolbox-card {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container) 82%, var(--m3-surface));
+  box-shadow: 0 10px 26px -28px color-mix(in srgb, var(--m3-shadow, #000) 35%, transparent);
+  transition:
+    border-color 220ms var(--oh-motion-emphasized),
+    background-color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized),
+    transform 260ms var(--oh-motion-spring);
+}
+.oh-toolbox-card:hover {
+  transform: translate3d(0, -1px, 0);
+  border-color: color-mix(in srgb, var(--m3-primary) 26%, var(--m3-outline-variant));
+  box-shadow: 0 14px 30px -26px color-mix(in srgb, var(--m3-shadow, #000) 42%, transparent);
+}
+.oh-toolbox-badge {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 720;
+  white-space: nowrap;
+}
+.oh-toolbox-meta-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+}
+.oh-toolbox-card code,
+.oh-toolbox-section-note code {
+  padding: 1px 5px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--m3-surface-container-highest) 72%, transparent);
+  color: var(--m3-on-surface);
+  font-family: ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 11px;
+}
+
+@media (max-width: 640px) {
+  .oh-topbar {
+    padding: 10px 11px;
+    border-radius: 18px;
+  }
+  .oh-toolbox-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .oh-topbar-icon-svg {
   display: block;
   flex: none;

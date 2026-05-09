@@ -44,47 +44,36 @@ export function TopBar(props: TopBarProps) {
   const navBtnClass = `oh-tap-press text-sm rounded-m3-sm transition-colors ${
     compact ? 'px-2.5 py-1' : 'px-3 py-1.5'
   }`;
-  const navBtnStyle = {
-    color: 'var(--m3-on-surface-variant)',
-    border: '1px solid var(--m3-outline)',
-    backgroundColor: 'transparent',
-  };
 
   return (
     <>
       <header
-        class={`flex items-start justify-between gap-4 flex-wrap ${compact ? 'mb-4' : 'mb-6'}`}
+        class={`oh-topbar flex items-start justify-between gap-4 flex-wrap ${compact ? 'is-compact mb-4' : 'mb-6'}`}
       >
       <div class="flex items-center gap-3 min-w-0">
         {leadingSlot}
-        <img
-          src="./openhand_logo.png"
-          alt={t('app.brand')}
-          width={compact ? 36 : 48}
-          height={compact ? 36 : 48}
-          decoding="async"
-          loading="eager"
-          class="rounded-m3-sm flex-none"
-          style={{
-            width: compact ? '36px' : '48px',
-            height: compact ? '36px' : '48px',
-            objectFit: 'contain',
-            boxShadow: 'var(--m3-elev-1)',
-          }}
-        />
+        <span class="oh-topbar-logo-wrap" aria-hidden="true">
+          <img
+            src="./openhand_logo.png"
+            alt=""
+            width={compact ? 34 : 46}
+            height={compact ? 34 : 46}
+            decoding="async"
+            loading="eager"
+            class="oh-topbar-logo"
+          />
+        </span>
         <div class="min-w-0">
           <h1
-            class={`font-semibold tracking-tight truncate ${
+            class={`oh-topbar-title font-semibold tracking-tight truncate ${
               compact ? 'text-lg' : 'text-2xl sm:text-3xl'
             }`}
-            style={{ color: 'var(--m3-on-surface)' }}
           >
             {title ?? t('app.brand')}
           </h1>
           {subtitle !== '' ? (
             <p
-              class={`mt-0.5 truncate ${compact ? 'text-xs' : 'text-sm'}`}
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+              class={`oh-topbar-subtitle mt-0.5 truncate ${compact ? 'text-xs' : 'text-sm'}`}
             >
               {subtitle ?? t('home.subtitle')}
             </p>
@@ -98,8 +87,7 @@ export function TopBar(props: TopBarProps) {
           <button
             type="button"
             onClick={() => setLogoutConfirmOpen(true)}
-            class={navBtnClass}
-            style={navBtnStyle}
+            class={`${navBtnClass} oh-topbar-action`}
           >
             {t('common.logout')}
           </button>
