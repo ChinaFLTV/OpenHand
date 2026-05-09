@@ -247,6 +247,32 @@ class AiSessionDeletionNotice {
   final bool wasCurrentSession;
 }
 
+/// 手动压缩调用的结果——成功 / 各类拒绝原因，UI 用来吐 toast。
+enum AiManualCompactionStatus {
+  success,
+  notNeeded,
+  cooldown,
+  inflight,
+  circuitBreaker,
+  sessionBusy,
+  failed,
+  noSession,
+}
+
+class AiManualCompactionResult {
+  const AiManualCompactionResult({
+    required this.status,
+    this.message,
+    this.retryAfter,
+  });
+
+  final AiManualCompactionStatus status;
+  final String? message;
+  final Duration? retryAfter;
+
+  bool get ok => status == AiManualCompactionStatus.success;
+}
+
 class AiSessionController extends ChangeNotifier {
   AiSessionController._({
     required AiSessionStore store,
@@ -404,6 +430,14 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _videoGenerationTimeout = Duration(minutes: 15);
   static const Duration _audioGenerationTimeout = Duration(minutes: 5);
   static const int _maxConsecutiveCompressionFailures = 3;
+
+  /// 手动压缩两次之间最小冷却时长。压缩涉及 LLM 调用与磁盘写入，
+  /// 频繁触发既浪费 token 也会冲掉刚生成的检查点上下文。
+  static const Duration _manualCompactionDebounce = Duration(seconds: 30);
+
+  /// 手动压缩拒绝阈值——percentLeft 高于该值（即 prompt 占比很低）时
+  /// 拒绝触发，避免「0% 占比下也强行压缩」。
+  static const int _manualCompactionRefusePercentLeftAbove = 85;
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {
@@ -652,6 +686,11 @@ class AiSessionController extends ChangeNotifier {
       <String, AiSendPhase>{};
   final Map<String, bool> _didCompressInLastSendBySession = <String, bool>{};
   final Map<String, int> _compressionFailureCountsBySession = <String, int>{};
+  /// 手动压缩防抖 — 同一会话两次手动压缩之间的最小间隔。
+  /// 值不可低于 [_manualCompactionMinIntervalMs]，与「Cooldown」错误一并消化。
+  final Map<String, DateTime> _lastManualCompactionAt = <String, DateTime>{};
+  /// 同一会话上是否有手动压缩正在进行（避免重复并发触发）。
+  final Set<String> _manualCompactionInflight = <String>{};
   String? _currentSessionId;
   AiSessionDeletionNotice? _lastDeletionNotice;
   String? _editingMessageId;
@@ -835,6 +874,8 @@ class AiSessionController extends ChangeNotifier {
     _didCompressInLastSendBySession.remove(sessionId);
     _compressionFailureCountsBySession.remove(sessionId);
     _lastErrorMessagesBySession.remove(sessionId);
+    _lastManualCompactionAt.remove(sessionId);
+    _manualCompactionInflight.remove(sessionId);
   }
 
   void _pruneSessionScopedSendState() {
@@ -844,6 +885,12 @@ class AiSessionController extends ChangeNotifier {
     );
     _compressionFailureCountsBySession.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
+    _lastManualCompactionAt.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
+    _manualCompactionInflight.removeWhere(
+      (sessionId) => !liveSessionIds.contains(sessionId),
     );
     _lastErrorMessagesBySession.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
@@ -5757,6 +5804,115 @@ class AiSessionController extends ChangeNotifier {
 
   bool _looksLikePlanApproval(String content) =>
       AiPlanApprovalDetector.looksLikePlanApproval(content);
+
+  /// 用户主动触发的会话历史压缩。
+  ///
+  /// 与发送消息时自动压缩复用同一条管线（[_compressIfNeeded]）：
+  ///   * 走 [_enqueueOperation] 串行化以确保不会与 sendMessage / refresh 并发；
+  ///   * 通过 [_lastManualCompactionAt] / [_manualCompactionDebounce]
+  ///     做去抖；通过 [_manualCompactionInflight] 做并发互斥；
+  ///   * 占用过低（[_manualCompactionRefusePercentLeftAbove]）直接拒绝；
+  ///   * 触发熔断（[_compressionFailureCountsBySession] 已超阈值）也拒绝。
+  ///
+  /// 调用方典型流程：
+  ///   1. 在 UI 中通过 [AiSessionRuntimeContextBuilder] 拼好 runtimeContext；
+  ///   2. await 本方法；
+  ///   3. 根据 [AiManualCompactionResult.status] 弹 toast / 日志。
+  Future<AiManualCompactionResult> requestManualCompaction({
+    required String sessionId,
+    required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
+  }) async {
+    final normalizedId = sessionId.trim();
+    if (normalizedId.isEmpty) {
+      return const AiManualCompactionResult(
+        status: AiManualCompactionStatus.noSession,
+      );
+    }
+    final session = _sessionsById[normalizedId];
+    if (session == null) {
+      return const AiManualCompactionResult(
+        status: AiManualCompactionStatus.noSession,
+      );
+    }
+    if (sendPhaseForSession(normalizedId) != AiSendPhase.idle) {
+      return const AiManualCompactionResult(
+        status: AiManualCompactionStatus.sessionBusy,
+        message: 'session_busy',
+      );
+    }
+    if (_manualCompactionInflight.contains(normalizedId)) {
+      return const AiManualCompactionResult(
+        status: AiManualCompactionStatus.inflight,
+        message: 'inflight',
+      );
+    }
+    final lastAt = _lastManualCompactionAt[normalizedId];
+    if (lastAt != null) {
+      final elapsed = DateTime.now().difference(lastAt);
+      if (elapsed < _manualCompactionDebounce) {
+        return AiManualCompactionResult(
+          status: AiManualCompactionStatus.cooldown,
+          retryAfter: _manualCompactionDebounce - elapsed,
+        );
+      }
+    }
+    final consecutiveFailures =
+        _compressionFailureCountsBySession[normalizedId] ?? 0;
+    if (consecutiveFailures >= _maxConsecutiveCompressionFailures) {
+      return const AiManualCompactionResult(
+        status: AiManualCompactionStatus.circuitBreaker,
+        message: 'circuit_breaker',
+      );
+    }
+    final meta = session.lastPromptMetadata;
+    final percentLeftRaw = meta['context_budget_percent_left'];
+    final percentLeft = percentLeftRaw is num ? percentLeftRaw.toDouble() : null;
+    if (percentLeft != null &&
+        percentLeft > _manualCompactionRefusePercentLeftAbove) {
+      return const AiManualCompactionResult(
+        status: AiManualCompactionStatus.notNeeded,
+        message: 'usage_too_low',
+      );
+    }
+    _manualCompactionInflight.add(normalizedId);
+    try {
+      return await _enqueueOperation<AiManualCompactionResult>(() async {
+        // 串行化进入临界区后重新读取最新 session（可能在排队期间被修改）。
+        final freshSession = _sessionsById[normalizedId];
+        if (freshSession == null) {
+          return const AiManualCompactionResult(
+            status: AiManualCompactionStatus.noSession,
+          );
+        }
+        if (!_shouldCompressSessionHistory(freshSession, runtimeContext, model)) {
+          return const AiManualCompactionResult(
+            status: AiManualCompactionStatus.notNeeded,
+            message: 'nothing_to_compress',
+          );
+        }
+        _captureLatestRuntimeContext(runtimeContext);
+        final updated = await _compressIfNeeded(
+          session: freshSession,
+          model: model,
+          runtimeContext: runtimeContext,
+        );
+        if (identical(updated, freshSession)) {
+          return const AiManualCompactionResult(
+            status: AiManualCompactionStatus.failed,
+            message: 'no_change',
+          );
+        }
+        _lastManualCompactionAt[normalizedId] = DateTime.now();
+        notifyListeners();
+        return const AiManualCompactionResult(
+          status: AiManualCompactionStatus.success,
+        );
+      });
+    } finally {
+      _manualCompactionInflight.remove(normalizedId);
+    }
+  }
 
   Future<AiSession> _compressIfNeeded({
     required AiSession session,

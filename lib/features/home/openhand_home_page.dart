@@ -718,6 +718,12 @@ class OpenHandHomePage extends StatefulWidget {
 
 class _OpenHandHomePageState extends State<OpenHandHomePage>
     with WidgetsBindingObserver {
+  /// 当前活跃的 home state 实例引用——`part of` 文件（例如
+  /// [_home_session_toolbar.dart] 中的 [_showContextStatsDialog]）需要
+  /// 通过它取到 [_buildRuntimeContext]、[AiSessionController] 等私有 API。
+  /// 同一时刻只会存在一个 OpenHand home page。
+  static _OpenHandHomePageState? _activeHomeState;
+
   final TextEditingController _composerController = TextEditingController();
   final ScrollController _messageScrollController = ScrollController();
   final FocusNode _globalShortcutFocusNode = FocusNode();
@@ -1108,6 +1114,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   @override
   void initState() {
     super.initState();
+    _activeHomeState = this;
     WidgetsBinding.instance.addObserver(this);
     _appLifecycleState = WidgetsBinding.instance.lifecycleState;
     _composerFocusNode.onKeyEvent = _handleComposerFocusNodeKeyEvent;
@@ -1173,6 +1180,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   @override
   void dispose() {
+    if (identical(_activeHomeState, this)) {
+      _activeHomeState = null;
+    }
     _toolSearchReplayDispatcher.dispose();
     _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
     _activeHardnessOrchestrator?.cancel();

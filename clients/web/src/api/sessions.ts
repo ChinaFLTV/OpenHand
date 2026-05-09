@@ -319,6 +319,43 @@ export function stopMessage(sessionId: string): Promise<StopMessageResponse> {
   );
 }
 
+export type CompactSessionStatus =
+  | 'success'
+  | 'not_needed'
+  | 'cooldown'
+  | 'inflight'
+  | 'circuit_breaker'
+  | 'session_busy'
+  | 'failed'
+  | 'no_session';
+
+export interface CompactSessionResponse {
+  ok: boolean;
+  status: CompactSessionStatus;
+  rejection_reason?: string | null;
+  retry_after_ms?: number;
+  session?: SessionSummary;
+}
+
+/**
+ * 用户主动触发的会话历史压缩。后端在 [web_message_platform_service.dart]
+ * 的 `_compactSession` 中复用桌面端 [requestManualCompaction]：包含 30s
+ * 防抖、占用率过低拒绝、连续失败熔断等保护，因此前端在收到 `cooldown`
+ * 等非 `success` 状态时只需做提示，不需要再做客户端节流。
+ */
+export function compactSession(
+  sessionId: string,
+  options: { modelKey?: string } = {},
+): Promise<CompactSessionResponse> {
+  return apiRequest<CompactSessionResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/compact`,
+    {
+      method: 'POST',
+      body: { model_key: options.modelKey ?? '' },
+    },
+  );
+}
+
 export function respondWriteApproval(
   sessionId: string,
   approvalId: string,

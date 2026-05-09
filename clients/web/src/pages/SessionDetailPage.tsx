@@ -32,6 +32,9 @@ import {
   stopMessage,
   updateSessionFullAccessPermission,
   updateSessionMode,
+  compactSession,
+  type CompactSessionResponse,
+  type CompactSessionStatus,
   type SendMessageAttachment,
   type SessionDetailResponse,
   type SessionMessage,
@@ -831,6 +834,7 @@ export function SessionDetailPage() {
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
   const [tokenStatsOpen, setTokenStatsOpen] = useState(false);
+  const [contextStatsOpen, setContextStatsOpen] = useState(false);
   const [imageEditorInput, setImageEditorInput] = useState<ImageEditorInput | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
@@ -877,6 +881,7 @@ export function SessionDetailPage() {
     setAuditMessage(null);
     setSessionMetadataOpen(false);
     setTokenStatsOpen(false);
+    setContextStatsOpen(false);
     imageEditorResolverRef.current?.(null);
     imageEditorResolverRef.current = null;
     setImageEditorInput(null);
@@ -2755,6 +2760,7 @@ export function SessionDetailPage() {
         key: 'context-budget',
         icon: 'runtime',
         label: contextBudgetLabel,
+        onClick: () => setContextStatsOpen(true),
       });
     }
     if (session.template_id === 'programming_expert') {
@@ -3627,6 +3633,18 @@ export function SessionDetailPage() {
           onClose={() => setTokenStatsOpen(false)}
         />
       ) : null}
+      {contextStatsOpen && detail ? (
+        <SessionContextStatsDialog
+          detail={detail}
+          messages={messages}
+          modelKey={composerModelKey}
+          onClose={() => setContextStatsOpen(false)}
+          onCompacted={() => {
+            // 压缩成功后由 SSE 推送会话快照，但拉一遍 detail 仍然是稳妥的兜底。
+            void refresh();
+          }}
+        />
+      ) : null}
       {pendingDeleteAction ? (
         <ConfirmDialog
           title={pendingDeleteAction.cascade
@@ -4068,6 +4086,370 @@ function SessionTokenStatsDialog({
     </div>
   );
   return <OverlayPortal>{node}</OverlayPortal>;
+}
+
+interface ContextStatsBreakdown {
+  userChars: number;
+  assistantChars: number;
+  toolChars: number;
+  otherChars: number;
+}
+
+function computeContextBreakdown(messages: SessionMessage[]): ContextStatsBreakdown {
+  let userChars = 0;
+  let assistantChars = 0;
+  let toolChars = 0;
+  let otherChars = 0;
+  for (const msg of messages) {
+    if ((msg as { is_deleted?: boolean }).is_deleted) continue;
+    const chars = typeof msg.character_count === 'number' && msg.character_count >= 0
+      ? msg.character_count
+      : (msg.content ?? '').length;
+    switch (msg.kind) {
+      case 'user':
+        userChars += chars;
+        break;
+      case 'assistant':
+      case 'reasoning':
+        assistantChars += chars;
+        break;
+      case 'tool_call':
+      case 'tool':
+      case 'mcp':
+      case 'skill':
+      case 'hook':
+        toolChars += chars;
+        break;
+      default:
+        otherChars += chars;
+    }
+  }
+  return { userChars, assistantChars, toolChars, otherChars };
+}
+
+function compactStatusMessage(status: CompactSessionStatus, retryAfterMs?: number): string {
+  switch (status) {
+    case 'success':
+      return t('contextStats.success', '已生成压缩检查点。');
+    case 'cooldown': {
+      const secs = Math.max(1, Math.round((retryAfterMs ?? 30000) / 1000));
+      return t('contextStats.cooldown', '刚刚已经压缩过，约 {secs} 秒后再试。')
+        .replace('{secs}', String(secs));
+    }
+    case 'not_needed':
+      return t('contextStats.notNeeded', '当前占用过低或没有可压缩的历史。');
+    case 'inflight':
+      return t('contextStats.inflight', '已有压缩任务在进行中。');
+    case 'session_busy':
+      return t('contextStats.sessionBusy', '当前会话正在响应，请等回复结束后再压缩。');
+    case 'circuit_breaker':
+      return t('contextStats.circuitBreaker', '连续压缩失败已熔断，稍后再试。');
+    case 'failed':
+      return t('contextStats.failed', '压缩未生效，请稍后重试。');
+    case 'no_session':
+      return t('contextStats.noSession', '会话不存在或已被删除。');
+    default:
+      return status;
+  }
+}
+
+function SessionContextStatsDialog({
+  detail,
+  messages,
+  modelKey,
+  onClose,
+  onCompacted,
+}: {
+  detail: SessionDetailResponse;
+  messages: SessionMessage[];
+  modelKey: string;
+  onClose: () => void;
+  onCompacted: () => void;
+}) {
+  const session = detail.session;
+  const meta = asRecord(session.last_prompt_metadata);
+  const estimatedTokens = asInt(meta['context_budget_estimated_prompt_tokens']);
+  const percentLeftRaw = meta['context_budget_percent_left'];
+  const percentLeft = typeof percentLeftRaw === 'number' ? percentLeftRaw : -1;
+  const usagePercent = asInt(meta['context_budget_usage_percent']);
+  const effectiveWindow = asInt(meta['context_budget_effective_window_tokens']);
+  const remainingTokens = asInt(meta['context_budget_remaining_tokens']);
+  const inferred = meta['context_budget_window_inferred'] === true;
+  const status = String(meta['context_budget_status'] ?? '').trim();
+
+  const breakdown = useMemo(() => computeContextBreakdown(messages), [messages]);
+  const totalChars = breakdown.userChars + breakdown.assistantChars +
+    breakdown.toolChars + breakdown.otherChars;
+  const stats = session.statistics ?? {};
+  const cumulativePromptTokens = readStatNumber(
+    stats['total_prompt_tokens'],
+    session.total_prompt_tokens ?? 0,
+  );
+  const cumulativeCompletionTokens = readStatNumber(
+    stats['total_completion_tokens'],
+    session.total_completion_tokens ?? 0,
+  );
+  const cumulativeTokens = readStatNumber(
+    stats['total_tokens'],
+    session.total_tokens ?? cumulativePromptTokens + cumulativeCompletionTokens,
+  );
+
+  const [busy, setBusy] = useState(false);
+  const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [resultIsError, setResultIsError] = useState(false);
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+
+  const disableCompact = estimatedTokens <= 0 ||
+    (percentLeft >= 0 && percentLeft > 85) ||
+    usagePercent < 10 ||
+    busy;
+
+  const statusBadge = status === 'critical'
+    ? { color: 'var(--m3-error)', label: t('topbar.contextBudget.critical', '危险') }
+    : status === 'auto_compact'
+      ? { color: 'var(--m3-tertiary)', label: t('topbar.contextBudget.compact', '压缩') }
+      : status === 'warning'
+        ? { color: '#e07a00', label: t('topbar.contextBudget.warning', '偏高') }
+        : status === 'ok'
+          ? { color: 'var(--m3-primary)', label: t('topbar.contextBudget.ok', '正常') }
+          : { color: 'var(--m3-outline)', label: t('topbar.contextBudget.unknown', '未知') };
+
+  async function handleCompactPressed() {
+    if (busy) return;
+    setBusy(true);
+    setResultMessage(null);
+    setResultIsError(false);
+    try {
+      const response: CompactSessionResponse = await compactSession(session.id, { modelKey });
+      setResultMessage(compactStatusMessage(response.status, response.retry_after_ms));
+      setResultIsError(!response.ok);
+      if (response.ok) onCompacted();
+    } catch (error) {
+      setResultMessage(
+        t('contextStats.error', '压缩请求失败：{detail}')
+          .replace('{detail}', error instanceof Error ? error.message : String(error)),
+      );
+      setResultIsError(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const breakdownRows = [
+    { key: 'user', label: t('contextStats.user', '用户'), chars: breakdown.userChars, color: 'var(--m3-primary)' },
+    { key: 'assistant', label: t('contextStats.assistant', 'AI 回复'), chars: breakdown.assistantChars, color: 'var(--m3-secondary)' },
+    { key: 'tool', label: t('contextStats.tool', '工具'), chars: breakdown.toolChars, color: 'var(--m3-tertiary)' },
+    { key: 'other', label: t('contextStats.other', '附件 / 其他'), chars: breakdown.otherChars, color: 'var(--m3-outline)' },
+  ];
+
+  const node = (
+    <div
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
+      style={{ background: 'rgba(0,0,0,0.36)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
+      onClick={requestClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-md rounded-m3-xl p-5`}
+        style={{
+          background: 'var(--m3-surface-container)',
+          color: 'var(--m3-on-surface)',
+          boxShadow: 'var(--m3-elev-3)',
+          border: '1px solid var(--m3-outline-variant)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header class="mb-4 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold">{t('contextStats.title', '上下文使用情况')}</h2>
+            <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {session.title || t('sessions.untitled', '未命名会话')}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="oh-tap-press rounded-m3-sm px-2 py-1 text-sm"
+            style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
+            onClick={requestClose}
+            disabled={busy}
+          >
+            {t('common.close', '关闭')}
+          </button>
+        </header>
+        <div class="space-y-4">
+          <section
+            class="rounded-m3-md p-3"
+            style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+          >
+            <ContextStatsRow
+              label={t('contextStats.estimated', '估算 prompt tokens')}
+              value={estimatedTokens > 0 ? estimatedTokens.toLocaleString() : t('contextStats.empty', '暂无')}
+            />
+            <ContextStatsRow
+              label={t('contextStats.usage', '占用 / 剩余')}
+              value={estimatedTokens > 0 && percentLeft >= 0
+                ? `${usagePercent}% · ${Math.round(percentLeft)}%`
+                : t('contextStats.empty', '暂无')}
+              valueColor={statusBadge.color}
+              suffix={statusBadge.label}
+            />
+            <ContextStatsRow
+              label={t('contextStats.window', '有效窗口 tokens')}
+              value={effectiveWindow > 0
+                ? `${effectiveWindow.toLocaleString()}${inferred ? '*' : ''}`
+                : t('contextStats.empty', '暂无')}
+            />
+            <ContextStatsRow
+              label={t('contextStats.remaining', '剩余 tokens')}
+              value={remainingTokens > 0 ? remainingTokens.toLocaleString() : t('contextStats.empty', '暂无')}
+            />
+          </section>
+          <section
+            class="rounded-m3-md p-3"
+            style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+          >
+            <h3 class="mb-2 text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {t('contextStats.breakdown', '会话历史字符占比')}
+            </h3>
+            {totalChars <= 0 ? (
+              <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                {t('contextStats.empty.history', '暂无历史。')}
+              </p>
+            ) : (
+              <div class="space-y-2">
+                {breakdownRows.map((row) => (
+                  <ContextBreakdownBar
+                    key={row.key}
+                    label={row.label}
+                    chars={row.chars}
+                    totalChars={totalChars}
+                    color={row.color}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+          <section
+            class="rounded-m3-md p-3"
+            style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+          >
+            <ContextStatsRow
+              label={t('contextStats.cumulativePrompt', '历史累计 prompt tokens')}
+              value={cumulativePromptTokens.toLocaleString()}
+            />
+            <ContextStatsRow
+              label={t('contextStats.cumulativeCompletion', '历史累计输出 tokens')}
+              value={cumulativeCompletionTokens.toLocaleString()}
+            />
+            <ContextStatsRow
+              label={t('contextStats.cumulativeTotal', '历史总 tokens')}
+              value={cumulativeTokens.toLocaleString()}
+              emphasized
+            />
+          </section>
+          {resultMessage ? (
+            <div
+              class="rounded-m3-sm px-3 py-2 text-xs"
+              style={{
+                background: resultIsError
+                  ? 'color-mix(in srgb, var(--m3-error-container) 60%, transparent)'
+                  : 'color-mix(in srgb, var(--m3-primary-container) 60%, transparent)',
+                color: resultIsError ? 'var(--m3-on-error-container)' : 'var(--m3-on-primary-container)',
+                border: `1px solid ${resultIsError ? 'var(--m3-error)' : 'var(--m3-primary)'}`,
+              }}
+            >
+              {resultMessage}
+            </div>
+          ) : null}
+          {inferred ? (
+            <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {t('contextStats.inferred', '* 模型未声明 maxContextTokens，按 128000 估算。')}
+            </p>
+          ) : null}
+          <div class="flex justify-end">
+            <button
+              type="button"
+              class="oh-tap-press rounded-m3-md px-4 py-2 text-sm font-semibold"
+              style={{
+                background: disableCompact ? 'var(--m3-surface-variant)' : 'var(--m3-primary)',
+                color: disableCompact ? 'var(--m3-on-surface-variant)' : 'var(--m3-on-primary)',
+                cursor: disableCompact ? 'not-allowed' : 'pointer',
+                opacity: disableCompact ? 0.7 : 1,
+              }}
+              disabled={disableCompact}
+              onClick={() => void handleCompactPressed()}
+            >
+              {busy
+                ? t('contextStats.busy', '正在压缩…')
+                : t('contextStats.action', '立即压缩')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  return <OverlayPortal>{node}</OverlayPortal>;
+}
+
+function ContextStatsRow({
+  label,
+  value,
+  valueColor,
+  suffix,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+  suffix?: string;
+  emphasized?: boolean;
+}) {
+  return (
+    <div class="flex items-baseline justify-between gap-3 py-1">
+      <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
+      <span
+        class={emphasized ? 'text-base font-bold tabular-nums' : 'text-sm font-semibold tabular-nums'}
+        style={{ color: valueColor ?? 'var(--m3-on-surface)' }}
+      >
+        {value}
+        {suffix ? <span class="ml-1 text-xs font-normal">· {suffix}</span> : null}
+      </span>
+    </div>
+  );
+}
+
+function ContextBreakdownBar({
+  label,
+  chars,
+  totalChars,
+  color,
+}: {
+  label: string;
+  chars: number;
+  totalChars: number;
+  color: string;
+}) {
+  const ratio = totalChars <= 0 ? 0 : chars / totalChars;
+  const percent = (ratio * 100).toFixed(1);
+  return (
+    <div>
+      <div class="flex items-baseline justify-between text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <span>{label}</span>
+        <span class="tabular-nums">{chars.toLocaleString()} · {percent}%</span>
+      </div>
+      <div class="mt-1 h-1.5 w-full overflow-hidden rounded" style={{ background: 'color-mix(in srgb, ' + color + ' 18%, transparent)' }}>
+        <div
+          class="h-full"
+          style={{
+            width: `${Math.max(0, Math.min(100, ratio * 100))}%`,
+            background: color,
+            transition: 'width 220ms ease-out',
+          }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function TokenStatsSection({ title, children }: { title: string; children: ComponentChildren }) {

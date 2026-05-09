@@ -126,6 +126,9 @@ class _SessionToolbar extends StatelessWidget {
                               _ToolbarPill(
                                 icon: Icons.speed_rounded,
                                 label: contextBudgetLabel,
+                                onTap: () {
+                                  _showContextStatsDialog(context, session);
+                                },
                               ),
                             ],
                             const SizedBox(width: 8),
@@ -1729,4 +1732,602 @@ List<Widget> _buildMcpLazyLoadingPills(
     ];
   }
   return const <Widget>[];
+}
+
+// ---------------------------------------------------------------------------
+// 上下文统计弹窗 + 主动压缩
+// ---------------------------------------------------------------------------
+
+Future<void> _showContextStatsDialog(BuildContext context, AiSession session) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (dialogContext) => _ContextStatsDialog(sessionId: session.id),
+  );
+}
+
+class _ContextStatsDialog extends StatefulWidget {
+  const _ContextStatsDialog({required this.sessionId});
+
+  final String sessionId;
+
+  @override
+  State<_ContextStatsDialog> createState() => _ContextStatsDialogState();
+}
+
+class _ContextStatsDialogState extends State<_ContextStatsDialog> {
+  bool _busy = false;
+  String? _resultMessage;
+  bool _resultIsError = false;
+
+  Future<void> _handleCompactPressed() async {
+    if (_busy) return;
+    final home = _OpenHandHomePageState._activeHomeState;
+    if (home == null || !home.mounted) {
+      _showResult(
+        _localizedText(
+          context,
+          zh: '压缩入口暂不可用，请稍后再试。',
+          en: 'Compaction is unavailable right now.',
+        ),
+        isError: true,
+      );
+      return;
+    }
+    final settingsController = context.read<SettingsController>();
+    final controller = context.read<AiSessionController>();
+    final selectedModel = settingsController.selectedAiModel;
+    if (selectedModel == null) {
+      _showResult(
+        _localizedText(
+          context,
+          zh: '请先选择有效的 AI 模型。',
+          en: 'Pick an AI model first.',
+        ),
+        isError: true,
+      );
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _resultMessage = null;
+      _resultIsError = false;
+    });
+    try {
+      final runtimeContext = await home._buildRuntimeContext();
+      final result = await controller.requestManualCompaction(
+        sessionId: widget.sessionId,
+        model: selectedModel,
+        runtimeContext: runtimeContext,
+      );
+      if (!mounted) return;
+      switch (result.status) {
+        case AiManualCompactionStatus.success:
+          _showResult(
+            _localizedText(
+              context,
+              zh: '已生成压缩检查点。',
+              en: 'Compaction checkpoint added.',
+            ),
+            isError: false,
+          );
+          break;
+        case AiManualCompactionStatus.cooldown:
+          final secs = result.retryAfter?.inSeconds ?? 30;
+          _showResult(
+            _localizedText(
+              context,
+              zh: '刚刚已经压缩过，约 $secs 秒后再试。',
+              en: 'Just compacted; retry in about $secs s.',
+            ),
+            isError: true,
+          );
+          break;
+        case AiManualCompactionStatus.notNeeded:
+          _showResult(
+            _localizedText(
+              context,
+              zh: '当前占用过低或没有可压缩的历史。',
+              en: 'Usage too low — nothing meaningful to compact.',
+            ),
+            isError: true,
+          );
+          break;
+        case AiManualCompactionStatus.inflight:
+          _showResult(
+            _localizedText(
+              context,
+              zh: '已有压缩任务在进行中。',
+              en: 'A compaction is already in flight.',
+            ),
+            isError: true,
+          );
+          break;
+        case AiManualCompactionStatus.sessionBusy:
+          _showResult(
+            _localizedText(
+              context,
+              zh: '当前会话正在响应，请等回复结束后再压缩。',
+              en: 'Session is busy. Wait for the current response to finish.',
+            ),
+            isError: true,
+          );
+          break;
+        case AiManualCompactionStatus.circuitBreaker:
+          _showResult(
+            _localizedText(
+              context,
+              zh: '连续压缩失败已熔断，稍后再试。',
+              en: 'Compaction circuit breaker tripped; retry later.',
+            ),
+            isError: true,
+          );
+          break;
+        case AiManualCompactionStatus.failed:
+          _showResult(
+            _localizedText(
+              context,
+              zh: '压缩未生效，请稍后重试。',
+              en: 'Compaction did not apply; please retry.',
+            ),
+            isError: true,
+          );
+          break;
+        case AiManualCompactionStatus.noSession:
+          _showResult(
+            _localizedText(
+              context,
+              zh: '会话不存在或已被删除。',
+              en: 'Session no longer exists.',
+            ),
+            isError: true,
+          );
+          break;
+      }
+    } catch (error, stack) {
+      silentLog('context_stats', '_handleCompactPressed', error, stack);
+      if (!mounted) return;
+      _showResult(
+        _localizedText(
+          context,
+          zh: '压缩失败：$error',
+          en: 'Compaction failed: $error',
+        ),
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
+  }
+
+  void _showResult(String message, {required bool isError}) {
+    setState(() {
+      _resultMessage = message;
+      _resultIsError = isError;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final session = context.select<AiSessionController, AiSession?>((ctrl) {
+      for (final s in ctrl.sessions) {
+        if (s.id == widget.sessionId) return s;
+      }
+      return null;
+    });
+    if (session == null) {
+      return AlertDialog(
+        title: Text(
+          _localizedText(context, zh: '上下文使用情况', en: 'Context usage'),
+        ),
+        content: Text(
+          _localizedText(context, zh: '会话不存在或已被删除。', en: 'Session is gone.'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: Text(_localizedText(context, zh: '关闭', en: 'Close')),
+          ),
+        ],
+      );
+    }
+    final meta = session.lastPromptMetadata;
+    final estimatedTokens = _metadataInt(
+      meta['context_budget_estimated_prompt_tokens'],
+    );
+    final percentLeftRaw = meta['context_budget_percent_left'];
+    final percentLeft = percentLeftRaw is num ? percentLeftRaw.toDouble() : -1;
+    final usagePercent = _metadataInt(meta['context_budget_usage_percent']);
+    final effectiveWindow = _metadataInt(
+      meta['context_budget_effective_window_tokens'],
+    );
+    final remainingTokens = _metadataInt(
+      meta['context_budget_remaining_tokens'],
+    );
+    final inferred = meta['context_budget_window_inferred'] == true;
+    final status = '${meta['context_budget_status'] ?? ''}'.trim();
+
+    final breakdown = _computeMessageCharBreakdown(session);
+    final totalChars = breakdown.totalChars;
+    final stats = session.statistics;
+    final cumulativePromptTokens = stats.totalPromptTokens ?? 0;
+    final cumulativeCompletionTokens = stats.totalCompletionTokens ?? 0;
+    final cumulativeTokens =
+        stats.totalTokens ??
+        (cumulativePromptTokens + cumulativeCompletionTokens);
+
+    final disableCompact =
+        estimatedTokens <= 0 ||
+        (percentLeft >= 0 && percentLeft > 85) ||
+        usagePercent < 10;
+
+    Color statusColor;
+    switch (status) {
+      case 'critical':
+        statusColor = colorScheme.error;
+        break;
+      case 'auto_compact':
+        statusColor = colorScheme.tertiary;
+        break;
+      case 'warning':
+        statusColor = Colors.orange;
+        break;
+      case 'ok':
+        statusColor = colorScheme.primary;
+        break;
+      default:
+        statusColor = colorScheme.outline;
+    }
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.speed_rounded, color: statusColor),
+          const SizedBox(width: 8),
+          Text(_localizedText(context, zh: '上下文使用情况', en: 'Context usage')),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ContextStatsRow(
+                label: _localizedText(
+                  context,
+                  zh: '估算 prompt tokens',
+                  en: 'Estimated prompt tokens',
+                ),
+                value: estimatedTokens > 0
+                    ? estimatedTokens.toString()
+                    : _localizedText(context, zh: '暂无', en: 'n/a'),
+              ),
+              _ContextStatsRow(
+                label: _localizedText(
+                  context,
+                  zh: '占用 / 剩余',
+                  en: 'Used / left',
+                ),
+                value: estimatedTokens > 0 && percentLeft >= 0
+                    ? '$usagePercent% · ${percentLeft.toStringAsFixed(0)}%'
+                    : _localizedText(context, zh: '暂无', en: 'n/a'),
+                valueColor: statusColor,
+              ),
+              _ContextStatsRow(
+                label: _localizedText(
+                  context,
+                  zh: '有效窗口 tokens',
+                  en: 'Effective window',
+                ),
+                value: effectiveWindow > 0
+                    ? '$effectiveWindow${inferred ? '*' : ''}'
+                    : _localizedText(context, zh: '暂无', en: 'n/a'),
+              ),
+              _ContextStatsRow(
+                label: _localizedText(
+                  context,
+                  zh: '剩余 tokens',
+                  en: 'Remaining tokens',
+                ),
+                value: remainingTokens > 0
+                    ? remainingTokens.toString()
+                    : _localizedText(context, zh: '暂无', en: 'n/a'),
+              ),
+              const Divider(height: 24),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '会话历史字符占比',
+                  en: 'Session history breakdown',
+                ),
+                style: theme.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              if (totalChars <= 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    _localizedText(context, zh: '暂无历史。', en: 'No history yet.'),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                )
+              else ...[
+                _ContextBreakdownBar(
+                  label: _localizedText(context, zh: '用户', en: 'User'),
+                  chars: breakdown.userChars,
+                  totalChars: totalChars,
+                  color: colorScheme.primary,
+                ),
+                _ContextBreakdownBar(
+                  label: _localizedText(context, zh: 'AI 回复', en: 'Assistant'),
+                  chars: breakdown.assistantChars,
+                  totalChars: totalChars,
+                  color: colorScheme.secondary,
+                ),
+                _ContextBreakdownBar(
+                  label: _localizedText(context, zh: '工具', en: 'Tools'),
+                  chars: breakdown.toolChars,
+                  totalChars: totalChars,
+                  color: colorScheme.tertiary,
+                ),
+                _ContextBreakdownBar(
+                  label: _localizedText(context, zh: '附件 / 其他', en: 'Other'),
+                  chars: breakdown.otherChars,
+                  totalChars: totalChars,
+                  color: colorScheme.outline,
+                ),
+              ],
+              const Divider(height: 24),
+              _ContextStatsRow(
+                label: _localizedText(
+                  context,
+                  zh: '历史累计 prompt tokens',
+                  en: 'Cumulative prompt tokens',
+                ),
+                value: cumulativePromptTokens > 0
+                    ? cumulativePromptTokens.toString()
+                    : '0',
+              ),
+              _ContextStatsRow(
+                label: _localizedText(
+                  context,
+                  zh: '历史累计输出 tokens',
+                  en: 'Cumulative completion tokens',
+                ),
+                value: cumulativeCompletionTokens > 0
+                    ? cumulativeCompletionTokens.toString()
+                    : '0',
+              ),
+              _ContextStatsRow(
+                label: _localizedText(
+                  context,
+                  zh: '历史总 tokens',
+                  en: 'Cumulative total',
+                ),
+                value: cumulativeTokens > 0 ? cumulativeTokens.toString() : '0',
+                emphasize: true,
+              ),
+              if (_resultMessage != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _resultIsError
+                        ? colorScheme.errorContainer.withValues(alpha: 0.5)
+                        : colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _resultMessage!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: _resultIsError
+                          ? colorScheme.onErrorContainer
+                          : colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ],
+              if (inferred) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '* 模型未声明 maxContextTokens，按 128000 估算。',
+                    en:
+                        '* Model declared no maxContextTokens; window inferred '
+                        'as 128000.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).maybePop(),
+          child: Text(_localizedText(context, zh: '关闭', en: 'Close')),
+        ),
+        FilledButton.icon(
+          onPressed: (_busy || disableCompact) ? null : _handleCompactPressed,
+          icon: _busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.compress_rounded),
+          label: Text(
+            _busy
+                ? _localizedText(context, zh: '正在压缩…', en: 'Compacting…')
+                : _localizedText(context, zh: '立即压缩', en: 'Compact now'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContextStatsRow extends StatelessWidget {
+  const _ContextStatsRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.emphasize = false,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final valueStyle = (emphasize
+            ? theme.textTheme.bodyLarge
+            : theme.textTheme.bodyMedium)
+        ?.copyWith(
+          color: valueColor,
+          fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Text(value, style: valueStyle),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContextBreakdownBar extends StatelessWidget {
+  const _ContextBreakdownBar({
+    required this.label,
+    required this.chars,
+    required this.totalChars,
+    required this.color,
+  });
+
+  final String label;
+  final int chars;
+  final int totalChars;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ratio = totalChars <= 0 ? 0.0 : chars / totalChars;
+    final percent = (ratio * 100).clamp(0, 100).toStringAsFixed(1);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Text(
+                '$chars · $percent%',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: color.withValues(alpha: 0.15),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContextStatsBreakdown {
+  const _ContextStatsBreakdown({
+    required this.userChars,
+    required this.assistantChars,
+    required this.toolChars,
+    required this.otherChars,
+  });
+
+  final int userChars;
+  final int assistantChars;
+  final int toolChars;
+  final int otherChars;
+
+  int get totalChars => userChars + assistantChars + toolChars + otherChars;
+}
+
+_ContextStatsBreakdown _computeMessageCharBreakdown(AiSession session) {
+  int userChars = 0;
+  int assistantChars = 0;
+  int toolChars = 0;
+  int otherChars = 0;
+  for (final message in session.messages) {
+    if (message.isDeleted) continue;
+    final chars = message.characterCount;
+    switch (message.kind) {
+      case AiSessionMessageKind.user:
+        userChars += chars;
+        break;
+      case AiSessionMessageKind.assistant:
+      case AiSessionMessageKind.reasoning:
+        assistantChars += chars;
+        break;
+      case AiSessionMessageKind.toolCall:
+      case AiSessionMessageKind.tool:
+      case AiSessionMessageKind.mcp:
+      case AiSessionMessageKind.skill:
+      case AiSessionMessageKind.hook:
+        toolChars += chars;
+        break;
+      default:
+        otherChars += chars;
+    }
+  }
+  return _ContextStatsBreakdown(
+    userChars: userChars,
+    assistantChars: assistantChars,
+    toolChars: toolChars,
+    otherChars: otherChars,
+  );
 }

@@ -1171,6 +1171,15 @@ class WebMessagePlatformService {
       (shelf.Request r, String sessionId) =>
           _withAuth(r, (req, auth) => _stopSendMessage(req, auth, sessionId)),
     );
+    // 用户主动触发的会话历史压缩。复用桌面端
+    // [AiSessionController.requestManualCompaction]：包含 30s 防抖、占用率
+    // 过低拒绝、熔断、并发互斥等多重保护。返回值 `ok / status /
+    // rejection_reason / retry_after_ms` 与 App 端 enum 一一对应。
+    router.post(
+      '/api/sessions/<sessionId>/compact',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _compactSession(req, auth, sessionId)),
+    );
     router.post(
       '/api/sessions/<sessionId>/write-approvals/<approvalId>',
       (shelf.Request r, String sessionId, String approvalId) => _withAuth(
@@ -2476,6 +2485,82 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+    });
+  }
+
+  /// 用户主动触发的历史压缩入口（POST `/api/sessions/{id}/compact`）。
+  ///
+  /// Body 可选 `{model_key?: string}`：未传时回退 `_resolveModel('')`，
+  /// 与桌面端「使用当前选中模型」保持一致。返回结构：
+  /// ```
+  /// 200 OK
+  /// {
+  ///   "ok": true | false,
+  ///   "status": "success" | "cooldown" | "not_needed" | "inflight" |
+  ///             "session_busy" | "circuit_breaker" | "failed" | "no_session",
+  ///   "rejection_reason": string?,
+  ///   "retry_after_ms": int?,
+  ///   "session": { ... 同 _getSession 的 session 字段 }?
+  /// }
+  /// ```
+  Future<shelf.Response> _compactSession(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    Map<String, Object?> body = const <String, Object?>{};
+    try {
+      body = await _readJsonBody(request);
+    } catch (_) {
+      // 允许空 body。
+    }
+    final model = _resolveModel(_string(body['model_key'], ''));
+    if (model == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'model_not_configured',
+      });
+    }
+    final result = await _sessionController.requestManualCompaction(
+      sessionId: session.id,
+      model: model,
+      runtimeContext: _buildRuntimeContext(templateId: session.templateId),
+    );
+    final updated =
+        _findAuthorizedSession(auth, sessionId) ?? session;
+    final statusName = switch (result.status) {
+      AiManualCompactionStatus.success => 'success',
+      AiManualCompactionStatus.notNeeded => 'not_needed',
+      AiManualCompactionStatus.cooldown => 'cooldown',
+      AiManualCompactionStatus.inflight => 'inflight',
+      AiManualCompactionStatus.circuitBreaker => 'circuit_breaker',
+      AiManualCompactionStatus.sessionBusy => 'session_busy',
+      AiManualCompactionStatus.failed => 'failed',
+      AiManualCompactionStatus.noSession => 'no_session',
+    };
+    _log(
+      result.ok ? WebGatewayLogLevel.info : WebGatewayLogLevel.debug,
+      'MESSAGE',
+      'Web 主动压缩会话 ${session.id}: $statusName',
+      <String, Object?>{
+        'device_id': auth.deviceId,
+        'rejection_reason': result.message,
+        if (result.retryAfter != null)
+          'retry_after_ms': result.retryAfter!.inMilliseconds,
+      },
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': result.ok,
+      'status': statusName,
+      'rejection_reason': result.message,
+      if (result.retryAfter != null)
+        'retry_after_ms': result.retryAfter!.inMilliseconds,
+      'session': _sessionSummary(updated, includeDetails: true),
     });
   }
 
