@@ -367,7 +367,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
             NavigationDrawerDestination(
               icon: const Icon(Icons.power_outlined),
               selectedIcon: const Icon(Icons.power_rounded),
-              label: Text(_localizedText(context, zh: '插件服务', en: 'Plugins')),
+              label: Text(_localizedText(context, zh: '插件', en: 'Plugins')),
             ),
             NavigationDrawerDestination(
               icon: const Icon(Icons.settings_outlined),

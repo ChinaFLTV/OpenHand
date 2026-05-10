@@ -57,14 +57,17 @@ class PluginServiceController extends ChangeNotifier {
 
   /// 重新扫描所有插件状态。
   Future<void> rescan() async {
+    _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
       _plugins = await _scanner.scanAll();
     } catch (e) {
       _errorMessage = '$e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   /// 安装指定插件。自动处理依赖关系。

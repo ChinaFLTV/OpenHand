@@ -5302,8 +5302,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ),
       AppSection.pluginService => _localizedText(
         context,
-        zh: '插件服务',
-        en: 'Plugin Service',
+        zh: '插件',
+        en: 'Plugins',
       ),
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
       AppSection.hardnessSession => _localizedText(

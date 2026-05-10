@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -15,10 +16,6 @@ void _showPluginSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
   OpenHandSnackBar.show(context, messenger, snackBar);
-}
-
-String _localizedText(BuildContext context, {required String zh, required String en}) {
-  return Localizations.localeOf(context).languageCode.startsWith('zh') ? zh : en;
 }
 
 class PluginServiceView extends StatefulWidget {
@@ -40,20 +37,35 @@ class _PluginServiceViewState extends State<PluginServiceView> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isZh ? '插件服务' : 'Plugin Service',
-                  style: theme.textTheme.displaySmall,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isZh ? '插件' : 'Plugins',
+                        style: theme.textTheme.displaySmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isZh
+                            ? '管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。'
+                            : 'Manage optional plugin installation, updates, and removal. Plugins extend OpenHand with additional runtime capabilities.',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  isZh
-                      ? '管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。'
-                      : 'Manage optional plugin installation, updates, and removal. Plugins extend OpenHand with additional runtime capabilities.',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                const SizedBox(width: 16),
+                MicroPressFeedback(
+                  child: OutlinedButton.icon(
+                    onPressed: controller.isOperating ? null : controller.rescan,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: Text(isZh ? '重新扫描' : 'Rescan'),
                   ),
                 ),
               ],
@@ -75,28 +87,39 @@ class _PluginServiceViewState extends State<PluginServiceView> {
   }
 
   Widget _buildBody(BuildContext context, PluginServiceController controller) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     if (controller.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              isZh ? '正在扫描本机插件环境…' : 'Scanning local plugin environment…',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
     }
     if (controller.errorMessage != null && controller.plugins.isEmpty) {
       return _PluginStateCard(
         icon: Icons.error_outline_rounded,
-        title: _localizedText(context, zh: '插件扫描失败', en: 'Plugin scan failed'),
+        title: isZh ? '插件扫描失败' : 'Plugin scan failed',
         body: controller.errorMessage!,
         action: TextButton.icon(
           onPressed: controller.rescan,
           icon: const Icon(Icons.refresh, size: 18),
-          label: Text(_localizedText(context, zh: '重试', en: 'Retry')),
+          label: Text(isZh ? '重试' : 'Retry'),
         ),
       );
     }
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
       children: [
-        // 顶部操作栏
-        _ScanActionBar(controller: controller),
-        const SizedBox(height: 12),
-        // 错误提示（非阻塞）
         if (controller.errorMessage != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -105,55 +128,10 @@ class _PluginServiceViewState extends State<PluginServiceView> {
               onDismiss: controller.clearError,
             ),
           ),
-        // 插件卡片列表
         for (final plugin in controller.plugins) ...[
           _PluginCard(plugin: plugin, controller: controller),
           const SizedBox(height: 12),
         ],
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 扫描操作栏
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ScanActionBar extends StatelessWidget {
-  const _ScanActionBar({required this.controller});
-
-  final PluginServiceController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    return Row(
-      children: [
-        Icon(
-          Icons.info_outline_rounded,
-          size: 16,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            isZh
-                ? '自动扫描本机环境，已安装的插件将被识别并显示版本信息。'
-                : 'Auto-scans local environment. Installed plugins are detected with version info.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        MicroPressFeedback(
-          child: OutlinedButton.icon(
-            onPressed: controller.isOperating ? null : controller.rescan,
-            icon: const Icon(Icons.refresh, size: 16),
-            label: Text(isZh ? '重新扫描' : 'Rescan'),
-          ),
-        ),
       ],
     );
   }
@@ -336,17 +314,14 @@ class _PluginCard extends StatelessWidget {
                 );
               },
             ),
-            // 版本与路径信息
             if (plugin.isInstalled) ...[
               const SizedBox(height: 14),
               _PluginMetaRow(plugin: plugin),
             ],
-            // 依赖信息
             if (plugin.dependencies.isNotEmpty) ...[
               const SizedBox(height: 10),
               _DependencyRow(plugin: plugin, controller: controller),
             ],
-            // 错误信息
             if (plugin.status == PluginStatus.error &&
                 plugin.errorMessage != null) ...[
               const SizedBox(height: 10),
@@ -356,11 +331,6 @@ class _PluginCard extends StatelessWidget {
                   color: theme.colorScheme.error,
                 ),
               ),
-            ],
-            // 操作日志（仅在操作进行中显示）
-            if (plugin.isBusy && controller.operationLogs.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _OperationLogPanel(logs: controller.operationLogs),
             ],
           ],
         ),
@@ -374,9 +344,7 @@ class _PluginCard extends StatelessWidget {
     if (plugin.status == PluginStatus.notInstalled) {
       return MicroPressFeedback(
         child: FilledButton.icon(
-          onPressed: isBusy
-              ? null
-              : () => _confirmInstall(context),
+          onPressed: isBusy ? null : () => _doInstall(context),
           icon: const Icon(Icons.download_rounded),
           label: Text(isZh ? '安装' : 'Install'),
         ),
@@ -391,18 +359,14 @@ class _PluginCard extends StatelessWidget {
           if (plugin.hasUpdate)
             MicroPressFeedback(
               child: FilledButton.tonalIcon(
-                onPressed: isBusy
-                    ? null
-                    : () => _confirmUpdate(context),
+                onPressed: isBusy ? null : () => _doUpdate(context),
                 icon: const Icon(Icons.system_update_alt_rounded, size: 18),
                 label: Text(isZh ? '更新' : 'Update'),
               ),
             ),
           MicroPressFeedback(
             child: OutlinedButton.icon(
-              onPressed: isBusy
-                  ? null
-                  : () => _confirmUninstall(context),
+              onPressed: isBusy ? null : () => _doUninstall(context),
               icon: Icon(Icons.delete_outline_rounded,
                   size: 18, color: Theme.of(context).colorScheme.error),
               label: Text(
@@ -414,7 +378,6 @@ class _PluginCard extends StatelessWidget {
         ],
       );
     }
-    // 操作中状态
     return const SizedBox(
       width: 24,
       height: 24,
@@ -422,22 +385,16 @@ class _PluginCard extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmInstall(BuildContext context) async {
+  Future<void> _doInstall(BuildContext context) async {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    // 检查依赖
     for (final depId in plugin.dependencies) {
       final dep = controller.pluginById(depId);
       if (dep == null || !dep.isInstalled) {
-        _showPluginSnackBar(
-          context,
-          SnackBar(
-            content: Text(
-              isZh
-                  ? '需要先安装 ${dep?.name ?? depId}'
-                  : '${dep?.name ?? depId} must be installed first',
-            ),
-          ),
-        );
+        _showPluginSnackBar(context, SnackBar(
+          content: Text(isZh
+              ? '需要先安装 ${dep?.name ?? depId}'
+              : '${dep?.name ?? depId} must be installed first'),
+        ));
         return;
       }
     }
@@ -445,11 +402,9 @@ class _PluginCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isZh ? '安装 ${plugin.name}？' : 'Install ${plugin.name}?'),
-        content: Text(
-          isZh
-              ? '将在本机安装 ${plugin.name}，可能需要下载依赖文件。'
-              : 'This will install ${plugin.name} on your machine. Dependencies may be downloaded.',
-        ),
+        content: Text(isZh
+            ? '将在本机安装 ${plugin.name}，可能需要下载依赖文件。'
+            : 'This will install ${plugin.name}. Dependencies may be downloaded.'),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -463,31 +418,26 @@ class _PluginCard extends StatelessWidget {
       ),
     );
     if (confirmed != true || !context.mounted) return;
+    _showOperationDialog(context, isZh ? '安装' : 'Install', plugin.name);
     final success = await controller.installPlugin(plugin.id);
     if (!context.mounted) return;
-    _showPluginSnackBar(
-      context,
-      SnackBar(
-        content: Text(
-          success
-              ? (isZh ? '${plugin.name} 安装成功' : '${plugin.name} installed successfully')
-              : (isZh ? '${plugin.name} 安装失败' : '${plugin.name} installation failed'),
-        ),
-      ),
-    );
+    Navigator.of(context, rootNavigator: true).pop();
+    _showPluginSnackBar(context, SnackBar(
+      content: Text(success
+          ? (isZh ? '${plugin.name} 安装成功' : '${plugin.name} installed')
+          : (isZh ? '${plugin.name} 安装失败' : '${plugin.name} install failed')),
+    ));
   }
 
-  Future<void> _confirmUpdate(BuildContext context) async {
+  Future<void> _doUpdate(BuildContext context) async {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isZh ? '更新 ${plugin.name}？' : 'Update ${plugin.name}?'),
-        content: Text(
-          isZh
-              ? '将 ${plugin.name} 从 ${plugin.installedVersion} 更新到 ${plugin.latestVersion}。'
-              : 'Update ${plugin.name} from ${plugin.installedVersion} to ${plugin.latestVersion}.',
-        ),
+        content: Text(isZh
+            ? '将 ${plugin.name} 从 ${plugin.installedVersion} 更新到 ${plugin.latestVersion}。'
+            : 'Update ${plugin.name} from ${plugin.installedVersion} to ${plugin.latestVersion}.'),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -501,36 +451,27 @@ class _PluginCard extends StatelessWidget {
       ),
     );
     if (confirmed != true || !context.mounted) return;
+    _showOperationDialog(context, isZh ? '更新' : 'Update', plugin.name);
     final success = await controller.updatePlugin(plugin.id);
     if (!context.mounted) return;
-    _showPluginSnackBar(
-      context,
-      SnackBar(
-        content: Text(
-          success
-              ? (isZh ? '${plugin.name} 更新成功' : '${plugin.name} updated successfully')
-              : (isZh ? '${plugin.name} 更新失败' : '${plugin.name} update failed'),
-        ),
-      ),
-    );
+    Navigator.of(context, rootNavigator: true).pop();
+    _showPluginSnackBar(context, SnackBar(
+      content: Text(success
+          ? (isZh ? '${plugin.name} 更新成功' : '${plugin.name} updated')
+          : (isZh ? '${plugin.name} 更新失败' : '${plugin.name} update failed')),
+    ));
   }
 
-  Future<void> _confirmUninstall(BuildContext context) async {
+  Future<void> _doUninstall(BuildContext context) async {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    // 检查是否有依赖本插件的已安装插件
     for (final other in controller.plugins) {
       if (other.id == plugin.id) continue;
       if (other.isInstalled && other.dependencies.contains(plugin.id)) {
-        _showPluginSnackBar(
-          context,
-          SnackBar(
-            content: Text(
-              isZh
-                  ? '${other.name} 依赖 ${plugin.name}，请先卸载 ${other.name}'
-                  : '${other.name} depends on ${plugin.name}. Uninstall ${other.name} first.',
-            ),
-          ),
-        );
+        _showPluginSnackBar(context, SnackBar(
+          content: Text(isZh
+              ? '${other.name} 依赖 ${plugin.name}，请先卸载 ${other.name}'
+              : '${other.name} depends on ${plugin.name}. Uninstall it first.'),
+        ));
         return;
       }
     }
@@ -538,11 +479,9 @@ class _PluginCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isZh ? '卸载 ${plugin.name}？' : 'Uninstall ${plugin.name}?'),
-        content: Text(
-          isZh
-              ? '将从本机卸载 ${plugin.name}，此操作不可撤销。'
-              : 'This will remove ${plugin.name} from your machine. This cannot be undone.',
-        ),
+        content: Text(isZh
+            ? '将从本机卸载 ${plugin.name}，此操作不可撤销。'
+            : 'This will remove ${plugin.name}. This cannot be undone.'),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -556,15 +495,264 @@ class _PluginCard extends StatelessWidget {
       ),
     );
     if (confirmed != true || !context.mounted) return;
+    _showOperationDialog(context, isZh ? '卸载' : 'Uninstall', plugin.name);
     final success = await controller.uninstallPlugin(plugin.id);
     if (!context.mounted) return;
-    _showPluginSnackBar(
-      context,
-      SnackBar(
-        content: Text(
-          success
-              ? (isZh ? '${plugin.name} 已卸载' : '${plugin.name} uninstalled')
-              : (isZh ? '${plugin.name} 卸载失败' : '${plugin.name} uninstall failed'),
+    Navigator.of(context, rootNavigator: true).pop();
+    _showPluginSnackBar(context, SnackBar(
+      content: Text(success
+          ? (isZh ? '${plugin.name} 已卸载' : '${plugin.name} uninstalled')
+          : (isZh ? '${plugin.name} 卸载失败' : '${plugin.name} uninstall failed')),
+    ));
+  }
+
+  void _showOperationDialog(BuildContext context, String action, String pluginName) {
+    showAnimatedDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _PluginOperationProgressDialog(
+        action: action,
+        pluginName: pluginName,
+        controller: controller,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 操作进度弹窗（终端风格）
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PluginOperationProgressDialog extends StatefulWidget {
+  const _PluginOperationProgressDialog({
+    required this.action,
+    required this.pluginName,
+    required this.controller,
+  });
+
+  final String action;
+  final String pluginName;
+  final PluginServiceController controller;
+
+  @override
+  State<_PluginOperationProgressDialog> createState() =>
+      _PluginOperationProgressDialogState();
+}
+
+class _PluginOperationProgressDialogState
+    extends State<_PluginOperationProgressDialog>
+    with SingleTickerProviderStateMixin {
+  final ScrollController _scrollController = ScrollController();
+  late final AnimationController _pulseController;
+  int _lastLogCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    widget.controller.addListener(_onControllerUpdate);
+  }
+
+  void _onControllerUpdate() {
+    if (!mounted) return;
+    setState(() {});
+    final logs = widget.controller.operationLogs;
+    if (logs.length > _lastLogCount) {
+      _lastLogCount = logs.length;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerUpdate);
+    _pulseController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final logs = widget.controller.operationLogs;
+    final isOperating = widget.controller.isOperating;
+
+    return Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 480),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 标题栏
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                border: Border(
+                  bottom: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  if (isOperating)
+                    FadeTransition(
+                      opacity: _pulseController.drive(
+                        Tween(begin: 0.4, end: 1.0),
+                      ),
+                      child: Icon(
+                        Icons.terminal_rounded,
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 20,
+                      color: Color(0xFF16A34A),
+                    ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${widget.action} ${widget.pluginName}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isOperating)
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // 环境信息
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              child: DefaultTextStyle(
+                style: theme.textTheme.bodySmall!.copyWith(
+                  fontFamily: 'monospace',
+                  fontSize: 10.5,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 4,
+                  children: [
+                    Text('PID: $pid'),
+                    Text('OS: ${Platform.operatingSystem}'),
+                    Text('Arch: ${Platform.version.split(' ').last}'),
+                    Text(isZh ? '日志: ${logs.length} 行' : 'Logs: ${logs.length} lines'),
+                  ],
+                ),
+              ),
+            ),
+            // 进度条
+            if (isOperating)
+              LinearProgressIndicator(
+                minHeight: 3,
+                color: theme.colorScheme.primary,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              )
+            else
+              Container(
+                height: 3,
+                color: const Color(0xFF16A34A),
+              ),
+            // 终端输出区域
+            Flexible(
+              child: Container(
+                color: const Color(0xFF1E1E1E),
+                child: logs.isEmpty
+                    ? Center(
+                        child: Text(
+                          isZh ? '等待输出…' : 'Waiting for output…',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFF808080),
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: logs.length,
+                        itemBuilder: (context, index) {
+                          final line = logs[index];
+                          final isError = line.startsWith('[stderr]');
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              line,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                height: 1.5,
+                                color: isError
+                                    ? const Color(0xFFFF6B6B)
+                                    : const Color(0xFFD4D4D4),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+            // 底部状态栏
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                border: Border(
+                  top: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isOperating ? Icons.hourglass_top_rounded : Icons.done_all_rounded,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isOperating
+                        ? (isZh ? '正在执行…' : 'Executing…')
+                        : (isZh ? '操作完成' : 'Completed'),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -677,44 +865,6 @@ class _DependencyRow extends StatelessWidget {
           );
         }),
       ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 操作日志面板
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _OperationLogPanel extends StatelessWidget {
-  const _OperationLogPanel({required this.logs});
-
-  final List<String> logs;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 140),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ListView.builder(
-        reverse: true,
-        itemCount: logs.length,
-        itemBuilder: (context, index) {
-          final line = logs[logs.length - 1 - index];
-          return Text(
-            line,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          );
-        },
-      ),
     );
   }
 }
