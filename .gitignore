@@ -53,3 +53,5 @@ app.*.map.json
 .cursor
 .kiro
 .windsurf
+
+.vscode
