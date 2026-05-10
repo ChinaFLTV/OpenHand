@@ -310,9 +310,9 @@ class McpStdioProcessManager extends ChangeNotifier {
       process.stdin.add(body);
       await process.stdin.flush();
 
-      // 等待 stdout 中出现响应（最多 60 秒，npx 冷启动可能很慢）
+      // 等待 stdout 中出现响应（最多 90 秒，npx 首次运行需要下载包）
       final gotResponse = await responseCompleter.future
-          .timeout(const Duration(seconds: 60), onTimeout: () => false);
+          .timeout(const Duration(seconds: 90), onTimeout: () => false);
 
       if (gotResponse) {
         _appendLog(serverName, '[${_timestamp()}] ✓ MCP 握手成功', isStderr: false);
@@ -533,12 +533,13 @@ Future<_ResolvedLaunch> _resolveStdioLaunch(McpServer server) async {
     }
   }
 
-  // 构建环境变量
+  // 构建环境变量 — 进程管理器使用用户正常环境（不注入隔离缓存），
+  // 因为用户手动启动的服务应该使用已全局安装的包，避免每次重新下载。
+  // 隔离缓存仅用于 discovery service 的一次性探测。
   final env = Map<String, String>.from(Platform.environment);
   env['PATH'] = mergedPath;
-
-  // 注入隔离缓存（复用 discovery service 的逻辑，确保目录已创建且路径一致）
-  env.addAll(mcpStdioIsolatedCacheEnv());
+  // 自动确认 npx 安装提示（非交互式进程必需）
+  env['npm_config_yes'] = 'true';
 
   return _ResolvedLaunch(executable: executable, args: args, environment: env);
 }
