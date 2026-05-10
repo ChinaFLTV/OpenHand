@@ -157,8 +157,8 @@ class McpStdioProcessManager extends ChangeNotifier {
         }
       }));
 
-      // 进程已启动，标记就绪
-      _logProcessReady(name);
+      // 启动后自动执行 MCP 协议握手
+      unawaited(_initializeMcpProtocol(name, process));
     } catch (e) {
       _processes[name] = _ManagedProcess(
         info: StdioProcessInfo(
@@ -266,10 +266,71 @@ class McpStdioProcessManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// STDIO MCP 服务启动后即处于就绪状态，等待外部通过 stdin 发送 MCP 协议请求。
-  /// 进程管理器不负责 MCP 协议握手——那是 discovery service 的职责。
-  void _logProcessReady(String serverName) {
-    _appendLog(serverName, '[${_timestamp()}] 服务就绪，等待 MCP 协议连接…', isStderr: false);
+  /// 启动后自动通过 stdin 发送 MCP initialize 请求完成协议握手。
+  /// 握手成功后服务才真正可用；失败则记录错误但不终止进程。
+  Future<void> _initializeMcpProtocol(String serverName, Process process) async {
+    _appendLog(serverName, '[${_timestamp()}] MCP 协议握手中…', isStderr: false);
+    try {
+      // 构造 MCP initialize 请求（JSON-RPC 2.0）
+      final initRequest = jsonEncode({
+        'jsonrpc': '2.0',
+        'id': 1,
+        'method': 'initialize',
+        'params': {
+          'protocolVersion': '2025-11-25',
+          'capabilities': {},
+          'clientInfo': {'name': 'OpenHand', 'version': '1.0.0'},
+        },
+      });
+      final body = utf8.encode(initRequest);
+      final header = 'Content-Length: ${body.length}\r\n\r\n';
+
+      // 发送 initialize 请求
+      process.stdin.add(utf8.encode(header));
+      process.stdin.add(body);
+      await process.stdin.flush();
+
+      // 等待响应（最多 30 秒）
+      final response = await _waitForJsonRpcResponse(serverName, timeout: const Duration(seconds: 30));
+      if (response != null) {
+        _appendLog(serverName, '[${_timestamp()}] ✓ MCP 握手成功', isStderr: false);
+
+        // 发送 initialized 通知
+        final notification = jsonEncode({
+          'jsonrpc': '2.0',
+          'method': 'notifications/initialized',
+        });
+        final notifBody = utf8.encode(notification);
+        final notifHeader = 'Content-Length: ${notifBody.length}\r\n\r\n';
+        process.stdin.add(utf8.encode(notifHeader));
+        process.stdin.add(notifBody);
+        await process.stdin.flush();
+        _appendLog(serverName, '[${_timestamp()}] ✓ 服务已就绪，可正常使用', isStderr: false);
+      } else {
+        _appendLog(serverName, '[${_timestamp()}] ⚠ 握手超时，服务可能需要更长启动时间', isStderr: false);
+      }
+    } catch (e) {
+      _appendLog(serverName, '[${_timestamp()}] ⚠ 握手异常: $e', isStderr: false);
+    }
+  }
+
+  /// 等待进程 stdout 中出现 JSON-RPC 响应（简化版：检查日志中是否出现响应内容）。
+  Future<String?> _waitForJsonRpcResponse(String serverName, {required Duration timeout}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      final managed = _processes[serverName];
+      if (managed == null || !managed.info.isRunning) return null;
+      // 检查日志中是否有 JSON-RPC 响应（包含 "result" 字段）
+      final logs = managed.info.logs;
+      for (int i = logs.length - 1; i >= 0 && i >= logs.length - 10; i--) {
+        final line = logs[i];
+        if (line.contains('"result"') || line.contains('"protocolVersion"')) {
+          return line;
+        }
+      }
+    }
+    return null;
   }
 
   /// 获取进程的运行时环境信息。

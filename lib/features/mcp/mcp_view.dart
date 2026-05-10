@@ -3329,7 +3329,6 @@ class _McpProbeDetailsDialog extends StatelessWidget {
           ),
           builder: (context, snap, _) {
             final controller = context.read<McpController>();
-            final enabledServers = snap.servers.where((s) => s.enabled).toList();
             final hasWork = snap.activeAutoProbeSlots > 0 ||
                 snap.queuedAutoProbeTasks > 0 ||
                 snap.autoToolRefreshInProgress ||
@@ -3472,7 +3471,11 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                                 onPressed: hasWork
                                     ? null
                                     : () {
-                                        controller.setPageActive(true);
+                                        // 强制触发：先 deactivate 再 activate 以重置状态
+                                        controller.setPageActive(false);
+                                        Future.delayed(const Duration(milliseconds: 200), () {
+                                          controller.setPageActive(true);
+                                        });
                                       },
                                 icon: const Icon(Icons.play_arrow_rounded, size: 18),
                                 label: Text(isZh ? '强制触发探测' : 'Force Probe'),
@@ -3481,16 +3484,18 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                                 onPressed: !hasWork
                                     ? null
                                     : () {
+                                        // 中断：deactivate 停止所有探测
                                         controller.setPageActive(false);
-                                        Future.delayed(const Duration(milliseconds: 100), () {
-                                          controller.setPageActive(true);
-                                        });
                                       },
                                 icon: const Icon(Icons.stop_rounded, size: 18),
                                 label: Text(isZh ? '中断当前探测' : 'Stop Probing'),
                               ),
                               OutlinedButton.icon(
-                                onPressed: () => controller.refresh(),
+                                onPressed: () async {
+                                  await controller.refresh();
+                                  // refresh 完成后重新激活探测
+                                  controller.setPageActive(true);
+                                },
                                 icon: const Icon(Icons.refresh_rounded, size: 18),
                                 label: Text(isZh ? '重载服务列表' : 'Reload Servers'),
                               ),
@@ -3502,20 +3507,20 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                       // 各服务探测状态
                       _ProbeSection(
                         title: isZh
-                            ? '服务探测状态 (${enabledServers.length} 个已启用)'
-                            : 'Server Probe Status (${enabledServers.length} enabled)',
+                            ? '服务探测状态 (${snap.servers.length} 个服务)'
+                            : 'Server Probe Status (${snap.servers.length} servers)',
                         icon: Icons.dns_outlined,
                         children: [
-                          for (final server in enabledServers)
+                          for (final server in snap.servers)
                             _ProbeServerRow(
                               server: server,
                               controller: controller,
                             ),
-                          if (enabledServers.isEmpty)
+                          if (snap.servers.isEmpty)
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Text(
-                                isZh ? '暂无已启用的服务' : 'No enabled servers',
+                                isZh ? '暂无服务' : 'No servers',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -3597,6 +3602,7 @@ class _ProbeServerRow extends StatelessWidget {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final health = controller.healthStatusFor(server.name);
     final catalog = controller.toolCatalogFor(server.name);
+    final isBusy = health.isChecking || catalog.isLoading;
 
     final statusColor = switch (health.status) {
       McpServerHealthStatus.healthy => const Color(0xFF16A34A),
@@ -3615,11 +3621,38 @@ class _ProbeServerRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
+          // 启用/禁用探测开关
+          SizedBox(
+            width: 28,
+            height: 28,
+            child: Tooltip(
+              message: server.enabled
+                  ? (isZh ? '点击禁用此服务探测' : 'Disable probing')
+                  : (isZh ? '点击启用此服务探测' : 'Enable probing'),
+              child: IconButton(
+                onPressed: () => controller.updateServerEnabled(
+                  server.name, !server.enabled,
+                ),
+                icon: Icon(
+                  server.enabled
+                      ? Icons.check_circle_rounded
+                      : Icons.cancel_rounded,
+                  size: 14,
+                  color: server.enabled
+                      ? const Color(0xFF16A34A)
+                      : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
           Container(
             width: 8,
             height: 8,
             decoration: BoxDecoration(
-              color: statusColor,
+              color: server.enabled ? statusColor : colorScheme.outlineVariant,
               shape: BoxShape.circle,
             ),
           ),
@@ -3629,19 +3662,20 @@ class _ProbeServerRow extends StatelessWidget {
               server.name,
               style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w500,
+                color: server.enabled ? null : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 8),
           Text(
-            statusLabel,
+            server.enabled ? statusLabel : (isZh ? '已禁用' : 'Disabled'),
             style: theme.textTheme.labelSmall?.copyWith(
-              color: statusColor,
+              color: server.enabled ? statusColor : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (catalog.tools.isNotEmpty) ...[
+          if (catalog.tools.isNotEmpty && server.enabled) ...[
             const SizedBox(width: 8),
             Text(
               '${catalog.tools.length} tools',
@@ -3651,15 +3685,21 @@ class _ProbeServerRow extends StatelessWidget {
             ),
           ],
           const SizedBox(width: 8),
-          // 单独触发该服务的探测
+          // 单独触发该服务的探测（禁用态或探测中时不可点击）
           SizedBox(
             width: 28,
             height: 28,
             child: IconButton(
-              onPressed: health.isChecking || catalog.isLoading
+              onPressed: !server.enabled || isBusy
                   ? null
                   : () => controller.reconnectServer(server.name),
-              icon: const Icon(Icons.refresh_rounded, size: 14),
+              icon: Icon(
+                Icons.refresh_rounded,
+                size: 14,
+                color: !server.enabled || isBusy
+                    ? colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
+                    : null,
+              ),
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               tooltip: isZh ? '探测此服务' : 'Probe this server',
