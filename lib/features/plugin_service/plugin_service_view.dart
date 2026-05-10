@@ -37,38 +37,65 @@ class _PluginServiceViewState extends State<PluginServiceView> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked = constraints.maxWidth < 980;
+                final actions = Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: controller.isOperating
+                          ? null
+                          : controller.rescan,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(isZh ? '重新扫描' : 'Rescan'),
+                    ),
+                  ],
+                );
+                final header = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isZh ? '插件' : 'Plugins',
+                      style: theme.textTheme.displaySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isZh
+                          ? '管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。'
+                          : 'Manage optional plugin installation, updates, and removal.',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                );
+                if (stacked) {
+                  return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        isZh ? '插件' : 'Plugins',
-                        style: theme.textTheme.displaySmall,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        isZh
-                            ? '管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。'
-                            : 'Manage optional plugin installation, updates, and removal. Plugins extend OpenHand with additional runtime capabilities.',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+                      header,
+                      const SizedBox(height: 20),
+                      Align(alignment: Alignment.centerRight, child: actions),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                MicroPressFeedback(
-                  child: OutlinedButton.icon(
-                    onPressed: controller.isOperating ? null : controller.rescan,
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: Text(isZh ? '重新扫描' : 'Rescan'),
-                  ),
-                ),
-              ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: header),
+                    const SizedBox(width: 20),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: actions,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 20),
             Expanded(child: _buildBody(context, controller)),
@@ -341,21 +368,36 @@ class _PluginCard extends StatelessWidget {
   Widget _buildActions(BuildContext context) {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final isBusy = plugin.isBusy || controller.isOperating;
-    if (plugin.status == PluginStatus.notInstalled) {
-      return MicroPressFeedback(
-        child: FilledButton.icon(
-          onPressed: isBusy ? null : () => _doInstall(context),
-          icon: const Icon(Icons.download_rounded),
-          label: Text(isZh ? '安装' : 'Install'),
+    final hasMcp = plugin.id == 'playwright'; // Playwright 有官方 MCP 服务
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: [
+        // 详情按钮
+        IconButton.filledTonal(
+          tooltip: isZh ? '详情' : 'Details',
+          onPressed: () => _showDetailDialog(context),
+          icon: const Icon(Icons.info_outline_rounded, size: 18),
         ),
-      );
-    }
-    if (plugin.isInstalled) {
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.end,
-        children: [
+        // MCP 服务按钮（仅 Playwright）
+        if (hasMcp && plugin.isInstalled)
+          IconButton.filledTonal(
+            tooltip: isZh ? 'MCP 服务' : 'MCP Service',
+            onPressed: isBusy ? null : () => _showMcpActions(context),
+            icon: const Icon(Icons.hub_outlined, size: 18),
+          ),
+        // 安装/更新/卸载按钮
+        if (plugin.status == PluginStatus.notInstalled)
+          MicroPressFeedback(
+            child: FilledButton.icon(
+              onPressed: isBusy ? null : () => _doInstall(context),
+              icon: const Icon(Icons.download_rounded),
+              label: Text(isZh ? '安装' : 'Install'),
+            ),
+          )
+        else if (plugin.isInstalled) ...[
           if (plugin.hasUpdate)
             MicroPressFeedback(
               child: FilledButton.tonalIcon(
@@ -375,13 +417,13 @@ class _PluginCard extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      );
-    }
-    return const SizedBox(
-      width: 24,
-      height: 24,
-      child: CircularProgressIndicator(strokeWidth: 2.5),
+        ] else
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+      ],
     );
   }
 
@@ -514,6 +556,26 @@ class _PluginCard extends StatelessWidget {
         action: action,
         pluginName: pluginName,
         controller: controller,
+      ),
+    );
+  }
+
+  void _showDetailDialog(BuildContext context) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    showAnimatedDialog(
+      context: context,
+      builder: (ctx) => _PluginDetailDialog(plugin: plugin, isZh: isZh),
+    );
+  }
+
+  void _showMcpActions(BuildContext context) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    showAnimatedDialog(
+      context: context,
+      builder: (ctx) => _PluginMcpDialog(
+        plugin: plugin,
+        controller: controller,
+        isZh: isZh,
       ),
     );
   }
@@ -948,6 +1010,546 @@ class _PluginStateCard extends StatelessWidget {
                 ],
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 插件详情弹窗
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PluginDetailDialog extends StatefulWidget {
+  const _PluginDetailDialog({required this.plugin, required this.isZh});
+
+  final PluginInfo plugin;
+  final bool isZh;
+
+  @override
+  State<_PluginDetailDialog> createState() => _PluginDetailDialogState();
+}
+
+class _PluginDetailDialogState extends State<_PluginDetailDialog> {
+  Map<String, String> _envInfo = {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEnvInfo();
+  }
+
+  Future<void> _loadEnvInfo() async {
+    final info = <String, String>{};
+    try {
+      info['OS'] = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+      info['Arch'] = Platform.version.split(' ').last;
+      info['Dart'] = Platform.version.split(' ').first;
+      info['PID'] = '$pid';
+      info[widget.isZh ? '处理器数' : 'Processors'] = '${Platform.numberOfProcessors}';
+      if (widget.plugin.installPath != null) {
+        info[widget.isZh ? '安装路径' : 'Install Path'] = widget.plugin.installPath!;
+      }
+      if (widget.plugin.installedVersion != null) {
+        info[widget.isZh ? '当前版本' : 'Version'] = widget.plugin.installedVersion!;
+      }
+      if (widget.plugin.latestVersion != null) {
+        info[widget.isZh ? '最新版本' : 'Latest'] = widget.plugin.latestVersion!;
+      }
+      // 获取额外运行时信息
+      if (widget.plugin.id == 'nodejs' && widget.plugin.isInstalled) {
+        try {
+          final npmResult = await Process.run('npm', ['--version'])
+              .timeout(const Duration(seconds: 5));
+          if (npmResult.exitCode == 0) {
+            info['npm'] = npmResult.stdout.toString().trim();
+          }
+          final npxResult = await Process.run('npx', ['--version'])
+              .timeout(const Duration(seconds: 5));
+          if (npxResult.exitCode == 0) {
+            info['npx'] = npxResult.stdout.toString().trim();
+          }
+        } catch (_) {}
+      }
+      if (widget.plugin.id == 'playwright' && widget.plugin.isInstalled) {
+        try {
+          final result = await Process.run('npx', ['playwright', '--version'])
+              .timeout(const Duration(seconds: 10));
+          if (result.exitCode == 0) {
+            info['Playwright CLI'] = result.stdout.toString().trim();
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _envInfo = info;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isZh = widget.isZh;
+    final plugin = widget.plugin;
+
+    return Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 520),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 标题
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                border: Border(
+                  bottom: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded,
+                      size: 20, color: theme.colorScheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${plugin.name} ${isZh ? "详情" : "Details"}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, size: 18),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+            // 内容
+            Flexible(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        // 基本信息
+                        _DetailSection(
+                          title: isZh ? '基本信息' : 'Basic Info',
+                          icon: Icons.extension_rounded,
+                          children: [
+                            _DetailRow(label: isZh ? '名称' : 'Name', value: plugin.name),
+                            _DetailRow(label: 'ID', value: plugin.id),
+                            _DetailRow(label: isZh ? '描述' : 'Description', value: plugin.description),
+                            _DetailRow(
+                              label: isZh ? '状态' : 'Status',
+                              value: plugin.status.name,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // 环境信息
+                        _DetailSection(
+                          title: isZh ? '环境信息' : 'Environment',
+                          icon: Icons.computer_rounded,
+                          children: [
+                            for (final entry in _envInfo.entries)
+                              _DetailRow(label: entry.key, value: entry.value),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // 依赖关系
+                        _DetailSection(
+                          title: isZh ? '依赖关系' : 'Dependencies',
+                          icon: Icons.account_tree_rounded,
+                          children: [
+                            _DetailRow(
+                              label: isZh ? '依赖' : 'Depends on',
+                              value: plugin.dependencies.isEmpty
+                                  ? (isZh ? '无' : 'None')
+                                  : plugin.dependencies.join(', '),
+                            ),
+                            _DetailRow(
+                              label: isZh ? '被依赖' : 'Required by',
+                              value: plugin.dependents.isEmpty
+                                  ? (isZh ? '无' : 'None')
+                                  : plugin.dependents.join(', '),
+                            ),
+                          ],
+                        ),
+                        if (plugin.id == 'playwright') ...[
+                          const SizedBox(height: 16),
+                          _DetailSection(
+                            title: 'MCP',
+                            icon: Icons.hub_rounded,
+                            children: [
+                              _DetailRow(
+                                label: isZh ? 'MCP 包' : 'MCP Package',
+                                value: '@playwright/mcp',
+                              ),
+                              _DetailRow(
+                                label: isZh ? '说明' : 'Description',
+                                value: isZh
+                                    ? '提供浏览器自动化能力的 MCP 服务'
+                                    : 'MCP server for browser automation',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 插件 MCP 服务弹窗
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PluginMcpDialog extends StatefulWidget {
+  const _PluginMcpDialog({
+    required this.plugin,
+    required this.controller,
+    required this.isZh,
+  });
+
+  final PluginInfo plugin;
+  final PluginServiceController controller;
+  final bool isZh;
+
+  @override
+  State<_PluginMcpDialog> createState() => _PluginMcpDialogState();
+}
+
+class _PluginMcpDialogState extends State<_PluginMcpDialog> {
+  bool _checking = true;
+  bool _mcpInstalled = false;
+  String? _mcpVersion;
+  bool _operating = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkMcpStatus();
+  }
+
+  Future<void> _checkMcpStatus() async {
+    setState(() => _checking = true);
+    try {
+      if (widget.plugin.id == 'playwright') {
+        final result = await Process.run(
+          'npx', ['@playwright/mcp', '--version'],
+        ).timeout(const Duration(seconds: 15));
+        if (result.exitCode == 0) {
+          _mcpInstalled = true;
+          _mcpVersion = result.stdout.toString().trim();
+        } else {
+          // 尝试检查是否已安装但版本命令不同
+          final listResult = await Process.run(
+            'npm', ['list', '-g', '@playwright/mcp', '--depth=0'],
+          ).timeout(const Duration(seconds: 10));
+          _mcpInstalled = listResult.exitCode == 0 &&
+              listResult.stdout.toString().contains('@playwright/mcp');
+          if (_mcpInstalled) {
+            final match = RegExp(r'@playwright/mcp@([\d.]+)')
+                .firstMatch(listResult.stdout.toString());
+            _mcpVersion = match?.group(1);
+          }
+        }
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _checking = false);
+  }
+
+  Future<void> _installMcp() async {
+    setState(() { _operating = true; _error = null; });
+    try {
+      final result = await Process.run(
+        'npm', ['install', '-g', '@playwright/mcp'],
+      ).timeout(const Duration(minutes: 3));
+      if (result.exitCode == 0) {
+        await _checkMcpStatus();
+      } else {
+        _error = result.stderr.toString().trim();
+      }
+    } catch (e) {
+      _error = '$e';
+    }
+    if (mounted) setState(() => _operating = false);
+  }
+
+  Future<void> _updateMcp() async {
+    setState(() { _operating = true; _error = null; });
+    try {
+      final result = await Process.run(
+        'npm', ['update', '-g', '@playwright/mcp'],
+      ).timeout(const Duration(minutes: 3));
+      if (result.exitCode == 0) {
+        await _checkMcpStatus();
+      } else {
+        _error = result.stderr.toString().trim();
+      }
+    } catch (e) {
+      _error = '$e';
+    }
+    if (mounted) setState(() => _operating = false);
+  }
+
+  Future<void> _uninstallMcp() async {
+    setState(() { _operating = true; _error = null; });
+    try {
+      final result = await Process.run(
+        'npm', ['uninstall', '-g', '@playwright/mcp'],
+      ).timeout(const Duration(minutes: 2));
+      if (result.exitCode == 0) {
+        _mcpInstalled = false;
+        _mcpVersion = null;
+      } else {
+        _error = result.stderr.toString().trim();
+      }
+    } catch (e) {
+      _error = '$e';
+    }
+    if (mounted) setState(() => _operating = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isZh = widget.isZh;
+
+    return Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.hub_rounded, size: 22, color: theme.colorScheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${widget.plugin.name} MCP ${isZh ? "服务" : "Service"}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isZh
+                    ? '管理 ${widget.plugin.name} 关联的 MCP 服务（@playwright/mcp）。'
+                    : 'Manage the MCP service associated with ${widget.plugin.name}.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (_checking)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _mcpInstalled ? Icons.check_circle : Icons.cancel,
+                        size: 18,
+                        color: _mcpInstalled
+                            ? const Color(0xFF16A34A)
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _mcpInstalled
+                                  ? (isZh ? '已安装' : 'Installed')
+                                  : (isZh ? '未安装' : 'Not Installed'),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (_mcpVersion != null)
+                              Text(
+                                'v$_mcpVersion',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (!_mcpInstalled)
+                      FilledButton.icon(
+                        onPressed: _operating ? null : _installMcp,
+                        icon: const Icon(Icons.download_rounded, size: 18),
+                        label: Text(isZh ? '安装 MCP' : 'Install MCP'),
+                      )
+                    else ...[
+                      FilledButton.tonalIcon(
+                        onPressed: _operating ? null : _updateMcp,
+                        icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                        label: Text(isZh ? '更新' : 'Update'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _operating ? null : _uninstallMcp,
+                        icon: Icon(Icons.delete_outline_rounded,
+                            size: 18, color: theme.colorScheme.error),
+                        label: Text(
+                          isZh ? '卸载' : 'Uninstall',
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(isZh ? '关闭' : 'Close'),
+                ),
+              ),
+            ],
           ),
         ),
       ),

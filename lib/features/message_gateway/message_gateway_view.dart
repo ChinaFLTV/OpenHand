@@ -227,7 +227,8 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       onPressed: () => _showEditor(context, controller),
                       icon: const Icon(Icons.edit_rounded),
                     ),
-                    FilledButton.icon(
+                    IconButton.filled(
+                      tooltip: isRunning ? '停止' : '启动',
                       onPressed: controller.isOperating
                           ? null
                           : () => isRunning
@@ -235,10 +236,9 @@ class _WebPlatformServiceCard extends StatelessWidget {
                                 : controller.startService(),
                       icon: Icon(
                         isRunning
-                            ? Icons.stop_circle_outlined
-                            : Icons.play_circle_outline_rounded,
+                            ? Icons.stop_rounded
+                            : Icons.play_arrow_rounded,
                       ),
-                      label: Text(isRunning ? '停止' : '启动'),
                     ),
                   ],
                 );
