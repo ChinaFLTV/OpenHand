@@ -17,12 +17,26 @@ class PluginScannerService {
     return '/bin/zsh';
   }
 
-  /// 通过交互式登录 shell 执行命令，确保 nvm/fnm/volta 等正确加载。
+  /// 通过显式 source nvm/fnm 初始化脚本后执行命令。
+  /// 不使用 -i（交互式）避免 shell 初始化噪音污染 stdout。
   Future<ProcessResult> _shellRun(String command) {
+    final home = Platform.environment['HOME'] ?? '';
+    // 构建一个能正确加载版本管理器的脚本
+    final script = StringBuffer();
+    // nvm
+    script.writeln('export NVM_DIR="\${NVM_DIR:-$home/.nvm}"');
+    script.writeln('[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"');
+    // fnm
+    script.writeln('if command -v fnm >/dev/null 2>&1; then eval "\$(fnm env)"; fi');
+    // volta
+    script.writeln('export VOLTA_HOME="\${VOLTA_HOME:-$home/.volta}"');
+    script.writeln('export PATH="\$VOLTA_HOME/bin:\$PATH"');
+    // 执行实际命令
+    script.writeln(command);
     return Process.run(
       _pickShell(),
-      ['-ic', command],
-    ).timeout(const Duration(seconds: 12));
+      ['-c', script.toString()],
+    ).timeout(const Duration(seconds: 15));
   }
 
   /// 扫描 NodeJS 安装状态。
@@ -30,21 +44,41 @@ class PluginScannerService {
     try {
       final versionResult = await _shellRun('node --version');
       if (versionResult.exitCode == 0) {
-        final version = versionResult.stdout.toString().trim();
+        // 从输出中提取 vX.Y.Z 格式的版本号（过滤 shell 初始化噪音）
+        final version = _extractVersion(versionResult.stdout.toString());
+        if (version == null) {
+          return const PluginInfo(
+            id: 'nodejs',
+            name: 'Node.js',
+            description: 'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链',
+            status: PluginStatus.notInstalled,
+            dependencies: [],
+            dependents: ['playwright'],
+          );
+        }
         final pathResult = await _shellRun('which node');
-        final installPath = pathResult.exitCode == 0
+        final rawPath = pathResult.exitCode == 0
             ? pathResult.stdout.toString().trim()
             : null;
-        // 检查最新版本（通过 npm view node version，可能失败）
+        // 从 which 输出中提取路径（过滤可能的 shell 噪音）
+        final installPath = rawPath != null
+            ? rawPath.split('\n').lastWhere(
+                (l) => l.trim().startsWith('/'),
+                orElse: () => rawPath,
+              ).trim()
+            : null;
+        // 检查最新版本
         String? latestVersion;
         try {
           final latestResult = await _shellRun('npm view node version');
           if (latestResult.exitCode == 0) {
-            latestVersion = 'v${latestResult.stdout.toString().trim()}';
+            final raw = latestResult.stdout.toString().trim();
+            final match = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(raw);
+            if (match != null) {
+              latestVersion = 'v${match.group(1)}';
+            }
           }
-        } catch (_) {
-          // 网络不可用时忽略
-        }
+        } catch (_) {}
         return PluginInfo(
           id: 'nodejs',
           name: 'Node.js',
@@ -68,6 +102,13 @@ class PluginScannerService {
       dependencies: [],
       dependents: ['playwright'],
     );
+  }
+
+  /// 从命令输出中提取 vX.Y.Z 格式的版本号。
+  /// 过滤 shell 初始化时可能输出的噪音（nvm 警告、motd 等）。
+  static String? _extractVersion(String output) {
+    final match = RegExp(r'v(\d+\.\d+\.\d+)').firstMatch(output);
+    return match != null ? match.group(0) : null;
   }
 
   /// 扫描 Playwright 安装状态。
