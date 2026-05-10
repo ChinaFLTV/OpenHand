@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,8 +23,10 @@ import 'mcp_controller.dart';
 import 'model/mcp_server.dart';
 import 'model/mcp_server_health.dart';
 import 'model/mcp_tool.dart';
+import 'service/mcp_stdio_process_manager.dart';
 import 'service/mcp_tool_discovery_service.dart';
 import 'widgets/mcp_keyword_index_progress_dialog.dart';
+import 'widgets/mcp_stdio_dialogs.dart';
 
 enum _McpCardAction { edit, delete, viewHistory, viewDetails }
 
@@ -489,22 +492,70 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     McpServer server,
   ) async {
     final l10n = AppLocalizations.of(context)!;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    // 对于 STDIO 类型的 npx 服务，询问是否同时清理底层 npm 包
+    bool shouldCleanupDeps = false;
+    final isNpxService = server.type == McpServerType.stdio &&
+        (server.command.trim() == 'npx' ||
+         server.command.trim().endsWith('/npx'));
+    final npxPackageName = isNpxService && server.args.isNotEmpty
+        ? server.args.first.trim()
+        : null;
+
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(l10n.mcpDeleteConfirmTitle),
-          content: Text('${l10n.mcpDeleteConfirmBody}\n\n${server.name}'),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: l10n.commonCancel,
-            ),
-            OpenHandDialogActionButton.destructive(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: l10n.commonDelete,
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: Text(l10n.mcpDeleteConfirmTitle),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${l10n.mcpDeleteConfirmBody}\n\n${server.name}'),
+                  if (isNpxService && npxPackageName != null) ...[
+                    const SizedBox(height: 16),
+                    CheckboxListTile(
+                      value: shouldCleanupDeps,
+                      onChanged: (value) {
+                        setDialogState(() {
+                          shouldCleanupDeps = value ?? false;
+                        });
+                      },
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(
+                        isZh
+                            ? '同时卸载底层 npm 包 ($npxPackageName)'
+                            : 'Also uninstall npm package ($npxPackageName)',
+                        style: Theme.of(ctx).textTheme.bodySmall,
+                      ),
+                      subtitle: Text(
+                        isZh
+                            ? '将执行 npm uninstall -g $npxPackageName 并清理隔离缓存'
+                            : 'Will run npm uninstall -g $npxPackageName and clean isolated cache',
+                        style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  label: l10n.commonCancel,
+                ),
+                OpenHandDialogActionButton.destructive(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  label: l10n.commonDelete,
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -520,7 +571,71 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       _showSnackBar(context, l10n.mcpOperationFailed, kind: _SnackKind.error);
       return;
     }
+
+    // 异步清理底层 npm 依赖包（不阻塞 UI）
+    if (shouldCleanupDeps && isNpxService && npxPackageName != null) {
+      _cleanupNpxDependency(context, npxPackageName, server.name);
+    }
+
     _showSnackBar(context, l10n.mcpServerDeleted, kind: _SnackKind.success);
+  }
+
+  /// 异步清理 npx 类型 MCP 服务的底层 npm 全局包和隔离缓存。
+  Future<void> _cleanupNpxDependency(
+    BuildContext context,
+    String packageName,
+    String serverName,
+  ) async {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    try {
+      // 1. 卸载全局 npm 包
+      final result = await Process.run(
+        'npm', ['uninstall', '-g', packageName],
+      ).timeout(const Duration(seconds: 30));
+
+      // 2. 清理该服务在隔离缓存中的残留
+      final cacheRoot = mcpStdioIsolatedCacheRoot();
+      final cacheDir = Directory(cacheRoot);
+      if (cacheDir.existsSync()) {
+        // 尝试清理与该包名相关的缓存子目录
+        try {
+          await for (final entity in cacheDir.list()) {
+            if (entity is Directory &&
+                entity.path.contains(packageName.replaceAll('/', '-'))) {
+              await entity.delete(recursive: true);
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!context.mounted) return;
+      if (result.exitCode == 0) {
+        _showSnackBar(
+          context,
+          isZh
+              ? '$packageName 依赖已清理'
+              : '$packageName dependency cleaned up',
+          kind: _SnackKind.success,
+        );
+      } else {
+        _showSnackBar(
+          context,
+          isZh
+              ? '$packageName 清理失败：${result.stderr}'
+              : '$packageName cleanup failed: ${result.stderr}',
+          kind: _SnackKind.error,
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        isZh
+            ? '$packageName 清理异常：$e'
+            : '$packageName cleanup error: $e',
+        kind: _SnackKind.error,
+      );
+    }
   }
 
   /// 批量重连：仅作用于「需要处理」的已启用服务。带 SnackBar 反馈与并发互斥保护。
@@ -1626,6 +1741,9 @@ class _McpServerCard extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            // STDIO 专属按钮：运行/停止、日志、详情
+                            if (server.type == McpServerType.stdio)
+                              _StdioProcessButtons(server: server),
                             SizedBox(
                               width: 44,
                               height: 44,
@@ -1856,6 +1974,102 @@ class _McpServerCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// STDIO 类型 MCP 服务卡片右上角的专属按钮组：运行/停止、日志、详情。
+class _StdioProcessButtons extends StatelessWidget {
+  const _StdioProcessButtons({required this.server});
+
+  final McpServer server;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: McpStdioProcessManager.instance,
+      builder: (context, _) {
+        final info = McpStdioProcessManager.instance.infoFor(server.name);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 运行/停止按钮
+            Tooltip(
+              message: _localizedText(
+                context,
+                zh: info.isRunning ? '停止服务' : '启动服务',
+                en: info.isRunning ? 'Stop service' : 'Start service',
+              ),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: IconButton.filledTonal(
+                  onPressed: info.isTransitioning
+                      ? null
+                      : () {
+                          if (info.isRunning) {
+                            McpStdioProcessManager.instance.stopServer(server.name);
+                          } else {
+                            McpStdioProcessManager.instance.startServer(server);
+                          }
+                        },
+                  style: info.isRunning
+                      ? IconButton.styleFrom(
+                          backgroundColor: const Color(0xFF16A34A).withValues(alpha: 0.15),
+                          foregroundColor: const Color(0xFF16A34A),
+                        )
+                      : null,
+                  icon: info.isTransitioning
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2.2),
+                        )
+                      : Icon(
+                          info.isRunning
+                              ? Icons.stop_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // 日志按钮
+            Tooltip(
+              message: _localizedText(
+                context,
+                zh: '查看日志',
+                en: 'View logs',
+              ),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: IconButton.filledTonal(
+                  onPressed: () => showStdioLogDialog(context, server),
+                  icon: const Icon(Icons.article_outlined),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // 运行时详情按钮
+            Tooltip(
+              message: _localizedText(
+                context,
+                zh: '运行时详情',
+                en: 'Runtime details',
+              ),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: IconButton.filledTonal(
+                  onPressed: () => showStdioDetailsDialog(context, server),
+                  icon: const Icon(Icons.analytics_outlined),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

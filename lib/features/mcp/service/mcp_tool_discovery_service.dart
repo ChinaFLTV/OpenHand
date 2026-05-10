@@ -16,6 +16,7 @@ import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_stdio_mirror_mode.dart';
 import '../model/mcp_tool.dart';
+import 'mcp_stdio_process_manager.dart';
 
 abstract class McpToolDiscoveryService {
   Future<McpToolCatalog> discoverTools(McpServer server);
@@ -372,6 +373,20 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<void> _checkStdioHealth(McpServer server) async {
+    // 快速路径：如果进程管理器中已有该服务的运行中进程，直接视为健康。
+    // 避免每次健康检查都重新启动一个完整的 MCP 进程（冷启动可能需要数分钟）。
+    final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
+    if (processInfo.isRunning && processInfo.pid != null) {
+      // 验证进程是否仍然存活（发送 signal 0 不会杀死进程，只检查是否存在）
+      try {
+        final checkResult = await Process.run(
+          'kill', ['-0', '${processInfo.pid}'],
+        ).timeout(const Duration(seconds: 2));
+        if (checkResult.exitCode == 0) return; // 进程存活，健康
+      } catch (_) {}
+    }
+
+    // 常规路径：启动新进程进行完整 MCP 握手验证
     final session = await _initializeStdioSession(server);
     await session.close();
   }

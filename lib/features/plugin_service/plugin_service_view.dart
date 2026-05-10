@@ -1436,16 +1436,36 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     setState(() => _checking = true);
     try {
       if (widget.plugin.id == 'playwright') {
-        final listResult = await Process.run(
-          'npm', ['list', '-g', '@playwright/mcp', '--depth=0'],
-        ).timeout(const Duration(seconds: 10));
-        _mcpInstalled = listResult.exitCode == 0 &&
-            listResult.stdout.toString().contains('@playwright/mcp');
-        if (_mcpInstalled) {
-          final match = RegExp(r'@playwright/mcp@([\d.]+)')
-              .firstMatch(listResult.stdout.toString());
-          _mcpVersion = match?.group(1);
-        }
+        // 同时检查 npm 全局包状态 和 MCP 控制器中的服务注册状态。
+        // 只有两者都满足才视为「已安装」——用户在 MCP 板块删除服务卡片后，
+        // 即使 npm 包仍在全局，也应视为「未注册」状态。
+        bool npmInstalled = false;
+        String? npmVersion;
+        try {
+          final listResult = await Process.run(
+            'npm', ['list', '-g', '@playwright/mcp', '--depth=0'],
+          ).timeout(const Duration(seconds: 10));
+          npmInstalled = listResult.exitCode == 0 &&
+              listResult.stdout.toString().contains('@playwright/mcp');
+          if (npmInstalled) {
+            final match = RegExp(r'@playwright/mcp@([\d.]+)')
+                .firstMatch(listResult.stdout.toString());
+            npmVersion = match?.group(1);
+          }
+        } catch (_) {}
+
+        // 检查 MCP 控制器中是否注册了 Playwright MCP 服务
+        bool mcpRegistered = false;
+        try {
+          final mcpController = context.read<McpController>();
+          mcpRegistered = mcpController.servers.any(
+            (s) => s.name == 'Playwright MCP' ||
+                s.command == 'npx' && s.args.contains('@playwright/mcp'),
+          );
+        } catch (_) {}
+
+        _mcpInstalled = npmInstalled && mcpRegistered;
+        _mcpVersion = npmVersion;
       }
     } catch (_) {}
     if (mounted) setState(() => _checking = false);
