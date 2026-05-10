@@ -160,13 +160,13 @@ abstract final class OpenHandTheme {
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
             if (states.contains(WidgetState.selected)) {
-              return colorScheme.secondaryContainer;
+              return colorScheme.primaryContainer;
             }
             return colorScheme.surfaceContainerHigh;
           }),
           foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
             if (states.contains(WidgetState.selected)) {
-              return colorScheme.onSecondaryContainer;
+              return colorScheme.onPrimaryContainer;
             }
             return colorScheme.onSurfaceVariant;
           }),

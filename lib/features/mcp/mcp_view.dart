@@ -1679,21 +1679,24 @@ class _McpServerCard extends StatelessWidget {
                               child: SizedBox(
                                 width: 44,
                                 height: 44,
-                                child: IconButton.filledTonal(
-                                  onPressed: healthStatus.isChecking
-                                      ? null
-                                      : onCheckHealth,
-                                  icon: healthStatus.isChecking
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.2,
+                                child: AbsorbPointer(
+                                  absorbing: healthStatus.isChecking,
+                                  child: IconButton.filledTonal(
+                                    onPressed: healthStatus.isChecking
+                                        ? null
+                                        : onCheckHealth,
+                                    icon: healthStatus.isChecking
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.2,
+                                            ),
+                                          )
+                                        : Icon(
+                                            _healthStatusActionIcon(healthStatus),
                                           ),
-                                        )
-                                      : Icon(
-                                          _healthStatusActionIcon(healthStatus),
-                                        ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -1706,19 +1709,22 @@ class _McpServerCard extends StatelessWidget {
                               child: SizedBox(
                                 width: 44,
                                 height: 44,
-                                child: IconButton.filledTonal(
-                                  onPressed: toolCatalog.isLoading
-                                      ? null
-                                      : onRefreshTools,
-                                  icon: toolCatalog.isLoading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.refresh_rounded),
+                                child: AbsorbPointer(
+                                  absorbing: toolCatalog.isLoading,
+                                  child: IconButton.filledTonal(
+                                    onPressed: toolCatalog.isLoading
+                                        ? null
+                                        : onRefreshTools,
+                                    icon: toolCatalog.isLoading
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.refresh_rounded),
+                                  ),
                                 ),
                               ),
                             ),
@@ -1731,13 +1737,17 @@ class _McpServerCard extends StatelessWidget {
                               child: SizedBox(
                                 width: 44,
                                 height: 44,
-                                child: IconButton.filledTonal(
-                                  onPressed:
-                                      healthStatus.isChecking ||
-                                          toolCatalog.isLoading
-                                      ? null
-                                      : onReconnect,
-                                  icon: const Icon(Icons.cyclone_rounded),
+                                child: AbsorbPointer(
+                                  absorbing: healthStatus.isChecking ||
+                                      toolCatalog.isLoading,
+                                  child: IconButton.filledTonal(
+                                    onPressed:
+                                        healthStatus.isChecking ||
+                                            toolCatalog.isLoading
+                                        ? null
+                                        : onReconnect,
+                                    icon: const Icon(Icons.cyclone_rounded),
+                                  ),
                                 ),
                               ),
                             ),
@@ -3698,7 +3708,7 @@ class _McpServerFilterBar extends StatelessWidget {
                 selected: showOnlyAttention,
                 icon: Icons.priority_high_rounded,
                 iconColor: showOnlyAttention
-                    ? colorScheme.onSecondaryContainer
+                    ? colorScheme.onPrimaryContainer
                     : (attentionCount > 0
                           ? colorScheme.error
                           : colorScheme.onSurfaceVariant),
@@ -3758,13 +3768,13 @@ class _McpFilterActionButton extends StatelessWidget {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final interactive = onPressed != null && !busy;
     final background = selected
-        ? colorScheme.secondaryContainer
+        ? colorScheme.primaryContainer
         : colorScheme.surfaceContainerLow;
     final foreground = selected
-        ? colorScheme.onSecondaryContainer
+        ? colorScheme.onPrimaryContainer
         : colorScheme.onSurface;
     final borderColor = selected
-        ? colorScheme.secondary.withValues(alpha: 0.42)
+        ? colorScheme.primary.withValues(alpha: 0.42)
         : colorScheme.outlineVariant;
 
     return Tooltip(
