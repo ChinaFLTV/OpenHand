@@ -6,29 +6,39 @@ import '../model/plugin_info.dart';
 
 /// 扫描本机已安装的插件（NodeJS / PlayWright），检测版本与可用性。
 ///
-/// 通过执行对应 CLI 命令（node --version / npx playwright --version）判断
-/// 是否已安装、版本号、安装路径。
+/// 通过登录 shell 执行 CLI 命令（确保 nvm/fnm 等版本管理器正确加载），
+/// 检测版本号、安装路径。
 class PluginScannerService {
   PluginScannerService();
+
+  static String _pickShell() {
+    final shell = Platform.environment['SHELL'];
+    if (shell != null && shell.isNotEmpty) return shell;
+    return '/bin/zsh';
+  }
+
+  /// 通过交互式登录 shell 执行命令，确保 nvm/fnm/volta 等正确加载。
+  Future<ProcessResult> _shellRun(String command) {
+    return Process.run(
+      _pickShell(),
+      ['-ic', command],
+    ).timeout(const Duration(seconds: 12));
+  }
 
   /// 扫描 NodeJS 安装状态。
   Future<PluginInfo> scanNodeJs() async {
     try {
-      final versionResult = await Process.run('node', ['--version'])
-          .timeout(const Duration(seconds: 8));
+      final versionResult = await _shellRun('node --version');
       if (versionResult.exitCode == 0) {
         final version = versionResult.stdout.toString().trim();
-        final pathResult = await Process.run('which', ['node'])
-            .timeout(const Duration(seconds: 5));
+        final pathResult = await _shellRun('which node');
         final installPath = pathResult.exitCode == 0
             ? pathResult.stdout.toString().trim()
             : null;
         // 检查最新版本（通过 npm view node version，可能失败）
         String? latestVersion;
         try {
-          final latestResult = await Process.run(
-            'npm', ['view', 'node', 'version'],
-          ).timeout(const Duration(seconds: 10));
+          final latestResult = await _shellRun('npm view node version');
           if (latestResult.exitCode == 0) {
             latestVersion = 'v${latestResult.stdout.toString().trim()}';
           }
@@ -64,8 +74,7 @@ class PluginScannerService {
   Future<PluginInfo> scanPlaywright() async {
     try {
       // Playwright 依赖 Node.js，先检查 npx 是否可用
-      final npxCheck = await Process.run('which', ['npx'])
-          .timeout(const Duration(seconds: 5));
+      final npxCheck = await _shellRun('which npx');
       if (npxCheck.exitCode != 0) {
         return const PluginInfo(
           id: 'playwright',
@@ -76,8 +85,7 @@ class PluginScannerService {
           dependents: [],
         );
       }
-      final versionResult = await Process.run('npx', ['playwright', '--version'])
-          .timeout(const Duration(seconds: 15));
+      final versionResult = await _shellRun('npx playwright --version');
       if (versionResult.exitCode == 0) {
         final output = versionResult.stdout.toString().trim();
         // playwright 输出格式: "Version 1.x.x" 或直接 "1.x.x"
@@ -87,9 +95,7 @@ class PluginScannerService {
         // 检查最新版本
         String? latestVersion;
         try {
-          final latestResult = await Process.run(
-            'npm', ['view', 'playwright', 'version'],
-          ).timeout(const Duration(seconds: 10));
+          final latestResult = await _shellRun('npm view playwright version');
           if (latestResult.exitCode == 0) {
             latestVersion = latestResult.stdout.toString().trim();
           }
