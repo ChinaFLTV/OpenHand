@@ -1456,7 +1456,11 @@ class _McpServerCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return HoverLift(
-      child: Card(
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: Card(
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -1814,29 +1818,44 @@ class _McpServerCard extends StatelessWidget {
                 ),
                 if (healthStatus.hasError) ...[
                   const SizedBox(height: 14),
-                  _McpInlineNotice(
-                    icon: Icons.health_and_safety_outlined,
-                    color: colorScheme.errorContainer,
-                    foregroundColor: colorScheme.onErrorContainer,
-                    message: healthStatus.errorMessage!,
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: _McpInlineNotice(
+                      icon: Icons.health_and_safety_outlined,
+                      color: colorScheme.errorContainer,
+                      foregroundColor: colorScheme.onErrorContainer,
+                      message: healthStatus.errorMessage!,
+                    ),
                   ),
                 ],
                 if (toolCatalog.hasError) ...[
                   const SizedBox(height: 14),
-                  _McpInlineNotice(
-                    icon: Icons.error_outline_rounded,
-                    color: colorScheme.errorContainer,
-                    foregroundColor: colorScheme.onErrorContainer,
-                    message: toolCatalog.errorMessage!,
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: _McpInlineNotice(
+                      icon: Icons.error_outline_rounded,
+                      color: colorScheme.errorContainer,
+                      foregroundColor: colorScheme.onErrorContainer,
+                      message: toolCatalog.errorMessage!,
+                    ),
                   ),
                 ],
                 if (toolCatalog.hasWarning) ...[
                   const SizedBox(height: 14),
-                  _McpInlineNotice(
-                    icon: Icons.warning_amber_rounded,
-                    color: colorScheme.tertiaryContainer,
-                    foregroundColor: colorScheme.onTertiaryContainer,
-                    message: toolCatalog.warningMessage!,
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: _McpInlineNotice(
+                      icon: Icons.warning_amber_rounded,
+                      color: colorScheme.tertiaryContainer,
+                      foregroundColor: colorScheme.onTertiaryContainer,
+                      message: toolCatalog.warningMessage!,
+                    ),
                   ),
                 ],
                 if (toolCatalog.tools.isNotEmpty) ...[
@@ -1868,6 +1887,7 @@ class _McpServerCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
