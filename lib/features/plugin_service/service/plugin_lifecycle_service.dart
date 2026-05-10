@@ -23,12 +23,78 @@ class PluginOperationResult {
 class PluginLifecycleService {
   PluginLifecycleService();
 
-  /// 安装 NodeJS（通过 brew / fnm）。
+  /// 安装 NodeJS（通过 nvm / fnm / brew）。
+  /// 优先使用已存在的版本管理器，其次 brew。
   Future<PluginOperationResult> installNodeJs({
     void Function(String line)? onProgress,
   }) async {
-    onProgress?.call('正在检测包管理器…');
-    // 优先尝试 brew
+    onProgress?.call('正在检测可用的包管理器…');
+
+    // 优先 nvm（最常见的 Node 版本管理器）
+    final nvmCheck = await Process.run(
+      _pickShell(), ['-lc', 'command -v nvm'],
+    ).timeout(const Duration(seconds: 5));
+    if (nvmCheck.exitCode == 0) {
+      onProgress?.call('使用 nvm 安装 Node.js LTS…');
+      final result = await _runWithProgress(
+        _pickShell(),
+        ['-lc', 'nvm install --lts && nvm alias default lts/*'],
+        onProgress: onProgress,
+        timeout: const Duration(minutes: 5),
+      );
+      if (result.exitCode == 0) {
+        final verify = await Process.run(
+          _pickShell(), ['-lc', 'node --version'],
+        ).timeout(const Duration(seconds: 8));
+        if (verify.exitCode == 0) {
+          final version = verify.stdout.toString().trim();
+          onProgress?.call('Node.js $version 安装成功');
+          return PluginOperationResult(
+            success: true,
+            message: 'Node.js $version 已通过 nvm 安装',
+            newVersion: version,
+          );
+        }
+      }
+      return PluginOperationResult(
+        success: false,
+        message: 'nvm 安装失败: ${result.stderr}',
+      );
+    }
+
+    // 其次 fnm
+    final fnmCheck = await Process.run('which', ['fnm'])
+        .timeout(const Duration(seconds: 5));
+    if (fnmCheck.exitCode == 0) {
+      onProgress?.call('使用 fnm 安装 Node.js LTS…');
+      final result = await _runWithProgress(
+        'fnm',
+        ['install', '--lts'],
+        onProgress: onProgress,
+        timeout: const Duration(minutes: 5),
+      );
+      if (result.exitCode == 0) {
+        await Process.run('fnm', ['default', 'lts-latest'])
+            .timeout(const Duration(seconds: 10));
+        final verify = await Process.run('node', ['--version'])
+            .timeout(const Duration(seconds: 8));
+        if (verify.exitCode == 0) {
+          final version = verify.stdout.toString().trim();
+          onProgress?.call('Node.js $version 安装成功');
+          return PluginOperationResult(
+            success: true,
+            message: 'Node.js $version 已通过 fnm 安装',
+            newVersion: version,
+          );
+        }
+      }
+      return PluginOperationResult(
+        success: false,
+        message: 'fnm 安装失败: ${result.stderr}',
+      );
+    }
+
+    // 最后 brew
     final brewCheck = await Process.run('which', ['brew'])
         .timeout(const Duration(seconds: 5));
     if (brewCheck.exitCode == 0) {
@@ -57,36 +123,10 @@ class PluginLifecycleService {
         message: 'Homebrew 安装 Node.js 失败: ${result.stderr}',
       );
     }
-    // 无 brew 时尝试 fnm
-    final fnmCheck = await Process.run('which', ['fnm'])
-        .timeout(const Duration(seconds: 5));
-    if (fnmCheck.exitCode == 0) {
-      onProgress?.call('使用 fnm 安装 Node.js LTS…');
-      final result = await _runWithProgress(
-        'fnm',
-        ['install', '--lts'],
-        onProgress: onProgress,
-        timeout: const Duration(minutes: 5),
-      );
-      if (result.exitCode == 0) {
-        await Process.run('fnm', ['default', 'lts-latest'])
-            .timeout(const Duration(seconds: 10));
-        final verify = await Process.run('node', ['--version'])
-            .timeout(const Duration(seconds: 8));
-        if (verify.exitCode == 0) {
-          final version = verify.stdout.toString().trim();
-          onProgress?.call('Node.js $version 安装成功');
-          return PluginOperationResult(
-            success: true,
-            message: 'Node.js $version 已通过 fnm 安装',
-            newVersion: version,
-          );
-        }
-      }
-    }
+
     return const PluginOperationResult(
       success: false,
-      message: '未找到可用的包管理器 (brew / fnm)。请手动安装 Node.js: https://nodejs.org',
+      message: '未找到可用的包管理器 (nvm / fnm / brew)。请手动安装 Node.js: https://nodejs.org',
     );
   }
 
@@ -146,13 +186,116 @@ class PluginLifecycleService {
   }
 
   /// 更新 NodeJS。
+  /// 根据当前 Node 的安装路径自动判断使用哪个包管理器更新。
   Future<PluginOperationResult> updateNodeJs({
     void Function(String line)? onProgress,
   }) async {
-    onProgress?.call('正在更新 Node.js…');
-    final brewCheck = await Process.run('which', ['brew'])
+    onProgress?.call('正在检测 Node.js 安装方式…');
+    // 先获取当前 node 路径，判断安装来源
+    final whichResult = await Process.run('which', ['node'])
         .timeout(const Duration(seconds: 5));
-    if (brewCheck.exitCode == 0) {
+    final nodePath = whichResult.exitCode == 0
+        ? whichResult.stdout.toString().trim()
+        : '';
+
+    // 判断安装来源
+    final isNvm = nodePath.contains('.nvm/');
+    final isFnm = nodePath.contains('.fnm/') || nodePath.contains('/fnm/');
+    final isVolta = nodePath.contains('.volta/');
+    final isBrew = nodePath.contains('/homebrew/') ||
+        nodePath.contains('/Cellar/') ||
+        nodePath.startsWith('/opt/homebrew/') ||
+        nodePath.startsWith('/usr/local/bin/');
+
+    // 优先使用检测到的安装方式
+    if (isNvm) {
+      onProgress?.call('检测到 nvm 管理的 Node.js，使用 nvm 更新…');
+      // nvm 通过 shell 执行（因为 nvm 是 shell 函数不是可执行文件）
+      final result = await _runWithProgress(
+        _pickShell(),
+        ['-lc', 'nvm install --lts --reinstall-packages-from=current && nvm alias default lts/*'],
+        onProgress: onProgress,
+        timeout: const Duration(minutes: 5),
+      );
+      if (result.exitCode == 0) {
+        // nvm install 后需要通过 shell 获取新版本
+        final verify = await Process.run(
+          _pickShell(), ['-lc', 'node --version'],
+        ).timeout(const Duration(seconds: 8));
+        if (verify.exitCode == 0) {
+          final version = verify.stdout.toString().trim();
+          onProgress?.call('Node.js 已更新到 $version');
+          return PluginOperationResult(
+            success: true,
+            message: 'Node.js 已通过 nvm 更新到 $version',
+            newVersion: version,
+          );
+        }
+      }
+      return PluginOperationResult(
+        success: false,
+        message: 'nvm 更新失败: ${result.stderr}',
+      );
+    }
+
+    if (isFnm) {
+      onProgress?.call('检测到 fnm 管理的 Node.js，使用 fnm 更新…');
+      final result = await _runWithProgress(
+        'fnm',
+        ['install', '--lts'],
+        onProgress: onProgress,
+        timeout: const Duration(minutes: 5),
+      );
+      if (result.exitCode == 0) {
+        await Process.run('fnm', ['default', 'lts-latest'])
+            .timeout(const Duration(seconds: 10));
+        final verify = await Process.run('node', ['--version'])
+            .timeout(const Duration(seconds: 8));
+        if (verify.exitCode == 0) {
+          final version = verify.stdout.toString().trim();
+          onProgress?.call('Node.js 已更新到 $version');
+          return PluginOperationResult(
+            success: true,
+            message: 'Node.js 已通过 fnm 更新到 $version',
+            newVersion: version,
+          );
+        }
+      }
+      return PluginOperationResult(
+        success: false,
+        message: 'fnm 更新失败: ${result.stderr}',
+      );
+    }
+
+    if (isVolta) {
+      onProgress?.call('检测到 volta 管理的 Node.js，使用 volta 更新…');
+      final result = await _runWithProgress(
+        'volta',
+        ['install', 'node@latest'],
+        onProgress: onProgress,
+        timeout: const Duration(minutes: 5),
+      );
+      if (result.exitCode == 0) {
+        final verify = await Process.run('node', ['--version'])
+            .timeout(const Duration(seconds: 8));
+        if (verify.exitCode == 0) {
+          final version = verify.stdout.toString().trim();
+          onProgress?.call('Node.js 已更新到 $version');
+          return PluginOperationResult(
+            success: true,
+            message: 'Node.js 已通过 volta 更新到 $version',
+            newVersion: version,
+          );
+        }
+      }
+      return PluginOperationResult(
+        success: false,
+        message: 'volta 更新失败: ${result.stderr}',
+      );
+    }
+
+    if (isBrew) {
+      onProgress?.call('检测到 Homebrew 管理的 Node.js，使用 brew 更新…');
       final result = await _runWithProgress(
         'brew',
         ['upgrade', 'node'],
@@ -167,16 +310,19 @@ class PluginLifecycleService {
           onProgress?.call('Node.js 已更新到 $version');
           return PluginOperationResult(
             success: true,
-            message: 'Node.js 已更新到 $version',
+            message: 'Node.js 已通过 Homebrew 更新到 $version',
             newVersion: version,
           );
         }
       }
       return PluginOperationResult(
         success: false,
-        message: '更新失败: ${result.stderr}',
+        message: 'Homebrew 更新失败: ${result.stderr}',
       );
     }
+
+    // 兜底：尝试 fnm → brew 顺序
+    onProgress?.call('未能确定安装方式，尝试可用的包管理器…');
     final fnmCheck = await Process.run('which', ['fnm'])
         .timeout(const Duration(seconds: 5));
     if (fnmCheck.exitCode == 0) {
@@ -203,8 +349,19 @@ class PluginLifecycleService {
     }
     return const PluginOperationResult(
       success: false,
-      message: '未找到可用的包管理器来更新 Node.js',
+      message: '未找到可用的包管理器来更新 Node.js。\n'
+          '请根据您的安装方式手动更新：\n'
+          '  · nvm: nvm install --lts\n'
+          '  · fnm: fnm install --lts\n'
+          '  · brew: brew upgrade node\n'
+          '  · volta: volta install node@latest',
     );
+  }
+
+  static String _pickShell() {
+    final shell = Platform.environment['SHELL'];
+    if (shell != null && shell.isNotEmpty) return shell;
+    return '/bin/zsh';
   }
 
   /// 更新 Playwright。

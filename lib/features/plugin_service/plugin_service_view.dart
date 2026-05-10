@@ -148,14 +148,20 @@ class _PluginServiceViewState extends State<PluginServiceView> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
       children: [
-        if (controller.errorMessage != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _ErrorBanner(
-              message: controller.errorMessage!,
-              onDismiss: controller.clearError,
-            ),
-          ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: controller.errorMessage != null
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ErrorBanner(
+                    message: controller.errorMessage!,
+                    onDismiss: controller.clearError,
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
         for (final plugin in controller.plugins) ...[
           _PluginCard(plugin: plugin, controller: controller),
           const SizedBox(height: 12),
@@ -350,16 +356,46 @@ class _PluginCard extends StatelessWidget {
               const SizedBox(height: 10),
               _DependencyRow(plugin: plugin, controller: controller),
             ],
-            if (plugin.status == PluginStatus.error &&
-                plugin.errorMessage != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                plugin.errorMessage!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ],
+            AnimatedSize(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topLeft,
+              child: plugin.status == PluginStatus.error &&
+                      plugin.errorMessage != null
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.errorContainer
+                              .withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: theme.colorScheme.error
+                                .withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.error_outline_rounded,
+                                size: 16, color: theme.colorScheme.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                plugin.errorMessage!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
