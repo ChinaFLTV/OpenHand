@@ -2003,6 +2003,11 @@ class _McpStatusChip extends StatelessWidget {
       avatar: Icon(icon, size: 18),
       backgroundColor: colorScheme.surfaceContainerHighest,
       label: Text(label),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+        color: colorScheme.onSurface,
+      ),
     );
   }
 }
@@ -2031,6 +2036,8 @@ class _McpAttentionChip extends StatelessWidget {
         ),
         backgroundColor: colorScheme.errorContainer,
         labelStyle: TextStyle(color: colorScheme.onErrorContainer),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
         label: Text(
           _localizedText(
             context,
