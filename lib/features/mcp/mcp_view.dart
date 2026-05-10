@@ -1805,6 +1805,40 @@ class _McpServerCard extends StatelessWidget {
                         enabled: server.enabled,
                         onPressed: () => onToggleEnabled(!server.enabled),
                       ),
+                      // STDIO 进程运行状态 chip
+                      if (server.type == McpServerType.stdio)
+                        AnimatedBuilder(
+                          animation: McpStdioProcessManager.instance,
+                          builder: (context, _) {
+                            final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
+                            if (processInfo.isStopped && processInfo.errorMessage == null) {
+                              return const SizedBox.shrink();
+                            }
+                            final chipIcon = switch (processInfo.state) {
+                              StdioProcessState.running => Icons.fiber_manual_record,
+                              StdioProcessState.starting => Icons.hourglass_top_rounded,
+                              StdioProcessState.stopping => Icons.hourglass_bottom_rounded,
+                              StdioProcessState.stopped => Icons.error_outline_rounded,
+                            };
+                            final chipLabel = switch (processInfo.state) {
+                              StdioProcessState.running => _localizedText(
+                                context,
+                                zh: '进程运行中 · PID ${processInfo.pid}',
+                                en: 'Running · PID ${processInfo.pid}',
+                              ),
+                              StdioProcessState.starting => _localizedText(
+                                context, zh: '进程启动中', en: 'Starting',
+                              ),
+                              StdioProcessState.stopping => _localizedText(
+                                context, zh: '进程停止中', en: 'Stopping',
+                              ),
+                              StdioProcessState.stopped => _localizedText(
+                                context, zh: '进程异常退出', en: 'Process exited',
+                              ),
+                            };
+                            return _McpStatusChip(icon: chipIcon, label: chipLabel);
+                          },
+                        ),
                       if (server.headers.isNotEmpty)
                         _McpStatusChip(
                           icon: Icons.badge_outlined,
@@ -1990,8 +2024,9 @@ class _StdioProcessButtons extends StatelessWidget {
       animation: McpStdioProcessManager.instance,
       builder: (context, _) {
         final info = McpStdioProcessManager.instance.infoFor(server.name);
-        return Row(
-          mainAxisSize: MainAxisSize.min,
+        return Wrap(
+          spacing: 4,
+          runSpacing: 4,
           children: [
             // 运行/停止按钮
             Tooltip(
@@ -2033,7 +2068,6 @@ class _StdioProcessButtons extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 4),
             // 日志按钮
             Tooltip(
               message: _localizedText(
@@ -2050,7 +2084,6 @@ class _StdioProcessButtons extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 4),
             // 运行时详情按钮
             Tooltip(
               message: _localizedText(
