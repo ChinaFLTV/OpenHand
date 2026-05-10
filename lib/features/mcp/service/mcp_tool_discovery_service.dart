@@ -2506,6 +2506,9 @@ class _StdioSession {
     final header = ascii.encode('Content-Length: ${body.length}\r\n\r\n');
     _process.stdin.add(header);
     _process.stdin.add(body);
+    // 尾部追加换行符：部分 MCP 服务（如 Playwright）需要 \n 来触发消息处理，
+    // 即使使用了 Content-Length framing。对严格 framing 的服务无副作用。
+    _process.stdin.add(const [0x0A]);
     await _process.stdin.flush();
   }
 
