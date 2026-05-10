@@ -1865,6 +1865,8 @@ Map<String, String> mcpStdioIsolatedCacheEnv() {
       // npm / npx 系列
       'npm_config_cache': npmCache,
       'npm_config_prefix': npmPrefix,
+      // npx 在隔离缓存中首次运行时需要下载包，自动确认安装（跳过交互式 y/n 提示）
+      'npm_config_yes': 'true',
       // pnpm
       'PNPM_HOME': pnpmStore,
       // yarn classic
