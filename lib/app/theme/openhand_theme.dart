@@ -298,8 +298,10 @@ abstract final class OpenHandTheme {
           color: colorScheme.onInverseSurface,
         ),
         actionTextColor: colorScheme.inversePrimary,
-        closeIconColor: colorScheme.onInverseSurface.withValues(alpha: 0.78),
-        showCloseIcon: true,
+        closeIconColor: colorScheme.onInverseSurface.withValues(alpha: 0.7),
+        // 禁用框架内置的 close icon（它在 M3 下有不可控的白色背景），
+        // 改由 OpenHandSnackBar._ensureMotionWrapped 注入无背景的自定义关闭按钮。
+        showCloseIcon: false,
         dismissDirection: DismissDirection.down,
         elevation: 6,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),

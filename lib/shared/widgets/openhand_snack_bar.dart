@@ -40,6 +40,7 @@ class OpenHandSnackBar {
   /// caller-supplied field. Ensures every snackbar that flows through
   /// [OpenHandSnackBar.show] receives the same Q-bouncy entry / decay-out
   /// motion regardless of where it was constructed.
+  /// 同时注入无背景的自定义关闭按钮，替代框架内置的有白色背景的 close icon。
   static SnackBar _ensureMotionWrapped(SnackBar snackBar) {
     final content = snackBar.content;
     if (content is _OpenHandSnackBarMotion) return snackBar;
@@ -47,7 +48,13 @@ class OpenHandSnackBar {
       key: snackBar.key,
       content: _OpenHandSnackBarMotion(
         duration: snackBar.duration,
-        child: content,
+        child: Row(
+          children: [
+            Expanded(child: content),
+            const SizedBox(width: 8),
+            const _SnackBarCloseButton(),
+          ],
+        ),
       ),
       action: snackBar.action,
       duration: snackBar.duration,
@@ -59,8 +66,7 @@ class OpenHandSnackBar {
       padding: snackBar.padding,
       width: snackBar.width,
       shape: snackBar.shape,
-      showCloseIcon: snackBar.showCloseIcon,
-      closeIconColor: snackBar.closeIconColor,
+      showCloseIcon: false,
       onVisible: snackBar.onVisible,
       hitTestBehavior: snackBar.hitTestBehavior,
       clipBehavior: snackBar.clipBehavior,
@@ -272,6 +278,31 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
       child: SlideTransition(
         position: _offset,
         child: ScaleTransition(scale: _scale, child: widget.child),
+      ),
+    );
+  }
+}
+
+/// 无背景的 SnackBar 关闭按钮。
+/// 替代 Flutter 框架内置的 IconButton（M3 下有不可控的白色圆形背景），
+/// 使用纯透明背景 + 半透明前景色，视觉上更干净。
+class _SnackBarCloseButton extends StatelessWidget {
+  const _SnackBarCloseButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onInverseSurface
+        .withValues(alpha: 0.7);
+    return GestureDetector(
+      onTap: () {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar(
+          reason: SnackBarClosedReason.dismiss,
+        );
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Icon(Icons.close_rounded, size: 18, color: color),
       ),
     );
   }
