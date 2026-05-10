@@ -44,17 +44,23 @@ class OpenHandSnackBar {
   static SnackBar _ensureMotionWrapped(SnackBar snackBar) {
     final content = snackBar.content;
     if (content is _OpenHandSnackBarMotion) return snackBar;
+    // 当 SnackBar 有 action 时不注入关闭按钮（action 本身提供了交互入口，
+    // 且 Flutter 会在 action 右侧自动布局，再加关闭按钮会导致底部拥挤）。
+    final hasAction = snackBar.action != null;
+    final wrappedContent = hasAction
+        ? content
+        : Row(
+            children: [
+              Expanded(child: content),
+              const SizedBox(width: 8),
+              const _SnackBarCloseButton(),
+            ],
+          );
     return SnackBar(
       key: snackBar.key,
       content: _OpenHandSnackBarMotion(
         duration: snackBar.duration,
-        child: Row(
-          children: [
-            Expanded(child: content),
-            const SizedBox(width: 8),
-            const _SnackBarCloseButton(),
-          ],
-        ),
+        child: wrappedContent,
       ),
       action: snackBar.action,
       duration: snackBar.duration,

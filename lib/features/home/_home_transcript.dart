@@ -1452,79 +1452,91 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
     final banner = Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 14),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
       decoration: BoxDecoration(
         color: colorScheme.errorContainer.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.error_outline_rounded,
-            size: 18,
-            color: colorScheme.onErrorContainer,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  presentation.title,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onErrorContainer,
-                    fontWeight: FontWeight.w800,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(
+                  Icons.error_outline_rounded,
+                  size: 18,
+                  color: colorScheme.onErrorContainer,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  presentation.message,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onErrorContainer,
-                    height: 1.45,
-                  ),
-                ),
-                if (hasFullDetails) ...[
-                  const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () => showFriendlyErrorDetailsDialog(
-                        context,
-                        fullText: rawMessage,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      presentation.title,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: colorScheme.onErrorContainer,
+                        fontWeight: FontWeight.w800,
                       ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: colorScheme.onErrorContainer,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        minimumSize: const Size(0, 28),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.info_outline_rounded, size: 16),
-                      label: const Text('查看详情 / View details'),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      presentation.message,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onErrorContainer,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: _handleDismiss,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: colorScheme.onErrorContainer.withValues(alpha: 0.7),
                   ),
-                ],
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _handleDismiss,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                Icons.close_rounded,
-                size: 18,
-                color: colorScheme.onErrorContainer.withValues(alpha: 0.7),
+          if (hasFullDetails) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: GestureDetector(
+                onTap: () => showFriendlyErrorDetailsDialog(
+                  context,
+                  fullText: rawMessage,
+                ),
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 14,
+                        color: colorScheme.onErrorContainer.withValues(alpha: 0.8)),
+                    const SizedBox(width: 5),
+                    Text(
+                      '查看详情 / View details',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onErrorContainer.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
