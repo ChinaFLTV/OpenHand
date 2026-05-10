@@ -110,6 +110,7 @@ import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
 import '../message_gateway/message_gateway_controller.dart';
 import '../message_gateway/message_gateway_view.dart';
+import '../plugin_service/plugin_service_view.dart';
 import '../settings/settings_view.dart';
 import '../skills/model/local_skill.dart';
 import '../skills/skills_controller.dart';
@@ -151,6 +152,7 @@ enum AppSection {
   crons,
   instructions,
   messageGateway,
+  pluginService,
   settings,
   hardnessSession,
 }
@@ -5298,6 +5300,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '消息网关',
         en: 'Message Gateway',
       ),
+      AppSection.pluginService => _localizedText(
+        context,
+        zh: '插件服务',
+        en: 'Plugin Service',
+      ),
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
       AppSection.hardnessSession => _localizedText(
         context,
@@ -6635,6 +6642,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.crons => const CronsView(),
       AppSection.instructions => const InstructionsView(),
       AppSection.messageGateway => const MessageGatewayView(),
+      AppSection.pluginService => const PluginServiceView(),
       AppSection.settings => Provider<ToolSearchReplayDispatcher>.value(
         value: _toolSearchReplayDispatcher,
         child: const SettingsView(),
@@ -6751,7 +6759,8 @@ extension on AppSection {
       AppSection.crons => 5,
       AppSection.instructions => 6,
       AppSection.messageGateway => 7,
-      AppSection.settings => 8,
+      AppSection.pluginService => 8,
+      AppSection.settings => 9,
     };
   }
 }
@@ -6766,7 +6775,8 @@ AppSection _sectionFromDrawerIndex(int index) {
     5 => AppSection.crons,
     6 => AppSection.instructions,
     7 => AppSection.messageGateway,
-    8 => AppSection.settings,
+    8 => AppSection.pluginService,
+    9 => AppSection.settings,
     _ => AppSection.workspace,
   };
 }

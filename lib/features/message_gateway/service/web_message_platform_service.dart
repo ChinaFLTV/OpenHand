@@ -34,6 +34,7 @@ import '../../instructions/model/user_instruction_entry.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../mcp/model/mcp_tool.dart';
 import '../../memory/memory_controller.dart';
+import '../../plugin_service/plugin_service_controller.dart';
 import '../../skills/model/local_skill.dart';
 import '../../skills/skills_controller.dart';
 import '../model/web_gateway_runtime.dart';
@@ -179,6 +180,13 @@ class WebMessagePlatformService {
   final CronsController _cronsController;
   final InstructionsController _instructionsController;
   final AppInfo _appInfo;
+  PluginServiceController? _pluginServiceController;
+
+  /// 注入插件服务控制器（延迟注入，避免循环依赖）。
+  set pluginServiceController(PluginServiceController? controller) {
+    _pluginServiceController = controller;
+  }
+
   final String _cacheDirectoryPath;
   final String _workspaceDirectoryPath;
   final _WebGatewayRotatingLogger _fileLogger;
@@ -1342,6 +1350,30 @@ class WebMessagePlatformService {
       '/api/hardness/session',
       (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()),
     );
+    // Plugin Service: 列出插件状态 / 安装 / 更新 / 卸载 / 重新扫描
+    router.get(
+      '/api/plugins',
+      (shelf.Request r) => _withAuth(r, (_, _) => _listPluginsHandler()),
+    );
+    router.post(
+      '/api/plugins/install',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _pluginInstallHandler(req)),
+    );
+    router.post(
+      '/api/plugins/update',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _pluginUpdateHandler(req)),
+    );
+    router.post(
+      '/api/plugins/uninstall',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _pluginUninstallHandler(req)),
+    );
+    router.post(
+      '/api/plugins/rescan',
+      (shelf.Request r) => _withAuth(r, (_, _) => _pluginRescanHandler()),
+    );
     router.get(
       '/api/settings/preferences',
       (shelf.Request r) => _withAuth(r, (_, _) => _getPreferencesHandler()),
@@ -1706,6 +1738,133 @@ class WebMessagePlatformService {
     }
     _log(WebGatewayLogLevel.warn, 'SETTINGS', 'Web 修改偏好设置', updated);
     return _json(HttpStatus.ok, _preferencesPayload(updated: updated));
+  }
+
+  // ─── Plugin Service Handlers ───────────────────────────────────────────────
+
+  Future<shelf.Response> _listPluginsHandler() async {
+    try {
+      final controller = _pluginServiceController;
+      if (controller == null) {
+        return _json(HttpStatus.ok, <String, Object?>{'items': <Object?>[]});
+      }
+      final items = controller.plugins
+          .map((p) => <String, Object?>{
+                'id': p.id,
+                'name': p.name,
+                'description': p.description,
+                'status': p.status.name,
+                'installed_version': p.installedVersion,
+                'latest_version': p.latestVersion,
+                'install_path': p.installPath,
+                'dependencies': p.dependencies,
+                'dependents': p.dependents,
+                'error_message': p.errorMessage,
+                'has_update': p.hasUpdate,
+              })
+          .toList(growable: false);
+      return _json(HttpStatus.ok, <String, Object?>{'items': items});
+    } catch (e) {
+      return _json(HttpStatus.internalServerError, <String, Object?>{
+        'error': 'plugin_list_failed',
+        'message': '$e',
+      });
+    }
+  }
+
+  Future<shelf.Response> _pluginInstallHandler(shelf.Request request) async {
+    final body = await _readJsonBody(request, maxBytes: 1024);
+    final pluginId = body['plugin_id'] as String?;
+    if (pluginId == null || pluginId.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'success': false,
+        'message': 'plugin_id is required',
+      });
+    }
+    final controller = _pluginServiceController;
+    if (controller == null) {
+      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
+        'success': false,
+        'message': 'Plugin service not available',
+      });
+    }
+    final success = await controller.installPlugin(pluginId);
+    return _json(HttpStatus.ok, <String, Object?>{
+      'success': success,
+      'message': controller.errorMessage,
+      'new_version': controller.pluginById(pluginId)?.installedVersion,
+    });
+  }
+
+  Future<shelf.Response> _pluginUpdateHandler(shelf.Request request) async {
+    final body = await _readJsonBody(request, maxBytes: 1024);
+    final pluginId = body['plugin_id'] as String?;
+    if (pluginId == null || pluginId.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'success': false,
+        'message': 'plugin_id is required',
+      });
+    }
+    final controller = _pluginServiceController;
+    if (controller == null) {
+      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
+        'success': false,
+        'message': 'Plugin service not available',
+      });
+    }
+    final success = await controller.updatePlugin(pluginId);
+    return _json(HttpStatus.ok, <String, Object?>{
+      'success': success,
+      'message': controller.errorMessage,
+      'new_version': controller.pluginById(pluginId)?.installedVersion,
+    });
+  }
+
+  Future<shelf.Response> _pluginUninstallHandler(shelf.Request request) async {
+    final body = await _readJsonBody(request, maxBytes: 1024);
+    final pluginId = body['plugin_id'] as String?;
+    if (pluginId == null || pluginId.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'success': false,
+        'message': 'plugin_id is required',
+      });
+    }
+    final controller = _pluginServiceController;
+    if (controller == null) {
+      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
+        'success': false,
+        'message': 'Plugin service not available',
+      });
+    }
+    final success = await controller.uninstallPlugin(pluginId);
+    return _json(HttpStatus.ok, <String, Object?>{
+      'success': success,
+      'message': controller.errorMessage,
+    });
+  }
+
+  Future<shelf.Response> _pluginRescanHandler() async {
+    final controller = _pluginServiceController;
+    if (controller == null) {
+      return _json(HttpStatus.ok, <String, Object?>{'items': <Object?>[]});
+    }
+    await controller.rescan();
+    final items = controller.plugins
+        .map((p) => <String, Object?>{
+              'id': p.id,
+              'name': p.name,
+              'description': p.description,
+              'status': p.status.name,
+              'installed_version': p.installedVersion,
+              'latest_version': p.latestVersion,
+              'install_path': p.installPath,
+              'dependencies': p.dependencies,
+              'dependents': p.dependents,
+              'error_message': p.errorMessage,
+              'has_update': p.hasUpdate,
+            })
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
 
   Map<String, Object?> _metaPayload() {

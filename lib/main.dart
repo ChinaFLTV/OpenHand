@@ -34,6 +34,7 @@ import 'features/mcp/service/mcp_tool_discovery_service.dart'
     show mcpStdioMirrorModeOverride;
 import 'features/memory/memory_controller.dart';
 import 'features/message_gateway/message_gateway_controller.dart';
+import 'features/plugin_service/plugin_service_controller.dart';
 import 'features/skills/skills_controller.dart';
 import 'shared/data/database_service.dart';
 
@@ -351,6 +352,10 @@ Future<void> _bootstrap() async {
   );
   unawaited(messageGatewayController.initialize());
 
+  final pluginServiceController = PluginServiceController();
+  unawaited(pluginServiceController.initialize());
+  messageGatewayController.pluginServiceController = pluginServiceController;
+
   // 2026-04-25 — 冷启动后异步触发一次 cron 历史清理（single-flight，
   // 永不抛异常，超时兜底 30s），不干扰主路径与 UI 启动。
   unawaited(
@@ -382,6 +387,9 @@ Future<void> _bootstrap() async {
         ),
         ChangeNotifierProvider<MessageGatewayController>.value(
           value: messageGatewayController,
+        ),
+        ChangeNotifierProvider<PluginServiceController>.value(
+          value: pluginServiceController,
         ),
         ChangeNotifierProvider<AiSessionController>.value(
           value: aiSessionController,

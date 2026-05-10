@@ -12,6 +12,7 @@ import '../crons/crons_controller.dart';
 import '../instructions/instructions_controller.dart';
 import '../mcp/mcp_controller.dart';
 import '../memory/memory_controller.dart';
+import '../plugin_service/plugin_service_controller.dart';
 import '../skills/skills_controller.dart';
 import 'data/message_gateway_store.dart';
 import 'model/web_message_platform_config.dart';
@@ -424,6 +425,11 @@ class MessageGatewayController extends ChangeNotifier {
       _logNotifyTimer = null;
       notifyListeners();
     });
+  }
+
+  /// 注入插件服务控制器到底层 Web 服务（延迟注入，避免循环依赖）。
+  set pluginServiceController(PluginServiceController? controller) {
+    _service.pluginServiceController = controller;
   }
 
   @override

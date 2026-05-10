@@ -12,6 +12,7 @@ import { LogsPage } from './pages/LogsPage';
 import { ToolboxPage } from './pages/ToolboxPage';
 import { HardnessPage } from './pages/HardnessPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { PluginsPage } from './pages/PluginsPage';
 import { Appear } from './components/Appear';
 import { SnackbarHost } from './components/Snackbar';
 import { t } from './i18n';
@@ -141,6 +142,12 @@ const SettingsRoute = () => (
   </RequireAuth>
 );
 
+const PluginsRoute = () => (
+  <RequireAuth>
+    <Appear variant="page"><PluginsPage /></Appear>
+  </RequireAuth>
+);
+
 const OpsRoute = () => (
   <RequireAuth>
     <RequireServiceFeature feature="ops">
@@ -171,6 +178,7 @@ export function App() {
         <Route path="/toolbox" component={ToolboxRoute} />
         <Route path="/hardness" component={HardnessRoute} />
         <Route path="/settings" component={SettingsRoute} />
+        <Route path="/plugins" component={PluginsRoute} />
         <Route path="/ops" component={OpsRoute} />
         <Route path="/logs" component={LogsRoute} />
         <Route default component={NotFound} />
