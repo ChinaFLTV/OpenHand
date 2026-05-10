@@ -296,6 +296,7 @@ abstract final class OpenHandTheme {
         backgroundColor: colorScheme.inverseSurface,
         contentTextStyle: baseTheme.textTheme.bodyMedium?.copyWith(
           color: colorScheme.onInverseSurface,
+          fontWeight: FontWeight.w500,
         ),
         actionTextColor: colorScheme.inversePrimary,
         closeIconColor: colorScheme.onInverseSurface.withValues(alpha: 0.7),
@@ -303,9 +304,9 @@ abstract final class OpenHandTheme {
         // 改由 OpenHandSnackBar._ensureMotionWrapped 注入无背景的自定义关闭按钮。
         showCloseIcon: false,
         dismissDirection: DismissDirection.down,
-        elevation: 6,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 4,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       textTheme: baseTheme.textTheme.copyWith(
         displaySmall: baseTheme.textTheme.displaySmall?.copyWith(

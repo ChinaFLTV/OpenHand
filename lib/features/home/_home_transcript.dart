@@ -1381,20 +1381,75 @@ class _TranscriptLoadEarlierButton extends StatelessWidget {
   }
 }
 
-class _SessionErrorBanner extends StatelessWidget {
+class _SessionErrorBanner extends StatefulWidget {
   const _SessionErrorBanner({required this.error, required this.onDismiss});
 
   final AiSessionErrorRecord error;
   final VoidCallback onDismiss;
 
   @override
+  State<_SessionErrorBanner> createState() => _SessionErrorBannerState();
+}
+
+class _SessionErrorBannerState extends State<_SessionErrorBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+      reverseDuration: const Duration(milliseconds: 250),
+    );
+    final entry = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _fade = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.15),
+      end: Offset.zero,
+    ).animate(entry);
+    _scale = Tween<double>(begin: 0.92, end: 1.0).animate(entry);
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      _controller.forward();
+    } else {
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleDismiss() async {
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      await _controller.reverse();
+    }
+    widget.onDismiss();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final presentation = _presentSessionError(context, error);
-    final rawMessage = error.message.trim();
+    final presentation = _presentSessionError(context, widget.error);
+    final rawMessage = widget.error.message.trim();
     final hasFullDetails = rawMessage.split('\n').length > 2;
-    return Container(
+
+    final banner = Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.all(14),
@@ -1458,18 +1513,28 @@ class _SessionErrorBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            key: ValueKey<String>('session-error-dismiss-${error.id}'),
-            onPressed: onDismiss,
-            tooltip: _localizedText(context, zh: '关闭提示', en: 'Dismiss'),
-            visualDensity: VisualDensity.compact,
-            icon: Icon(
-              Icons.close_rounded,
-              size: 18,
-              color: colorScheme.onErrorContainer,
+          GestureDetector(
+            onTap: _handleDismiss,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: colorScheme.onErrorContainer.withValues(alpha: 0.7),
+              ),
             ),
           ),
         ],
+      ),
+    );
+
+    if (MediaQuery.disableAnimationsOf(context)) return banner;
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: ScaleTransition(scale: _scale, child: banner),
       ),
     );
   }
