@@ -128,11 +128,22 @@ class McpStdioProcessManager extends ChangeNotifier {
       _processes[name] = managed;
       notifyListeners();
 
-      // 监听 stdout
+      // 监听 stdout - 同时用于日志和握手响应检测
+      final handshakeCompleter = Completer<bool>();
       process.stdout.transform(utf8.decoder).listen(
-        (data) => _appendLog(name, data, isStderr: false),
+        (data) {
+          _appendLog(name, data, isStderr: false);
+          // 检测 MCP initialize 响应
+          if (!handshakeCompleter.isCompleted &&
+              (data.contains('"result"') || data.contains('"protocolVersion"'))) {
+            handshakeCompleter.complete(true);
+          }
+        },
         onError: (e) => _appendLog(name, '[stdout error] $e', isStderr: true),
-        onDone: () => _appendLog(name, '[stdout closed]', isStderr: false),
+        onDone: () {
+          _appendLog(name, '[stdout closed]', isStderr: false);
+          if (!handshakeCompleter.isCompleted) handshakeCompleter.complete(false);
+        },
       );
 
       // 监听 stderr
@@ -155,10 +166,11 @@ class McpStdioProcessManager extends ChangeNotifier {
           );
           notifyListeners();
         }
+        if (!handshakeCompleter.isCompleted) handshakeCompleter.complete(false);
       }));
 
       // 启动后自动执行 MCP 协议握手
-      unawaited(_initializeMcpProtocol(name, process));
+      unawaited(_initializeMcpProtocol(name, process, handshakeCompleter));
     } catch (e) {
       _processes[name] = _ManagedProcess(
         info: StdioProcessInfo(
@@ -267,10 +279,18 @@ class McpStdioProcessManager extends ChangeNotifier {
   }
 
   /// 启动后自动通过 stdin 发送 MCP initialize 请求完成协议握手。
-  /// 握手成功后服务才真正可用；失败则记录错误但不终止进程。
-  Future<void> _initializeMcpProtocol(String serverName, Process process) async {
+  Future<void> _initializeMcpProtocol(
+    String serverName,
+    Process process,
+    Completer<bool> responseCompleter,
+  ) async {
     _appendLog(serverName, '[${_timestamp()}] MCP 协议握手中…', isStderr: false);
     try {
+      // 等待进程稳定（npx 首次启动可能需要下载包）
+      await Future.delayed(const Duration(milliseconds: 300));
+      final managed = _processes[serverName];
+      if (managed == null || !managed.info.isRunning) return;
+
       // 构造 MCP initialize 请求（JSON-RPC 2.0）
       final initRequest = jsonEncode({
         'jsonrpc': '2.0',
@@ -290,9 +310,11 @@ class McpStdioProcessManager extends ChangeNotifier {
       process.stdin.add(body);
       await process.stdin.flush();
 
-      // 等待响应（最多 30 秒）
-      final response = await _waitForJsonRpcResponse(serverName, timeout: const Duration(seconds: 30));
-      if (response != null) {
+      // 等待 stdout 中出现响应（最多 60 秒，npx 冷启动可能很慢）
+      final gotResponse = await responseCompleter.future
+          .timeout(const Duration(seconds: 60), onTimeout: () => false);
+
+      if (gotResponse) {
         _appendLog(serverName, '[${_timestamp()}] ✓ MCP 握手成功', isStderr: false);
 
         // 发送 initialized 通知
@@ -307,30 +329,11 @@ class McpStdioProcessManager extends ChangeNotifier {
         await process.stdin.flush();
         _appendLog(serverName, '[${_timestamp()}] ✓ 服务已就绪，可正常使用', isStderr: false);
       } else {
-        _appendLog(serverName, '[${_timestamp()}] ⚠ 握手超时，服务可能需要更长启动时间', isStderr: false);
+        _appendLog(serverName, '[${_timestamp()}] ⚠ 握手超时或进程已退出', isStderr: false);
       }
     } catch (e) {
       _appendLog(serverName, '[${_timestamp()}] ⚠ 握手异常: $e', isStderr: false);
     }
-  }
-
-  /// 等待进程 stdout 中出现 JSON-RPC 响应（简化版：检查日志中是否出现响应内容）。
-  Future<String?> _waitForJsonRpcResponse(String serverName, {required Duration timeout}) async {
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      await Future.delayed(const Duration(milliseconds: 200));
-      final managed = _processes[serverName];
-      if (managed == null || !managed.info.isRunning) return null;
-      // 检查日志中是否有 JSON-RPC 响应（包含 "result" 字段）
-      final logs = managed.info.logs;
-      for (int i = logs.length - 1; i >= 0 && i >= logs.length - 10; i--) {
-        final line = logs[i];
-        if (line.contains('"result"') || line.contains('"protocolVersion"')) {
-          return line;
-        }
-      }
-    }
-    return null;
   }
 
   /// 获取进程的运行时环境信息。

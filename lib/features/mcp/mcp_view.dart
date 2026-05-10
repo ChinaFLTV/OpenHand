@@ -1596,11 +1596,7 @@ class _McpServerCard extends StatelessWidget {
                                 width: 44,
                                 height: 44,
                                 child: IconButton.filledTonal(
-                                  onPressed:
-                                      healthStatus.isChecking ||
-                                          toolCatalog.isLoading
-                                      ? null
-                                      : onReconnect,
+                                  onPressed: onReconnect,
                                   icon: const Icon(Icons.cyclone_rounded),
                                 ),
                               ),
