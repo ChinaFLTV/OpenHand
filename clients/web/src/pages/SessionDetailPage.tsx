@@ -138,28 +138,6 @@ function isRunningPhase(phase: string | null | undefined): boolean {
   return Boolean(phase && phase !== 'idle');
 }
 
-function sendPhaseLabel(phase: string | null | undefined): string {
-  switch ((phase ?? '').trim()) {
-    case '':
-    case 'idle':
-      return t('detail.phase.idle', '空闲');
-    case 'sendingMessage':
-    case 'sending_message':
-      return t('detail.phase.sending', '发送中');
-    case 'awaiting_plan_approval':
-    case 'awaitingPlanApproval':
-      return t('detail.phase.awaitingPlanApproval', '等待批准');
-    case 'running_tool':
-    case 'runningTool':
-      return t('detail.phase.runningTool', '工具执行中');
-    case 'responding':
-    case 'streaming':
-      return t('detail.phase.responding', '生成中');
-    default:
-      return phase ?? t('detail.phase.idle', '空闲');
-  }
-}
-
 export function shouldApplySessionAsyncResult(
   currentSessionId: string,
   requestSessionId: string,
@@ -3058,13 +3036,6 @@ export function SessionDetailPage() {
     }
     return null;
   }, [sortedMessages, responseRunning]);
-  const followStatusLabel = autoFollowPaused || unreadCount > 0
-    ? unreadCount > 0
-      ? `${unreadCount.toLocaleString()} ${t('detail.unreadUnit', '条新消息')}`
-      : t('detail.follow.paused', '已暂停跟随')
-    : autoFollow
-      ? t('composer.autoFollow', '自动跟随')
-      : t('detail.follow.manual', '手动浏览');
 
   if (!sessionId) {
     return (
@@ -3182,43 +3153,6 @@ export function SessionDetailPage() {
                 '另一处客户端正在生成回复。如本端正在编辑草稿, 建议等远端结束后再发送, 避免顺序混乱。',
               )}
             </span>
-          </div>
-        ) : null}
-
-        {session ? (
-          <div class="oh-session-status-strip" aria-label={t('detail.statusStrip', '会话状态')}>
-            <span class={`oh-session-status-chip ${sseLive ? 'is-live' : 'is-muted'}`}>
-              <span class="oh-session-status-dot" aria-hidden />
-              <span>{sseLive ? t('detail.sync.live', '实时同步') : t('detail.sync.polling', '轮询同步')}</span>
-            </span>
-            <span class={`oh-session-status-chip ${responseRunning ? 'is-running' : 'is-muted'}`}>
-              <span class={`oh-session-status-icon ${responseRunning ? 'oh-spin' : ''}`} aria-hidden>
-                <ComposerIcon name="refresh" size={13} />
-              </span>
-              <span>{sendPhaseLabel(sendPhase)}</span>
-            </span>
-            <button
-              type="button"
-              class={`oh-session-status-chip oh-tap-press ${autoFollowPaused || unreadCount > 0 ? 'is-accent' : autoFollow ? 'is-live' : 'is-muted'}`}
-              onClick={autoFollowPaused || unreadCount > 0 ? resumeToLatest : undefined}
-              disabled={!autoFollowPaused && unreadCount === 0}
-              title={autoFollowPaused || unreadCount > 0
-                ? t('detail.resumeToLatest', '回到底部')
-                : t('composer.autoFollow', '自动跟随到底部')}
-            >
-              <span class="oh-session-status-icon" aria-hidden>
-                <ComposerIcon name="follow" size={13} />
-              </span>
-              <span>{followStatusLabel}</span>
-            </button>
-            {queuedComposerMessages.length > 0 ? (
-              <span class="oh-session-status-chip is-accent">
-                <span class="oh-session-status-icon" aria-hidden>
-                  <ComposerIcon name="send" size={13} />
-                </span>
-                <span>{queuedComposerMessages.length.toLocaleString()} {t('composer.queue.unit', '条')} {t('composer.queue.title', '自动发送等待队列')}</span>
-              </span>
-            ) : null}
           </div>
         ) : null}
 
