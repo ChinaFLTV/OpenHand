@@ -182,8 +182,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           ),
           subtitle: _localizedText(
             context,
-            zh: '关闭后，无域名规则的沙盒命令会禁用网络；配置域名规则时会启动本地过滤代理。',
-            en: 'When off, sandboxed commands without domain rules run with networking disabled. Domain rules start a local filtering proxy.',
+            zh: '关闭后，无域名规则的沙盒命令会禁用网络；配置域名规则时会启动本地过滤代理。macOS 会阻断直连绕过；Linux 严格模式会阻断尚无法强制过滤的域名规则。',
+            en: 'When off, sandboxed commands without domain rules run with networking disabled. Domain rules start a local filtering proxy. macOS blocks direct bypass; Linux strict mode blocks domain rules that cannot be enforced yet.',
           ),
           control: Switch(
             value: settings.allowNetworkWhenNoDomainRules,
@@ -519,8 +519,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         Text(
           _localizedText(
             context,
-            zh: 'HTTP 为空或 0 时自动选择临时端口；SOCKS 为空或 0 时不启用 SOCKS 入口。代理随沙盒命令启动并自动清理。',
-            en: 'Blank or 0 HTTP uses an automatic temporary port; blank or 0 SOCKS disables the SOCKS entry point. The proxy starts per sandboxed command and is cleaned up automatically.',
+            zh: 'HTTP 为空或 0 时自动选择临时端口；SOCKS 为空或 0 时不启用 SOCKS 入口。代理随沙盒命令启动并自动清理；Linux 关闭“环境不可用时阻断”后仅作为尽力而为的环境变量注入。',
+            en: 'Blank or 0 HTTP uses an automatic temporary port; blank or 0 SOCKS disables the SOCKS entry point. The proxy starts per sandboxed command and is cleaned up automatically; on Linux with Fail If Unavailable off it is best-effort environment injection only.',
           ),
           style: Theme.of(context).textTheme.bodySmall,
         ),

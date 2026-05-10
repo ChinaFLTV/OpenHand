@@ -125,6 +125,11 @@ class BashToolExecutionResult {
         '${sandboxMetadata['sandbox_proxy_socks_port'] == null ? '' : ', socks=${sandboxMetadata['sandbox_proxy_socks_port']}'}',
       );
     }
+    final sandboxWarning =
+        '${sandboxMetadata['sandbox_domain_filter_warning'] ?? ''}'.trim();
+    if (sandboxWarning.isNotEmpty) {
+      buffer.writeln('sandbox_warning: $sandboxWarning');
+    }
     if (stdout.trim().isNotEmpty) {
       buffer
         ..writeln('stdout:')

@@ -131,6 +131,11 @@ class AiSandboxService {
   AiSandboxService({AiSandboxSettings? settings})
     : settings = settings ?? AiSandboxSettings.defaults();
 
+  static const String _linuxDomainFilterUnavailableReason =
+      'Linux bubblewrap cannot strictly enforce sandbox domain allow/deny rules yet because direct network access cannot be restricted to the OpenHand local proxy without an additional network bridge.';
+  static const String _linuxDomainFilterBestEffortWarning =
+      'Linux sandbox domain rules are best-effort here: OpenHand injects proxy environment variables, but bubblewrap does not block direct network bypass in this mode.';
+
   AiSandboxSettings settings;
   final AiSandboxProxyService _proxyService = AiSandboxProxyService();
   AiSandboxEnvironmentStatus? _cachedStatus;
@@ -167,9 +172,16 @@ class AiSandboxService {
     }
 
     if (settings.hasDomainRules) {
-      warnings.add(
-        'Domain allow/deny lists are enforced through a per-command local proxy. macOS blocks direct network access outside that proxy; Linux currently relies on proxy environment variables.',
-      );
+      if (Platform.isLinux) {
+        warnings.add(_linuxDomainFilterUnavailableReason);
+        if (!settings.failIfUnavailable) {
+          warnings.add(_linuxDomainFilterBestEffortWarning);
+        }
+      } else {
+        warnings.add(
+          'Domain allow/deny lists are enforced through a per-command local proxy. macOS blocks direct network access outside that proxy.',
+        );
+      }
     }
 
     final status = AiSandboxEnvironmentStatus(
@@ -332,6 +344,27 @@ class AiSandboxService {
       );
     }
 
+    if (Platform.isLinux &&
+        settings.hasDomainRules &&
+        settings.failIfUnavailable) {
+      return AiSandboxLaunchSpec.blocked(
+        executable: shellExecutable,
+        arguments: shellArguments,
+        workingDirectory: normalizedWorkingDirectory,
+        reason: _linuxDomainFilterUnavailableReason,
+        metadata: <String, Object?>{
+          ...baseMetadata,
+          'sandbox_platform': status.platform,
+          'sandbox_backend': status.backend,
+          'sandbox_allowed_domain_count': settings.allowedDomains.length,
+          'sandbox_denied_domain_count': settings.deniedDomains.length,
+          'sandbox_network_direct_blocked': false,
+          'sandbox_domain_filter_enforced': false,
+          'sandbox_domain_filter_warning': _linuxDomainFilterUnavailableReason,
+        },
+      );
+    }
+
     final AiSandboxProxyLease? proxyLease;
     try {
       proxyLease = settings.hasDomainRules
@@ -417,7 +450,7 @@ class AiSandboxService {
           'sandbox_domain_filter_enforced': false,
           if (proxyLease != null)
             'sandbox_domain_filter_warning':
-                'Linux sandbox proxy is injected through environment variables; direct network bypass is not blocked by bubblewrap here.',
+                _linuxDomainFilterBestEffortWarning,
         },
       );
     }

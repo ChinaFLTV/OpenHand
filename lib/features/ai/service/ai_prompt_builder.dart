@@ -829,7 +829,7 @@ class AiPromptBuilder {
           'Sandbox proxy ports: http=${sandbox.httpProxyPort}, socks=${sandbox.socksProxyPort}',
         )
         ..writeln(
-          'Sandbox domain rules use an OpenHand local filtering proxy for sandboxed commands; http=0 means an automatic temporary HTTP proxy port, socks=0 means no SOCKS entry point. On macOS, direct network access is blocked while the proxy is active.',
+          'Sandbox domain rules use an OpenHand local filtering proxy for sandboxed commands; http=0 means an automatic temporary HTTP proxy port, socks=0 means no SOCKS entry point. On macOS, direct network access is blocked while the proxy is active. On Linux, strict mode blocks domain rules that cannot be enforced yet; if degraded execution is allowed, proxy variables are best-effort and metadata will say the domain filter is not enforced.',
         )
         ..writeln(
           'If a command is sandboxed, do not try to bypass it. Treat sandbox denial, timeout, or unavailable-dependency output as authoritative and report the exact blocker.',
