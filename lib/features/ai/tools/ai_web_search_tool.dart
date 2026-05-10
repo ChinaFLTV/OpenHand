@@ -404,7 +404,7 @@ class AiWebSearchTool extends AiTool {
           'session_id': context.sessionId,
           'tool_name': context.toolCall.name,
           'tool_call_id': context.toolCall.id,
-          'model_protocol': summaryModel.protocolType,
+          'model_protocol': summaryModel.protocolType.name,
           'model_id': summaryModel.modelId,
           'engines': engineSummaries,
           'fallback_used': orchestrationResult.fallbackUsed,
