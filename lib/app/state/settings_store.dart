@@ -14,6 +14,7 @@ import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -152,8 +153,7 @@ class SettingsStore {
       'mcp_auto_probe_concurrency': snapshot.mcpAutoProbeConcurrency,
       'mcp_keyword_index_update_mode':
           snapshot.mcpKeywordIndexUpdateMode.storageValue,
-      'mcp_keyword_index_interval_value':
-          snapshot.mcpKeywordIndexIntervalValue,
+      'mcp_keyword_index_interval_value': snapshot.mcpKeywordIndexIntervalValue,
       'mcp_keyword_index_interval_unit':
           snapshot.mcpKeywordIndexIntervalUnit.storageValue,
       'mcp_keyword_index_scheduled_time_of_day':
@@ -235,6 +235,7 @@ class SettingsStore {
       'ai_deny_command_rules': snapshot.aiDenyCommandRules
           .map((item) => item.toJson())
           .toList(growable: false),
+      'ai_sandbox': snapshot.aiSandboxSettings.toJson(),
       'ai_connect_timeout_seconds': snapshot.aiConnectTimeoutSeconds,
       'ai_response_timeout_seconds': snapshot.aiResponseTimeoutSeconds,
       'ai_stream_idle_timeout_seconds': snapshot.aiStreamIdleTimeoutSeconds,
@@ -730,6 +731,13 @@ class SettingsStore {
       }
     }
 
+    final rawSandboxSettings = json['ai_sandbox'];
+    final aiSandboxSettings = rawSandboxSettings is Map
+        ? AiSandboxSettings.fromJson(
+            Map<String, Object?>.from(rawSandboxSettings),
+          )
+        : AiSandboxSettings.defaults();
+
     // Session timeout settings.
     final rawConnectTimeout = json['ai_connect_timeout_seconds'];
     final aiConnectTimeoutSeconds =
@@ -1155,6 +1163,7 @@ class SettingsStore {
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,
       aiDenyCommandRules: aiDenyCommandRules,
+      aiSandboxSettings: aiSandboxSettings,
       aiConnectTimeoutSeconds: aiConnectTimeoutSeconds,
       aiResponseTimeoutSeconds: aiResponseTimeoutSeconds,
       aiStreamIdleTimeoutSeconds: aiStreamIdleTimeoutSeconds,

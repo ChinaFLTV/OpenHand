@@ -513,6 +513,7 @@ class AiSessionController extends ChangeNotifier {
     _bashToolService.fastPathWriteAnalysisThreshold =
         runtimeContext.fastPathWriteAnalysisThreshold;
     _bashToolService.maxCapturedCharacters = runtimeContext.bashOutputMaxBytes;
+    _bashToolService.sandboxService.settings = runtimeContext.sandboxSettings;
     // 工具加固：把 graceful shutdown 时长写入 safe_subprocess 模块默认值，
     // 全局 runProcessWithTimeout 调用即时跟随；UI 上的 Stop 反馈与子进程
     // 实际终止之间的间隔由此控制。maxConcurrentTools 当前留作 schema，

@@ -1034,6 +1034,10 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
   );
   const elapsedMs = asNumber(metadata['tool_execution_elapsed_ms'] ?? metadata['tool_execution_duration_ms']);
   const exitCode = asNumber(metadata['tool_execution_exit_code'] ?? metadata['exit_code']);
+  const sandboxApplied = asBool(metadata['sandbox_applied']);
+  const sandboxBlocked = asBool(metadata['sandbox_blocked']);
+  const sandboxBackend = asString(metadata['sandbox_backend']);
+  const sandboxReason = asString(metadata['sandbox_unavailable_reason']);
   const argumentsStreaming = asBool(metadata['tool_arguments_streaming']);
   const statusLower = status.toLowerCase();
   const terminalStatus =
@@ -1062,6 +1066,12 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
       <div class="oh-tool-execution-chip-row flex flex-wrap gap-1.5 text-[11px]">
         {elapsedMs != null ? <MetaChip label={`${elapsedMs} ms`} /> : null}
         {exitCode != null ? <MetaChip label={`exit ${exitCode}`} tone={exitCode === 0 ? 'ok' : 'danger'} /> : null}
+        {(sandboxApplied || sandboxBlocked || sandboxReason) ? (
+          <MetaChip
+            label={sandboxBlocked ? t('detail.tool.sandbox.blocked', '沙盒拦截') : `${t('detail.tool.sandbox.applied', '沙盒')}${sandboxBackend ? ` · ${sandboxBackend}` : ''}`}
+            tone={sandboxBlocked ? 'danger' : 'ok'}
+          />
+        ) : null}
         {workingDirectory ? <MetaChip label={workingDirectory} mono /> : null}
         {constructing ? <ConstructingBadge /> : null}
       </div>
@@ -1074,6 +1084,9 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
       ) : null}
       {stderr ? (
         <ToolSection title={t('detail.tool.stderr', '标准错误 stderr')} content={stderr} danger defaultExpanded />
+      ) : null}
+      {sandboxReason ? (
+        <ToolSection title={t('detail.tool.sandbox.reason', '沙盒状态')} content={sandboxReason} danger={sandboxBlocked} defaultExpanded />
       ) : null}
       {result ? (
         <ToolSection title={t('detail.tool.result', '工具结果')} content={result} defaultExpanded={!stdout && !stderr} />

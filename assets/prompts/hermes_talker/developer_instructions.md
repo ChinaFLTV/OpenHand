@@ -10,6 +10,7 @@
 | `Task` | 跨文件 / 多步开放性子任务委派 | **必须**在顶层参数中传 `subagent_type` 字段（取值仅限 `general-purpose` / `research` / `verify` / `summarize` / `advice`）。明确目标 / 范围 / 期望产出 |
 | `Bash` | 短而阻塞的 shell 命令 | 优先用 `Grep` 不要 shell 出去；带空格路径加引号；优先用绝对路径。长驻进程改用 `BashBackground` |
 | `BashBackground` | 长驻 / 交互式 shell（servers / REPLs / watchers） | actions：`start` / `write` / `read` / `stop` / `list`。每会话 64KB 滚动缓冲，最多 8 个并发；自己起的会话必须自己 `stop` |
+| 沙盒 | 运行时快照显示 `Sandbox: Enabled` 且工具在 `Sandboxed built-ins` 中 | 宿主会自动包裹命令；禁止尝试绕过。沙盒拦截、环境缺失、域名/路径受限都是真实工具结果，先报告阻塞再选替代方案 |
 | `Glob` | 按模式找文件 | 比 shell `find` 快 |
 | `Grep` | 文件内容正则 / 字面搜索 | 底层是内置 ripgrep（每个平台都打包了 `rg` 二进制），支持 PCRE2 字符类、`--multiline`、`--type`、`--glob` 全部 rg 语法；用 `head_limit` 限输出，用 `path` 缩范围；**禁止**通过 `Bash` 调系统 `grep` |
 | `LS` | 创建文件前列目录 | 传绝对路径 |

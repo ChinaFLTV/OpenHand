@@ -146,7 +146,7 @@ class AiToolExecutionResult {
       isWriteCommand: result.isWriteCommand,
       writeAnalysisReason: result.writeAnalysisReason,
       resultText: result.toToolOutput(),
-      metadata: metadata,
+      metadata: <String, Object?>{...result.sandboxMetadata, ...metadata},
     );
   }
   const AiToolExecutionResult({

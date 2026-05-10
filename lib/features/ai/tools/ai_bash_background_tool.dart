@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/silent_log.dart';
 import '../model/ai_deny_command_rule.dart';
 import '../service/ai_bash_tool_service.dart';
+import '../service/ai_sandbox_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
@@ -22,12 +23,14 @@ import 'ai_tool_utils.dart';
 /// - read 是非阻塞拉取（自上次 read 以来的新输出 + 进程状态）。
 /// - stdin 写入仅在进程存活时有效；进程已退出时返回 invalid_arguments。
 class AiBashBackgroundTool extends AiTool {
-  AiBashBackgroundTool();
+  AiBashBackgroundTool({AiSandboxService? sandboxService})
+    : _sandboxService = sandboxService ?? AiSandboxService();
 
   static const int _maxBufferBytes = 64 * 1024;
   static const int _maxConcurrentSessions = 8;
 
   final Map<String, _BgSession> _sessions = <String, _BgSession>{};
+  final AiSandboxService _sandboxService;
   int _handleCounter = 0;
 
   @override
@@ -46,7 +49,12 @@ class AiBashBackgroundTool extends AiTool {
       try {
         session.process.kill(ProcessSignal.sigkill);
       } catch (error, stack) {
-        silentLog('ai_bash_background', 'kill session ${session.handle}', error, stack);
+        silentLog(
+          'ai_bash_background',
+          'kill session ${session.handle}',
+          error,
+          stack,
+        );
       }
     }
     _sessions.clear();
@@ -116,23 +124,30 @@ class AiBashBackgroundTool extends AiTool {
     final cwd = AiToolUtils.resolvePath(
       '${args['working_directory'] ?? args['cwd'] ?? ''}',
     );
+    final launchSpec = await _prepareLaunchSpec(cmd: cmd, cwd: cwd);
+    if (launchSpec.blocked) {
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.denied,
+        command: cmd,
+        workingDirectory: cwd,
+        stdout: '',
+        stderr: launchSpec.reason,
+        durationMs: 0,
+        resultText: 'status: denied\nreason: ${launchSpec.reason}',
+        metadata: launchSpec.metadata,
+      );
+    }
     final startedAt = Stopwatch()..start();
     final Process process;
     try {
-      if (Platform.isWindows) {
-        process = await Process.start(
-          'cmd',
-          <String>['/d', '/c', cmd],
-          workingDirectory: cwd,
-        );
-      } else {
-        final shell = Platform.environment['SHELL'] ?? '/bin/bash';
-        process = await Process.start(
-          shell,
-          <String>['-lc', cmd],
-          workingDirectory: cwd,
-        );
-      }
+      process = await Process.start(
+        launchSpec.executable,
+        launchSpec.arguments,
+        workingDirectory: launchSpec.workingDirectory,
+        environment: launchSpec.environment.isEmpty
+            ? null
+            : launchSpec.environment,
+      );
     } catch (error, stack) {
       silentLog('ai_bash_background', 'spawn $cmd', error, stack);
       return AiToolUtils.invalidResult(
@@ -145,42 +160,82 @@ class AiBashBackgroundTool extends AiTool {
     final session = _BgSession(
       handle: handle,
       command: cmd,
-      workingDirectory: cwd,
+      workingDirectory: launchSpec.workingDirectory,
       process: process,
       startedAtMs: DateTime.now().millisecondsSinceEpoch,
     );
     _sessions[handle] = session;
-    process.stdout.transform(utf8.decoder).listen(
-      (data) => session.appendStdout(data, _maxBufferBytes),
-      onError: (Object error, StackTrace stack) {
-        silentLog('ai_bash_background', 'stdout $handle', error, stack);
-      },
+    process.stdout
+        .transform(utf8.decoder)
+        .listen(
+          (data) => session.appendStdout(data, _maxBufferBytes),
+          onError: (Object error, StackTrace stack) {
+            silentLog('ai_bash_background', 'stdout $handle', error, stack);
+          },
+        );
+    process.stderr
+        .transform(utf8.decoder)
+        .listen(
+          (data) => session.appendStderr(data, _maxBufferBytes),
+          onError: (Object error, StackTrace stack) {
+            silentLog('ai_bash_background', 'stderr $handle', error, stack);
+          },
+        );
+    unawaited(
+      process.exitCode.then((code) {
+        session.exitCode = code;
+        session.alive = false;
+      }),
     );
-    process.stderr.transform(utf8.decoder).listen(
-      (data) => session.appendStderr(data, _maxBufferBytes),
-      onError: (Object error, StackTrace stack) {
-        silentLog('ai_bash_background', 'stderr $handle', error, stack);
-      },
-    );    unawaited(process.exitCode.then((code) {
-      session.exitCode = code;
-      session.alive = false;
-    }));
     final output = StringBuffer()
       ..writeln('status: started')
       ..writeln('handle: $handle')
       ..writeln('pid: ${process.pid}')
-      ..writeln('cwd: $cwd')
+      ..writeln('cwd: ${launchSpec.workingDirectory}')
       ..writeln('cmd: $cmd');
+    if (launchSpec.applied) {
+      output
+        ..writeln('sandbox: applied')
+        ..writeln(
+          'sandbox_backend: ${launchSpec.metadata['sandbox_backend'] ?? ''}',
+        );
+    }
     return AiToolUtils.simpleSuccessResult(
       command: 'BashBackground start $handle',
       output: output.toString().trimRight(),
       durationMs: startedAt.elapsedMilliseconds,
-      workingDirectory: cwd,
+      workingDirectory: launchSpec.workingDirectory,
       metadata: <String, Object?>{
+        ...launchSpec.metadata,
         'bg_handle': handle,
         'bg_pid': process.pid,
         'bg_cmd': cmd,
       },
+    );
+  }
+
+  Future<AiSandboxLaunchSpec> _prepareLaunchSpec({
+    required String cmd,
+    required String cwd,
+  }) {
+    if (Platform.isWindows) {
+      return Future<AiSandboxLaunchSpec>.value(
+        AiSandboxLaunchSpec.unsandboxed(
+          executable: 'cmd',
+          arguments: <String>['/d', '/c', cmd],
+          workingDirectory: cwd,
+        ),
+      );
+    }
+    final shell = Platform.environment['SHELL']?.trim().isNotEmpty == true
+        ? Platform.environment['SHELL']!.trim()
+        : '/bin/bash';
+    return _sandboxService.prepareShellCommand(
+      toolName: 'BashBackground',
+      command: cmd,
+      shellExecutable: shell,
+      shellArguments: <String>['-lc', cmd],
+      workingDirectory: cwd,
     );
   }
 
@@ -238,9 +293,7 @@ class AiBashBackgroundTool extends AiTool {
     final out = StringBuffer()
       ..writeln('handle: $handle')
       ..writeln('alive: ${session.alive}')
-      ..writeln(
-        'exit_code: ${session.exitCode ?? -1}',
-      )
+      ..writeln('exit_code: ${session.exitCode ?? -1}')
       ..writeln('--- stdout (new) ---')
       ..writeln(stdout)
       ..writeln('--- stderr (new) ---')
@@ -275,7 +328,8 @@ class AiBashBackgroundTool extends AiTool {
     }
     return AiToolUtils.simpleSuccessResult(
       command: 'BashBackground stop $handle',
-      output: 'status: ${killed ? "killed" : "already_exited"}\nhandle: $handle',
+      output:
+          'status: ${killed ? "killed" : "already_exited"}\nhandle: $handle',
       durationMs: 0,
       workingDirectory: session.workingDirectory,
       metadata: <String, Object?>{'bg_handle': handle, 'bg_killed': killed},

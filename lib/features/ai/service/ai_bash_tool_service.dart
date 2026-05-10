@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../model/ai_deny_command_rule.dart';
+import 'ai_sandbox_service.dart';
 import 'ai_tool_execution_registry.dart';
 
 const Utf8Decoder _shellOutputDecoder = Utf8Decoder(allowMalformed: true);
@@ -75,6 +76,7 @@ class BashToolExecutionResult {
     this.matchedRulePattern,
     this.isWriteCommand = false,
     this.writeAnalysisReason = '',
+    this.sandboxMetadata = const <String, Object?>{},
   });
 
   final BashToolExecutionStatus status;
@@ -88,6 +90,7 @@ class BashToolExecutionResult {
   final String? matchedRulePattern;
   final bool isWriteCommand;
   final String writeAnalysisReason;
+  final Map<String, Object?> sandboxMetadata;
 
   String toToolOutput() {
     final buffer = StringBuffer()
@@ -102,6 +105,19 @@ class BashToolExecutionResult {
       buffer
         ..writeln('matched_rule_id: $matchedRuleId')
         ..writeln('matched_rule_pattern: $matchedRulePattern');
+    }
+    if (sandboxMetadata['sandbox_applied'] == true) {
+      buffer
+        ..writeln('sandbox: applied')
+        ..writeln(
+          'sandbox_backend: ${sandboxMetadata['sandbox_backend'] ?? ''}',
+        );
+    } else if (sandboxMetadata['sandbox_blocked'] == true) {
+      buffer.writeln('sandbox: blocked');
+    } else if (sandboxMetadata['sandbox_unavailable_reason'] != null) {
+      buffer.writeln(
+        'sandbox_unavailable_reason: ${sandboxMetadata['sandbox_unavailable_reason']}',
+      );
     }
     if (stdout.trim().isNotEmpty) {
       buffer
@@ -403,6 +419,7 @@ class AiBashToolService {
   int maxCapturedCharacters = 200000;
   int writeConfirmationTimeoutMs = 300000;
   int fastPathWriteAnalysisThreshold = 512;
+  final AiSandboxService sandboxService = AiSandboxService();
   final Map<String, _PersistentBashSession> _persistentSessions =
       <String, _PersistentBashSession>{};
   int _persistentMarkerCounter = 0;
@@ -422,7 +439,7 @@ class AiBashToolService {
   }) async {
     final normalizedCommand = command.trim();
     final normalizedSessionId = (sessionId ?? '').trim();
-    final shouldUsePersistentSession = normalizedSessionId.isNotEmpty;
+    var shouldUsePersistentSession = normalizedSessionId.isNotEmpty;
     final rawWorkingDirectory = (workingDirectory ?? '').trim();
     final normalizedWorkingDirectory = rawWorkingDirectory.isEmpty
         ? (shouldUsePersistentSession
@@ -468,77 +485,105 @@ class AiBashToolService {
       }
     }
     final isWriteCommand = writeAnalysis.isWrite;
+    final launchSpec = await _prepareLaunchSpec(
+      command: normalizedCommand,
+      workingDirectory: displayedWorkingDirectory,
+    );
+    final sandboxMetadata = launchSpec.metadata;
+    if (launchSpec.blocked) {
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.denied,
+        command: normalizedCommand,
+        workingDirectory: displayedWorkingDirectory,
+        stdout: '',
+        stderr: launchSpec.reason,
+        durationMs: 0,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysis.reason,
+        sandboxMetadata: sandboxMetadata,
+      );
+    }
+    if (launchSpec.applied) {
+      shouldUsePersistentSession = false;
+    }
     if (requireWriteConfirmation && isWriteCommand) {
-      late final _WriteConfirmationOutcome outcome;
-      try {
-        final approvalFuture =
-            (confirmWriteCommand
-                        ?.call(
-                          BashCommandApprovalRequest(
-                            command: normalizedCommand,
-                            workingDirectory: displayedWorkingDirectory,
-                            isWriteCommand: true,
-                          ),
-                        )
-                        .timeout(
-                          Duration(
-                            milliseconds: writeConfirmationTimeoutMs,
-                          ),
-                        ) ??
-                    Future<bool>.value(false))
-                .then<_WriteConfirmationOutcome>(
-                  (approved) => approved
-                      ? const _WriteConfirmationOutcome.approved()
-                      : const _WriteConfirmationOutcome.rejected(),
-                );
-        if (cancelSignal == null) {
-          outcome = await approvalFuture;
-        } else {
-          outcome = await Future.any<_WriteConfirmationOutcome>([
-            approvalFuture,
-            cancelSignal.then(
-              (_) => const _WriteConfirmationOutcome.cancelled(),
-            ),
-          ]);
+      if (launchSpec.applied &&
+          sandboxService.settings.autoAllowBashIfSandboxed) {
+        // The OS sandbox is active and the user explicitly allowed sandboxed
+        // Bash to bypass the write-confirmation prompt.
+      } else {
+        late final _WriteConfirmationOutcome outcome;
+        try {
+          final approvalFuture =
+              (confirmWriteCommand
+                          ?.call(
+                            BashCommandApprovalRequest(
+                              command: normalizedCommand,
+                              workingDirectory: displayedWorkingDirectory,
+                              isWriteCommand: true,
+                            ),
+                          )
+                          .timeout(
+                            Duration(milliseconds: writeConfirmationTimeoutMs),
+                          ) ??
+                      Future<bool>.value(false))
+                  .then<_WriteConfirmationOutcome>(
+                    (approved) => approved
+                        ? const _WriteConfirmationOutcome.approved()
+                        : const _WriteConfirmationOutcome.rejected(),
+                  );
+          if (cancelSignal == null) {
+            outcome = await approvalFuture;
+          } else {
+            outcome = await Future.any<_WriteConfirmationOutcome>([
+              approvalFuture,
+              cancelSignal.then(
+                (_) => const _WriteConfirmationOutcome.cancelled(),
+              ),
+            ]);
+          }
+        } on TimeoutException {
+          return BashToolExecutionResult(
+            status: BashToolExecutionStatus.rejected,
+            command: normalizedCommand,
+            workingDirectory: displayedWorkingDirectory,
+            stdout: '',
+            stderr:
+                'The command confirmation timed out before the user approved execution.',
+            durationMs: 0,
+            isWriteCommand: isWriteCommand,
+            writeAnalysisReason: writeAnalysis.reason,
+            sandboxMetadata: sandboxMetadata,
+          );
         }
-      } on TimeoutException {
-        return BashToolExecutionResult(
-          status: BashToolExecutionStatus.rejected,
-          command: normalizedCommand,
-          workingDirectory: displayedWorkingDirectory,
-          stdout: '',
-          stderr:
-              'The command confirmation timed out before the user approved execution.',
-          durationMs: 0,
-          isWriteCommand: isWriteCommand,
-          writeAnalysisReason: writeAnalysis.reason,
-        );
-      }
-      if (outcome.cancelled) {
-        return BashToolExecutionResult(
-          status: BashToolExecutionStatus.cancelled,
-          command: normalizedCommand,
-          workingDirectory: displayedWorkingDirectory,
-          stdout: '',
-          stderr:
-              'The command execution was cancelled before confirmation completed.',
-          durationMs: 0,
-          isWriteCommand: isWriteCommand,
-          writeAnalysisReason: writeAnalysis.reason,
-        );
-      }
-      if (!outcome.approved) {
-        return BashToolExecutionResult(
-          status: BashToolExecutionStatus.rejected,
-          command: normalizedCommand,
-          workingDirectory: displayedWorkingDirectory,
-          stdout: '',
-          stderr:
-              'The command was rejected because write-command confirmation was not granted by the user.',
-          durationMs: 0,
-          isWriteCommand: isWriteCommand,
-          writeAnalysisReason: writeAnalysis.reason,
-        );
+        if (outcome.cancelled) {
+          return BashToolExecutionResult(
+            status: BashToolExecutionStatus.cancelled,
+            command: normalizedCommand,
+            workingDirectory: displayedWorkingDirectory,
+            stdout: '',
+            stderr:
+                'The command execution was cancelled before confirmation completed.',
+            durationMs: 0,
+            isWriteCommand: isWriteCommand,
+            writeAnalysisReason: writeAnalysis.reason,
+            sandboxMetadata: sandboxMetadata,
+          );
+        }
+        if (!outcome.approved) {
+          return BashToolExecutionResult(
+            status: BashToolExecutionStatus.rejected,
+            command: normalizedCommand,
+            workingDirectory: displayedWorkingDirectory,
+            stdout: '',
+            stderr:
+                'The command was rejected because write-command confirmation was not granted by the user.',
+            durationMs: 0,
+            isWriteCommand: isWriteCommand,
+            writeAnalysisReason: writeAnalysis.reason,
+            sandboxMetadata: sandboxMetadata,
+          );
+        }
       }
     }
 
@@ -570,20 +615,18 @@ class AiBashToolService {
     final stopwatch = Stopwatch()..start();
     late final Process process;
     try {
-      process = await _startProcess(
-        normalizedCommand,
-        normalizedWorkingDirectory,
-      );
+      process = await _startProcess(launchSpec);
     } on ProcessException catch (error) {
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: normalizedCommand,
-        workingDirectory: normalizedWorkingDirectory,
+        workingDirectory: launchSpec.workingDirectory,
         stdout: '',
         stderr: error.message,
         durationMs: stopwatch.elapsedMilliseconds,
         isWriteCommand: isWriteCommand,
         writeAnalysisReason: writeAnalysis.reason,
+        sandboxMetadata: sandboxMetadata,
       );
     }
 
@@ -632,7 +675,7 @@ class AiBashToolService {
         BashToolExecutionUpdate(
           phase: phase,
           command: normalizedCommand,
-          workingDirectory: normalizedWorkingDirectory,
+          workingDirectory: launchSpec.workingDirectory,
           stdout: stdoutBuffer.toString(),
           stderr: stderrBuffer.toString(),
           durationMs: durationMs,
@@ -747,7 +790,7 @@ class AiBashToolService {
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.cancelled,
         command: normalizedCommand,
-        workingDirectory: normalizedWorkingDirectory,
+        workingDirectory: launchSpec.workingDirectory,
         stdout: stdoutBuffer.toString(),
         stderr: stderrBuffer.toString().isEmpty
             ? 'The command was cancelled by the user.'
@@ -756,6 +799,7 @@ class AiBashToolService {
         exitCode: exitCode,
         isWriteCommand: isWriteCommand,
         writeAnalysisReason: writeAnalysis.reason,
+        sandboxMetadata: sandboxMetadata,
       );
     }
 
@@ -768,7 +812,7 @@ class AiBashToolService {
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.timedOut,
         command: normalizedCommand,
-        workingDirectory: normalizedWorkingDirectory,
+        workingDirectory: launchSpec.workingDirectory,
         stdout: stdoutBuffer.toString(),
         stderr: stderrBuffer.toString().isEmpty
             ? 'The command timed out before completion.'
@@ -777,6 +821,7 @@ class AiBashToolService {
         exitCode: exitCode,
         isWriteCommand: isWriteCommand,
         writeAnalysisReason: writeAnalysis.reason,
+        sandboxMetadata: sandboxMetadata,
       );
     }
 
@@ -790,13 +835,14 @@ class AiBashToolService {
           ? BashToolExecutionStatus.success
           : BashToolExecutionStatus.failed,
       command: normalizedCommand,
-      workingDirectory: normalizedWorkingDirectory,
+      workingDirectory: launchSpec.workingDirectory,
       stdout: stdoutBuffer.toString(),
       stderr: stderrBuffer.toString(),
       durationMs: stopwatch.elapsedMilliseconds,
       exitCode: exitCode,
       isWriteCommand: isWriteCommand,
       writeAnalysisReason: writeAnalysis.reason,
+      sandboxMetadata: sandboxMetadata,
     );
   }
 
@@ -1001,18 +1047,47 @@ class AiBashToolService {
     }
   }
 
-  Future<Process> _startProcess(String command, String workingDirectory) {
+  Future<AiSandboxLaunchSpec> _prepareLaunchSpec({
+    required String command,
+    required String workingDirectory,
+  }) {
     if (Platform.isWindows) {
-      return Process.start('cmd', <String>[
-        '/c',
-        command,
-      ], workingDirectory: workingDirectory);
+      return Future<AiSandboxLaunchSpec>.value(
+        AiSandboxLaunchSpec.unsandboxed(
+          executable: 'cmd',
+          arguments: <String>['/c', command],
+          workingDirectory: workingDirectory,
+        ),
+      );
     }
     final shellExecutable = _resolveShellExecutable();
-    return _spawnPosixShell(
+    return sandboxService.prepareShellCommand(
+      toolName: 'Bash',
       shellExecutable: shellExecutable,
-      shellArgs: <String>['-lc', command],
+      shellArguments: <String>['-lc', command],
+      command: command,
       workingDirectory: workingDirectory,
+    );
+  }
+
+  Future<Process> _startProcess(AiSandboxLaunchSpec launchSpec) {
+    if (Platform.isWindows) {
+      return Process.start(
+        launchSpec.executable,
+        launchSpec.arguments,
+        workingDirectory: launchSpec.workingDirectory,
+        environment: launchSpec.environment.isEmpty
+            ? null
+            : launchSpec.environment,
+      );
+    }
+    return _spawnPosixProcess(
+      executable: launchSpec.executable,
+      arguments: launchSpec.arguments,
+      workingDirectory: launchSpec.workingDirectory,
+      environment: launchSpec.environment.isEmpty
+          ? null
+          : launchSpec.environment,
     );
   }
 
@@ -1027,12 +1102,26 @@ class AiBashToolService {
     required List<String> shellArgs,
     required String workingDirectory,
   }) async {
+    return _spawnPosixProcess(
+      executable: shellExecutable,
+      arguments: shellArgs,
+      workingDirectory: workingDirectory,
+    );
+  }
+
+  Future<Process> _spawnPosixProcess({
+    required String executable,
+    required List<String> arguments,
+    required String workingDirectory,
+    Map<String, String>? environment,
+  }) async {
     final setsidPath = await _resolveSetsidPath();
     if (setsidPath != null) {
       final process = await Process.start(
         setsidPath,
-        <String>[shellExecutable, ...shellArgs],
+        <String>[executable, ...arguments],
         workingDirectory: workingDirectory,
+        environment: environment,
       );
       _processGroupLeaders.add(process.pid);
       // 进程退出后及时清理标记，避免长会话下集合无界增长。
@@ -1042,9 +1131,10 @@ class AiBashToolService {
       return process;
     }
     return Process.start(
-      shellExecutable,
-      shellArgs,
+      executable,
+      arguments,
       workingDirectory: workingDirectory,
+      environment: environment,
     );
   }
 
@@ -1120,7 +1210,12 @@ class AiBashToolService {
       try {
         await process.stdin.flush();
       } catch (error, stack) {
-        silentLog('ai_bash_tool_service', 'flush noglob setup to shell stdin', error, stack);
+        silentLog(
+          'ai_bash_tool_service',
+          'flush noglob setup to shell stdin',
+          error,
+          stack,
+        );
       }
     }
     session.stdoutSubscription = process.stdout
@@ -1485,12 +1580,7 @@ class AiBashToolService {
       try {
         await Process.run('/bin/kill', <String>['-$signal', '-$pid']);
       } catch (error, stack) {
-        silentLog(
-          'ai_bash_tool_service',
-          'kill -$signal -$pid',
-          error,
-          stack,
-        );
+        silentLog('ai_bash_tool_service', 'kill -$signal -$pid', error, stack);
       }
     }());
   }

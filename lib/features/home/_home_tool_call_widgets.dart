@@ -297,26 +297,51 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                         icon: toolCall.statusIcon,
                         label: toolCall.outcomeLabel,
                       ),
+                    if (message.metadata['sandbox_applied'] == true ||
+                        message.metadata['sandbox_blocked'] == true ||
+                        '${message.metadata['sandbox_unavailable_reason'] ?? ''}'
+                            .trim()
+                            .isNotEmpty)
+                      Tooltip(
+                        message:
+                            '${message.metadata['sandbox_unavailable_reason'] ?? message.metadata['sandbox_backend'] ?? ''}',
+                        child: _ToolExecutionChip(
+                          icon: message.metadata['sandbox_blocked'] == true
+                              ? Icons.lock_outline_rounded
+                              : Icons.security_rounded,
+                          label: message.metadata['sandbox_blocked'] == true
+                              ? _localizedText(
+                                  context,
+                                  zh: '沙盒拦截',
+                                  en: 'Sandbox blocked',
+                                )
+                              : '${_localizedText(context, zh: '沙盒', en: 'Sandbox')}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
+                        ),
+                      ),
                     // WebSearch 工具特有：从 metadata 读取 websearch_cache
                     // 状态，给卡片附一个一眼能识别的「闪电=命中 / 云下载=
                     // 落盘 / 关闭=未启用」徽标，悬停显示详细信息。
                     if (message.metadata['websearch_cache'] is String)
                       _WebSearchCacheChip(
                         status: message.metadata['websearch_cache'] as String,
-                        cachedAt: message
-                            .metadata['websearch_cache_cached_at'] as String?,
-                        expiresAt: message
-                            .metadata['websearch_cache_expires_at'] as String?,
+                        cachedAt:
+                            message.metadata['websearch_cache_cached_at']
+                                as String?,
+                        expiresAt:
+                            message.metadata['websearch_cache_expires_at']
+                                as String?,
                       ),
                     // WebFetch 工具特有：复用同一套缓存徽标 UX，但读取
                     // webfetch_cache 系列 metadata。
                     if (message.metadata['webfetch_cache'] is String)
                       _WebFetchCacheChip(
                         status: message.metadata['webfetch_cache'] as String,
-                        cachedAt: message
-                            .metadata['webfetch_cache_cached_at'] as String?,
-                        expiresAt: message
-                            .metadata['webfetch_cache_expires_at'] as String?,
+                        cachedAt:
+                            message.metadata['webfetch_cache_cached_at']
+                                as String?,
+                        expiresAt:
+                            message.metadata['webfetch_cache_expires_at']
+                                as String?,
                       ),
                     if (toolCall.durationMs > 0 || toolCall.status == 'running')
                       _ToolExecutionChip(
@@ -1335,7 +1360,8 @@ class _WebFetchCacheChip extends StatelessWidget {
 }
 
 class _ToolExecutionChip extends StatelessWidget {
-  const _ToolExecutionChip({required this.icon, required this.label});  final IconData icon;
+  const _ToolExecutionChip({required this.icon, required this.label});
+  final IconData icon;
   final String label;
 
   @override

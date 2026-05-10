@@ -48,12 +48,14 @@ import '../ai/model/ai_lsp_backend_catalog.dart';
 import '../ai/model/ai_lsp_language_settings.dart';
 import '../ai/model/ai_model_catalog.dart';
 import '../ai/model/ai_model_config.dart';
+import '../ai/model/ai_sandbox_settings.dart';
 import '../ai/service/ai_chat_service.dart';
 import '../ai/service/ai_file_mutation_ledger.dart';
 import '../ai/service/ai_image_generation_service.dart';
 import '../ai/service/ai_lsp_managed_install_service.dart';
 import '../ai/service/ai_model_scanner.dart';
 import '../ai/service/ai_protocol_adapter.dart';
+import '../ai/service/ai_sandbox_service.dart';
 import '../ai/service/ai_tool_execution_registry.dart';
 import '../ai/service/ai_tool_runtime_service.dart';
 import '../ai/service/web_fetch/web_fetch_cache_store.dart';
@@ -84,6 +86,7 @@ import 'widgets/prompt_cache_breakpoint_bar.dart';
 part '_settings_ai_model_editor.dart';
 part '_settings_editor_lsp.dart';
 part '_settings_command_rules.dart';
+part '_settings_sandbox.dart';
 part '_settings_shortcut_widgets.dart';
 part '_settings_animation_sections.dart';
 part '_settings_builtin_tools.dart';
@@ -1931,6 +1934,11 @@ class _SettingsViewState extends State<SettingsView> {
                     _showPersistenceFailureSnackBar(context);
                   },
                 ),
+              ),
+              _SandboxSettingsSection(
+                settingsController: settingsController,
+                onPersistenceFailure: () =>
+                    _showPersistenceFailureSnackBar(context),
               ),
               const SizedBox(height: 18),
               Text(

@@ -11,6 +11,8 @@
 2. 确认持久化目录结构完整：`steering/{handoff,lesson,feedback,plan,meta}` 缺失即创建。
 3. 按阶段权限读取相应上下文文件。
 4. 简要报告就绪状态再开始执行。
+
+若运行时快照显示 `Sandbox: Enabled` 且命令工具列入 `Sandboxed built-ins`，命令执行由宿主自动沙盒化。沙盒拒绝、依赖缺失、域名/路径受限均视为真实验证结果，必须写入反馈/lesson，而不是绕过沙盒重跑。
 </phase_startup>
 
 <context_files>

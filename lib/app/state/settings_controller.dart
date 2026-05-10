@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_backend_catalog.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -117,6 +118,7 @@ class SettingsController extends ChangeNotifier {
        _aiDenyCommandRules = List<AiDenyCommandRule>.from(
          snapshot.aiDenyCommandRules,
        ),
+       _aiSandboxSettings = snapshot.aiSandboxSettings,
        _aiConnectTimeoutSeconds = snapshot.aiConnectTimeoutSeconds,
        _aiResponseTimeoutSeconds = snapshot.aiResponseTimeoutSeconds,
        _aiStreamIdleTimeoutSeconds = snapshot.aiStreamIdleTimeoutSeconds,
@@ -235,6 +237,7 @@ class SettingsController extends ChangeNotifier {
   bool _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> _aiAllowCommandRules;
   List<AiDenyCommandRule> _aiDenyCommandRules;
+  AiSandboxSettings _aiSandboxSettings;
   int _aiConnectTimeoutSeconds;
   int _aiResponseTimeoutSeconds;
   int _aiStreamIdleTimeoutSeconds;
@@ -391,6 +394,7 @@ class SettingsController extends ChangeNotifier {
       List<AiAllowCommandRule>.unmodifiable(_aiAllowCommandRules);
   List<AiDenyCommandRule> get aiDenyCommandRules =>
       List<AiDenyCommandRule>.unmodifiable(_aiDenyCommandRules);
+  AiSandboxSettings get aiSandboxSettings => _aiSandboxSettings;
   int get aiConnectTimeoutSeconds => _aiConnectTimeoutSeconds;
   int get aiResponseTimeoutSeconds => _aiResponseTimeoutSeconds;
   int get aiStreamIdleTimeoutSeconds => _aiStreamIdleTimeoutSeconds;
@@ -1487,6 +1491,16 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateAiSandboxSettings(AiSandboxSettings value) async {
+    return _commitMutation(() {
+      if (_aiSandboxSettings.toJson().toString() == value.toJson().toString()) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiSandboxSettings = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> saveAiModel(AiModelConfig value) async {
     return _commitMutation(() {
       final normalizedAvailableModelIds = AiModelConfig.normalizeModelIds(
@@ -2222,6 +2236,7 @@ class SettingsController extends ChangeNotifier {
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: List<AiAllowCommandRule>.from(_aiAllowCommandRules),
       aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
+      aiSandboxSettings: _aiSandboxSettings,
       aiConnectTimeoutSeconds: _aiConnectTimeoutSeconds,
       aiResponseTimeoutSeconds: _aiResponseTimeoutSeconds,
       aiStreamIdleTimeoutSeconds: _aiStreamIdleTimeoutSeconds,
@@ -2340,6 +2355,7 @@ class SettingsController extends ChangeNotifier {
     _aiDenyCommandRules = List<AiDenyCommandRule>.from(
       snapshot.aiDenyCommandRules,
     );
+    _aiSandboxSettings = snapshot.aiSandboxSettings;
     _aiConnectTimeoutSeconds = snapshot.aiConnectTimeoutSeconds;
     _aiResponseTimeoutSeconds = snapshot.aiResponseTimeoutSeconds;
     _aiStreamIdleTimeoutSeconds = snapshot.aiStreamIdleTimeoutSeconds;

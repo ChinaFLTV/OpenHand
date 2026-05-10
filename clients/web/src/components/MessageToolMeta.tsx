@@ -24,6 +24,10 @@ interface ExtractedMeta {
   mcpServerName: string;
   mcpToolName: string;
   toolSource: string;
+  sandboxApplied: boolean;
+  sandboxBlocked: boolean;
+  sandboxBackend: string;
+  sandboxReason: string;
 }
 
 type ToolMetaIconName =
@@ -117,6 +121,10 @@ function extract(meta: Record<string, unknown> | undefined): ExtractedMeta {
     mcpServerName: asString(m['mcp_server_name']),
     mcpToolName: asString(m['mcp_tool_name']),
     toolSource: asString(m['tool_source']),
+    sandboxApplied: asBool(m['sandbox_applied']),
+    sandboxBlocked: asBool(m['sandbox_blocked']),
+    sandboxBackend: asString(m['sandbox_backend']),
+    sandboxReason: asString(m['sandbox_unavailable_reason']),
   };
 }
 
@@ -256,6 +264,26 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           }}
         >
           {ex.toolSource}
+        </span>
+      ) : null}
+      {(ex.sandboxApplied || ex.sandboxBlocked || ex.sandboxReason) ? (
+        <span
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+          style={{
+            border: ex.sandboxBlocked ? '1px solid var(--m3-error)' : '1px solid var(--m3-outline)',
+            color: ex.sandboxBlocked ? 'var(--m3-error)' : 'var(--m3-secondary)',
+            background: ex.sandboxBlocked
+              ? 'color-mix(in srgb, var(--m3-error) 10%, transparent)'
+              : 'color-mix(in srgb, var(--m3-secondary) 12%, transparent)',
+            fontWeight: 600,
+          }}
+          title={ex.sandboxReason || ex.sandboxBackend || 'sandbox'}
+        >
+          <ToolMetaIcon name={ex.sandboxBlocked ? 'blocked' : 'check'} />
+          {ex.sandboxBlocked
+            ? t('detail.tool.sandbox.blocked', '沙盒拦截')
+            : t('detail.tool.sandbox.applied', '沙盒')}
+          {ex.sandboxBackend ? ` · ${ex.sandboxBackend}` : ''}
         </span>
       ) : null}
       {argumentsStreaming ? (

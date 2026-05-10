@@ -7,6 +7,8 @@ import '../../memory/model/user_memory_entry.dart';
 import '../../skills/model/local_skill.dart';
 import 'ai_allow_command_rule.dart';
 import 'ai_builtin_tool_config.dart';
+import 'ai_deny_command_rule.dart';
+import 'ai_sandbox_settings.dart';
 
 class AiRepositorySnapshot {
   factory AiRepositorySnapshot.fromJson(Map<String, Object?> json) {
@@ -147,6 +149,7 @@ class AiSessionRuntimeContext {
     this.timeZoneName = '',
     this.repositorySnapshot,
     this.allowCommandRules = const <AiAllowCommandRule>[],
+    AiSandboxSettings? sandboxSettings,
     this.availableSkills = const <LocalSkill>[],
     this.availableMcpServers = const <McpServer>[],
     this.mcpToolCatalogsByServerName = const <String, McpToolCatalog>{},
@@ -157,7 +160,30 @@ class AiSessionRuntimeContext {
         const <AiWorkspaceInstructionDocument>[],
     this.userInstructions = const <UserInstructionEntry>[],
     this.skippedInstructionIds = const <String>{},
-  });
+  }) : sandboxSettings =
+           sandboxSettings ??
+           const AiSandboxSettings(
+             enabled: false,
+             failIfUnavailable: true,
+             allowUnsandboxedCommands: false,
+             autoAllowBashIfSandboxed: false,
+             sandboxedBuiltinTools: <String>[],
+             filesystemRules: <AiSandboxFileRule>[
+               AiSandboxFileRule(
+                 id: 'default-openhand-ro',
+                 path: '.openhand',
+                 accessMode: AiSandboxFileAccessMode.readOnly,
+                 matchMode: AiDenyCommandMatchMode.simple,
+                 note: 'OpenHand workspace metadata is read-only by default.',
+               ),
+             ],
+             excludedCommands: <AiSandboxPatternRule>[],
+             allowedDomains: <AiSandboxPatternRule>[],
+             deniedDomains: <AiSandboxPatternRule>[],
+             httpProxyPort: 0,
+             socksProxyPort: 0,
+             allowNetworkWhenNoDomainRules: true,
+           );
 
   final String localeTag;
   final String appVersion;
@@ -323,6 +349,7 @@ class AiSessionRuntimeContext {
   final String timeZoneName;
   final AiRepositorySnapshot? repositorySnapshot;
   final List<AiAllowCommandRule> allowCommandRules;
+  final AiSandboxSettings sandboxSettings;
   final List<LocalSkill> availableSkills;
   final List<McpServer> availableMcpServers;
   final Map<String, McpToolCatalog> mcpToolCatalogsByServerName;
@@ -415,6 +442,7 @@ class AiSessionRuntimeContext {
       'allow_command_rules': allowCommandRules
           .map((item) => item.toJson())
           .toList(growable: false),
+      'sandbox': sandboxSettings.toJson(),
       'available_mcp_server_count': availableMcpServers.length,
       'available_mcp_server_names': availableMcpServers
           .map((item) => item.name)

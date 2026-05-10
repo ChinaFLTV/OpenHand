@@ -508,8 +508,9 @@ class AiPromptBuilder {
     final configuredMaxContextTokens = model.maxContextTokens;
     final bool windowInferred =
         configuredMaxContextTokens == null || configuredMaxContextTokens <= 0;
-    final int maxContextTokens =
-        windowInferred ? inferredMaxContextTokens : configuredMaxContextTokens;
+    final int maxContextTokens = windowInferred
+        ? inferredMaxContextTokens
+        : configuredMaxContextTokens;
     final summaryReserveTokens = math.min(
       _contextBudgetSummaryReserveTokens,
       math.max(1, maxContextTokens ~/ 2),
@@ -793,6 +794,43 @@ class AiPromptBuilder {
           '- ${rule.matchMode.storageValue}: ${rule.pattern}$noteSuffix',
         );
       }
+    }
+    final sandbox = runtimeContext.sandboxSettings;
+    buffer
+      ..writeln()
+      ..writeln('Sandbox: ${sandbox.enabled ? 'Enabled' : 'Disabled'}');
+    if (sandbox.enabled) {
+      buffer
+        ..writeln(
+          'Sandboxed built-ins: ${sandbox.sandboxedBuiltinTools.isEmpty ? 'none' : sandbox.sandboxedBuiltinTools.join(', ')}',
+        )
+        ..writeln(
+          'Sandbox fail-if-unavailable: ${sandbox.failIfUnavailable ? 'Yes' : 'No'}',
+        )
+        ..writeln(
+          'Sandbox unsandboxed exclusions allowed: ${sandbox.allowUnsandboxedCommands ? 'Yes' : 'No'}',
+        )
+        ..writeln(
+          'Sandbox auto-allow Bash writes: ${sandbox.autoAllowBashIfSandboxed ? 'Yes' : 'No'}',
+        )
+        ..writeln(
+          'Sandbox file rules: ${sandbox.filesystemRules.map((rule) => '${rule.accessMode.storageValue}:${rule.matchMode.storageValue}:${rule.path}').join('; ')}',
+        )
+        ..writeln(
+          'Sandbox excluded commands: ${sandbox.excludedCommands.isEmpty ? 'none' : sandbox.excludedCommands.map((rule) => '${rule.matchMode.storageValue}:${rule.pattern}').join('; ')}',
+        )
+        ..writeln(
+          'Sandbox allowed domains: ${sandbox.allowedDomains.isEmpty ? 'none' : sandbox.allowedDomains.map((rule) => '${rule.matchMode.storageValue}:${rule.pattern}').join('; ')}',
+        )
+        ..writeln(
+          'Sandbox denied domains: ${sandbox.deniedDomains.isEmpty ? 'none' : sandbox.deniedDomains.map((rule) => '${rule.matchMode.storageValue}:${rule.pattern}').join('; ')}',
+        )
+        ..writeln(
+          'Sandbox proxy ports: http=${sandbox.httpProxyPort}, socks=${sandbox.socksProxyPort}',
+        )
+        ..writeln(
+          'If a command is sandboxed, do not try to bypass it. Treat sandbox denial, timeout, or unavailable-dependency output as authoritative and report the exact blocker.',
+        );
     }
     if (repositorySnapshot == null) {
       return buffer.toString().trimRight();

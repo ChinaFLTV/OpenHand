@@ -3578,6 +3578,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           ? memoryController.entries
           : const [],
       allowCommandRules: settingsController.aiAllowCommandRules,
+      sandboxSettings: settingsController.aiSandboxSettings,
       availableSkills: skillsController.skills,
       availableMcpServers: mcpController.servers,
       mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
@@ -3684,6 +3685,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController.telemetryCaptureRawPayload,
       settingsController.telemetryCaptureEnvironment,
       settingsController.telemetryMaxPayloadChars,
+      settingsController.aiSandboxSettings.toJson().toString(),
       _identityHashAll(allowCommandRules),
       allowCommandRules.length,
       _identityHashAll(builtinToolConfigs),
@@ -3822,6 +3824,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       memoryEntries: const [],
       allowCommandRules:
           allowCommandRules ?? settingsController.aiAllowCommandRules,
+      sandboxSettings: settingsController.aiSandboxSettings,
       availableSkills: availableSkills ?? skillsController.skills,
       availableMcpServers: availableMcpServers ?? mcpController.servers,
       mcpToolCatalogsByServerName: <String, McpToolCatalog>{

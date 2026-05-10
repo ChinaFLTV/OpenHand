@@ -13,6 +13,7 @@ import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -98,6 +99,7 @@ class AppSettingsSnapshot {
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
       aiDenyCommandRules: const <AiDenyCommandRule>[],
+      aiSandboxSettings: AiSandboxSettings.defaults(),
       aiConnectTimeoutSeconds: defaultAiConnectTimeoutSeconds,
       aiResponseTimeoutSeconds: defaultAiResponseTimeoutSeconds,
       aiStreamIdleTimeoutSeconds: defaultAiStreamIdleTimeoutSeconds,
@@ -213,6 +215,7 @@ class AppSettingsSnapshot {
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
     required this.aiDenyCommandRules,
+    required this.aiSandboxSettings,
     required this.aiConnectTimeoutSeconds,
     required this.aiResponseTimeoutSeconds,
     required this.aiStreamIdleTimeoutSeconds,
@@ -554,8 +557,8 @@ class AppSettingsSnapshot {
   static const int defaultMcpKeywordIndexIntervalValue = 6;
   static const int minMcpKeywordIndexIntervalValue = 1;
   static const int maxMcpKeywordIndexIntervalValue = 30;
-  static const McpKeywordIndexIntervalUnit
-  defaultMcpKeywordIndexIntervalUnit = McpKeywordIndexIntervalUnit.hour;
+  static const McpKeywordIndexIntervalUnit defaultMcpKeywordIndexIntervalUnit =
+      McpKeywordIndexIntervalUnit.hour;
   static const String defaultMcpKeywordIndexScheduledTimeOfDay = '02:00';
 
   final ThemeMode themeMode;
@@ -683,6 +686,7 @@ class AppSettingsSnapshot {
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
   final List<AiDenyCommandRule> aiDenyCommandRules;
+  final AiSandboxSettings aiSandboxSettings;
   final int aiConnectTimeoutSeconds;
   final int aiResponseTimeoutSeconds;
   final int aiStreamIdleTimeoutSeconds;
@@ -830,6 +834,7 @@ class AppSettingsSnapshot {
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
     List<AiDenyCommandRule>? aiDenyCommandRules,
+    AiSandboxSettings? aiSandboxSettings,
     int? aiConnectTimeoutSeconds,
     int? aiResponseTimeoutSeconds,
     int? aiStreamIdleTimeoutSeconds,
@@ -982,6 +987,7 @@ class AppSettingsSnapshot {
           this.aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules ?? this.aiAllowCommandRules,
       aiDenyCommandRules: aiDenyCommandRules ?? this.aiDenyCommandRules,
+      aiSandboxSettings: aiSandboxSettings ?? this.aiSandboxSettings,
       aiConnectTimeoutSeconds:
           aiConnectTimeoutSeconds ?? this.aiConnectTimeoutSeconds,
       aiResponseTimeoutSeconds:
