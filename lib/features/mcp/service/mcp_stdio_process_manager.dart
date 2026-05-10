@@ -286,8 +286,8 @@ class McpStdioProcessManager extends ChangeNotifier {
   ) async {
     _appendLog(serverName, '[${_timestamp()}] MCP 协议握手中…', isStderr: false);
     try {
-      // 等待进程稳定（npx 首次启动可能需要下载包）
-      await Future.delayed(const Duration(milliseconds: 300));
+      // 等待 npx 解析并启动实际的 MCP 服务进程（首次可能需要下载包）
+      await Future.delayed(const Duration(seconds: 2));
       final managed = _processes[serverName];
       if (managed == null || !managed.info.isRunning) return;
 
@@ -305,9 +305,10 @@ class McpStdioProcessManager extends ChangeNotifier {
       final body = utf8.encode(initRequest);
       final header = 'Content-Length: ${body.length}\r\n\r\n';
 
-      // 发送 initialize 请求
+      // 发送 initialize 请求（尾部追加 \n 兼容 bare JSON-line 模式的 MCP 服务）
       process.stdin.add(utf8.encode(header));
       process.stdin.add(body);
+      process.stdin.add(utf8.encode('\n'));
       await process.stdin.flush();
 
       // 等待 stdout 中出现响应（最多 90 秒，npx 首次运行需要下载包）
@@ -326,6 +327,7 @@ class McpStdioProcessManager extends ChangeNotifier {
         final notifHeader = 'Content-Length: ${notifBody.length}\r\n\r\n';
         process.stdin.add(utf8.encode(notifHeader));
         process.stdin.add(notifBody);
+        process.stdin.add(utf8.encode('\n'));
         await process.stdin.flush();
         _appendLog(serverName, '[${_timestamp()}] ✓ 服务已就绪，可正常使用', isStderr: false);
       } else {
