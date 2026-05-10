@@ -481,10 +481,8 @@ Future<_ResolvedLaunch> _resolveStdioLaunch(McpServer server) async {
   final env = Map<String, String>.from(Platform.environment);
   env['PATH'] = mergedPath;
 
-  // 注入隔离缓存
-  final cacheRoot = mcpStdioIsolatedCacheRoot();
-  env['npm_config_cache'] = p.join(cacheRoot, 'npm-cache');
-  env['npm_config_prefix'] = p.join(cacheRoot, 'npm-prefix');
+  // 注入隔离缓存（复用 discovery service 的逻辑，确保目录已创建且路径一致）
+  env.addAll(mcpStdioIsolatedCacheEnv());
 
   return _ResolvedLaunch(executable: executable, args: args, environment: env);
 }

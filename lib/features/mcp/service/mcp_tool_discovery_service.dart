@@ -1836,13 +1836,16 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
       // 把 npm / pnpm / yarn / bun / uv / pip 的缓存目录隔离到 ~/.openhand/mcp/package-cache，
       // 避开用户 ~/.npm 因历史 sudo install 留下的 root 属主文件 (典型症状：
       // EACCES rename / EEXIST / ENOTEMPTY)。所有目录懒创建，存在则复用。
-      ..._isolatedPackageCacheEnv(),
+      ...mcpStdioIsolatedCacheEnv(),
     },
     augmentedPath: mergedPath,
   );
 }
 
-Map<String, String> _isolatedPackageCacheEnv() {
+/// 构建 stdio MCP 隔离包缓存的环境变量映射。
+/// 自动创建所需目录，注入 npm/pnpm/yarn/bun/deno/uv/pip 的缓存隔离路径。
+/// 公开给 process manager 复用，避免路径不一致。
+Map<String, String> mcpStdioIsolatedCacheEnv() {
   try {
     final root = mcpStdioIsolatedCacheRoot();
     Directory(root).createSync(recursive: true);
@@ -1856,6 +1859,8 @@ Map<String, String> _isolatedPackageCacheEnv() {
     final yarnCache = p.join(root, 'yarn');
     Directory(npmCache).createSync(recursive: true);
     Directory(npmPrefix).createSync(recursive: true);
+    // npm/npx 需要 prefix/lib 目录存在，否则 lstat 报 ENOENT
+    Directory(p.join(npmPrefix, 'lib')).createSync(recursive: true);
     final env = <String, String>{
       // npm / npx 系列
       'npm_config_cache': npmCache,

@@ -724,7 +724,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     final cacheRoot = mcpStdioIsolatedCacheRoot();
     try {
       await Process.run('npm', ['cache', 'add', pkg],
-        environment: {'npm_config_cache': '$cacheRoot/npm-cache'},
+        environment: {'npm_config_cache': '$cacheRoot/npm'},
       ).timeout(const Duration(seconds: 30));
       _addLog('[${_ts()}] ✓ 缓存预热完成');
     } catch (e) {
