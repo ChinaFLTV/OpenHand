@@ -3622,19 +3622,19 @@ class _ProbeServerRow extends StatelessWidget {
             width: 28,
             height: 28,
             child: Tooltip(
-              message: server.enabled
+              message: server.probeEnabled
                   ? (isZh ? '点击禁用此服务探测' : 'Disable probing')
                   : (isZh ? '点击启用此服务探测' : 'Enable probing'),
               child: IconButton(
-                onPressed: () => controller.updateServerEnabled(
-                  server.name, !server.enabled,
+                onPressed: () => controller.updateServerProbeEnabled(
+                  server.name, !server.probeEnabled,
                 ),
                 icon: Icon(
-                  server.enabled
+                  server.probeEnabled
                       ? Icons.check_circle_rounded
                       : Icons.cancel_rounded,
                   size: 14,
-                  color: server.enabled
+                  color: server.probeEnabled
                       ? const Color(0xFF16A34A)
                       : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
@@ -3648,7 +3648,7 @@ class _ProbeServerRow extends StatelessWidget {
             width: 8,
             height: 8,
             decoration: BoxDecoration(
-              color: server.enabled ? statusColor : colorScheme.outlineVariant,
+              color: server.probeEnabled ? statusColor : colorScheme.outlineVariant,
               shape: BoxShape.circle,
             ),
           ),
@@ -3658,20 +3658,20 @@ class _ProbeServerRow extends StatelessWidget {
               server.name,
               style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w500,
-                color: server.enabled ? null : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color: server.probeEnabled ? null : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 8),
           Text(
-            server.enabled ? statusLabel : (isZh ? '已禁用' : 'Disabled'),
+            server.probeEnabled ? statusLabel : (isZh ? '不探测' : 'No probe'),
             style: theme.textTheme.labelSmall?.copyWith(
-              color: server.enabled ? statusColor : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              color: server.probeEnabled ? statusColor : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (catalog.tools.isNotEmpty && server.enabled) ...[
+          if (catalog.tools.isNotEmpty && server.probeEnabled) ...[
             const SizedBox(width: 8),
             Text(
               '${catalog.tools.length} tools',
@@ -3686,13 +3686,13 @@ class _ProbeServerRow extends StatelessWidget {
             width: 28,
             height: 28,
             child: IconButton(
-              onPressed: !server.enabled || isBusy
+              onPressed: !server.probeEnabled || isBusy
                   ? null
                   : () => controller.reconnectServer(server.name),
               icon: Icon(
                 Icons.refresh_rounded,
                 size: 14,
-                color: !server.enabled || isBusy
+                color: !server.probeEnabled || isBusy
                     ? colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
                     : null,
               ),

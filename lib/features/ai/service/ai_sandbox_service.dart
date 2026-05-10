@@ -8,6 +8,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../model/ai_deny_command_rule.dart';
 import '../model/ai_sandbox_settings.dart';
+import 'ai_sandbox_proxy_service.dart';
 
 class AiSandboxEnvironmentStatus {
   const AiSandboxEnvironmentStatus({
@@ -70,6 +71,7 @@ class AiSandboxLaunchSpec {
     required this.applied,
     required this.blocked,
     required this.metadata,
+    this.proxyLease,
     this.reason = '',
   });
 
@@ -122,6 +124,7 @@ class AiSandboxLaunchSpec {
   final bool blocked;
   final String reason;
   final Map<String, Object?> metadata;
+  final AiSandboxProxyLease? proxyLease;
 }
 
 class AiSandboxService {
@@ -129,6 +132,7 @@ class AiSandboxService {
     : settings = settings ?? AiSandboxSettings.defaults();
 
   AiSandboxSettings settings;
+  final AiSandboxProxyService _proxyService = AiSandboxProxyService();
   AiSandboxEnvironmentStatus? _cachedStatus;
 
   Future<AiSandboxEnvironmentStatus> detectEnvironment({
@@ -164,7 +168,7 @@ class AiSandboxService {
 
     if (settings.hasDomainRules) {
       warnings.add(
-        'Domain allow/deny lists are enforced only when commands use the configured sandbox proxy ports.',
+        'Domain allow/deny lists are enforced through a per-command local proxy. macOS blocks direct network access outside that proxy; Linux currently relies on proxy environment variables.',
       );
     }
 
@@ -328,23 +332,41 @@ class AiSandboxService {
       );
     }
 
-    if (settings.hasDomainRules &&
-        settings.httpProxyPort == 0 &&
-        settings.socksProxyPort == 0 &&
-        (settings.failIfUnavailable || !settings.allowUnsandboxedCommands)) {
-      return AiSandboxLaunchSpec.blocked(
+    final AiSandboxProxyLease? proxyLease;
+    try {
+      proxyLease = settings.hasDomainRules
+          ? await _proxyService.start(settings: settings)
+          : null;
+    } on AiSandboxProxyStartException catch (error) {
+      if (settings.failIfUnavailable || !settings.allowUnsandboxedCommands) {
+        return AiSandboxLaunchSpec.blocked(
+          executable: shellExecutable,
+          arguments: shellArguments,
+          workingDirectory: normalizedWorkingDirectory,
+          reason: error.message,
+          metadata: <String, Object?>{
+            ...baseMetadata,
+            'sandbox_proxy_unavailable_reason': error.message,
+          },
+        );
+      }
+      return AiSandboxLaunchSpec.unsandboxed(
         executable: shellExecutable,
         arguments: shellArguments,
         workingDirectory: normalizedWorkingDirectory,
-        reason:
-            'Sandbox domain rules require an HTTP or SOCKS proxy port so outbound requests can be filtered.',
-        metadata: baseMetadata,
+        metadata: <String, Object?>{
+          ...baseMetadata,
+          'sandbox_proxy_unavailable_reason': error.message,
+        },
       );
     }
 
-    final environment = _proxyEnvironment();
+    final environment = proxyLease?.environment ?? const <String, String>{};
     if (Platform.isMacOS) {
-      final profile = _buildMacSandboxProfile(normalizedWorkingDirectory);
+      final profile = _buildMacSandboxProfile(
+        normalizedWorkingDirectory,
+        proxyLease,
+      );
       return AiSandboxLaunchSpec(
         executable: 'sandbox-exec',
         arguments: <String>['-p', profile, shellExecutable, ...shellArguments],
@@ -352,6 +374,7 @@ class AiSandboxService {
         environment: environment,
         applied: true,
         blocked: false,
+        proxyLease: proxyLease,
         metadata: <String, Object?>{
           ...baseMetadata,
           'sandbox_applied': true,
@@ -360,10 +383,9 @@ class AiSandboxService {
           'sandbox_filesystem_rule_count': settings.filesystemRules.length,
           'sandbox_allowed_domain_count': settings.allowedDomains.length,
           'sandbox_denied_domain_count': settings.deniedDomains.length,
-          if (settings.httpProxyPort > 0)
-            'sandbox_http_proxy_port': settings.httpProxyPort,
-          if (settings.socksProxyPort > 0)
-            'sandbox_socks_proxy_port': settings.socksProxyPort,
+          if (proxyLease != null) ...proxyLease.metadata,
+          'sandbox_network_direct_blocked': proxyLease != null,
+          'sandbox_domain_filter_enforced': proxyLease != null,
         },
       );
     }
@@ -381,6 +403,7 @@ class AiSandboxService {
         environment: environment,
         applied: true,
         blocked: false,
+        proxyLease: proxyLease,
         metadata: <String, Object?>{
           ...baseMetadata,
           'sandbox_applied': true,
@@ -389,10 +412,12 @@ class AiSandboxService {
           'sandbox_filesystem_rule_count': settings.filesystemRules.length,
           'sandbox_allowed_domain_count': settings.allowedDomains.length,
           'sandbox_denied_domain_count': settings.deniedDomains.length,
-          if (settings.httpProxyPort > 0)
-            'sandbox_http_proxy_port': settings.httpProxyPort,
-          if (settings.socksProxyPort > 0)
-            'sandbox_socks_proxy_port': settings.socksProxyPort,
+          if (proxyLease != null) ...proxyLease.metadata,
+          'sandbox_network_direct_blocked': false,
+          'sandbox_domain_filter_enforced': false,
+          if (proxyLease != null)
+            'sandbox_domain_filter_warning':
+                'Linux sandbox proxy is injected through environment variables; direct network bypass is not blocked by bubblewrap here.',
         },
       );
     }
@@ -428,7 +453,10 @@ class AiSandboxService {
     return '${result.stdout}'.trim().isNotEmpty;
   }
 
-  String _buildMacSandboxProfile(String workingDirectory) {
+  String _buildMacSandboxProfile(
+    String workingDirectory,
+    AiSandboxProxyLease? proxyLease,
+  ) {
     final writeFilters = <String>{
       _profileSubpath('/tmp'),
       _profileSubpath('/private/tmp'),
@@ -463,7 +491,15 @@ class AiSandboxService {
         ..writeln(readOnlyDenyFilters.map((item) => '  $item').join('\n'))
         ..writeln(')');
     }
-    if (!settings.allowNetworkWhenNoDomainRules && !settings.hasDomainRules) {
+    if (proxyLease != null) {
+      buffer.writeln('(deny network*)');
+      buffer.writeln('(allow network*');
+      for (final port in proxyLease.loopbackPorts) {
+        buffer.writeln('  (remote ip "localhost:$port")');
+      }
+      buffer.writeln(')');
+    } else if (!settings.allowNetworkWhenNoDomainRules &&
+        !settings.hasDomainRules) {
       buffer.writeln('(deny network*)');
     }
     return buffer.toString().trimRight();
@@ -500,35 +536,6 @@ class AiSandboxService {
     }
     args.addAll(<String>[shellExecutable, ...shellArguments]);
     return args;
-  }
-
-  Map<String, String> _proxyEnvironment() {
-    final environment = <String, String>{};
-    if (settings.httpProxyPort > 0) {
-      final proxy = 'http://127.0.0.1:${settings.httpProxyPort}';
-      environment['HTTP_PROXY'] = proxy;
-      environment['HTTPS_PROXY'] = proxy;
-      environment['http_proxy'] = proxy;
-      environment['https_proxy'] = proxy;
-    }
-    if (settings.socksProxyPort > 0) {
-      final proxy = 'socks5://127.0.0.1:${settings.socksProxyPort}';
-      environment['ALL_PROXY'] = proxy;
-      environment['all_proxy'] = proxy;
-    }
-    if (settings.allowedDomains.isNotEmpty) {
-      environment['OPENHAND_SANDBOX_ALLOWED_DOMAINS'] = settings.allowedDomains
-          .map((item) => item.pattern.trim())
-          .where((item) => item.isNotEmpty)
-          .join(',');
-    }
-    if (settings.deniedDomains.isNotEmpty) {
-      environment['OPENHAND_SANDBOX_DENIED_DOMAINS'] = settings.deniedDomains
-          .map((item) => item.pattern.trim())
-          .where((item) => item.isNotEmpty)
-          .join(',');
-    }
-    return environment;
   }
 
   String _normalizeWorkingDirectory(String workingDirectory) {

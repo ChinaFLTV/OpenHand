@@ -187,6 +187,9 @@ class McpStore {
     final enabled = rawValue['enabled'] is bool
         ? rawValue['enabled'] as bool
         : true;
+    final probeEnabled = rawValue['probeEnabled'] is bool
+        ? rawValue['probeEnabled'] as bool
+        : true;
     final url = '${rawValue['url'] ?? ''}'.trim();
     final command = '${rawValue['command'] ?? ''}'.trim();
     final rawArgs = rawValue['args'];
@@ -211,6 +214,7 @@ class McpStore {
         name: name,
         type: type,
         enabled: enabled,
+        probeEnabled: probeEnabled,
         url: url,
         command: command,
         args: args,
@@ -225,6 +229,7 @@ class McpStore {
     for (final server in servers) {
       final value = <String, Object?>{
         'enabled': server.enabled,
+        'probeEnabled': server.probeEnabled,
         'type': server.type.storageValue,
         'transport': server.type.transportValue,
       };

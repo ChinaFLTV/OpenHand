@@ -374,7 +374,11 @@ class McpController extends ChangeNotifier {
       }
 
       final updatedServers = List<McpServer>.from(_servers);
-      updatedServers[index] = updatedServers[index].copyWith(enabled: enabled);
+      // 禁用服务时同步禁用探测；启用服务时同步启用探测
+      updatedServers[index] = updatedServers[index].copyWith(
+        enabled: enabled,
+        probeEnabled: enabled ? true : false,
+      );
       return _commitSaveLocked(
         updatedServers,
         changedServerName: updatedServers[index].name,
@@ -382,6 +386,33 @@ class McpController extends ChangeNotifier {
         shouldAutoCheckHealth: enabled,
         resetChangedServerToolCatalog: !enabled,
         resetChangedServerHealth: !enabled,
+      );
+    });
+  }
+
+  /// 切换服务的探测启用状态（不影响服务本身的 enabled）。
+  Future<bool> updateServerProbeEnabled(String name, bool probeEnabled) async {
+    return _enqueueOperation(() async {
+      final normalizedName = _normalizeServerName(name);
+      final index = _servers.indexWhere((item) => item.name == normalizedName);
+      if (index == -1) {
+        return false;
+      }
+      if (_servers[index].probeEnabled == probeEnabled) {
+        return true;
+      }
+
+      final updatedServers = List<McpServer>.from(_servers);
+      updatedServers[index] = updatedServers[index].copyWith(
+        probeEnabled: probeEnabled,
+      );
+      return _commitSaveLocked(
+        updatedServers,
+        changedServerName: updatedServers[index].name,
+        shouldAutoRefreshTools: probeEnabled,
+        shouldAutoCheckHealth: probeEnabled,
+        resetChangedServerToolCatalog: !probeEnabled,
+        resetChangedServerHealth: !probeEnabled,
       );
     });
   }
@@ -763,7 +794,7 @@ class McpController extends ChangeNotifier {
         if (_isDisposed || !_isPageActive) {
           return;
         }
-        if (!server.enabled) {
+        if (!server.probeEnabled) {
           continue;
         }
         final catalog = toolCatalogFor(server.name);
@@ -802,7 +833,7 @@ class McpController extends ChangeNotifier {
         if (_isDisposed || !_isPageActive) {
           return;
         }
-        if (!server.enabled) {
+        if (!server.probeEnabled) {
           continue;
         }
         final healthStatus = healthStatusFor(server.name);

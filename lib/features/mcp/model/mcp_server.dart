@@ -34,6 +34,7 @@ class McpServer {
     required this.name,
     required this.type,
     required this.enabled,
+    this.probeEnabled = true,
     this.url = '',
     this.command = '',
     this.args = const <String>[],
@@ -42,7 +43,14 @@ class McpServer {
 
   final String name;
   final McpServerType type;
+
+  /// 是否启用此 MCP 服务（控制是否注入到线程 Prompt、是否参与工具调用）。
   final bool enabled;
+
+  /// 是否参与自动探测（健康检查 + Tool 扫描）。独立于 enabled：
+  /// 服务可以启用但不探测（手动管理），也可以禁用时自动跟随禁用探测。
+  final bool probeEnabled;
+
   final String url;
   final String command;
   final List<String> args;
@@ -70,6 +78,7 @@ class McpServer {
     String? name,
     McpServerType? type,
     bool? enabled,
+    bool? probeEnabled,
     String? url,
     String? command,
     List<String>? args,
@@ -79,6 +88,7 @@ class McpServer {
       name: name ?? this.name,
       type: type ?? this.type,
       enabled: enabled ?? this.enabled,
+      probeEnabled: probeEnabled ?? this.probeEnabled,
       url: url ?? this.url,
       command: command ?? this.command,
       args: args ?? this.args,
