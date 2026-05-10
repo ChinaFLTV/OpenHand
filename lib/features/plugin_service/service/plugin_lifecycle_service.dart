@@ -67,7 +67,7 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     if (await _isNvmAvailable()) {
       onProgress?.call('使用 nvm 安装 Node.js LTS…');
       final result = await _runNvmCommand(
-        'nvm install --lts && nvm alias default lts/*',
+        'nvm install --lts && nvm alias default "lts/*"',
         onProgress: onProgress,
       );
       if (result.exitCode == 0) {
@@ -237,7 +237,7 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     if (isNvm) {
       onProgress?.call('检测到 nvm 管理的 Node.js，使用 nvm 更新…');
       final result = await _runNvmCommand(
-        'nvm install --lts --reinstall-packages-from=current && nvm alias default lts/*',
+        'nvm install --lts --reinstall-packages-from=current && nvm alias default "lts/*"',
         onProgress: onProgress,
       );
       if (result.exitCode == 0) {
@@ -513,7 +513,9 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         for (final line in data.split('\n')) {
           if (line.trim().isNotEmpty) {
             stderrLines.add(line);
-            onProgress?.call('[stderr] ${line.trim()}');
+            // 不加 [stderr] 前缀：curl/wget/nvm 等工具的进度条正常输出到 stderr，
+            // 这是 Unix 惯例（stdout 留给数据，stderr 用于状态/进度），不代表错误。
+            onProgress?.call(line.trim());
           }
         }
       });

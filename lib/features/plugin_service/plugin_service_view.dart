@@ -819,7 +819,8 @@ class _PluginOperationProgressDialogState
                         itemCount: logs.length,
                         itemBuilder: (context, index) {
                           final line = logs[index];
-                          final isError = line.startsWith('[stderr]');
+                          final isError = line.startsWith('✗') ||
+                              line.toLowerCase().startsWith('error');
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 2),
                             child: Text(
@@ -1463,7 +1464,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
       });
       process.stderr.transform(const SystemEncoding().decoder).listen((data) {
         for (final line in data.split('\n')) {
-          if (line.trim().isNotEmpty) _addLog('[stderr] $line');
+          if (line.trim().isNotEmpty) _addLog(line.trim());
         }
       });
       final exitCode = await process.exitCode.timeout(
@@ -1674,7 +1675,8 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                           itemCount: _logs.length,
                           itemBuilder: (context, index) {
                             final line = _logs[index];
-                            final isErr = line.startsWith('[stderr]');
+                            final isErr = line.startsWith('✗') ||
+                                line.toLowerCase().startsWith('error');
                             final isSuccess = line.startsWith('✓');
                             final isFail = line.startsWith('✗');
                             return Text(
