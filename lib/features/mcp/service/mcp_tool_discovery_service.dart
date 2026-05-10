@@ -2502,14 +2502,11 @@ class _StdioSession {
     _appendTrace(
       'stdin:write:${payload['method'] ?? 'unknown'}:${payload['id'] ?? ''}',
     );
+    // MCP stdio 传输使用 JSON-line 模式：每条消息为一行完整 JSON + 换行符。
+    // 不发送 Content-Length header——Playwright 等主流 MCP 服务使用 JSON-line
+    // 解析，Content-Length header 会干扰其消息边界检测导致后续消息丢失。
     final body = utf8.encode(jsonEncode(payload));
-    final header = ascii.encode('Content-Length: ${body.length}\r\n\r\n');
-    _process.stdin.add(header);
     _process.stdin.add(body);
-    // 追加 \n 确保消息边界清晰：Content-Length framing 的服务会忽略尾部空白，
-    // JSON-line 模式的服务（如 Playwright）需要 \n 来触发消息处理。
-    // 关键：\n 不计入 Content-Length，所以不会破坏 framing 解析——
-    // 严格 framing 的服务读完 N 字节后会跳过后续空白再寻找下一个 Content-Length 头。
     _process.stdin.add(const [0x0A]);
     await _process.stdin.flush();
   }
