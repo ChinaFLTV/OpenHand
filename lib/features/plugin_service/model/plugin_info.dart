@@ -28,6 +28,7 @@ class PluginInfo {
     required this.name,
     required this.description,
     required this.status,
+    this.enabled = true,
     this.installedVersion,
     this.latestVersion,
     this.installPath,
@@ -47,6 +48,9 @@ class PluginInfo {
 
   /// 当前状态
   final PluginStatus status;
+
+  /// 是否启用（已安装时有效）
+  final bool enabled;
 
   /// 已安装版本（未安装时为 null）
   final String? installedVersion;
@@ -82,6 +86,7 @@ class PluginInfo {
     String? name,
     String? description,
     PluginStatus? status,
+    bool? enabled,
     String? installedVersion,
     String? latestVersion,
     String? installPath,
@@ -94,6 +99,7 @@ class PluginInfo {
       name: name ?? this.name,
       description: description ?? this.description,
       status: status ?? this.status,
+      enabled: enabled ?? this.enabled,
       installedVersion: installedVersion ?? this.installedVersion,
       latestVersion: latestVersion ?? this.latestVersion,
       installPath: installPath ?? this.installPath,

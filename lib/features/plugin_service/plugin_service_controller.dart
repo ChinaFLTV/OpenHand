@@ -70,6 +70,28 @@ class PluginServiceController extends ChangeNotifier {
     }
   }
 
+  /// 切换插件启用/禁用状态。
+  void toggleEnabled(String pluginId, {required bool enabled}) {
+    _plugins = [
+      for (final p in _plugins)
+        if (p.id == pluginId)
+          p.copyWith(enabled: enabled)
+        else
+          p,
+    ];
+    // 如果禁用 nodejs，连带禁用依赖它的 playwright
+    if (!enabled && pluginId == 'nodejs') {
+      _plugins = [
+        for (final p in _plugins)
+          if (p.dependencies.contains('nodejs') && p.isInstalled)
+            p.copyWith(enabled: false)
+          else
+            p,
+      ];
+    }
+    notifyListeners();
+  }
+
   /// 安装指定插件。自动处理依赖关系。
   Future<bool> installPlugin(String pluginId) async {
     final plugin = pluginById(pluginId);

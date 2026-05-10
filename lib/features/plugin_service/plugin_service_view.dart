@@ -6,9 +6,10 @@ import 'package:provider/provider.dart';
 
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/highlight_pulse.dart';
-import '../../shared/widgets/micro_press_feedback.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
+import '../mcp/mcp_controller.dart';
+import '../mcp/model/mcp_server.dart';
 import 'model/plugin_info.dart';
 import 'plugin_service_controller.dart';
 
@@ -368,56 +369,72 @@ class _PluginCard extends StatelessWidget {
   Widget _buildActions(BuildContext context) {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final isBusy = plugin.isBusy || controller.isOperating;
-    final hasMcp = plugin.id == 'playwright'; // Playwright 有官方 MCP 服务
+    final hasMcp = plugin.id == 'playwright';
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 6,
+      runSpacing: 6,
       alignment: WrapAlignment.end,
       children: [
-        // 详情按钮
+        // 详情
         IconButton.filledTonal(
           tooltip: isZh ? '详情' : 'Details',
           onPressed: () => _showDetailDialog(context),
           icon: const Icon(Icons.info_outline_rounded, size: 18),
         ),
-        // MCP 服务按钮（仅 Playwright）
+        // MCP 服务（仅 Playwright）
         if (hasMcp && plugin.isInstalled)
           IconButton.filledTonal(
             tooltip: isZh ? 'MCP 服务' : 'MCP Service',
             onPressed: isBusy ? null : () => _showMcpActions(context),
             icon: const Icon(Icons.hub_outlined, size: 18),
           ),
-        // 安装/更新/卸载按钮
-        if (plugin.status == PluginStatus.notInstalled)
-          MicroPressFeedback(
-            child: FilledButton.icon(
-              onPressed: isBusy ? null : () => _doInstall(context),
-              icon: const Icon(Icons.download_rounded),
-              label: Text(isZh ? '安装' : 'Install'),
-            ),
-          )
-        else if (plugin.isInstalled) ...[
-          if (plugin.hasUpdate)
-            MicroPressFeedback(
-              child: FilledButton.tonalIcon(
-                onPressed: isBusy ? null : () => _doUpdate(context),
-                icon: const Icon(Icons.system_update_alt_rounded, size: 18),
-                label: Text(isZh ? '更新' : 'Update'),
-              ),
-            ),
-          MicroPressFeedback(
-            child: OutlinedButton.icon(
-              onPressed: isBusy ? null : () => _doUninstall(context),
-              icon: Icon(Icons.delete_outline_rounded,
-                  size: 18, color: Theme.of(context).colorScheme.error),
-              label: Text(
-                isZh ? '卸载' : 'Uninstall',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+        // 启用/禁用
+        if (plugin.isInstalled)
+          IconButton.filledTonal(
+            tooltip: plugin.enabled
+                ? (isZh ? '禁用' : 'Disable')
+                : (isZh ? '启用' : 'Enable'),
+            onPressed: isBusy
+                ? null
+                : () => controller.toggleEnabled(
+                      plugin.id,
+                      enabled: !plugin.enabled,
+                    ),
+            icon: Icon(
+              plugin.enabled
+                  ? Icons.toggle_on_rounded
+                  : Icons.toggle_off_outlined,
+              size: 20,
+              color: plugin.enabled ? const Color(0xFF16A34A) : null,
             ),
           ),
-        ] else
+        // 安装
+        if (plugin.status == PluginStatus.notInstalled)
+          IconButton.filled(
+            tooltip: isZh ? '安装' : 'Install',
+            onPressed: isBusy ? null : () => _doInstall(context),
+            icon: const Icon(Icons.download_rounded, size: 18),
+          ),
+        // 更新
+        if (plugin.isInstalled && plugin.hasUpdate)
+          IconButton.filledTonal(
+            tooltip: isZh ? '更新' : 'Update',
+            onPressed: isBusy ? null : () => _doUpdate(context),
+            icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+          ),
+        // 卸载
+        if (plugin.isInstalled)
+          IconButton.filledTonal(
+            tooltip: isZh ? '卸载' : 'Uninstall',
+            onPressed: isBusy ? null : () => _doUninstall(context),
+            style: IconButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+          ),
+        // 操作中
+        if (plugin.isBusy && !plugin.isInstalled && plugin.status != PluginStatus.notInstalled)
           const SizedBox(
             width: 24,
             height: 24,
@@ -803,12 +820,26 @@ class _PluginOperationProgressDialogState
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    isOperating
-                        ? (isZh ? '正在执行…' : 'Executing…')
-                        : (isZh ? '操作完成' : 'Completed'),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  Expanded(
+                    child: Text(
+                      isOperating
+                          ? (isZh ? '正在执行…' : 'Executing…')
+                          : (isZh ? '操作完成' : 'Completed'),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: Icon(
+                      isOperating ? Icons.close : Icons.done,
+                      size: 16,
+                    ),
+                    label: Text(
+                      isOperating
+                          ? (isZh ? '强制关闭' : 'Force Close')
+                          : (isZh ? '关闭' : 'Close'),
                     ),
                   ),
                 ],
@@ -1327,6 +1358,8 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
   String? _mcpVersion;
   bool _operating = false;
   String? _error;
+  final List<String> _logs = [];
+  final ScrollController _logScroll = ScrollController();
 
   @override
   void initState() {
@@ -1334,85 +1367,132 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     _checkMcpStatus();
   }
 
+  @override
+  void dispose() {
+    _logScroll.dispose();
+    super.dispose();
+  }
+
+  void _addLog(String line) {
+    _logs.add(line);
+    if (mounted) {
+      setState(() {});
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_logScroll.hasClients) {
+          _logScroll.animateTo(
+            _logScroll.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
+  }
+
   Future<void> _checkMcpStatus() async {
     setState(() => _checking = true);
     try {
       if (widget.plugin.id == 'playwright') {
-        final result = await Process.run(
-          'npx', ['@playwright/mcp', '--version'],
-        ).timeout(const Duration(seconds: 15));
-        if (result.exitCode == 0) {
-          _mcpInstalled = true;
-          _mcpVersion = result.stdout.toString().trim();
-        } else {
-          // 尝试检查是否已安装但版本命令不同
-          final listResult = await Process.run(
-            'npm', ['list', '-g', '@playwright/mcp', '--depth=0'],
-          ).timeout(const Duration(seconds: 10));
-          _mcpInstalled = listResult.exitCode == 0 &&
-              listResult.stdout.toString().contains('@playwright/mcp');
-          if (_mcpInstalled) {
-            final match = RegExp(r'@playwright/mcp@([\d.]+)')
-                .firstMatch(listResult.stdout.toString());
-            _mcpVersion = match?.group(1);
-          }
+        final listResult = await Process.run(
+          'npm', ['list', '-g', '@playwright/mcp', '--depth=0'],
+        ).timeout(const Duration(seconds: 10));
+        _mcpInstalled = listResult.exitCode == 0 &&
+            listResult.stdout.toString().contains('@playwright/mcp');
+        if (_mcpInstalled) {
+          final match = RegExp(r'@playwright/mcp@([\d.]+)')
+              .firstMatch(listResult.stdout.toString());
+          _mcpVersion = match?.group(1);
         }
       }
     } catch (_) {}
     if (mounted) setState(() => _checking = false);
   }
 
-  Future<void> _installMcp() async {
-    setState(() { _operating = true; _error = null; });
+  Future<void> _runMcpOperation(String action, List<String> args) async {
+    setState(() { _operating = true; _error = null; _logs.clear(); });
+    _addLog('> npm ${args.join(' ')}');
+    _addLog('');
     try {
-      final result = await Process.run(
-        'npm', ['install', '-g', '@playwright/mcp'],
-      ).timeout(const Duration(minutes: 3));
-      if (result.exitCode == 0) {
+      final process = await Process.start('npm', args);
+      process.stdout.transform(const SystemEncoding().decoder).listen((data) {
+        for (final line in data.split('\n')) {
+          if (line.trim().isNotEmpty) _addLog(line);
+        }
+      });
+      process.stderr.transform(const SystemEncoding().decoder).listen((data) {
+        for (final line in data.split('\n')) {
+          if (line.trim().isNotEmpty) _addLog('[stderr] $line');
+        }
+      });
+      final exitCode = await process.exitCode.timeout(
+        const Duration(minutes: 3),
+        onTimeout: () {
+          process.kill();
+          _addLog('[timeout] 操作超时，已终止进程');
+          return -1;
+        },
+      );
+      if (exitCode == 0) {
+        _addLog('');
+        _addLog('✓ $action 完成 (exit code: 0)');
         await _checkMcpStatus();
+        // 同步到 MCP 板块
+        if (mounted) _syncMcpController(action);
       } else {
-        _error = result.stderr.toString().trim();
+        _addLog('');
+        _addLog('✗ $action 失败 (exit code: $exitCode)');
+        _error = '$action 失败 (exit code: $exitCode)';
       }
     } catch (e) {
+      _addLog('');
+      _addLog('✗ 异常: $e');
       _error = '$e';
     }
     if (mounted) setState(() => _operating = false);
   }
 
-  Future<void> _updateMcp() async {
-    setState(() { _operating = true; _error = null; });
+  void _syncMcpController(String action) {
     try {
-      final result = await Process.run(
-        'npm', ['update', '-g', '@playwright/mcp'],
-      ).timeout(const Duration(minutes: 3));
-      if (result.exitCode == 0) {
-        await _checkMcpStatus();
-      } else {
-        _error = result.stderr.toString().trim();
+      final mcpController = context.read<McpController>();
+      const mcpName = 'Playwright MCP';
+      if (action == '安装' || action == 'Install' || action == '更新' || action == 'Update') {
+        // 注册/更新 MCP 服务到 MCP 板块
+        final server = McpServer(
+          name: mcpName,
+          type: McpServerType.stdio,
+          enabled: true,
+          command: 'npx',
+          args: const ['@playwright/mcp'],
+        );
+        mcpController.saveServer(server, previousName: mcpName);
+      } else if (action == '卸载' || action == 'Uninstall') {
+        // 从 MCP 板块移除
+        final existing = mcpController.servers
+            .where((s) => s.name == mcpName)
+            .toList();
+        for (final s in existing) {
+          mcpController.deleteServer(s);
+        }
       }
-    } catch (e) {
-      _error = '$e';
+    } catch (_) {
+      // MCP controller 不可用时静默忽略
     }
-    if (mounted) setState(() => _operating = false);
   }
 
-  Future<void> _uninstallMcp() async {
-    setState(() { _operating = true; _error = null; });
-    try {
-      final result = await Process.run(
-        'npm', ['uninstall', '-g', '@playwright/mcp'],
-      ).timeout(const Duration(minutes: 2));
-      if (result.exitCode == 0) {
-        _mcpInstalled = false;
-        _mcpVersion = null;
-      } else {
-        _error = result.stderr.toString().trim();
-      }
-    } catch (e) {
-      _error = '$e';
-    }
-    if (mounted) setState(() => _operating = false);
-  }
+  Future<void> _installMcp() => _runMcpOperation(
+    widget.isZh ? '安装' : 'Install',
+    ['install', '-g', '@playwright/mcp'],
+  );
+
+  Future<void> _updateMcp() => _runMcpOperation(
+    widget.isZh ? '更新' : 'Update',
+    ['update', '-g', '@playwright/mcp'],
+  );
+
+  Future<void> _uninstallMcp() => _runMcpOperation(
+    widget.isZh ? '卸载' : 'Uninstall',
+    ['uninstall', '-g', '@playwright/mcp'],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1422,135 +1502,157 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     return Dialog(
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 500),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 标题栏
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                border: Border(
+                  bottom: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              child: Row(
                 children: [
-                  Icon(Icons.hub_rounded, size: 22, color: theme.colorScheme.primary),
+                  Icon(Icons.hub_rounded, size: 20, color: theme.colorScheme.primary),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      '${widget.plugin.name} MCP ${isZh ? "服务" : "Service"}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${widget.plugin.name} MCP',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '@playwright/mcp',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, size: 18),
+                    visualDensity: VisualDensity.compact,
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                isZh
-                    ? '管理 ${widget.plugin.name} 关联的 MCP 服务（@playwright/mcp）。'
-                    : 'Manage the MCP service associated with ${widget.plugin.name}.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_checking)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _mcpInstalled ? Icons.check_circle : Icons.cancel,
-                        size: 18,
-                        color: _mcpInstalled
-                            ? const Color(0xFF16A34A)
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _mcpInstalled
-                                  ? (isZh ? '已安装' : 'Installed')
-                                  : (isZh ? '未安装' : 'Not Installed'),
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+            ),
+            // 状态 + 操作按钮
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+              child: _checking
+                  ? const Center(child: CircularProgressIndicator())
+                  : Row(
+                      children: [
+                        Icon(
+                          _mcpInstalled ? Icons.check_circle : Icons.cancel,
+                          size: 18,
+                          color: _mcpInstalled
+                              ? const Color(0xFF16A34A)
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _mcpInstalled
+                              ? '${isZh ? "已安装" : "Installed"}${_mcpVersion != null ? " v$_mcpVersion" : ""}'
+                              : (isZh ? '未安装' : 'Not Installed'),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (!_mcpInstalled)
+                          IconButton.filled(
+                            tooltip: isZh ? '安装' : 'Install',
+                            onPressed: _operating ? null : _installMcp,
+                            icon: const Icon(Icons.download_rounded, size: 18),
+                          )
+                        else ...[
+                          IconButton.filledTonal(
+                            tooltip: isZh ? '更新' : 'Update',
+                            onPressed: _operating ? null : _updateMcp,
+                            icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton.filledTonal(
+                            tooltip: isZh ? '卸载' : 'Uninstall',
+                            onPressed: _operating ? null : _uninstallMcp,
+                            style: IconButton.styleFrom(
+                              foregroundColor: theme.colorScheme.error,
                             ),
-                            if (_mcpVersion != null)
-                              Text(
-                                'v$_mcpVersion',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    _error!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          ),
+                        ],
+                      ],
                     ),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text(
+                  _error!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
                   ),
-                ],
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (!_mcpInstalled)
-                      FilledButton.icon(
-                        onPressed: _operating ? null : _installMcp,
-                        icon: const Icon(Icons.download_rounded, size: 18),
-                        label: Text(isZh ? '安装 MCP' : 'Install MCP'),
-                      )
-                    else ...[
-                      FilledButton.tonalIcon(
-                        onPressed: _operating ? null : _updateMcp,
-                        icon: const Icon(Icons.system_update_alt_rounded, size: 18),
-                        label: Text(isZh ? '更新' : 'Update'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _operating ? null : _uninstallMcp,
-                        icon: Icon(Icons.delete_outline_rounded,
-                            size: 18, color: theme.colorScheme.error),
-                        label: Text(
-                          isZh ? '卸载' : 'Uninstall',
-                          style: TextStyle(color: theme.colorScheme.error),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(isZh ? '关闭' : 'Close'),
                 ),
               ),
-            ],
-          ),
+            // 终端输出区域
+            if (_logs.isNotEmpty || _operating)
+              Flexible(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E1E),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _logs.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: _logScroll,
+                          padding: const EdgeInsets.all(10),
+                          itemCount: _logs.length,
+                          itemBuilder: (context, index) {
+                            final line = _logs[index];
+                            final isErr = line.startsWith('[stderr]');
+                            final isSuccess = line.startsWith('✓');
+                            final isFail = line.startsWith('✗');
+                            return Text(
+                              line,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                height: 1.5,
+                                color: isErr || isFail
+                                    ? const Color(0xFFFF6B6B)
+                                    : isSuccess
+                                        ? const Color(0xFF4ADE80)
+                                        : const Color(0xFFD4D4D4),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+          ],
         ),
       ),
     );
