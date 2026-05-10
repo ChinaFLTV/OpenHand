@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 /// Lightweight helpers for building consistent, icon-prefixed
@@ -218,7 +216,6 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
   late final Animation<double> _fade;
   late final Animation<Offset> _offset;
   late final Animation<double> _scale;
-  Timer? _reverseTimer;
 
   @override
   void initState() {
@@ -226,20 +223,14 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 380),
-      reverseDuration: const Duration(milliseconds: 240),
     );
-    // Entry rides easeOutBack for a Q-bouncy overshoot (~1.7×); the reverse
-    // (close-button tap or auto-dismiss timer) decays via easeInCubic so the
-    // snackbar settles back without a second visible bounce.
     final entry = CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOutBack,
-      reverseCurve: Curves.easeInCubic,
     );
     _fade = CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
     );
     _offset = Tween<Offset>(
       begin: const Offset(0, 0.22),
@@ -255,23 +246,11 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
       _controller.value = 1;
     } else if (_controller.status == AnimationStatus.dismissed) {
       _controller.forward();
-      _armReverseTimer();
     }
-  }
-
-  void _armReverseTimer() {
-    _reverseTimer?.cancel();
-    final visibleDuration = widget.duration - const Duration(milliseconds: 230);
-    if (visibleDuration <= Duration.zero) return;
-    _reverseTimer = Timer(visibleDuration, () {
-      if (!mounted || _controller.status != AnimationStatus.completed) return;
-      unawaited(_controller.reverse());
-    });
   }
 
   @override
   void dispose() {
-    _reverseTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }

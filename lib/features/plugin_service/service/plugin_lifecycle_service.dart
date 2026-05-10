@@ -23,6 +23,39 @@ class PluginOperationResult {
 class PluginLifecycleService {
   PluginLifecycleService();
 
+  /// nvm 是 shell 函数而非可执行文件，需要先 source 初始化脚本。
+  /// 此方法构建一个能正确加载 nvm 的 shell 命令前缀。
+  static String _nvmSourcePrefix() {
+    final home = Platform.environment['HOME'] ?? '';
+    // nvm 常见安装位置
+    return '''
+export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
+[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+''';
+  }
+
+  /// 通过正确 source nvm 后执行 nvm 命令。
+  Future<_SimpleProcessResult> _runNvmCommand(
+    String nvmCommand, {
+    void Function(String line)? onProgress,
+    Duration timeout = const Duration(minutes: 5),
+  }) {
+    final script = '${_nvmSourcePrefix()}$nvmCommand';
+    return _runWithProgress(
+      _pickShell(),
+      ['-c', script],
+      onProgress: onProgress,
+      timeout: timeout,
+    );
+  }
+
+  /// 检测 nvm 是否可用。
+  Future<bool> _isNvmAvailable() async {
+    final home = Platform.environment['HOME'] ?? '';
+    final nvmSh = File('$home/.nvm/nvm.sh');
+    return nvmSh.existsSync();
+  }
+
   /// 安装 NodeJS（通过 nvm / fnm / brew）。
   /// 优先使用已存在的版本管理器，其次 brew。
   Future<PluginOperationResult> installNodeJs({
@@ -31,23 +64,16 @@ class PluginLifecycleService {
     onProgress?.call('正在检测可用的包管理器…');
 
     // 优先 nvm（最常见的 Node 版本管理器）
-    final nvmCheck = await Process.run(
-      _pickShell(), ['-lc', 'command -v nvm'],
-    ).timeout(const Duration(seconds: 5));
-    if (nvmCheck.exitCode == 0) {
+    if (await _isNvmAvailable()) {
       onProgress?.call('使用 nvm 安装 Node.js LTS…');
-      final result = await _runWithProgress(
-        _pickShell(),
-        ['-lc', 'nvm install --lts && nvm alias default lts/*'],
+      final result = await _runNvmCommand(
+        'nvm install --lts && nvm alias default lts/*',
         onProgress: onProgress,
-        timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await Process.run(
-          _pickShell(), ['-lc', 'node --version'],
-        ).timeout(const Duration(seconds: 8));
+        final verify = await _runNvmCommand('node --version');
         if (verify.exitCode == 0) {
-          final version = verify.stdout.toString().trim();
+          final version = verify.stdout.trim();
           onProgress?.call('Node.js $version 安装成功');
           return PluginOperationResult(
             success: true,
@@ -210,20 +236,14 @@ class PluginLifecycleService {
     // 优先使用检测到的安装方式
     if (isNvm) {
       onProgress?.call('检测到 nvm 管理的 Node.js，使用 nvm 更新…');
-      // nvm 通过 shell 执行（因为 nvm 是 shell 函数不是可执行文件）
-      final result = await _runWithProgress(
-        _pickShell(),
-        ['-lc', 'nvm install --lts --reinstall-packages-from=current && nvm alias default lts/*'],
+      final result = await _runNvmCommand(
+        'nvm install --lts --reinstall-packages-from=current && nvm alias default lts/*',
         onProgress: onProgress,
-        timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        // nvm install 后需要通过 shell 获取新版本
-        final verify = await Process.run(
-          _pickShell(), ['-lc', 'node --version'],
-        ).timeout(const Duration(seconds: 8));
+        final verify = await _runNvmCommand('node --version');
         if (verify.exitCode == 0) {
-          final version = verify.stdout.toString().trim();
+          final version = verify.stdout.trim();
           onProgress?.call('Node.js 已更新到 $version');
           return PluginOperationResult(
             success: true,
