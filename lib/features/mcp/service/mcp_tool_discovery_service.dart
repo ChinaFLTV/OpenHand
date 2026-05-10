@@ -1776,6 +1776,24 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
 
   String executable = rawCommand;
   List<String> args = [...inlineArgs, ...server.args];
+
+  // 快速路径：对 npx 命令，尝试直接定位已全局安装的包入口脚本用 node 执行。
+  // 这避免了 npx 的启动开销和隔离缓存中的下载/兼容性问题。
+  final isNpxCommand = rawCommand == 'npx' || rawCommand.endsWith('/npx');
+  if (isNpxCommand && args.isNotEmpty && !Platform.isWindows) {
+    final packageName = args.first;
+    final resolved = _resolveNpxPackageDirectly(packageName, home);
+    if (resolved != null) {
+      final extraArgs = args.length > 1 ? args.sublist(1) : const <String>[];
+      return _ResolvedStdioLaunch(
+        executable: resolved.nodeBin,
+        args: [resolved.entryScript, ...extraArgs],
+        environment: <String, String>{'PATH': mergedPath},
+        augmentedPath: mergedPath,
+      );
+    }
+  }
+
   final containsSeparator =
       rawCommand.contains('/') ||
       (Platform.isWindows && rawCommand.contains('\\'));
@@ -2619,6 +2637,108 @@ void _setHeaderIgnoreCase(
     headers.remove(existingKey);
   }
   headers[name] = value;
+}
+
+/// 直接扫描 nvm/volta 目录定位 npx 包的入口脚本，不依赖 shell 环境。
+class _NpxPackageResolution {
+  const _NpxPackageResolution({required this.nodeBin, required this.entryScript});
+  final String nodeBin;
+  final String entryScript;
+}
+
+_NpxPackageResolution? _resolveNpxPackageDirectly(String packageName, String? home) {
+  if (home == null || home.isEmpty) return null;
+  // 清理包名（移除 @version 后缀，如 @playwright/mcp@latest → @playwright/mcp）
+  final cleanName = packageName.replaceAll(RegExp(r'@[^/]*$'), '');
+  if (cleanName.isEmpty) return null;
+
+  // 策略 1：扫描 nvm 目录
+  final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
+  final versionsDir = Directory('$nvmDir/versions/node');
+  if (versionsDir.existsSync()) {
+    final versions = <String>[];
+    try {
+      for (final entity in versionsDir.listSync()) {
+        if (entity is Directory && entity.path.split('/').last.startsWith('v')) {
+          versions.add(entity.path.split('/').last);
+        }
+      }
+    } catch (_) {}
+    // 按版本号降序排列，优先使用最新版本
+    versions.sort((a, b) {
+      final ap = a.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
+      final bp = b.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
+      for (int i = 0; i < 3; i++) {
+        final av = i < ap.length ? ap[i] : 0;
+        final bv = i < bp.length ? bp[i] : 0;
+        if (av != bv) return bv.compareTo(av); // 降序
+      }
+      return 0;
+    });
+    for (final version in versions) {
+      final nodeBin = '$nvmDir/versions/node/$version/bin/node';
+      final packageDir = '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
+      if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
+        final entry = _findPackageBinEntry(packageDir);
+        if (entry != null) return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
+      }
+    }
+  }
+
+  // 策略 2：检查 fnm
+  final fnmDir = '$home/Library/Application Support/fnm/node-versions';
+  if (Directory(fnmDir).existsSync()) {
+    try {
+      for (final entity in Directory(fnmDir).listSync()) {
+        if (entity is Directory) {
+          final nodeBin = '${entity.path}/installation/bin/node';
+          final packageDir = '${entity.path}/installation/lib/node_modules/$cleanName';
+          if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
+            final entry = _findPackageBinEntry(packageDir);
+            if (entry != null) return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 策略 3：检查系统全局
+  const systemPaths = ['/usr/local/lib/node_modules', '/usr/lib/node_modules'];
+  for (final globalRoot in systemPaths) {
+    final packageDir = '$globalRoot/$cleanName';
+    if (Directory(packageDir).existsSync()) {
+      const systemNodes = ['/usr/local/bin/node', '/usr/bin/node'];
+      for (final nodeBin in systemNodes) {
+        if (File(nodeBin).existsSync()) {
+          final entry = _findPackageBinEntry(packageDir);
+          if (entry != null) return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/// 从 package.json 的 bin 字段解析入口脚本绝对路径。
+String? _findPackageBinEntry(String packageDir) {
+  try {
+    final pkgJsonFile = File('$packageDir/package.json');
+    if (!pkgJsonFile.existsSync()) return null;
+    final pkgJson = jsonDecode(pkgJsonFile.readAsStringSync());
+    final bin = pkgJson['bin'];
+    String? relative;
+    if (bin is String) {
+      relative = bin;
+    } else if (bin is Map && bin.isNotEmpty) {
+      relative = '${bin.values.first}';
+    }
+    if (relative == null || relative.isEmpty) return null;
+    final full = '$packageDir/$relative';
+    return File(full).existsSync() ? full : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 /// 把 MCP 服务发现 / 健康检查阶段的底层异常翻译成「现象 / 原因 / 建议」
