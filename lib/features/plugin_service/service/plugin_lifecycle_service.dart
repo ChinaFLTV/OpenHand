@@ -65,15 +65,18 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
 
     // 优先 nvm（最常见的 Node 版本管理器）
     if (await _isNvmAvailable()) {
-      onProgress?.call('使用 nvm 安装 Node.js LTS…');
+      onProgress?.call('使用 nvm 安装 Node.js…');
       final result = await _runNvmCommand(
-        'nvm install --lts && nvm alias default "lts/*"',
+        'nvm install node && nvm alias default node && node --version',
         onProgress: onProgress,
       );
       if (result.exitCode == 0) {
-        final verify = await _runNvmCommand('node --version');
-        if (verify.exitCode == 0) {
-          final version = verify.stdout.trim();
+        final lines = result.stdout.split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.startsWith('v') && RegExp(r'^v\d+\.\d+').hasMatch(l))
+            .toList();
+        final version = lines.isNotEmpty ? lines.last : '';
+        if (version.isNotEmpty) {
           onProgress?.call('Node.js $version 安装成功');
           return PluginOperationResult(
             success: true,
@@ -81,6 +84,10 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
             newVersion: version,
           );
         }
+        return const PluginOperationResult(
+          success: true,
+          message: 'Node.js 已通过 nvm 安装',
+        );
       }
       return PluginOperationResult(
         success: false,
@@ -236,14 +243,20 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     // 优先使用检测到的安装方式
     if (isNvm) {
       onProgress?.call('检测到 nvm 管理的 Node.js，使用 nvm 更新…');
+      // 使用 nvm install node 安装最新 current 版本（与扫描器报告的 latestVersion 一致），
+      // 并在同一 shell 会话中获取新版本号（避免跨进程 default alias 未生效的问题）。
       final result = await _runNvmCommand(
-        'nvm install --lts --reinstall-packages-from=current && nvm alias default "lts/*"',
+        'nvm install node --reinstall-packages-from=current && nvm alias default node && node --version',
         onProgress: onProgress,
       );
       if (result.exitCode == 0) {
-        final verify = await _runNvmCommand('node --version');
-        if (verify.exitCode == 0) {
-          final version = verify.stdout.trim();
+        // 从 stdout 最后一行提取版本号（node --version 的输出）
+        final lines = result.stdout.split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.startsWith('v') && RegExp(r'^v\d+\.\d+').hasMatch(l))
+            .toList();
+        final version = lines.isNotEmpty ? lines.last : '';
+        if (version.isNotEmpty) {
           onProgress?.call('Node.js 已更新到 $version');
           return PluginOperationResult(
             success: true,
@@ -251,6 +264,12 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
             newVersion: version,
           );
         }
+        // 版本号提取失败但命令成功，仍视为成功
+        onProgress?.call('Node.js 更新完成');
+        return const PluginOperationResult(
+          success: true,
+          message: 'Node.js 已通过 nvm 更新',
+        );
       }
       return PluginOperationResult(
         success: false,
