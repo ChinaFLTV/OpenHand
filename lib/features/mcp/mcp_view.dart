@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
-import '../../app/support/silent_log.dart';
 import '../../app/support/url_validation.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
@@ -44,8 +43,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   McpController? _mcpController;
   bool _pageActiveSyncScheduled = false;
   bool? _pendingPageActiveState;
-  bool _showOnlyAttention = false;
-  bool _isBatchReconnecting = false;
 
   @override
   void initState() {
@@ -114,27 +111,13 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             String? errorMessage,
             List<McpServer> servers,
             McpPersistenceIssue? persistenceIssue,
-            String attentionSignature,
-            int attentionCount,
           })
         >((controller) {
-          final attentionNames = <String>[
-            for (final server in controller.servers)
-              if (server.enabled)
-                if (() {
-                  final h = controller.healthStatusFor(server.name);
-                  return h.needsAttention ||
-                      h.status == McpServerHealthStatus.unhealthy;
-                }())
-                  server.name,
-          ]..sort();
           return (
             isLoading: controller.isLoading,
             errorMessage: controller.errorMessage,
             servers: controller.servers,
             persistenceIssue: controller.persistenceIssue,
-            attentionSignature: attentionNames.join('\u0001'),
-            attentionCount: attentionNames.length,
           );
         });
     final mcpController = context.read<McpController>();
@@ -256,22 +239,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
             ],
-            if (mcpSnapshot.servers.isNotEmpty) ...[
-              _McpServerFilterBar(
-                showOnlyAttention: _showOnlyAttention,
-                attentionCount: mcpSnapshot.attentionCount,
-                isBatchReconnecting: _isBatchReconnecting,
-                onToggleFilter: () {
-                  setState(() {
-                    _showOnlyAttention = !_showOnlyAttention;
-                  });
-                },
-                onBatchReconnect: mcpSnapshot.attentionCount == 0
-                    ? null
-                    : () => _runBatchReconnect(context),
-              ),
-              const SizedBox(height: 16),
-            ],
             Expanded(
               child: AnimatedSwitcher(
                 duration: MediaQuery.disableAnimationsOf(context)
@@ -282,8 +249,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                   isLoading: mcpSnapshot.isLoading,
                   errorMessage: mcpSnapshot.errorMessage,
                   servers: mcpSnapshot.servers,
-                  attentionSignature: mcpSnapshot.attentionSignature,
-                  attentionCount: mcpSnapshot.attentionCount,
                 ),
               ),
             ),
@@ -306,8 +271,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     required bool isLoading,
     required String? errorMessage,
     required List<McpServer> servers,
-    required String attentionSignature,
-    required int attentionCount,
   }) {
     final l10n = AppLocalizations.of(context)!;
     if (isLoading) {
@@ -332,40 +295,14 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       );
     }
 
-    final attentionNames = attentionSignature.isEmpty
-        ? const <String>{}
-        : attentionSignature.split('\u0001').toSet();
-    final visibleServers = _showOnlyAttention
-        ? servers.where((s) => attentionNames.contains(s.name)).toList()
-        : servers;
-
-    if (_showOnlyAttention && visibleServers.isEmpty) {
-      return _McpStateCard(
-        key: const ValueKey<String>('mcp-attention-empty'),
-        icon: Icons.verified_rounded,
-        title: _localizedText(
-          context,
-          zh: '暂无需要处理的服务',
-          en: 'No servers need attention',
-        ),
-        body: _localizedText(
-          context,
-          zh: '当前所有已启用服务最近一次探测均通过。可关闭筛选查看完整列表。',
-          en: 'All enabled servers passed their latest probe. Disable the filter to see the full list.',
-        ),
-      );
-    }
-
     return ListView.separated(
       key: const ValueKey<String>('mcp-list'),
-      // 顶部留 1.5px 缓冲：ListView 视口在 y=0 处会把卡片描边的最上一像素切掉，
-      // 滚动后看上去像「第一张卡片少了上边框」。在所有列表面板里都这样补。
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-      itemCount: visibleServers.length,
+      itemCount: servers.length,
       cacheExtent: 600,
       separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
-        final server = visibleServers[index];
+        final server = servers[index];
         return SettingsAwareAppearOnce(
           key: ValueKey<String>('mcp-server-appear-${server.name}'),
           child: RepaintBoundary(
@@ -623,71 +560,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         kind: _SnackKind.error,
       );
     }
-  }
-
-  /// 批量重连：仅作用于「需要处理」的已启用服务。带 SnackBar 反馈与并发互斥保护。
-  Future<void> _runBatchReconnect(BuildContext context) async {
-    if (_isBatchReconnecting) {
-      return;
-    }
-    setState(() => _isBatchReconnecting = true);
-    try {
-      final names = await context
-          .read<McpController>()
-          .reconnectFailingServers();
-      if (!context.mounted) {
-        return;
-      }
-      if (names.isEmpty) {
-        _showSnackBar(
-          context,
-          _localizedText(
-            context,
-            zh: '没有需要重连的服务',
-            en: 'No servers needed reconnecting',
-          ),
-        );
-      } else {
-        final sample = _formatServerNameSample(context, names);
-        _showSnackBar(
-          context,
-          _localizedText(
-            context,
-            zh: '已重连 ${names.length} 个失败服务$sample',
-            en: 'Reconnected ${names.length} failing services$sample',
-          ),
-          kind: _SnackKind.success,
-        );
-      }
-    } catch (error, stack) {
-      silentLog('mcp', '_runBatchReconnect', error, stack);
-      if (!context.mounted) {
-        return;
-      }
-      _showSnackBar(
-        context,
-        _localizedText(
-          context,
-          zh: '批量重连失败：$error',
-          en: 'Batch reconnect failed: $error',
-        ),
-        kind: _SnackKind.error,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isBatchReconnecting = false);
-      }
-    }
-  }
-
-  String _formatServerNameSample(BuildContext context, List<String> names) {
-    if (names.isEmpty) {
-      return '';
-    }
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final shown = names.take(3).join(isZh ? '、' : ', ');
-    final suffix = names.length > 3 ? (isZh ? ' 等' : ', etc.') : '';
-    return isZh ? '：$shown$suffix' : ': $shown$suffix';
   }
 
   /// 弹出半屏 ModalBottomSheet 展示该服务的最近 30 条探测历史，用 Selector 监听
@@ -3793,175 +3665,6 @@ class _ProbeServerRow extends StatelessWidget {
 }
 
 /// 失败热点筛选栏：两枚等尺寸动作按钮，窄屏自动换成一行一个。
-class _McpServerFilterBar extends StatelessWidget {
-  const _McpServerFilterBar({
-    required this.showOnlyAttention,
-    required this.attentionCount,
-    required this.isBatchReconnecting,
-    required this.onToggleFilter,
-    required this.onBatchReconnect,
-  });
-
-  final bool showOnlyAttention;
-  final int attentionCount;
-  final bool isBatchReconnecting;
-  final VoidCallback onToggleFilter;
-  final VoidCallback? onBatchReconnect;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : 456.0;
-        final buttonWidth = availableWidth < 472 ? availableWidth : 226.0;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: buttonWidth,
-              height: 44,
-              child: _McpFilterActionButton(
-                selected: showOnlyAttention,
-                icon: Icons.priority_high_rounded,
-                iconColor: showOnlyAttention
-                    ? colorScheme.onPrimaryContainer
-                    : (attentionCount > 0
-                          ? colorScheme.error
-                          : colorScheme.onSurfaceVariant),
-                label: _localizedText(
-                  context,
-                  zh: attentionCount > 0 ? '只看需要处理（$attentionCount）' : '只看需要处理',
-                  en: attentionCount > 0
-                      ? 'Show only attention ($attentionCount)'
-                      : 'Show only attention',
-                ),
-                onPressed: onToggleFilter,
-              ),
-            ),
-            SizedBox(
-              width: buttonWidth,
-              height: 44,
-              child: _McpFilterActionButton(
-                icon: Icons.cyclone_rounded,
-                busy: isBatchReconnecting,
-                label: _localizedText(
-                  context,
-                  zh: isBatchReconnecting ? '正在批量重连…' : '批量重连失败的服务',
-                  en: isBatchReconnecting
-                      ? 'Reconnecting…'
-                      : 'Reconnect failing servers',
-                ),
-                onPressed: isBatchReconnecting ? null : onBatchReconnect,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _McpFilterActionButton extends StatelessWidget {
-  const _McpFilterActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.selected = false,
-    this.busy = false,
-    this.iconColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-  final bool selected;
-  final bool busy;
-  final Color? iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final interactive = onPressed != null && !busy;
-    final background = selected
-        ? colorScheme.primaryContainer
-        : colorScheme.surfaceContainerLow;
-    final foreground = selected
-        ? colorScheme.onPrimaryContainer
-        : colorScheme.onSurface;
-    final borderColor = selected
-        ? colorScheme.primary.withValues(alpha: 0.42)
-        : colorScheme.outlineVariant;
-
-    return Tooltip(
-      message: label,
-      child: AnimatedOpacity(
-        opacity: onPressed == null && !busy ? 0.56 : 1,
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
-        child: AnimatedContainer(
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: borderColor),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: interactive ? onPressed : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (busy)
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          valueColor: AlwaysStoppedAnimation<Color>(foreground),
-                        ),
-                      )
-                    else
-                      Icon(icon, size: 18, color: iconColor ?? foreground),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: foreground,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _McpServerToggleChip extends StatelessWidget {
   const _McpServerToggleChip({required this.enabled, required this.onPressed});

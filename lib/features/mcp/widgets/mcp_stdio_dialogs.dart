@@ -126,47 +126,65 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                       ],
                     ),
                   ),
-                  // 自动滚动切换
-                  Tooltip(
-                    message: isZh ? '自动滚动' : 'Auto-scroll',
-                    child: IconButton(
-                      onPressed: () => setState(() => _autoScroll = !_autoScroll),
-                      icon: Icon(
-                        _autoScroll ? Icons.vertical_align_bottom : Icons.pause,
-                        size: 18,
+                  // 操作按钮组
+                  Wrap(
+                    spacing: 4,
+                    children: [
+                      Tooltip(
+                        message: isZh ? '自动滚动' : 'Auto-scroll',
+                        child: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: IconButton(
+                            onPressed: () => setState(() => _autoScroll = !_autoScroll),
+                            icon: Icon(
+                              _autoScroll ? Icons.vertical_align_bottom : Icons.pause,
+                              size: 18,
+                            ),
+                            isSelected: _autoScroll,
+                          ),
+                        ),
                       ),
-                      isSelected: _autoScroll,
-                    ),
-                  ),
-                  // 复制日志
-                  Tooltip(
-                    message: isZh ? '复制日志' : 'Copy logs',
-                    child: IconButton(
-                      onPressed: logs.isEmpty
-                          ? null
-                          : () {
-                              Clipboard.setData(ClipboardData(text: logs.join('\n')));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(isZh ? '已复制到剪贴板' : 'Copied to clipboard')),
-                              );
-                            },
-                      icon: const Icon(Icons.copy_rounded, size: 18),
-                    ),
-                  ),
-                  // 清除日志
-                  Tooltip(
-                    message: isZh ? '清除日志' : 'Clear logs',
-                    child: IconButton(
-                      onPressed: logs.isEmpty
-                          ? null
-                          : () => McpStdioProcessManager.instance.clearLogs(widget.server.name),
-                      icon: const Icon(Icons.delete_sweep_rounded, size: 18),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 18),
-                    visualDensity: VisualDensity.compact,
+                      Tooltip(
+                        message: isZh ? '复制日志' : 'Copy logs',
+                        child: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: IconButton(
+                            onPressed: logs.isEmpty
+                                ? null
+                                : () {
+                                    Clipboard.setData(ClipboardData(text: logs.join('\n')));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(isZh ? '已复制到剪贴板' : 'Copied to clipboard')),
+                                    );
+                                  },
+                            icon: const Icon(Icons.copy_rounded, size: 18),
+                          ),
+                        ),
+                      ),
+                      Tooltip(
+                        message: isZh ? '清除日志' : 'Clear logs',
+                        child: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: IconButton(
+                            onPressed: logs.isEmpty
+                                ? null
+                                : () => McpStdioProcessManager.instance.clearLogs(widget.server.name),
+                            icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -379,18 +397,30 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                       ],
                     ),
                   ),
-                  // 刷新按钮
-                  Tooltip(
-                    message: isZh ? '刷新' : 'Refresh',
-                    child: IconButton(
-                      onPressed: _loading ? null : _loadInfo,
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 18),
-                    visualDensity: VisualDensity.compact,
+                  // 操作按钮组
+                  Wrap(
+                    spacing: 4,
+                    children: [
+                      Tooltip(
+                        message: isZh ? '刷新' : 'Refresh',
+                        child: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: IconButton(
+                            onPressed: _loading ? null : _loadInfo,
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -803,10 +833,13 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 18),
-                    visualDensity: VisualDensity.compact,
+                  SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, size: 18),
+                    ),
                   ),
                 ],
               ),

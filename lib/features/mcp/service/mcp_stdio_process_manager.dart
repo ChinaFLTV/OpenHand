@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import '../../../app/support/silent_log.dart';
 import '../model/mcp_server.dart';
 import 'mcp_tool_discovery_service.dart';
 
@@ -158,8 +157,8 @@ class McpStdioProcessManager extends ChangeNotifier {
         }
       }));
 
-      // 尝试发送 MCP initialize 握手
-      _performMcpHandshake(name, process);
+      // 进程已启动，标记就绪
+      _logProcessReady(name);
     } catch (e) {
       _processes[name] = _ManagedProcess(
         info: StdioProcessInfo(
@@ -267,17 +266,10 @@ class McpStdioProcessManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 尝试与 MCP 服务进行 initialize 握手，确认服务正常运行。
-  Future<void> _performMcpHandshake(String serverName, Process process) async {
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      final managed = _processes[serverName];
-      if (managed == null || !managed.info.isRunning) return;
-
-      _appendLog(serverName, '[${_timestamp()}] MCP 握手中…', isStderr: false);
-    } catch (e) {
-      silentLog('mcp.stdio.manager', 'handshake', e);
-    }
+  /// STDIO MCP 服务启动后即处于就绪状态，等待外部通过 stdin 发送 MCP 协议请求。
+  /// 进程管理器不负责 MCP 协议握手——那是 discovery service 的职责。
+  void _logProcessReady(String serverName) {
+    _appendLog(serverName, '[${_timestamp()}] 服务就绪，等待 MCP 协议连接…', isStderr: false);
   }
 
   /// 获取进程的运行时环境信息。
