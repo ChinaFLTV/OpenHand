@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as p;
 
 import '../model/mcp_server.dart';
 import 'mcp_tool_discovery_service.dart';
@@ -103,17 +102,19 @@ class McpStdioProcessManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final resolved = await _resolveStdioLaunch(server);
+      // 通过 login shell 启动，确保 nvm/fnm/volta 等环境正确加载。
+      // 这比直接 Process.start(npx) 更可靠——GUI 应用的进程 PATH 极简，
+      // 不含版本管理器的 shim，导致解析到系统自带的旧版 npx。
+      final commandLine = _buildCommandLine(server);
+      final shell = _pickShellForLaunch();
       final process = await Process.start(
-        resolved.executable,
-        resolved.args,
-        environment: resolved.environment,
-        runInShell: Platform.isWindows,
+        shell,
+        ['-l', '-c', commandLine],
       );
 
       final logs = <String>[];
       logs.add('[${_timestamp()}] 进程已启动 (PID: ${process.pid})');
-      logs.add('[${_timestamp()}] 命令: ${resolved.executable} ${resolved.args.join(' ')}');
+      logs.add('[${_timestamp()}] 命令: $commandLine');
       logs.add('');
 
       final managed = _ManagedProcess(
@@ -451,160 +452,21 @@ class _ManagedProcess {
   final Process? process;
 }
 
-/// 解析 STDIO MCP 服务的启动参数（复用 discovery service 的逻辑）。
-Future<_ResolvedLaunch> _resolveStdioLaunch(McpServer server) async {
-  final separator = Platform.isWindows ? ';' : ':';
-  final originalPath = Platform.environment['PATH'] ?? '';
-  final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
-
-  final extraSegments = <String>[];
-  if (Platform.isMacOS) {
-    extraSegments.addAll(const [
-      '/opt/homebrew/bin',
-      '/opt/homebrew/sbin',
-      '/usr/local/bin',
-      '/usr/local/sbin',
-    ]);
-  } else if (Platform.isLinux) {
-    extraSegments.addAll(const ['/usr/local/bin', '/usr/local/sbin', '/snap/bin']);
-  }
-  if (home != null && home.isNotEmpty) {
-    if (Platform.isWindows) {
-      extraSegments.addAll([
-        '$home\\AppData\\Roaming\\npm',
-        '$home\\.cargo\\bin',
-        '$home\\.bun\\bin',
-        '$home\\.deno\\bin',
-        '$home\\.local\\bin',
-      ]);
-    } else {
-      extraSegments.addAll([
-        '$home/.npm-global/bin',
-        '$home/.local/bin',
-        '$home/.cargo/bin',
-        '$home/.bun/bin',
-        '$home/.deno/bin',
-        '$home/.volta/bin',
-      ]);
-    }
-  }
-
-  // 登录 shell PATH 探测
-  if (!Platform.isWindows) {
-    final shellPath = await _probeLoginShellPathForManager();
-    if (shellPath.isNotEmpty) {
-      final shellSegments = shellPath.split(separator).map((s) => s.trim()).where((s) => s.isNotEmpty);
-      extraSegments.insertAll(0, shellSegments.toList());
-    }
-  }
-
-  final mergedSegments = <String>[];
-  final seen = <String>{};
-  final originalSegments = originalPath.split(separator).map((s) => s.trim()).where((s) => s.isNotEmpty);
-  for (final segment in [...extraSegments, ...originalSegments]) {
-    if (seen.add(segment)) mergedSegments.add(segment);
-  }
-  final mergedPath = mergedSegments.join(separator);
-
-  // 解析命令
-  final rawCommand = server.command.trim();
-  final tokens = _tokenizeCommand(rawCommand);
-  final command = tokens.isNotEmpty ? tokens.first : rawCommand;
-  final inlineArgs = tokens.length > 1 ? tokens.sublist(1) : const <String>[];
-  final args = [...inlineArgs, ...server.args];
-
-  // 查找可执行文件绝对路径
-  String executable = command;
-  if (command.isNotEmpty && !command.contains('/') && !(Platform.isWindows && command.contains('\\'))) {
-    for (final dir in mergedSegments) {
-      final full = p.join(dir, command);
-      if (FileSystemEntity.typeSync(full) == FileSystemEntityType.file) {
-        executable = full;
-        break;
-      }
-      if (Platform.isWindows) {
-        for (final ext in ['.cmd', '.bat', '.exe', '.ps1']) {
-          final withExt = '$full$ext';
-          if (FileSystemEntity.typeSync(withExt) == FileSystemEntityType.file) {
-            executable = withExt;
-            break;
-          }
-        }
-        if (executable != command) break;
-      }
-    }
-  }
-
-  // 构建环境变量 — 进程管理器使用用户正常环境（不注入隔离缓存），
-  // 因为用户手动启动的服务应该使用已全局安装的包，避免每次重新下载。
-  // 隔离缓存仅用于 discovery service 的一次性探测。
-  final env = Map<String, String>.from(Platform.environment);
-  env['PATH'] = mergedPath;
-  // 自动确认 npx 安装提示（非交互式进程必需）
-  env['npm_config_yes'] = 'true';
-
-  return _ResolvedLaunch(executable: executable, args: args, environment: env);
+/// 构建完整的命令行字符串（用于 login shell -c 执行）。
+String _buildCommandLine(McpServer server) {
+  final command = server.command.trim();
+  final args = server.args.map((a) => a.trim()).where((a) => a.isNotEmpty);
+  final parts = [command, ...args];
+  // 对包含空格的参数加引号
+  return parts.map((p) => p.contains(' ') ? "'$p'" : p).join(' ');
 }
 
-class _ResolvedLaunch {
-  const _ResolvedLaunch({
-    required this.executable,
-    required this.args,
-    required this.environment,
-  });
-
-  final String executable;
-  final List<String> args;
-  final Map<String, String> environment;
-}
-
-/// 简化版 shell 命令拆词。
-List<String> _tokenizeCommand(String input) {
-  final trimmed = input.trim();
-  if (trimmed.isEmpty) return const [];
-  if (!trimmed.contains(RegExp(r'\s'))) return [trimmed];
-  final tokens = <String>[];
-  final buffer = StringBuffer();
-  bool inSingle = false;
-  bool inDouble = false;
-  bool hasContent = false;
-  for (int i = 0; i < trimmed.length; i++) {
-    final ch = trimmed[i];
-    if (!inSingle && !inDouble && ch == '\\' && i + 1 < trimmed.length) {
-      buffer.write(trimmed[i + 1]);
-      i++;
-      hasContent = true;
-      continue;
-    }
-    if (!inDouble && ch == "'") { inSingle = !inSingle; hasContent = true; continue; }
-    if (!inSingle && ch == '"') { inDouble = !inDouble; hasContent = true; continue; }
-    if (!inSingle && !inDouble && (ch == ' ' || ch == '\t')) {
-      if (hasContent) { tokens.add(buffer.toString()); buffer.clear(); hasContent = false; }
-      continue;
-    }
-    buffer.write(ch);
-    hasContent = true;
+/// 选择 login shell。
+String _pickShellForLaunch() {
+  final preferred = Platform.environment['SHELL']?.trim();
+  if (preferred != null && preferred.isNotEmpty && File(preferred).existsSync()) {
+    return preferred;
   }
-  if (inSingle || inDouble) return [trimmed];
-  if (hasContent) tokens.add(buffer.toString());
-  return tokens.isEmpty ? [trimmed] : tokens;
-}
-
-String? _cachedShellPath;
-
-Future<String> _probeLoginShellPathForManager() async {
-  if (_cachedShellPath != null) return _cachedShellPath!;
-  try {
-    final shell = Platform.environment['SHELL']?.trim();
-    if (shell == null || shell.isEmpty) return '';
-    final result = await Process.run(
-      shell, ['-l', '-c', 'echo \$PATH'],
-    ).timeout(const Duration(seconds: 5));
-    if (result.exitCode == 0) {
-      _cachedShellPath = result.stdout.toString().trim();
-      return _cachedShellPath!;
-    }
-  } catch (_) {}
-  _cachedShellPath = '';
-  return '';
+  if (File('/bin/zsh').existsSync()) return '/bin/zsh';
+  return '/bin/bash';
 }
