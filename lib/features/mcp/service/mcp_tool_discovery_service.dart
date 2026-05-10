@@ -2057,6 +2057,29 @@ String _diagnoseStdioStderr(String stderr) {
         '【建议 / Try】 在该 MCP 服务对应 venv 里 `pip install` 缺失模块；'
         '若用 uvx，可尝试 `uv tool install <pkg>` 后再启动。';
   }
+  // chrome-devtools-mcp 特有：需要 Chrome/Chromium 浏览器可用
+  if (lower.contains('chrome') &&
+      (lower.contains('not found') ||
+       lower.contains('no chrome') ||
+       lower.contains('cannot find') ||
+       lower.contains('failed to launch') ||
+       lower.contains('connect econnrefused'))) {
+    return '【诊断 / Diagnosis】 chrome-devtools-mcp 需要本机安装 Chrome 或 Chromium 浏览器。\n'
+        '【建议 / Try】\n'
+        '  · 确认 Chrome / Chromium 已安装且可正常启动\n'
+        '  · 若使用 --channel=beta，需安装 Chrome Beta 版本\n'
+        '  · 若使用 --autoConnect，需先手动启动 Chrome 并开启远程调试端口\n'
+        '  · 尝试不带 --autoConnect 参数启动，让 MCP 服务自行管理浏览器实例';
+  }
+  // 进程立即退出（通用）
+  if (lower.contains('exited with code') ||
+      lower.contains('spawn') && lower.contains('enoent')) {
+    return '【诊断 / Diagnosis】 MCP 服务进程启动后立即退出或可执行文件不存在。\n'
+        '【建议 / Try】\n'
+        '  · 在终端手动运行该命令确认能正常启动\n'
+        '  · 检查命令路径是否正确（npx 包名是否拼写正确）\n'
+        '  · 确认 Node.js / npm 已正确安装且在 PATH 中';
+  }
   return '';
 }
 
@@ -2401,6 +2424,10 @@ class _StdioSession {
         .decode(_stdoutBuffer.sublist(0, prefixLength), allowInvalid: true)
         .trimLeft()
         .toLowerCase();
+    // 至少需要 4 个字符才能有意义地匹配 "content-length" 前缀，
+    // 避免单个 'c' / 'co' / 'con' 等常见 stdout 输出（如 "connecting..."）
+    // 导致解析器误判为 framed message 而无限等待。
+    if (prefix.length < 4) return false;
     return prefix.isNotEmpty &&
         ('content-length'.startsWith(prefix) ||
             prefix.startsWith('content-length'));

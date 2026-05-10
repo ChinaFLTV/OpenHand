@@ -480,7 +480,8 @@ class _PluginCard extends StatelessWidget {
     _showOperationDialog(context, isZh ? '安装' : 'Install', plugin.name);
     final success = await controller.installPlugin(plugin.id);
     if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pop();
+    // 弹窗可能已被用户强制关闭，安全 pop
+    try { Navigator.of(context, rootNavigator: true).pop(); } catch (_) {}
     _showPluginSnackBar(context, SnackBar(
       content: Text(success
           ? (isZh ? '${plugin.name} 安装成功' : '${plugin.name} installed')
@@ -513,7 +514,7 @@ class _PluginCard extends StatelessWidget {
     _showOperationDialog(context, isZh ? '更新' : 'Update', plugin.name);
     final success = await controller.updatePlugin(plugin.id);
     if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pop();
+    try { Navigator.of(context, rootNavigator: true).pop(); } catch (_) {}
     _showPluginSnackBar(context, SnackBar(
       content: Text(success
           ? (isZh ? '${plugin.name} 更新成功' : '${plugin.name} updated')
@@ -557,7 +558,7 @@ class _PluginCard extends StatelessWidget {
     _showOperationDialog(context, isZh ? '卸载' : 'Uninstall', plugin.name);
     final success = await controller.uninstallPlugin(plugin.id);
     if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pop();
+    try { Navigator.of(context, rootNavigator: true).pop(); } catch (_) {}
     _showPluginSnackBar(context, SnackBar(
       content: Text(success
           ? (isZh ? '${plugin.name} 已卸载' : '${plugin.name} uninstalled')
@@ -831,7 +832,12 @@ class _PluginOperationProgressDialogState
                     ),
                   ),
                   TextButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      if (isOperating) {
+                        widget.controller.forceCancel();
+                      }
+                      Navigator.of(context).pop();
+                    },
                     icon: Icon(
                       isOperating ? Icons.close : Icons.done,
                       size: 16,

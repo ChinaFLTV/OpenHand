@@ -242,6 +242,23 @@ class PluginServiceController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 强制取消当前操作（用户关闭进度弹窗时调用）。
+  /// 重置操作状态并触发重新扫描以恢复真实状态。
+  void forceCancel() {
+    _isOperating = false;
+    // 将所有处于操作中状态的插件重置为 notInstalled 或 installed（通过 rescan 恢复）
+    _plugins = [
+      for (final p in _plugins)
+        if (p.isBusy)
+          p.copyWith(status: PluginStatus.installed, errorMessage: null)
+        else
+          p,
+    ];
+    notifyListeners();
+    // 异步重新扫描以获取真实状态
+    rescan();
+  }
+
   void _addLog(String line) {
     _operationLogs.add(line);
     notifyListeners();
