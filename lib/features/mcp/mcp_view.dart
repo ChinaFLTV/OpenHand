@@ -1665,7 +1665,12 @@ class _McpServerCard extends StatelessWidget {
                     Flexible(
                       child: Align(
                         alignment: Alignment.topRight,
-                        child: Wrap(
+                        // GestureDetector 吞掉按钮区域的点击事件，
+                        // 阻止冒泡到父级 InkWell 触发 onTap（编辑弹窗）。
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {},
+                          child: Wrap(
                           alignment: WrapAlignment.end,
                           spacing: 4,
                           runSpacing: 4,
@@ -1679,24 +1684,21 @@ class _McpServerCard extends StatelessWidget {
                               child: SizedBox(
                                 width: 44,
                                 height: 44,
-                                child: AbsorbPointer(
-                                  absorbing: healthStatus.isChecking,
-                                  child: IconButton.filledTonal(
-                                    onPressed: healthStatus.isChecking
-                                        ? null
-                                        : onCheckHealth,
-                                    icon: healthStatus.isChecking
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.2,
-                                            ),
-                                          )
-                                        : Icon(
-                                            _healthStatusActionIcon(healthStatus),
+                                child: IconButton.filledTonal(
+                                  onPressed: healthStatus.isChecking
+                                      ? null
+                                      : onCheckHealth,
+                                  icon: healthStatus.isChecking
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
                                           ),
-                                  ),
+                                        )
+                                      : Icon(
+                                          _healthStatusActionIcon(healthStatus),
+                                        ),
                                 ),
                               ),
                             ),
@@ -1709,22 +1711,19 @@ class _McpServerCard extends StatelessWidget {
                               child: SizedBox(
                                 width: 44,
                                 height: 44,
-                                child: AbsorbPointer(
-                                  absorbing: toolCatalog.isLoading,
-                                  child: IconButton.filledTonal(
-                                    onPressed: toolCatalog.isLoading
-                                        ? null
-                                        : onRefreshTools,
-                                    icon: toolCatalog.isLoading
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.2,
-                                            ),
-                                          )
-                                        : const Icon(Icons.refresh_rounded),
-                                  ),
+                                child: IconButton.filledTonal(
+                                  onPressed: toolCatalog.isLoading
+                                      ? null
+                                      : onRefreshTools,
+                                  icon: toolCatalog.isLoading
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.refresh_rounded),
                                 ),
                               ),
                             ),
@@ -1737,17 +1736,13 @@ class _McpServerCard extends StatelessWidget {
                               child: SizedBox(
                                 width: 44,
                                 height: 44,
-                                child: AbsorbPointer(
-                                  absorbing: healthStatus.isChecking ||
-                                      toolCatalog.isLoading,
-                                  child: IconButton.filledTonal(
-                                    onPressed:
-                                        healthStatus.isChecking ||
-                                            toolCatalog.isLoading
-                                        ? null
-                                        : onReconnect,
-                                    icon: const Icon(Icons.cyclone_rounded),
-                                  ),
+                                child: IconButton.filledTonal(
+                                  onPressed:
+                                      healthStatus.isChecking ||
+                                          toolCatalog.isLoading
+                                      ? null
+                                      : onReconnect,
+                                  icon: const Icon(Icons.cyclone_rounded),
                                 ),
                               ),
                             ),
@@ -1799,6 +1794,7 @@ class _McpServerCard extends StatelessWidget {
                               ),
                             ),
                           ],
+                        ),
                         ),
                       ),
                     ),
@@ -2110,6 +2106,24 @@ class _StdioProcessButtons extends StatelessWidget {
                 ),
               ),
             ),
+            // 依赖管理按钮（仅 npx 类型）
+            if (server.command.trim() == 'npx' ||
+                server.command.trim().endsWith('/npx'))
+              Tooltip(
+                message: _localizedText(
+                  context,
+                  zh: '依赖管理',
+                  en: 'Dependencies',
+                ),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: IconButton.filledTonal(
+                    onPressed: () => showStdioDepsDialog(context, server),
+                    icon: const Icon(Icons.inventory_2_outlined),
+                  ),
+                ),
+              ),
           ],
         );
       },

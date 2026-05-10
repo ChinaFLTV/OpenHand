@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../../shared/widgets/animated_dialog.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
+import '../service/mcp_tool_discovery_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STDIO MCP 服务日志查看弹窗
@@ -568,5 +570,401 @@ class _InfoRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STDIO MCP 服务依赖管理弹窗
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 显示 STDIO MCP 服务的依赖管理弹窗（安装/更新/卸载 npm 包）。
+Future<void> showStdioDepsDialog(BuildContext context, McpServer server) {
+  return showAnimatedDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (ctx) => _StdioDepsDialog(server: server),
+  );
+}
+
+class _StdioDepsDialog extends StatefulWidget {
+  const _StdioDepsDialog({required this.server});
+
+  final McpServer server;
+
+  @override
+  State<_StdioDepsDialog> createState() => _StdioDepsDialogState();
+}
+
+class _StdioDepsDialogState extends State<_StdioDepsDialog> {
+  final ScrollController _logScroll = ScrollController();
+  final List<String> _logs = [];
+  bool _operating = false;
+  bool _checking = true;
+  bool _packageInstalled = false;
+  String? _installedVersion;
+  String? _latestVersion;
+  String? _error;
+
+  String get _packageName {
+    // 从 npx 命令的 args 中提取包名
+    if (widget.server.args.isNotEmpty) {
+      return widget.server.args.first.trim();
+    }
+    return '';
+  }
+
+  bool get _isNpxService {
+    final cmd = widget.server.command.trim();
+    return cmd == 'npx' || cmd.endsWith('/npx');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDepsStatus();
+  }
+
+  @override
+  void dispose() {
+    _logScroll.dispose();
+    super.dispose();
+  }
+
+  void _addLog(String line) {
+    _logs.add(line);
+    if (mounted) {
+      setState(() {});
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_logScroll.hasClients) {
+          _logScroll.animateTo(
+            _logScroll.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
+  }
+
+  Future<void> _checkDepsStatus() async {
+    setState(() => _checking = true);
+    final pkg = _packageName;
+    if (pkg.isEmpty || !_isNpxService) {
+      if (mounted) setState(() => _checking = false);
+      return;
+    }
+    try {
+      // 检查全局安装状态
+      final listResult = await Process.run(
+        'npm', ['list', '-g', pkg, '--depth=0'],
+      ).timeout(const Duration(seconds: 10));
+      _packageInstalled = listResult.exitCode == 0 &&
+          listResult.stdout.toString().contains(pkg);
+      if (_packageInstalled) {
+        final match = RegExp('$pkg@([\\d.]+)')
+            .firstMatch(listResult.stdout.toString());
+        _installedVersion = match?.group(1);
+      }
+      // 检查最新版本
+      try {
+        final viewResult = await Process.run(
+          'npm', ['view', pkg, 'version'],
+        ).timeout(const Duration(seconds: 10));
+        if (viewResult.exitCode == 0) {
+          _latestVersion = viewResult.stdout.toString().trim();
+        }
+      } catch (_) {}
+    } catch (_) {}
+    if (mounted) setState(() => _checking = false);
+  }
+
+  Future<void> _runNpmOperation(String action, List<String> args) async {
+    setState(() { _operating = true; _error = null; _logs.clear(); });
+    _addLog('[${_ts()}] > npm ${args.join(' ')}');
+    _addLog('');
+    try {
+      final process = await Process.start('npm', args);
+      process.stdout.transform(const SystemEncoding().decoder).listen((data) {
+        for (final line in data.split('\n')) {
+          if (line.trim().isNotEmpty) _addLog(line);
+        }
+      });
+      process.stderr.transform(const SystemEncoding().decoder).listen((data) {
+        for (final line in data.split('\n')) {
+          if (line.trim().isNotEmpty) _addLog(line.trim());
+        }
+      });
+      final exitCode = await process.exitCode.timeout(
+        const Duration(minutes: 5),
+        onTimeout: () { process.kill(); return -1; },
+      );
+      _addLog('');
+      if (exitCode == 0) {
+        _addLog('[${_ts()}] ✓ $action 完成 (exit code: 0)');
+        await _checkDepsStatus();
+      } else {
+        _addLog('[${_ts()}] ✗ $action 失败 (exit code: $exitCode)');
+        _error = '$action 失败 (exit code: $exitCode)';
+      }
+    } catch (e) {
+      _addLog('[${_ts()}] ✗ 异常: $e');
+      _error = '$e';
+    }
+    if (mounted) setState(() => _operating = false);
+  }
+
+  Future<void> _installDeps() async {
+    final pkg = _packageName;
+    if (pkg.isEmpty) return;
+    await _runNpmOperation('安装', ['install', '-g', pkg]);
+    // 同时预热隔离缓存
+    _addLog('');
+    _addLog('[${_ts()}] 预热隔离缓存…');
+    final cacheRoot = mcpStdioIsolatedCacheRoot();
+    try {
+      await Process.run('npm', ['cache', 'add', pkg],
+        environment: {'npm_config_cache': '$cacheRoot/npm-cache'},
+      ).timeout(const Duration(seconds: 30));
+      _addLog('[${_ts()}] ✓ 缓存预热完成');
+    } catch (e) {
+      _addLog('[${_ts()}] 缓存预热跳过: $e');
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _updateDeps() => _runNpmOperation(
+    '更新', ['update', '-g', _packageName],
+  );
+
+  Future<void> _uninstallDeps() => _runNpmOperation(
+    '卸载', ['uninstall', '-g', _packageName],
+  );
+
+  static String _ts() {
+    final now = DateTime.now();
+    return '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}:'
+        '${now.second.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final pkg = _packageName;
+    final hasUpdate = _packageInstalled &&
+        _latestVersion != null &&
+        _installedVersion != null &&
+        _latestVersion != _installedVersion;
+
+    return Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 540),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 标题栏
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                border: Border(
+                  bottom: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.inventory_2_outlined, size: 20, color: theme.colorScheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isZh ? '依赖管理' : 'Dependency Management',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (pkg.isNotEmpty)
+                          Text(
+                            pkg,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, size: 18),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+            // 状态 + 操作按钮
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+              child: _checking
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.2),
+                        ),
+                      ),
+                    )
+                  : !_isNpxService || pkg.isEmpty
+                      ? Text(
+                          isZh
+                              ? '此服务非 npx 类型，无需管理 npm 依赖。'
+                              : 'This service is not npx-based. No npm deps to manage.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  _packageInstalled ? Icons.check_circle : Icons.cancel,
+                                  size: 18,
+                                  color: _packageInstalled
+                                      ? const Color(0xFF16A34A)
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _packageInstalled
+                                        ? '${isZh ? "已安装" : "Installed"} v${_installedVersion ?? "?"}'
+                                        : (isZh ? '未全局安装' : 'Not globally installed'),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                // 操作按钮
+                                if (!_packageInstalled)
+                                  FilledButton.tonalIcon(
+                                    onPressed: _operating ? null : _installDeps,
+                                    icon: const Icon(Icons.download_rounded, size: 18),
+                                    label: Text(isZh ? '安装' : 'Install'),
+                                  )
+                                else ...[
+                                  if (hasUpdate)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 6),
+                                      child: FilledButton.tonalIcon(
+                                        onPressed: _operating ? null : _updateDeps,
+                                        icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                                        label: Text(isZh ? '更新' : 'Update'),
+                                      ),
+                                    ),
+                                  IconButton.filledTonal(
+                                    tooltip: isZh ? '卸载' : 'Uninstall',
+                                    onPressed: _operating ? null : _uninstallDeps,
+                                    style: IconButton.styleFrom(
+                                      foregroundColor: theme.colorScheme.error,
+                                    ),
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (_latestVersion != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                '${isZh ? "最新版本" : "Latest"}: $_latestVersion'
+                                '${hasUpdate ? (isZh ? " (可更新)" : " (update available)") : ""}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: hasUpdate
+                                      ? const Color(0xFFF59E0B)
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text(
+                  _error!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+            // 进度指示
+            if (_operating)
+              LinearProgressIndicator(
+                minHeight: 3,
+                color: theme.colorScheme.primary,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              )
+            else
+              const SizedBox(height: 3),
+            // 终端输出区域
+            if (_logs.isNotEmpty || _operating)
+              Flexible(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E1E),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _logs.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: _logScroll,
+                          padding: const EdgeInsets.all(10),
+                          itemCount: _logs.length,
+                          itemBuilder: (context, index) {
+                            final line = _logs[index];
+                            return Text(
+                              line,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                height: 1.5,
+                                color: _depsLogColor(line),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _depsLogColor(String line) {
+    if (line.contains('✗') || line.toLowerCase().contains('error')) {
+      return const Color(0xFFFF6B6B);
+    }
+    if (line.contains('✓')) return const Color(0xFF4ADE80);
+    if (line.startsWith('[') && line.contains(']')) return const Color(0xFF7DD3FC);
+    return const Color(0xFFD4D4D4);
   }
 }
