@@ -81,17 +81,9 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         const SizedBox(height: 24),
         Divider(color: colorScheme.outlineVariant),
         const SizedBox(height: 18),
-        Row(
-          children: [
-            Icon(Icons.security_rounded, color: colorScheme.primary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                _localizedText(context, zh: '沙盒', en: 'Sandbox'),
-                style: theme.textTheme.titleMedium,
-              ),
-            ),
-          ],
+        Text(
+          _localizedText(context, zh: '沙盒', en: 'Sandbox'),
+          style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         Text(

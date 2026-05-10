@@ -495,29 +495,87 @@ class _ResolvedNpxPackage {
   final String entryScript;
 }
 
-/// 通过 login shell 定位 npx 包的实际安装路径和入口脚本。
+/// 通过多种策略定位 npx 包的实际安装路径和入口脚本。
 Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
+  // 解析包名（处理 @scope/name@version 格式）
+  final cleanName = packageName.replaceAll(RegExp(r'@[^/]*$'), '');
+
+  // 策略 1：直接扫描 nvm 目录（最可靠，GUI 应用中 nvm 是最常见的 node 管理器）
+  final home = Platform.environment['HOME'] ?? '';
+  if (home.isNotEmpty) {
+    final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
+    final versionsDir = Directory('$nvmDir/versions/node');
+    if (versionsDir.existsSync()) {
+      // 找到最新版本的 node
+      final versions = <String>[];
+      try {
+        for (final entity in versionsDir.listSync()) {
+          if (entity is Directory && entity.path.split('/').last.startsWith('v')) {
+            versions.add(entity.path.split('/').last);
+          }
+        }
+      } catch (_) {}
+      versions.sort(_compareVersions);
+      // 从最新版本开始查找包
+      for (final version in versions.reversed) {
+        final nodeBin = '$nvmDir/versions/node/$version/bin/node';
+        final packageDir = '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
+        if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
+          final entry = _findBinEntry(packageDir);
+          if (entry != null) {
+            return _ResolvedNpxPackage(nodeBin: nodeBin, entryScript: entry);
+          }
+        }
+      }
+    }
+
+    // 策略 2：检查 volta
+    final voltaDir = '$home/.volta/tools/image/packages';
+    if (Directory(voltaDir).existsSync()) {
+      // volta 的全局包在 ~/.volta/tools/image/packages/<name>/
+      final voltaPkgDir = '$voltaDir/$cleanName';
+      if (Directory(voltaPkgDir).existsSync()) {
+        final voltaNode = '$home/.volta/bin/node';
+        if (File(voltaNode).existsSync()) {
+          final entry = _findBinEntry(voltaPkgDir);
+          if (entry != null) {
+            return _ResolvedNpxPackage(nodeBin: voltaNode, entryScript: entry);
+          }
+        }
+      }
+    }
+  }
+
+  // 策略 3：通过 login shell 查询（兜底）
   try {
     final shell = _pickShellForLaunch();
-    // 获取 node 和全局 node_modules 路径
     final result = await Process.run(
-      shell, ['-l', '-c', 'echo \$(which node);\$(npm root -g)'],
+      shell, ['-l', '-c', 'which node && npm root -g'],
     ).timeout(const Duration(seconds: 8));
-    if (result.exitCode != 0) return null;
+    if (result.exitCode == 0) {
+      final lines = result.stdout.toString().trim().split('\n');
+      if (lines.length >= 2) {
+        final nodeBin = lines[0].trim();
+        final globalRoot = lines[1].trim();
+        if (nodeBin.isNotEmpty && globalRoot.isNotEmpty && File(nodeBin).existsSync()) {
+          final packageDir = '$globalRoot/$cleanName';
+          if (Directory(packageDir).existsSync()) {
+            final entry = _findBinEntry(packageDir);
+            if (entry != null) {
+              return _ResolvedNpxPackage(nodeBin: nodeBin, entryScript: entry);
+            }
+          }
+        }
+      }
+    }
+  } catch (_) {}
 
-    final lines = result.stdout.toString().trim().split('\n');
-    if (lines.length < 2) return null;
-    final nodeBin = lines[0].trim();
-    final globalRoot = lines[1].trim();
-    if (nodeBin.isEmpty || globalRoot.isEmpty) return null;
-    if (!File(nodeBin).existsSync()) return null;
+  return null;
+}
 
-    // 解析包名（处理 @scope/name@version 格式）
-    final cleanName = packageName.replaceAll(RegExp(r'@[^/]*$'), ''); // 移除 @version
-    final packageDir = '$globalRoot/$cleanName';
-    if (!Directory(packageDir).existsSync()) return null;
-
-    // 从 package.json 读取 bin 入口
+/// 从 package.json 的 bin 字段解析入口脚本路径。
+String? _findBinEntry(String packageDir) {
+  try {
     final pkgJsonFile = File('$packageDir/package.json');
     if (!pkgJsonFile.existsSync()) return null;
     final pkgJson = jsonDecode(pkgJsonFile.readAsStringSync());
@@ -525,17 +583,23 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
     String? entryScript;
     if (bin is String) {
       entryScript = '$packageDir/$bin';
-    } else if (bin is Map) {
-      // 取第一个 bin 入口
-      final firstBin = bin.values.first;
-      if (firstBin is String) entryScript = '$packageDir/$firstBin';
+    } else if (bin is Map && bin.isNotEmpty) {
+      entryScript = '$packageDir/${bin.values.first}';
     }
-    if (entryScript == null || !File(entryScript).existsSync()) return null;
+    if (entryScript != null && File(entryScript).existsSync()) return entryScript;
+  } catch (_) {}
+  return null;
+}
 
-    return _ResolvedNpxPackage(nodeBin: nodeBin, entryScript: entryScript);
-  } catch (_) {
-    return null;
+int _compareVersions(String a, String b) {
+  final ap = a.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
+  final bp = b.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
+  for (int i = 0; i < 3; i++) {
+    final av = i < ap.length ? ap[i] : 0;
+    final bv = i < bp.length ? bp[i] : 0;
+    if (av != bv) return av.compareTo(bv);
   }
+  return 0;
 }
 
 /// 选择 login shell。
