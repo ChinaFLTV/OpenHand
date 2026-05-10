@@ -28,6 +28,9 @@ interface ExtractedMeta {
   sandboxBlocked: boolean;
   sandboxBackend: string;
   sandboxReason: string;
+  sandboxProxyEnabled: boolean;
+  sandboxProxyHttpPort: number;
+  sandboxProxySocksPort: number;
 }
 
 type ToolMetaIconName =
@@ -125,6 +128,9 @@ function extract(meta: Record<string, unknown> | undefined): ExtractedMeta {
     sandboxBlocked: asBool(m['sandbox_blocked']),
     sandboxBackend: asString(m['sandbox_backend']),
     sandboxReason: asString(m['sandbox_unavailable_reason']),
+    sandboxProxyEnabled: asBool(m['sandbox_proxy_enabled']),
+    sandboxProxyHttpPort: asNumber(m['sandbox_proxy_http_port']),
+    sandboxProxySocksPort: asNumber(m['sandbox_proxy_socks_port']),
   };
 }
 
@@ -284,6 +290,21 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
             ? t('detail.tool.sandbox.blocked', '沙盒拦截')
             : t('detail.tool.sandbox.applied', '沙盒')}
           {ex.sandboxBackend ? ` · ${ex.sandboxBackend}` : ''}
+        </span>
+      ) : null}
+      {ex.sandboxProxyEnabled ? (
+        <span
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+          style={{
+            border: '1px solid var(--m3-outline)',
+            color: 'var(--m3-tertiary)',
+            background: 'color-mix(in srgb, var(--m3-tertiary) 10%, transparent)',
+            fontWeight: 600,
+          }}
+          title={`HTTP ${ex.sandboxProxyHttpPort || '-'}${ex.sandboxProxySocksPort ? ` · SOCKS ${ex.sandboxProxySocksPort}` : ''}`}
+        >
+          <ToolMetaIcon name="server" />
+          {t('detail.tool.sandbox.proxy', '沙盒代理')}
         </span>
       ) : null}
       {argumentsStreaming ? (

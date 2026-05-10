@@ -144,7 +144,6 @@ class _SandboxProxyInstance {
     return ServerSocket.bind(
       InternetAddress.loopbackIPv4,
       requestedPort > 0 ? requestedPort : 0,
-      shared: false,
     );
   }
 
@@ -285,7 +284,10 @@ class _SandboxProxyInstance {
     }
   }
 
-  Future<String?> _readSocksAddress(_SocketReadBuffer reader, int addressType) async {
+  Future<String?> _readSocksAddress(
+    _SocketReadBuffer reader,
+    int addressType,
+  ) async {
     switch (addressType) {
       case 0x01:
         final bytes = await reader.readExactly(4);
@@ -307,8 +309,10 @@ class _SandboxProxyInstance {
   }
 
   void _writeSocksReply(Socket client, int status) {
-    client.add(Uint8List.fromList(<int>[0x05, status, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
-    if (status != 0x00) client.destroy();
+    client.add(
+      Uint8List.fromList(<int>[0x05, status, 0x00, 0x01, 0, 0, 0, 0, 0, 0]),
+    );
+    if (status != 0x00) _closeSocket(client);
   }
 
   _DomainDecision _domainDecision(String rawHost, int port) {
@@ -339,8 +343,11 @@ class _SandboxProxyInstance {
     final values = <String>[host, '$host:$port'];
     try {
       final regex = rule.matchMode == AiDenyCommandMatchMode.regex
-          ? RegExp(pattern, multiLine: true)
-          : RegExp(simplePatternToRegex(pattern.toLowerCase()), multiLine: true);
+          ? RegExp(pattern, multiLine: true, caseSensitive: false)
+          : RegExp(
+              simplePatternToRegex(pattern.toLowerCase()),
+              multiLine: true,
+            );
       return values.any(regex.hasMatch);
     } catch (_) {
       return false;
@@ -355,13 +362,10 @@ class _SandboxProxyInstance {
     return host;
   }
 
-  void _pipeBufferedClientToRemote(
-    _SocketReadBuffer reader,
-    Socket remote,
-  ) {
+  void _pipeBufferedClientToRemote(_SocketReadBuffer reader, Socket remote) {
     reader.handOff(
       (data) {
-        if (!remote.destroyed) remote.add(data);
+        _addToSocket(remote, data, 'client to remote');
       },
       onDone: () => remote.destroy(),
       onError: (Object error, StackTrace stack) {
@@ -374,7 +378,7 @@ class _SandboxProxyInstance {
   void _pipeRemoteToClient(Socket remote, Socket client) {
     remote.listen(
       (data) {
-        if (!client.destroyed) client.add(data);
+        _addToSocket(client, data, 'remote to client');
       },
       onDone: () => client.destroy(),
       onError: (Object error, StackTrace stack) {
@@ -383,6 +387,15 @@ class _SandboxProxyInstance {
       },
       cancelOnError: true,
     );
+  }
+
+  void _addToSocket(Socket socket, Uint8List data, String where) {
+    try {
+      socket.add(data);
+    } catch (error, stack) {
+      silentLog('ai_sandbox_proxy', where, error, stack);
+      socket.destroy();
+    }
   }
 
   void _writeHttpError(Socket client, int status, String message) {
@@ -402,7 +415,15 @@ class _SandboxProxyInstance {
       ),
     );
     client.add(body);
-    client.destroy();
+    _closeSocket(client);
+  }
+
+  void _closeSocket(Socket socket) {
+    unawaited(
+      socket.close().catchError((Object error, StackTrace stack) {
+        silentLog('ai_sandbox_proxy', 'close socket', error, stack);
+      }),
+    );
   }
 
   void _trackSocket(Socket socket) {
@@ -490,7 +511,6 @@ class _HttpProxyRequest {
     final uri = Uri.tryParse(target);
     if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
       final defaultPort = uri.scheme.toLowerCase() == 'https' ? 443 : 80;
-      final forwardTarget = uri.replace(scheme: '', host: '', port: 0).toString();
       return _HttpProxyRequest(
         method: method,
         target: target,
@@ -498,7 +518,7 @@ class _HttpProxyRequest {
         headerLines: headerLines,
         host: uri.host,
         port: uri.hasPort ? uri.port : defaultPort,
-        forwardTarget: forwardTarget.isEmpty ? '/' : forwardTarget,
+        forwardTarget: _originForm(uri),
       );
     }
 
@@ -516,6 +536,12 @@ class _HttpProxyRequest {
       forwardTarget: target.isEmpty ? '/' : target,
     );
   }
+
+  static String _originForm(Uri uri) {
+    final path = uri.path.isEmpty ? '/' : uri.path;
+    if (uri.query.isEmpty) return path;
+    return '$path?${uri.query}';
+  }
 }
 
 class _HostPort {
@@ -532,7 +558,9 @@ class _HostPort {
       if (closing <= 0) return null;
       final host = trimmed.substring(1, closing);
       final rest = trimmed.substring(closing + 1);
-      final port = rest.startsWith(':') ? int.tryParse(rest.substring(1)) : null;
+      final port = rest.startsWith(':')
+          ? int.tryParse(rest.substring(1))
+          : null;
       return _HostPort(host, _normalizePort(port, defaultPort));
     }
     final colon = trimmed.lastIndexOf(':');

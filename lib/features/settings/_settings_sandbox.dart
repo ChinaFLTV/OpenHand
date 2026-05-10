@@ -182,8 +182,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           ),
           subtitle: _localizedText(
             context,
-            zh: '关闭后，无域名规则的沙盒命令会禁用网络。域名规则需配合代理端口。',
-            en: 'When off, sandboxed commands without domain rules run with networking disabled. Domain rules require a proxy port.',
+            zh: '关闭后，无域名规则的沙盒命令会禁用网络；配置域名规则时会启动本地过滤代理。',
+            en: 'When off, sandboxed commands without domain rules run with networking disabled. Domain rules start a local filtering proxy.',
           ),
           control: Switch(
             value: settings.allowNetworkWhenNoDomainRules,
@@ -256,8 +256,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           title: _localizedText(context, zh: '允许访问域名', en: 'Allowed Domains'),
           body: _localizedText(
             context,
-            zh: '用于沙盒代理过滤。简单模式支持 *，正则模式按原样传给代理环境。',
-            en: 'Used by the sandbox proxy filter. Simple mode supports *, regex mode is passed through to the proxy environment.',
+            zh: '用于本地沙盒代理过滤。简单模式支持 *，正则模式按原样匹配 host 或 host:port。',
+            en: 'Used by the local sandbox proxy filter. Simple mode supports *, regex mode matches host or host:port as written.',
           ),
           icon: Icons.public_rounded,
           rules: settings.allowedDomains,
@@ -514,6 +514,15 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         Text(
           _localizedText(context, zh: '沙盒代理端口', en: 'Sandbox Proxy Ports'),
           style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _localizedText(
+            context,
+            zh: 'HTTP 为空或 0 时自动选择临时端口；SOCKS 为空或 0 时不启用 SOCKS 入口。代理随沙盒命令启动并自动清理。',
+            en: 'Blank or 0 HTTP uses an automatic temporary port; blank or 0 SOCKS disables the SOCKS entry point. The proxy starts per sandboxed command and is cleaned up automatically.',
+          ),
+          style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 10),
         Wrap(

@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/silent_log.dart';
 import '../model/ai_deny_command_rule.dart';
 import '../service/ai_bash_tool_service.dart';
+import '../service/ai_sandbox_proxy_service.dart';
 import '../service/ai_sandbox_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -56,6 +57,7 @@ class AiBashBackgroundTool extends AiTool {
           stack,
         );
       }
+      unawaited(session.closeProxy());
     }
     _sessions.clear();
   }
@@ -149,6 +151,7 @@ class AiBashBackgroundTool extends AiTool {
             : launchSpec.environment,
       );
     } catch (error, stack) {
+      await launchSpec.proxyLease?.close();
       silentLog('ai_bash_background', 'spawn $cmd', error, stack);
       return AiToolUtils.invalidResult(
         'BashBackground',
@@ -163,6 +166,7 @@ class AiBashBackgroundTool extends AiTool {
       workingDirectory: launchSpec.workingDirectory,
       process: process,
       startedAtMs: DateTime.now().millisecondsSinceEpoch,
+      proxyLease: launchSpec.proxyLease,
     );
     _sessions[handle] = session;
     process.stdout
@@ -185,6 +189,7 @@ class AiBashBackgroundTool extends AiTool {
       process.exitCode.then((code) {
         session.exitCode = code;
         session.alive = false;
+        unawaited(session.closeProxy());
       }),
     );
     final output = StringBuffer()
@@ -199,6 +204,12 @@ class AiBashBackgroundTool extends AiTool {
         ..writeln(
           'sandbox_backend: ${launchSpec.metadata['sandbox_backend'] ?? ''}',
         );
+    }
+    if (launchSpec.metadata['sandbox_proxy_enabled'] == true) {
+      output.writeln(
+        'sandbox_proxy: http=${launchSpec.metadata['sandbox_proxy_http_port'] ?? ''}'
+        '${launchSpec.metadata['sandbox_proxy_socks_port'] == null ? '' : ', socks=${launchSpec.metadata['sandbox_proxy_socks_port']}'}',
+      );
     }
     return AiToolUtils.simpleSuccessResult(
       command: 'BashBackground start $handle',
@@ -326,6 +337,7 @@ class AiBashBackgroundTool extends AiTool {
     } catch (error, stack) {
       silentLog('ai_bash_background', 'stop $handle', error, stack);
     }
+    await session.closeProxy();
     return AiToolUtils.simpleSuccessResult(
       command: 'BashBackground stop $handle',
       output:
@@ -376,6 +388,7 @@ class _BgSession {
     required this.workingDirectory,
     required this.process,
     required this.startedAtMs,
+    this.proxyLease,
   });
 
   final String handle;
@@ -383,10 +396,18 @@ class _BgSession {
   final String workingDirectory;
   final Process process;
   final int startedAtMs;
+  final AiSandboxProxyLease? proxyLease;
   final StringBuffer _stdoutPending = StringBuffer();
   final StringBuffer _stderrPending = StringBuffer();
   bool alive = true;
   int? exitCode;
+  bool _proxyClosed = false;
+
+  Future<void> closeProxy() async {
+    if (_proxyClosed) return;
+    _proxyClosed = true;
+    await proxyLease?.close();
+  }
 
   void appendStdout(String chunk, int maxBytes) {
     _appendInto(_stdoutPending, chunk, maxBytes);

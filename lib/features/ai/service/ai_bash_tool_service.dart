@@ -119,6 +119,12 @@ class BashToolExecutionResult {
         'sandbox_unavailable_reason: ${sandboxMetadata['sandbox_unavailable_reason']}',
       );
     }
+    if (sandboxMetadata['sandbox_proxy_enabled'] == true) {
+      buffer.writeln(
+        'sandbox_proxy: http=${sandboxMetadata['sandbox_proxy_http_port'] ?? ''}'
+        '${sandboxMetadata['sandbox_proxy_socks_port'] == null ? '' : ', socks=${sandboxMetadata['sandbox_proxy_socks_port']}'}',
+      );
+    }
     if (stdout.trim().isNotEmpty) {
       buffer
         ..writeln('stdout:')
@@ -489,6 +495,10 @@ class AiBashToolService {
       command: normalizedCommand,
       workingDirectory: displayedWorkingDirectory,
     );
+    Future<void> closeLaunchProxy() async {
+      await launchSpec.proxyLease?.close();
+    }
+
     final sandboxMetadata = launchSpec.metadata;
     if (launchSpec.blocked) {
       return BashToolExecutionResult(
@@ -543,6 +553,7 @@ class AiBashToolService {
             ]);
           }
         } on TimeoutException {
+          await closeLaunchProxy();
           return BashToolExecutionResult(
             status: BashToolExecutionStatus.rejected,
             command: normalizedCommand,
@@ -557,6 +568,7 @@ class AiBashToolService {
           );
         }
         if (outcome.cancelled) {
+          await closeLaunchProxy();
           return BashToolExecutionResult(
             status: BashToolExecutionStatus.cancelled,
             command: normalizedCommand,
@@ -571,6 +583,7 @@ class AiBashToolService {
           );
         }
         if (!outcome.approved) {
+          await closeLaunchProxy();
           return BashToolExecutionResult(
             status: BashToolExecutionStatus.rejected,
             command: normalizedCommand,
@@ -617,6 +630,7 @@ class AiBashToolService {
     try {
       process = await _startProcess(launchSpec);
     } on ProcessException catch (error) {
+      await closeLaunchProxy();
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: normalizedCommand,
@@ -779,6 +793,7 @@ class AiBashToolService {
       await stdoutSubscription.cancel();
       await stderrSubscription.cancel();
       stopwatch.stop();
+      await closeLaunchProxy();
     }
 
     if (cancelled) {

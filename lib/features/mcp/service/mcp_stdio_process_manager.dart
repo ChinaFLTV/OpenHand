@@ -102,19 +102,18 @@ class McpStdioProcessManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 通过 login shell 启动，确保 nvm/fnm/volta 等环境正确加载。
-      // 这比直接 Process.start(npx) 更可靠——GUI 应用的进程 PATH 极简，
-      // 不含版本管理器的 shim，导致解析到系统自带的旧版 npx。
-      final commandLine = _buildCommandLine(server);
-      final shell = _pickShellForLaunch();
+      // 解析实际的可执行文件和参数。对于 npx 命令，尝试直接定位已安装包的
+      // 入口脚本用 node 执行，避免 npx 的启动开销和 stdin 转发问题。
+      final launch = await _resolveDirectLaunch(server);
       final process = await Process.start(
-        shell,
-        ['-l', '-c', commandLine],
+        launch.executable,
+        launch.args,
+        environment: launch.environment,
       );
 
       final logs = <String>[];
       logs.add('[${_timestamp()}] 进程已启动 (PID: ${process.pid})');
-      logs.add('[${_timestamp()}] 命令: $commandLine');
+      logs.add('[${_timestamp()}] 命令: ${launch.executable} ${launch.args.join(' ')}');
       logs.add('');
 
       final managed = _ManagedProcess(
@@ -452,13 +451,91 @@ class _ManagedProcess {
   final Process? process;
 }
 
-/// 构建完整的命令行字符串（用于 login shell -c 执行）。
-String _buildCommandLine(McpServer server) {
+class _DirectLaunch {
+  const _DirectLaunch({required this.executable, required this.args, this.environment});
+  final String executable;
+  final List<String> args;
+  final Map<String, String>? environment;
+}
+
+/// 解析 STDIO MCP 服务的直接启动参数。
+/// 对于 npx 命令，尝试定位已全局安装的包入口脚本，直接用 node 执行。
+/// 这避免了 npx 的启动开销、下载延迟、以及 login shell stdin 转发问题。
+Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
   final command = server.command.trim();
-  final args = server.args.map((a) => a.trim()).where((a) => a.isNotEmpty);
-  final parts = [command, ...args];
-  // 对包含空格的参数加引号
-  return parts.map((p) => p.contains(' ') ? "'$p'" : p).join(' ');
+  final isNpx = command == 'npx' || command.endsWith('/npx');
+
+  if (isNpx && server.args.isNotEmpty) {
+    final packageName = server.args.first.trim();
+    final extraArgs = server.args.length > 1 ? server.args.sublist(1) : const <String>[];
+
+    // 尝试通过 login shell 定位已安装包的实际路径
+    final resolved = await _resolveNpxPackagePath(packageName);
+    if (resolved != null) {
+      return _DirectLaunch(
+        executable: resolved.nodeBin,
+        args: [resolved.entryScript, ...extraArgs],
+      );
+    }
+  }
+
+  // 回退：通过 login shell 执行原始命令
+  final shell = _pickShellForLaunch();
+  final cmdLine = [command, ...server.args].map((p) => p.contains(' ') ? "'$p'" : p).join(' ');
+  // 使用 exec 替换 shell 进程，确保 stdin 直接连接到目标进程
+  return _DirectLaunch(
+    executable: shell,
+    args: ['-l', '-c', 'exec $cmdLine'],
+  );
+}
+
+class _ResolvedNpxPackage {
+  const _ResolvedNpxPackage({required this.nodeBin, required this.entryScript});
+  final String nodeBin;
+  final String entryScript;
+}
+
+/// 通过 login shell 定位 npx 包的实际安装路径和入口脚本。
+Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
+  try {
+    final shell = _pickShellForLaunch();
+    // 获取 node 和全局 node_modules 路径
+    final result = await Process.run(
+      shell, ['-l', '-c', 'echo \$(which node);\$(npm root -g)'],
+    ).timeout(const Duration(seconds: 8));
+    if (result.exitCode != 0) return null;
+
+    final lines = result.stdout.toString().trim().split('\n');
+    if (lines.length < 2) return null;
+    final nodeBin = lines[0].trim();
+    final globalRoot = lines[1].trim();
+    if (nodeBin.isEmpty || globalRoot.isEmpty) return null;
+    if (!File(nodeBin).existsSync()) return null;
+
+    // 解析包名（处理 @scope/name@version 格式）
+    final cleanName = packageName.replaceAll(RegExp(r'@[^/]*$'), ''); // 移除 @version
+    final packageDir = '$globalRoot/$cleanName';
+    if (!Directory(packageDir).existsSync()) return null;
+
+    // 从 package.json 读取 bin 入口
+    final pkgJsonFile = File('$packageDir/package.json');
+    if (!pkgJsonFile.existsSync()) return null;
+    final pkgJson = jsonDecode(pkgJsonFile.readAsStringSync());
+    final bin = pkgJson['bin'];
+    String? entryScript;
+    if (bin is String) {
+      entryScript = '$packageDir/$bin';
+    } else if (bin is Map) {
+      // 取第一个 bin 入口
+      final firstBin = bin.values.first;
+      if (firstBin is String) entryScript = '$packageDir/$firstBin';
+    }
+    if (entryScript == null || !File(entryScript).existsSync()) return null;
+
+    return _ResolvedNpxPackage(nodeBin: nodeBin, entryScript: entryScript);
+  } catch (_) {
+    return null;
+  }
 }
 
 /// 选择 login shell。

@@ -318,6 +318,19 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                               : '${_localizedText(context, zh: '沙盒', en: 'Sandbox')}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
                         ),
                       ),
+                    if (message.metadata['sandbox_proxy_enabled'] == true)
+                      Tooltip(
+                        message:
+                            'HTTP ${message.metadata['sandbox_proxy_http_port'] ?? '-'}${message.metadata['sandbox_proxy_socks_port'] == null ? '' : ' · SOCKS ${message.metadata['sandbox_proxy_socks_port']}'}',
+                        child: _ToolExecutionChip(
+                          icon: Icons.hub_outlined,
+                          label: _localizedText(
+                            context,
+                            zh: '沙盒代理',
+                            en: 'Sandbox proxy',
+                          ),
+                        ),
+                      ),
                     // WebSearch 工具特有：从 metadata 读取 websearch_cache
                     // 状态，给卡片附一个一眼能识别的「闪电=命中 / 云下载=
                     // 落盘 / 关闭=未启用」徽标，悬停显示详细信息。

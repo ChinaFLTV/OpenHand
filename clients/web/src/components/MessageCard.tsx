@@ -1038,6 +1038,9 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
   const sandboxBlocked = asBool(metadata['sandbox_blocked']);
   const sandboxBackend = asString(metadata['sandbox_backend']);
   const sandboxReason = asString(metadata['sandbox_unavailable_reason']);
+  const sandboxProxyEnabled = asBool(metadata['sandbox_proxy_enabled']);
+  const sandboxProxyHttpPort = asNumber(metadata['sandbox_proxy_http_port']);
+  const sandboxProxySocksPort = asNumber(metadata['sandbox_proxy_socks_port']);
   const argumentsStreaming = asBool(metadata['tool_arguments_streaming']);
   const statusLower = status.toLowerCase();
   const terminalStatus =
@@ -1070,6 +1073,12 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
           <MetaChip
             label={sandboxBlocked ? t('detail.tool.sandbox.blocked', '沙盒拦截') : `${t('detail.tool.sandbox.applied', '沙盒')}${sandboxBackend ? ` · ${sandboxBackend}` : ''}`}
             tone={sandboxBlocked ? 'danger' : 'ok'}
+          />
+        ) : null}
+        {sandboxProxyEnabled ? (
+          <MetaChip
+            label={`${t('detail.tool.sandbox.proxy', '沙盒代理')} · HTTP ${sandboxProxyHttpPort || '-'}${sandboxProxySocksPort ? ` · SOCKS ${sandboxProxySocksPort}` : ''}`}
+            tone="ok"
           />
         ) : null}
         {workingDirectory ? <MetaChip label={workingDirectory} mono /> : null}
