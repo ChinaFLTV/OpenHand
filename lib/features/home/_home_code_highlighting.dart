@@ -307,8 +307,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
+                    // 阶段⑳：大代码块（> 8KB）使用 RichText 而非 SelectableText
+                    // 以避免 SelectableText 的 EditableText 层在大 TextSpan 上
+                    // 的 O(n) layout 开销。用户仍可通过 header 的复制按钮获取内容。
                     child: widget.wrapLines
-                        ? (widget.selectable
+                        ? (widget.selectable && widget.content.length <= 8192
                               ? SelectableText.rich(
                                   _highlightedSpan ?? const TextSpan(),
                                 )
@@ -317,7 +320,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                                 ))
                         : SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
-                            child: widget.selectable
+                            child: widget.selectable && widget.content.length <= 8192
                                 ? SelectableText.rich(
                                     _highlightedSpan ?? const TextSpan(),
                                   )

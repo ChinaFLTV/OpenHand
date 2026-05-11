@@ -790,9 +790,12 @@ class _SafeMarkdownBody extends StatefulWidget {
 // Markdown bodies above this size get a one-frame delayed parse: on the
 // first frame we paint a plain-text placeholder so the transcript reveal /
 // scroll lands instantly, then upgrade to the rich Markdown widget tree on
-// the next frame. Smaller bodies (<= 2 KB) parse synchronously since the
+// the next frame. Smaller bodies (<= 1.5 KB) parse synchronously since the
 // cost is negligible and the swap would otherwise produce a visible flicker.
-const int _markdownDeferredParseThresholdChars = 2 * 1024;
+//
+// 阶段⑳ — 从 2 KiB 下调到 1.5 KiB：展开含代码块的消息时，即使
+// 1.5–2 KiB 的内容也可能包含多个代码块，同步解析仍会拖慢展开帧。
+const int _markdownDeferredParseThresholdChars = 1536;
 
 class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     implements MarkdownBuilderDelegate {
