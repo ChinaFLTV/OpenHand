@@ -9,12 +9,11 @@ const int _highlightSkipThresholdChars = 80 * 1024;
 /// Code-block length above which we defer the first highlight pass to the
 /// next frame, painting plain text on the first frame.
 ///
-/// 阶段⑳ — 从 2 KiB 大幅下调到 200 字节：用户反馈含多代码块的消息
-/// 展开时严重卡顿/ANR。根因是多个 512–2048 字节的代码块在同一帧内
-/// 全部同步 tokenize。将阈值降到 200 字节后，除了极短的单行代码片段
-/// 外，所有代码块都走 deferred 路径——首帧仅渲染纯文本占位，后续帧
-/// 逐个补染色。由于 LRU cache 命中率高，二次展开几乎零开销。
-const int _highlightDeferThresholdChars = 200;
+/// 阶段㉑ — 设为 1024 字节：平衡首帧响应速度与视觉闪烁。
+/// < 1KB 的短代码片段同步高亮（瞬间完成，无闪烁）；
+/// >= 1KB 的代码块走 FrameScheduler 分帧高亮（首帧纯文本，后续帧补色）。
+/// _buildCodeBody 的 null 回退确保即使 span 为 null 也能显示内容。
+const int _highlightDeferThresholdChars = 1024;
 
 /// Process-wide LRU cache for parsed code-block `TextSpan`s. The same code
 /// snippet (e.g. a tool result, a generated diff) frequently appears in
@@ -38,9 +37,9 @@ class _HighlightFrameScheduler {
   final List<VoidCallback> _pending = [];
   bool _draining = false;
 
-  /// 每帧最多执行的 highlight 任务数。2 个小代码块的 tokenize 通常
-  /// < 4ms，不会超过 16ms 帧预算。
-  static const int _maxPerFrame = 2;
+  /// 每帧最多执行的 highlight 任务数。3 个代码块的 tokenize 通常
+  /// < 6ms（widget 树已简化），不会超过 16ms 帧预算。
+  static const int _maxPerFrame = 3;
 
   void schedule(VoidCallback task) {
     _pending.add(task);
@@ -260,105 +259,73 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     );
     final runLabel = _localizedText(context, zh: '运行', en: 'Run');
     final isHtmlLanguage = _isHtmlLanguage(effectiveLanguage);
-    // Use ClipRRect for corner clipping to avoid ghosting artifacts
-    // from overlapping border + background rendering at rounded corners.
-    return DecoratedBox(
+    // 阶段㉑：简化 widget 树深度，移除 BoxShadow（GPU 开销大）和多余嵌套。
+    // 原来 12 层嵌套 → 现在 6 层，减少 layout/paint 开销。
+    return Container(
       decoration: BoxDecoration(
+        color: palette.containerColor,
         borderRadius: _borderRadius18,
-        boxShadow: [
-          BoxShadow(
-            color: palette.shadowColor,
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+        border: Border.all(color: palette.borderColor),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(
+              color: palette.headerColor,
+              border: Border(bottom: BorderSide(color: palette.dividerColor)),
+            ),
+            child: Row(
+              children: [
+                if (effectiveLanguage != null)
+                  _buildHeaderPill(
+                    label: effectiveLanguage,
+                    icon: Icons.code_rounded,
+                    backgroundColor: palette.badgeColor,
+                    foregroundColor: palette.badgeTextColor,
+                  )
+                else
+                  const SizedBox(height: 32),
+                const Spacer(),
+                _buildHeaderPill(
+                  label: copyLabel,
+                  icon: _copied
+                      ? Icons.check_rounded
+                      : Icons.content_copy_rounded,
+                  backgroundColor: palette.actionColor,
+                  foregroundColor: palette.actionTextColor,
+                  onTap: _copyCodeBlock,
+                ),
+                const SizedBox(width: 8),
+                _buildHeaderPill(
+                  label: downloadLabel,
+                  icon: _downloaded
+                      ? Icons.check_rounded
+                      : Icons.download_rounded,
+                  backgroundColor: palette.actionColor,
+                  foregroundColor: palette.actionTextColor,
+                  onTap: () => _downloadCodeBlock(effectiveLanguage),
+                ),
+                if (isHtmlLanguage) ...[
+                  const SizedBox(width: 8),
+                  _buildHeaderPill(
+                    label: runLabel,
+                    icon: Icons.play_arrow_rounded,
+                    backgroundColor: palette.actionColor,
+                    foregroundColor: palette.actionTextColor,
+                    onTap: _runHtmlPreview,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: _buildCodeBody(palette),
           ),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: _borderRadius18,
-        child: Container(
-          decoration: BoxDecoration(
-            color: palette.containerColor,
-            borderRadius: _borderRadius18,
-            border: Border.all(color: palette.borderColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: palette.headerColor,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(17),
-                    topRight: Radius.circular(17),
-                  ),
-                  border: Border(
-                    bottom: BorderSide(color: palette.dividerColor),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                  child: Row(
-                    children: [
-                      if (effectiveLanguage != null)
-                        _buildHeaderPill(
-                          label: effectiveLanguage,
-                          icon: Icons.code_rounded,
-                          backgroundColor: palette.badgeColor,
-                          foregroundColor: palette.badgeTextColor,
-                        )
-                      else
-                        const SizedBox(height: 32),
-                      const Spacer(),
-                      _buildHeaderPill(
-                        label: copyLabel,
-                        icon: _copied
-                            ? Icons.check_rounded
-                            : Icons.content_copy_rounded,
-                        backgroundColor: palette.actionColor,
-                        foregroundColor: palette.actionTextColor,
-                        onTap: _copyCodeBlock,
-                      ),
-                      const SizedBox(width: 8),
-                      _buildHeaderPill(
-                        label: downloadLabel,
-                        icon: _downloaded
-                            ? Icons.check_rounded
-                            : Icons.download_rounded,
-                        backgroundColor: palette.actionColor,
-                        foregroundColor: palette.actionTextColor,
-                        onTap: () => _downloadCodeBlock(effectiveLanguage),
-                      ),
-                      if (isHtmlLanguage) ...[
-                        const SizedBox(width: 8),
-                        _buildHeaderPill(
-                          label: runLabel,
-                          icon: Icons.play_arrow_rounded,
-                          backgroundColor: palette.actionColor,
-                          foregroundColor: palette.actionTextColor,
-                          onTap: _runHtmlPreview,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: palette.bodyColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: palette.bodyBorderColor),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: _buildCodeBody(palette),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

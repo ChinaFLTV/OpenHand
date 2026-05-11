@@ -88,80 +88,50 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
         />
       ),
       code: (props: any) => {
-        // react-markdown v10: detect block code by checking if parent is <pre>.
-        // The `node` prop contains hast node; its parent info isn't directly
-        // available, but block code always has className from rehype-highlight
-        // OR is the direct child of a <pre> element. We use a more robust check:
-        // if className exists (rehype-highlight always adds 'hljs' or 'language-X')
-        // OR if the element has multiple lines, treat as block code.
+        // Block code detection: rehype-highlight adds className to block code.
+        // Also check if children contain React elements (spans from highlighting)
+        // which indicates this is a processed block code element.
         const { className, children, node, ...rest } = props;
-        const textContent = typeof children === 'string'
-          ? children
-          : Array.isArray(children)
-            ? children.filter((c: unknown) => typeof c === 'string').join('')
-            : '';
-        const hasClass = Boolean(className);
-        const isMultiline = textContent.includes('\n');
-        const isBlock = hasClass || isMultiline;
+        const hasHljsClass = Boolean(className);
+        const hasElementChildren = Array.isArray(children) && children.some(
+          (c: unknown) => c != null && typeof c === 'object',
+        );
+        const isBlock = hasHljsClass || hasElementChildren;
         if (isBlock) {
           const lang = className
             ?.split(' ')
             .find((c: string) => c.startsWith('language-'))
             ?.replace('language-', '') || null;
+          // Extract plain text for copy button
+          const extractText = (nodes: unknown): string => {
+            if (typeof nodes === 'string') return nodes;
+            if (Array.isArray(nodes)) return nodes.map(extractText).join('');
+            if (nodes != null && typeof nodes === 'object') {
+              const n = nodes as any;
+              if (n.props?.children) return extractText(n.props.children);
+            }
+            return '';
+          };
+          const plainText = extractText(children);
           return (
-            <div style={{
-              position: 'relative',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              border: '1px solid color-mix(in srgb, var(--m3-outline) 40%, transparent)',
-              margin: '0.5rem 0',
-              background: 'color-mix(in srgb, var(--m3-on-surface) 4%, transparent)',
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '6px 12px',
-                background: 'color-mix(in srgb, var(--m3-on-surface) 5%, transparent)',
-                borderBottom: '1px solid color-mix(in srgb, var(--m3-outline) 30%, transparent)',
-                gap: '8px',
-              }}>
-                {lang && (
-                  <span style={{
-                    fontSize: '0.78em',
-                    fontWeight: 700,
-                    color: 'var(--m3-on-surface-variant)',
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    background: 'color-mix(in srgb, var(--m3-primary) 8%, transparent)',
-                  }}>{lang}</span>
-                )}
+            <div class="oh-code-block">
+              <div class="oh-code-block-header">
+                {lang && <span class="oh-code-block-lang">{lang}</span>}
                 <span style={{ flex: 1 }} />
                 <button
                   type="button"
-                  onClick={() => {
-                    const text = typeof children === 'string'
-                      ? children
-                      : (node?.children?.[0]?.value ?? textContent ?? '');
-                    navigator.clipboard?.writeText(text);
-                  }}
-                  style={{
-                    fontSize: '0.78em',
-                    fontWeight: 700,
-                    color: 'var(--m3-on-surface-variant)',
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    background: 'color-mix(in srgb, var(--m3-on-surface) 6%, transparent)',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
+                  class="oh-code-block-copy"
+                  onClick={() => navigator.clipboard?.writeText(plainText)}
                 >复制</button>
               </div>
               <code className={className} {...rest} style={{
                 display: 'block',
                 padding: '0.75rem 1rem',
                 overflowX: 'auto',
-                fontSize: '0.88em',
+                fontSize: '0.86em',
+                lineHeight: 1.6,
                 background: 'transparent',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
               }}>
                 {children}
               </code>
@@ -175,7 +145,7 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
             style={{
               padding: '1px 5px',
               borderRadius: '4px',
-              background: 'color-mix(in srgb, var(--m3-on-surface) 8%, transparent)',
+              background: 'rgba(127,127,127,0.1)',
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
               fontSize: '0.92em',
             }}
@@ -186,16 +156,10 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
         );
       },
       pre: (props: any) => {
-        // In react-markdown v10, <pre> wraps block <code>.
-        // We make <pre> transparent since the code component handles styling.
+        // <pre> wraps block <code>. Make it transparent — code component owns styling.
         const { children, ...rest } = props;
         return (
-          <pre {...rest} style={{
-            background: 'transparent',
-            margin: 0,
-            padding: 0,
-            overflow: 'visible',
-          }}>
+          <pre {...rest} style={{ background: 'transparent', margin: 0, padding: 0, overflow: 'visible' }}>
             {children}
           </pre>
         );

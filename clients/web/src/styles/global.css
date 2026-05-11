@@ -4177,3 +4177,42 @@ button.oh-composer-pill:not(:disabled):hover {
 .hljs-attribute { color: #6f42c1; }
 .hljs-deletion { color: #b31d28; background: #ffeef0; }
 .hljs-addition { color: #22863a; background: #f0fff4; }
+
+/* Code block container (Markdown.tsx) */
+.oh-code-block {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--m3-outline-variant, rgba(127,127,127,0.3));
+  margin: 0.5rem 0;
+  background: var(--m3-surface-container, rgba(0,0,0,0.03));
+}
+.oh-code-block-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--m3-surface-container-high, rgba(0,0,0,0.05));
+  border-bottom: 1px solid var(--m3-outline-variant, rgba(127,127,127,0.2));
+  gap: 8px;
+}
+.oh-code-block-lang {
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--m3-on-surface-variant, #666);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--m3-primary-container, rgba(0,100,200,0.08));
+}
+.oh-code-block-copy {
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--m3-on-surface-variant, #666);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--m3-surface-container-highest, rgba(0,0,0,0.06));
+  border: none;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.oh-code-block-copy:hover {
+  background: var(--m3-surface-container-high, rgba(0,0,0,0.1));
+}
