@@ -245,9 +245,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_DiscoveredTools> _discoverOverStdio(McpServer server) async {
-    // 快速路径：如果进程管理器中已有该服务的运行中进程，通过它发送 tools/list
-    // 而不是启动新进程。许多 stdio MCP 服务（如 Playwright）是单例模式，
-    // 同时启动第二个实例会因资源冲突导致进程异常退出。
+    // 优先通过 process manager 的已运行进程发送 tools/list。
+    // 许多 stdio MCP 服务（如 Playwright）在 GUI 应用环境中无法同时运行
+    // 多个实例——第二个实例会在 tools/list 阶段异常退出。通过复用 process
+    // manager 的长驻进程，既避免了冲突，又省去了冷启动开销。
     final managedSession = await McpStdioProcessManager.instance
         .borrowSessionForDiscovery(server.name);
     if (managedSession != null) {
@@ -268,7 +269,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       }
     }
 
-    // 常规路径：启动新进程
+    // 回退路径：process manager 中无可用进程，启动独立进程完成探测。
     final session = await _initializeStdioSession(server);
     try {
       return _listTools(

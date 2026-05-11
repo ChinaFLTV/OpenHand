@@ -273,14 +273,34 @@ class McpStdioProcessManager extends ChangeNotifier {
   final Map<String, int> _sessionBorrowCount = {};
 
   /// 尝试借用已运行且握手完成的进程供 discovery service 发送 tools/list。
-  /// 返回 null 表示无可用进程（未启动/未握手/已停止），调用方应回退到启动新进程。
+  /// 如果进程正在运行但握手尚未完成，最多等待 [_handshakeWaitTimeout] 秒。
+  /// 返回 null 表示无可用进程（未启动/已停止/等待超时），调用方应回退到启动新进程。
   /// 借用期间进程不会被 stopServer 关闭（通过引用计数保护）。
+  static const Duration _handshakeWaitTimeout = Duration(seconds: 30);
+
   Future<ManagedStdioSession?> borrowSessionForDiscovery(
     String serverName,
   ) async {
-    final managed = _processes[serverName];
+    _ManagedProcess? managed = _processes[serverName];
+    if (managed == null || managed.info.isStopped || managed.process == null) {
+      return null;
+    }
+
+    // 如果进程正在运行但握手尚未完成，轮询等待
+    if (!managed.handshakeCompleted) {
+      final deadline = DateTime.now().add(_handshakeWaitTimeout);
+      while (DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        managed = _processes[serverName];
+        if (managed == null || managed.info.isStopped || managed.process == null) {
+          return null;
+        }
+        if (managed.handshakeCompleted) break;
+      }
+    }
+
+    // 最终检查
     if (managed == null ||
-        !managed.info.isRunning ||
         !managed.handshakeCompleted ||
         managed.process == null ||
         managed.responseRouter == null) {
@@ -544,8 +564,11 @@ class ManagedStdioSession {
 }
 
 /// 管理进程 stdout 中 JSON-RPC 响应的路由分发。
+/// stdout 数据可能跨多个 chunk 到达（尤其是大的 tools/list 响应），
+/// 因此需要内部缓冲并按行边界解析。
 class _ManagedResponseRouter {
   final Map<String, Completer<Map<String, Object?>?>> _pending = {};
+  final StringBuffer _lineBuffer = StringBuffer();
 
   void register(String id, Completer<Map<String, Object?>?> completer) {
     _pending[id] = completer;
@@ -555,12 +578,23 @@ class _ManagedResponseRouter {
     _pending.remove(id);
   }
 
-  /// 尝试将 stdout 数据中的 JSON-RPC 响应路由到等待中的 completer。
-  /// 返回 true 表示成功路由（调用方可选择不再记录该行到日志）。
+  /// 将 stdout 数据喂入路由器。数据可能跨多个 chunk 到达，
+  /// 内部按换行符分割并尝试解析完整的 JSON-RPC 响应。
+  /// 返回 true 表示成功路由了至少一个响应。
   bool tryRoute(String data) {
     if (_pending.isEmpty) return false;
-    // 尝试从 data 中提取 JSON-RPC 响应
-    for (final line in data.split('\n')) {
+    _lineBuffer.write(data);
+    final buffer = _lineBuffer.toString();
+    // 查找最后一个换行符，之前的部分可以尝试解析
+    final lastNewline = buffer.lastIndexOf('\n');
+    if (lastNewline < 0) return false;
+    final complete = buffer.substring(0, lastNewline);
+    final remainder = buffer.substring(lastNewline + 1);
+    _lineBuffer
+      ..clear()
+      ..write(remainder);
+    bool routed = false;
+    for (final line in complete.split('\n')) {
       final trimmed = line.trim();
       if (trimmed.isEmpty || !trimmed.startsWith('{')) continue;
       try {
@@ -571,11 +605,13 @@ class _ManagedResponseRouter {
         final completer = _pending.remove(idText);
         if (completer != null && !completer.isCompleted) {
           completer.complete(decoded);
-          return true;
+          routed = true;
         }
-      } catch (_) {}
+      } catch (_) {
+        // JSON 解析失败——可能是非 JSON 输出（如 npm 进度信息），跳过
+      }
     }
-    return false;
+    return routed;
   }
 
   void failAll(Object error) {
@@ -583,6 +619,7 @@ class _ManagedResponseRouter {
       if (!c.isCompleted) c.completeError(error);
     }
     _pending.clear();
+    _lineBuffer.clear();
   }
 
   bool get hasPending => _pending.isNotEmpty;

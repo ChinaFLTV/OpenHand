@@ -10,6 +10,7 @@ import 'model/mcp_server.dart';
 import 'model/mcp_server_health.dart';
 import 'model/mcp_tool.dart';
 import 'service/mcp_keyword_index.dart';
+import 'service/mcp_stdio_process_manager.dart';
 import 'service/mcp_tool_discovery_service.dart';
 
 class McpController extends ChangeNotifier {
@@ -471,6 +472,17 @@ class McpController extends ChangeNotifier {
     if (server == null) {
       return;
     }
+
+    // 对 stdio 类型服务，确保 process manager 中有运行中的进程。
+    // 这样 discovery service 可以复用已运行进程而不是启动新实例
+    // （避免 Playwright 等单例 MCP 服务的多实例冲突）。
+    if (server.type == McpServerType.stdio) {
+      final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
+      if (processInfo.isStopped) {
+        unawaited(McpStdioProcessManager.instance.startServer(server));
+      }
+    }
+
     final nextGeneration =
         (_toolRefreshGenerationByServerName[normalizedServerName] ?? 0) + 1;
     _toolRefreshGenerationByServerName[normalizedServerName] = nextGeneration;
