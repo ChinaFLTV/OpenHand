@@ -201,9 +201,8 @@ class McpStdioProcessManager extends ChangeNotifier {
     if (managed == null || managed.process == null) return;
     if (managed.info.state == StdioProcessState.stopping) return;
 
-    _processes[serverName] = _ManagedProcess(
+    _processes[serverName] = managed.copyWith(
       info: managed.info.copyWith(state: StdioProcessState.stopping),
-      process: managed.process,
     );
     notifyListeners();
 
@@ -238,11 +237,12 @@ class McpStdioProcessManager extends ChangeNotifier {
 
     final current = _processes[serverName];
     if (current != null && current.info.state != StdioProcessState.stopped) {
-      _processes[serverName] = _ManagedProcess(
+      _processes[serverName] = current.copyWith(
         info: current.info.copyWith(
           state: StdioProcessState.stopped,
           clearPid: true,
         ),
+        clearProcess: true,
       );
       notifyListeners();
     }
@@ -258,10 +258,8 @@ class McpStdioProcessManager extends ChangeNotifier {
   void clearLogs(String serverName) {
     final managed = _processes[serverName];
     if (managed == null) return;
-    _processes[serverName] = _ManagedProcess(
+    _processes[serverName] = managed.copyWith(
       info: managed.info.copyWith(logs: const []),
-      process: managed.process,
-      handshakeCompleted: managed.handshakeCompleted,
     );
     notifyListeners();
   }
@@ -354,9 +352,8 @@ class McpStdioProcessManager extends ChangeNotifier {
       currentLogs.removeAt(0);
     }
 
-    _processes[serverName] = _ManagedProcess(
+    _processes[serverName] = managed.copyWith(
       info: managed.info.copyWith(logs: List.unmodifiable(currentLogs)),
-      process: managed.process,
     );
     notifyListeners();
   }
@@ -652,6 +649,21 @@ class _ManagedProcess {
   final Process? process;
   final bool handshakeCompleted;
   final _ManagedResponseRouter? responseRouter;
+
+  _ManagedProcess copyWith({
+    StdioProcessInfo? info,
+    Process? process,
+    bool? handshakeCompleted,
+    _ManagedResponseRouter? responseRouter,
+    bool clearProcess = false,
+  }) {
+    return _ManagedProcess(
+      info: info ?? this.info,
+      process: clearProcess ? null : (process ?? this.process),
+      handshakeCompleted: handshakeCompleted ?? this.handshakeCompleted,
+      responseRouter: responseRouter ?? this.responseRouter,
+    );
+  }
 }
 
 class _DirectLaunch {
