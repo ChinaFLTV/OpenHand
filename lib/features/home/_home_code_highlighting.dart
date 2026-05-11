@@ -6,15 +6,15 @@ part of 'openhand_home_page.dart';
 /// dominant source of multi-second jank when opening a session).
 const int _highlightSkipThresholdChars = 80 * 1024;
 
-/// Code-block length above which we defer the first highlight pass to a
-/// microtask, painting plain text on the first frame. Tuned so that small
-/// snippets (the common case) still highlight synchronously and feel
-/// instant while heavier blocks no longer block the initial layout.
+/// Code-block length above which we defer the first highlight pass to the
+/// next frame, painting plain text on the first frame.
 ///
-/// 阶段⑲ — 从 4 KiB 下调到 2 KiB：在含多 tool-result 的会话里，
-/// 大量 1–2 KiB 输出仍然会同步走 highlight，叠加起来即可拖慢首帧；
-/// 提前 defer 让首帧仅渲染纯文本，2 KiB 以上的块在 microtask 内补染色。
-const int _highlightDeferThresholdChars = 2 * 1024;
+/// 阶段⑳ — 从 2 KiB 大幅下调到 200 字节：用户反馈含多代码块的消息
+/// 展开时严重卡顿/ANR。根因是多个 512–2048 字节的代码块在同一帧内
+/// 全部同步 tokenize。将阈值降到 200 字节后，除了极短的单行代码片段
+/// 外，所有代码块都走 deferred 路径——首帧仅渲染纯文本占位，后续帧
+/// 逐个补染色。由于 LRU cache 命中率高，二次展开几乎零开销。
+const int _highlightDeferThresholdChars = 200;
 
 /// Process-wide LRU cache for parsed code-block `TextSpan`s. The same code
 /// snippet (e.g. a tool result, a generated diff) frequently appears in
@@ -26,6 +26,51 @@ const int _highlightDeferThresholdChars = 2 * 1024;
 final _HighlightSpanCache _highlightSpanCache = _HighlightSpanCache(
   maxEntries: 512,
 );
+
+/// 阶段⑳：全局帧分散调度器。当一条消息含 N 个代码块同时展开时，
+/// 所有代码块的 highlight 回调都注册到同一个 addPostFrameCallback，
+/// 导致下一帧仍然要同步执行 N 次 tokenize。此调度器将 N 个任务分散
+/// 到 ceil(N/2) 个帧中执行（每帧最多处理 2 个），彻底消除 ANR。
+class _HighlightFrameScheduler {
+  _HighlightFrameScheduler._();
+  static final instance = _HighlightFrameScheduler._();
+
+  final List<VoidCallback> _pending = [];
+  bool _draining = false;
+
+  /// 每帧最多执行的 highlight 任务数。2 个小代码块的 tokenize 通常
+  /// < 4ms，不会超过 16ms 帧预算。
+  static const int _maxPerFrame = 2;
+
+  void schedule(VoidCallback task) {
+    _pending.add(task);
+    if (!_draining) {
+      _draining = true;
+      WidgetsBinding.instance.addPostFrameCallback(_drain);
+    }
+  }
+
+  void _drain(Duration _) {
+    if (_pending.isEmpty) {
+      _draining = false;
+      return;
+    }
+    // 取出本帧要执行的任务（最多 _maxPerFrame 个）
+    final batch = _pending.length <= _maxPerFrame
+        ? List<VoidCallback>.from(_pending)
+        : _pending.sublist(0, _maxPerFrame);
+    _pending.removeRange(0, batch.length);
+    for (final task in batch) {
+      task();
+    }
+    // 如果还有剩余，继续调度下一帧
+    if (_pending.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback(_drain);
+    } else {
+      _draining = false;
+    }
+  }
+}
 
 class _HighlightSpanCache {
   _HighlightSpanCache({required this.maxEntries});
@@ -379,10 +424,14 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _highlightSignature = signature;
       return;
     }
-    // For medium-sized blocks, defer the highlight work to the next
-    // microtask so the first frame can paint a plain-text placeholder,
-    // avoiding a multi-message transcript from blocking on a single
-    // expensive parse during the initial layout pass.
+    // For blocks above the defer threshold, defer highlight via the global
+    // frame-spread scheduler. When a message with N code blocks expands,
+    // each block registers its highlight task with the scheduler, which
+    // executes at most 2 per frame — spreading N highlights across
+    // ceil(N/2) frames instead of jamming them all into one.
+    //
+    // The LRU cache ensures that on second expand (user's observation: "再次
+    // 打开折叠消息卡片，卡顿情况会减少很多"), the highlight is instant.
     if (widget.content.length > _highlightDeferThresholdChars &&
         _highlightedSpan == null) {
       if (!_highlightScheduled) {
@@ -392,11 +441,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           style: _baseStyleForCurrentTheme(useDarkPalette),
         );
         _highlightSignature = signature;
-        scheduleMicrotask(() {
+        _HighlightFrameScheduler.instance.schedule(() {
           if (!mounted) return;
           _highlightScheduled = false;
-          // Re-check the signature in case the widget was updated while
-          // the microtask was queued.
           if (_highlightSignature != signature) return;
           final span = _runHighlight(
             effectiveLanguage,

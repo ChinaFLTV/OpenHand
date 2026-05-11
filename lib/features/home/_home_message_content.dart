@@ -430,9 +430,10 @@ class _CollapsibleMessageMarkdownBodyState
           child: AnimatedSize(
             duration: MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
-              : const Duration(milliseconds: 200),
+              : const Duration(milliseconds: 280),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topLeft,
+            clipBehavior: Clip.none,
             child: _collapsed
                 ? KeyedSubtree(
                     key: const ValueKey<String>('message-markdown-preview'),
@@ -790,12 +791,14 @@ class _SafeMarkdownBody extends StatefulWidget {
 // Markdown bodies above this size get a one-frame delayed parse: on the
 // first frame we paint a plain-text placeholder so the transcript reveal /
 // scroll lands instantly, then upgrade to the rich Markdown widget tree on
-// the next frame. Smaller bodies (<= 1.5 KB) parse synchronously since the
-// cost is negligible and the swap would otherwise produce a visible flicker.
+// the next frame.
 //
-// 阶段⑳ — 从 2 KiB 下调到 1.5 KiB：展开含代码块的消息时，即使
-// 1.5–2 KiB 的内容也可能包含多个代码块，同步解析仍会拖慢展开帧。
-const int _markdownDeferredParseThresholdChars = 1536;
+// 阶段⑳ — 从 1.5 KiB 下调到 800 字节：含多代码块的消息（如截图所示
+// 3个bash代码块）总字符数通常在 1000–3000 范围，但 markdown 解析 +
+// MarkdownBuilder.build() + 每个代码块的 widget 构造叠加起来就是
+// 主线程的致命负担。将阈值降到 800 字节让几乎所有含代码块的消息都
+// 走 deferred 路径，首帧仅渲染纯文本，下一帧再构建富文本树。
+const int _markdownDeferredParseThresholdChars = 800;
 
 class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     implements MarkdownBuilderDelegate {
@@ -850,9 +853,12 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   /// opened transcript, which may contain a dozen+ such bubbles all
   /// competing for parse time. Subsequent updates parse synchronously to
   /// avoid mid-conversation flicker.
+  /// 阶段⑳：无论是首次挂载还是展开触发的重建，只要内容超过阈值就走
+  /// deferred 路径。这是解决"展开含多代码块消息时ANR"的关键：展开时
+  /// 新的 _SafeMarkdownBody 被创建（initial=true），但即使是非 initial
+  /// 的更新（如流式追加），大内容也应该 defer 以避免阻塞当前帧。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
-    if (initial &&
-        widget.data.length > _markdownDeferredParseThresholdChars &&
+    if (widget.data.length > _markdownDeferredParseThresholdChars &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
         !_canRenderMarkdownAsPlainText(widget.data)) {
       _renderPlainTextPlaceholder();
