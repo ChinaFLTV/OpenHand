@@ -344,7 +344,17 @@ class McpStdioProcessManager extends ChangeNotifier {
       if (line.trim().isEmpty && currentLogs.isNotEmpty && currentLogs.last.isEmpty) {
         continue; // 避免连续空行
       }
-      currentLogs.add(isStderr ? '[stderr] $line' : line);
+      if (isStderr) {
+        currentLogs.add('[stderr] $line');
+      } else {
+        // stdout: 检测 JSON-RPC 响应并格式化摘要
+        final trimmed = line.trim();
+        if (trimmed.startsWith('{') && trimmed.contains('"jsonrpc"')) {
+          _appendJsonRpcSummary(currentLogs, trimmed);
+        } else {
+          currentLogs.add(line);
+        }
+      }
     }
 
     // 限制日志行数
@@ -356,6 +366,90 @@ class McpStdioProcessManager extends ChangeNotifier {
       info: managed.info.copyWith(logs: List.unmodifiable(currentLogs)),
     );
     notifyListeners();
+  }
+
+  /// 将 JSON-RPC 响应解析为结构化摘要，避免超长单行 JSON 淹没日志。
+  void _appendJsonRpcSummary(List<String> logs, String jsonLine) {
+    try {
+      final parsed = jsonDecode(jsonLine) as Map<String, Object?>;
+      final id = parsed['id'];
+      final result = parsed['result'];
+
+      if (result is Map<String, Object?>) {
+        // initialize 响应
+        if (result.containsKey('protocolVersion')) {
+          final version = result['protocolVersion'] ?? '?';
+          final serverInfo = result['serverInfo'] as Map<String, Object?>?;
+          final serverName = serverInfo?['name'] ?? '';
+          final serverVersion = serverInfo?['version'] ?? '';
+          logs.add('[jsonrpc:$id] ← initialize 响应');
+          logs.add('  协议版本: $version');
+          if (serverName.toString().isNotEmpty) {
+            logs.add('  服务名称: $serverName v$serverVersion');
+          }
+          final capabilities = result['capabilities'] as Map<String, Object?>?;
+          if (capabilities != null && capabilities.isNotEmpty) {
+            logs.add('  能力: ${capabilities.keys.join(', ')}');
+          }
+          return;
+        }
+        // tools/list 响应
+        if (result.containsKey('tools')) {
+          final tools = result['tools'];
+          if (tools is List) {
+            logs.add('[jsonrpc:$id] ← tools/list 响应 (${tools.length} 个工具)');
+            for (final tool in tools.take(12)) {
+              if (tool is Map<String, Object?>) {
+                final name = tool['name'] ?? '?';
+                final desc = tool['description'] ?? '';
+                final descStr = desc.toString();
+                final shortDesc = descStr.length > 60
+                    ? '${descStr.substring(0, 60)}…'
+                    : descStr;
+                logs.add('  · $name — $shortDesc');
+              }
+            }
+            if (tools.length > 12) {
+              logs.add('  … 还有 ${tools.length - 12} 个工具');
+            }
+            return;
+          }
+        }
+        // 其他 result 响应：紧凑摘要
+        final keys = result.keys.take(5).join(', ');
+        logs.add('[jsonrpc:$id] ← 响应 {$keys${result.length > 5 ? ", …" : ""}}');
+        return;
+      }
+
+      // error 响应
+      final error = parsed['error'];
+      if (error is Map<String, Object?>) {
+        final code = error['code'] ?? '?';
+        final message = error['message'] ?? '';
+        logs.add('[jsonrpc:$id] ← 错误 [$code] $message');
+        return;
+      }
+
+      // notification（无 id）
+      final method = parsed['method'];
+      if (method != null) {
+        logs.add('[jsonrpc] ← 通知: $method');
+        return;
+      }
+
+      // 兜底：紧凑单行
+      final compact = jsonLine.length > 120
+          ? '${jsonLine.substring(0, 120)}…'
+          : jsonLine;
+      logs.add(compact);
+    } catch (_) {
+      // JSON 解析失败，原样输出（截断超长行）
+      if (jsonLine.length > 200) {
+        logs.add('${jsonLine.substring(0, 200)}… [截断，共 ${jsonLine.length} 字符]');
+      } else {
+        logs.add(jsonLine);
+      }
+    }
   }
 
   /// 启动后自动通过 stdin 发送 MCP initialize 请求完成协议握手。

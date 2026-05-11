@@ -201,7 +201,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
             // 终端输出区域
             Flexible(
               child: Container(
-                color: const Color(0xFF1E1E1E),
+                color: const Color(0xFF1A1A2E),
                 child: logs.isEmpty
                     ? Center(
                         child: Text(
@@ -219,13 +219,21 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                         itemCount: logs.length,
                         itemBuilder: (context, index) {
                           final line = logs[index];
-                          return Text(
-                            line,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                              height: 1.5,
-                              color: _logLineColor(line),
+                          final style = _resolveLogLineStyle(line);
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              top: style.topPadding,
+                              bottom: 0.5,
+                            ),
+                            child: Text(
+                              line,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: style.fontSize,
+                                height: 1.5,
+                                color: style.color,
+                                fontWeight: style.bold ? FontWeight.w600 : FontWeight.normal,
+                              ),
                             ),
                           );
                         },
@@ -276,13 +284,87 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     );
   }
 
-  Color _logLineColor(String line) {
-    if (line.startsWith('[stderr]')) return const Color(0xFFF59E0B);
-    if (line.startsWith('✗') || line.toLowerCase().contains('error')) {
-      return const Color(0xFFFF6B6B);
+  _LogLineStyle _resolveLogLineStyle(String line) {
+    // 空行
+    if (line.trim().isEmpty) {
+      return const _LogLineStyle(color: Color(0xFF808080), fontSize: 11);
     }
-    if (line.startsWith('[') && line.contains(']')) return const Color(0xFF7DD3FC);
-    return const Color(0xFFD4D4D4);
+    // 成功标记
+    if (line.contains('✓')) {
+      return const _LogLineStyle(
+        color: Color(0xFF4ADE80),
+        fontSize: 11,
+        bold: true,
+      );
+    }
+    // 警告标记
+    if (line.contains('⚠')) {
+      return const _LogLineStyle(
+        color: Color(0xFFFBBF24),
+        fontSize: 11,
+        bold: true,
+      );
+    }
+    // 错误标记
+    if (line.contains('✗') || line.contains('[stderr error]') || line.contains('[stdout error]')) {
+      return const _LogLineStyle(
+        color: Color(0xFFF87171),
+        fontSize: 11,
+        bold: true,
+      );
+    }
+    // 系统时间戳行（如 [19:38:23] 进程已启动）
+    if (line.startsWith('[') && RegExp(r'^\[\d{2}:\d{2}:\d{2}\]').hasMatch(line)) {
+      return const _LogLineStyle(
+        color: Color(0xFF93C5FD),
+        fontSize: 11,
+        bold: true,
+        topPadding: 4,
+      );
+    }
+    // JSON-RPC 摘要行
+    if (line.startsWith('[jsonrpc')) {
+      return const _LogLineStyle(
+        color: Color(0xFFA78BFA),
+        fontSize: 11,
+        bold: true,
+        topPadding: 4,
+      );
+    }
+    // JSON-RPC 摘要的缩进详情行
+    if (line.startsWith('  ·') || line.startsWith('  …')) {
+      return const _LogLineStyle(
+        color: Color(0xFFC4B5FD),
+        fontSize: 10.5,
+      );
+    }
+    // JSON-RPC 摘要的缩进属性行
+    if (line.startsWith('  ') && (line.contains(': ') || line.contains('：'))) {
+      return const _LogLineStyle(
+        color: Color(0xFFD1D5DB),
+        fontSize: 10.5,
+      );
+    }
+    // stderr 输出
+    if (line.startsWith('[stderr]')) {
+      final content = line.substring(8).trim().toLowerCase();
+      // stderr 中的错误
+      if (content.contains('error') || content.contains('fatal') || content.contains('failed')) {
+        return const _LogLineStyle(color: Color(0xFFF87171), fontSize: 11);
+      }
+      // stderr 中的警告
+      if (content.contains('warn') || content.contains('deprecat')) {
+        return const _LogLineStyle(color: Color(0xFFFBBF24), fontSize: 11);
+      }
+      // stderr 中的普通信息输出（很多 MCP 服务把正常信息写到 stderr）
+      return const _LogLineStyle(color: Color(0xFFD4A574), fontSize: 11);
+    }
+    // stdout closed / stderr closed 等系统事件
+    if (line.startsWith('[stdout') || line.startsWith('[stderr')) {
+      return const _LogLineStyle(color: Color(0xFF6B7280), fontSize: 10.5);
+    }
+    // 普通 stdout 输出
+    return const _LogLineStyle(color: Color(0xFFE5E7EB), fontSize: 11);
   }
 
   String _formatUptime(Duration d) {
@@ -290,6 +372,20 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     if (d.inMinutes > 0) return '${d.inMinutes}m ${d.inSeconds % 60}s';
     return '${d.inSeconds}s';
   }
+}
+
+class _LogLineStyle {
+  const _LogLineStyle({
+    required this.color,
+    this.fontSize = 11,
+    this.bold = false,
+    this.topPadding = 0,
+  });
+
+  final Color color;
+  final double fontSize;
+  final bool bold;
+  final double topPadding;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
