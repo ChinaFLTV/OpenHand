@@ -670,6 +670,9 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
 
   bool get _isPackageManagerService => _isNpxService || _isUvxService;
 
+  /// 清理后的包名（去掉 @version/@latest 后缀），用于 npm/uv 命令操作和状态检查。
+  String get _cleanPackageName => _packageName.replaceAll(RegExp(r'@[^/]*$'), '');
+
   @override
   void initState() {
     super.initState();
@@ -705,23 +708,24 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
       if (mounted) setState(() => _checking = false);
       return;
     }
+    final cleanPkg = _cleanPackageName;
     try {
       if (_isNpxService) {
-        // npm 全局安装状态检查
+        // npm 全局安装状态检查：用清理后的包名查询
         final listResult = await Process.run(
-          'npm', ['list', '-g', pkg, '--depth=0'],
+          'npm', ['list', '-g', cleanPkg, '--depth=0'],
         ).timeout(const Duration(seconds: 10));
+        // npm list 输出格式如 "├── chrome-devtools-mcp@0.25.0"
+        // 用清理后的包名匹配，避免 @latest 导致永远匹配不上
         _packageInstalled = listResult.exitCode == 0 &&
-            listResult.stdout.toString().contains(pkg);
+            listResult.stdout.toString().contains(cleanPkg);
         if (_packageInstalled) {
-          final cleanPkg = pkg.replaceAll(RegExp(r'@[^/]*$'), '');
-          final match = RegExp('${RegExp.escape(cleanPkg)}@([\\d.]+)')
+          final match = RegExp('${RegExp.escape(cleanPkg)}@([\\d][\\d.]*)')
               .firstMatch(listResult.stdout.toString());
           _installedVersion = match?.group(1);
         }
         // 检查最新版本
         try {
-          final cleanPkg = pkg.replaceAll(RegExp(r'@[^/]*$'), '');
           final viewResult = await Process.run(
             'npm', ['view', cleanPkg, 'version'],
           ).timeout(const Duration(seconds: 10));
@@ -731,18 +735,16 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         } catch (_) {}
       } else if (_isUvxService) {
         // uvx/pip 全局安装状态检查
-        final cleanPkg = pkg.replaceAll(RegExp(r'@[^/]*$'), '');
         final listResult = await Process.run(
           'uv', ['tool', 'list'],
         ).timeout(const Duration(seconds: 10));
         _packageInstalled = listResult.exitCode == 0 &&
             listResult.stdout.toString().contains(cleanPkg);
         if (_packageInstalled) {
-          final match = RegExp('${RegExp.escape(cleanPkg)}\\s+v?([\\d.]+)')
+          final match = RegExp('${RegExp.escape(cleanPkg)}\\s+v?([\\d][\\d.]*)')
               .firstMatch(listResult.stdout.toString());
           _installedVersion = match?.group(1);
         }
-        // uvx 暂不检查最新版本（PyPI API 较慢）
       }
     } catch (_) {}
     if (mounted) setState(() => _checking = false);
@@ -784,9 +786,8 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   }
 
   Future<void> _installDeps() async {
-    final pkg = _packageName;
-    if (pkg.isEmpty) return;
-    final cleanPkg = pkg.replaceAll(RegExp(r'@[^/]*$'), '');
+    final cleanPkg = _cleanPackageName;
+    if (cleanPkg.isEmpty) return;
     if (_isNpxService) {
       await _runPackageOperation('安装', 'npm', ['install', '-g', cleanPkg]);
       // 同时预热隔离缓存
@@ -808,7 +809,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   }
 
   Future<void> _updateDeps() {
-    final cleanPkg = _packageName.replaceAll(RegExp(r'@[^/]*$'), '');
+    final cleanPkg = _cleanPackageName;
     if (_isNpxService) {
       return _runPackageOperation('更新', 'npm', ['update', '-g', cleanPkg]);
     } else {
@@ -817,7 +818,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   }
 
   Future<void> _uninstallDeps() {
-    final cleanPkg = _packageName.replaceAll(RegExp(r'@[^/]*$'), '');
+    final cleanPkg = _cleanPackageName;
     if (_isNpxService) {
       return _runPackageOperation('卸载', 'npm', ['uninstall', '-g', cleanPkg]);
     } else {
@@ -836,7 +837,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final pkg = _packageName;
+    final cleanPkg = _cleanPackageName;
     final hasUpdate = _packageInstalled &&
         _latestVersion != null &&
         _installedVersion != null &&
@@ -875,9 +876,9 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (pkg.isNotEmpty)
+                        if (cleanPkg.isNotEmpty)
                           Text(
-                            pkg,
+                            cleanPkg,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                               fontFamily: 'monospace',
@@ -911,7 +912,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                         ),
                       ),
                     )
-                  : !_isPackageManagerService || pkg.isEmpty
+                  : !_isPackageManagerService || cleanPkg.isEmpty
                       ? Text(
                           isZh
                               ? '此服务非包管理器类型（npx / uvx），无需管理依赖。'
