@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:highlight/highlight.dart' as highlight;
 import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -567,7 +568,7 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
       fontFamily: 'monospace',
       fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * 0.93,
       color: accent,
-      backgroundColor: codeBlockBg,
+      backgroundColor: Colors.transparent,
     ),
     codeblockPadding: const EdgeInsets.all(12),
     codeblockDecoration: BoxDecoration(
@@ -688,7 +689,7 @@ MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
       fontFamily: 'monospace',
       fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * 0.93,
       color: textColor,
-      backgroundColor: subtleSurface,
+      backgroundColor: Colors.transparent,
     ),
     codeblockPadding: const EdgeInsets.all(12),
     codeblockDecoration: BoxDecoration(
@@ -1220,6 +1221,18 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     final wasCollapsed = _composerCollapsed;
     if (wasCollapsed != collapsed) {
       setState(() => _composerCollapsed = collapsed);
+      // 补偿 scroll offset：当 composer 展开/折叠时，feed 区域高度变化会
+      // 导致滚动位置跳动。在下一帧测量高度差并反向补偿，保持可视内容稳定。
+      WidgetsBinding.instance.endOfFrame.then((_) {
+        if (!mounted || !_feedController.hasClients) return;
+        // 如果用户在底部（auto-follow），确保仍然贴底
+        if (_autoFollowEnabled && _shouldAutoFollowFeed) {
+          final pos = _feedController.position;
+          if (pos.pixels < pos.maxScrollExtent - 1.0) {
+            _feedController.jumpTo(pos.maxScrollExtent);
+          }
+        }
+      });
     }
     if (collapsed) {
       if (_manualPhaseFocusNode.hasFocus) {

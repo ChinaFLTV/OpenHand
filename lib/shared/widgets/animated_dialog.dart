@@ -146,12 +146,17 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
 }
 
 /// Adds Escape-to-dismiss to a dialog without stealing focus from descendant
-/// inputs. Earlier revision wrapped the body in `Focus(autofocus: true, ...)`
-/// + `Shortcuts/Actions`，那会抢走对话框内 `TextField` 的 autofocus，并让
-/// macOS / Web 端的输入法上下文与剪贴板快捷键失效（无法输入/复制/粘贴）。
-/// 改用 [CallbackShortcuts]：它只为子树注册键盘绑定、自身不申请焦点、不与
-/// `DefaultTextEditingShortcuts` 抢同名 Intent。Esc 会从对话框内当前焦点节点
-/// (按钮 / TextField) 沿 `Shortcuts` 链冒泡命中此处，触发 `maybePop`。
+/// inputs. Uses a [FocusScope] with `autofocus: true` to guarantee the dialog
+/// subtree owns focus on open — this ensures ESC events route through the
+/// [CallbackShortcuts] even when no interactive child (button / TextField)
+/// has explicitly requested focus. The FocusScope does NOT steal focus from
+/// descendant inputs that call `requestFocus()` after the first frame, because
+/// FocusScope only auto-focuses its *first* focusable descendant on attach;
+/// subsequent explicit requests from children override it normally.
+///
+/// Earlier revision used `Focus(autofocus: true)` which stole TextField focus
+/// and broke IME / clipboard shortcuts on macOS / Web. [CallbackShortcuts]
+/// only registers key bindings for its subtree without claiming focus itself.
 class _EscapeDismissDialogScope extends StatelessWidget {
   const _EscapeDismissDialogScope({required this.child});
 
@@ -159,13 +164,16 @@ class _EscapeDismissDialogScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          unawaited(Navigator.of(context).maybePop());
+    return FocusScope(
+      autofocus: true,
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.escape): () {
+            unawaited(Navigator.of(context).maybePop());
+          },
         },
-      },
-      child: child,
+        child: child,
+      ),
     );
   }
 }

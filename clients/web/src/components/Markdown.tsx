@@ -88,15 +88,78 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
         />
       ),
       code: (props: any) => {
-        // inline code: 短小; block code 由 <pre><code> 嵌套, 这里仅装饰行内.
-        const { inline, className, children, ...rest } = props;
-        if (inline === false) {
+        // react-markdown v10: `inline` prop is no longer passed.
+        // Block code is rendered as <pre><code>; inline code is just <code>.
+        // We detect block code by checking if `node.position` parent is 'pre'
+        // or by checking className (hljs adds language-xxx class to block code).
+        const { className, children, node, ...rest } = props;
+        const isBlock = className?.includes('hljs') || className?.includes('language-');
+        if (isBlock) {
+          // Block code: render with language label and copy button
+          const lang = className
+            ?.split(' ')
+            .find((c: string) => c.startsWith('language-'))
+            ?.replace('language-', '') || null;
           return (
-            <code className={className} {...rest}>
-              {children}
-            </code>
+            <div style={{
+              position: 'relative',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              border: '1px solid color-mix(in srgb, var(--m3-outline) 40%, transparent)',
+              margin: '0.5rem 0',
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '6px 12px',
+                background: 'color-mix(in srgb, var(--m3-on-surface) 5%, transparent)',
+                borderBottom: '1px solid color-mix(in srgb, var(--m3-outline) 30%, transparent)',
+                gap: '8px',
+              }}>
+                {lang && (
+                  <span style={{
+                    fontSize: '0.78em',
+                    fontWeight: 700,
+                    color: 'var(--m3-on-surface-variant)',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: 'color-mix(in srgb, var(--m3-primary) 8%, transparent)',
+                  }}>{lang}</span>
+                )}
+                <span style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = typeof children === 'string'
+                      ? children
+                      : (node?.children?.[0]?.value ?? '');
+                    navigator.clipboard?.writeText(text);
+                  }}
+                  style={{
+                    fontSize: '0.78em',
+                    fontWeight: 700,
+                    color: 'var(--m3-on-surface-variant)',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: 'color-mix(in srgb, var(--m3-on-surface) 6%, transparent)',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >复制</button>
+              </div>
+              <code className={className} {...rest} style={{
+                display: 'block',
+                padding: '0.75rem 1rem',
+                overflowX: 'auto',
+                fontSize: '0.88em',
+                background: 'transparent',
+              }}>
+                {children}
+              </code>
+            </div>
           );
         }
+        // Inline code
         return (
           <code
             className={className}
@@ -113,18 +176,21 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
           </code>
         );
       },
-      pre: (props: any) => (
-        <pre
-          {...props}
-          style={{
-            background: 'color-mix(in srgb, var(--m3-on-surface) 6%, transparent)',
-            borderRadius: '8px',
-            padding: '0.75rem 1rem',
-            overflowX: 'auto',
-            fontSize: '0.88em',
-          }}
-        />
-      ),
+      pre: (props: any) => {
+        // In react-markdown v10, <pre> wraps block <code>.
+        // We make <pre> transparent since the code component handles styling.
+        const { children, ...rest } = props;
+        return (
+          <pre {...rest} style={{
+            background: 'transparent',
+            margin: 0,
+            padding: 0,
+            overflow: 'visible',
+          }}>
+            {children}
+          </pre>
+        );
+      },
       table: (props: any) => (
         <div style={{ overflowX: 'auto', margin: '0.75rem 0' }}>
           <table

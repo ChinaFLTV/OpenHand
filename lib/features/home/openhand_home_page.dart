@@ -5026,7 +5026,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     _composerLayoutMeasureScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // 使用 endOfFrame 而非 addPostFrameCallback：endOfFrame 在当前帧的
+    // paint 阶段之后、下一帧开始之前触发，能更快地补偿 scroll offset，
+    // 减少 composer 展开/折叠时消息列表的视觉跳动。
+    WidgetsBinding.instance.endOfFrame.then((_) {
       _composerLayoutMeasureScheduled = false;
       if (!mounted) return;
       _measureComposerHeightAndCompensate();

@@ -1298,12 +1298,22 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
         .read<AiSessionController>()
         .toolRuntimeService
         .mutationLedger;
-    final before = v.record.beforeSha == null
+    String? before = v.record.beforeSha == null
         ? null
         : await ledger.readBlob(v.record.beforeSha!);
-    final after = v.record.afterSha == null
+    String? after = v.record.afterSha == null
         ? null
         : await ledger.readBlob(v.record.afterSha!);
+
+    // 当 blob 丢失但文件仍存在于磁盘时，尝试读取当前磁盘内容作为回退。
+    if (after == null && v.record.afterSha != null && v.record.filePath.isNotEmpty) {
+      try {
+        final file = File(v.record.filePath);
+        if (await file.exists()) {
+          after = await file.readAsString();
+        }
+      } catch (_) {}
+    }
     return (before: before, after: after);
   }
 }
@@ -2735,26 +2745,62 @@ class _RoundFileMutationSummaryCardState
     final ctrl = context.read<AiSessionController>();
     final sessionId = ctrl.currentSession?.id ?? '';
     if (sessionId.isEmpty) return;
+
+    // 先尝试直接跳转
     final ok = await _TranscriptScrollDispatcher.instance.scrollToMessage(
       sessionId,
       messageId,
       highlight: true,
     );
-    if (!ok && mounted) {
-      _showHomeSnackBar(
-        context,
-        SnackBar(
-          duration: const Duration(milliseconds: 2200),
-          content: Text(
-            _localizedTextStatic(
+    if (ok) return;
+
+    // 如果跳转失败，尝试在全部消息中查找该消息附近的可见消息作为替代目标
+    final session = ctrl.currentSession;
+    if (session != null) {
+      final allMessages = session.messages;
+      final targetIdx = allMessages.indexWhere((m) => m.id == messageId);
+      if (targetIdx >= 0) {
+        // 目标消息存在于 session.messages 但不在 displayMessages 中
+        // （可能被压缩点截断）。尝试跳转到压缩点之后最近的消息。
+        final displayMessages = session.displayMessages;
+        if (displayMessages.isNotEmpty) {
+          // 找到 displayMessages 中第一条消息作为替代
+          final fallbackOk = await _TranscriptScrollDispatcher.instance
+              .scrollToMessage(sessionId, displayMessages.first.id, highlight: true);
+          if (fallbackOk && mounted) {
+            _showHomeSnackBar(
               context,
-              zh: '未能定位来源消息（可能已被删除）。',
-              en: 'Could not locate source message (may have been deleted).',
-            ),
+              SnackBar(
+                duration: const Duration(milliseconds: 2800),
+                content: Text(
+                  _localizedTextStatic(
+                    context,
+                    zh: '目标消息位于上下文压缩点之前，已跳转到最早可见消息。',
+                    en: 'Target message is before compression point. Jumped to earliest visible message.',
+                  ),
+                ),
+              ),
+            );
+            return;
+          }
+        }
+      }
+    }
+
+    if (!mounted) return;
+    _showHomeSnackBar(
+      context,
+      SnackBar(
+        duration: const Duration(milliseconds: 2200),
+        content: Text(
+          _localizedTextStatic(
+            context,
+            zh: '未能定位来源消息（可能已被删除）。',
+            en: 'Could not locate source message (may have been deleted).',
           ),
         ),
-      );
-    }
+      ),
+    );
   }
 
   /// 阶段⑰c：「全部撤销本轮」批量入口。
@@ -3794,12 +3840,34 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
         .mutationLedger;
     final config = await ledger.loadConfig();
     final r = widget.record;
-    final before = r.beforeSha == null
-        ? ''
-        : (await ledger.readBlob(r.beforeSha!) ?? '');
-    final after = r.afterSha == null
-        ? ''
-        : (await ledger.readBlob(r.afterSha!) ?? '');
+    String before;
+    String after;
+
+    if (r.beforeSha == null) {
+      before = '';
+    } else {
+      before = await ledger.readBlob(r.beforeSha!) ?? '';
+    }
+
+    if (r.afterSha == null) {
+      after = '';
+    } else {
+      after = await ledger.readBlob(r.afterSha!) ?? '';
+    }
+
+    // 当 blob 丢失但文件仍存在于磁盘时，尝试读取当前磁盘内容作为 after
+    // 的回退（仅限 afterSha 不为 null 但 readBlob 返回 null 的情况）。
+    if (after.isEmpty && r.afterSha != null && r.filePath.isNotEmpty) {
+      try {
+        final file = File(r.filePath);
+        if (await file.exists()) {
+          after = await file.readAsString();
+        }
+      } catch (_) {
+        // 忽略读取失败，保持 after 为空
+      }
+    }
+
     // 阶段⑲a：大文件（before+after > 24 KiB）走 isolate 计算 diff，避免
     // 主线程长卡顿；小文件继续同步直跑（避免 spawn 开销）。
     final totalBytes = before.length + after.length;

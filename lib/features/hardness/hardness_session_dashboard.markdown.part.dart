@@ -537,7 +537,6 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
     if (codeEl == null) return null;
 
     final cls = codeEl.attributes['class'] ?? '';
-    if (!_diffLangRe.hasMatch(cls)) return null;
 
     // Collect plain text from all descendant text nodes.
     final buf = StringBuffer();
@@ -554,10 +553,372 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
     final rawText = buf.toString();
     if (rawText.isEmpty) return null;
 
-    return _HeDiffBlock(
-      rawDiff: rawText,
-      colorScheme: colorScheme,
-      darkSurface: darkSurface,
+    // Diff language → specialized diff block
+    if (_diffLangRe.hasMatch(cls)) {
+      return _HeDiffBlock(
+        rawDiff: rawText,
+        colorScheme: colorScheme,
+        darkSurface: darkSurface,
+      );
+    }
+
+    // All other code blocks → highlighted code panel with copy/language header
+    final language = _heExtractCodeLanguage(cls);
+    return RepaintBoundary(
+      child: _HeHighlightedCodePanel(
+        content: rawText.replaceFirst(RegExp(r'\n$'), ''),
+        language: language,
+        colorScheme: colorScheme,
+        darkSurface: darkSurface,
+      ),
+    );
+  }
+}
+
+String? _heExtractCodeLanguage(String classes) {
+  if (classes.isEmpty) return null;
+  for (final name in classes.split(' ')) {
+    if (name.startsWith('language-') && name.length > 9) {
+      return name.substring(9);
+    }
+    if (name.startsWith('lang-') && name.length > 5) {
+      return name.substring(5);
+    }
+  }
+  return null;
+}
+
+String? _heNormalizeCodeLanguage(String? language) {
+  final normalized = (language ?? '').trim().toLowerCase();
+  if (normalized.isEmpty || normalized == 'text' || normalized == 'plaintext') {
+    return null;
+  }
+  return normalized;
+}
+
+/// Highlighted code panel for the Hardness (WEB) session — provides language
+/// label, copy button, and syntax highlighting consistent with the APP side.
+class _HeHighlightedCodePanel extends StatefulWidget {
+  const _HeHighlightedCodePanel({
+    required this.content,
+    required this.colorScheme,
+    this.language,
+    this.darkSurface = false,
+  });
+
+  final String content;
+  final ColorScheme colorScheme;
+  final String? language;
+  final bool darkSurface;
+
+  @override
+  State<_HeHighlightedCodePanel> createState() =>
+      _HeHighlightedCodePanelState();
+}
+
+class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
+  TextSpan? _highlightedSpan;
+  bool _copied = false;
+  Timer? _copiedResetTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _buildHighlightedSpan();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeHighlightedCodePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content != widget.content ||
+        oldWidget.language != widget.language ||
+        oldWidget.darkSurface != widget.darkSurface) {
+      _highlightedSpan = null;
+      _buildHighlightedSpan();
+    }
+  }
+
+  @override
+  void dispose() {
+    _copiedResetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _buildHighlightedSpan() {
+    final effectiveLanguage = _heNormalizeCodeLanguage(widget.language);
+    final isDark = widget.darkSurface;
+    final baseStyle = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 13,
+      height: 1.5,
+      color: isDark ? Colors.white.withValues(alpha: 0.92) : widget.colorScheme.onSurface,
+    );
+
+    // Skip highlighting for very large blocks
+    if (widget.content.length > 80 * 1024) {
+      _highlightedSpan = TextSpan(text: widget.content, style: baseStyle);
+      return;
+    }
+
+    try {
+      final parsed = highlight.highlight.parse(
+        widget.content,
+        language: effectiveLanguage,
+        autoDetection: effectiveLanguage == null,
+      );
+      _highlightedSpan = TextSpan(
+        style: baseStyle,
+        children: _buildNodes(parsed.nodes, baseStyle, isDark),
+      );
+    } catch (_) {
+      _highlightedSpan = TextSpan(text: widget.content, style: baseStyle);
+    }
+  }
+
+  List<InlineSpan> _buildNodes(
+    List<highlight.Node>? nodes,
+    TextStyle baseStyle,
+    bool isDark,
+  ) {
+    if (nodes == null || nodes.isEmpty) return [TextSpan(style: baseStyle)];
+    final spans = <InlineSpan>[];
+    for (final node in nodes) {
+      if (node.value != null) {
+        spans.add(TextSpan(
+          text: node.value,
+          style: node.className == null
+              ? null
+              : _heStyleForClass(node.className, baseStyle, isDark),
+        ));
+      } else {
+        spans.add(TextSpan(
+          style: node.className == null
+              ? null
+              : _heStyleForClass(node.className, baseStyle, isDark),
+          children: _buildNodes(node.children, baseStyle, isDark),
+        ));
+      }
+    }
+    return spans;
+  }
+
+  TextStyle _heStyleForClass(String? className, TextStyle base, bool isDark) {
+    final classes = (className ?? '').split(' ');
+    for (final cls in classes) {
+      if (const {'comment', 'quote'}.contains(cls)) {
+        return base.copyWith(
+          color: isDark ? const Color(0xFF7DD3A7) : const Color(0xFF5B6472),
+          fontStyle: FontStyle.italic,
+        );
+      }
+      if (const {'keyword', 'selector-tag', 'meta-keyword', 'doctag'}.contains(cls)) {
+        return base.copyWith(
+          color: isDark ? const Color(0xFFF9A8D4) : const Color(0xFF0B57D0),
+          fontWeight: FontWeight.w700,
+        );
+      }
+      if (const {'string', 'regexp', 'attribute', 'template-variable'}.contains(cls)) {
+        return base.copyWith(
+          color: isDark ? const Color(0xFFFDE68A) : const Color(0xFFB42318),
+        );
+      }
+      if (const {'number', 'literal', 'symbol', 'bullet'}.contains(cls)) {
+        return base.copyWith(
+          color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+        );
+      }
+      if (const {'title', 'function', 'section', 'title.function_', 'title.class_'}.contains(cls)) {
+        return base.copyWith(
+          color: isDark ? const Color(0xFF67E8F9) : const Color(0xFF7C3AED),
+          fontWeight: FontWeight.w700,
+        );
+      }
+      if (const {'type', 'built_in', 'class', 'params', 'variable', 'selector-id', 'selector-class', 'property'}.contains(cls)) {
+        return base.copyWith(
+          color: isDark ? const Color(0xFFC4B5FD) : const Color(0xFF8A3C00),
+          fontWeight: FontWeight.w600,
+        );
+      }
+      if (const {'meta', 'attr', 'tag', 'name'}.contains(cls)) {
+        return base.copyWith(
+          color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF0F4C81),
+        );
+      }
+      if (const {'operator', 'punctuation'}.contains(cls)) {
+        return base.copyWith(
+          color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1F2937),
+        );
+      }
+    }
+    return base;
+  }
+
+  void _copyCode() {
+    _copiedResetTimer?.cancel();
+    setState(() => _copied = true);
+    Clipboard.setData(ClipboardData(text: widget.content));
+    _copiedResetTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.darkSurface ||
+        Theme.of(context).brightness == Brightness.dark;
+    final cs = widget.colorScheme;
+    final effectiveLanguage = _heNormalizeCodeLanguage(widget.language);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    final containerColor = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : cs.surfaceContainerLow;
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.14)
+        : cs.outlineVariant.withValues(alpha: 0.6);
+    final headerColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : cs.surfaceContainer;
+    final bodyColor = isDark
+        ? Colors.black.withValues(alpha: 0.18)
+        : Colors.white.withValues(alpha: 0.5);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: containerColor,
+        borderRadius: _br16,
+        border: Border.all(color: borderColor),
+      ),
+      child: ClipRRect(
+        borderRadius: _br16,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with language label and copy button
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              decoration: BoxDecoration(
+                color: headerColor,
+                border: Border(
+                  bottom: BorderSide(color: borderColor),
+                ),
+              ),
+              child: Row(
+                children: [
+                  if (effectiveLanguage != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : cs.primary.withValues(alpha: 0.08),
+                        borderRadius: _br999,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.code_rounded,
+                            size: 13,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.8)
+                                : cs.onSurface,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            effectiveLanguage,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.8)
+                                  : cs.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 26),
+                  const Spacer(),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _copyCode,
+                      borderRadius: _br999,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : cs.surfaceContainerHighest,
+                          borderRadius: _br999,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _copied
+                                  ? Icons.check_rounded
+                                  : Icons.content_copy_rounded,
+                              size: 13,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.8)
+                                  : cs.onSurface,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              _copied
+                                  ? (isZh ? '已复制' : 'Copied')
+                                  : (isZh ? '复制' : 'Copy'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.8)
+                                    : cs.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Code body with syntax highlighting
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: bodyColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : cs.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SelectableText.rich(
+                  _highlightedSpan ?? const TextSpan(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
