@@ -245,12 +245,23 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_DiscoveredTools> _discoverOverStdio(McpServer server) async {
-    // 优先通过 process manager 的已运行进程发送 tools/list。
-    // 许多 stdio MCP 服务（如 Playwright）在 GUI 应用环境中无法同时运行
-    // 多个实例——第二个实例会在 tools/list 阶段异常退出。通过复用 process
-    // manager 的长驻进程，既避免了冲突，又省去了冷启动开销。
+    // 通过 process manager 的长驻进程发送 tools/list。
+    // Playwright 等 stdio MCP 服务在 macOS GUI 应用环境中，discovery service
+    // 启动的短命进程会在 tools/list 阶段异常退出（原因未明，可能与 GUI 应用
+    // 的进程调度或 pipe buffer 行为有关）。通过复用 process manager 的长驻
+    // 进程，既避免了此问题，又省去了冷启动开销。
+    //
+    // 如果 process manager 中没有该服务的进程，先启动一个并等待握手完成。
+    final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
+    if (processInfo.isStopped) {
+      debugPrint('[mcp.discover] ${server.name}: starting process via manager');
+      await McpStdioProcessManager.instance.startServer(server);
+    }
+
+    debugPrint('[mcp.discover] ${server.name}: attempting borrowSession');
     final managedSession = await McpStdioProcessManager.instance
         .borrowSessionForDiscovery(server.name);
+    debugPrint('[mcp.discover] ${server.name}: borrowSession result=${managedSession != null ? "OK" : "NULL"}');
     if (managedSession != null) {
       try {
         return _listTools(
@@ -269,7 +280,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       }
     }
 
-    // 回退路径：process manager 中无可用进程，启动独立进程完成探测。
+    // 兜底：borrowSession 失败（进程启动失败/握手超时），回退到独立进程。
+    debugPrint('[mcp.discover] ${server.name}: FALLBACK to independent process');
     final session = await _initializeStdioSession(server);
     try {
       return _listTools(
@@ -350,10 +362,21 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, Object?> arguments, {
     String? toolCallId,
   }) async {
-    // 快速路径：复用进程管理器中已运行的进程
+    // 优先复用 process manager 中已运行的进程（确保先启动）
+    final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
+    if (processInfo.isStopped) {
+      await McpStdioProcessManager.instance.startServer(server);
+    }
     final managedSession = await McpStdioProcessManager.instance
         .borrowSessionForDiscovery(server.name);
     if (managedSession != null) {
+      // 注册 kill 回调（如果有 toolCallId）
+      if (toolCallId != null && toolCallId.isNotEmpty) {
+        final pid = McpStdioProcessManager.instance.infoFor(server.name).pid;
+        if (pid != null) {
+          AiToolExecutionRegistry.instance.attachPid(toolCallId, pid);
+        }
+      }
       try {
         return _extractResult(
           await managedSession.sendRequest(
@@ -373,11 +396,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       }
     }
 
-    // 常规路径：启动新进程
+    // 兜底：启动独立进程
     final session = await _initializeStdioSession(server);
-    // 将 stdio MCP server 进程接入执行登记中心：kill 时关闭 session
-    // （内部会 stdin.close 后超时调 _process.kill）。本调用返回后 finally
-    // 会再调 close 一次，重复调用是幂等的。
     final registeredToolCallId = toolCallId;
     if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
       AiToolExecutionRegistry.instance.attachPid(

@@ -273,39 +273,54 @@ class McpStdioProcessManager extends ChangeNotifier {
   final Map<String, int> _sessionBorrowCount = {};
 
   /// 尝试借用已运行且握手完成的进程供 discovery service 发送 tools/list。
-  /// 如果进程正在运行但握手尚未完成，最多等待 [_handshakeWaitTimeout] 秒。
+  /// 如果进程正在启动或握手尚未完成，最多等待 [_handshakeWaitTimeout]。
   /// 返回 null 表示无可用进程（未启动/已停止/等待超时），调用方应回退到启动新进程。
   /// 借用期间进程不会被 stopServer 关闭（通过引用计数保护）。
-  static const Duration _handshakeWaitTimeout = Duration(seconds: 30);
+  static const Duration _handshakeWaitTimeout = Duration(minutes: 2);
 
   Future<ManagedStdioSession?> borrowSessionForDiscovery(
     String serverName,
   ) async {
     _ManagedProcess? managed = _processes[serverName];
-    if (managed == null || managed.info.isStopped || managed.process == null) {
+    // 完全不存在 entry — 调用方应先触发 startServer
+    if (managed == null) {
+      debugPrint('[mcp.borrow] $serverName: no entry in _processes, returning null');
+      return null;
+    }
+    // 已停止（非启动中）— 没有可复用的进程
+    if (managed.info.isStopped && managed.process == null) {
+      debugPrint('[mcp.borrow] $serverName: stopped and no process, returning null');
       return null;
     }
 
-    // 如果进程正在运行但握手尚未完成，轮询等待
-    if (!managed.handshakeCompleted) {
-      final deadline = DateTime.now().add(_handshakeWaitTimeout);
-      while (DateTime.now().isBefore(deadline)) {
-        await Future<void>.delayed(const Duration(milliseconds: 500));
-        managed = _processes[serverName];
-        if (managed == null || managed.info.isStopped || managed.process == null) {
-          return null;
-        }
-        if (managed.handshakeCompleted) break;
+    // 轮询等待：进程启动 + 握手完成。覆盖两种情况：
+    //   a) 进程刚 startServer，process 字段还是 null（同步占位阶段）
+    //   b) 进程已启动，但 handshake 还在进行（initialize 回环）
+    final deadline = DateTime.now().add(_handshakeWaitTimeout);
+    var waitIterations = 0;
+    while (!managed!.handshakeCompleted || managed.process == null) {
+      if (DateTime.now().isAfter(deadline)) {
+        debugPrint('[mcp.borrow] $serverName: handshake wait timeout after ${waitIterations * 200}ms');
+        return null;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      waitIterations++;
+      managed = _processes[serverName];
+      if (managed == null) {
+        debugPrint('[mcp.borrow] $serverName: entry removed during wait');
+        return null;
+      }
+      if (managed.info.isStopped && managed.process == null) {
+        debugPrint('[mcp.borrow] $serverName: became stopped during wait');
+        return null;
       }
     }
 
-    // 最终检查
-    if (managed == null ||
-        !managed.handshakeCompleted ||
-        managed.process == null ||
-        managed.responseRouter == null) {
+    if (managed.responseRouter == null) {
+      debugPrint('[mcp.borrow] $serverName: responseRouter is null, returning null');
       return null;
     }
+    debugPrint('[mcp.borrow] $serverName: SUCCESS, borrowing session (waited ${waitIterations * 200}ms)');
     _sessionBorrowCount[serverName] =
         (_sessionBorrowCount[serverName] ?? 0) + 1;
     return ManagedStdioSession._(managed.process!, managed.responseRouter!);

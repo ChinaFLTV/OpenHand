@@ -474,12 +474,14 @@ class McpController extends ChangeNotifier {
     }
 
     // 对 stdio 类型服务，确保 process manager 中有运行中的进程。
-    // 这样 discovery service 可以复用已运行进程而不是启动新实例
-    // （避免 Playwright 等单例 MCP 服务的多实例冲突）。
+    // discovery service 会通过 borrowSessionForDiscovery 复用该进程发送
+    // tools/list，避免 Playwright 等单例 MCP 服务的多实例冲突。
+    // 必须 await startServer 完成后再继续，否则 borrowSession 会因
+    // _processes 中 entry 尚未创建而立即返回 null，回退到启动新进程。
     if (server.type == McpServerType.stdio) {
       final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
       if (processInfo.isStopped) {
-        unawaited(McpStdioProcessManager.instance.startServer(server));
+        await McpStdioProcessManager.instance.startServer(server);
       }
     }
 
