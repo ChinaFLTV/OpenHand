@@ -875,7 +875,7 @@ function MessageCardImpl({
         ) : (
           <Markdown
             source={visibleContent}
-            raw={style.mono === true || message.kind === 'reasoning'}
+            raw={style.mono === true}
             mono={style.mono === true}
           />
         )}

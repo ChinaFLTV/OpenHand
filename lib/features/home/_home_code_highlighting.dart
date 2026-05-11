@@ -186,11 +186,51 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   _CodeBlockPalette? _cachedPalette;
   int? _cachedPaletteSignature;
   bool _highlightScheduled = false;
+  // 阶段⑳：首帧轻量骨架优化。当代码块首次创建时（通常是消息展开触发），
+  // 第一帧只渲染一个带背景色的简单容器（高度由内容行数估算），避免 N 个
+  // 代码块同帧构建完整 widget 树（header + body + decorations）的开销。
+  // 下一帧再切换到完整 UI。LRU cache 命中时跳过骨架直接渲染完整 UI。
+  bool _skeletonPhase = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // 检查 LRU cache：如果已有缓存的 span，跳过骨架阶段直接渲染完整 UI
+    final signature = _computeSignature();
+    final cached = _highlightSpanCache.get(signature);
+    if (cached != null) {
+      _highlightedSpan = cached;
+      _highlightSignature = signature;
+      _skeletonPhase = false;
+    } else {
+      // 调度下一帧切换到完整 UI
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _skeletonPhase = false);
+      });
+    }
+  }
+
+  int _computeSignature() {
+    final effectiveLanguage = _normalizeCodeLanguage(widget.language);
+    final useDarkPalette =
+        widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
+    return Object.hashAll(<Object?>[
+      widget.content,
+      effectiveLanguage,
+      widget.allowAutoDetection,
+      widget.baseColor.toARGB32(),
+      useDarkPalette,
+      widget.theme.textTheme.bodyMedium?.fontSize,
+      widget.theme.textTheme.bodyMedium?.fontFamily,
+      widget.theme.textTheme.bodyMedium?.height,
+    ]);
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _ensureHighlightedSpan();
+    if (!_skeletonPhase) _ensureHighlightedSpan();
   }
 
   @override
@@ -230,6 +270,24 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
 
   @override
   Widget build(BuildContext context) {
+    // 阶段⑳：骨架阶段 — 首帧只渲染一个轻量占位容器，避免 N 个代码块
+    // 同帧构建完整 widget 树。估算高度 = 行数 × 行高 + header + padding。
+    if (_skeletonPhase) {
+      final useDarkPalette =
+          widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
+      final lineCount = '\n'.allMatches(widget.content).length + 1;
+      final estimatedHeight = (lineCount.clamp(1, 20) * 20.0) + 56.0;
+      return Container(
+        height: estimatedHeight,
+        decoration: BoxDecoration(
+          color: useDarkPalette
+              ? const Color(0xFF1E1E2E)
+              : const Color(0xFFF5F5F5),
+          borderRadius: _borderRadius18,
+        ),
+      );
+    }
+
     final effectiveLanguage = _normalizeCodeLanguage(widget.language);
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
