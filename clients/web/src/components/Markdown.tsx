@@ -88,14 +88,22 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
         />
       ),
       code: (props: any) => {
-        // react-markdown v10: `inline` prop is no longer passed.
-        // Block code is rendered as <pre><code>; inline code is just <code>.
-        // We detect block code by checking if `node.position` parent is 'pre'
-        // or by checking className (hljs adds language-xxx class to block code).
+        // react-markdown v10: detect block code by checking if parent is <pre>.
+        // The `node` prop contains hast node; its parent info isn't directly
+        // available, but block code always has className from rehype-highlight
+        // OR is the direct child of a <pre> element. We use a more robust check:
+        // if className exists (rehype-highlight always adds 'hljs' or 'language-X')
+        // OR if the element has multiple lines, treat as block code.
         const { className, children, node, ...rest } = props;
-        const isBlock = className?.includes('hljs') || className?.includes('language-');
+        const textContent = typeof children === 'string'
+          ? children
+          : Array.isArray(children)
+            ? children.filter((c: unknown) => typeof c === 'string').join('')
+            : '';
+        const hasClass = Boolean(className);
+        const isMultiline = textContent.includes('\n');
+        const isBlock = hasClass || isMultiline;
         if (isBlock) {
-          // Block code: render with language label and copy button
           const lang = className
             ?.split(' ')
             .find((c: string) => c.startsWith('language-'))
@@ -107,6 +115,7 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
               overflow: 'hidden',
               border: '1px solid color-mix(in srgb, var(--m3-outline) 40%, transparent)',
               margin: '0.5rem 0',
+              background: 'color-mix(in srgb, var(--m3-on-surface) 4%, transparent)',
             }}>
               <div style={{
                 display: 'flex',
@@ -132,7 +141,7 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
                   onClick={() => {
                     const text = typeof children === 'string'
                       ? children
-                      : (node?.children?.[0]?.value ?? '');
+                      : (node?.children?.[0]?.value ?? textContent ?? '');
                     navigator.clipboard?.writeText(text);
                   }}
                   style={{
