@@ -637,17 +637,38 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   String? _error;
 
   String get _packageName {
-    // 从 npx 命令的 args 中提取包名
-    if (widget.server.args.isNotEmpty) {
-      return widget.server.args.first.trim();
+    // 从命令配置中提取包名，兼容两种输入习惯：
+    //   1. command="npx", args=["@playwright/mcp"]
+    //   2. command="npx chrome-devtools-mcp@latest", args=["--autoConnect"]
+    final cmd = widget.server.command.trim();
+    final tokens = cmd.split(RegExp(r'\s+'));
+    // command 字段包含多个 token 时，第二个 token 就是包名
+    if (tokens.length > 1) return tokens[1];
+    // 否则从 args 的第一个非 flag 参数提取
+    for (final arg in widget.server.args) {
+      final trimmed = arg.trim();
+      if (trimmed.isEmpty) continue;
+      if (trimmed.startsWith('-')) continue;
+      return trimmed;
     }
     return '';
   }
 
   bool get _isNpxService {
     final cmd = widget.server.command.trim();
-    return cmd == 'npx' || cmd.endsWith('/npx');
+    if (cmd == 'npx' || cmd.endsWith('/npx')) return true;
+    final firstToken = cmd.split(RegExp(r'\s+')).first;
+    return firstToken == 'npx' || firstToken.endsWith('/npx');
   }
+
+  bool get _isUvxService {
+    final cmd = widget.server.command.trim();
+    if (cmd == 'uvx' || cmd.endsWith('/uvx')) return true;
+    final firstToken = cmd.split(RegExp(r'\s+')).first;
+    return firstToken == 'uvx' || firstToken.endsWith('/uvx');
+  }
+
+  bool get _isPackageManagerService => _isNpxService || _isUvxService;
 
   @override
   void initState() {
@@ -680,41 +701,59 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   Future<void> _checkDepsStatus() async {
     setState(() => _checking = true);
     final pkg = _packageName;
-    if (pkg.isEmpty || !_isNpxService) {
+    if (pkg.isEmpty || !_isPackageManagerService) {
       if (mounted) setState(() => _checking = false);
       return;
     }
     try {
-      // 检查全局安装状态
-      final listResult = await Process.run(
-        'npm', ['list', '-g', pkg, '--depth=0'],
-      ).timeout(const Duration(seconds: 10));
-      _packageInstalled = listResult.exitCode == 0 &&
-          listResult.stdout.toString().contains(pkg);
-      if (_packageInstalled) {
-        final match = RegExp('$pkg@([\\d.]+)')
-            .firstMatch(listResult.stdout.toString());
-        _installedVersion = match?.group(1);
-      }
-      // 检查最新版本
-      try {
-        final viewResult = await Process.run(
-          'npm', ['view', pkg, 'version'],
+      if (_isNpxService) {
+        // npm 全局安装状态检查
+        final listResult = await Process.run(
+          'npm', ['list', '-g', pkg, '--depth=0'],
         ).timeout(const Duration(seconds: 10));
-        if (viewResult.exitCode == 0) {
-          _latestVersion = viewResult.stdout.toString().trim();
+        _packageInstalled = listResult.exitCode == 0 &&
+            listResult.stdout.toString().contains(pkg);
+        if (_packageInstalled) {
+          final cleanPkg = pkg.replaceAll(RegExp(r'@[^/]*$'), '');
+          final match = RegExp('${RegExp.escape(cleanPkg)}@([\\d.]+)')
+              .firstMatch(listResult.stdout.toString());
+          _installedVersion = match?.group(1);
         }
-      } catch (_) {}
+        // 检查最新版本
+        try {
+          final cleanPkg = pkg.replaceAll(RegExp(r'@[^/]*$'), '');
+          final viewResult = await Process.run(
+            'npm', ['view', cleanPkg, 'version'],
+          ).timeout(const Duration(seconds: 10));
+          if (viewResult.exitCode == 0) {
+            _latestVersion = viewResult.stdout.toString().trim();
+          }
+        } catch (_) {}
+      } else if (_isUvxService) {
+        // uvx/pip 全局安装状态检查
+        final cleanPkg = pkg.replaceAll(RegExp(r'@[^/]*$'), '');
+        final listResult = await Process.run(
+          'uv', ['tool', 'list'],
+        ).timeout(const Duration(seconds: 10));
+        _packageInstalled = listResult.exitCode == 0 &&
+            listResult.stdout.toString().contains(cleanPkg);
+        if (_packageInstalled) {
+          final match = RegExp('${RegExp.escape(cleanPkg)}\\s+v?([\\d.]+)')
+              .firstMatch(listResult.stdout.toString());
+          _installedVersion = match?.group(1);
+        }
+        // uvx 暂不检查最新版本（PyPI API 较慢）
+      }
     } catch (_) {}
     if (mounted) setState(() => _checking = false);
   }
 
-  Future<void> _runNpmOperation(String action, List<String> args) async {
+  Future<void> _runPackageOperation(String action, String executable, List<String> args) async {
     setState(() { _operating = true; _error = null; _logs.clear(); });
-    _addLog('[${_ts()}] > npm ${args.join(' ')}');
+    _addLog('[${_ts()}] > $executable ${args.join(' ')}');
     _addLog('');
     try {
-      final process = await Process.start('npm', args);
+      final process = await Process.start(executable, args);
       process.stdout.transform(const SystemEncoding().decoder).listen((data) {
         for (final line in data.split('\n')) {
           if (line.trim().isNotEmpty) _addLog(line);
@@ -747,29 +786,44 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   Future<void> _installDeps() async {
     final pkg = _packageName;
     if (pkg.isEmpty) return;
-    await _runNpmOperation('安装', ['install', '-g', pkg]);
-    // 同时预热隔离缓存
-    _addLog('');
-    _addLog('[${_ts()}] 预热隔离缓存…');
-    final cacheRoot = mcpStdioIsolatedCacheRoot();
-    try {
-      await Process.run('npm', ['cache', 'add', pkg],
-        environment: {'npm_config_cache': '$cacheRoot/npm'},
-      ).timeout(const Duration(seconds: 30));
-      _addLog('[${_ts()}] ✓ 缓存预热完成');
-    } catch (e) {
-      _addLog('[${_ts()}] 缓存预热跳过: $e');
+    final cleanPkg = pkg.replaceAll(RegExp(r'@[^/]*$'), '');
+    if (_isNpxService) {
+      await _runPackageOperation('安装', 'npm', ['install', '-g', cleanPkg]);
+      // 同时预热隔离缓存
+      _addLog('');
+      _addLog('[${_ts()}] 预热隔离缓存…');
+      final cacheRoot = mcpStdioIsolatedCacheRoot();
+      try {
+        await Process.run('npm', ['cache', 'add', cleanPkg],
+          environment: {'npm_config_cache': '$cacheRoot/npm'},
+        ).timeout(const Duration(seconds: 30));
+        _addLog('[${_ts()}] ✓ 缓存预热完成');
+      } catch (e) {
+        _addLog('[${_ts()}] 缓存预热跳过: $e');
+      }
+    } else if (_isUvxService) {
+      await _runPackageOperation('安装', 'uv', ['tool', 'install', cleanPkg]);
     }
     if (mounted) setState(() {});
   }
 
-  Future<void> _updateDeps() => _runNpmOperation(
-    '更新', ['update', '-g', _packageName],
-  );
+  Future<void> _updateDeps() {
+    final cleanPkg = _packageName.replaceAll(RegExp(r'@[^/]*$'), '');
+    if (_isNpxService) {
+      return _runPackageOperation('更新', 'npm', ['update', '-g', cleanPkg]);
+    } else {
+      return _runPackageOperation('更新', 'uv', ['tool', 'upgrade', cleanPkg]);
+    }
+  }
 
-  Future<void> _uninstallDeps() => _runNpmOperation(
-    '卸载', ['uninstall', '-g', _packageName],
-  );
+  Future<void> _uninstallDeps() {
+    final cleanPkg = _packageName.replaceAll(RegExp(r'@[^/]*$'), '');
+    if (_isNpxService) {
+      return _runPackageOperation('卸载', 'npm', ['uninstall', '-g', cleanPkg]);
+    } else {
+      return _runPackageOperation('卸载', 'uv', ['tool', 'uninstall', cleanPkg]);
+    }
+  }
 
   static String _ts() {
     final now = DateTime.now();
@@ -857,11 +911,11 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                         ),
                       ),
                     )
-                  : !_isNpxService || pkg.isEmpty
+                  : !_isPackageManagerService || pkg.isEmpty
                       ? Text(
                           isZh
-                              ? '此服务非 npx 类型，无需管理 npm 依赖。'
-                              : 'This service is not npx-based. No npm deps to manage.',
+                              ? '此服务非包管理器类型（npx / uvx），无需管理依赖。'
+                              : 'This service is not package-manager-based (npx / uvx). No deps to manage.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),

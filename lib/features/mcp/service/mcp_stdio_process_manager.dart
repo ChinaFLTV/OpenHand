@@ -676,13 +676,20 @@ class _DirectLaunch {
 /// 解析 STDIO MCP 服务的直接启动参数。
 /// 对于 npx 命令，尝试定位已全局安装的包入口脚本，直接用 node 执行。
 /// 这避免了 npx 的启动开销、下载延迟、以及 login shell stdin 转发问题。
+/// 兼容用户把整条命令粘进 command 字段的情况（如 "npx chrome-devtools-mcp@latest"）。
 Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
   final command = server.command.trim();
-  final isNpx = command == 'npx' || command.endsWith('/npx');
+  // 拆词：兼容 command="npx pkg@latest" 的写法
+  final tokens = command.split(RegExp(r'\s+'));
+  final executable = tokens.first;
+  final inlineArgs = tokens.length > 1 ? tokens.sublist(1) : const <String>[];
+  final allArgs = [...inlineArgs, ...server.args];
 
-  if (isNpx && server.args.isNotEmpty) {
-    final packageName = server.args.first.trim();
-    final extraArgs = server.args.length > 1 ? server.args.sublist(1) : const <String>[];
+  final isNpx = executable == 'npx' || executable.endsWith('/npx');
+
+  if (isNpx && allArgs.isNotEmpty) {
+    final packageName = allArgs.first.trim();
+    final extraArgs = allArgs.length > 1 ? allArgs.sublist(1) : const <String>[];
 
     // 尝试通过 login shell 定位已安装包的实际路径
     final resolved = await _resolveNpxPackagePath(packageName);
@@ -696,7 +703,7 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
 
   // 回退：通过 login shell 执行原始命令
   final shell = _pickShellForLaunch();
-  final cmdLine = [command, ...server.args].map((p) => p.contains(' ') ? "'$p'" : p).join(' ');
+  final cmdLine = [executable, ...allArgs].map((p) => p.contains(' ') ? "'$p'" : p).join(' ');
   // 使用 exec 替换 shell 进程，确保 stdin 直接连接到目标进程
   return _DirectLaunch(
     executable: shell,

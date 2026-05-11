@@ -418,13 +418,12 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     final l10n = AppLocalizations.of(context)!;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
-    // 对于 STDIO 类型的 npx 服务，询问是否同时清理底层 npm 包
+    // 对于 STDIO 类型的 npx/uvx 服务，询问是否同时清理底层包
     bool shouldCleanupDeps = false;
     final isNpxService = server.type == McpServerType.stdio &&
-        (server.command.trim() == 'npx' ||
-         server.command.trim().endsWith('/npx'));
-    final npxPackageName = isNpxService && server.args.isNotEmpty
-        ? server.args.first.trim()
+        _isPackageManagerCommand(server);
+    final npxPackageName = isNpxService
+        ? _extractPackageName(server)
         : null;
 
     final confirmed = await showAnimatedDialog<bool>(
@@ -452,14 +451,14 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                       dense: true,
                       title: Text(
                         isZh
-                            ? '同时卸载底层 npm 包 ($npxPackageName)'
-                            : 'Also uninstall npm package ($npxPackageName)',
+                            ? '同时卸载底层包 ($npxPackageName)'
+                            : 'Also uninstall package ($npxPackageName)',
                         style: Theme.of(ctx).textTheme.bodySmall,
                       ),
                       subtitle: Text(
                         isZh
-                            ? '将执行 npm uninstall -g $npxPackageName 并清理隔离缓存'
-                            : 'Will run npm uninstall -g $npxPackageName and clean isolated cache',
+                            ? '将卸载全局包并清理隔离缓存'
+                            : 'Will uninstall global package and clean isolated cache',
                         style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
                           color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                         ),
@@ -496,15 +495,16 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       return;
     }
 
-    // 异步清理底层 npm 依赖包（不阻塞 UI）
+    // 异步清理底层依赖包（不阻塞 UI）
     if (shouldCleanupDeps && isNpxService && npxPackageName != null) {
-      _cleanupNpxDependency(context, npxPackageName, server.name);
+      final cleanPkg = npxPackageName.replaceAll(RegExp(r'@[^/]*$'), '');
+      _cleanupNpxDependency(context, cleanPkg, server.name);
     }
 
     _showSnackBar(context, l10n.mcpServerDeleted, kind: _SnackKind.success);
   }
 
-  /// 异步清理 npx 类型 MCP 服务的底层 npm 全局包和隔离缓存。
+  /// 异步清理包管理器类型 MCP 服务的底层全局包和隔离缓存。
   Future<void> _cleanupNpxDependency(
     BuildContext context,
     String packageName,
@@ -512,7 +512,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   ) async {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     try {
-      // 1. 卸载全局 npm 包
+      // 1. 卸载全局包
       final result = await Process.run(
         'npm', ['uninstall', '-g', packageName],
       ).timeout(const Duration(seconds: 30));
@@ -1981,9 +1981,8 @@ class _StdioProcessButtons extends StatelessWidget {
                 ),
               ),
             ),
-            // 依赖管理按钮（仅 npx 类型）
-            if (server.command.trim() == 'npx' ||
-                server.command.trim().endsWith('/npx'))
+            // 依赖管理按钮（npx / uvx 类型）
+            if (_isPackageManagerCommand(server))
               Tooltip(
                 message: _localizedText(
                   context,
@@ -5633,6 +5632,52 @@ String _formatRelativePast(BuildContext context, DateTime utc) {
   }
   final d = diff.inDays;
   return isZh ? '$d 天前' : '${d}d ago';
+}
+
+/// 判断 STDIO MCP 服务是否为 npx 类型。
+/// 兼容两种用户输入习惯：
+///   1. command="npx", args=["@playwright/mcp"]
+///   2. command="npx chrome-devtools-mcp@latest", args=["--autoConnect"]
+/// 同时支持绝对路径形式（如 /opt/homebrew/bin/npx）。
+bool _isNpxCommand(McpServer server) {
+  final cmd = server.command.trim();
+  // 精确匹配或路径结尾匹配
+  if (cmd == 'npx' || cmd.endsWith('/npx')) return true;
+  // 用户把整条命令粘进 command 字段：第一个 token 是 npx
+  final firstToken = cmd.split(RegExp(r'\s+')).first;
+  return firstToken == 'npx' || firstToken.endsWith('/npx');
+}
+
+/// 判断 STDIO MCP 服务是否为 uvx 类型（Python 包管理器）。
+bool _isUvxCommand(McpServer server) {
+  final cmd = server.command.trim();
+  if (cmd == 'uvx' || cmd.endsWith('/uvx')) return true;
+  final firstToken = cmd.split(RegExp(r'\s+')).first;
+  return firstToken == 'uvx' || firstToken.endsWith('/uvx');
+}
+
+/// 判断 STDIO MCP 服务是否为包管理器类型（npx 或 uvx），支持依赖管理功能。
+bool _isPackageManagerCommand(McpServer server) {
+  return _isNpxCommand(server) || _isUvxCommand(server);
+}
+
+/// 从 STDIO MCP 服务配置中提取包名。
+/// 兼容两种输入习惯：
+///   1. command="npx", args=["@playwright/mcp", "--headless"]  → "@playwright/mcp"
+///   2. command="npx chrome-devtools-mcp@latest", args=["--autoConnect"] → "chrome-devtools-mcp@latest"
+String? _extractPackageName(McpServer server) {
+  final cmd = server.command.trim();
+  final tokens = cmd.split(RegExp(r'\s+'));
+  // 如果 command 字段包含多个 token，第二个 token 就是包名
+  if (tokens.length > 1) return tokens[1];
+  // 否则从 args 的第一个非 flag 参数提取
+  for (final arg in server.args) {
+    final trimmed = arg.trim();
+    if (trimmed.isEmpty) continue;
+    if (trimmed.startsWith('-')) continue; // 跳过 flag 参数
+    return trimmed;
+  }
+  return null;
 }
 
 /// 把未来 UTC 时间戳渲染成「约 12 秒后 / 约 3 分钟后」形式；过期则显示「即将开始」。
