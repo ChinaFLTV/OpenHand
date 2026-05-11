@@ -96,8 +96,8 @@ class McpStdioProcessManager extends ChangeNotifier {
     final existing = _processes[name];
     if (existing != null && !existing.info.isStopped) return;
 
-    _processes[name] = _ManagedProcess(
-      info: const StdioProcessInfo(state: StdioProcessState.starting),
+    _processes[name] = const _ManagedProcess(
+      info: StdioProcessInfo(state: StdioProcessState.starting),
     );
     notifyListeners();
 
@@ -116,6 +116,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       logs.add('[${_timestamp()}] 命令: ${launch.executable} ${launch.args.join(' ')}');
       logs.add('');
 
+      final responseRouter = _ManagedResponseRouter();
       final managed = _ManagedProcess(
         info: StdioProcessInfo(
           state: StdioProcessState.running,
@@ -124,23 +125,32 @@ class McpStdioProcessManager extends ChangeNotifier {
           logs: List.unmodifiable(logs),
         ),
         process: process,
+        responseRouter: responseRouter,
       );
       _processes[name] = managed;
       notifyListeners();
 
-      // 监听 stdout - 同时用于日志和握手响应检测
+      // 监听 stdout - 同时用于日志、握手响应检测和 discovery 响应路由
       final handshakeCompleter = Completer<bool>();
       process.stdout.transform(utf8.decoder).listen(
         (data) {
+          // 优先尝试路由到 discovery session 的 pending requests
+          final routed = responseRouter.tryRoute(data);
           _appendLog(name, data, isStderr: false);
           // 检测 MCP initialize 响应
           if (!handshakeCompleter.isCompleted &&
               (data.contains('"result"') || data.contains('"protocolVersion"'))) {
             handshakeCompleter.complete(true);
           }
+          // 如果路由成功但日志已记录，不影响功能
+          if (routed) return;
         },
-        onError: (e) => _appendLog(name, '[stdout error] $e', isStderr: true),
+        onError: (e) {
+          responseRouter.failAll(e is Object ? e : StateError('$e'));
+          _appendLog(name, '[stdout error] $e', isStderr: true);
+        },
         onDone: () {
+          responseRouter.failAll(StateError('stdout closed'));
           _appendLog(name, '[stdout closed]', isStderr: false);
           if (!handshakeCompleter.isCompleted) handshakeCompleter.complete(false);
         },
@@ -156,6 +166,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       // 监听进程退出
       unawaited(process.exitCode.then((code) {
         _appendLog(name, '\n[${_timestamp()}] 进程已退出 (exit code: $code)', isStderr: false);
+        responseRouter.failAll(StateError('process exited with code $code'));
         final current = _processes[name];
         if (current != null) {
           _processes[name] = _ManagedProcess(
@@ -163,6 +174,7 @@ class McpStdioProcessManager extends ChangeNotifier {
               state: StdioProcessState.stopped,
               clearPid: true,
             ),
+            responseRouter: current.responseRouter,
           );
           notifyListeners();
         }
@@ -249,8 +261,44 @@ class McpStdioProcessManager extends ChangeNotifier {
     _processes[serverName] = _ManagedProcess(
       info: managed.info.copyWith(logs: const []),
       process: managed.process,
+      handshakeCompleted: managed.handshakeCompleted,
     );
     notifyListeners();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Discovery Service 复用已运行进程的会话借用机制
+  // ─────────────────────────────────────────────────────────────────────────
+
+  final Map<String, int> _sessionBorrowCount = {};
+
+  /// 尝试借用已运行且握手完成的进程供 discovery service 发送 tools/list。
+  /// 返回 null 表示无可用进程（未启动/未握手/已停止），调用方应回退到启动新进程。
+  /// 借用期间进程不会被 stopServer 关闭（通过引用计数保护）。
+  Future<ManagedStdioSession?> borrowSessionForDiscovery(
+    String serverName,
+  ) async {
+    final managed = _processes[serverName];
+    if (managed == null ||
+        !managed.info.isRunning ||
+        !managed.handshakeCompleted ||
+        managed.process == null ||
+        managed.responseRouter == null) {
+      return null;
+    }
+    _sessionBorrowCount[serverName] =
+        (_sessionBorrowCount[serverName] ?? 0) + 1;
+    return ManagedStdioSession._(managed.process!, managed.responseRouter!);
+  }
+
+  /// 归还借用的会话，释放引用计数。
+  void returnSession(String serverName) {
+    final count = _sessionBorrowCount[serverName] ?? 0;
+    if (count <= 1) {
+      _sessionBorrowCount.remove(serverName);
+    } else {
+      _sessionBorrowCount[serverName] = count - 1;
+    }
   }
 
   void _appendLog(String serverName, String data, {required bool isStderr}) {
@@ -302,13 +350,12 @@ class McpStdioProcessManager extends ChangeNotifier {
           'clientInfo': {'name': 'OpenHand', 'version': '1.0.0'},
         },
       });
-      final body = utf8.encode(initRequest);
-      final header = 'Content-Length: ${body.length}\r\n\r\n';
 
-      // 发送 initialize 请求（尾部追加 \n 兼容 bare JSON-line 模式的 MCP 服务）
-      process.stdin.add(utf8.encode(header));
-      process.stdin.add(body);
-      process.stdin.add(utf8.encode('\n'));
+      // 使用 JSON-line 模式发送（与 discovery service 保持一致）。
+      // Playwright 等主流 MCP 服务使用 JSON-line 解析，
+      // Content-Length header 会干扰其消息边界检测。
+      process.stdin.add(utf8.encode(initRequest));
+      process.stdin.add(const [0x0A]);
       await process.stdin.flush();
 
       // 等待 stdout 中出现响应（最多 90 秒，npx 首次运行需要下载包）
@@ -318,18 +365,26 @@ class McpStdioProcessManager extends ChangeNotifier {
       if (gotResponse) {
         _appendLog(serverName, '[${_timestamp()}] ✓ MCP 握手成功', isStderr: false);
 
-        // 发送 initialized 通知
+        // 发送 initialized 通知（JSON-line 模式）
         final notification = jsonEncode({
           'jsonrpc': '2.0',
           'method': 'notifications/initialized',
         });
-        final notifBody = utf8.encode(notification);
-        final notifHeader = 'Content-Length: ${notifBody.length}\r\n\r\n';
-        process.stdin.add(utf8.encode(notifHeader));
-        process.stdin.add(notifBody);
-        process.stdin.add(utf8.encode('\n'));
+        process.stdin.add(utf8.encode(notification));
+        process.stdin.add(const [0x0A]);
         await process.stdin.flush();
         _appendLog(serverName, '[${_timestamp()}] ✓ 服务已就绪，可正常使用', isStderr: false);
+
+        // 标记握手完成，允许 discovery service 复用此进程
+        final current = _processes[serverName];
+        if (current != null) {
+          _processes[serverName] = _ManagedProcess(
+            info: current.info,
+            process: current.process,
+            handshakeCompleted: true,
+            responseRouter: current.responseRouter,
+          );
+        }
       } else {
         _appendLog(serverName, '[${_timestamp()}] ⚠ 握手超时或进程已退出', isStderr: false);
       }
@@ -444,11 +499,107 @@ class McpStdioProcessManager extends ChangeNotifier {
   }
 }
 
+/// 轻量级会话包装器，供 discovery service 通过已运行的进程发送 JSON-RPC 请求。
+/// 不拥有进程生命周期——进程由 McpStdioProcessManager 管理。
+/// 响应路由通过 McpStdioProcessManager 的 stdout 监听器完成。
+class ManagedStdioSession {
+  ManagedStdioSession._(this._process, this._responseRouter);
+
+  final Process _process;
+  final _ManagedResponseRouter _responseRouter;
+  String instructions = '';
+
+  static const Duration _requestTimeout = Duration(seconds: 8);
+
+  Future<Map<String, Object?>?> sendRequest(
+    Map<String, Object?> payload, {
+    Duration? timeout,
+  }) async {
+    final requestIdText = '${payload['id']}';
+    final completer = Completer<Map<String, Object?>?>();
+    _responseRouter.register(requestIdText, completer);
+    try {
+      final body = utf8.encode(jsonEncode(payload));
+      _process.stdin.add(body);
+      _process.stdin.add(const [0x0A]);
+      await _process.stdin.flush();
+    } on StateError catch (e) {
+      _responseRouter.unregister(requestIdText);
+      throw McpToolDiscoveryException(
+        'Cannot write to managed stdio process: $e',
+      );
+    } catch (e) {
+      _responseRouter.unregister(requestIdText);
+      rethrow;
+    }
+    try {
+      return await completer.future.timeout(timeout ?? _requestTimeout);
+    } on TimeoutException {
+      _responseRouter.unregister(requestIdText);
+      throw const McpToolDiscoveryException(
+        'Tool scan timed out waiting for response from managed stdio process.',
+      );
+    }
+  }
+}
+
+/// 管理进程 stdout 中 JSON-RPC 响应的路由分发。
+class _ManagedResponseRouter {
+  final Map<String, Completer<Map<String, Object?>?>> _pending = {};
+
+  void register(String id, Completer<Map<String, Object?>?> completer) {
+    _pending[id] = completer;
+  }
+
+  void unregister(String id) {
+    _pending.remove(id);
+  }
+
+  /// 尝试将 stdout 数据中的 JSON-RPC 响应路由到等待中的 completer。
+  /// 返回 true 表示成功路由（调用方可选择不再记录该行到日志）。
+  bool tryRoute(String data) {
+    if (_pending.isEmpty) return false;
+    // 尝试从 data 中提取 JSON-RPC 响应
+    for (final line in data.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || !trimmed.startsWith('{')) continue;
+      try {
+        final decoded = jsonDecode(trimmed) as Map<String, Object?>;
+        final id = decoded['id'];
+        if (id == null) continue;
+        final idText = '$id';
+        final completer = _pending.remove(idText);
+        if (completer != null && !completer.isCompleted) {
+          completer.complete(decoded);
+          return true;
+        }
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  void failAll(Object error) {
+    for (final c in _pending.values) {
+      if (!c.isCompleted) c.completeError(error);
+    }
+    _pending.clear();
+  }
+
+  bool get hasPending => _pending.isNotEmpty;
+}
+
 class _ManagedProcess {
-  const _ManagedProcess({required this.info, this.process});
+  const _ManagedProcess({
+    required this.info,
+    this.process,
+    this.handshakeCompleted = false,
+    this.responseRouter,
+  });
 
   final StdioProcessInfo info;
   final Process? process;
+  final bool handshakeCompleted;
+  final _ManagedResponseRouter? responseRouter;
 }
 
 class _DirectLaunch {

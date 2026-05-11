@@ -245,6 +245,30 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_DiscoveredTools> _discoverOverStdio(McpServer server) async {
+    // 快速路径：如果进程管理器中已有该服务的运行中进程，通过它发送 tools/list
+    // 而不是启动新进程。许多 stdio MCP 服务（如 Playwright）是单例模式，
+    // 同时启动第二个实例会因资源冲突导致进程异常退出。
+    final managedSession = await McpStdioProcessManager.instance
+        .borrowSessionForDiscovery(server.name);
+    if (managedSession != null) {
+      try {
+        return _listTools(
+          (cursor) => managedSession.sendRequest(
+            _jsonRpcRequest(
+              id: _nextId(),
+              method: 'tools/list',
+              params:
+                  cursor == null ? null : <String, Object?>{'cursor': cursor},
+            ),
+          ),
+          serverInstructions: managedSession.instructions,
+        );
+      } finally {
+        McpStdioProcessManager.instance.returnSession(server.name);
+      }
+    }
+
+    // 常规路径：启动新进程
     final session = await _initializeStdioSession(server);
     try {
       return _listTools(
@@ -325,6 +349,30 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, Object?> arguments, {
     String? toolCallId,
   }) async {
+    // 快速路径：复用进程管理器中已运行的进程
+    final managedSession = await McpStdioProcessManager.instance
+        .borrowSessionForDiscovery(server.name);
+    if (managedSession != null) {
+      try {
+        return _extractResult(
+          await managedSession.sendRequest(
+            _jsonRpcRequest(
+              id: _nextId(),
+              method: 'tools/call',
+              params: <String, Object?>{
+                'name': toolName,
+                'arguments': arguments,
+              },
+            ),
+            timeout: _toolCallTimeout,
+          ),
+        );
+      } finally {
+        McpStdioProcessManager.instance.returnSession(server.name);
+      }
+    }
+
+    // 常规路径：启动新进程
     final session = await _initializeStdioSession(server);
     // 将 stdio MCP server 进程接入执行登记中心：kill 时关闭 session
     // （内部会 stdin.close 后超时调 _process.kill）。本调用返回后 finally
@@ -346,7 +394,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           _jsonRpcRequest(
             id: _nextId(),
             method: 'tools/call',
-            params: <String, Object?>{'name': toolName, 'arguments': arguments},
+            params: <String, Object?>{
+              'name': toolName,
+              'arguments': arguments,
+            },
           ),
           timeout: _toolCallTimeout,
         ),
@@ -2517,6 +2568,11 @@ class _StdioSession {
   }
 
   Future<void> _write(Map<String, Object?> payload) async {
+    if (_closeFuture != null) {
+      throw const McpToolDiscoveryException(
+        'Cannot write to a closing stdio session.',
+      );
+    }
     _appendTrace(
       'stdin:write:${payload['method'] ?? 'unknown'}:${payload['id'] ?? ''}',
     );
@@ -2524,9 +2580,18 @@ class _StdioSession {
     // 不发送 Content-Length header——Playwright 等主流 MCP 服务使用 JSON-line
     // 解析，Content-Length header 会干扰其消息边界检测导致后续消息丢失。
     final body = utf8.encode(jsonEncode(payload));
-    _process.stdin.add(body);
-    _process.stdin.add(const [0x0A]);
-    await _process.stdin.flush();
+    try {
+      _process.stdin.add(body);
+      _process.stdin.add(const [0x0A]);
+      await _process.stdin.flush();
+    } on StateError catch (error, stack) {
+      // 「Bad state: StreamSink is bound to a stream」或 stdin 已关闭时
+      // 转为 McpToolDiscoveryException，让上层统一处理。
+      silentLog('mcp.stdio', 'write.stdin', error, stack);
+      throw McpToolDiscoveryException(
+        'Tool scan failed because stdin became unavailable: $error',
+      );
+    }
   }
 
   Future<void> close() {
@@ -2534,14 +2599,20 @@ class _StdioSession {
   }
 
   Future<void> _closeOnce() async {
-    try {
-      await _process.stdin.close();
-    } catch (error, stack) {
-      silentLog('mcp.stdio', 'close.stdin', error, stack);
-    }
+    // 先 fail 所有 pending responses，避免 stdin.close 阻塞期间
+    // 上层 timeout 触发后再次调 close 形成死锁。
     _failPendingResponses(
       McpToolDiscoveryException(_closedUnexpectedlyMessage()),
     );
+    try {
+      await _process.stdin.close();
+    } on StateError catch (error, stack) {
+      // 「Bad state: StreamSink is bound to a stream」—— stdin 正在被
+      // addStream 占用（flush 未完成），直接跳过 close 走 kill 路径。
+      silentLog('mcp.stdio', 'close.stdin.stateError', error, stack);
+    } catch (error, stack) {
+      silentLog('mcp.stdio', 'close.stdin', error, stack);
+    }
     await _waitForExitOrKill();
     await _cancelSubscription(_stdoutSubscription, 'close.stdout');
     await _cancelSubscription(_stderrSubscription, 'close.stderr');
