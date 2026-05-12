@@ -36,27 +36,27 @@ function toneStyle(tone: SnackbarTone) {
   switch (tone) {
     case 'success':
       return {
-        border: '1px solid color-mix(in srgb, var(--m3-secondary) 42%, transparent)',
-        color: 'var(--m3-on-secondary-container)',
-        background: 'var(--m3-secondary-container)',
+        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.3))',
+        color: 'var(--m3-inverse-on-surface, #f1f0f4)',
+        background: 'var(--m3-inverse-surface, #2f3033)',
       };
     case 'warning':
       return {
-        border: '1px solid color-mix(in srgb, var(--m3-tertiary) 46%, transparent)',
-        color: 'var(--m3-on-tertiary-container)',
-        background: 'var(--m3-tertiary-container)',
+        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.3))',
+        color: 'var(--m3-on-tertiary-container, #28132e)',
+        background: 'var(--m3-tertiary-container, #fad8fd)',
       };
     case 'error':
       return {
-        border: '1px solid color-mix(in srgb, var(--m3-error) 48%, transparent)',
-        color: 'var(--m3-error)',
-        background: 'color-mix(in srgb, var(--m3-error) 10%, var(--m3-surface-container))',
+        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.3))',
+        color: 'var(--m3-on-error-container, #410e0b)',
+        background: 'var(--m3-error-container, #f9dedc)',
       };
     default:
       return {
-        border: '1px solid var(--m3-outline)',
-        color: 'var(--m3-on-surface)',
-        background: 'var(--m3-surface-container)',
+        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.3))',
+        color: 'var(--m3-inverse-on-surface, #f1f0f4)',
+        background: 'var(--m3-inverse-surface, #2f3033)',
       };
   }
 }

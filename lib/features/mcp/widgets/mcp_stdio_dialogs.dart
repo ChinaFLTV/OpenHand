@@ -40,6 +40,11 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
   void initState() {
     super.initState();
     McpStdioProcessManager.instance.addListener(_onUpdate);
+    // 弹窗打开时自动滚动到底部显示最新日志
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    });
   }
 
   @override
@@ -56,13 +61,12 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     if (_autoScroll && info.logs.length > _lastLogCount) {
       _lastLogCount = info.logs.length;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-          );
-        }
+        if (!mounted || !_scrollController.hasClients) return;
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
       });
     }
   }
