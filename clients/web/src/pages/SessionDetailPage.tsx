@@ -1516,23 +1516,39 @@ export function SessionDetailPage() {
   // 折叠/展开期间稳住消息：observer 跟踪 composer 高度变化，
   // 当用户「未在底部」时把 transcript scrollTop 反向补偿，让可视区底部
   // 锚到原始内容偏移，从而上方消息不被「挤上去 / 压下来」。
+  // 使用 rAF 合并同帧内的多次 ResizeObserver 回调，避免 CSS transition
+  // 期间反复触发补偿导致消息列表抽搐/鬼畜。
   useEffect(() => {
     if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') return;
     const composerEl = composerSectionRef.current;
     const scroller = mainRef.current;
     if (!composerEl || !scroller) return;
     let lastH = composerEl.getBoundingClientRect().height;
+    let pendingDelta = 0;
+    let rafId: number | null = null;
     const observer = new ResizeObserver(() => {
       const measured = composerEl.getBoundingClientRect().height;
       const delta = measured - lastH;
       lastH = measured;
       if (delta === 0) return;
-      // 无论是否贴底都反向补偿：贴底时同帧重新锥住底部，避免 闪动；
-      // 未贴底时保持可视位置锡定。
-      scroller.scrollTop = scroller.scrollTop + delta;
+      pendingDelta += delta;
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const totalDelta = pendingDelta;
+        pendingDelta = 0;
+        if (Math.abs(totalDelta) < 0.5 || !scroller) return;
+        // 补偿 scrollTop：保持用户当前可视位置不变
+        const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+        const newScrollTop = Math.max(0, Math.min(maxScroll, scroller.scrollTop + totalDelta));
+        scroller.scrollTop = newScrollTop;
+      });
     });
     observer.observe(composerEl);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   useLayoutEffect(() => {
@@ -2835,7 +2851,11 @@ export function SessionDetailPage() {
 
   function toggleComposerCollapsed(): void {
     setComposerCollapsed((value) => !value);
-    if (autoFollow) scheduleFollowToBottom('auto');
+    // 无论 autoFollow 状态如何，折叠/展开后都尝试稳定滚动位置。
+    // 如果用户在底部附近，确保消息列表保持贴底。
+    if (autoFollow || isNearBottomRef.current) {
+      scheduleFollowToBottom('auto');
+    }
   }
 
   useEffect(() => {
