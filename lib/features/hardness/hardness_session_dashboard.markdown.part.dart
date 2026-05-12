@@ -756,7 +756,34 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
   void _copyCode() {
     _copiedResetTimer?.cancel();
     setState(() => _copied = true);
-    Clipboard.setData(ClipboardData(text: widget.content));
+    Clipboard.setData(ClipboardData(text: widget.content)).then((_) {
+      if (!mounted) return;
+      _showHardnessSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            Localizations.localeOf(context).languageCode.startsWith('zh')
+                ? '代码已复制'
+                : 'Code copied',
+          ),
+          duration: const Duration(milliseconds: 1800),
+        ),
+      );
+    }).catchError((Object _) {
+      if (!mounted) return;
+      setState(() => _copied = false);
+      _showHardnessSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            Localizations.localeOf(context).languageCode.startsWith('zh')
+                ? '复制失败'
+                : 'Copy failed',
+          ),
+          duration: const Duration(milliseconds: 1800),
+        ),
+      );
+    });
     _copiedResetTimer = Timer(const Duration(milliseconds: 1600), () {
       if (mounted) setState(() => _copied = false);
     });

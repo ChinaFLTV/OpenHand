@@ -15,6 +15,7 @@ import { useMemo } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { showSnackbar } from './Snackbar';
 
 const CONTENT_TOO_BIG_BYTES = 120 * 1024;
 const LOCAL_MEDIA_EXT = /\.(?:png|jpe?g|gif|webp|bmp|heic|svg|mp4|webm|mov|m4v|mp3|wav|ogg|m4a|flac|aac)(?:[?#].*)?$/i;
@@ -121,7 +122,14 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
                 <button
                   type="button"
                   class="oh-code-block-copy"
-                  onClick={() => navigator.clipboard?.writeText(plainText)}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(plainText);
+                      showSnackbar('代码已复制', { tone: 'success' });
+                    } catch {
+                      showSnackbar('复制失败，请检查浏览器权限', { tone: 'error' });
+                    }
+                  }}
                 >复制</button>
               </div>
               <code className={className} {...rest} style={{
