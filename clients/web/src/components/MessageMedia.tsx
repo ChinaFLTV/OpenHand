@@ -389,8 +389,8 @@ function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
           ref={stageRef}
           class="flex-1 min-h-0 flex items-center justify-center"
           style={{
-            background: item.kind === 'audio' ? 'var(--m3-surface)' : 'black',
-            padding: item.kind === 'audio' ? '32px' : '0',
+            background: item.kind === 'audio' ? 'var(--m3-surface)' : 'var(--m3-surface-container)',
+            padding: item.kind === 'audio' ? '32px' : '12px',
           }}
         >
           {item.kind === 'image' ? (
