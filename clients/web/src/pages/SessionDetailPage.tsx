@@ -4874,6 +4874,8 @@ function metadataFieldLabel(field: string): string {
     created_at: '创建时间',
     updated_at: '更新时间',
     last_model: '最近模型',
+    auto_title_acquired: '标题获取状态',
+    auto_title_retry_count: '标题重试次数',
     compression_checkpoint: '压缩检查点',
     latest_compression_at: '最近压缩时间',
     total_input_characters: '输入字符总数',
@@ -5191,6 +5193,8 @@ function SessionMetadataDialog({
               <EntryRow label={metadataFieldLabel('created_at')} value={formatDialogDate(session.created_at)} />
               <EntryRow label={metadataFieldLabel('updated_at')} value={formatDialogDate(session.updated_at)} />
               <EntryRow label={metadataFieldLabel('last_model')} value={session.last_used_model_label || session.last_used_model_id || '—'} />
+              <EntryRow label={metadataFieldLabel('auto_title_acquired')} value={session.auto_title_acquired ? '✓ 已获取' : '✗ 未获取'} />
+              <EntryRow label={metadataFieldLabel('auto_title_retry_count')} value={`${session.auto_title_retry_count ?? 0}`} />
               <EntryRow label={metadataFieldLabel('compression_checkpoint')} value={session.latest_compression_checkpoint_message_id || '—'} />
               <EntryRow label={metadataFieldLabel('latest_compression_at')} value={formatDialogDate(session.latest_compression_at)} />
             </Section>

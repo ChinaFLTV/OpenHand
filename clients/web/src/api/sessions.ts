@@ -52,6 +52,8 @@ export interface SessionSummary {
   last_used_model_id?: string | null;
   last_used_model_label?: string | null;
   is_title_manually_edited?: boolean;
+  auto_title_acquired?: boolean;
+  auto_title_retry_count?: number;
   auto_title_generated_at?: string | null;
   auto_title_source_message_id?: string | null;
   latest_compression_checkpoint_message_id?: string | null;

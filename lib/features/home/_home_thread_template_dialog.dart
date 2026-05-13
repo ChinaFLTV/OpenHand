@@ -383,6 +383,16 @@ String _localizedMetadataField(BuildContext context, String field) {
     'created_at' => _localizedText(context, zh: '创建时间', en: 'Created At'),
     'updated_at' => _localizedText(context, zh: '更新时间', en: 'Updated At'),
     'last_model' => _localizedText(context, zh: '最近模型', en: 'Last Model'),
+    'auto_title_acquired' => _localizedText(
+      context,
+      zh: '标题获取状态',
+      en: 'Title Acquired',
+    ),
+    'auto_title_retry_count' => _localizedText(
+      context,
+      zh: '标题重试次数',
+      en: 'Title Retry Count',
+    ),
     'compression_checkpoint' => _localizedText(
       context,
       zh: '压缩检查点',

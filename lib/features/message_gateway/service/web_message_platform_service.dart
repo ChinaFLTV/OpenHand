@@ -3977,6 +3977,8 @@ class WebMessagePlatformService {
       'last_used_model_id': session.lastUsedModelId,
       'last_used_model_label': session.lastUsedModelLabel,
       'is_title_manually_edited': session.isTitleManuallyEdited,
+      'auto_title_acquired': session.autoTitleAcquired,
+      'auto_title_retry_count': session.autoTitleRetryCount,
       'auto_title_generated_at': session.autoTitleGeneratedAt
           ?.toUtc()
           .toIso8601String(),

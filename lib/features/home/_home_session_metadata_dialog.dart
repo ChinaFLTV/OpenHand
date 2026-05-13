@@ -171,6 +171,22 @@ class _SessionMetadataDialog extends StatelessWidget {
                           _MetadataEntryRow(
                             label: _localizedMetadataField(
                               context,
+                              'auto_title_acquired',
+                            ),
+                            value: session.autoTitleAcquired
+                                ? '✓ ${_localizedText(context, zh: '已获取', en: 'Acquired')}'
+                                : '✗ ${_localizedText(context, zh: '未获取', en: 'Not acquired')}',
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedMetadataField(
+                              context,
+                              'auto_title_retry_count',
+                            ),
+                            value: '${session.autoTitleRetryCount}',
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedMetadataField(
+                              context,
                               'compression_checkpoint',
                             ),
                             value:
