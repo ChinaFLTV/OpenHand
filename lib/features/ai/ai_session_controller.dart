@@ -604,6 +604,39 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
+  /// Web gateway 用：暴露 background chat client 供手动标题生成使用。
+  AiChatClient get backgroundChatClientForWeb => _backgroundChatClient;
+
+  /// Web gateway 用：解析自动标题系统提示词。
+  Future<String> resolveAutoTitleSystemPromptForWeb({
+    required int maxTitleCharacters,
+  }) async {
+    return _templateRepository.loadAutoTitleSystemPrompt(
+      maxTitleCharacters: maxTitleCharacters,
+      fallback: _autoTitleSystemPromptFallback.replaceAll(
+        '{{MAX_TITLE_CHARACTERS}}',
+        maxTitleCharacters.toString(),
+      ),
+    );
+  }
+
+  /// Web gateway 用：更新会话标题（手动触发的 AI 摘要标题）。
+  Future<void> updateSessionTitleFromWeb({
+    required String sessionId,
+    required String title,
+  }) async {
+    final session = _sessionById(sessionId);
+    if (session == null) return;
+    final now = DateTime.now().toUtc();
+    final updatedSession = session.copyWith(
+      title: title,
+      updatedAt: now,
+      autoTitleAcquired: true,
+      autoTitleGeneratedAt: now,
+    );
+    await _commitSessionLocked(updatedSession);
+  }
+
   int get _effectiveMaxRecentErrors =>
       _latestRuntimeContext?.maxRecentErrors ??
       AppSettingsSnapshot.defaultAiMaxRecentErrors;

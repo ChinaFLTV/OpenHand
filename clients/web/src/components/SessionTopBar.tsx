@@ -105,6 +105,7 @@ export interface SessionTopBarProps {
   // 操作
   onDelete?: () => void;
   onExport?: () => void;
+  onGenerateTitle?: () => void;
   onToggleFullscreen?: () => void;
   fullscreenActive?: boolean;
   sessionId?: string;
@@ -123,6 +124,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
     onRename,
     onDelete,
     onExport,
+    onGenerateTitle,
     onToggleFullscreen,
     fullscreenActive = false,
     sessionId,
@@ -391,6 +393,11 @@ export function SessionTopBar(props: SessionTopBarProps) {
                 {onExport ? (
                   <MenuItem icon="export" onClick={() => { requestCloseMoreMenu(); onExport(); }}>
                     {t('topbar.export', '导出 JSON')}
+                  </MenuItem>
+                ) : null}
+                {onGenerateTitle ? (
+                  <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); onGenerateTitle(); }}>
+                    {t('topbar.generateTitle', '获取 AI 摘要标题')}
                   </MenuItem>
                 ) : null}
                 {onToggleFullscreen ? (

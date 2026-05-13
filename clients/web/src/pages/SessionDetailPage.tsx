@@ -40,7 +40,7 @@ import {
   type SessionMessage,
   type SessionSummary,
 } from '../api/sessions';
-import { ApiError, UnauthorizedError } from '../api/client';
+import { ApiError, UnauthorizedError, apiRequest } from '../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval } from '../api/session_events';
 import { listSessions } from '../api/sessions';
 import { SessionGoneDialog } from '../components/SessionGoneDialog';
@@ -75,6 +75,7 @@ import {
   type ImageEditorResult,
 } from '../components/ImageEditorDialog';
 import { CreationOptionsDialog, type CreationOptions } from '../components/CreationOptionsDialog';
+import { TitleSummaryDialog } from '../components/TitleSummaryDialog';
 
 const PAGE_SIZE = 80;
 
@@ -1004,6 +1005,7 @@ export function SessionDetailPage() {
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
   const [showCreationOptions, setShowCreationOptions] = useState<'image' | 'video' | 'audio' | null>(null);
   const [creationOptions, setCreationOptions] = useState<CreationOptions>({});
+  const [showTitleSummary, setShowTitleSummary] = useState(false);
   const [permissionSaving, setPermissionSaving] = useState(false);
   const [pendingFullAccess, setPendingFullAccess] = useState<boolean | null>(null);
   const [pendingWriteApproval, setPendingWriteApproval] = useState<PendingWriteApproval | null>(null);
@@ -3158,6 +3160,7 @@ export function SessionDetailPage() {
               showSnackbar(`${t('topbar.export.failed', '导出会话失败')}：${message}`, { tone: 'error' });
             }
           }}
+          onGenerateTitle={() => setShowTitleSummary(true)}
           onToggleFullscreen={() => void toggleBrowserFullscreen()}
           fullscreenActive={fullscreenActive}
           sessionId={sessionId}
@@ -4010,6 +4013,29 @@ export function SessionDetailPage() {
             setShowCreationOptions(null);
           }}
           onCancel={() => setShowCreationOptions(null)}
+        />
+      ) : null}
+      {showTitleSummary && session ? (
+        <TitleSummaryDialog
+          messages={messages}
+          onGenerate={async (startIdx, endIdx) => {
+            const userMsgs = messages.filter((m) => m.role === 'user' && m.content.trim().length > 0);
+            const selectedContent = userMsgs
+              .slice(startIdx, endIdx + 1)
+              .map((m) => m.content.trim())
+              .join('\n\n');
+            const res = await apiRequest<{ title: string }>(
+              `/api/sessions/${encodeURIComponent(sessionId)}/generate-title`,
+              { method: 'POST', body: { content: selectedContent } },
+            );
+            // 刷新会话详情以获取新标题
+            loadDetail();
+            return res.title;
+          }}
+          onClose={() => setShowTitleSummary(false)}
+          onTitleUpdated={(title) => {
+            setDetail((prev) => prev ? { ...prev, session: { ...prev.session, title } } : prev);
+          }}
         />
       ) : null}
       {/* 服务端会话已被删除时的友好提示弹窗。返回前先 ping 一次会话列表 API

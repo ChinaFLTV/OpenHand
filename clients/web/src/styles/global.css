@@ -316,6 +316,38 @@ html, body, #root {
   border: 1px solid transparent;
 }
 
+/* 标题摘要弹窗 tooltip */
+.oh-title-summary-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  background: var(--m3-inverse-surface, #2d2d2d);
+  color: var(--m3-inverse-on-surface, #fff);
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 6px 10px;
+  border-radius: 8px;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  animation: oh-tooltip-bounce-in 200ms var(--oh-motion-spring) both;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  z-index: 10;
+}
+@keyframes oh-tooltip-bounce-in {
+  0% { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.9); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+/* 范围滑块样式 */
+.oh-range-slider {
+  height: 6px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
 /* 底部弹出动画 */
 @keyframes oh-slide-up-in {
   0% { opacity: 0; transform: translateY(100%); }

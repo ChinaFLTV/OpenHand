@@ -24,6 +24,7 @@ import '../../ai/model/ai_session.dart';
 import '../../ai/model/ai_session_message.dart';
 import '../../ai/model/ai_session_runtime_context.dart';
 import '../../ai/model/ai_thread_template.dart';
+import '../../ai/service/ai_protocol_adapter.dart';
 import '../../ai/service/ai_bash_tool_service.dart'
     show BashCommandApprovalRequest;
 import '../../ai/service/ai_image_generation_service.dart';
@@ -1238,6 +1239,11 @@ class WebMessagePlatformService {
       '/api/sessions/<sessionId>/compact',
       (shelf.Request r, String sessionId) =>
           _withAuth(r, (req, auth) => _compactSession(req, auth, sessionId)),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/generate-title',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _generateTitle(req, auth, sessionId)),
     );
     router.post(
       '/api/sessions/<sessionId>/write-approvals/<approvalId>',
@@ -2754,6 +2760,77 @@ class WebMessagePlatformService {
   ///   "retry_after_ms": int?,
   ///   "session": { ... 同 _getSession 的 session 字段 }?
   /// }
+  /// 手动触发标题生成：接收用户选择的消息内容，调用 AI 生成摘要标题。
+  Future<shelf.Response> _generateTitle(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_not_found',
+      });
+    }
+    final body = await _readJsonBody(request);
+    if (body.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{'error': 'invalid_body'});
+    }
+    final content = _string(body['content'], '').trim();
+    if (content.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{'error': 'content_required'});
+    }
+    final model = _resolveModel(
+      session.lastUsedModelId ?? _settingsController.selectedAiModelId ?? '',
+    );
+    if (model == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{'error': 'model_not_configured'});
+    }
+    try {
+      final autoTitleSystemPrompt = await _sessionController
+          .resolveAutoTitleSystemPromptForWeb(
+            maxTitleCharacters: _settingsController.aiGeneratedTitleMaxCharacters,
+          );
+      final promptMessages = <AiChatTurn>[
+        AiChatTurn(role: AiChatRole.system, content: autoTitleSystemPrompt),
+        AiChatTurn(
+          role: AiChatRole.user,
+          content: '<description>\n$content\n</description>',
+        ),
+      ];
+      final chatClient = _sessionController.backgroundChatClientForWeb;
+      final completion = await chatClient.sendMessage(
+        model: model,
+        messages: promptMessages,
+        timeout: const Duration(seconds: 20),
+      );
+      final rawTitle = completion.reply.trim();
+      // 提取 <title> 标签内容
+      final tagMatch = RegExp(
+        r'<title[^>]*>([\s\S]*?)<\/title>',
+        caseSensitive: false,
+      ).firstMatch(rawTitle);
+      final title = (tagMatch?.group(1) ?? rawTitle)
+          .replaceAll(RegExp(r'[\n]+'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      if (title.isEmpty) {
+        return _json(HttpStatus.ok, <String, Object?>{'title': session.title});
+      }
+      // 更新会话标题
+      await _sessionController.updateSessionTitleFromWeb(
+        sessionId: sessionId,
+        title: title,
+      );
+      return _json(HttpStatus.ok, <String, Object?>{'title': title});
+    } catch (error) {
+      return _json(HttpStatus.internalServerError, <String, Object?>{
+        'error': 'title_generation_failed',
+        'detail': '$error',
+      });
+    }
+  }
+
   /// ```
   Future<shelf.Response> _compactSession(
     shelf.Request request,
