@@ -74,6 +74,7 @@ import {
   type ImageEditorInput,
   type ImageEditorResult,
 } from '../components/ImageEditorDialog';
+import { CreationOptionsDialog, type CreationOptions } from '../components/CreationOptionsDialog';
 
 const PAGE_SIZE = 80;
 
@@ -1001,6 +1002,8 @@ export function SessionDetailPage() {
   const [autoFollowPaused, setAutoFollowPaused] = useState(false);
   const [fullscreenActive, setFullscreenActive] = useState(false);
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
+  const [showCreationOptions, setShowCreationOptions] = useState<'image' | 'video' | 'audio' | null>(null);
+  const [creationOptions, setCreationOptions] = useState<CreationOptions>({});
   const [permissionSaving, setPermissionSaving] = useState(false);
   const [pendingFullAccess, setPendingFullAccess] = useState<boolean | null>(null);
   const [pendingWriteApproval, setPendingWriteApproval] = useState<PendingWriteApproval | null>(null);
@@ -2785,6 +2788,13 @@ export function SessionDetailPage() {
         modelKey: composerModelKey,
         mode: composerMode,
         attachments: composerAttachments,
+        creationOptions: (composerMode === 'image' || composerMode === 'video' || composerMode === 'audio')
+          ? {
+              aspect_ratio: creationOptions.aspectRatio,
+              duration_seconds: creationOptions.durationSeconds,
+              count: creationOptions.count,
+            }
+          : undefined,
         selectedSkill: selectedSkill
           ? {
               name: selectedSkill.name,
@@ -3323,7 +3333,13 @@ export function SessionDetailPage() {
                   label: active ? `${label} · ${t('common.current', '当前')}` : `${label}${suffix}`,
                   disabled: composerSending || active || !serviceAllowed || !modelAllowed,
                   selected: active,
-                  onClick: () => setComposerMode(mode),
+                  onClick: () => {
+                    setComposerMode(mode);
+                    // 选择多媒体模式时弹出生成选项弹窗
+                    if (mode === 'image' || mode === 'video' || mode === 'audio') {
+                      setShowCreationOptions(mode as 'image' | 'video' | 'audio');
+                    }
+                  },
                 };
               })}
               trigger={({ open, toggle }) => (
@@ -3976,6 +3992,17 @@ export function SessionDetailPage() {
             pushRecentModel(key);
           }}
           onClose={() => setShowComposerModelPicker(false)}
+        />
+      ) : null}
+      {showCreationOptions ? (
+        <CreationOptionsDialog
+          mode={showCreationOptions}
+          initial={creationOptions}
+          onConfirm={(options) => {
+            setCreationOptions(options);
+            setShowCreationOptions(null);
+          }}
+          onCancel={() => setShowCreationOptions(null)}
         />
       ) : null}
       {/* 服务端会话已被删除时的友好提示弹窗。返回前先 ping 一次会话列表 API

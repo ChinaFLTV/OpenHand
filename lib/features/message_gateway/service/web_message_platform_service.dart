@@ -2609,7 +2609,12 @@ class WebMessagePlatformService {
         if (id.isNotEmpty) skippedInstructionIds.add(id);
       }
     }
-    final creationRequest = _creationRequestFor(conversationMode);
+    final creationRequest = _creationRequestFor(
+      conversationMode,
+      body['creation_options'] is Map
+          ? Map<String, Object?>.from(body['creation_options'] as Map)
+          : null,
+    );
     if (!_modelSupportsConversationMode(model, conversationMode)) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'model_mode_not_supported',
@@ -4219,16 +4224,27 @@ class WebMessagePlatformService {
     return null;
   }
 
-  AiCreationRequest _creationRequestFor(WebGatewayConversationMode mode) {
+  AiCreationRequest _creationRequestFor(
+    WebGatewayConversationMode mode, [
+    Map<String, Object?>? rawOptions,
+  ]) {
+    final options = rawOptions != null
+        ? AiCreationOptions.fromMetadata(rawOptions)
+        : AiCreationOptions.empty;
     return switch (mode) {
-      WebGatewayConversationMode.image => const AiCreationRequest(
+      WebGatewayConversationMode.image => AiCreationRequest(
         mode: AiCreationMode.image,
+        options: options.aspectRatio != null || options.count != null
+            ? options
+            : const AiCreationOptions(size: '1024x1024', aspectRatio: '1:1'),
       ),
-      WebGatewayConversationMode.video => const AiCreationRequest(
+      WebGatewayConversationMode.video => AiCreationRequest(
         mode: AiCreationMode.video,
+        options: options,
       ),
-      WebGatewayConversationMode.audio => const AiCreationRequest(
+      WebGatewayConversationMode.audio => AiCreationRequest(
         mode: AiCreationMode.audio,
+        options: options,
       ),
       WebGatewayConversationMode.deepResearch => const AiCreationRequest(
         mode: AiCreationMode.deepResearch,

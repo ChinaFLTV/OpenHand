@@ -13,6 +13,7 @@ import type { SessionMessage } from '../api/sessions';
 import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
 import { Markdown } from './Markdown';
+import { MediaGeneratingPlaceholder } from './MediaGeneratingPlaceholder';
 import { MessageMedia } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
@@ -902,6 +903,14 @@ function MessageCardImpl({
         </div>
       ) : null}
       {!isUserBubble ? media : null}
+      {!isUserBubble && streamingContent && message.content.trim().length < 10 ? (() => {
+        const creationRequest = metadata['creation_request'] as Record<string, unknown> | undefined;
+        const creationMode = (creationRequest?.['mode'] as string) || (metadata['conversation_mode'] as string) || '';
+        if (creationMode === 'image' || creationMode === 'video' || creationMode === 'audio' || creationMode === 'deep_research') {
+          return <MediaGeneratingPlaceholder mode={creationMode as 'image' | 'video' | 'audio' | 'deep_research'} />;
+        }
+        return null;
+      })() : null}
       {actionsVisible ? (
         <div
           class="mt-3 pt-3 flex flex-wrap items-center gap-2 text-xs"

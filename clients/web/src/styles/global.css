@@ -260,6 +260,78 @@ html, body, #root {
   box-shadow: var(--m3-elev-2);
 }
 
+/* 多媒体生成占位卡片 — 灰阶扫光 shimmer */
+.oh-media-generating-placeholder {
+  position: relative;
+  width: 280px;
+  height: 220px;
+  border-radius: 22px;
+  border: 1px solid var(--m3-outline-variant, rgba(0,0,0,0.08));
+  overflow: hidden;
+  background: var(--m3-surface-container-highest, #f0f0f0);
+  animation: oh-appear-pop 360ms var(--oh-motion-spring) both;
+}
+.oh-media-generating-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent calc(var(--shimmer-x, -100%) + 0%),
+    rgba(255,255,255,0.45) calc(var(--shimmer-x, -100%) + 40%),
+    transparent calc(var(--shimmer-x, -100%) + 80%),
+    transparent 100%
+  );
+  pointer-events: none;
+}
+.oh-media-generating-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.oh-media-generating-icon {
+  font-size: 36px;
+  opacity: 0.55;
+}
+.oh-media-generating-label {
+  font-size: 13px;
+  color: var(--m3-on-surface-variant, #666);
+  font-weight: 500;
+}
+
+/* 生成选项弹窗 chip 样式 */
+.oh-creation-chip {
+  background: var(--m3-surface-container-highest, #e8e8e8);
+  color: var(--m3-on-surface, #1a1a1a);
+  border: 1px solid var(--m3-outline-variant, rgba(0,0,0,0.12));
+}
+.oh-creation-chip-active {
+  background: var(--m3-primary, #4a6741);
+  color: var(--m3-on-primary, #fff);
+  border: 1px solid transparent;
+}
+
+/* 底部弹出动画 */
+@keyframes oh-slide-up-in {
+  0% { opacity: 0; transform: translateY(100%); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes oh-slide-down-out {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+.oh-dialog-slide-up-in > section {
+  animation: oh-slide-up-in 320ms var(--oh-motion-spring) both;
+}
+.oh-dialog-slide-down-out > section {
+  animation: oh-slide-down-out 220ms ease-in both;
+}
+
 .oh-message-context-capsules {
   display: flex;
   flex-wrap: wrap;

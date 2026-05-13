@@ -269,6 +269,7 @@ export interface SendMessageInput {
   mode?: string;
   attachments?: SendMessageAttachment[];
   selectedSkill?: SendMessageSelectedSkill | null;
+  creationOptions?: Record<string, unknown>;
   /// 本轮临时跳过的用户指令 id 列表（仅作用于本次发送，不持久化）。
   /// 与 App 端 `_skippedInstructionIds` 语义一致：传给后端后，
   /// `AiSessionRuntimeContext.skippedInstructionIds` 会被注入，
@@ -307,6 +308,7 @@ export function sendMessage(
         attachments: input.attachments ?? [],
         selected_skill: input.selectedSkill ?? null,
         skipped_instruction_ids: input.skippedInstructionIds ?? [],
+        creation_options: input.creationOptions ?? null,
       },
     },
   );
