@@ -1523,11 +1523,14 @@ export function SessionDetailPage() {
     const composerEl = composerSectionRef.current;
     const scroller = mainRef.current;
     if (!composerEl || !scroller) return;
-    let lastH = composerEl.getBoundingClientRect().height;
+    // 使用 offsetHeight 而非 getBoundingClientRect().height：
+    // offsetHeight 不受 CSS transform (scale) 影响，反映真实布局高度，
+    // 避免展开/折叠动画期间 scale 变化导致测量值抖动。
+    let lastH = composerEl.offsetHeight;
     let pendingDelta = 0;
     let rafId: number | null = null;
     const observer = new ResizeObserver(() => {
-      const measured = composerEl.getBoundingClientRect().height;
+      const measured = composerEl.offsetHeight;
       const delta = measured - lastH;
       lastH = measured;
       if (delta === 0) return;
@@ -1538,10 +1541,11 @@ export function SessionDetailPage() {
         const totalDelta = pendingDelta;
         pendingDelta = 0;
         if (Math.abs(totalDelta) < 0.5 || !scroller) return;
-        // 补偿 scrollTop：保持用户当前可视位置不变
-        const maxScroll = scroller.scrollHeight - scroller.clientHeight;
-        const newScrollTop = Math.max(0, Math.min(maxScroll, scroller.scrollTop + totalDelta));
-        scroller.scrollTop = newScrollTop;
+        // 补偿 scrollTop：保持用户当前可视位置不变。
+        // 不使用 clamp 到 maxScroll，因为在 transition 期间
+        // scrollHeight 可能尚未更新到位。直接设置即可，
+        // 浏览器会自动 clamp 到有效范围。
+        scroller.scrollTop = scroller.scrollTop + totalDelta;
       });
     });
     observer.observe(composerEl);
@@ -2851,9 +2855,9 @@ export function SessionDetailPage() {
 
   function toggleComposerCollapsed(): void {
     setComposerCollapsed((value) => !value);
-    // 无论 autoFollow 状态如何，折叠/展开后都尝试稳定滚动位置。
-    // 如果用户在底部附近，确保消息列表保持贴底。
-    if (autoFollow || isNearBottomRef.current) {
+    // ResizeObserver 会自动补偿 scrollTop 保持可视位置不变。
+    // 仅当 autoFollow 明确开启且未暂停时才钉底，避免与补偿逻辑冲突。
+    if (autoFollow && !autoFollowPausedRef.current) {
       scheduleFollowToBottom('auto');
     }
   }
