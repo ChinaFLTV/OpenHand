@@ -795,7 +795,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
         .toList();
     final settingsController = Provider.of<SettingsController?>(
       context,
-      listen: false,
+      listen: true,
     );
     final settingsModels =
         settingsController?.aiModels ?? const <AiModelConfig>[];

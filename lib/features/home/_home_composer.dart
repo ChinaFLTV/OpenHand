@@ -819,10 +819,18 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _showModelMenu(BuildContext btnContext) {
+    // 实时从 SettingsController 获取最新模型列表，确保增删模型后立即同步
+    final settingsController = Provider.of<SettingsController?>(
+      btnContext,
+      listen: false,
+    );
+    final latestModels = settingsController?.aiModels ?? widget.availableModels;
+    final latestRecent = settingsController?.recentModelSelections ??
+        widget.recentModelSelections;
     showModelSearchSelector(
       context: btnContext,
-      models: widget.availableModels,
-      recentSelections: widget.recentModelSelections,
+      models: latestModels,
+      recentSelections: latestRecent,
       selectedConfigId: widget.selectedModel?.id,
       selectedModelId: widget.selectedModel?.modelId,
     ).then((value) {

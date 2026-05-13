@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
+import '../../app/state/settings_controller.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -507,7 +509,19 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   }
 
   Future<void> _showModelMenu() async {
-    if (_modelMenuOpen || widget.availableModels.isEmpty) {
+    if (_modelMenuOpen) {
+      return;
+    }
+    // 实时从 SettingsController 获取最新模型列表，避免弹窗打开后
+    // 用户在设置中增删模型提供商导致数据不同步。
+    final settingsController = Provider.of<SettingsController?>(
+      context,
+      listen: false,
+    );
+    final latestModels = settingsController?.aiModels ?? widget.availableModels;
+    final latestRecent = settingsController?.recentModelSelections ??
+        widget.recentModelSelections;
+    if (latestModels.isEmpty) {
       return;
     }
     setState(() {
@@ -515,8 +529,8 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     });
     final value = await showModelSearchSelector(
       context: context,
-      models: widget.availableModels,
-      recentSelections: widget.recentModelSelections,
+      models: latestModels,
+      recentSelections: latestRecent,
       selectedConfigId: _selectedModelConfigId,
       selectedModelId: _selectedModelId,
     );

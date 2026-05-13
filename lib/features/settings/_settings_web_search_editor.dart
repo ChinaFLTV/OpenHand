@@ -405,10 +405,18 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   void _emit(AiWebSearchSettings next) => widget.onChanged(next);
 
   Future<void> _pickFixedModel() async {
+    // 实时获取最新模型列表，避免设置变更后数据不同步
+    final settingsController = Provider.of<SettingsController?>(
+      context,
+      listen: false,
+    );
+    final latestModels = settingsController?.aiModels ?? widget.availableModels;
+    final latestRecent = settingsController?.recentModelSelections ??
+        widget.recentModelSelections;
     final picked = await showModelSearchSelector(
       context: context,
-      models: widget.availableModels,
-      recentSelections: widget.recentModelSelections,
+      models: latestModels,
+      recentSelections: latestRecent,
       selectedConfigId: widget.value.fixedModelProviderConfigId,
       selectedModelId: widget.value.fixedModelId,
     );

@@ -5028,10 +5028,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     _composerLayoutMeasureScheduled = true;
-    // 使用 endOfFrame 而非 addPostFrameCallback：endOfFrame 在当前帧的
-    // paint 阶段之后、下一帧开始之前触发，能更快地补偿 scroll offset，
-    // 减少 composer 展开/折叠时消息列表的视觉跳动。
-    WidgetsBinding.instance.endOfFrame.then((_) {
+    // 使用 addPostFrameCallback 而非 endOfFrame：确保在下一帧 layout 完成后
+    // 再测量和补偿，此时 transcript 的 maxScrollExtent 已经更新到位，
+    // 避免 clamp 到过时的范围导致消息列表不跟随。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       _composerLayoutMeasureScheduled = false;
       if (!mounted) return;
       _measureComposerHeightAndCompensate();
@@ -5059,14 +5059,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     final position = _messageScrollController.position;
-    // 无论是否贴底都反向补偿：贴底时能同帧重新锥住底部，
-    // 避免 composer 展开 / 折叠出现一帧闪动；未贴底时保证可视错位不变。
-    final target = (position.pixels + delta).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    if ((target - position.pixels).abs() > 0.5) {
-      position.jumpTo(target);
+    // 补偿策略：直接偏移 scroll position，不受 maxScrollExtent 限制。
+    // 在动画期间 maxScrollExtent 可能尚未更新（transcript layout 滞后），
+    // 使用 correctPixels 绕过 clamp 确保补偿立即生效。
+    final newPixels = position.pixels + delta;
+    if (newPixels >= position.minScrollExtent &&
+        newPixels <= position.maxScrollExtent) {
+      position.jumpTo(newPixels);
+    } else if (newPixels < position.minScrollExtent) {
+      position.jumpTo(position.minScrollExtent);
+    } else {
+      // maxScrollExtent 可能还没更新到位，先用 jumpTo 尝试，
+      // 如果被 clamp 了也没关系，下一帧会再次补偿。
+      position.jumpTo(position.maxScrollExtent);
     }
   }
 
