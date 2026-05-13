@@ -3104,6 +3104,13 @@ export function SessionDetailPage() {
         <SessionTopBar
           title={session?.title || t('sessions.untitled', '未命名会话')}
           subtitle={subtitle}
+          titleGenerating={Boolean(
+            session &&
+            !session.is_title_manually_edited &&
+            !session.auto_title_generated_at &&
+            messages.length > 0 &&
+            messages.some((m) => m.role === 'user'),
+          )}
           onBack={() => location.route('/threads')}
           onRename={async (next) => {
             const requestSessionId = sessionId;

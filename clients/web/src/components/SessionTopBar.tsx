@@ -97,6 +97,7 @@ function TopBarIcon({ name, size = 16 }: { name: TopBarIconName; size?: number }
 export interface SessionTopBarProps {
   title: string;
   subtitle?: string;
+  titleGenerating?: boolean;
   onBack?: () => void;
   // 标题点击 → 进入重命名;
   onRename?: (next: string) => Promise<void> | void;
@@ -117,6 +118,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
   const {
     title,
     subtitle,
+    titleGenerating = false,
     onBack,
     onRename,
     onDelete,
@@ -295,17 +297,28 @@ export function SessionTopBar(props: SessionTopBarProps) {
           ) : (
             <button
               type="button"
-              onClick={() => onRename && setEditing(true)}
+              onClick={() => onRename && !titleGenerating && setEditing(true)}
               class="block w-full text-left truncate"
-              disabled={!onRename || renaming}
-              title={onRename ? t('topbar.renameHint', '点击重命名') : undefined}
+              disabled={!onRename || renaming || titleGenerating}
+              title={titleGenerating
+                ? t('topbar.titleGenerating', '标题生成中…')
+                : onRename ? t('topbar.renameHint', '点击重命名') : undefined}
             >
-              <span
-                key={title}
-                class="oh-title-spring block text-sm font-semibold truncate"
-                style={{ color: 'var(--m3-on-surface)' }}
-              >
-                {title}
+              <span class="flex items-center gap-1.5 min-w-0">
+                <span
+                  key={title}
+                  class="oh-title-spring block text-sm font-semibold truncate"
+                  style={{ color: 'var(--m3-on-surface)' }}
+                >
+                  {title}
+                </span>
+                {titleGenerating ? (
+                  <span class="oh-title-generating-spinner flex-none" aria-label={t('topbar.titleGenerating', '标题生成中…')}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="oh-spin" style={{ color: 'var(--m3-primary)', opacity: 0.7 }}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                    </svg>
+                  </span>
+                ) : null}
               </span>
             </button>
           )}

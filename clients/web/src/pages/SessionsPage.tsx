@@ -567,21 +567,24 @@ export function SessionsPage() {
                               onMouseDown={(ev) => ev.stopPropagation()}
                               onClick={(ev) => {
                                 ev.stopPropagation();
+                                ev.preventDefault();
                                 toggle();
                               }}
-                              class="oh-tap-press w-8 h-8 rounded-full flex items-center justify-center text-base"
+                              class="oh-tap-press w-10 h-10 rounded-full flex items-center justify-center text-base"
                               style={{
                                 background: open
-                                  ? 'color-mix(in srgb, var(--m3-on-surface) 8%, transparent)'
+                                  ? 'color-mix(in srgb, var(--m3-on-surface) 10%, transparent)'
                                   : 'transparent',
                                 color: 'var(--m3-on-surface-variant)',
-                                border: '1px solid var(--m3-outline)',
+                                border: open ? '1px solid var(--m3-outline)' : '1px solid transparent',
+                                marginRight: '-8px',
+                                marginTop: '-4px',
                               }}
                               aria-haspopup="menu"
                               aria-label={t('sessions.row.menu', '更多操作')}
                               title={t('sessions.row.menu', '更多操作')}
                             >
-                              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                                 <circle cx="5" cy="12" r="1.4" />
                                 <circle cx="12" cy="12" r="1.4" />
                                 <circle cx="19" cy="12" r="1.4" />
