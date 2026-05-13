@@ -4111,6 +4111,7 @@ class WebMessagePlatformService {
                 )
                 .toList(growable: false),
       autoTitleEnabled: _settingsController.aiAutoTitleEnabled,
+      autoTitleMaxRetryCount: _settingsController.aiAutoTitleMaxRetryCount,
       skippedInstructionIds: skippedInstructionIds,
       userInstructions:
           webGatewayIsDenyAllSelection(_config.allowedInstructionIds)

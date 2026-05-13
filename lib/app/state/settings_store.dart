@@ -218,6 +218,7 @@ class SettingsStore {
       'ai_fallback_title_max_characters': snapshot.aiFallbackTitleMaxCharacters,
       'ai_generated_title_max_characters':
           snapshot.aiGeneratedTitleMaxCharacters,
+      'ai_auto_title_max_retry_count': snapshot.aiAutoTitleMaxRetryCount,
       'ai_minimum_meaningful_title_characters':
           snapshot.aiMinimumMeaningfulTitleCharacters,
       'ai_minimum_meaningful_latin_title_words':
@@ -647,6 +648,13 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiGeneratedTitleMaxCharacters,
           )
         : AppSettingsSnapshot.defaultAiGeneratedTitleMaxCharacters;
+    final aiAutoTitleMaxRetryCount =
+        json['ai_auto_title_max_retry_count'] is int
+        ? (json['ai_auto_title_max_retry_count'] as int).clamp(
+            AppSettingsSnapshot.minAiAutoTitleMaxRetryCount,
+            AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount,
+          )
+        : AppSettingsSnapshot.defaultAiAutoTitleMaxRetryCount;
     final aiMinimumMeaningfulTitleCharacters =
         json['ai_minimum_meaningful_title_characters'] is int
         ? (json['ai_minimum_meaningful_title_characters'] as int).clamp(
@@ -1155,6 +1163,7 @@ class SettingsStore {
       aiChatMaxStreamLineBufferBytes: aiChatMaxStreamLineBufferBytes,
       aiFallbackTitleMaxCharacters: aiFallbackTitleMaxCharacters,
       aiGeneratedTitleMaxCharacters: aiGeneratedTitleMaxCharacters,
+      aiAutoTitleMaxRetryCount: aiAutoTitleMaxRetryCount,
       aiMinimumMeaningfulTitleCharacters: aiMinimumMeaningfulTitleCharacters,
       aiMinimumMeaningfulLatinTitleWords: aiMinimumMeaningfulLatinTitleWords,
       aiMaxSkillContentLength: aiMaxSkillContentLength,

@@ -89,6 +89,7 @@ class AppSettingsSnapshot {
       aiChatMaxStreamLineBufferBytes: defaultAiChatMaxStreamLineBufferBytes,
       aiFallbackTitleMaxCharacters: defaultAiFallbackTitleMaxCharacters,
       aiGeneratedTitleMaxCharacters: defaultAiGeneratedTitleMaxCharacters,
+      aiAutoTitleMaxRetryCount: defaultAiAutoTitleMaxRetryCount,
       aiMinimumMeaningfulTitleCharacters:
           defaultAiMinimumMeaningfulTitleCharacters,
       aiMinimumMeaningfulLatinTitleWords:
@@ -207,6 +208,7 @@ class AppSettingsSnapshot {
     required this.aiChatMaxStreamLineBufferBytes,
     required this.aiFallbackTitleMaxCharacters,
     required this.aiGeneratedTitleMaxCharacters,
+    required this.aiAutoTitleMaxRetryCount,
     required this.aiMinimumMeaningfulTitleCharacters,
     required this.aiMinimumMeaningfulLatinTitleWords,
     required this.aiMaxSkillContentLength,
@@ -471,6 +473,12 @@ class AppSettingsSnapshot {
   static const int defaultAiGeneratedTitleMaxCharacters = 80;
   static const int minAiGeneratedTitleMaxCharacters = 4;
   static const int maxAiGeneratedTitleMaxCharacters = 200;
+
+  /// 线程会话标题获取最大重试次数。当首次自动标题生成失败后，后续
+  /// 每次打开该会话时会尝试重新获取标题，直到达到此上限。
+  static const int defaultAiAutoTitleMaxRetryCount = 5;
+  static const int minAiAutoTitleMaxRetryCount = 0;
+  static const int maxAiAutoTitleMaxRetryCount = 20;
   static const int defaultAiMinimumMeaningfulTitleCharacters = 4;
   static const int minAiMinimumMeaningfulTitleCharacters = 1;
   static const int maxAiMinimumMeaningfulTitleCharacters = 50;
@@ -671,6 +679,9 @@ class AppSettingsSnapshot {
   /// Group D — 自动生成标题最大字符数。
   final int aiGeneratedTitleMaxCharacters;
 
+  /// Group D — 线程会话标题获取最大重试次数。
+  final int aiAutoTitleMaxRetryCount;
+
   /// Group D — 有效中文标题最小字符数。
   final int aiMinimumMeaningfulTitleCharacters;
 
@@ -826,6 +837,7 @@ class AppSettingsSnapshot {
     int? aiChatMaxStreamLineBufferBytes,
     int? aiFallbackTitleMaxCharacters,
     int? aiGeneratedTitleMaxCharacters,
+    int? aiAutoTitleMaxRetryCount,
     int? aiMinimumMeaningfulTitleCharacters,
     int? aiMinimumMeaningfulLatinTitleWords,
     int? aiMaxSkillContentLength,
@@ -969,6 +981,8 @@ class AppSettingsSnapshot {
           aiFallbackTitleMaxCharacters ?? this.aiFallbackTitleMaxCharacters,
       aiGeneratedTitleMaxCharacters:
           aiGeneratedTitleMaxCharacters ?? this.aiGeneratedTitleMaxCharacters,
+      aiAutoTitleMaxRetryCount:
+          aiAutoTitleMaxRetryCount ?? this.aiAutoTitleMaxRetryCount,
       aiMinimumMeaningfulTitleCharacters:
           aiMinimumMeaningfulTitleCharacters ??
           this.aiMinimumMeaningfulTitleCharacters,

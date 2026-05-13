@@ -101,6 +101,7 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiChatMaxStreamLineBufferBytes,
        _aiFallbackTitleMaxCharacters = snapshot.aiFallbackTitleMaxCharacters,
        _aiGeneratedTitleMaxCharacters = snapshot.aiGeneratedTitleMaxCharacters,
+       _aiAutoTitleMaxRetryCount = snapshot.aiAutoTitleMaxRetryCount,
        _aiMinimumMeaningfulTitleCharacters =
            snapshot.aiMinimumMeaningfulTitleCharacters,
        _aiMinimumMeaningfulLatinTitleWords =
@@ -228,6 +229,7 @@ class SettingsController extends ChangeNotifier {
   int _aiChatMaxStreamLineBufferBytes;
   int _aiFallbackTitleMaxCharacters;
   int _aiGeneratedTitleMaxCharacters;
+  int _aiAutoTitleMaxRetryCount;
   int _aiMinimumMeaningfulTitleCharacters;
   int _aiMinimumMeaningfulLatinTitleWords;
   int _aiMaxSkillContentLength;
@@ -380,6 +382,7 @@ class SettingsController extends ChangeNotifier {
   int get aiChatMaxStreamLineBufferBytes => _aiChatMaxStreamLineBufferBytes;
   int get aiFallbackTitleMaxCharacters => _aiFallbackTitleMaxCharacters;
   int get aiGeneratedTitleMaxCharacters => _aiGeneratedTitleMaxCharacters;
+  int get aiAutoTitleMaxRetryCount => _aiAutoTitleMaxRetryCount;
   int get aiMinimumMeaningfulTitleCharacters =>
       _aiMinimumMeaningfulTitleCharacters;
   int get aiMinimumMeaningfulLatinTitleWords =>
@@ -1391,6 +1394,20 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateAiAutoTitleMaxRetryCount(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiAutoTitleMaxRetryCount,
+      AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount,
+    );
+    return _commitMutation(() {
+      if (_aiAutoTitleMaxRetryCount == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiAutoTitleMaxRetryCount = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> updateAiDefaultSessionMode(String value) async {
     final normalized = value.trim() == 'plan' ? 'plan' : 'chat';
     return _commitMutation(() {
@@ -2227,6 +2244,7 @@ class SettingsController extends ChangeNotifier {
       aiChatMaxStreamLineBufferBytes: _aiChatMaxStreamLineBufferBytes,
       aiFallbackTitleMaxCharacters: _aiFallbackTitleMaxCharacters,
       aiGeneratedTitleMaxCharacters: _aiGeneratedTitleMaxCharacters,
+      aiAutoTitleMaxRetryCount: _aiAutoTitleMaxRetryCount,
       aiMinimumMeaningfulTitleCharacters: _aiMinimumMeaningfulTitleCharacters,
       aiMinimumMeaningfulLatinTitleWords: _aiMinimumMeaningfulLatinTitleWords,
       aiMaxSkillContentLength: _aiMaxSkillContentLength,
@@ -2338,6 +2356,7 @@ class SettingsController extends ChangeNotifier {
     _aiChatMaxStreamLineBufferBytes = snapshot.aiChatMaxStreamLineBufferBytes;
     _aiFallbackTitleMaxCharacters = snapshot.aiFallbackTitleMaxCharacters;
     _aiGeneratedTitleMaxCharacters = snapshot.aiGeneratedTitleMaxCharacters;
+    _aiAutoTitleMaxRetryCount = snapshot.aiAutoTitleMaxRetryCount;
     _aiMinimumMeaningfulTitleCharacters =
         snapshot.aiMinimumMeaningfulTitleCharacters;
     _aiMinimumMeaningfulLatinTitleWords =

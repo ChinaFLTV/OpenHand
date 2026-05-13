@@ -504,6 +504,10 @@ class AiSessionController extends ChangeNotifier {
   /// 用户配置，缺省时回落到 [AppSettingsSnapshot] 默认值。
   AiSessionRuntimeContext? _latestRuntimeContext;
 
+  /// 缓存的可用模型列表，由 [updateAvailableModelsForWebSearch] 同步更新。
+  /// 用于标题重试时解析当前会话应使用的模型配置。
+  List<AiModelConfig> _cachedAvailableModels = const <AiModelConfig>[];
+
   void _captureLatestRuntimeContext(AiSessionRuntimeContext runtimeContext) {
     _latestRuntimeContext = runtimeContext;
     // Group B: 把工具调用类参数下放到底层服务实例。
@@ -579,6 +583,7 @@ class AiSessionController extends ChangeNotifier {
   /// 模型；（2）以 providerConfigId 的 token 复用 kimi/grok/gemini 的 API key。
   /// 由 [openhand_home_page] 在重建 runtime context 前调用以保持同步。
   void updateAvailableModelsForWebSearch(List<AiModelConfig> models) {
+    _cachedAvailableModels = models;
     final ws = _toolRuntimeService.toolRegistry.getTool(
       AiBuiltinToolKind.webSearch,
     );
@@ -1024,12 +1029,87 @@ class AiSessionController extends ChangeNotifier {
     if (selectedSession == null) {
       return;
     }
+    // 标题重试补偿：如果标题未成功获取且重试次数未超限，则尝试重新生成
+    unawaited(_retryAutoTitleIfNeeded(selectedSession));
     unawaited(
       _emitSessionStartHook(
         session: selectedSession,
         source: 'resume',
       ).catchError((Object _, StackTrace stackTrace) {}),
     );
+  }
+
+  /// 检查会话是否需要重试获取标题，如果需要则发起重试请求。
+  Future<void> _retryAutoTitleIfNeeded(AiSession session) async {
+    // 已手动编辑标题 / 已成功获取标题 → 无需重试
+    if (session.isTitleManuallyEdited || session.autoTitleAcquired) {
+      return;
+    }
+    // 没有首条用户消息内容 → 无法重试
+    final firstUserContent = session.autoTitleFirstUserContent;
+    if (firstUserContent == null || firstUserContent.trim().isEmpty) {
+      return;
+    }
+    // 重试次数已达上限 → 放弃
+    final maxRetry = _autoTitleMaxRetryCount;
+    if (session.autoTitleRetryCount >= maxRetry) {
+      return;
+    }
+    // 递增重试计数并持久化
+    final updatedSession = session.copyWith(
+      autoTitleRetryCount: session.autoTitleRetryCount + 1,
+      updatedAt: _clock().toUtc(),
+    );
+    final committed = await _commitSessionLocked(updatedSession);
+    if (!committed) {
+      return;
+    }
+    // 获取当前选中的模型配置
+    final model = _resolveCurrentModel();
+    if (model == null) {
+      return;
+    }
+    // 发起标题生成（复用已有逻辑）
+    final sourceMessageId = session.autoTitleSourceMessageId ??
+        session.messages
+            .where(
+              (m) =>
+                  !m.isDeleted && m.kind == AiSessionMessageKind.user,
+            )
+            .map((m) => m.id)
+            .firstOrNull ??
+        '';
+    if (sourceMessageId.isEmpty) {
+      return;
+    }
+    await _generateAutoTitle(
+      sessionId: session.id,
+      sourceMessageId: sourceMessageId,
+      sourceContent: firstUserContent,
+      model: model,
+      allowRetryAfterIdle: false,
+    );
+  }
+
+  /// 从已缓存的可用模型列表中解析当前会话应使用的模型配置。
+  AiModelConfig? _resolveCurrentModel() {
+    if (_cachedAvailableModels.isEmpty) {
+      return null;
+    }
+    final session = currentSession;
+    if (session != null && session.lastUsedModelId != null) {
+      final match = _cachedAvailableModels
+          .where((m) => m.id == session.lastUsedModelId)
+          .firstOrNull;
+      if (match != null) return match;
+    }
+    return _cachedAvailableModels.firstOrNull;
+  }
+
+  /// 获取当前全局设置中的标题重试上限。
+  int get _autoTitleMaxRetryCount {
+    return _latestRuntimeContext?.autoTitleMaxRetryCount ??
+        AppSettingsSnapshot.defaultAiAutoTitleMaxRetryCount;
   }
 
   Future<bool> _createSessionUnlocked({
@@ -2576,6 +2656,16 @@ class AiSessionController extends ChangeNotifier {
 
         if (preparedUserTurnWithMetadata.shouldGenerateTitle &&
             runtimeContext.autoTitleEnabled) {
+          // 保存首条用户消息内容，用于后续标题获取重试
+          if (session.autoTitleFirstUserContent == null ||
+              session.autoTitleFirstUserContent!.isEmpty) {
+            final sessionWithFirstContent = session.copyWith(
+              autoTitleFirstUserContent:
+                  preparedUserTurnWithMetadata.userMessage.content,
+            );
+            _replaceSessionInMemory(sessionWithFirstContent);
+            unawaited(_commitSessionLocked(sessionWithFirstContent));
+          }
           unawaited(
             _generateAutoTitle(
               sessionId: session.id,
@@ -6447,6 +6537,7 @@ $trimmedSummary''';
           latestSession.copyWith(
             title: resolvedTitle,
             updatedAt: generatedAt,
+            autoTitleAcquired: true,
             autoTitleGeneratedAt: generatedAt,
             autoTitleSourceMessageId: sourceMessageId,
           ),

@@ -203,6 +203,15 @@ class AiSession {
       isTitleManuallyEdited: sessionJson['is_title_manually_edited'] is bool
           ? sessionJson['is_title_manually_edited'] as bool
           : false,
+      autoTitleAcquired: sessionJson['auto_title_acquired'] is bool
+          ? sessionJson['auto_title_acquired'] as bool
+          : false,
+      autoTitleRetryCount: sessionJson['auto_title_retry_count'] is int
+          ? sessionJson['auto_title_retry_count'] as int
+          : 0,
+      autoTitleFirstUserContent: _readNullableString(
+        sessionJson['auto_title_first_user_content'],
+      ),
       autoTitleGeneratedAt: _parseNullableDateTime(
         sessionJson['auto_title_generated_at'],
       ),
@@ -271,6 +280,9 @@ class AiSession {
     this.lastUsedModelId,
     this.lastUsedModelLabel,
     this.isTitleManuallyEdited = false,
+    this.autoTitleAcquired = false,
+    this.autoTitleRetryCount = 0,
+    this.autoTitleFirstUserContent,
     this.autoTitleGeneratedAt,
     this.autoTitleSourceMessageId,
     this.latestCompressionCheckpointMessageId,
@@ -302,6 +314,17 @@ class AiSession {
   final String? lastUsedModelId;
   final String? lastUsedModelLabel;
   final bool isTitleManuallyEdited;
+
+  /// 是否已成功获取过 AI 生成的线程标题。false 表示标题仍为回退值，
+  /// 下次打开会话时应尝试重新请求总结标题。
+  final bool autoTitleAcquired;
+
+  /// 已尝试重新获取标题的次数。超过全局设置中的最大重试次数后不再重试。
+  final int autoTitleRetryCount;
+
+  /// 首条用户消息的文本内容快照，用于重试时携带给标题总结接口。
+  final String? autoTitleFirstUserContent;
+
   final DateTime? autoTitleGeneratedAt;
   final String? autoTitleSourceMessageId;
   final String? latestCompressionCheckpointMessageId;
@@ -332,6 +355,10 @@ class AiSession {
     String? lastUsedModelId,
     String? lastUsedModelLabel,
     bool? isTitleManuallyEdited,
+    bool? autoTitleAcquired,
+    int? autoTitleRetryCount,
+    String? autoTitleFirstUserContent,
+    bool clearAutoTitleFirstUserContent = false,
     DateTime? autoTitleGeneratedAt,
     String? autoTitleSourceMessageId,
     String? latestCompressionCheckpointMessageId,
@@ -364,6 +391,11 @@ class AiSession {
       lastUsedModelLabel: lastUsedModelLabel ?? this.lastUsedModelLabel,
       isTitleManuallyEdited:
           isTitleManuallyEdited ?? this.isTitleManuallyEdited,
+      autoTitleAcquired: autoTitleAcquired ?? this.autoTitleAcquired,
+      autoTitleRetryCount: autoTitleRetryCount ?? this.autoTitleRetryCount,
+      autoTitleFirstUserContent: clearAutoTitleFirstUserContent
+          ? null
+          : autoTitleFirstUserContent ?? this.autoTitleFirstUserContent,
       autoTitleGeneratedAt: autoTitleGeneratedAt ?? this.autoTitleGeneratedAt,
       autoTitleSourceMessageId:
           autoTitleSourceMessageId ?? this.autoTitleSourceMessageId,
@@ -507,6 +539,9 @@ class AiSession {
         'last_used_model_id': lastUsedModelId,
         'last_used_model_label': lastUsedModelLabel,
         'is_title_manually_edited': isTitleManuallyEdited,
+        'auto_title_acquired': autoTitleAcquired,
+        'auto_title_retry_count': autoTitleRetryCount,
+        'auto_title_first_user_content': autoTitleFirstUserContent,
         'auto_title_generated_at': autoTitleGeneratedAt
             ?.toUtc()
             .toIso8601String(),

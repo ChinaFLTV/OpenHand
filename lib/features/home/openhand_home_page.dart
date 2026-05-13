@@ -3563,6 +3563,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
+      autoTitleMaxRetryCount: settingsController.aiAutoTitleMaxRetryCount,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
       telemetryCaptureRawPayload: settingsController.telemetryCaptureRawPayload,
       telemetryCaptureEnvironment:
@@ -3812,6 +3813,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
+      autoTitleMaxRetryCount: settingsController.aiAutoTitleMaxRetryCount,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
       telemetryCaptureRawPayload: settingsController.telemetryCaptureRawPayload,
       telemetryCaptureEnvironment:

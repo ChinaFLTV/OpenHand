@@ -139,6 +139,7 @@ class AiSessionRuntimeContext {
     this.responseTimeoutSeconds = 120,
     this.streamIdleTimeoutSeconds = 120,
     this.autoTitleEnabled = true,
+    this.autoTitleMaxRetryCount = 5,
     this.telemetryDebugEnabled = false,
     this.telemetryCaptureRawPayload = true,
     this.telemetryCaptureEnvironment = false,
@@ -327,6 +328,9 @@ class AiSessionRuntimeContext {
 
   /// Whether to auto-generate session titles.
   final bool autoTitleEnabled;
+
+  /// 线程会话标题获取最大重试次数。
+  final int autoTitleMaxRetryCount;
 
   /// Whether telemetry debug mode is enabled (populates request/response
   /// metadata on messages for the audit dialogs).

@@ -30,6 +30,7 @@ import '../../app/support/url_validation.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/app_update_dialog.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/first_frame_pulse_box.dart';
@@ -792,6 +793,29 @@ class _SettingsViewState extends State<SettingsView> {
             label: l10n.settingsFilePathLabel,
             value: settingsController.displaySettingsFilePath,
           ),
+          if (!kIsWeb) ...[
+            const SizedBox(height: 18),
+            _ResponsiveSettingRow(
+              title: Localizations.localeOf(context).languageCode.startsWith('zh')
+                  ? '检查更新'
+                  : 'Check for Updates',
+              subtitle: Localizations.localeOf(context).languageCode.startsWith('zh')
+                  ? '从 GitHub Release 检查是否有新版本可用。'
+                  : 'Check GitHub Releases for a newer version.',
+              control: Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  onPressed: () => _showUpdateCheckDialog(context, appInfo),
+                  icon: const Icon(Icons.system_update_outlined, size: 18),
+                  label: Text(
+                    Localizations.localeOf(context).languageCode.startsWith('zh')
+                        ? '检查更新'
+                        : 'Check',
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     };
@@ -1399,6 +1423,40 @@ class _SettingsViewState extends State<SettingsView> {
                     onChanged: (value) =>
                         settingsController.updateAiAutoTitleEnabled(value),
                   ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: Localizations.localeOf(context).languageCode.startsWith('zh')
+                    ? '标题获取最大重试次数'
+                    : 'Title Retry Max Count',
+                subtitle: Localizations.localeOf(context).languageCode.startsWith('zh')
+                    ? '当自动标题生成失败后，后续每次打开该会话时尝试重新获取标题的最大次数。超过此次数后将使用回退策略。'
+                    : 'Maximum number of retries to regenerate a session title on subsequent opens after the initial auto-title generation fails.',
+                controlMaxWidth: 200,
+                control: Row(
+                  children: [
+                    Expanded(
+                      child: Slider(
+                        value: settingsController.aiAutoTitleMaxRetryCount
+                            .toDouble(),
+                        min: AppSettingsSnapshot.minAiAutoTitleMaxRetryCount
+                            .toDouble(),
+                        max: AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount
+                            .toDouble(),
+                        divisions:
+                            AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount -
+                            AppSettingsSnapshot.minAiAutoTitleMaxRetryCount,
+                        onChanged: (value) => settingsController
+                            .updateAiAutoTitleMaxRetryCount(value.round()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${settingsController.aiAutoTitleMaxRetryCount}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 18),
@@ -4815,6 +4873,10 @@ class _SettingsViewState extends State<SettingsView> {
         context,
       )!.settingsDefaultsToDefaultlabelAndFormatsThe(defaultLabel),
     };
+  }
+
+  void _showUpdateCheckDialog(BuildContext context, AppInfo appInfo) {
+    showAppUpdateDialog(context: context, appInfo: appInfo);
   }
 
   void _showSnackBar(
