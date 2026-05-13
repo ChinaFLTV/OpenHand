@@ -3,6 +3,7 @@
 import { useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { getDialogEnterDurationMs } from '../hooks/useDialogMotionSettings';
 import { OverlayPortal } from './OverlayPortal';
 
 export interface CreationOptions {
@@ -34,6 +35,7 @@ function modeTitle(mode: string): string {
 
 export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: CreationOptionsDialogProps) {
   const { closing, requestClose } = useDialogExitMotion(onCancel);
+  const enterDurationMs = getDialogEnterDurationMs() || 320;
   const [aspectRatio, setAspectRatio] = useState(
     initial?.aspectRatio ?? (mode === 'image' ? '1:1' : mode === 'video' ? '16:9' : undefined),
   );
@@ -66,6 +68,7 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
             background: 'var(--m3-surface-container-low)',
             color: 'var(--m3-on-surface)',
             boxShadow: 'var(--m3-elev-3)',
+            animationDuration: `${enterDurationMs}ms`,
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
