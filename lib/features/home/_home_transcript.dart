@@ -1421,10 +1421,20 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
       end: Offset.zero,
     ).animate(entry);
     _scale = Tween<double>(begin: 0.92, end: 1.0).animate(entry);
-    if (!MediaQuery.disableAnimationsOf(context)) {
-      _controller.forward();
-    } else {
-      _controller.value = 1.0;
+  }
+
+  bool _hasPlayedEntrance = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasPlayedEntrance) {
+      _hasPlayedEntrance = true;
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _controller.forward();
+      } else {
+        _controller.value = 1.0;
+      }
     }
   }
 
