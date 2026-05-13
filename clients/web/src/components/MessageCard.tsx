@@ -849,7 +849,7 @@ function MessageCardImpl({
                 : ''}
             </span>
           )}
-          {message.model_label ? (
+          {message.model_label && message.role !== 'user' ? (
             <span class="oh-message-model-label truncate opacity-75">· {message.model_label}</span>
           ) : null}
         </span>
