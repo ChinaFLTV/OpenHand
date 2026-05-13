@@ -637,6 +637,62 @@ class AiSessionController extends ChangeNotifier {
     await _commitSessionLocked(updatedSession);
   }
 
+  /// APP 端用：根据会话解析应使用的模型配置。
+  AiModelConfig? resolveModelForSession(AiSession session) {
+    if (session.lastUsedModelId != null) {
+      final match = _cachedAvailableModels
+          .where((m) => m.id == session.lastUsedModelId)
+          .firstOrNull;
+      if (match != null) return match;
+    }
+    return _cachedAvailableModels.firstOrNull;
+  }
+
+  /// APP 端用：手动触发标题生成。
+  Future<void> generateTitleManually({
+    required String sessionId,
+    required String content,
+    required AiModelConfig model,
+    required int maxTitleCharacters,
+  }) async {
+    final autoTitleSystemPrompt = await _templateRepository
+        .loadAutoTitleSystemPrompt(
+          maxTitleCharacters: maxTitleCharacters,
+          fallback: _autoTitleSystemPromptFallback.replaceAll(
+            '{{MAX_TITLE_CHARACTERS}}',
+            maxTitleCharacters.toString(),
+          ),
+        );
+    final promptMessages = <AiChatTurn>[
+      AiChatTurn(role: AiChatRole.system, content: autoTitleSystemPrompt),
+      AiChatTurn(
+        role: AiChatRole.user,
+        content: '<description>\n$content\n</description>',
+      ),
+    ];
+    final completion = await _backgroundChatClient.sendMessage(
+      model: model,
+      messages: promptMessages,
+      timeout: _autoTitleRequestTimeout,
+    );
+    final rawTitle = _sanitizeGeneratedTitle(completion.reply);
+    final title = rawTitle.isNotEmpty ? rawTitle : content.trim().substring(
+      0,
+      content.trim().length.clamp(0, maxTitleCharacters),
+    );
+    if (title.isEmpty) return;
+    final session = _sessionById(sessionId);
+    if (session == null) return;
+    final now = _clock().toUtc();
+    final updatedSession = session.copyWith(
+      title: title,
+      updatedAt: now,
+      autoTitleAcquired: true,
+      autoTitleGeneratedAt: now,
+    );
+    await _commitSessionLocked(updatedSession);
+  }
+
   int get _effectiveMaxRecentErrors =>
       _latestRuntimeContext?.maxRecentErrors ??
       AppSettingsSnapshot.defaultAiMaxRecentErrors;

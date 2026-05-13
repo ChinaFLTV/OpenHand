@@ -2809,7 +2809,7 @@ class WebMessagePlatformService {
       final completion = await chatClient.sendMessage(
         model: model,
         messages: promptMessages,
-        timeout: const Duration(seconds: 20),
+        timeout: const Duration(seconds: 30),
       );
       final rawTitle = completion.reply.trim();
       // 提取 <title> 标签内容
@@ -2817,10 +2817,15 @@ class WebMessagePlatformService {
         r'<title[^>]*>([\s\S]*?)<\/title>',
         caseSensitive: false,
       ).firstMatch(rawTitle);
-      final title = (tagMatch?.group(1) ?? rawTitle)
+      var title = (tagMatch?.group(1) ?? rawTitle)
           .replaceAll(RegExp(r'[\n]+'), ' ')
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
+      // 如果 AI 返回空标题，从用户内容中截取作为回退
+      if (title.isEmpty) {
+        title = content.replaceAll(RegExp(r'\s+'), ' ').trim();
+        if (title.length > 80) title = '${title.substring(0, 77)}…';
+      }
       if (title.isEmpty) {
         return _json(HttpStatus.ok, <String, Object?>{'title': session.title});
       }

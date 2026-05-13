@@ -5504,6 +5504,125 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  void _generateTitleForSession(AiSession session) {
+    final sessionController = context.read<AiSessionController>();
+    final settingsController = context.read<SettingsController>();
+    final userMessages = session.messages
+        .where((m) => !m.isDeleted && m.kind == AiSessionMessageKind.user && m.content.trim().isNotEmpty)
+        .toList(growable: false);
+    if (userMessages.isEmpty) {
+      _showHomeSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '暂无用户消息可供总结', en: 'No user messages to summarize'),
+          ),
+        ),
+      );
+      return;
+    }
+    // 直接使用第一条用户消息生成标题（简化流程，避免弹窗复杂度）
+    // 如果有多条消息，弹出选择弹窗
+    if (userMessages.length == 1) {
+      _executeGenerateTitle(
+        session: session,
+        content: userMessages.first.content,
+        sessionController: sessionController,
+        settingsController: settingsController,
+      );
+      return;
+    }
+    // 多条消息时弹出选择弹窗
+    _showTitleSummaryRangeDialog(
+      session: session,
+      userMessages: userMessages,
+      sessionController: sessionController,
+      settingsController: settingsController,
+    );
+  }
+
+  Future<void> _showTitleSummaryRangeDialog({
+    required AiSession session,
+    required List<AiSessionMessage> userMessages,
+    required AiSessionController sessionController,
+    required SettingsController settingsController,
+  }) async {
+    final result = await showAnimatedDialog<(int, int)>(
+      context: context,
+      builder: (dialogContext) => _TitleSummaryRangeDialog(
+        userMessages: userMessages,
+      ),
+    );
+    if (!mounted || result == null) return;
+    final (startIdx, endIdx) = result;
+    final selectedContent = userMessages
+        .sublist(startIdx, endIdx + 1)
+        .map((m) => m.content.trim())
+        .join('\n\n');
+    _executeGenerateTitle(
+      session: session,
+      content: selectedContent,
+      sessionController: sessionController,
+      settingsController: settingsController,
+    );
+  }
+
+  Future<void> _executeGenerateTitle({
+    required AiSession session,
+    required String content,
+    required AiSessionController sessionController,
+    required SettingsController settingsController,
+  }) async {
+    // 显示 pending 弹窗
+    showAnimatedDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              _localizedText(dialogContext, zh: '正在生成摘要标题…', en: 'Generating title…'),
+            ),
+          ],
+        ),
+      ),
+    );
+    try {
+      final model = sessionController.resolveModelForSession(session);
+      if (model == null) {
+        if (mounted) Navigator.of(context).pop();
+        _showHomeSnackBar(
+          context,
+          SnackBar(content: Text(_localizedText(context, zh: '未配置模型', en: 'No model configured'))),
+        );
+        return;
+      }
+      await sessionController.generateTitleManually(
+        sessionId: session.id,
+        content: content,
+        model: model,
+        maxTitleCharacters: settingsController.aiGeneratedTitleMaxCharacters,
+      );
+      if (mounted) Navigator.of(context).pop();
+      _showHomeSnackBar(
+        context,
+        SnackBar(content: Text(_localizedText(context, zh: '标题生成成功', en: 'Title generated'))),
+      );
+    } catch (error) {
+      if (mounted) Navigator.of(context).pop();
+      _showHomeSnackBar(
+        context,
+        SnackBar(content: Text('${_localizedText(context, zh: '标题生成失败', en: 'Title generation failed')}: $error')),
+      );
+    }
+  }
+
   Future<void> _deleteSession(AiSession session) async {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
@@ -6173,6 +6292,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   onRenameSession: _renameSession,
                   onDeleteSession: _deleteSession,
                   onExportSession: _exportSession,
+                  onGenerateTitleForSession: _generateTitleForSession,
                   onSectionSelected: _selectSection,
                   activeHardnessOrchestrator: _activeHardnessOrchestrator,
                   hardnessSessionRecord: _persistedHardnessSession,
@@ -6792,6 +6912,91 @@ AppSection _sectionFromDrawerIndex(int index) {
     9 => AppSection.settings,
     _ => AppSection.workspace,
   };
+}
+
+/// 标题摘要消息区间选择弹窗。返回 (startIndex, endIndex) 或 null。
+class _TitleSummaryRangeDialog extends StatefulWidget {
+  const _TitleSummaryRangeDialog({required this.userMessages});
+
+  final List<AiSessionMessage> userMessages;
+
+  @override
+  State<_TitleSummaryRangeDialog> createState() =>
+      _TitleSummaryRangeDialogState();
+}
+
+class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
+  late int _startIdx = 0;
+  late int _endIdx = (widget.userMessages.length - 1).clamp(0, 2);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final total = widget.userMessages.length;
+    final selectedCount = _endIdx - _startIdx + 1;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    return AlertDialog(
+      title: Text(isZh ? '获取 AI 摘要标题' : 'Generate AI Title'),
+      content: SizedBox(
+        width: 320,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isZh ? '选择参与标题总结的用户消息区间' : 'Select user message range for title summary',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('${isZh ? '起始' : 'From'}: #${_startIdx + 1}',
+                    style: theme.textTheme.labelMedium),
+                Text('${isZh ? '结束' : 'To'}: #${_endIdx + 1}',
+                    style: theme.textTheme.labelMedium),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (total > 1)
+              RangeSlider(
+                values: RangeValues(_startIdx.toDouble(), _endIdx.toDouble()),
+                min: 0,
+                max: (total - 1).toDouble(),
+                divisions: total > 1 ? total - 1 : 1,
+                labels: RangeLabels('#${_startIdx + 1}', '#${_endIdx + 1}'),
+                onChanged: (values) {
+                  setState(() {
+                    _startIdx = values.start.round();
+                    _endIdx = values.end.round();
+                  });
+                },
+              ),
+            const SizedBox(height: 8),
+            Text(
+              '${isZh ? '已选择' : 'Selected'} $selectedCount ${isZh ? '条用户消息' : 'user messages'}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: AppLocalizations.of(context)!.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(context).pop((_startIdx, _endIdx)),
+          label: isZh ? '生成标题' : 'Generate',
+        ),
+      ],
+    );
+  }
 }
 
 /// Modal bottom sheet that lets users tweak [AiCreationOptions] for the
