@@ -11,6 +11,7 @@ class _NavigationPane extends StatefulWidget {
     required this.onRenameSession,
     required this.onDeleteSession,
     required this.onExportSession,
+    this.onGenerateTitleForSession,
     required this.onSectionSelected,
     this.activeHardnessOrchestrator,
     this.hardnessSessionRecord,
@@ -29,6 +30,7 @@ class _NavigationPane extends StatefulWidget {
   final Future<void> Function(AiSession session) onRenameSession;
   final Future<void> Function(AiSession session) onDeleteSession;
   final Future<void> Function(AiSession session) onExportSession;
+  final void Function(AiSession session)? onGenerateTitleForSession;
   final ValueChanged<AppSection> onSectionSelected;
   final HardnessOrchestrator? activeHardnessOrchestrator;
   final HardnessSessionRecord? hardnessSessionRecord;
@@ -225,6 +227,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
             onRename: () => widget.onRenameSession(session),
             onDelete: () => widget.onDeleteSession(session),
             onExport: () => widget.onExportSession(session),
+            onGenerateTitle: () => widget.onGenerateTitleForSession?.call(session),
           ),
         ),
       );

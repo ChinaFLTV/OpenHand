@@ -2780,9 +2780,16 @@ class WebMessagePlatformService {
     if (content.isEmpty) {
       return _json(HttpStatus.badRequest, <String, Object?>{'error': 'content_required'});
     }
-    final model = _resolveModel(
-      session.lastUsedModelId ?? _settingsController.selectedAiModelId ?? '',
-    );
+    // 使用目标会话当前所使用的模型（通过 provider config ID 直接查找）
+    final providerConfigId = session.lastUsedModelId ??
+        _settingsController.selectedAiModelId ?? '';
+    AiModelConfig? model;
+    if (providerConfigId.isNotEmpty) {
+      model = _settingsController.aiModels
+          .where((m) => m.id == providerConfigId)
+          .firstOrNull;
+    }
+    model ??= _settingsController.selectedAiModel;
     if (model == null) {
       return _json(HttpStatus.badRequest, <String, Object?>{'error': 'model_not_configured'});
     }

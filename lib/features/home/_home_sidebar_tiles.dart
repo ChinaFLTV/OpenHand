@@ -265,6 +265,7 @@ class _ThreadTile extends StatelessWidget {
     required this.onRename,
     required this.onDelete,
     required this.onExport,
+    this.onGenerateTitle,
   });
 
   final AiSession session;
@@ -274,6 +275,7 @@ class _ThreadTile extends StatelessWidget {
   final VoidCallback onRename;
   final VoidCallback onDelete;
   final VoidCallback onExport;
+  final VoidCallback? onGenerateTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +341,23 @@ class _ThreadTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (onGenerateTitle != null)
+              PopupMenuItem<String>(
+                value: 'generate_title',
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_awesome_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '获取 AI 摘要标题',
+                        en: 'Generate AI Title',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         );
         if (!context.mounted || selected == null) {
@@ -348,6 +367,7 @@ class _ThreadTile extends StatelessWidget {
           'rename' => onRename,
           'delete' => onDelete,
           'export' => onExport,
+          'generate_title' => onGenerateTitle,
           _ => null,
         };
         if (action == null) {
