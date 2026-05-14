@@ -465,47 +465,70 @@ class _MessageBubbleState extends State<_MessageBubble> {
             ),
           ),
         ),
-        if (widget.isSelected)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Wrap(
-              spacing: 8,
-              children: [
-                _MessageActionButton(
-                  onPressed: widget.onCopy,
-                  icon: Icons.content_copy_outlined,
-                  label: _localizedText(context, zh: '复制', en: 'Copy'),
-                ),
-                if (widget.onEdit != null)
-                  _MessageActionButton(
-                    onPressed: widget.onEdit,
-                    icon: Icons.edit_outlined,
-                    label: AppLocalizations.of(context)!.commonEdit,
-                  ),
-                _MessageActionButton(
-                  onPressed: widget.onDelete,
-                  icon: Icons.delete_outline_rounded,
-                  label: AppLocalizations.of(context)!.commonDelete,
-                ),
-                if (widget.onDeleteFromHere != null)
-                  _MessageActionButton(
-                    onPressed: widget.onDeleteFromHere,
-                    icon: Icons.delete_sweep_outlined,
-                    label: _localizedText(
-                      context,
-                      zh: '删除此条及后续',
-                      en: 'Delete From Here',
+        AnimatedSize(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: widget.isSelected
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutBack,
+                    builder: (context, value, child) {
+                      return Opacity(
+                        opacity: value.clamp(0, 1).toDouble(),
+                        child: Transform.scale(
+                          scale: 0.85 + 0.15 * value,
+                          alignment: Alignment.center,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        _MessageActionButton(
+                          onPressed: widget.onCopy,
+                          icon: Icons.content_copy_outlined,
+                          label: _localizedText(context, zh: '复制', en: 'Copy'),
+                        ),
+                        if (widget.onEdit != null)
+                          _MessageActionButton(
+                            onPressed: widget.onEdit,
+                            icon: Icons.edit_outlined,
+                            label: AppLocalizations.of(context)!.commonEdit,
+                          ),
+                        _MessageActionButton(
+                          onPressed: widget.onDelete,
+                          icon: Icons.delete_outline_rounded,
+                          label: AppLocalizations.of(context)!.commonDelete,
+                        ),
+                        if (widget.onDeleteFromHere != null)
+                          _MessageActionButton(
+                            onPressed: widget.onDeleteFromHere,
+                            icon: Icons.delete_sweep_outlined,
+                            label: _localizedText(
+                              context,
+                              zh: '删除此条及后续',
+                              en: 'Delete From Here',
+                            ),
+                          ),
+                        if (widget.onAudit != null)
+                          _MessageActionButton(
+                            onPressed: () async => widget.onAudit!.call(),
+                            icon: Icons.fact_check_outlined,
+                            label: _localizedText(context, zh: '审计', en: 'Audit'),
+                          ),
+                      ],
                     ),
                   ),
-                if (widget.onAudit != null)
-                  _MessageActionButton(
-                    onPressed: () async => widget.onAudit!.call(),
-                    icon: Icons.fact_check_outlined,
-                    label: _localizedText(context, zh: '审计', en: 'Audit'),
-                  ),
-              ],
-            ),
-          ),
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
     final messageContent = widget.trackLayoutChanges
