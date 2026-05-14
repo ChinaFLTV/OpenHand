@@ -1005,13 +1005,17 @@ class _ImagePreviewDialog extends StatelessWidget {
               const Divider(height: 1),
               // Image body with zoom/pan — 四周 padding 一致。
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: InteractiveViewer(
-                      minScale: 0.5,
-                      maxScale: 5.0,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 5.0,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      alignment: Alignment.center,
                       child: _buildPreviewImage(context),
                     ),
                   ),
