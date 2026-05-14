@@ -877,22 +877,22 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, child) {
-        return Container(
-          width: 200,
-          height: 200,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2.0 * _ctrl.value, 0),
-              end: Alignment(-1.0 + 2.0 * _ctrl.value + 1.0, 0),
-              colors: [baseColor, highlightColor, baseColor],
+        return SizedBox.expand(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                begin: Alignment(-1.0 + 2.0 * _ctrl.value, 0),
+                end: Alignment(-1.0 + 2.0 * _ctrl.value + 1.0, 0),
+                colors: [baseColor, highlightColor, baseColor],
+              ),
             ),
-          ),
-          child: Center(
-            child: Icon(
-              Icons.image_outlined,
-              size: 40,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+            child: Center(
+              child: Icon(
+                Icons.image_outlined,
+                size: 48,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
             ),
           ),
         );
