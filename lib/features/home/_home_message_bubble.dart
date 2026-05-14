@@ -1043,11 +1043,41 @@ class _ImagePreviewDialog extends StatelessWidget {
         final progress = expected != null && expected > 0
             ? loadingProgress.cumulativeBytesLoaded / expected
             : null;
-        return SizedBox(
-          width: 220,
-          height: 220,
-          child: Center(
-            child: CircularProgressIndicator(value: progress, strokeWidth: 2.6),
+        final colorScheme = Theme.of(context).colorScheme;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return SizedBox.expand(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: isDark
+                  ? colorScheme.surfaceContainer
+                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 3,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  if (progress != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      '${(progress * 100).toStringAsFixed(0)}%',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -1059,19 +1089,27 @@ class _ImagePreviewDialog extends StatelessWidget {
   Widget _buildImageLoadError(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.broken_image_outlined, size: 48, color: colorScheme.error),
-          const SizedBox(height: 12),
-          Text(
-            _localizedText(context, zh: '无法加载图片', en: 'Failed to load image'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.error,
-            ),
+    return SizedBox.expand(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.errorContainer.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.broken_image_outlined, size: 48, color: colorScheme.error),
+              const SizedBox(height: 12),
+              Text(
+                _localizedText(context, zh: '无法加载图片', en: 'Failed to load image'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.error,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
