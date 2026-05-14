@@ -73,7 +73,8 @@ function pushString(
   if (typeof raw !== 'string') return;
   const path = raw.trim();
   if (!path) return;
-  // Skip remote URLs — markdown layer renders them.
+  // Skip remote URLs and data URIs — markdown layer renders them inline.
+  // Remote images get click-to-preview via the Markdown component instead.
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
     return;
   }

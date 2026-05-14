@@ -23,6 +23,8 @@ import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { OverlayPortal } from './OverlayPortal';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -688,6 +690,7 @@ function MessageCardImpl({
     (style.collapsible || isAssistantResponseMessage(message)) &&
     content.length > AUTO_COLLAPSE_CHAR_LIMIT;
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null);
+  const [inlineImagePreview, setInlineImagePreview] = useState<string | null>(null);
   useEffect(() => {
     setExpandedOverride(null);
   }, [message.id]);
@@ -759,6 +762,7 @@ function MessageCardImpl({
   }, [defaultBadgeCollapsed]);
 
   return (
+    <>
     <article
       ref={cardRef}
       class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} rounded-m3-md p-4${shouldAnimate ? ' oh-appear-up' : ''}`}
@@ -782,6 +786,15 @@ function MessageCardImpl({
         // 点击交互元素（按钮 / 链接 / 输入框）时不切换 selection。
         const target = ev.target as HTMLElement;
         if (target.closest('button,a,input,textarea,select,[role="button"]')) return;
+        // 点击图片时打开预览而非切换 selection。
+        if (target.tagName === 'IMG' || target.closest('img')) {
+          const img = (target.tagName === 'IMG' ? target : target.closest('img')) as HTMLImageElement | null;
+          if (img?.src) {
+            ev.stopPropagation();
+            setInlineImagePreview(img.src);
+            return;
+          }
+        }
         // 双击代码块选中文本时也不切换。
         const sel = typeof window !== 'undefined' ? window.getSelection() : null;
         if (sel && sel.toString().length > 0) return;
@@ -940,6 +953,13 @@ function MessageCardImpl({
         </div>
       ) : null}
     </article>
+    {inlineImagePreview ? (
+      <InlineImagePreviewPortal
+        src={inlineImagePreview}
+        onClose={() => setInlineImagePreview(null)}
+      />
+    ) : null}
+    </>
   );
 }
 
@@ -1378,5 +1398,33 @@ function ToolArgumentsBlock({ metadata }: { metadata: Record<string, unknown> | 
         {pretty}
       </pre>
     </div>
+  );
+}
+
+// 内联图片预览弹窗：点击 Markdown 渲染的图片时弹出全屏预览。
+function InlineImagePreviewPortal({ src, onClose }: { src: string; onClose: () => void }) {
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') requestClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [requestClose]);
+  if (typeof document === 'undefined') return null;
+  return (
+    <OverlayPortal>
+      <div
+        class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
+        style={{ zIndex: 3000, background: 'color-mix(in srgb, black 58%, transparent)', backdropFilter: 'blur(10px)' }}
+        onMouseDown={(e) => { if (e.target === e.currentTarget) requestClose(); }}
+      >
+        <img
+          src={src}
+          alt=""
+          class={closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}
+          style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: '12px', boxShadow: 'var(--m3-elev-4)' }}
+          onMouseDown={(e) => e.stopPropagation()}
+        />
+      </div>
+    </OverlayPortal>
   );
 }
