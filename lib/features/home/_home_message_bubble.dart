@@ -558,7 +558,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
         final movement = (event.position - downPos).distance;
         final elapsed = DateTime.now().difference(downAt);
         if (movement <= 8 && elapsed.inMilliseconds <= 350) {
-          widget.onSelect();
+          // Toggle: 已选中时再次点击隐藏功能按钮，未选中时显示
+          if (widget.isSelected) {
+            widget.onDeselect();
+          } else {
+            widget.onSelect();
+          }
         }
       },
       child: TapRegion(
