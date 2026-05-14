@@ -1003,12 +1003,18 @@ class _ImagePreviewDialog extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1),
-              // Image body with zoom/pan — 四周 padding 一致。
+              // Image body — 四周 padding 一致。
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  alignment: Alignment.center,
-                  child: _buildPreviewImage(context),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.sizeOf(context).height * 0.65,
+                      ),
+                      child: _buildPreviewImage(context),
+                    ),
+                  ),
                 ),
               ),
             ],
