@@ -1007,11 +1007,20 @@ class _ImagePreviewDialog extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: InteractiveViewer(
-                    constrained: false,
-                    minScale: 0.5,
-                    maxScale: 5.0,
-                    child: Center(child: _buildPreviewImage(context)),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 5.0,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth,
+                            maxHeight: constraints.maxHeight,
+                          ),
+                          child: _buildPreviewImage(context),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
