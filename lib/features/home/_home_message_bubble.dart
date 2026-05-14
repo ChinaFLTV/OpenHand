@@ -1002,9 +1002,11 @@ class _ImagePreviewDialog extends StatelessWidget {
               const Divider(height: 1),
               // Image body — 四周 padding 一致。
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Center(child: _buildPreviewImage(context)),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildPreviewImage(context),
+                  ),
                 ),
               ),
             ],
