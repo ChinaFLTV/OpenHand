@@ -503,7 +503,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
             <button
               key={key}
               type="button"
-              onClick={() => openPreview(item, url)}
+              onClick={(ev) => { ev.stopPropagation(); openPreview(item, url); }}
               class="oh-media-card oh-media-image-card block rounded-md overflow-hidden oh-tap-press text-left"
               style={{
                 border: '1px solid var(--m3-outline)',
@@ -566,7 +566,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
                 <span class="truncate flex-1 min-w-0">{item.name}</span>
                 <button
                   type="button"
-                  onClick={() => openPreview(item, url)}
+                  onClick={(ev) => { ev.stopPropagation(); openPreview(item, url); }}
                   class="oh-tap-press px-2 py-1 rounded-m3-sm"
                   style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline-variant)' }}
                 >
@@ -596,7 +596,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
                 </p>
                 <button
                   type="button"
-                  onClick={() => openPreview(item, url)}
+                  onClick={(ev) => { ev.stopPropagation(); openPreview(item, url); }}
                   class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm"
                   style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline-variant)' }}
                 >
