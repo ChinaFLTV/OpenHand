@@ -947,7 +947,6 @@ class _ImagePreviewDialog extends StatelessWidget {
             minHeight: 320,
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               // Title bar.
               Padding(
@@ -1005,7 +1004,7 @@ class _ImagePreviewDialog extends StatelessWidget {
               ),
               const Divider(height: 1),
               // Image body with zoom/pan — 四周 padding 一致。
-              Flexible(
+              Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: ClipRRect(
