@@ -3196,7 +3196,7 @@ export function SessionDetailPage() {
             <span class="oh-remote-running-text">
               {t(
                 'detail.remoteRunning',
-                '另一处客户端正在生成回复。如本端正在编辑草稿, 建议等远端结束后再发送, 避免顺序混乱。',
+                '另一处客户端已发送消息，AI 正在生成回复中。如本端正在编辑草稿，建议等回复完成后再发送，避免消息顺序混乱。',
               )}
             </span>
           </div>
