@@ -940,12 +940,9 @@ class _ImagePreviewDialog extends StatelessWidget {
             : const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(context).width * 0.9,
-            maxHeight: MediaQuery.sizeOf(context).height * 0.85,
-            minHeight: 320,
-          ),
+        child: SizedBox(
+          width: MediaQuery.sizeOf(context).width * 0.9,
+          height: MediaQuery.sizeOf(context).height * 0.85,
           child: Column(
             children: [
               // Title bar.
@@ -1006,15 +1003,8 @@ class _ImagePreviewDialog extends StatelessWidget {
               // Image body — 四周 padding 一致。
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.sizeOf(context).height * 0.65,
-                      ),
-                      child: _buildPreviewImage(context),
-                    ),
-                  ),
+                  padding: const EdgeInsets.all(16),
+                  child: Center(child: _buildPreviewImage(context)),
                 ),
               ),
             ],
