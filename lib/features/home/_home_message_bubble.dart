@@ -933,81 +933,93 @@ class _ImagePreviewDialog extends StatelessWidget {
       insetPadding: const EdgeInsets.all(24),
       backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.9,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Title bar.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium,
+      clipBehavior: Clip.antiAlias,
+      child: AnimatedSize(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width * 0.9,
+            maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+            minHeight: 320,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Title bar.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium,
+                      ),
                     ),
-                  ),
-                  MicroPressFeedback(
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.open_in_new_rounded,
-                        color: colorScheme.onSurfaceVariant,
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.open_in_new_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '使用系统应用打开',
+                          en: 'Open with System App',
+                        ),
+                        onPressed: () => _openInSystemApp(context),
                       ),
-                      tooltip: _localizedText(
-                        context,
-                        zh: '使用系统应用打开',
-                        en: 'Open with System App',
-                      ),
-                      onPressed: () => _openInSystemApp(context),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  MicroPressFeedback(
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.download_rounded,
-                        color: colorScheme.onSurfaceVariant,
+                    const SizedBox(width: 4),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.download_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '保存到本地',
+                          en: 'Save to disk',
+                        ),
+                        onPressed: () => _saveImageAs(context),
                       ),
-                      tooltip: _localizedText(
-                        context,
-                        zh: '保存到本地',
-                        en: 'Save to disk',
-                      ),
-                      onPressed: () => _saveImageAs(context),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  MicroPressFeedback(
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: colorScheme.onSurfaceVariant,
+                    const SizedBox(width: 4),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
                       ),
-                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            // Image body with zoom/pan.
-            Flexible(
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 5.0,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: _buildPreviewImage(context),
+                  ],
                 ),
               ),
-            ),
-          ],
+              const Divider(height: 1),
+              // Image body with zoom/pan — 四周 padding 一致。
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 5.0,
+                      child: _buildPreviewImage(context),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
