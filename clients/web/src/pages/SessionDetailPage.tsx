@@ -76,6 +76,7 @@ import {
 } from '../components/ImageEditorDialog';
 import { CreationOptionsDialog, type CreationOptions } from '../components/CreationOptionsDialog';
 import { TitleSummaryDialog } from '../components/TitleSummaryDialog';
+import { MediaGeneratingPlaceholder } from '../components/MediaGeneratingPlaceholder';
 
 const PAGE_SIZE = 80;
 
@@ -3270,6 +3271,32 @@ export function SessionDetailPage() {
                     </li>
                   ))}
                 </ul>
+                {(() => {
+                  if (!responseRunning) return null;
+                  // 查找最后一条用户消息的 creation mode
+                  for (let i = sortedMessages.length - 1; i >= 0; i--) {
+                    const msg = sortedMessages[i];
+                    if (msg.role !== 'user') continue;
+                    const meta = msg.metadata ?? {};
+                    const creationReq = meta['creation_request'] as Record<string, unknown> | undefined;
+                    const mode = (creationReq?.['mode'] as string) || (meta['conversation_mode'] as string) || '';
+                    if (mode === 'image' || mode === 'video' || mode === 'audio') {
+                      // 检查是否已有助手回复（有媒体内容）
+                      const hasAssistantReply = sortedMessages.slice(i + 1).some(
+                        (m) => m.role === 'assistant' && m.content.trim().length > 10,
+                      );
+                      if (!hasAssistantReply) {
+                        return (
+                          <div class="mt-3">
+                            <MediaGeneratingPlaceholder mode={mode as 'image' | 'video' | 'audio'} />
+                          </div>
+                        );
+                      }
+                    }
+                    break;
+                  }
+                  return null;
+                })()}
               </>
             )}
             </>

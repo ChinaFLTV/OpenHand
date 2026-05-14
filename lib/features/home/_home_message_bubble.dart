@@ -919,7 +919,17 @@ class _ImagePreviewDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Dialog(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
+          Navigator.of(context).pop();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Dialog(
       insetPadding: const EdgeInsets.all(24),
       backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1000,6 +1010,7 @@ class _ImagePreviewDialog extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -1996,12 +2007,19 @@ $mediaTag
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.space): _MediaPlayPauseIntent(),
+        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
           _MediaPlayPauseIntent: CallbackAction<_MediaPlayPauseIntent>(
             onInvoke: (_) {
               _togglePlayPause();
+              return null;
+            },
+          ),
+          DismissIntent: CallbackAction<DismissIntent>(
+            onInvoke: (_) {
+              Navigator.of(context).pop();
               return null;
             },
           ),
