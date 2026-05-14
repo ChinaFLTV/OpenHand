@@ -515,10 +515,6 @@ function isReasoningLong(content: string): boolean {
   return false;
 }
 
-function isAssistantSideMessage(message: SessionMessage): boolean {
-  return message.role !== 'user';
-}
-
 function isAssistantResponseMessage(message: SessionMessage): boolean {
   if (message.role !== 'assistant') return false;
   return ![
@@ -751,7 +747,7 @@ function MessageCardImpl({
   const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
-    !reduceMotion && isAssistantSideMessage(message),
+    !reduceMotion,
   );
 
   const handleBadgeToggle = useCallback((e: Event) => {

@@ -5521,12 +5521,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       return;
     }
-    // 直接使用第一条用户消息生成标题（简化流程，避免弹窗复杂度）
-    // 如果有多条消息，弹出选择弹窗
+    // 解析模型：优先使用会话当前模型，回退到全局选中模型
+    AiModelConfig? model;
+    if (session.lastUsedModelId != null) {
+      model = settingsController.aiModels
+          .where((m) => m.id == session.lastUsedModelId)
+          .firstOrNull;
+    }
+    model ??= settingsController.selectedAiModel;
+    if (model == null) {
+      _showHomeSnackBar(
+        context,
+        SnackBar(content: Text(_localizedText(context, zh: '未配置模型', en: 'No model configured'))),
+      );
+      return;
+    }
+    // 单条消息直接生成
     if (userMessages.length == 1) {
       _executeGenerateTitle(
         session: session,
         content: userMessages.first.content,
+        model: model,
         sessionController: sessionController,
         settingsController: settingsController,
       );
@@ -5536,6 +5551,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _showTitleSummaryRangeDialog(
       session: session,
       userMessages: userMessages,
+      model: model,
       sessionController: sessionController,
       settingsController: settingsController,
     );
@@ -5544,6 +5560,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _showTitleSummaryRangeDialog({
     required AiSession session,
     required List<AiSessionMessage> userMessages,
+    required AiModelConfig model,
     required AiSessionController sessionController,
     required SettingsController settingsController,
   }) async {
@@ -5562,6 +5579,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _executeGenerateTitle(
       session: session,
       content: selectedContent,
+      model: model,
       sessionController: sessionController,
       settingsController: settingsController,
     );
@@ -5570,6 +5588,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _executeGenerateTitle({
     required AiSession session,
     required String content,
+    required AiModelConfig model,
     required AiSessionController sessionController,
     required SettingsController settingsController,
   }) async {
@@ -5594,15 +5613,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ),
     );
     try {
-      final model = sessionController.resolveModelForSession(session);
-      if (model == null) {
-        if (mounted) Navigator.of(context).pop();
-        _showHomeSnackBar(
-          context,
-          SnackBar(content: Text(_localizedText(context, zh: '未配置模型', en: 'No model configured'))),
-        );
-        return;
-      }
       await sessionController.generateTitleManually(
         sessionId: session.id,
         content: content,
@@ -6936,6 +6946,14 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
     final total = widget.userMessages.length;
     final selectedCount = _endIdx - _startIdx + 1;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    // 截取消息内容作为 tooltip 预览
+    String _previewLabel(int idx) {
+      if (idx < 0 || idx >= total) return '#${idx + 1}';
+      final content = widget.userMessages[idx].content.replaceAll(RegExp(r'\s+'), ' ').trim();
+      final preview = content.length > 20 ? '${content.substring(0, 18)}…' : content;
+      return preview.isEmpty ? '#${idx + 1}' : preview;
+    }
+
     return AlertDialog(
       title: Text(isZh ? '获取 AI 摘要标题' : 'Generate AI Title'),
       content: SizedBox(
@@ -6967,7 +6985,10 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                 min: 0,
                 max: (total - 1).toDouble(),
                 divisions: total > 1 ? total - 1 : 1,
-                labels: RangeLabels('#${_startIdx + 1}', '#${_endIdx + 1}'),
+                labels: RangeLabels(
+                  _previewLabel(_startIdx),
+                  _previewLabel(_endIdx),
+                ),
                 onChanged: (values) {
                   setState(() {
                     _startIdx = values.start.round();
