@@ -6693,6 +6693,7 @@ $trimmedSummary''';
         latestSession.copyWith(
           title: fallbackTitle,
           updatedAt: fallbackAt,
+          autoTitleAcquired: true,
           autoTitleGeneratedAt: fallbackAt,
           autoTitleSourceMessageId: sourceMessageId,
         ),
@@ -7511,6 +7512,7 @@ $trimmedSummary''';
       return nextSession.copyWith(
         title: liveSession.title,
         isTitleManuallyEdited: true,
+        autoTitleAcquired: liveSession.autoTitleAcquired,
         autoTitleGeneratedAt: liveSession.autoTitleGeneratedAt,
         autoTitleSourceMessageId: liveSession.autoTitleSourceMessageId,
       );
@@ -7522,9 +7524,15 @@ $trimmedSummary''';
             !nextAutoTitleGeneratedAt.isAfter(liveAutoTitleGeneratedAt))) {
       return nextSession.copyWith(
         title: liveSession.title,
+        autoTitleAcquired: liveSession.autoTitleAcquired ||
+            nextSession.autoTitleAcquired,
         autoTitleGeneratedAt: liveAutoTitleGeneratedAt,
         autoTitleSourceMessageId: liveSession.autoTitleSourceMessageId,
       );
+    }
+    // 即使 next 的 autoTitleGeneratedAt 更新，也不能丢失 live 已确认的 acquired 状态
+    if (liveSession.autoTitleAcquired && !nextSession.autoTitleAcquired) {
+      return nextSession.copyWith(autoTitleAcquired: true);
     }
     return nextSession;
   }

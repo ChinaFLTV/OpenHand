@@ -1686,7 +1686,7 @@ export function SessionDetailPage() {
   function shouldWatchAutoTitleAfterSend(text: string): boolean {
     if (!text.trim()) return false;
     const current = detailRef.current?.session;
-    if (!current || current.is_title_manually_edited || current.auto_title_generated_at) {
+    if (!current || current.is_title_manually_edited || current.auto_title_acquired || current.auto_title_generated_at) {
       return false;
     }
     const visibleUserMessages = messagesRef.current.filter(
@@ -1709,7 +1709,7 @@ export function SessionDetailPage() {
     if (typeof summary.message_count === 'number') {
       setTotalKnown(summary.message_count);
     }
-    if (summary.auto_title_generated_at || summary.is_title_manually_edited) {
+    if (summary.auto_title_acquired || summary.auto_title_generated_at || summary.is_title_manually_edited) {
       clearAutoTitleRefreshTimers();
     }
   }
@@ -1739,7 +1739,7 @@ export function SessionDetailPage() {
   async function refreshAutoTitleSummary(): Promise<boolean> {
     if (!sessionId) return true;
     const current = detailRef.current?.session;
-    if (!current || current.is_title_manually_edited || current.auto_title_generated_at) {
+    if (!current || current.is_title_manually_edited || current.auto_title_acquired || current.auto_title_generated_at) {
       return true;
     }
     const fresh = await getSession(sessionId);
@@ -1753,7 +1753,7 @@ export function SessionDetailPage() {
     setLastError(fresh.runtime.last_error);
     setTotalKnown(fresh.session.message_count ?? messagesRef.current.length);
     return Boolean(
-      fresh.session.is_title_manually_edited || fresh.session.auto_title_generated_at,
+      fresh.session.is_title_manually_edited || fresh.session.auto_title_acquired || fresh.session.auto_title_generated_at,
     );
   }
 
@@ -1963,7 +1963,7 @@ export function SessionDetailPage() {
             ? { ...prev, session: mergeSessionSummary(prev.session, snap.session), runtime }
             : { session: snap.session, runtime };
         });
-        if (snap.session.auto_title_generated_at || snap.session.is_title_manually_edited) {
+        if (snap.session.auto_title_acquired || snap.session.auto_title_generated_at || snap.session.is_title_manually_edited) {
           clearAutoTitleRefreshTimers();
         }
         setSendPhase(snap.send_phase);
@@ -3110,6 +3110,7 @@ export function SessionDetailPage() {
           titleGenerating={Boolean(
             session &&
             !session.is_title_manually_edited &&
+            !session.auto_title_acquired &&
             !session.auto_title_generated_at &&
             messages.length > 0 &&
             messages.some((m) => m.role === 'user'),
