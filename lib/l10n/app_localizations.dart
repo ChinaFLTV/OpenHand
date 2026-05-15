@@ -4706,6 +4706,12 @@ abstract class AppLocalizations {
   /// **'Completion'**
   String get tokenPopupCompletion;
 
+  /// No description provided for @tokenPopupReasoning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Reasoning'**
+  String get tokenPopupReasoning;
+
   /// No description provided for @tokenPopupGrandTotal.
   ///
   /// In zh_Hans, this message translates to:

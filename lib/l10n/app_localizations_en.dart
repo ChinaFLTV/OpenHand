@@ -2590,6 +2590,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tokenPopupCompletion => 'Completion';
 
   @override
+  String get tokenPopupReasoning => 'Reasoning';
+
+  @override
   String get tokenPopupGrandTotal => 'Total';
 
   @override

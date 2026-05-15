@@ -1114,6 +1114,7 @@
   "tokenPopupCacheWrite": "キャッシュ書込",
   "tokenPopupOutputHeading": "出力",
   "tokenPopupCompletion": "応答",
+  "tokenPopupReasoning": "推論",
   "tokenPopupGrandTotal": "合計",
   "tokenPopupCacheHit": "キャッシュ命中率",
   "tokenPopupSessionHeading": "セッション",

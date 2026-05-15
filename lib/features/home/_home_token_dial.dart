@@ -227,14 +227,17 @@ class _TokenDialPopup extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final cacheValueStyle = valueStyle?.copyWith(color: Colors.green.shade700);
+    final reasoningValueStyle =
+        valueStyle?.copyWith(color: Colors.purple.shade400);
     final promptTokens = statistics.totalPromptTokens ?? 0;
     final completionTokens = statistics.totalCompletionTokens ?? 0;
     final cacheRead = statistics.cacheReadTokens ?? 0;
     final cacheWrite = statistics.cacheCreationTokens ?? 0;
+    final reasoning = statistics.reasoningTokens ?? 0;
     final total = statistics.totalTokens ?? 0;
-    final cacheHitRatio = (promptTokens + cacheRead) == 0
-        ? 0.0
-        : cacheRead / (promptTokens + cacheRead);
+    final cacheDenominator = promptTokens + cacheRead;
+    final cacheHitRatio =
+        cacheDenominator == 0 ? 0.0 : cacheRead / cacheDenominator;
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -274,12 +277,14 @@ class _TokenDialPopup extends StatelessWidget {
               value: cacheRead,
               keyStyle: keyStyle,
               valueStyle: cacheValueStyle,
+              accent: Colors.green,
             ),
             _PopupRow(
               label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
               value: cacheWrite,
               keyStyle: keyStyle,
               valueStyle: cacheValueStyle,
+              accent: Colors.green,
             ),
             const SizedBox(height: 10),
             Text(
@@ -293,6 +298,14 @@ class _TokenDialPopup extends StatelessWidget {
               keyStyle: keyStyle,
               valueStyle: valueStyle,
             ),
+            if (reasoning > 0)
+              _PopupRow(
+                label: AppLocalizations.of(context)!.tokenPopupReasoning,
+                value: reasoning,
+                keyStyle: keyStyle,
+                valueStyle: reasoningValueStyle,
+                accent: Colors.purple,
+              ),
             Container(
               margin: const EdgeInsets.symmetric(vertical: 10),
               height: 1,
@@ -315,6 +328,14 @@ class _TokenDialPopup extends StatelessWidget {
                 suffix: '%',
                 keyStyle: keyStyle,
                 valueStyle: cacheValueStyle,
+                accent: Colors.green,
+              ),
+              const SizedBox(height: 6),
+              _CacheHitBar(
+                ratio: cacheHitRatio,
+                cacheRead: cacheRead,
+                cacheWrite: cacheWrite,
+                prompt: promptTokens,
               ),
             ],
             const SizedBox(height: 10),
@@ -440,7 +461,7 @@ class _TokenDialPopup extends StatelessWidget {
 }
 
 /// 单价行专用：USD 格式化展示（最高精度 4 位小数；总计/小数据时切到更密）。
-class _CostPopupRow extends StatelessWidget {
+class _CostPopupRow extends StatefulWidget {
   const _CostPopupRow({
     required this.label,
     required this.usd,
@@ -453,6 +474,13 @@ class _CostPopupRow extends StatelessWidget {
   final TextStyle? keyStyle;
   final TextStyle? valueStyle;
 
+  @override
+  State<_CostPopupRow> createState() => _CostPopupRowState();
+}
+
+class _CostPopupRowState extends State<_CostPopupRow> {
+  bool _hovered = false;
+
   String _format(double v) {
     if (v == 0) return r'$0.0000';
     if (v >= 1) return '\$${v.toStringAsFixed(2)}';
@@ -462,26 +490,132 @@ class _CostPopupRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: keyStyle),
-          Text(_format(usd), style: valueStyle),
-        ],
+    final accent = Theme.of(context).colorScheme.primary;
+    final highlight = _hovered
+        ? accent.withValues(alpha: 0.10)
+        : Colors.transparent;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+        margin: const EdgeInsets.symmetric(vertical: 1),
+        decoration: BoxDecoration(
+          color: highlight,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(widget.label, style: widget.keyStyle),
+            Text(_format(widget.usd), style: widget.valueStyle),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PopupRow extends StatelessWidget {
+/// 缓存命中比例可视化条：左侧绿色 = cache_read（命中），中间金色 =
+/// cache_creation（写入），右侧灰色 = 未缓存的 prompt。Hover 时整体亮度提升，
+/// 让用户一眼看出当前 session 的缓存收益。
+class _CacheHitBar extends StatefulWidget {
+  const _CacheHitBar({
+    required this.ratio,
+    required this.cacheRead,
+    required this.cacheWrite,
+    required this.prompt,
+  });
+
+  final double ratio;
+  final int cacheRead;
+  final int cacheWrite;
+  final int prompt;
+
+  @override
+  State<_CacheHitBar> createState() => _CacheHitBarState();
+}
+
+class _CacheHitBarState extends State<_CacheHitBar> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // 分母：cache_read + cache_write + 未缓存 prompt（promptTokens 已扣除
+    // cache_read，与 read/write 不重叠）。
+    final total = widget.cacheRead + widget.cacheWrite + widget.prompt;
+    final readWeight = total == 0 ? 0.0 : widget.cacheRead / total;
+    final writeWeight = total == 0 ? 0.0 : widget.cacheWrite / total;
+    final promptWeight = total == 0
+        ? 0.0
+        : (widget.prompt / total).clamp(0.0, 1.0);
+    final intensify = _hovered ? 1.10 : 1.0;
+    final readColor = Colors.green.shade500;
+    final writeColor = Colors.amber.shade600;
+    final missColor = colorScheme.surfaceContainerHighest;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        height: 8,
+        decoration: BoxDecoration(
+          color: missColor.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: _hovered
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: readColor.withValues(alpha: 0.18),
+                    blurRadius: 4,
+                  ),
+                ]
+              : const <BoxShadow>[],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            if (readWeight > 0)
+              Expanded(
+                flex: (readWeight * 1000).round(),
+                child: Container(
+                  color: readColor.withValues(
+                    alpha: (0.85 * intensify).clamp(0.0, 1.0),
+                  ),
+                ),
+              ),
+            if (writeWeight > 0)
+              Expanded(
+                flex: (writeWeight * 1000).round(),
+                child: Container(
+                  color: writeColor.withValues(
+                    alpha: (0.78 * intensify).clamp(0.0, 1.0),
+                  ),
+                ),
+              ),
+            if (promptWeight > 0)
+              Expanded(
+                flex: (promptWeight * 1000).round(),
+                child: const SizedBox.shrink(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PopupRow extends StatefulWidget {
   const _PopupRow({
     required this.label,
     required this.value,
     this.suffix,
     this.keyStyle,
     this.valueStyle,
+    this.accent,
   });
 
   final String label;
@@ -490,28 +624,53 @@ class _PopupRow extends StatelessWidget {
   final TextStyle? keyStyle;
   final TextStyle? valueStyle;
 
+  /// Tinted hover highlight (defaults to theme primary when null).
+  final Color? accent;
+
+  @override
+  State<_PopupRow> createState() => _PopupRowState();
+}
+
+class _PopupRowState extends State<_PopupRow> {
+  bool _hovered = false;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: keyStyle),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _RollingNumber(
-                value: value,
-                style: valueStyle ?? const TextStyle(),
-              ),
-              if (suffix != null) ...[
-                const SizedBox(width: 2),
-                Text(suffix!, style: valueStyle),
+    final accent = widget.accent ?? Theme.of(context).colorScheme.primary;
+    final highlight = _hovered
+        ? accent.withValues(alpha: 0.10)
+        : Colors.transparent;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+        margin: const EdgeInsets.symmetric(vertical: 1),
+        decoration: BoxDecoration(
+          color: highlight,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(widget.label, style: widget.keyStyle),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _RollingNumber(
+                  value: widget.value,
+                  style: widget.valueStyle ?? const TextStyle(),
+                ),
+                if (widget.suffix != null) ...[
+                  const SizedBox(width: 2),
+                  Text(widget.suffix!, style: widget.valueStyle),
+                ],
               ],
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

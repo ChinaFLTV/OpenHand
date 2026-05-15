@@ -1114,6 +1114,7 @@
   "tokenPopupCacheWrite": "Cache-Schreiben",
   "tokenPopupOutputHeading": "Ausgabe",
   "tokenPopupCompletion": "Antwort",
+  "tokenPopupReasoning": "Reasoning",
   "tokenPopupGrandTotal": "Gesamt",
   "tokenPopupCacheHit": "Cache-Trefferquote",
   "tokenPopupSessionHeading": "Sitzung",

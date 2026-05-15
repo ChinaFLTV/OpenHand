@@ -7689,6 +7689,7 @@ $trimmedSummary''';
       totalTokens: statistics.totalTokens,
       cacheCreationTokens: statistics.cacheCreationTokens,
       cacheReadTokens: statistics.cacheReadTokens,
+      reasoningTokens: statistics.reasoningTokens,
     );
   }
 

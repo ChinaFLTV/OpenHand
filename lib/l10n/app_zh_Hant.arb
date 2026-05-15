@@ -1114,6 +1114,7 @@
   "tokenPopupCacheWrite": "Cache 寫入",
   "tokenPopupOutputHeading": "輸出",
   "tokenPopupCompletion": "Completion",
+  "tokenPopupReasoning": "Reasoning",
   "tokenPopupGrandTotal": "總計",
   "tokenPopupCacheHit": "Cache 命中率",
   "tokenPopupSessionHeading": "會話累計",

@@ -2494,6 +2494,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupCompletion => '応答';
 
   @override
+  String get tokenPopupReasoning => '推論';
+
+  @override
   String get tokenPopupGrandTotal => '合計';
 
   @override

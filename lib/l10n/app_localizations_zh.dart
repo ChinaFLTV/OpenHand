@@ -2462,6 +2462,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenPopupCompletion => 'Completion';
 
   @override
+  String get tokenPopupReasoning => 'Reasoning';
+
+  @override
   String get tokenPopupGrandTotal => '总计';
 
   @override
@@ -7395,6 +7398,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tokenPopupCompletion => 'Completion';
 
   @override
+  String get tokenPopupReasoning => 'Reasoning';
+
+  @override
   String get tokenPopupGrandTotal => '总计';
 
   @override
@@ -12325,6 +12331,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tokenPopupCompletion => 'Completion';
+
+  @override
+  String get tokenPopupReasoning => 'Reasoning';
 
   @override
   String get tokenPopupGrandTotal => '總計';

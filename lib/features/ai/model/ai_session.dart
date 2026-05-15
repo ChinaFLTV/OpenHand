@@ -759,6 +759,7 @@ class AiSessionStatistics {
       totalTokens: _readNullableInt(json['total_tokens']),
       cacheCreationTokens: _readNullableInt(json['cache_creation_tokens']),
       cacheReadTokens: _readNullableInt(json['cache_read_tokens']),
+      reasoningTokens: _readNullableInt(json['reasoning_tokens']),
       lastPromptSystemMessageCount: _readInt(
         json['last_prompt_system_message_count'],
       ),
@@ -785,6 +786,7 @@ class AiSessionStatistics {
     this.totalTokens,
     this.cacheCreationTokens,
     this.cacheReadTokens,
+    this.reasoningTokens,
     this.lastPromptSystemMessageCount = 0,
     this.lastPromptHistoryMessageCount = 0,
   });
@@ -807,6 +809,7 @@ class AiSessionStatistics {
       totalTokens = null,
       cacheCreationTokens = null,
       cacheReadTokens = null,
+      reasoningTokens = null,
       lastPromptSystemMessageCount = 0,
       lastPromptHistoryMessageCount = 0;
 
@@ -827,6 +830,7 @@ class AiSessionStatistics {
   final int? totalTokens;
   final int? cacheCreationTokens;
   final int? cacheReadTokens;
+  final int? reasoningTokens;
   final int lastPromptSystemMessageCount;
   final int lastPromptHistoryMessageCount;
 
@@ -848,6 +852,7 @@ class AiSessionStatistics {
     int? totalTokens,
     int? cacheCreationTokens,
     int? cacheReadTokens,
+    int? reasoningTokens,
     int? lastPromptSystemMessageCount,
     int? lastPromptHistoryMessageCount,
   }) {
@@ -874,6 +879,7 @@ class AiSessionStatistics {
       totalTokens: totalTokens ?? this.totalTokens,
       cacheCreationTokens: cacheCreationTokens ?? this.cacheCreationTokens,
       cacheReadTokens: cacheReadTokens ?? this.cacheReadTokens,
+      reasoningTokens: reasoningTokens ?? this.reasoningTokens,
       lastPromptSystemMessageCount:
           lastPromptSystemMessageCount ?? this.lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount:
@@ -900,6 +906,7 @@ class AiSessionStatistics {
       'total_tokens': totalTokens,
       'cache_creation_tokens': cacheCreationTokens,
       'cache_read_tokens': cacheReadTokens,
+      'reasoning_tokens': reasoningTokens,
       'last_prompt_system_message_count': lastPromptSystemMessageCount,
       'last_prompt_history_message_count': lastPromptHistoryMessageCount,
     };
@@ -980,6 +987,7 @@ class AiSessionStatistics {
       totalTokens: totalUsage.totalTokens,
       cacheCreationTokens: totalUsage.cacheCreationTokens,
       cacheReadTokens: totalUsage.cacheReadTokens,
+      reasoningTokens: totalUsage.reasoningTokens,
       lastPromptSystemMessageCount: lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount: lastPromptHistoryMessageCount,
     );

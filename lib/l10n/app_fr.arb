@@ -1114,6 +1114,7 @@
   "tokenPopupCacheWrite": "Cache écrit",
   "tokenPopupOutputHeading": "Sortie",
   "tokenPopupCompletion": "Réponse",
+  "tokenPopupReasoning": "Raisonnement",
   "tokenPopupGrandTotal": "Total général",
   "tokenPopupCacheHit": "Taux de cache",
   "tokenPopupSessionHeading": "Session",

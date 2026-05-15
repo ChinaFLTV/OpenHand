@@ -39,6 +39,10 @@ class AiTokenUsageParser {
     final promptDetails = _readMap(
       usageMap['prompt_tokens_details'] ?? usageMap['input_tokens_details'],
     );
+    final completionDetails = _readMap(
+      usageMap['completion_tokens_details'] ??
+          usageMap['output_tokens_details'],
+    );
 
     final cacheRead = _firstInt([
       promptDetails?['cached_tokens'],
@@ -59,11 +63,22 @@ class AiTokenUsageParser {
       usageMap['cached_creation_tokens'],
     ]);
 
+    // Reasoning / thinking 阶段计费量。在 OpenAI o-系列、DeepSeek-R1、Z.AI 思考模式
+    // 里都通过 completion_tokens_details.reasoning_tokens 暴露；少数代理把它平铺
+    // 到 usage 顶层（非官方约定，但兜底解析）。
+    final reasoning = _firstInt([
+      completionDetails?['reasoning_tokens'],
+      completionDetails?['thinking_tokens'],
+      usageMap['reasoning_tokens'],
+      usageMap['thinking_tokens'],
+    ]);
+
     if (promptTokens == null &&
         completionTokens == null &&
         totalTokens == null &&
         cacheRead == null &&
-        cacheWrite == null) {
+        cacheWrite == null &&
+        reasoning == null) {
       return null;
     }
 
@@ -76,6 +91,7 @@ class AiTokenUsageParser {
               : null),
       cacheReadTokens: cacheRead,
       cacheCreationTokens: cacheWrite,
+      reasoningTokens: reasoning,
     );
   }
 
@@ -132,6 +148,9 @@ class AiTokenUsageParser {
     final promptTokens = _readInt(usageMap['promptTokenCount']);
     final completionTokens = _readInt(usageMap['candidatesTokenCount']);
     final totalTokens = _readInt(usageMap['totalTokenCount']);
+    // Gemini 2.5 Pro / Flash 思考模型：thoughtsTokenCount 包含在
+    // candidatesTokenCount 之内。
+    final reasoning = _readInt(usageMap['thoughtsTokenCount']);
 
     int? cacheRead = _readInt(usageMap['cachedContentTokenCount']);
     if (cacheRead == null) {
@@ -154,7 +173,8 @@ class AiTokenUsageParser {
     if (promptTokens == null &&
         completionTokens == null &&
         totalTokens == null &&
-        cacheRead == null) {
+        cacheRead == null &&
+        reasoning == null) {
       return null;
     }
 
@@ -163,6 +183,7 @@ class AiTokenUsageParser {
       completionTokens: completionTokens,
       totalTokens: totalTokens,
       cacheReadTokens: cacheRead,
+      reasoningTokens: reasoning,
     );
   }
 
@@ -190,6 +211,10 @@ class AiTokenUsageParser {
       cacheCreationTokens:
           incoming.cacheCreationTokens ?? previous.cacheCreationTokens,
       cacheReadTokens: incoming.cacheReadTokens ?? previous.cacheReadTokens,
+      reasoningTokens: maxNullable(
+        previous.reasoningTokens,
+        incoming.reasoningTokens,
+      ),
     );
   }
 }
