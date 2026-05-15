@@ -1,11 +1,92 @@
 part of 'openhand_home_page.dart';
 
-/// 阶段⑰：以消息 id 索引的 GlobalObjectKey，让「本轮文件变动汇总」
-/// 卡（或任意外部跳转入口）能在 ListView.builder 已经构造目标气泡时
-/// 直接通过 `currentContext` 调用 `Scrollable.ensureVisible` 平滑滚动。
-/// `==`/`hashCode` 只比较包装值，多帧重建得到同一个 key。
-class _MessageBubbleObjectKey extends GlobalObjectKey {
-  const _MessageBubbleObjectKey(String super.messageId);
+/// 阶段⑱：每个气泡的 BuildContext 注册到所属 transcript state 的局部
+/// 映射中，避免使用 GlobalObjectKey。GlobalObjectKey 在被 retake 时会
+/// 触发其 OverlayPortal 子节点（Tooltip）在 LayoutBuilder 重建期间向
+/// RenderTheater 注册延迟子节点，跨布局子树的 mutation 会触发
+/// `_RenderLayoutBuilder was mutated in performLayout` 断言。
+/// 局部映射既保留了「按 messageId 反查 BuildContext」能力，又彻底
+/// 规避了跨子树 GlobalKey retake 的副作用。
+class _TranscriptBubbleRegistrar extends StatefulWidget {
+  const _TranscriptBubbleRegistrar({
+    required this.messageId,
+    required this.registry,
+    required this.child,
+  });
+
+  final String messageId;
+  final _TranscriptBubbleRegistry registry;
+  final Widget child;
+
+  @override
+  State<_TranscriptBubbleRegistrar> createState() =>
+      _TranscriptBubbleRegistrarState();
+}
+
+class _TranscriptBubbleRegistrarState
+    extends State<_TranscriptBubbleRegistrar> {
+  @override
+  void initState() {
+    super.initState();
+    widget.registry.bind(widget.messageId, context);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TranscriptBubbleRegistrar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.messageId != widget.messageId ||
+        oldWidget.registry != widget.registry) {
+      oldWidget.registry.unbind(oldWidget.messageId, context);
+      widget.registry.bind(widget.messageId, context);
+    } else {
+      // BuildContext 的同一 element 复用 → 无需重新绑定，但同步映射兜底。
+      widget.registry.bind(widget.messageId, context);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.registry.unbind(widget.messageId, context);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
+}
+
+/// transcript 内按 messageId 索引 BuildContext 的本地映射。
+/// 仅在所属 `_SessionTranscriptState` 生命周期内存活，避免跨 transcript
+/// 共享导致的脏状态。
+class _TranscriptBubbleRegistry {
+  final Map<String, BuildContext> _contexts = <String, BuildContext>{};
+
+  void bind(String messageId, BuildContext context) {
+    if (messageId.isEmpty) return;
+    _contexts[messageId] = context;
+  }
+
+  void unbind(String messageId, BuildContext context) {
+    if (messageId.isEmpty) return;
+    final current = _contexts[messageId];
+    if (identical(current, context)) {
+      _contexts.remove(messageId);
+    }
+  }
+
+  BuildContext? contextOf(String messageId) {
+    final ctx = _contexts[messageId];
+    if (ctx == null) return null;
+    // 兜底：element 已被 deactivate 但还未 unbind 时，跳过返回。
+    if (ctx is Element && !ctx.mounted) {
+      _contexts.remove(messageId);
+      return null;
+    }
+    return ctx;
+  }
+
+  void clear() => _contexts.clear();
 }
 
 /// 阶段⑰b：跨 widget 的「按 messageId 平滑滚动」分发器。
@@ -221,6 +302,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
   bool _initialBuildDone = false;
+  // 阶段⑱：transcript 内 messageId → BuildContext 反查映射，替代
+  // GlobalObjectKey 防御 OverlayPortal/Tooltip 在 LayoutBuilder layout
+  // 阶段被 retake 时跨子树 mutation RenderTheater 触发的断言失败。
+  final _TranscriptBubbleRegistry _bubbleRegistry = _TranscriptBubbleRegistry();
 
   // 2026-05-04: Incremental tail materialization.
   //
@@ -606,6 +691,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _dripTimer = null;
     _highlightTimer?.cancel();
     _highlightTimer = null;
+    _bubbleRegistry.clear();
     super.dispose();
   }
 
@@ -667,7 +753,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
 
     Future<bool> tryEnsureVisible() async {
-      final ctx = _MessageBubbleObjectKey(messageId).currentContext;
+      final ctx = _bubbleRegistry.contextOf(messageId);
       if (ctx == null) return false;
       await Scrollable.ensureVisible(
         ctx,
@@ -793,7 +879,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     RenderBox? scrollableBox;
     for (var i = 0; i < _renderEntries.length; i++) {
       final id = _renderEntries[i].id;
-      final bubbleContext = _MessageBubbleObjectKey(id).currentContext;
+      final bubbleContext = _bubbleRegistry.contextOf(id);
       if (bubbleContext == null) continue;
       final box = bubbleContext.findRenderObject() as RenderBox?;
       if (box == null || !box.attached || !box.hasSize) continue;
@@ -1243,8 +1329,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   child: IgnorePointer(
                     ignoring: entry.exiting,
                     child: RepaintBoundary(
-                      child: KeyedSubtree(
-                        key: _MessageBubbleObjectKey(message.id),
+                      child: _TranscriptBubbleRegistrar(
+                        messageId: message.id,
+                        registry: _bubbleRegistry,
                         child: _MessageBubble(
                           key: ValueKey<String>(message.id),
                           message: message,

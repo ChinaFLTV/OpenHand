@@ -2576,9 +2576,9 @@ String _compactBytes(int bytes) {
 // - 仅展示本轮真正产生 ledger 记录的 toolCallId（controller 已预筛）。
 // - 行级 dedup 单元 = (filePath × toolCallId)；同一文件被多次 Edit/Write
 //   会出现多行，每行带独立「跳转到来源消息」按钮，跳转通过
-//   `_MessageBubbleObjectKey(messageId).currentContext` + `Scrollable
-//   .ensureVisible(alignment:0.18, duration:520ms, easeOutCubic)` 实现 Q
-//   弹丝滑滚动；目标在大会话里被 ListView 释放时回退到滚轨估算。
+//   `_TranscriptBubbleRegistry` 反查 BuildContext + `Scrollable
+//   .ensureVisible(alignment:0.18)` 实现 Q 弹丝滑滚动；目标在大会话里
+//   被 ListView 释放时回退到滚轨估算。
 // - reduceMotion 下所有过渡退化为瞬时；Drip-in 入场不超过 6 行的延迟。
 // - 不支持 undo/redo（信息聚合卡，避免与每个工具调用卡的 ledger 操作
 //   重复 / 并发竞态）。
