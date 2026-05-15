@@ -244,6 +244,9 @@ final RegExp _tomlBareKeyPattern = RegExp(r'^[A-Za-z0-9_.-]+$');
 
 // Shared BorderRadius constants — avoid allocating new instances on every build.
 const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(18));
+// 外层 clip 容器专用：比 _borderRadius18 大 1px，补偿 Border.all 的
+// 外溢像素，防止 flutter_markdown_plus 的 Clip.hardEdge 裁掉圆角边框。
+const BorderRadius _borderRadius19 = BorderRadius.all(Radius.circular(19));
 const BorderRadius _borderRadius999 = BorderRadius.all(Radius.circular(999));
 
 void _disposeTextEditingControllerAfterCurrentFrame(

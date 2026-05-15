@@ -757,11 +757,12 @@ class _MessageMarkdownThemeData {
         // 设置了 `clipBehavior: Clip.hardEdge`。如果 codeblockDecoration
         // 的 borderRadius 为 null (默认 BorderRadius.zero), 则子组件
         // (_HighlightedCodePanel) 的圆角会被矩形裁剪掉。因此这里必须
-        // 给 codeblockDecoration 设置与代码面板一致的 borderRadius, 让
-        // clip path 跟随圆角, 避免左上/右上角圆角丢失。
+        // 给 codeblockDecoration 设置比代码面板稍大的 borderRadius (19
+        // vs 18), 让 clip path 完全包含内层 Border.all 的外边缘像素,
+        // 避免 Clip.hardEdge 在圆角处裁掉边框。
         codeblockPadding: EdgeInsets.zero,
         codeblockDecoration: const BoxDecoration(
-          borderRadius: _borderRadius18,
+          borderRadius: _borderRadius19,
         ),
         horizontalRuleDecoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor, width: 1.2)),

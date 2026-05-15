@@ -259,11 +259,15 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     );
     final runLabel = _localizedText(context, zh: '运行', en: 'Run');
     final isHtmlLanguage = _isHtmlLanguage(effectiveLanguage);
-    // 阶段㉑：简化 widget 树深度，移除 BoxShadow（GPU 开销大）和多余嵌套。
-    // 原来 12 层嵌套 → 现在 6 层，减少 layout/paint 开销。
+    // 修复：将 border 移至 foregroundDecoration，确保边框绘制在子组件
+    // 之上，避免 header 背景色在圆角处覆盖 border。
+    // decoration 仅负责背景色 + 圆角裁剪；foregroundDecoration 负责边框。
     return Container(
       decoration: BoxDecoration(
         color: palette.containerColor,
+        borderRadius: _borderRadius18,
+      ),
+      foregroundDecoration: BoxDecoration(
         borderRadius: _borderRadius18,
         border: Border.all(color: palette.borderColor),
       ),
