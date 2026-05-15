@@ -1129,13 +1129,41 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       );
     }
     if (uri.scheme == 'http' || uri.scheme == 'https') {
-      final previewTitle = label.isEmpty ? uri.toString() : label;
+      final urlString = uri.toString();
+      final previewTitle = label.isEmpty ? urlString : label;
+      // 检查是否已有本地缓存 (上次网络加载成功后后台缓存的副本)。
+      final cachedPath = MediaCacheService.instance.cachedPathForUrl(urlString);
+      if (cachedPath != null && _cachedMarkdownImageFileExists(cachedPath)) {
+        return _wrapMarkdownImageTap(
+          semanticsLabel: previewTitle,
+          onTap: () {
+            if (!mounted) return;
+            showAnimatedDialog<void>(
+              context: context,
+              builder: (ctx) => _ImagePreviewDialog.file(
+                filePath: cachedPath,
+                title: previewTitle,
+              ),
+            );
+          },
+          child: _buildMarkdownImageFrame(
+            context,
+            Image.file(
+              File(cachedPath),
+              fit: BoxFit.contain,
+              cacheWidth: 1280,
+              frameBuilder: _fadeInImageFrameBuilder,
+              errorBuilder: (_, _, _) =>
+                  _brokenImagePlaceholder(context, previewTitle),
+            ),
+          ),
+        );
+      }
+      // 无本地缓存: 走网络加载, 成功后触发后台缓存。
       return _wrapMarkdownImageTap(
         semanticsLabel: previewTitle,
         onTap: () {
-          if (!mounted) {
-            return;
-          }
+          if (!mounted) return;
           showAnimatedDialog<void>(
             context: context,
             builder: (ctx) =>
@@ -1145,16 +1173,20 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         child: _buildMarkdownImageFrame(
           context,
           Image.network(
-            uri.toString(),
+            urlString,
             fit: BoxFit.contain,
-            // Same constraint as the file variant; full image opens via
-            // the preview dialog.
             cacheWidth: 1280,
-            frameBuilder: _fadeInImageFrameBuilder,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) {
-                return child;
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              // 图片帧解码完成 → 触发后台缓存。
+              if (frame != null) {
+                MediaCacheService.instance.cacheInBackground(urlString);
               }
+              return _fadeInImageFrameBuilder(
+                context, child, frame, wasSynchronouslyLoaded,
+              );
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
               final total = loadingProgress.expectedTotalBytes;
               final progress = total != null && total > 0
                   ? loadingProgress.cumulativeBytesLoaded / total

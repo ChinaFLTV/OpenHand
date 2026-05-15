@@ -24,6 +24,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/data/database_service.dart';
 import '../../ai/ai_session_controller.dart';
 import '../../ai/service/ai_file_mutation_ledger.dart';
+import '../../ai/service/media_cache_service.dart';
 import '../../ai/service/web_fetch/web_fetch_cache_store.dart';
 import '../../ai/service/web_fetch/web_fetch_telemetry_store.dart';
 import '../../ai/service/web_search/web_search_cache_store.dart';
@@ -62,10 +63,19 @@ class DataCleanupService {
   // ---------------------------------------------------------------------------
 
   /// 多媒体附件总大小：扫描每个会话目录下的 `attachments/` 子目录 +
-  /// 旧版 `~/.openhand/sessions/attachments/` 的统一目录。
-  Future<DataCleanupSizeReport> measureMultimedia() {
-    final root = OpenHandPaths.defaultSessionsDirectoryPath();
-    return compute(_isolateMeasureAttachments, root);
+  /// 旧版 `~/.openhand/sessions/attachments/` 的统一目录 +
+  /// 网络多媒体本地缓存 (`openhand_media` 临时目录)。
+  Future<DataCleanupSizeReport> measureMultimedia() async {
+    final attachmentsReport = await compute(
+      _isolateMeasureAttachments,
+      OpenHandPaths.defaultSessionsDirectoryPath(),
+    );
+    // 网络多媒体缓存目录体积。
+    final mediaCacheBytes = await MediaCacheService.totalCacheBytes();
+    return DataCleanupSizeReport(
+      bytes: attachmentsReport.bytes + mediaCacheBytes,
+      itemCount: attachmentsReport.itemCount,
+    );
   }
 
   /// 会话本身（非附件）：sqlite 行体积估算 + 旧版 `session-*.json`。
@@ -191,13 +201,15 @@ class DataCleanupService {
   // 清理动作
   // ---------------------------------------------------------------------------
 
-  /// 删除所有附件目录里的文件。会话行本身保留——附件引用变成"找不到
-  /// 文件"，UI 层会自动降级展示。
-  Future<void> cleanMultimedia() {
-    return compute(
+  /// 删除所有附件目录里的文件 + 网络多媒体缓存。会话行本身保留——
+  /// 附件引用变成"找不到文件"，UI 层会自动降级展示。
+  Future<void> cleanMultimedia() async {
+    await compute(
       _isolateDeleteAttachments,
       OpenHandPaths.defaultSessionsDirectoryPath(),
     );
+    // 清空网络多媒体本地缓存。
+    await MediaCacheService.clearCache();
   }
 
   /// 清空所有会话（DB + 磁盘 JSON），并触发 controller 重新加载。

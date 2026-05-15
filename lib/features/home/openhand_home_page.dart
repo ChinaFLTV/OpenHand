@@ -83,6 +83,7 @@ import '../ai/service/ai_tool_execution_registry.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
 import '../ai/service/lsp_client_service.dart';
 import '../ai/service/mcp_loaded_tools_tracker.dart';
+import '../ai/service/media_cache_service.dart';
 import '../ai/tools/ai_ask_user_choice_tool.dart';
 import '../crons/crons_controller.dart';
 import '../crons/crons_view.dart';

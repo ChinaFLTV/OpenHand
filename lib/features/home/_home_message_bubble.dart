@@ -1178,10 +1178,19 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       return _buildImageLoadError(context);
     }
 
+    final urlString = sourceUri.toString();
     return Image.network(
-      sourceUri.toString(),
+      urlString,
       fit: BoxFit.contain,
-      frameBuilder: _SafeMarkdownBodyState._fadeInImageFrameBuilder,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        // 网络图片帧解码完成 → 触发后台缓存, 下次可直接走本地文件。
+        if (frame != null) {
+          MediaCacheService.instance.cacheInBackground(urlString);
+        }
+        return _SafeMarkdownBodyState._fadeInImageFrameBuilder(
+          context, child, frame, wasSynchronouslyLoaded,
+        );
+      },
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) {
           return child;
