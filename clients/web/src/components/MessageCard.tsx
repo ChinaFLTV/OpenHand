@@ -14,7 +14,8 @@ import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
 import { Markdown } from './Markdown';
 import { MediaGeneratingPlaceholder } from './MediaGeneratingPlaceholder';
-import { MessageMedia } from './MessageMedia';
+import { MediaPreviewDialog, MessageMedia } from './MessageMedia';
+import type { MediaItem } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
 import { memo } from 'preact/compat';
@@ -23,8 +24,6 @@ import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
-import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { OverlayPortal } from './OverlayPortal';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -690,7 +689,7 @@ function MessageCardImpl({
     (style.collapsible || isAssistantResponseMessage(message)) &&
     content.length > AUTO_COLLAPSE_CHAR_LIMIT;
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null);
-  const [inlineImagePreview, setInlineImagePreview] = useState<string | null>(null);
+  const [inlineImagePreview, setInlineImagePreview] = useState<{ item: MediaItem; url: string } | null>(null);
   useEffect(() => {
     setExpandedOverride(null);
   }, [message.id]);
@@ -791,7 +790,23 @@ function MessageCardImpl({
           const img = (target.tagName === 'IMG' ? target : target.closest('img')) as HTMLImageElement | null;
           if (img?.src) {
             ev.stopPropagation();
-            setInlineImagePreview(img.src);
+            const src = img.src;
+            const alt = img.alt || '';
+            // 从 URL 中提取文件名用于展示。
+            let name = alt;
+            if (!name) {
+              try {
+                const pathname = new URL(src).pathname;
+                const lastSlash = pathname.lastIndexOf('/');
+                name = lastSlash >= 0 ? decodeURIComponent(pathname.slice(lastSlash + 1)) : 'image';
+              } catch {
+                name = 'image';
+              }
+            }
+            setInlineImagePreview({
+              item: { path: src, name, kind: 'image' },
+              url: src,
+            });
             return;
           }
         }
@@ -954,8 +969,9 @@ function MessageCardImpl({
       ) : null}
     </article>
     {inlineImagePreview ? (
-      <InlineImagePreviewPortal
-        src={inlineImagePreview}
+      <MediaPreviewDialog
+        item={inlineImagePreview.item}
+        url={inlineImagePreview.url}
         onClose={() => setInlineImagePreview(null)}
       />
     ) : null}
@@ -1401,30 +1417,3 @@ function ToolArgumentsBlock({ metadata }: { metadata: Record<string, unknown> | 
   );
 }
 
-// 内联图片预览弹窗：点击 Markdown 渲染的图片时弹出全屏预览。
-function InlineImagePreviewPortal({ src, onClose }: { src: string; onClose: () => void }) {
-  const { closing, requestClose } = useDialogExitMotion(onClose);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') requestClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [requestClose]);
-  if (typeof document === 'undefined') return null;
-  return (
-    <OverlayPortal>
-      <div
-        class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-        style={{ zIndex: 3000, background: 'color-mix(in srgb, black 58%, transparent)', backdropFilter: 'blur(10px)' }}
-        onMouseDown={(e) => { if (e.target === e.currentTarget) requestClose(); }}
-      >
-        <img
-          src={src}
-          alt=""
-          class={closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}
-          style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: '12px', boxShadow: 'var(--m3-elev-4)' }}
-          onMouseDown={(e) => e.stopPropagation()}
-        />
-      </div>
-    </OverlayPortal>
-  );
-}

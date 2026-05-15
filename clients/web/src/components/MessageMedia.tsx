@@ -13,9 +13,9 @@ import { buildSessionAssetUrl } from '../utils/session_asset';
 import { OverlayPortal } from './OverlayPortal';
 import { showSnackbar } from './Snackbar';
 
-type MediaKind = 'image' | 'video' | 'audio' | 'file';
+export type MediaKind = 'image' | 'video' | 'audio' | 'file';
 
-interface MediaItem {
+export interface MediaItem {
   /// 原始本地绝对路径
   path: string;
   /// 仅供展示的文件名
@@ -264,13 +264,13 @@ export interface MessageMediaProps {
   presentation?: 'auto' | 'preview' | 'attachmentList';
 }
 
-interface MediaPreviewDialogProps {
+export interface MediaPreviewDialogProps {
   item: MediaItem;
   url: string;
   onClose: () => void;
 }
 
-function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
+export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const saveAbortRef = useRef<AbortController | null>(null);
   const [saving, setSaving] = useState(false);
