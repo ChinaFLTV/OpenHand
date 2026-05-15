@@ -441,12 +441,7 @@ class _CancelledPersistentBashExecution implements Exception {
 }
 
 class AiBashToolService {
-  AiBashToolService() {
-    // 用户切换代理设置 / 系统重新探测代理后，关闭所有持久 bash session：
-    // 下次执行命令会按新的 HTTP_PROXY/HTTPS_PROXY 环境变量重启 shell，
-    // 让 curl / wget / git 等子命令自然继承最新代理。
-    SystemProxyResolver.instance.revision.addListener(_onProxyRevisionChanged);
-  }
+  AiBashToolService();
 
   static const int defaultTimeoutMs = 120000;
   // 2026-05 — `bashOutputMaxBytes` 设置项：从 SettingsController 注入。
@@ -459,6 +454,16 @@ class AiBashToolService {
       <String, _PersistentBashSession>{};
   int _persistentMarkerCounter = 0;
   int _lastSeenProxyRevision = SystemProxyResolver.instance.revision.value;
+  bool _proxyListenerRegistered = false;
+
+  /// Lazy 注册：仅当本实例真的会启动 shell 子进程（execute / 持久 session）
+  /// 才订阅代理变更。`AiPromptBuilder._bashWriteAnalyzer` 这种只用 analyze
+  /// 的纯静态用途无需订阅。
+  void _ensureProxyListenerAttached() {
+    if (_proxyListenerRegistered) return;
+    SystemProxyResolver.instance.revision.addListener(_onProxyRevisionChanged);
+    _proxyListenerRegistered = true;
+  }
 
   void _onProxyRevisionChanged() {
     final next = SystemProxyResolver.instance.revision.value;
@@ -486,6 +491,7 @@ class AiBashToolService {
     int timeoutMs = defaultTimeoutMs,
     String? toolCallId,
   }) async {
+    _ensureProxyListenerAttached();
     final normalizedCommand = command.trim();
     final normalizedSessionId = (sessionId ?? '').trim();
     var shouldUsePersistentSession = normalizedSessionId.isNotEmpty;
@@ -1163,11 +1169,16 @@ class AiBashToolService {
     required String workingDirectory,
   }) {
     if (Platform.isWindows) {
+      // Windows 一次性命令也注入用户级代理 env，让 curl/git/npm 等
+      // 标准工具按系统设置走代理；sandbox 服务在 Windows 上目前不接管。
+      final proxyEnv = SystemProxyResolver.instance
+          .resolveSubprocessEnvironment();
       return Future<AiSandboxLaunchSpec>.value(
         AiSandboxLaunchSpec.unsandboxed(
           executable: 'cmd',
           arguments: <String>['/c', command],
           workingDirectory: workingDirectory,
+          environment: proxyEnv,
         ),
       );
     }
@@ -1624,9 +1635,12 @@ class AiBashToolService {
   }
 
   void dispose() {
-    SystemProxyResolver.instance.revision.removeListener(
-      _onProxyRevisionChanged,
-    );
+    if (_proxyListenerRegistered) {
+      SystemProxyResolver.instance.revision.removeListener(
+        _onProxyRevisionChanged,
+      );
+      _proxyListenerRegistered = false;
+    }
     final sessionIds = _persistentSessions.keys.toList(growable: false);
     for (final sessionId in sessionIds) {
       final session = _persistentSessions.remove(sessionId);

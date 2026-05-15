@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../model/ai_deny_command_rule.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_sandbox_proxy_service.dart';
@@ -230,11 +231,15 @@ class AiBashBackgroundTool extends AiTool {
     required String cwd,
   }) {
     if (Platform.isWindows) {
+      // Windows 也需要继承用户级代理 env（curl/git/ssh 等仍依赖标准变量）。
+      final proxyEnv = SystemProxyResolver.instance
+          .resolveSubprocessEnvironment();
       return Future<AiSandboxLaunchSpec>.value(
         AiSandboxLaunchSpec.unsandboxed(
           executable: 'cmd',
           arguments: <String>['/d', '/c', cmd],
           workingDirectory: cwd,
+          environment: proxyEnv,
         ),
       );
     }
