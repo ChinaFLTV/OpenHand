@@ -2904,9 +2904,10 @@ class _RoundFileMutationSummaryCardState
     }
   }
 
-  /// 阶段⑰d：把本轮全部 ledger 记录序列化为 JSON 写入剪贴板。
-  /// 字段直接调 FileMutationRecord.toJson()，再附 toolCallId /
-  /// sourceMessageId 让外部审计/对账能完整反查。
+  /// 阶段⑰d：把本轮全部 ledger 记录序列化为 JSON。
+  /// 弹出系统文件选择器让用户挑选保存位置 / 文件名；保存成功 / 失败均弹
+  /// SnackBar 提示。字段直接调 FileMutationRecord.toJson()，再附 toolCallId
+  /// / sourceMessageId 让外部审计/对账能完整反查。
   Future<void> _exportRoundJson(List<_RoundSummaryRow> rows) async {
     final payload = <String, Object?>{
       'session_id':
@@ -2927,18 +2928,101 @@ class _RoundFileMutationSummaryCardState
       ],
     };
     final encoded = const JsonEncoder.withIndent('  ').convert(payload);
-    await Clipboard.setData(ClipboardData(text: encoded));
+
+    final timestamp = widget.message.createdAt
+        .toLocal()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    final suggested = 'openhand-round-mutations-$timestamp.json';
+    const typeGroup = XTypeGroup(
+      label: 'JSON',
+      extensions: <String>['json'],
+    );
+
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: suggested,
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+      );
+    } catch (error, stack) {
+      silentLog(
+        'round_summary_card',
+        '_exportRoundJson.getSaveLocation',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      _showHomeSnackBar(
+        context,
+        SnackBar(
+          duration: const Duration(milliseconds: 2400),
+          content: Text(
+            _localizedTextStatic(
+              context,
+              zh: '导出取消（无法打开文件选择器）：$error',
+              en: 'Export aborted (file picker unavailable): $error',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    if (location == null) {
+      // 用户主动取消：弹一条 toast 让 UI 状态闭合。
+      if (!mounted) return;
+      _showHomeSnackBar(
+        context,
+        SnackBar(
+          duration: const Duration(milliseconds: 1600),
+          content: Text(
+            _localizedTextStatic(
+              context,
+              zh: '已取消导出。',
+              en: 'Export cancelled.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    try {
+      await File(location.path).writeAsString(encoded, flush: true);
+    } catch (error, stack) {
+      silentLog(
+        'round_summary_card',
+        '_exportRoundJson.writeAsString',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      _showHomeSnackBar(
+        context,
+        SnackBar(
+          duration: const Duration(milliseconds: 2800),
+          content: Text(
+            _localizedTextStatic(
+              context,
+              zh: '保存失败：$error',
+              en: 'Save failed: $error',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     if (!mounted) return;
     _pulseSignal.value += 1;
     _showHomeSnackBar(
       context,
       SnackBar(
-        duration: const Duration(milliseconds: 1800),
+        duration: const Duration(milliseconds: 2400),
         content: Text(
           _localizedTextStatic(
             context,
-            zh: '本轮文件变动 JSON 已复制到剪贴板',
-            en: 'Round mutations JSON copied to clipboard',
+            zh: '已保存到 ${location.path}',
+            en: 'Saved to ${location.path}',
           ),
         ),
       ),

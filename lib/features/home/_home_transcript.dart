@@ -644,13 +644,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }) async {
     if (!mounted) return false;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    // 720 ms + easeOutQuint 比 easeOutCubic 收尾更长尾、回弹感更柔和：
-    // 启动迅速给出"已响应"反馈，后段缓慢减速形成 Q 弹的"落子"质感。
-    // reduce-motion 用户保留瞬移行为，避免动晕。
+    // Q 弹滚动：680 ms + easeOutQuint。前段快速给出"已响应"反馈，
+    // 末段长尾减速形成"落子"质感；reduce-motion 退化为瞬移。
     final smoothDuration = reduceMotion
         ? Duration.zero
-        : const Duration(milliseconds: 720);
+        : const Duration(milliseconds: 680);
     const smoothCurve = Curves.easeOutQuint;
+    // 中长距离逼近：使用 emphasized 曲线（M3 推荐）让大跨度滚动既快又柔。
+    final approachDuration = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 480);
+    const approachCurve = Curves.easeInOutCubicEmphasized;
 
     void flashTarget() {
       if (!highlight || !mounted) return;
@@ -665,10 +669,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     Future<bool> tryEnsureVisible() async {
       final ctx = _MessageBubbleObjectKey(messageId).currentContext;
       if (ctx == null) return false;
-      // ensureVisible 期间临时关闭 drip 截断：drip 的 setState 会和
-      // ensureVisible 的滚动动画并发触发 layout，是抽搐的根因。直接
-      // materialize 全量，等动画收尾再恢复（无新增消息时 drip 已自然结束）。
-      _stopIncrementalDrip();
       await Scrollable.ensureVisible(
         ctx,
         alignment: 0.18,
@@ -679,35 +679,177 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return true;
     }
 
-    // 第一次尝试：若工具调用消息此刻已被 drip 截断未渲染，先停 drip
-    // 把全量 tail materialize 出来；然后等一帧让 GlobalObjectKey 注册。
+    // 抑制并发 drip → setState 与滚动动画互相打架是"上下抽搐"的根因；
+    // 一次性停掉 drip，并让 render entries 与最新可见集对齐，但仅在
+    // 当前 entries 与最新可见集**不一致**时才 setState，避免无意义
+    // 重建带来的二次重排。
     if (_dripTimer != null || _materializedTailLimit != null) {
-      setState(() {
-        _stopIncrementalDrip();
-        _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
-      });
-      await WidgetsBinding.instance.endOfFrame;
+      _stopIncrementalDrip();
+      final fullVisible = _visibleMessagesForWindow();
+      final activeEntryIds = _renderEntries
+          .where((entry) => !entry.exiting)
+          .map((entry) => entry.id)
+          .toList(growable: false);
+      final fullIds = fullVisible.map((m) => m.id).toList(growable: false);
+      var needsRebuild = activeEntryIds.length != fullIds.length;
+      if (!needsRebuild) {
+        for (var i = 0; i < fullIds.length; i++) {
+          if (activeEntryIds[i] != fullIds[i]) {
+            needsRebuild = true;
+            break;
+          }
+        }
+      }
+      if (needsRebuild) {
+        setState(() {
+          _replaceRenderEntries(fullVisible, animate: false);
+        });
+        await WidgetsBinding.instance.endOfFrame;
+      }
     }
     if (await tryEnsureVisible()) return true;
 
     // 目标尚未物化。先看看它在 displayMessages 中是否存在 / 位置。
     final display = widget.session.displayMessages;
-    final targetIndex = display.indexWhere((m) => m.id == messageId);
-    if (targetIndex < 0) return false;
+    final targetDisplayIndex = display.indexWhere((m) => m.id == messageId);
+    if (targetDisplayIndex < 0) return false;
 
     // 反复 reveal-older 直到 _windowStartIndex 把目标囊括进来。
     var safety = math.max(
       32,
       (display.length / _transcriptWindowIncrement).ceil() + 2,
-    ); // 兜底防御：极端情况下 reveal 失败避免死循环。
-    while (mounted && targetIndex < _windowStartIndex && safety-- > 0) {
+    );
+    while (mounted &&
+        targetDisplayIndex < _windowStartIndex &&
+        safety-- > 0) {
       await _revealOlderMessages(display.length);
-      // reveal-older 会等待 16ms + 一个 post-frame；再让一帧给
-      // _MessageBubble 完成 layout，使 GlobalObjectKey 注册到新 ctx。
       await WidgetsBinding.instance.endOfFrame;
       if (await tryEnsureVisible()) return true;
     }
+    if (await tryEnsureVisible()) return true;
+
+    // 目标已落在 render entries 内，但 ListView.builder 因 cacheExtent 限制
+    // 尚未构建对应 bubble（GlobalObjectKey.currentContext 为 null）。
+    // 通过当前可见 bubble 估算平均高度 → 计算目标 index 的近似 offset →
+    // 一次平滑 animateTo 把目标拉入 cacheExtent → 再 ensureVisible 精修。
+    // 全程单段动画，杜绝多次 jumpTo / setState 引起的"上下抽搐"。
+    final renderIndex = _renderEntries.indexWhere((e) => e.id == messageId);
+    if (renderIndex < 0) return false;
+    final scrollController = widget.controller;
+    if (!scrollController.hasClients) return false;
+
+    final approached = await _approachRenderIndexBySingleAnimation(
+      renderIndex: renderIndex,
+      duration: approachDuration,
+      curve: approachCurve,
+    );
+    if (!mounted) return false;
+    if (approached) {
+      // animateTo 完成后等待一帧让 ListView.builder 物化新进入 cacheExtent
+      // 的 bubble，注册其 GlobalObjectKey。
+      await WidgetsBinding.instance.endOfFrame;
+      if (await tryEnsureVisible()) return true;
+      // 个别情况：估算偏差较大、目标仍未进入 cacheExtent。再做最多 3 次
+      // 渐进逼近，每次步长减半。
+      for (var attempt = 0; attempt < 3; attempt++) {
+        if (!mounted || !scrollController.hasClients) return false;
+        final stepped = await _approachRenderIndexBySingleAnimation(
+          renderIndex: renderIndex,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          dampening: 0.5,
+        );
+        if (!mounted) return false;
+        if (!stepped) break;
+        await WidgetsBinding.instance.endOfFrame;
+        if (await tryEnsureVisible()) return true;
+      }
+    }
     return tryEnsureVisible();
+  }
+
+  /// 估算 [renderIndex] 对应 bubble 的近似滚动 offset，并一次性平滑
+  /// `animateTo` 过去。使用当前已构建 bubble 的真实高度均值作为基准，
+  /// 比硬编码"平均高度"更贴合实际内容。返回 true 表示有发起动画。
+  Future<bool> _approachRenderIndexBySingleAnimation({
+    required int renderIndex,
+    required Duration duration,
+    required Curve curve,
+    double dampening = 1.0,
+  }) async {
+    final scrollController = widget.controller;
+    if (!scrollController.hasClients) return false;
+    final position = scrollController.position;
+    final viewportExtent = position.viewportDimension;
+    final maxExtent = position.maxScrollExtent;
+    final currentOffset = position.pixels;
+
+    // 收集已构建 bubble 的真实高度，估算每条平均高度，并取最近的
+    // 一个已采样 bubble 作为锚点，计算目标 offset。
+    var sampledTotalHeight = 0.0;
+    var sampledCount = 0;
+    int? anchorRenderIndex;
+    double? anchorTopOffset;
+    RenderBox? scrollableBox;
+    for (var i = 0; i < _renderEntries.length; i++) {
+      final id = _renderEntries[i].id;
+      final bubbleContext = _MessageBubbleObjectKey(id).currentContext;
+      if (bubbleContext == null) continue;
+      final box = bubbleContext.findRenderObject() as RenderBox?;
+      if (box == null || !box.attached || !box.hasSize) continue;
+      sampledTotalHeight += box.size.height;
+      sampledCount += 1;
+      // 取 viewport 的 RenderBox（来自任一已渲染 bubble 的 Scrollable 祖先）。
+      scrollableBox ??= () {
+        final scrollable = Scrollable.maybeOf(bubbleContext);
+        return scrollable?.context.findRenderObject() as RenderBox?;
+      }();
+      if (scrollableBox != null && scrollableBox.attached) {
+        final localOffset = box.localToGlobal(
+          Offset.zero,
+          ancestor: scrollableBox,
+        );
+        final topOffset = currentOffset + localOffset.dy;
+        // 选最接近 renderIndex 的锚点：误差最小，估算最准。
+        if (anchorRenderIndex == null ||
+            (i - renderIndex).abs() <
+                (anchorRenderIndex - renderIndex).abs()) {
+          anchorRenderIndex = i;
+          anchorTopOffset = topOffset;
+        }
+      }
+    }
+    if (sampledCount == 0) return false;
+    final avgHeight = sampledTotalHeight / sampledCount;
+    const verticalGap = 14.0;
+    final perEntry = avgHeight + verticalGap;
+
+    double targetOffset;
+    if (anchorRenderIndex != null && anchorTopOffset != null) {
+      final delta = (renderIndex - anchorRenderIndex) * perEntry;
+      targetOffset = anchorTopOffset + delta;
+    } else {
+      targetOffset = renderIndex * perEntry;
+    }
+    // 让目标位于视窗 18% 处，与 ensureVisible(alignment: 0.18) 对齐。
+    targetOffset -= viewportExtent * 0.18;
+    targetOffset = targetOffset.clamp(0.0, maxExtent);
+
+    // dampening：渐进逼近时只走差距的一部分，避免一次性过冲。
+    final rawDelta = targetOffset - currentOffset;
+    if (rawDelta.abs() < 8.0) return false;
+    final goal = (currentOffset + rawDelta * dampening).clamp(0.0, maxExtent);
+    if ((goal - currentOffset).abs() < 8.0) return false;
+    if (duration == Duration.zero) {
+      scrollController.jumpTo(goal);
+      return true;
+    }
+    await scrollController.animateTo(
+      goal,
+      duration: duration,
+      curve: curve,
+    );
+    return true;
   }
 
   Future<bool>? _activeScrollFuture;
