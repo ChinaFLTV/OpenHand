@@ -16,13 +16,16 @@ import { showSnackbar } from './Snackbar';
 export type MediaKind = 'image' | 'video' | 'audio' | 'file';
 
 export interface MediaItem {
-  /// 原始本地绝对路径
+  /// 原始本地绝对路径或网络 URL
   path: string;
   /// 仅供展示的文件名
   name: string;
   kind: MediaKind;
   /// 来自 metadata.attachments[].kind 等的语义标签
   hintLabel?: string;
+  /// 标记该 item 的 path 是否为可直接访问的网络 URL (http/https),
+  /// 为 true 时 MessageMedia 直接使用 path 作为 src, 不走 session asset 代理。
+  isDirectUrl?: boolean;
 }
 
 interface MediaEntry {
@@ -115,17 +118,52 @@ function markdownMediaKind(path: string, label: string, imageSyntax: boolean): M
 
 function collectMarkdownMedia(message: SessionMessage, out: MediaItem[]): void {
   const content = message.content ?? '';
-  if (!content || !content.includes('openhand_media')) return;
-  for (const match of content.matchAll(MARKDOWN_MEDIA_REF)) {
-    const path = normalizeMarkdownDestination(match[3] ?? '');
-    if (!isGeneratedInlineMediaPath(path)) continue;
-    const label = (match[2] ?? '').trim();
-    pushString(out, path, markdownMediaKind(path, label, match[1] === '!'));
+  if (!content) return;
+  // 收集 openhand_media 本地路径的媒体。
+  if (content.includes('openhand_media')) {
+    for (const match of content.matchAll(MARKDOWN_MEDIA_REF)) {
+      const path = normalizeMarkdownDestination(match[3] ?? '');
+      if (!isGeneratedInlineMediaPath(path)) continue;
+      const label = (match[2] ?? '').trim();
+      pushString(out, path, markdownMediaKind(path, label, match[1] === '!'));
+    }
+    for (const match of content.matchAll(HTML_MEDIA_SRC)) {
+      const path = (match[1] ?? '').trim();
+      if (!isGeneratedInlineMediaPath(path)) continue;
+      pushString(out, path);
+    }
   }
-  for (const match of content.matchAll(HTML_MEDIA_SRC)) {
-    const path = (match[1] ?? '').trim();
-    if (!isGeneratedInlineMediaPath(path)) continue;
-    pushString(out, path);
+  // 收集 markdown 中的网络媒体 URL (图片/视频/音频)。
+  // 当 AI 生成图片首次下载失败时, markdown 中保留原始网络 URL,
+  // 此处将其收集为 MediaItem 以便渲染为带文件名的媒体卡片。
+  for (const match of content.matchAll(MARKDOWN_MEDIA_REF)) {
+    const rawPath = normalizeMarkdownDestination(match[3] ?? '');
+    if (!rawPath.startsWith('http://') && !rawPath.startsWith('https://')) continue;
+    const label = (match[2] ?? '').trim();
+    const kind = markdownMediaKind(rawPath, label, match[1] === '!');
+    if (kind === 'file') continue; // 只收集图片/视频/音频, 跳过通用文件链接
+    // 从 URL 中提取文件名。
+    let name = label;
+    if (!name) {
+      try {
+        const pathname = new URL(rawPath).pathname;
+        const lastSlash = pathname.lastIndexOf('/');
+        name = lastSlash >= 0 ? decodeURIComponent(pathname.slice(lastSlash + 1)) : 'media';
+      } catch {
+        name = 'media';
+      }
+    }
+    // 如果文件名过长或不含扩展名, 生成友好名称。
+    if (name.length > 60 || (!name.includes('.') && kind === 'image')) {
+      const ext = kind === 'image' ? '.png' : kind === 'video' ? '.mp4' : '.mp3';
+      // 使用 URL hash 的前 16 字符作为稳定标识, 避免每次渲染生成不同名称。
+      let hash = 0;
+      for (let i = 0; i < rawPath.length; i++) {
+        hash = ((hash << 5) - hash + rawPath.charCodeAt(i)) | 0;
+      }
+      name = `${kind}_${(hash >>> 0).toString(36)}${ext}`;
+    }
+    out.push({ path: rawPath, name, kind, isDirectUrl: true });
   }
 }
 
@@ -192,6 +230,28 @@ function collectMedia(message: SessionMessage): MediaItem[] {
     seen.add(m.path);
     return true;
   });
+}
+
+/// 从 markdown 内容中移除已被 collectMedia 收集为 MediaItem 的网络媒体引用,
+/// 避免 Markdown 渲染器和 MessageMedia 组件重复展示同一张图片/视频/音频。
+/// 仅移除 `![alt](https://...)` 格式的网络媒体, 本地路径不受影响 (浏览器
+/// 无法直接加载本地路径, 不会产生重复)。
+export function stripCollectedNetworkMedia(content: string): string {
+  if (!content || (!content.includes('http://') && !content.includes('https://'))) {
+    return content;
+  }
+  return content.replace(MARKDOWN_MEDIA_REF, (match, bang, _alt, dest) => {
+    const path = normalizeMarkdownDestination(dest ?? '');
+    if (!path.startsWith('http://') && !path.startsWith('https://')) return match;
+    // 只移除图片语法 (![...]) 或明确为媒体类型的链接。
+    if (bang === '!') return '';
+    // 非图片语法的链接: 检查是否为媒体扩展名。
+    const lower = path.toLowerCase();
+    const isMedia = [...IMAGE_EXTS, ...VIDEO_EXTS, ...AUDIO_EXTS].some(
+      (ext) => lower.includes(ext),
+    );
+    return isMedia ? '' : match;
+  }).replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function pickerTypesForMedia(item: MediaItem): SaveBlobPickerType[] | undefined {
@@ -426,7 +486,8 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
   const items = useMemo(() => collectMedia(message), [message]);
   const entries = useMemo<MediaEntry[]>(() => items.map((item, idx) => ({
     item,
-    url: buildSessionAssetUrl(sessionId, item.path),
+    // 网络 URL 直接使用, 本地路径走 session asset 代理。
+    url: item.isDirectUrl ? item.path : buildSessionAssetUrl(sessionId, item.path),
     key: `${item.path}:${idx}`,
   })), [items, sessionId]);
   const [preview, setPreview] = useState<{ item: MediaItem; url: string } | null>(null);

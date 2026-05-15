@@ -14,12 +14,12 @@ import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
 import { Markdown } from './Markdown';
 import { MediaGeneratingPlaceholder } from './MediaGeneratingPlaceholder';
-import { MediaPreviewDialog, MessageMedia } from './MessageMedia';
+import { MediaPreviewDialog, MessageMedia, stripCollectedNetworkMedia } from './MessageMedia';
 import type { MediaItem } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
 import { memo } from 'preact/compat';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -695,9 +695,11 @@ function MessageCardImpl({
   }, [message.id]);
   const expanded = forceExpanded || streamingContent || expandedOverride === true || !canCollapse;
   const collapsed = canCollapse && !expanded;
+  // 移除已被 MessageMedia 收集为卡片的网络媒体 markdown 引用, 避免重复展示。
+  const strippedContent = useMemo(() => stripCollectedNetworkMedia(content), [content]);
   const visibleContent = collapsed
-    ? content.slice(0, AUTO_COLLAPSE_CHAR_LIMIT) + '…'
-    : content;
+    ? strippedContent.slice(0, AUTO_COLLAPSE_CHAR_LIMIT) + '…'
+    : strippedContent;
 
   // ── 工具调用/思考类型消息的胶囊折叠/展开（与 APP 端 _ReasoningBody 对齐） ──
   // - 工具调用 / 工具结果 / hook / mcp / skill / reasoning：支持点击胶囊折叠
