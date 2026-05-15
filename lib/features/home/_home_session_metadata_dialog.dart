@@ -61,6 +61,11 @@ class _SessionMetadataDialog extends StatelessWidget {
         label: AppLocalizations.of(context)!.sessMetaTotalTokens,
         value: '${statistics.totalTokens ?? 0}',
       ),
+      if ((statistics.reasoningTokens ?? 0) > 0)
+        _MetadataSummaryTile(
+          label: AppLocalizations.of(context)!.tokenPopupReasoning,
+          value: '${statistics.reasoningTokens}',
+        ),
       _MetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaMode,
         value: _runtimeModeLabel(context, runtimeStatus, compact: true),
@@ -748,6 +753,7 @@ class _SessionMetadataDialog extends StatelessWidget {
         completionTokens: stats.totalCompletionTokens ?? 0,
         cacheReadTokens: stats.cacheReadTokens ?? 0,
         cacheCreationTokens: stats.cacheCreationTokens ?? 0,
+        reasoningTokens: stats.reasoningTokens,
       ),
       profile: activeProfile,
       claudeStyle: claudeStyle,

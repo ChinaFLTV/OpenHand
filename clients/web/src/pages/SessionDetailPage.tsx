@@ -2973,6 +2973,22 @@ export function SessionDetailPage() {
     const tokens = session.total_tokens != null
       ? `${session.total_tokens.toLocaleString()} tokens`
       : t('topbar.tokens.empty', 'Token 暂无');
+    // Permanent cache savings badge. Computes cache_read / (prompt + cache_read).
+    // Hidden when the session has not produced cache data yet.
+    const tokenStats = asRecord(session.statistics);
+    const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
+    const sessCacheRead = readStatNumber(tokenStats['cache_read_tokens'], 0);
+    const sessCacheBase = sessPrompt + sessCacheRead;
+    const cacheSavingsPercent = sessCacheBase > 0
+      ? Math.round((sessCacheRead / sessCacheBase) * 100)
+      : 0;
+    const tokensBadge = sessCacheRead > 0
+      ? {
+          text: `${cacheSavingsPercent}%`,
+          title: `${t('topbar.tokens.cacheSavings', '缓存命中率')} · ${sessCacheRead.toLocaleString()} / ${sessCacheBase.toLocaleString()}`,
+          tone: 'success' as const,
+        }
+      : undefined;
     const capsules: SessionToolbarCapsule[] = [];
     capsules.push(
       {
@@ -2987,6 +3003,7 @@ export function SessionDetailPage() {
         icon: 'tokens',
         label: tokens,
         title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
+        badge: tokensBadge,
         onClick: () => setTokenStatsOpen(true),
       },
     );
@@ -4360,6 +4377,7 @@ function SessionTokenStatsDialog({
   );
   const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
   const cacheWriteTokens = readStatNumber(stats['cache_creation_tokens'], 0);
+  const reasoningTokens = readStatNumber(stats['reasoning_tokens'], 0);
   const totalTokens = readStatNumber(
     stats['total_tokens'],
     session.total_tokens ?? promptTokens + completionTokens,
@@ -4371,6 +4389,12 @@ function SessionTokenStatsDialog({
   const cacheHitRatio = cacheHitBase === 0
     ? 0
     : Math.round((cacheReadTokens / cacheHitBase) * 100);
+  // Stacked-bar weights (read / write / unCached prompt). Sum = 1 when any
+  // cache activity exists.
+  const segmentTotal = promptTokens + cacheReadTokens + cacheWriteTokens;
+  const readWeight = segmentTotal > 0 ? cacheReadTokens / segmentTotal : 0;
+  const writeWeight = segmentTotal > 0 ? cacheWriteTokens / segmentTotal : 0;
+  const missWeight = segmentTotal > 0 ? promptTokens / segmentTotal : 0;
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const node = (
     <div
@@ -4414,6 +4438,9 @@ function SessionTokenStatsDialog({
           </TokenStatsSection>
           <TokenStatsSection title={t('tokenPopup.output', '输出')}>
             <TokenStatsRow label={t('tokenPopup.completion', 'Completion')} value={completionTokens} />
+            {reasoningTokens > 0 ? (
+              <TokenStatsRow label={t('tokenPopup.reasoning', 'Reasoning')} value={reasoningTokens} tone="reasoning" />
+            ) : null}
           </TokenStatsSection>
           <div
             class="rounded-m3-md px-3 py-2.5"
@@ -4425,7 +4452,14 @@ function SessionTokenStatsDialog({
           >
             <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
             {(cacheReadTokens > 0 || cacheWriteTokens > 0) ? (
-              <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={cacheHitRatio} suffix="%" tone="success" />
+              <>
+                <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={cacheHitRatio} suffix="%" tone="success" />
+                <CacheHitBar
+                  readWeight={readWeight}
+                  writeWeight={writeWeight}
+                  missWeight={missWeight}
+                />
+              </>
             ) : null}
           </div>
           <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
@@ -4818,6 +4852,63 @@ function TokenStatsSection({ title, children }: { title: string; children: Compo
   );
 }
 
+/// Three-segment cache hit visualisation: green = cache_read, amber =
+/// cache_creation (write), neutral = remaining un-cached prompt. Mirrors
+/// the App-side _CacheHitBar so users get the same shape across platforms.
+function CacheHitBar({
+  readWeight,
+  writeWeight,
+  missWeight,
+}: {
+  readWeight: number;
+  writeWeight: number;
+  missWeight: number;
+}) {
+  const safe = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
+  const r = safe(readWeight);
+  const w = safe(writeWeight);
+  const m = safe(missWeight);
+  const sum = r + w + m;
+  if (sum <= 0) return null;
+  return (
+    <div
+      class="mt-2 h-2 overflow-hidden rounded-full"
+      style={{ background: 'var(--m3-surface-variant)' }}
+      title={t('tokenPopup.cacheHitBar.title', '左：cache_read · 中：cache_write · 右：未缓存 prompt')}
+    >
+      <div class="flex h-full">
+        {r > 0 ? (
+          <div
+            style={{
+              width: `${(r / sum) * 100}%`,
+              background: 'color-mix(in srgb, var(--m3-primary) 70%, transparent)',
+              transition: 'width 220ms ease-out',
+            }}
+          />
+        ) : null}
+        {w > 0 ? (
+          <div
+            style={{
+              width: `${(w / sum) * 100}%`,
+              background: 'color-mix(in srgb, var(--oh-full-access) 80%, transparent)',
+              transition: 'width 220ms ease-out',
+            }}
+          />
+        ) : null}
+        {m > 0 ? (
+          <div
+            style={{
+              width: `${(m / sum) * 100}%`,
+              background: 'transparent',
+              transition: 'width 220ms ease-out',
+            }}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function TokenStatsRow({
   label,
   value,
@@ -4828,10 +4919,14 @@ function TokenStatsRow({
   label: string;
   value: number;
   suffix?: string;
-  tone?: 'neutral' | 'success';
+  tone?: 'neutral' | 'success' | 'reasoning';
   emphasized?: boolean;
 }) {
-  const color = tone === 'success' ? 'var(--m3-secondary)' : 'var(--m3-on-surface)';
+  const color = tone === 'success'
+    ? 'var(--m3-secondary)'
+    : tone === 'reasoning'
+      ? 'var(--m3-tertiary)'
+      : 'var(--m3-on-surface)';
   return (
     <div class="flex items-center justify-between gap-3 text-sm">
       <span style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
@@ -5437,6 +5532,19 @@ function SessionAuditDialog({
     `${session.tool_message_count ?? 0} tool`,
     `${session.compression_point_count ?? 0} compress`,
   ];
+  const auditStats = asRecord(session.statistics);
+  const auditCacheRead = readStatNumber(auditStats['cache_read_tokens'], 0);
+  const auditCacheWrite = readStatNumber(auditStats['cache_creation_tokens'], 0);
+  const auditReasoning = readStatNumber(auditStats['reasoning_tokens'], 0);
+  if (auditCacheRead > 0) {
+    stats.push(`cache read ${auditCacheRead.toLocaleString()}`);
+  }
+  if (auditCacheWrite > 0) {
+    stats.push(`cache write ${auditCacheWrite.toLocaleString()}`);
+  }
+  if (auditReasoning > 0) {
+    stats.push(`reasoning ${auditReasoning.toLocaleString()}`);
+  }
   const node = (
     <div
       class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}

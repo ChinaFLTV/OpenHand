@@ -18,6 +18,15 @@ export interface SessionToolbarCapsule {
   label: string;
   title?: string;
   tone?: 'neutral' | 'primary' | 'warning' | 'success';
+  /// Optional permanent badge rendered on the right side of the capsule. Used
+  /// by the token capsule to surface "cache savings %" without requiring a
+  /// hover. Shape mirrors the parent capsule's tone so badges read as a
+  /// natural extension of the chip rather than a stuck-on alert.
+  badge?: {
+    text: string;
+    title?: string;
+    tone?: 'success' | 'warning' | 'primary' | 'neutral';
+  };
   onClick?: () => void;
 }
 
@@ -470,6 +479,7 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
         <TopBarIcon name={capsule.icon} size={13.5} />
       </span>
       <span class="truncate">{capsule.label}</span>
+      {capsule.badge ? <CapsuleBadge badge={capsule.badge} /> : null}
     </>
   );
   if (!capsule.onClick) {
@@ -497,6 +507,40 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
     >
       {children}
     </button>
+  );
+}
+
+/// 胶囊右侧的常驻徽标。tone=success 时绿色发光，warning 时琥珀色，
+/// primary 时跟随主题主色，neutral 时低对比度。专用于 token 胶囊上的
+/// 「缓存收益 %」、未来也可承载其它即时统计指标。
+function CapsuleBadge({
+  badge,
+}: {
+  badge: NonNullable<SessionToolbarCapsule['badge']>;
+}) {
+  const tone = badge.tone ?? 'success';
+  const fg = tone === 'success'
+    ? 'var(--m3-primary)'
+    : tone === 'warning'
+      ? 'var(--oh-full-access)'
+      : tone === 'primary'
+        ? 'var(--m3-primary)'
+        : 'var(--m3-on-surface-variant)';
+  const bg = tone === 'success'
+    ? 'color-mix(in srgb, var(--m3-primary) 18%, transparent)'
+    : tone === 'warning'
+      ? 'color-mix(in srgb, var(--oh-full-access) 22%, transparent)'
+      : tone === 'primary'
+        ? 'var(--m3-primary-container)'
+        : 'var(--m3-surface-variant)';
+  return (
+    <span
+      class="ml-1 inline-flex items-center gap-0.5 rounded-full px-1.5 py-[1px] text-[10px] font-bold tabular-nums"
+      style={{ background: bg, color: fg }}
+      title={badge.title ?? undefined}
+    >
+      {badge.text}
+    </span>
   );
 }
 

@@ -15,6 +15,16 @@ class _TokenDial extends StatefulWidget {
   int? get cacheReadTokens => statistics.cacheReadTokens;
   int? get cacheCreationTokens => statistics.cacheCreationTokens;
 
+  /// 当前会话的 cache 命中率（cache_read / (prompt + cache_read)），范围 0..1。
+  /// 当 prompt + cache_read = 0 时返回 0。
+  double get cacheHitRatio {
+    final read = cacheReadTokens ?? 0;
+    final prompt = statistics.totalPromptTokens ?? 0;
+    final denom = prompt + read;
+    if (denom == 0) return 0.0;
+    return read / denom;
+  }
+
   @override
   State<_TokenDial> createState() => _TokenDialState();
 }
@@ -89,10 +99,6 @@ class _TokenDialState extends State<_TokenDial>
       fontWeight: FontWeight.w700,
       color: colorScheme.onSurfaceVariant,
     );
-    final cacheStyle = theme.textTheme.labelMedium?.copyWith(
-      fontWeight: FontWeight.w800,
-      color: Colors.green.shade600,
-    );
     final hasCache = (widget.cacheReadTokens ?? 0) > 0;
     return CompositedTransformTarget(
       link: _link,
@@ -158,12 +164,7 @@ class _TokenDialState extends State<_TokenDial>
                 ),
                 const SizedBox(width: 6),
                 if (hasCache) ...[
-                  _RollingNumber(
-                    value: widget.cacheReadTokens ?? 0,
-                    style: cacheStyle ?? const TextStyle(),
-                  ),
-                  const SizedBox(width: 4),
-                  Text('Cached', style: cacheStyle),
+                  _CacheSavingsBadge(percent: widget.cacheHitRatio),
                   Container(
                     width: 1,
                     height: 12,
@@ -177,9 +178,7 @@ class _TokenDialState extends State<_TokenDial>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  hasCache
-                      ? AppLocalizations.of(context)!.tokenDialTotal
-                      : AppLocalizations.of(context)!.tokenDialUnit,
+                  AppLocalizations.of(context)!.tokenDialUnit,
                   style: labelStyle,
                 ),
               ],
@@ -513,6 +512,58 @@ class _CostPopupRowState extends State<_CostPopupRow> {
             Text(_format(widget.usd), style: widget.valueStyle),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// TopBar Token 胶囊里的常驻「缓存收益」徽标：闪电图标 + 百分比 + 流体进度条。
+/// 比例越高背景越绿、越饱和，给用户一眼可读的「省了多少」反馈。
+class _CacheSavingsBadge extends StatelessWidget {
+  const _CacheSavingsBadge({required this.percent});
+
+  /// 0..1 之间的命中率。
+  final double percent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // 0 命中时弱化显示；命中越高饱和度越强。
+    final clamped = percent.isFinite ? percent.clamp(0.0, 1.0) : 0.0;
+    final intensity = (0.5 + clamped * 0.5).clamp(0.5, 1.0);
+    final fg = Color.lerp(
+      Colors.green.shade400,
+      Colors.green.shade700,
+      clamped,
+    )!;
+    final bg = Colors.green.withValues(alpha: 0.12 + clamped * 0.18);
+    final percentInt = (clamped * 100).round();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.savings_rounded, size: 11, color: fg),
+          const SizedBox(width: 3),
+          _RollingNumber(
+            value: percentInt,
+            style: theme.textTheme.labelSmall!.copyWith(
+              fontWeight: FontWeight.w800,
+              color: fg.withValues(alpha: intensity),
+            ),
+          ),
+          Text(
+            '%',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: fg.withValues(alpha: intensity),
+            ),
+          ),
+        ],
       ),
     );
   }

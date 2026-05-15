@@ -918,6 +918,27 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           )!.auditCompletionTokens,
                           value: '${displayUsage?.completionTokens ?? '—'}',
                         ),
+                        if ((displayUsage?.reasoningTokens ?? 0) > 0)
+                          _AuditKvRow(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.tokenPopupReasoning,
+                            value: '${displayUsage!.reasoningTokens}',
+                          ),
+                        if ((displayUsage?.cacheReadTokens ?? 0) > 0)
+                          _AuditKvRow(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.tokenPopupCacheRead,
+                            value: '${displayUsage!.cacheReadTokens}',
+                          ),
+                        if ((displayUsage?.cacheCreationTokens ?? 0) > 0)
+                          _AuditKvRow(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.tokenPopupCacheWrite,
+                            value: '${displayUsage!.cacheCreationTokens}',
+                          ),
                       ],
                       if (displayUsage != null)
                         _AuditJsonBlock(
@@ -1401,6 +1422,27 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                         label: AppLocalizations.of(context)!.auditTotalTokens,
                         value: '${statistics.totalTokens ?? 0}',
                       ),
+                      if ((statistics.cacheReadTokens ?? 0) > 0)
+                        _AuditKvRow(
+                          label: AppLocalizations.of(
+                            context,
+                          )!.tokenPopupCacheRead,
+                          value: '${statistics.cacheReadTokens}',
+                        ),
+                      if ((statistics.cacheCreationTokens ?? 0) > 0)
+                        _AuditKvRow(
+                          label: AppLocalizations.of(
+                            context,
+                          )!.tokenPopupCacheWrite,
+                          value: '${statistics.cacheCreationTokens}',
+                        ),
+                      if ((statistics.reasoningTokens ?? 0) > 0)
+                        _AuditKvRow(
+                          label: AppLocalizations.of(
+                            context,
+                          )!.tokenPopupReasoning,
+                          value: '${statistics.reasoningTokens}',
+                        ),
                       _AuditKvRow(
                         label: AppLocalizations.of(context)!.auditLastModel,
                         value: _auditFormatOrDash(
