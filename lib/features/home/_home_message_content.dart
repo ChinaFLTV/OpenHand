@@ -810,6 +810,55 @@ class _SafeMarkdownBody extends StatefulWidget {
 // 走 deferred 路径，首帧仅渲染纯文本，下一帧再构建富文本树。
 const int _markdownDeferredParseThresholdChars = 800;
 
+/// 阶段㉑：全局帧节流的 markdown 解析调度器。
+///
+/// 在打开存量会话或快速切换会话时，多张消息卡片会在「同一帧」内同时
+/// 调用 `addPostFrameCallback` 注册 deferred 解析，结果下一帧仍要在
+/// 主线程串行跑 N 次 `_parseMarkdown()`，单帧时间常常突破 16ms 预算
+/// 直接触发 ANR。本调度器把 N 个解析任务拆分到 ceil(N/_maxPerFrame)
+/// 帧里执行，与 [_HighlightFrameScheduler] 思路一致 —— 牺牲数十毫秒的
+/// 完整渲染时间换取主线程持续 60 FPS 的丝滑感。
+class _MarkdownFrameScheduler {
+  _MarkdownFrameScheduler._();
+  static final instance = _MarkdownFrameScheduler._();
+
+  final List<VoidCallback> _pending = <VoidCallback>[];
+  bool _draining = false;
+
+  /// 每帧最多执行的 markdown 解析任务数。1 条足以让首屏视觉焦点
+  /// (最新消息) 第一时间从纯文本占位升级到完整 markdown 渲染，剩余
+  /// 卡片按帧节奏陆续到位；保持 1/帧 严格守住 16 ms 单帧预算，避免
+  /// 单条带多代码块的长消息把帧预算撑爆触发 jank/ANR。
+  static const int _maxPerFrame = 1;
+
+  void schedule(VoidCallback task) {
+    _pending.add(task);
+    if (!_draining) {
+      _draining = true;
+      WidgetsBinding.instance.addPostFrameCallback(_drain);
+    }
+  }
+
+  void _drain(Duration _) {
+    if (_pending.isEmpty) {
+      _draining = false;
+      return;
+    }
+    final batch = _pending.length <= _maxPerFrame
+        ? List<VoidCallback>.from(_pending)
+        : _pending.sublist(0, _maxPerFrame);
+    _pending.removeRange(0, batch.length);
+    for (final task in batch) {
+      task();
+    }
+    if (_pending.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback(_drain);
+    } else {
+      _draining = false;
+    }
+  }
+}
+
 class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     implements MarkdownBuilderDelegate {
   List<Widget>? _children;
@@ -858,8 +907,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   /// Decides whether to parse synchronously or defer to the next frame.
   ///
   /// On the FIRST mount of a non-trivial body we paint a cheap plain-text
-  /// stand-in immediately and queue the real parse via
-  /// `addPostFrameCallback`. This unblocks the frame that mounts a freshly
+  /// stand-in immediately and queue the real parse via the global
+  /// [_MarkdownFrameScheduler]. This unblocks the frame that mounts a freshly
   /// opened transcript, which may contain a dozen+ such bubbles all
   /// competing for parse time. Subsequent updates parse synchronously to
   /// avoid mid-conversation flicker.
@@ -867,6 +916,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   /// deferred 路径。这是解决"展开含多代码块消息时ANR"的关键：展开时
   /// 新的 _SafeMarkdownBody 被创建（initial=true），但即使是非 initial
   /// 的更新（如流式追加），大内容也应该 defer 以避免阻塞当前帧。
+  /// 阶段㉑：deferred 任务交由 [_MarkdownFrameScheduler] 帧节流。同帧内
+  /// 多个 bubble 一起注册时，每帧只跑 2 个 markdown 解析，剩余排队到
+  /// 下一帧，避免 N 张卡片同时 parse 把单帧预算撑爆触发 ANR。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
     if (widget.data.length > _markdownDeferredParseThresholdChars &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
@@ -874,8 +926,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       _renderPlainTextPlaceholder();
       if (!_deferredParseScheduled) {
         _deferredParseScheduled = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        _MarkdownFrameScheduler.instance.schedule(() {
           if (!mounted) {
+            _deferredParseScheduled = false;
             return;
           }
           _deferredParseScheduled = false;
