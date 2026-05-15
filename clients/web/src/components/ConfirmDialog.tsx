@@ -31,6 +31,13 @@ export interface ConfirmDialogProps {
   wide?: boolean;
   scrollBody?: boolean;
   bodyClassName?: string;
+  /** 当为 true 时，点击遮罩外部不关闭弹窗（仅可通过按钮 / Esc 关闭）。 */
+  disableBackdropClose?: boolean;
+  /**
+   * Esc 键的独立回调。提供后，按 Esc 触发该回调（替代默认的 onCancel），
+   * 用于明确区分"用户按 Esc"vs"用户点击取消按钮"两种意图。
+   */
+  onDismiss?: () => void;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -45,25 +52,34 @@ export function ConfirmDialog({
   wide = false,
   scrollBody = false,
   bodyClassName = '',
+  disableBackdropClose = false,
+  onDismiss,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
-  const { closing, requestClose } = useDialogExitMotion(onCancel);
+  // 让 Esc / 按钮取消走不同的 close 路径，但共用同一动效 hook：
+  // - 点击「取消」按钮：触发 onCancel
+  // - 按 Esc：若提供 onDismiss 则走 onDismiss，否则回退到 onCancel
+  const cancelMotion = useDialogExitMotion(onCancel);
+  const dismissMotion = useDialogExitMotion(onDismiss ?? onCancel);
+  const closing = cancelMotion.closing || dismissMotion.closing;
 
   useEffect(() => {
     if (busy || closing) return;
     const handleKeyDown = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') requestClose();
+      if (ev.key === 'Escape') dismissMotion.requestClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [busy, closing, requestClose]);
+  }, [busy, closing, dismissMotion]);
 
   const node = (
     <div
       class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4`}
       style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
-      onClick={busy || closing ? undefined : requestClose}
+      onClick={busy || closing || disableBackdropClose
+        ? undefined
+        : cancelMotion.requestClose}
     >
       <div
         role="dialog"
@@ -113,7 +129,7 @@ export function ConfirmDialog({
               background: 'transparent',
             }}
             disabled={busy || closing}
-            onClick={requestClose}
+            onClick={cancelMotion.requestClose}
           >
             {cancelLabel}
           </button>

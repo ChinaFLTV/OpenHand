@@ -1,12 +1,22 @@
 part of 'openhand_home_page.dart';
 
-Future<bool?> showWriteCommandConfirmationDialog(
+/// 写命令确认弹窗。返回值：
+/// * [BashCommandApprovalDecision.approved] —— 用户点击「允许执行」或敲回车
+/// * [BashCommandApprovalDecision.rejected] —— 用户点击「取消」按钮
+/// * [BashCommandApprovalDecision.dismissed] —— 用户按 Esc 关闭弹窗
+/// * `null` —— 调用方主动 pop（如外部 cancel），视为 dismissed 由调用方解释
+///
+/// 弹窗显式禁用 barrierDismissible：点击外部空白处不会关闭，避免误触
+/// 引发"已隐式同意"的歧义。Esc 始终可关闭，结果与点击「取消」明确区分。
+Future<BashCommandApprovalDecision?> showWriteCommandConfirmationDialog(
   BuildContext context, {
   required BashCommandApprovalRequest request,
   ValueChanged<BuildContext>? onDialogContext,
 }) {
-  return showAnimatedDialog<bool>(
+  return showAnimatedDialog<BashCommandApprovalDecision>(
     context: context,
+    barrierDismissible: false,
+    dismissOnEscape: false, // 由弹窗内部 Focus/onKeyEvent 显式处理 Esc
     builder: (dialogContext) {
       onDialogContext?.call(dialogContext);
       return _WriteCommandConfirmationDialog(request: request);
@@ -46,11 +56,11 @@ class _WriteCommandConfirmationDialogState
     return '$firstLine\n... [omitted ${command.length - firstLine.length} chars]';
   }
 
-  void _closeWithResult(bool approved) {
+  void _closeWith(BashCommandApprovalDecision decision) {
     if (!mounted) {
       return;
     }
-    Navigator.of(context).pop(approved);
+    Navigator.of(context).pop(decision);
   }
 
   @override
@@ -82,12 +92,12 @@ class _WriteCommandConfirmationDialogState
           return KeyEventResult.ignored;
         }
         if (event.logicalKey == LogicalKeyboardKey.escape) {
-          _closeWithResult(false);
+          _closeWith(BashCommandApprovalDecision.dismissed);
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-          _closeWithResult(true);
+          _closeWith(BashCommandApprovalDecision.approved);
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -231,8 +241,8 @@ class _WriteCommandConfirmationDialogState
                 Text(
                   _localizedText(
                     context,
-                    zh: '快捷键：Enter 确认，Esc 取消',
-                    en: 'Shortcuts: Enter confirms, Esc cancels',
+                    zh: '快捷键：Enter 确认 · Esc 关闭（不视为同意或拒绝）',
+                    en: 'Shortcuts: Enter approves · Esc closes (counts as neither approve nor reject)',
                   ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -243,12 +253,14 @@ class _WriteCommandConfirmationDialogState
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OpenHandDialogActionButton.secondary(
-                      onPressed: () => _closeWithResult(false),
+                      onPressed: () =>
+                          _closeWith(BashCommandApprovalDecision.rejected),
                       label: AppLocalizations.of(context)!.commonCancel,
                     ),
                     const SizedBox(width: 12),
                     OpenHandDialogActionButton.primary(
-                      onPressed: () => _closeWithResult(true),
+                      onPressed: () =>
+                          _closeWith(BashCommandApprovalDecision.approved),
                       label: _localizedText(
                         context,
                         zh: '允许执行',

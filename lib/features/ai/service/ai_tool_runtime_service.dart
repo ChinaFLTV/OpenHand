@@ -537,7 +537,9 @@ class AiToolRuntimeService {
     required Set<String> previouslyReadFiles,
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
-    required Future<bool> Function(BashCommandApprovalRequest request)?
+    required Future<BashCommandApprovalDecision> Function(
+      BashCommandApprovalRequest request,
+    )?
     confirmWriteCommand,
     Future<void>? cancelSignal,
     void Function(BashToolExecutionUpdate update)? onBashUpdate,
@@ -984,7 +986,9 @@ class AiToolRuntimeService {
     required Set<String> previouslyReadFiles,
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
-    required Future<bool> Function(BashCommandApprovalRequest request)?
+    required Future<BashCommandApprovalDecision> Function(
+      BashCommandApprovalRequest request,
+    )?
     confirmWriteCommand,
     Future<void>? cancelSignal,
     void Function(BashToolExecutionUpdate update)? onBashUpdate,

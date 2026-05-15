@@ -155,7 +155,9 @@ class HardnessApiPhaseRunner {
   final AiChatClient _chatClient;
   final AiToolRuntimeService _toolRuntimeService;
   final AiPromptTemplateRepository _templateRepository;
-  final Future<bool> Function(BashCommandApprovalRequest request)?
+  final Future<BashCommandApprovalDecision> Function(
+    BashCommandApprovalRequest request,
+  )?
   confirmWriteCommand;
 
   /// 当 ToolSearch 在某个 phase 内成功拉取若干 MCP 工具时被回调。

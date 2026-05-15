@@ -52,7 +52,9 @@ part '_ai_session_models.dart';
 part '_ai_session_utils.dart';
 
 typedef WriteCommandConfirmationCallback =
-    Future<bool> Function(BashCommandApprovalRequest request);
+    Future<BashCommandApprovalDecision> Function(
+      BashCommandApprovalRequest request,
+    );
 
 const int _minRetainedCompressionTextMessages = 5;
 const int _maxClaudeCodeDocsPrefetchTargets = 2;

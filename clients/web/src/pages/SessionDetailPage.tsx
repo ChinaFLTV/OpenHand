@@ -1393,21 +1393,29 @@ export function SessionDetailPage() {
     void applyFullAccessPermission(next);
   };
 
-  const handleWriteApproval = async (approved: boolean) => {
+  const handleWriteApproval = async (
+    decision: 'approved' | 'rejected' | 'dismissed',
+  ) => {
     if (!pendingWriteApproval || writeApprovalBusy) return;
     const requestSessionId = sessionId;
     const approvalId = pendingWriteApproval.id;
     setWriteApprovalBusy(true);
     try {
-      await respondWriteApproval(requestSessionId, approvalId, approved);
+      await respondWriteApproval(requestSessionId, approvalId, decision);
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       setPendingWriteApproval(null);
-      showSnackbar(
-        approved
-          ? t('detail.writeApproval.approved', '已批准写操作')
-          : t('detail.writeApproval.rejected', '已拒绝写操作'),
-        { tone: approved ? 'success' : undefined },
-      );
+      const tone = decision === 'approved' ? 'success' : undefined;
+      const label = (() => {
+        switch (decision) {
+          case 'approved':
+            return t('detail.writeApproval.approved', '已批准写操作');
+          case 'rejected':
+            return t('detail.writeApproval.rejected', '已拒绝写操作');
+          case 'dismissed':
+            return t('detail.writeApproval.dismissed', '已关闭弹窗（未表态）');
+        }
+      })();
+      showSnackbar(label, { tone });
       void refresh();
     } catch (e) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
@@ -3992,6 +4000,9 @@ export function SessionDetailPage() {
               <p class="oh-write-approval-dialog-copy">
                 {t('detail.writeApproval.body', '当前默认权限模式需要确认后才会继续执行写文件或命令操作。')}
               </p>
+              <p class="oh-write-approval-dialog-copy" style={{ marginTop: 6, opacity: 0.8 }}>
+                {t('detail.writeApproval.hintEsc', '快捷键：Enter 允许 · Esc 关闭弹窗（不视为同意或拒绝）')}
+              </p>
               <div class="oh-write-approval-dialog-field">
                 <span class="oh-write-approval-dialog-label">{t('detail.writeApproval.cwd', '工作目录')}</span>
                 <code class="oh-write-approval-dialog-path">{pendingWriteApproval.working_directory || '-'}</code>
@@ -4006,12 +4017,14 @@ export function SessionDetailPage() {
           busy={writeApprovalBusy}
           wide
           scrollBody
+          disableBackdropClose
           confirmLabel={writeApprovalBusy
             ? t('common.processing', '处理中…')
             : t('detail.writeApproval.approve', '允许执行')}
           cancelLabel={t('detail.writeApproval.reject', '拒绝')}
-          onCancel={() => void handleWriteApproval(false)}
-          onConfirm={() => void handleWriteApproval(true)}
+          onCancel={() => void handleWriteApproval('rejected')}
+          onDismiss={() => void handleWriteApproval('dismissed')}
+          onConfirm={() => void handleWriteApproval('approved')}
         />
       ) : null}
       {imageEditorInput ? (

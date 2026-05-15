@@ -26,7 +26,7 @@ import '../../ai/model/ai_session_runtime_context.dart';
 import '../../ai/model/ai_thread_template.dart';
 import '../../ai/service/ai_protocol_adapter.dart';
 import '../../ai/service/ai_bash_tool_service.dart'
-    show BashCommandApprovalRequest;
+    show BashCommandApprovalDecision, BashCommandApprovalRequest;
 import '../../ai/service/ai_image_generation_service.dart';
 import '../../crons/crons_controller.dart';
 import '../../hardness/hardness_session_store.dart';
@@ -71,7 +71,7 @@ class _WebWriteApprovalRequest {
   final bool isWriteCommand;
   final DateTime createdAt;
   final DateTime expiresAt;
-  final Completer<bool> completer;
+  final Completer<BashCommandApprovalDecision> completer;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -2732,7 +2732,10 @@ class WebMessagePlatformService {
         'reason': 'not_running',
       });
     }
-    _resolvePendingWriteApprovals(session.id, approved: false);
+    _resolvePendingWriteApprovals(
+      session.id,
+      decision: BashCommandApprovalDecision.cancelled,
+    );
     await _sessionController.stopResponding(session.id);
     _log(
       WebGatewayLogLevel.warn,
@@ -2923,10 +2926,25 @@ class WebMessagePlatformService {
       });
     }
     final body = await _readJsonBody(request);
-    final approved = body['approved'] == true;
+    // 兼容历史 web 客户端：仅传 approved=true/false → 转为 approved/rejected。
+    // 新客户端可显式传 decision: approved | rejected | dismissed。
+    final rawDecision = body['decision'];
+    final BashCommandApprovalDecision decision;
+    if (rawDecision is String) {
+      decision = BashCommandApprovalDecision.values.firstWhere(
+        (d) => d.name == rawDecision,
+        orElse: () => body['approved'] == true
+            ? BashCommandApprovalDecision.approved
+            : BashCommandApprovalDecision.rejected,
+      );
+    } else {
+      decision = body['approved'] == true
+          ? BashCommandApprovalDecision.approved
+          : BashCommandApprovalDecision.rejected;
+    }
     if (!_completePendingWriteApproval(
       approval,
-      approved: approved,
+      decision: decision,
       source: 'web',
       deviceId: auth.deviceId,
     )) {
@@ -2936,7 +2954,8 @@ class WebMessagePlatformService {
     }
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
-      'approved': approved,
+      'decision': decision.name,
+      'approved': decision == BashCommandApprovalDecision.approved,
     });
   }
 
@@ -3870,9 +3889,9 @@ class WebMessagePlatformService {
     _pendingWriteApprovalStreamController.add(_pendingWriteApprovalSnapshot());
   }
 
-  Future<bool> requestWriteApproval(
-    String sessionId,
-    BashCommandApprovalRequest request, {
+  Future<BashCommandApprovalDecision> requestWriteApproval({
+    required String sessionId,
+    required BashCommandApprovalRequest request,
     String source = 'app',
   }) {
     return _registerPendingWriteApproval(sessionId, request, source: source);
@@ -3880,7 +3899,7 @@ class WebMessagePlatformService {
 
   bool respondWriteApproval(
     String approvalId, {
-    required bool approved,
+    required BashCommandApprovalDecision decision,
     String source = 'app',
   }) {
     final approval = _pendingWriteApprovals[approvalId];
@@ -3889,26 +3908,26 @@ class WebMessagePlatformService {
     }
     return _completePendingWriteApproval(
       approval,
-      approved: approved,
+      decision: decision,
       source: source,
     );
   }
 
-  Future<bool> _confirmWebWriteCommand(
+  Future<BashCommandApprovalDecision> _confirmWebWriteCommand(
     String sessionId,
     BashCommandApprovalRequest request,
   ) async {
     return _registerPendingWriteApproval(sessionId, request, source: 'web');
   }
 
-  Future<bool> _registerPendingWriteApproval(
+  Future<BashCommandApprovalDecision> _registerPendingWriteApproval(
     String sessionId,
     BashCommandApprovalRequest request, {
     required String source,
   }) async {
     final createdAt = DateTime.now().toUtc();
     final timeoutMs = _settingsController.aiWriteConfirmationTimeoutMs;
-    final completer = Completer<bool>();
+    final completer = Completer<BashCommandApprovalDecision>();
     final approval = _WebWriteApprovalRequest(
       id: '${createdAt.microsecondsSinceEpoch}-${_nextWriteApprovalId++}',
       sessionId: sessionId,
@@ -3931,7 +3950,7 @@ class WebMessagePlatformService {
     final timer = Timer(Duration(milliseconds: timeoutMs), () {
       _completePendingWriteApproval(
         approval,
-        approved: false,
+        decision: BashCommandApprovalDecision.timedOut,
         source: 'timeout',
       );
     });
@@ -3947,39 +3966,45 @@ class WebMessagePlatformService {
 
   bool _completePendingWriteApproval(
     _WebWriteApprovalRequest approval, {
-    required bool approved,
+    required BashCommandApprovalDecision decision,
     required String source,
     String? deviceId,
   }) {
     if (approval.completer.isCompleted) {
       return false;
     }
-    approval.completer.complete(approved);
+    approval.completer.complete(decision);
     _notifyPendingWriteApprovals();
     _sessionController.notifyListeners();
-    _log(
-      approved ? WebGatewayLogLevel.success : WebGatewayLogLevel.warn,
-      'APPROVAL',
-      approved ? '批准写操作' : '拒绝写操作',
-      <String, Object?>{
-        'session_id': approval.sessionId,
-        'approval_id': approval.id,
-        'source': source,
-        if (deviceId != null) 'device_id': deviceId,
-      },
-    );
+    final level = decision == BashCommandApprovalDecision.approved
+        ? WebGatewayLogLevel.success
+        : WebGatewayLogLevel.warn;
+    final humanLabel = switch (decision) {
+      BashCommandApprovalDecision.approved => '批准写操作',
+      BashCommandApprovalDecision.rejected => '拒绝写操作',
+      BashCommandApprovalDecision.dismissed => '弹窗被关闭（用户未明确表态）',
+      BashCommandApprovalDecision.timedOut => '写操作确认超时',
+      BashCommandApprovalDecision.cancelled => '写操作确认已取消',
+    };
+    _log(level, 'APPROVAL', humanLabel, <String, Object?>{
+      'session_id': approval.sessionId,
+      'approval_id': approval.id,
+      'source': source,
+      'decision': decision.name,
+      if (deviceId != null) 'device_id': deviceId,
+    });
     return true;
   }
 
   void _resolvePendingWriteApprovals(
     String sessionId, {
-    required bool approved,
+    required BashCommandApprovalDecision decision,
   }) {
     for (final approval in _pendingWriteApprovals.values.toList()) {
       if (approval.sessionId == sessionId) {
         _completePendingWriteApproval(
           approval,
-          approved: approved,
+          decision: decision,
           source: 'session_stop',
         );
       }

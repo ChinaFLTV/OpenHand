@@ -76,9 +76,9 @@ class AiBashTool extends AiTool {
               permissionHookReminders.addAll(
                 notificationHookResult.systemReminders,
               );
-              return false;
+              return BashCommandApprovalDecision.rejected;
             }
-            final approved = await confirmWriteCommand(request);
+            final decision = await confirmWriteCommand(request);
             final notificationHookResult = await _runAuxiliaryHook(
               eventName: 'Notification',
               sessionId: sessionId,
@@ -88,13 +88,13 @@ class AiBashTool extends AiTool {
                 'notification_type': 'permission_prompt',
                 'tool_name': 'Bash',
                 'command': request.command,
-                'status': approved ? 'approved' : 'rejected',
+                'status': decision.name,
               },
             );
             permissionHookReminders.addAll(
               notificationHookResult.systemReminders,
             );
-            return approved;
+            return decision;
           };
 
     final timeoutMs =

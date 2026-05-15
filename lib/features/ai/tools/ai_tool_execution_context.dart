@@ -28,7 +28,9 @@ class AiToolExecutionContext {
   final Set<String> previouslyReadFiles;
   final List<AiDenyCommandRule> denyCommandRules;
   final bool requireWriteCommandConfirmation;
-  final Future<bool> Function(BashCommandApprovalRequest request)?
+  final Future<BashCommandApprovalDecision> Function(
+    BashCommandApprovalRequest request,
+  )?
   confirmWriteCommand;
   final Future<void>? cancelSignal;
   final void Function(BashToolExecutionUpdate update)? onBashUpdate;

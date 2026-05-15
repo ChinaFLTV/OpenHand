@@ -37,7 +37,36 @@ class _TranscriptScrollDispatcher {
     String messageId, {
     bool highlight = false,
   }) async {
-    final state = _statesBySession[sessionId];
+    // 等待目标会话的 transcript state 注册（最多 1 帧 + 250 ms）：
+    // 防御性兜底，避免在 session 切换瞬间触发跳转时拿到 null state。
+    var state = _statesBySession[sessionId];
+    if (state == null) {
+      await WidgetsBinding.instance.endOfFrame;
+      state = _statesBySession[sessionId];
+    }
+    if (state == null) {
+      final completer = Completer<void>();
+      Timer? timeout;
+      void check() {
+        if (_statesBySession[sessionId] != null && !completer.isCompleted) {
+          timeout?.cancel();
+          completer.complete();
+        }
+      }
+      timeout = Timer(const Duration(milliseconds: 250), () {
+        if (!completer.isCompleted) completer.complete();
+      });
+      // 最多每 16ms 探测一次直到超时 / 命中。
+      Timer.periodic(const Duration(milliseconds: 16), (t) {
+        if (completer.isCompleted) {
+          t.cancel();
+          return;
+        }
+        check();
+      });
+      await completer.future;
+      state = _statesBySession[sessionId];
+    }
     if (state == null) return false;
     return state._scrollToMessageId(messageId, highlight: highlight);
   }
@@ -585,15 +614,44 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   /// 早于 `_windowStartIndex`（被「Load earlier」窗口剪掉），就
   /// 循环 reveal-older 一段一段把窗口往前推开，直到目标进入物化
   /// 范围再丝滑滚到 alignment=0.18。返回是否成功。
+  ///
+  /// 防抖：同一时刻只允许一次 in-flight 的滚动。重复点击在已有
+  /// 任务进行时直接复用其 future，杜绝多次 reveal-older + ensureVisible
+  /// 叠加导致的"上下抽搐"。
   Future<bool> _scrollToMessageId(
+    String messageId, {
+    bool highlight = false,
+  }) {
+    final existing = _activeScrollFuture;
+    if (existing != null && _activeScrollTargetId == messageId) {
+      return existing;
+    }
+    final future = _runScrollToMessageId(messageId, highlight: highlight)
+        .whenComplete(() {
+          if (_activeScrollTargetId == messageId) {
+            _activeScrollFuture = null;
+            _activeScrollTargetId = null;
+          }
+        });
+    _activeScrollFuture = future;
+    _activeScrollTargetId = messageId;
+    return future;
+  }
+
+  Future<bool> _runScrollToMessageId(
     String messageId, {
     bool highlight = false,
   }) async {
     if (!mounted) return false;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    Duration smoothDuration = reduceMotion
+    // 720 ms + easeOutQuint 比 easeOutCubic 收尾更长尾、回弹感更柔和：
+    // 启动迅速给出"已响应"反馈，后段缓慢减速形成 Q 弹的"落子"质感。
+    // reduce-motion 用户保留瞬移行为，避免动晕。
+    final smoothDuration = reduceMotion
         ? Duration.zero
-        : const Duration(milliseconds: 520);
+        : const Duration(milliseconds: 720);
+    const smoothCurve = Curves.easeOutQuint;
+
     void flashTarget() {
       if (!highlight || !mounted) return;
       _highlightTimer?.cancel();
@@ -607,16 +665,29 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     Future<bool> tryEnsureVisible() async {
       final ctx = _MessageBubbleObjectKey(messageId).currentContext;
       if (ctx == null) return false;
+      // ensureVisible 期间临时关闭 drip 截断：drip 的 setState 会和
+      // ensureVisible 的滚动动画并发触发 layout，是抽搐的根因。直接
+      // materialize 全量，等动画收尾再恢复（无新增消息时 drip 已自然结束）。
+      _stopIncrementalDrip();
       await Scrollable.ensureVisible(
         ctx,
         alignment: 0.18,
         duration: smoothDuration,
-        curve: Curves.easeOutCubic,
+        curve: smoothCurve,
       );
       flashTarget();
       return true;
     }
 
+    // 第一次尝试：若工具调用消息此刻已被 drip 截断未渲染，先停 drip
+    // 把全量 tail materialize 出来；然后等一帧让 GlobalObjectKey 注册。
+    if (_dripTimer != null || _materializedTailLimit != null) {
+      setState(() {
+        _stopIncrementalDrip();
+        _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+      });
+      await WidgetsBinding.instance.endOfFrame;
+    }
     if (await tryEnsureVisible()) return true;
 
     // 目标尚未物化。先看看它在 displayMessages 中是否存在 / 位置。
@@ -638,6 +709,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     return tryEnsureVisible();
   }
+
+  Future<bool>? _activeScrollFuture;
+  String? _activeScrollTargetId;
 
   void _handleRenderEntryExitCompleted(String messageId) {
     if (!mounted) {

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../model/ai_deny_command_rule.dart';
 import 'ai_sandbox_service.dart';
 import 'ai_tool_execution_registry.dart';
@@ -25,6 +26,20 @@ enum BashToolExecutionStatus {
 }
 
 enum BashToolExecutionPhase { running, completed }
+
+/// 用户对 bash 写命令的确认决策。`approved` 与 `rejected` 来自显式
+/// 点击；`dismissed` 表示用户按 ESC（没明示同意也没明示拒绝，更像
+/// "暂不决定"）；其余区分超时与会话级取消。把决策完整透传给 AI，
+/// 让模型在后续动作中区分"用户拒绝"vs"用户没作答"。
+enum BashCommandApprovalDecision {
+  approved,
+  rejected,
+  dismissed,
+  timedOut,
+  cancelled;
+
+  bool get isApproved => this == BashCommandApprovalDecision.approved;
+}
 
 class BashCommandApprovalRequest {
   const BashCommandApprovalRequest({
@@ -146,21 +161,23 @@ class BashToolExecutionResult {
 
 class _WriteConfirmationOutcome {
   const _WriteConfirmationOutcome._({
-    required this.approved,
+    required this.decision,
     required this.cancelled,
   });
 
-  const _WriteConfirmationOutcome.approved()
-    : this._(approved: true, cancelled: false);
-
-  const _WriteConfirmationOutcome.rejected()
-    : this._(approved: false, cancelled: false);
+  const _WriteConfirmationOutcome.fromDecision(BashCommandApprovalDecision d)
+    : this._(decision: d, cancelled: false);
 
   const _WriteConfirmationOutcome.cancelled()
-    : this._(approved: false, cancelled: true);
+    : this._(
+        decision: BashCommandApprovalDecision.cancelled,
+        cancelled: true,
+      );
 
-  final bool approved;
+  final BashCommandApprovalDecision decision;
   final bool cancelled;
+
+  bool get approved => decision == BashCommandApprovalDecision.approved;
 }
 
 class _PersistentBashCommandOutcome {
@@ -424,6 +441,13 @@ class _CancelledPersistentBashExecution implements Exception {
 }
 
 class AiBashToolService {
+  AiBashToolService() {
+    // 用户切换代理设置 / 系统重新探测代理后，关闭所有持久 bash session：
+    // 下次执行命令会按新的 HTTP_PROXY/HTTPS_PROXY 环境变量重启 shell，
+    // 让 curl / wget / git 等子命令自然继承最新代理。
+    SystemProxyResolver.instance.revision.addListener(_onProxyRevisionChanged);
+  }
+
   static const int defaultTimeoutMs = 120000;
   // 2026-05 — `bashOutputMaxBytes` 设置项：从 SettingsController 注入。
   // 旧默认 32000；放宽到 200_000，与 snapshot.defaultBashOutputMaxBytes 对齐。
@@ -434,6 +458,18 @@ class AiBashToolService {
   final Map<String, _PersistentBashSession> _persistentSessions =
       <String, _PersistentBashSession>{};
   int _persistentMarkerCounter = 0;
+  int _lastSeenProxyRevision = SystemProxyResolver.instance.revision.value;
+
+  void _onProxyRevisionChanged() {
+    final next = SystemProxyResolver.instance.revision.value;
+    if (next == _lastSeenProxyRevision) return;
+    _lastSeenProxyRevision = next;
+    // Snapshot keys：在异步关闭过程中可能新增 session。
+    final ids = _persistentSessions.keys.toList(growable: false);
+    for (final id in ids) {
+      unawaited(_closePersistentSession(id));
+    }
+  }
 
   Future<BashToolExecutionResult> execute({
     required String command,
@@ -441,7 +477,9 @@ class AiBashToolService {
     String? workingDirectory,
     required List<AiDenyCommandRule> denyRules,
     required bool requireWriteConfirmation,
-    Future<bool> Function(BashCommandApprovalRequest request)?
+    Future<BashCommandApprovalDecision> Function(
+      BashCommandApprovalRequest request,
+    )?
     confirmWriteCommand,
     void Function(BashToolExecutionUpdate update)? onUpdate,
     Future<void>? cancelSignal,
@@ -541,11 +579,12 @@ class AiBashToolService {
                           .timeout(
                             Duration(milliseconds: writeConfirmationTimeoutMs),
                           ) ??
-                      Future<bool>.value(false))
+                      Future<BashCommandApprovalDecision>.value(
+                        BashCommandApprovalDecision.rejected,
+                      ))
                   .then<_WriteConfirmationOutcome>(
-                    (approved) => approved
-                        ? const _WriteConfirmationOutcome.approved()
-                        : const _WriteConfirmationOutcome.rejected(),
+                    (decision) =>
+                        _WriteConfirmationOutcome.fromDecision(decision),
                   );
           if (cancelSignal == null) {
             outcome = await approvalFuture;
@@ -560,12 +599,14 @@ class AiBashToolService {
         } on TimeoutException {
           await closeLaunchProxy();
           return BashToolExecutionResult(
-            status: BashToolExecutionStatus.rejected,
+            status: BashToolExecutionStatus.timedOut,
             command: normalizedCommand,
             workingDirectory: displayedWorkingDirectory,
             stdout: '',
             stderr:
-                'The command confirmation timed out before the user approved execution.',
+                'The write-command confirmation prompt timed out before the user responded. '
+                'The bash command was NOT executed. The user did not explicitly approve or reject. '
+                'Re-issue the command only if you still need this side effect; otherwise propose a safer alternative.',
             durationMs: 0,
             isWriteCommand: isWriteCommand,
             writeAnalysisReason: writeAnalysis.reason,
@@ -580,27 +621,77 @@ class AiBashToolService {
             workingDirectory: displayedWorkingDirectory,
             stdout: '',
             stderr:
-                'The command execution was cancelled before confirmation completed.',
+                'The bash command was cancelled at the session level (user pressed Stop or sent a new prompt) '
+                'before the write-command confirmation prompt was answered. The command did NOT run.',
             durationMs: 0,
             isWriteCommand: isWriteCommand,
             writeAnalysisReason: writeAnalysis.reason,
             sandboxMetadata: sandboxMetadata,
           );
         }
-        if (!outcome.approved) {
-          await closeLaunchProxy();
-          return BashToolExecutionResult(
-            status: BashToolExecutionStatus.rejected,
-            command: normalizedCommand,
-            workingDirectory: displayedWorkingDirectory,
-            stdout: '',
-            stderr:
-                'The command was rejected because write-command confirmation was not granted by the user.',
-            durationMs: 0,
-            isWriteCommand: isWriteCommand,
-            writeAnalysisReason: writeAnalysis.reason,
-            sandboxMetadata: sandboxMetadata,
-          );
+        switch (outcome.decision) {
+          case BashCommandApprovalDecision.approved:
+            break;
+          case BashCommandApprovalDecision.rejected:
+            await closeLaunchProxy();
+            return BashToolExecutionResult(
+              status: BashToolExecutionStatus.rejected,
+              command: normalizedCommand,
+              workingDirectory: displayedWorkingDirectory,
+              stdout: '',
+              stderr:
+                  'The user explicitly rejected the write-command confirmation. '
+                  'The bash command was NOT executed. Do NOT retry without first '
+                  'asking the user what they would prefer instead.',
+              durationMs: 0,
+              isWriteCommand: isWriteCommand,
+              writeAnalysisReason: writeAnalysis.reason,
+              sandboxMetadata: sandboxMetadata,
+            );
+          case BashCommandApprovalDecision.dismissed:
+            await closeLaunchProxy();
+            return BashToolExecutionResult(
+              status: BashToolExecutionStatus.rejected,
+              command: normalizedCommand,
+              workingDirectory: displayedWorkingDirectory,
+              stdout: '',
+              stderr:
+                  'The user dismissed the write-command confirmation prompt without choosing approve or reject (Esc / dialog dismissed). '
+                  'Treat this as "decision deferred": the command did NOT run. Pause this branch and confirm intent before retrying.',
+              durationMs: 0,
+              isWriteCommand: isWriteCommand,
+              writeAnalysisReason: writeAnalysis.reason,
+              sandboxMetadata: sandboxMetadata,
+            );
+          case BashCommandApprovalDecision.timedOut:
+            await closeLaunchProxy();
+            return BashToolExecutionResult(
+              status: BashToolExecutionStatus.timedOut,
+              command: normalizedCommand,
+              workingDirectory: displayedWorkingDirectory,
+              stdout: '',
+              stderr:
+                  'The write-command confirmation prompt timed out before the user responded. '
+                  'The bash command was NOT executed. The user neither approved nor rejected explicitly.',
+              durationMs: 0,
+              isWriteCommand: isWriteCommand,
+              writeAnalysisReason: writeAnalysis.reason,
+              sandboxMetadata: sandboxMetadata,
+            );
+          case BashCommandApprovalDecision.cancelled:
+            await closeLaunchProxy();
+            return BashToolExecutionResult(
+              status: BashToolExecutionStatus.cancelled,
+              command: normalizedCommand,
+              workingDirectory: displayedWorkingDirectory,
+              stdout: '',
+              stderr:
+                  'The bash command was cancelled before the write-command confirmation prompt was answered. The command did NOT run.',
+              durationMs: 0,
+              isWriteCommand: isWriteCommand,
+              writeAnalysisReason: writeAnalysis.reason,
+              sandboxMetadata: sandboxMetadata,
+            );
         }
       }
     }
@@ -1121,11 +1212,13 @@ class AiBashToolService {
     required String shellExecutable,
     required List<String> shellArgs,
     required String workingDirectory,
+    Map<String, String>? environment,
   }) async {
     return _spawnPosixProcess(
       executable: shellExecutable,
       arguments: shellArgs,
       workingDirectory: workingDirectory,
+      environment: environment,
     );
   }
 
@@ -1204,16 +1297,29 @@ class AiBashToolService {
     final shellArgs = Platform.isWindows
         ? const <String>['/Q']
         : const <String>[];
+    // 持久 shell 是会话级长寿对象。启动时把当前用户级代理注入为环境变量，
+    // 让会话内的 curl / wget / git / npm / pip 等命令默认走代理；切换代理
+    // 设置时通过 _restartPersistentSessionForProxyChange 重启 shell。
+    final proxyEnv = SystemProxyResolver.instance
+        .resolveSubprocessEnvironment();
+    final mergedEnvironment = proxyEnv.isEmpty
+        ? null
+        : <String, String>{
+            ...Platform.environment,
+            ...proxyEnv,
+          };
     final process = Platform.isWindows
         ? await Process.start(
             shellExecutable,
             shellArgs,
             workingDirectory: initialWorkingDirectory,
+            environment: mergedEnvironment,
           )
         : await _spawnPosixShell(
             shellExecutable: shellExecutable,
             shellArgs: shellArgs,
             workingDirectory: initialWorkingDirectory,
+            environment: mergedEnvironment,
           );
     final session = _PersistentBashSession(
       process: process,
@@ -1518,6 +1624,9 @@ class AiBashToolService {
   }
 
   void dispose() {
+    SystemProxyResolver.instance.revision.removeListener(
+      _onProxyRevisionChanged,
+    );
     final sessionIds = _persistentSessions.keys.toList(growable: false);
     for (final sessionId in sessionIds) {
       final session = _persistentSessions.remove(sessionId);

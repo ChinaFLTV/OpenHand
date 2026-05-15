@@ -1406,7 +1406,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     });
     try {
-      final confirmed = await showWriteCommandConfirmationDialog(
+      final decision = await showWriteCommandConfirmationDialog(
         context,
         request: approval.toBashCommandApprovalRequest(),
         onDialogContext: (context) {
@@ -1420,7 +1420,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       gatewayController.respondWriteApproval(
         approval.id,
-        approved: confirmed == true,
+        decision: decision ?? BashCommandApprovalDecision.dismissed,
       );
     } finally {
       await sub.cancel();
@@ -5130,7 +5130,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return positions.last;
   }
 
-  Future<bool> _confirmWriteCommand(
+  Future<BashCommandApprovalDecision> _confirmWriteCommand(
     BashCommandApprovalRequest request, {
     String? sessionId,
     bool trackSessionBadge = true,
@@ -5138,7 +5138,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final settingsController = context.read<SettingsController>();
     for (final rule in settingsController.aiAllowCommandRules) {
       if (rule.matches(request.command)) {
-        return true;
+        return BashCommandApprovalDecision.approved;
       }
     }
     final sessionController = context.read<AiSessionController>();
@@ -5159,11 +5159,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       sessionController.setSessionAwaitingApproval(effectiveSessionId);
     }
     try {
-      final confirmed = await showWriteCommandConfirmationDialog(
+      final decision = await showWriteCommandConfirmationDialog(
         context,
         request: request,
       );
-      return confirmed == true;
+      // null = barrier 之外触发关闭（理论上 barrierDismissible: false 已禁用，
+      // 但 root navigator pop 的兜底场景仍可能发生）。视为 dismissed。
+      return decision ?? BashCommandApprovalDecision.dismissed;
     } finally {
       if (effectiveSessionId != null) {
         sessionController.clearSessionAwaitingApproval(effectiveSessionId);
@@ -5171,7 +5173,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  Future<bool> _confirmHardnessApiWriteCommand(
+  Future<BashCommandApprovalDecision> _confirmHardnessApiWriteCommand(
     BashCommandApprovalRequest request,
   ) {
     return _confirmWriteCommand(request, trackSessionBadge: false);

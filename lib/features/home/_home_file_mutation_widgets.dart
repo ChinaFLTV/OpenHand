@@ -2742,6 +2742,18 @@ class _RoundFileMutationSummaryCardState
 
   Future<void> _jumpToSourceMessage(String? messageId) async {
     if (messageId == null || messageId.isEmpty) return;
+    if (_jumpingToSourceId == messageId) return;
+    _jumpingToSourceId = messageId;
+    try {
+      await _runJumpToSourceMessage(messageId);
+    } finally {
+      if (_jumpingToSourceId == messageId) {
+        _jumpingToSourceId = null;
+      }
+    }
+  }
+
+  Future<void> _runJumpToSourceMessage(String messageId) async {
     final ctrl = context.read<AiSessionController>();
     final sessionId = ctrl.currentSession?.id ?? '';
     if (sessionId.isEmpty) return;
@@ -2766,7 +2778,11 @@ class _RoundFileMutationSummaryCardState
         if (displayMessages.isNotEmpty) {
           // 找到 displayMessages 中第一条消息作为替代
           final fallbackOk = await _TranscriptScrollDispatcher.instance
-              .scrollToMessage(sessionId, displayMessages.first.id, highlight: true);
+              .scrollToMessage(
+                sessionId,
+                displayMessages.first.id,
+                highlight: true,
+              );
           if (fallbackOk && mounted) {
             _showHomeSnackBar(
               context,
@@ -2776,7 +2792,8 @@ class _RoundFileMutationSummaryCardState
                   _localizedTextStatic(
                     context,
                     zh: '目标消息位于上下文压缩点之前，已跳转到最早可见消息。',
-                    en: 'Target message is before compression point. Jumped to earliest visible message.',
+                    en:
+                        'Target message is before compression point. Jumped to earliest visible message.',
                   ),
                 ),
               ),
@@ -2802,6 +2819,8 @@ class _RoundFileMutationSummaryCardState
       ),
     );
   }
+
+  String? _jumpingToSourceId;
 
   /// 阶段⑰c：「全部撤销本轮」批量入口。
   /// 按 filePath 聚合 → 同文件严格串行（避免互相覆盖磁盘内容），

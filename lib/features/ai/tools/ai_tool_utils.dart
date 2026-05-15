@@ -1056,7 +1056,9 @@ class AiToolUtils {
     required String operationDescription,
     required String targetPath,
     required bool requireWriteConfirmation,
-    required Future<bool> Function(BashCommandApprovalRequest request)?
+    required Future<BashCommandApprovalDecision> Function(
+      BashCommandApprovalRequest request,
+    )?
     confirmWriteCommand,
     Future<void>? cancelSignal,
     int? timeoutMs,
@@ -1089,9 +1091,7 @@ class AiToolUtils {
             Duration(milliseconds: timeoutMs ?? _writeConfirmationTimeoutMs),
           )
           .then<_WriteConfirmationOutcome>(
-            (approved) => approved
-                ? const _WriteConfirmationOutcome.approved()
-                : const _WriteConfirmationOutcome.rejected(),
+            (decision) => _WriteConfirmationOutcome.fromDecision(decision),
           );
 
       if (cancelSignal == null) {
@@ -1099,40 +1099,64 @@ class AiToolUtils {
       } else {
         outcome = await Future.any<_WriteConfirmationOutcome>([
           approvalFuture,
-          cancelSignal.then((_) => const _WriteConfirmationOutcome.cancelled()),
+          cancelSignal.then(
+            (_) => _WriteConfirmationOutcome.fromDecision(
+              BashCommandApprovalDecision.cancelled,
+            ),
+          ),
         ]);
       }
     } on TimeoutException {
       return AiToolExecutionResult(
-        status: BashToolExecutionStatus.rejected,
+        status: BashToolExecutionStatus.timedOut,
         command: '$toolName $targetPath',
         workingDirectory: workingDirectory,
         stdout: '',
-        stderr: '写操作确认超时，用户未在规定时间内批准执行。',
+        stderr:
+            '写操作确认超时（用户既未批准也未明确拒绝）。本次工具调用未执行；如仍需该副作用请重新征询用户意图后再次尝试。',
         durationMs: 0,
-        resultText: 'status: rejected\nreason: Write confirmation timed out.',
+        resultText:
+            'status: timed_out\nreason: Write confirmation timed out — user did not respond.',
         isWriteCommand: true,
       );
     }
 
-    if (outcome.cancelled) {
-      return cancelledResult(
-        command: '$toolName $targetPath',
-        durationMs: 0,
-        metadata: <String, Object?>{'write_confirmation_cancelled': true},
-      );
+    switch (outcome.decision) {
+      case BashCommandApprovalDecision.approved:
+        return null;
+      case BashCommandApprovalDecision.rejected:
+        return rejectedWriteResult(
+          toolName: toolName,
+          targetPath: targetPath,
+          reason: '用户已显式拒绝该写操作确认（点击"取消"按钮）。请勿重试该写操作；先与用户确认期望后再行动。',
+        );
+      case BashCommandApprovalDecision.dismissed:
+        return rejectedWriteResult(
+          toolName: toolName,
+          targetPath: targetPath,
+          reason:
+              '用户按 Esc / 关闭了写操作确认弹窗，未明确表态。视为"决策悬置"：本次工具调用未执行；与用户确认意图后再决定下一步。',
+        );
+      case BashCommandApprovalDecision.timedOut:
+        return AiToolExecutionResult(
+          status: BashToolExecutionStatus.timedOut,
+          command: '$toolName $targetPath',
+          workingDirectory: workingDirectory,
+          stdout: '',
+          stderr:
+              '写操作确认弹窗超时（用户既未批准也未明确拒绝）。本次工具调用未执行。',
+          durationMs: 0,
+          resultText:
+              'status: timed_out\nreason: Write confirmation timed out — user did not respond.',
+          isWriteCommand: true,
+        );
+      case BashCommandApprovalDecision.cancelled:
+        return cancelledResult(
+          command: '$toolName $targetPath',
+          durationMs: 0,
+          metadata: <String, Object?>{'write_confirmation_cancelled': true},
+        );
     }
-
-    if (!outcome.approved) {
-      return rejectedWriteResult(
-        toolName: toolName,
-        targetPath: targetPath,
-        reason: '用户拒绝了写操作确认请求。',
-      );
-    }
-
-    // 用户已批准
-    return null;
   }
 
   /// 生成写操作被拒绝的结果。
@@ -1157,18 +1181,12 @@ class AiToolUtils {
 
 /// 2026-04-13 写确认结果内部类型。
 class _WriteConfirmationOutcome {
-  const _WriteConfirmationOutcome.approved()
-    : approved = true,
-      cancelled = false;
-  const _WriteConfirmationOutcome.rejected()
-    : approved = false,
-      cancelled = false;
-  const _WriteConfirmationOutcome.cancelled()
-    : approved = false,
-      cancelled = true;
+  const _WriteConfirmationOutcome.fromDecision(this.decision);
 
-  final bool approved;
-  final bool cancelled;
+  final BashCommandApprovalDecision decision;
+
+  bool get approved => decision == BashCommandApprovalDecision.approved;
+  bool get cancelled => decision == BashCommandApprovalDecision.cancelled;
 }
 
 class ReplacementResult {

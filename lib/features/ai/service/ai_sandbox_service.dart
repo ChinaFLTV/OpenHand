@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../model/ai_deny_command_rule.dart';
 import '../model/ai_sandbox_settings.dart';
 import 'ai_sandbox_proxy_service.dart';
@@ -280,15 +281,25 @@ class AiSandboxService {
     final normalizedWorkingDirectory = _normalizeWorkingDirectory(
       workingDirectory,
     );
+    // 用户配置的系统代理（无代理 / 自动 / 手动）翻译为子进程可识别的
+    // POSIX 环境变量。所有非 sandbox 路径都注入这一份基线，sandbox 路径
+    // 由内部 proxyLease 决定（其 HTTP_PROXY/HTTPS_PROXY 指向沙箱本机
+    // 监听端口，避免穿透）。
+    final userProxyEnvironment = SystemProxyResolver.instance
+        .resolveSubprocessEnvironment();
     final baseMetadata = <String, Object?>{
       'sandbox_enabled': settings.enabled,
       'sandbox_tool_name': toolName,
+      if (userProxyEnvironment.isNotEmpty)
+        'user_proxy_env_keys': userProxyEnvironment.keys
+            .toList(growable: false),
     };
     if (!settings.enabled || !settings.shouldSandboxBuiltinTool(toolName)) {
       return AiSandboxLaunchSpec.unsandboxed(
         executable: shellExecutable,
         arguments: shellArguments,
         workingDirectory: normalizedWorkingDirectory,
+        environment: userProxyEnvironment,
         metadata: baseMetadata,
       );
     }
@@ -300,6 +311,7 @@ class AiSandboxService {
           executable: shellExecutable,
           arguments: shellArguments,
           workingDirectory: normalizedWorkingDirectory,
+          environment: userProxyEnvironment,
           metadata: <String, Object?>{
             ...baseMetadata,
             'sandbox_excluded': true,
@@ -337,6 +349,7 @@ class AiSandboxService {
         executable: shellExecutable,
         arguments: shellArguments,
         workingDirectory: normalizedWorkingDirectory,
+        environment: userProxyEnvironment,
         metadata: <String, Object?>{
           ...baseMetadata,
           'sandbox_unavailable_reason': status.unavailableReason,
@@ -387,6 +400,7 @@ class AiSandboxService {
         executable: shellExecutable,
         arguments: shellArguments,
         workingDirectory: normalizedWorkingDirectory,
+        environment: userProxyEnvironment,
         metadata: <String, Object?>{
           ...baseMetadata,
           'sandbox_proxy_unavailable_reason': error.message,
@@ -394,7 +408,12 @@ class AiSandboxService {
       );
     }
 
-    final environment = proxyLease?.environment ?? const <String, String>{};
+    // sandbox 启用时，沙箱内部 proxy 决定子进程网络出口；用户级
+    // HTTP_PROXY/HTTPS_PROXY 不能穿透到沙箱内的子进程，否则会绕过
+    // 域名 allow/deny。仅当沙箱未启 lease 时回退到用户代理 env。
+    final environment = proxyLease != null
+        ? proxyLease.environment
+        : userProxyEnvironment;
     if (Platform.isMacOS) {
       final profile = _buildMacSandboxProfile(
         normalizedWorkingDirectory,

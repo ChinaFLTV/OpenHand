@@ -366,14 +366,20 @@ export function compactSession(
   );
 }
 
+export type WriteApprovalDecision = 'approved' | 'rejected' | 'dismissed';
+
 export function respondWriteApproval(
   sessionId: string,
   approvalId: string,
-  approved: boolean,
-): Promise<{ ok: boolean; approved: boolean }> {
-  return apiRequest<{ ok: boolean; approved: boolean }>(
+  decision: WriteApprovalDecision,
+): Promise<{ ok: boolean; decision: WriteApprovalDecision; approved: boolean }> {
+  return apiRequest<{ ok: boolean; decision: WriteApprovalDecision; approved: boolean }>(
     `/api/sessions/${encodeURIComponent(sessionId)}/write-approvals/${encodeURIComponent(approvalId)}`,
-    { method: 'POST', body: { approved } },
+    {
+      method: 'POST',
+      // 同时上送 decision（新字段）与 approved（旧字段，向后兼容旧网关）。
+      body: { decision, approved: decision === 'approved' },
+    },
   );
 }
 

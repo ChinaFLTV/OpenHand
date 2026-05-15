@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show ValueListenable, ValueNotifier, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -48,12 +50,20 @@ class SystemProxyResolver {
   /// 使用新配置。`settings.mode` 可能是 `manual` 或 `automatic`，本方法
   /// 都接受；命名沿用历史 API 但日志按实际 mode 输出，避免误导。
   void applyConfig(AppProxySettings settings) {
+    if (_settings == settings) return;
     _settings = settings;
+    _revision.value = _revision.value + 1;
   }
 
   /// Backwards-compatible alias for callers still on the old name.
   @Deprecated('Use applyConfig instead — accepts both manual & automatic')
   void applyManualConfig(AppProxySettings settings) => applyConfig(settings);
+
+  /// 任何会改变代理决策的事件（applyConfig / 重新探测）后 +1。
+  /// 子进程（持久 bash session）等需要在 env 失效时回收的资源
+  /// 监听这个信号并按需重启。
+  final ValueNotifier<int> _revision = ValueNotifier<int>(0);
+  ValueListenable<int> get revision => _revision;
 
   /// True once [initialize] has run at least once. Until then, callers
   /// fall back to env-only detection synchronously (good enough for
@@ -69,6 +79,7 @@ class SystemProxyResolver {
       await _resolveFromMacScutil();
     }
     _initialized = true;
+    _revision.value = _revision.value + 1;
   }
 
   void _resolveFromEnvironment() {
@@ -231,6 +242,117 @@ class SystemProxyResolver {
     Duration connectionTimeout = const Duration(seconds: 15),
   }) {
     return IOClient(createRawHttpClient(connectionTimeout: connectionTimeout));
+  }
+
+  /// 把当前生效的代理配置翻译成给子进程注入的 POSIX 环境变量。
+  /// 与所有主流 CLI（curl / wget / git / pip / npm / node / go ...）
+  /// 形成约定俗成的对接：
+  ///
+  /// * `HTTP_PROXY` / `http_proxy`：HTTP 出站
+  /// * `HTTPS_PROXY` / `https_proxy`：HTTPS 出站（CONNECT 隧道）
+  /// * `ALL_PROXY` / `all_proxy`：兜底，且当配置了 SOCKS 时使用 socks://
+  /// * `NO_PROXY` / `no_proxy`：例外清单，逗号分隔
+  ///
+  /// 当 mode == disabled 或没有可用代理时返回空 map，调用方可视情况
+  /// 不注入或保留进程默认环境。
+  ///
+  /// 同时返回大小写两种键名，因为不同 CLI 习惯不一（curl 接受全大写
+  /// + 全小写，但 wget 仅认全小写；Python urllib 仅认全小写）。
+  Map<String, String> resolveSubprocessEnvironment({
+    bool includeNoProxy = true,
+  }) {
+    String? httpEndpoint;
+    String? httpsEndpoint;
+    String? socksEndpoint;
+    final exceptions = <String>{};
+
+    switch (_settings.mode) {
+      case AppProxyMode.disabled:
+        return const <String, String>{};
+      case AppProxyMode.manual:
+        if (_settings.host.trim().isEmpty || _settings.port <= 0) {
+          return const <String, String>{};
+        }
+        final endpoint = '${_settings.host}:${_settings.port}';
+        final wantsHttp = _settings.protocols.contains(AppProxyProtocol.http);
+        final wantsHttps = _settings.protocols.contains(AppProxyProtocol.https);
+        final wantsSocks = _settings.protocols.contains(AppProxyProtocol.socks);
+        if (wantsHttp) httpEndpoint = endpoint;
+        if (wantsHttps) httpsEndpoint = endpoint;
+        if (wantsSocks) socksEndpoint = endpoint;
+        // manual 模式：HTTP/HTTPS 走 host:port（http://host:port 形式），
+        // 即便用户未勾选某协议也回退到至少有一个。
+        if (httpEndpoint == null && httpsEndpoint == null && wantsSocks) {
+          // 仅 SOCKS 时不为 HTTP/HTTPS 注入，让 CLI 自然走直连。
+        } else if (httpEndpoint == null && httpsEndpoint != null) {
+          httpEndpoint = httpsEndpoint;
+        } else if (httpsEndpoint == null && httpEndpoint != null) {
+          httpsEndpoint = httpEndpoint;
+        }
+        for (final pattern in _settings.exceptions) {
+          final trimmed = pattern.trim();
+          if (trimmed.isNotEmpty) exceptions.add(trimmed);
+        }
+        break;
+      case AppProxyMode.automatic:
+        httpEndpoint = _httpProxy;
+        httpsEndpoint = _httpsProxy;
+        socksEndpoint = _socksProxy;
+        if (httpEndpoint == null && httpsEndpoint != null) {
+          httpEndpoint = httpsEndpoint;
+        } else if (httpsEndpoint == null && httpEndpoint != null) {
+          httpsEndpoint = httpEndpoint;
+        }
+        for (final pattern in _noProxyHosts) {
+          if (pattern.isNotEmpty) exceptions.add(pattern);
+        }
+        break;
+    }
+
+    final result = <String, String>{};
+    if (httpEndpoint != null && httpEndpoint.isNotEmpty) {
+      final url = httpEndpoint.contains('://')
+          ? httpEndpoint
+          : 'http://$httpEndpoint';
+      result['HTTP_PROXY'] = url;
+      result['http_proxy'] = url;
+    }
+    if (httpsEndpoint != null && httpsEndpoint.isNotEmpty) {
+      final url = httpsEndpoint.contains('://')
+          ? httpsEndpoint
+          : 'http://$httpsEndpoint';
+      result['HTTPS_PROXY'] = url;
+      result['https_proxy'] = url;
+    }
+    if (socksEndpoint != null && socksEndpoint.isNotEmpty) {
+      final url = socksEndpoint.contains('://')
+          ? socksEndpoint
+          : 'socks5://$socksEndpoint';
+      result['ALL_PROXY'] = url;
+      result['all_proxy'] = url;
+    } else if (httpEndpoint != null && httpEndpoint.isNotEmpty) {
+      result['ALL_PROXY'] = result['HTTP_PROXY']!;
+      result['all_proxy'] = result['HTTP_PROXY']!;
+    }
+
+    if (includeNoProxy && exceptions.isNotEmpty) {
+      // 例外清单中的正则 / CIDR 形式 CLI 无法识别，仅保留普通主机/域名/glob。
+      final compatibleHosts = <String>[];
+      for (final pattern in exceptions) {
+        if (pattern.startsWith('/') || pattern.contains('/')) {
+          continue; // 跳过 regex 与 CIDR
+        }
+        compatibleHosts.add(pattern);
+      }
+      // 加上常见本机 host 让 CLI 默认绕开。
+      compatibleHosts.addAll(const <String>['localhost', '127.0.0.1', '::1']);
+      final dedup = LinkedHashSet<String>.from(compatibleHosts);
+      final joined = dedup.join(',');
+      result['NO_PROXY'] = joined;
+      result['no_proxy'] = joined;
+    }
+
+    return result;
   }
 
   /// Builds a raw `dart:io` [HttpClient] configured with the resolver's

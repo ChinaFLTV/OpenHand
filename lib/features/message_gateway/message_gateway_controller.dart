@@ -7,7 +7,7 @@ import '../../app/state/settings_controller.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_thread_template.dart';
 import '../ai/service/ai_bash_tool_service.dart'
-    show BashCommandApprovalRequest;
+    show BashCommandApprovalDecision, BashCommandApprovalRequest;
 import '../crons/crons_controller.dart';
 import '../instructions/instructions_controller.dart';
 import '../mcp/mcp_controller.dart';
@@ -134,22 +134,26 @@ class MessageGatewayController extends ChangeNotifier {
     return snapshot;
   }
 
-  Future<bool> requestWriteApproval({
+  Future<BashCommandApprovalDecision> requestWriteApproval({
     required String sessionId,
     required BashCommandApprovalRequest request,
     String source = 'app',
   }) {
-    return _service.requestWriteApproval(sessionId, request, source: source);
+    return _service.requestWriteApproval(
+      sessionId: sessionId,
+      request: request,
+      source: source,
+    );
   }
 
   bool respondWriteApproval(
     String approvalId, {
-    required bool approved,
+    required BashCommandApprovalDecision decision,
     String source = 'app',
   }) {
     return _service.respondWriteApproval(
       approvalId,
-      approved: approved,
+      decision: decision,
       source: source,
     );
   }
