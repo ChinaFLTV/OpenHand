@@ -752,8 +752,17 @@ class _MessageMarkdownThemeData {
         // markdown-level wrapper inert here so only the highlighted panel
         // owns the visible border/radius; otherwise the two shells drift
         // apart (14 vs 18 radius) and create a double-outline ghost.
+        //
+        // 注意: flutter_markdown_plus 的 builder.dart 对 `pre` 元素强制
+        // 设置了 `clipBehavior: Clip.hardEdge`。如果 codeblockDecoration
+        // 的 borderRadius 为 null (默认 BorderRadius.zero), 则子组件
+        // (_HighlightedCodePanel) 的圆角会被矩形裁剪掉。因此这里必须
+        // 给 codeblockDecoration 设置与代码面板一致的 borderRadius, 让
+        // clip path 跟随圆角, 避免左上/右上角圆角丢失。
         codeblockPadding: EdgeInsets.zero,
-        codeblockDecoration: const BoxDecoration(),
+        codeblockDecoration: const BoxDecoration(
+          borderRadius: _borderRadius18,
+        ),
         horizontalRuleDecoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor, width: 1.2)),
         ),
