@@ -902,7 +902,11 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
 }
 
 /// Full-screen image preview dialog with zoom and pan support.
-class _ImagePreviewDialog extends StatelessWidget {
+///
+/// 弹窗体积根据图片自身的宽高比动态贴合, 四周保留统一的 [_kPadding]
+/// 留白, 与 WEB 端 `MediaPreviewDialog` (clients/web/.../MessageMedia.tsx)
+/// 视觉对齐: 不再因 `BoxFit.contain` 在固定容器中产生不均的上下/左右白边。
+class _ImagePreviewDialog extends StatefulWidget {
   const _ImagePreviewDialog.file({required this.filePath, required this.title})
     : imageUri = null;
 
@@ -916,9 +920,140 @@ class _ImagePreviewDialog extends StatelessWidget {
   final String title;
 
   @override
+  State<_ImagePreviewDialog> createState() => _ImagePreviewDialogState();
+}
+
+class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
+  /// 图片四周统一的内边距 (与 WEB 端 12px 保持一致)。
+  static const double _kPadding = 12.0;
+
+  /// 弹窗到视口边缘的距离。
+  static const double _kInsetPadding = 24.0;
+
+  /// 头部区域高度估算 (Padding 14+8 + IconButton 48), 预留几像素冗余以保证
+  /// body 的最大高度不会越界, 避免抖动溢出。
+  static const double _kHeaderEstimate = 70.0;
+
+  /// 头部下方分隔线高度。
+  static const double _kDividerH = 1.0;
+
+  /// 弹窗最小宽度, 确保头部 3 个图标按钮 + 标题省略号始终能够放下。
+  static const double _kMinDialogW = 280.0;
+
+  /// 加载中 / 解析失败 / 来源缺失时的方形占位边长。
+  static const double _kFallbackSide = 320.0;
+
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageStreamListener;
+  Size? _naturalSize;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveImageDimensions();
+  }
+
+  /// 提前订阅 ImageProvider 流, 拿到图片自身的宽高用于尺寸计算。
+  /// `Image.file` / `Image.network` 内部仍走自己的解码/缓存通道,
+  /// 这里只是借用 Flutter ImageCache 命中 (二次解析不会重复下载)。
+  void _resolveImageDimensions() {
+    ImageProvider? provider;
+    final filePath = widget.filePath;
+    final imageUri = widget.imageUri;
+    if (filePath != null) {
+      provider = FileImage(File(filePath));
+    } else if (imageUri != null) {
+      provider = NetworkImage(imageUri.toString());
+    }
+    if (provider == null) {
+      return;
+    }
+    final stream = provider.resolve(const ImageConfiguration());
+    final listener = ImageStreamListener(
+      (ImageInfo info, bool synchronousCall) {
+        final w = info.image.width.toDouble();
+        final h = info.image.height.toDouble();
+        if (w <= 0 || h <= 0) return;
+        // 同步回调 (来自缓存) 发生在 initState 中, 此时还未首次 build,
+        // 直接给字段赋值即可, 不需要 setState; 否则按常规通过 setState 触发重建。
+        if (synchronousCall) {
+          _naturalSize = Size(w, h);
+          return;
+        }
+        if (!mounted) return;
+        final prev = _naturalSize;
+        if (prev != null && prev.width == w && prev.height == h) return;
+        setState(() {
+          _naturalSize = Size(w, h);
+        });
+      },
+      onError: (Object _, StackTrace? _) {
+        // 错误状态下保持 _naturalSize 为 null, 走占位尺寸分支;
+        // _buildPreviewImage 内部 Image 控件自己会渲染 errorBuilder。
+      },
+    );
+    stream.addListener(listener);
+    _imageStream = stream;
+    _imageStreamListener = listener;
+  }
+
+  @override
+  void dispose() {
+    final stream = _imageStream;
+    final listener = _imageStreamListener;
+    if (stream != null && listener != null) {
+      stream.removeListener(listener);
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final viewport = MediaQuery.sizeOf(context);
+    final disableAnim = MediaQuery.disableAnimationsOf(context);
+
+    // 弹窗的最大可用尺寸 (扣除两侧 inset)。
+    final maxDialogW = math.max(
+      _kMinDialogW,
+      viewport.width - _kInsetPadding * 2,
+    );
+    final maxDialogH = math.max(
+      200.0,
+      viewport.height - _kInsetPadding * 2,
+    );
+    // body (图片显示区) 的最大可用尺寸: 扣除头部 + 分隔线 + 四周统一 padding。
+    final maxBodyW = math.max(0.0, maxDialogW - _kPadding * 2);
+    final maxBodyH = math.max(
+      0.0,
+      maxDialogH - _kHeaderEstimate - _kDividerH - _kPadding * 2,
+    );
+
+    double bodyW;
+    double bodyH;
+    final natural = _naturalSize;
+    if (natural != null && natural.width > 0 && natural.height > 0) {
+      // 等比缩放至 maxBodyW × maxBodyH 的最大内接矩形, 与 BoxFit.contain 等价,
+      // 但宽高直接落到外层 SizedBox 上, 因此四周不会出现 letterbox 白边。
+      final ratio = natural.width / natural.height;
+      bodyW = maxBodyW;
+      bodyH = bodyW / ratio;
+      if (bodyH > maxBodyH) {
+        bodyH = maxBodyH;
+        bodyW = bodyH * ratio;
+      }
+    } else {
+      // 加载中 / 来源缺失时给一个相对小的方形占位, 避免一开始就撑满弹窗,
+      // 等真实尺寸到位后由 AnimatedSize 平滑过渡到目标体积。
+      final side = math.min(_kFallbackSide, math.min(maxBodyW, maxBodyH));
+      bodyW = math.max(0.0, side);
+      bodyH = math.max(0.0, side);
+    }
+
+    final dialogW = (bodyW + _kPadding * 2)
+        .clamp(_kMinDialogW, maxDialogW);
+
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {
@@ -930,105 +1065,104 @@ class _ImagePreviewDialog extends StatelessWidget {
         return KeyEventResult.ignored;
       },
       child: Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAlias,
-      child: AnimatedSize(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.topCenter,
-        child: SizedBox(
-          width: MediaQuery.sizeOf(context).width * 0.9,
-          height: MediaQuery.sizeOf(context).height * 0.85,
-          child: Column(
-            children: [
-              // Title bar.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium,
-                      ),
+        insetPadding: const EdgeInsets.all(_kInsetPadding),
+        backgroundColor: colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: AnimatedSize(
+          duration: disableAnim
+              ? Duration.zero
+              : const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: maxDialogW,
+              maxHeight: maxDialogH,
+            ),
+            child: SizedBox(
+              width: dialogW,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 头部标题栏。
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.open_in_new_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '使用系统应用打开',
+                              en: 'Open with System App',
+                            ),
+                            onPressed: () => _openInSystemApp(context),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.download_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '保存到本地',
+                              en: 'Save to disk',
+                            ),
+                            onPressed: () => _saveImageAs(context),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                      ],
                     ),
-                    MicroPressFeedback(
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.open_in_new_rounded,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        tooltip: _localizedText(
-                          context,
-                          zh: '使用系统应用打开',
-                          en: 'Open with System App',
-                        ),
-                        onPressed: () => _openInSystemApp(context),
-                      ),
+                  ),
+                  const Divider(height: 1),
+                  // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
+                  // 由于 SizedBox 的尺寸已经精确等于 BoxFit.contain 后的图片尺寸,
+                  // Image 控件内部不会再产生 letterbox 白边。
+                  Padding(
+                    padding: const EdgeInsets.all(_kPadding),
+                    child: SizedBox(
+                      width: bodyW,
+                      height: bodyH,
+                      child: _buildPreviewImage(context),
                     ),
-                    const SizedBox(width: 4),
-                    MicroPressFeedback(
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.download_rounded,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        tooltip: _localizedText(
-                          context,
-                          zh: '保存到本地',
-                          en: 'Save to disk',
-                        ),
-                        onPressed: () => _saveImageAs(context),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    MicroPressFeedback(
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.close_rounded,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const Divider(height: 1),
-              // Image body — 四周 padding 一致 (使用外层 Container margin)。
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    const padding = 16.0;
-                    final boxW = (constraints.maxWidth - padding * 2)
-                        .clamp(0.0, double.infinity);
-                    final boxH = (constraints.maxHeight - padding * 2)
-                        .clamp(0.0, double.infinity);
-                    return Center(
-                      child: SizedBox(
-                        width: boxW,
-                        height: boxH,
-                        child: _buildPreviewImage(context),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 
   Widget _buildPreviewImage(BuildContext context) {
-    final sourceFilePath = filePath;
+    final sourceFilePath = widget.filePath;
     if (sourceFilePath != null) {
       return Image.file(
         File(sourceFilePath),
@@ -1039,7 +1173,7 @@ class _ImagePreviewDialog extends StatelessWidget {
       );
     }
 
-    final sourceUri = imageUri;
+    final sourceUri = widget.imageUri;
     if (sourceUri == null) {
       return _buildImageLoadError(context);
     }
@@ -1128,12 +1262,12 @@ class _ImagePreviewDialog extends StatelessWidget {
   }
 
   Future<void> _openInSystemApp(BuildContext context) async {
-    final sourceFilePath = filePath;
+    final sourceFilePath = widget.filePath;
     if (sourceFilePath != null) {
       await _openLocalPathWithSystemApp(context, sourceFilePath);
       return;
     }
-    final sourceUri = imageUri;
+    final sourceUri = widget.imageUri;
     if (sourceUri == null) {
       return;
     }
@@ -1165,7 +1299,7 @@ class _ImagePreviewDialog extends StatelessWidget {
         ],
       );
       if (location == null) return;
-      final sourceFilePath = filePath;
+      final sourceFilePath = widget.filePath;
       if (sourceFilePath != null) {
         final source = File(sourceFilePath);
         if (!source.existsSync()) {
@@ -1178,7 +1312,7 @@ class _ImagePreviewDialog extends StatelessWidget {
         return;
       }
 
-      final sourceUri = imageUri;
+      final sourceUri = widget.imageUri;
       if (sourceUri == null) {
         throw const FileSystemException('Image source is unavailable.');
       }
@@ -1194,7 +1328,7 @@ class _ImagePreviewDialog extends StatelessWidget {
   }
 
   String _suggestedSaveName() {
-    final sourceFilePath = filePath;
+    final sourceFilePath = widget.filePath;
     if (sourceFilePath != null) {
       final basename = p.basename(sourceFilePath).trim();
       if (basename.isNotEmpty) {
@@ -1202,7 +1336,7 @@ class _ImagePreviewDialog extends StatelessWidget {
       }
     }
 
-    final sourceUri = imageUri;
+    final sourceUri = widget.imageUri;
     if (sourceUri != null) {
       final decodedPath = () {
         try {
@@ -1223,7 +1357,7 @@ class _ImagePreviewDialog extends StatelessWidget {
     if (extension.isNotEmpty) {
       return extension;
     }
-    final sourceUri = imageUri;
+    final sourceUri = widget.imageUri;
     if (sourceUri != null) {
       final format = sourceUri.queryParameters['format']?.trim().toLowerCase();
       if (format != null &&
