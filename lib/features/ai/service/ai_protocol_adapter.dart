@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../model/ai_input_cache_runtime_config.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
+import 'ai_token_usage_parser.dart';
 
 enum AiChatRole { system, user, assistant, tool }
 
@@ -430,6 +431,13 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       if (model.maxTokens != null) 'max_tokens': model.maxTokens,
       if (model.temperature != null) 'temperature': model.temperature,
       if (stream) 'stream': true,
+      // Some OpenAI-compatible providers (DeepSeek / Kimi / GLM / Doubao /
+      // Grok / Qwen / Hunyuan / Wenxin / Stepfun / MiniMax / LongCat 等) only
+      // emit the trailing `usage` chunk—including cache hit/write fields—
+      // when `stream_options.include_usage` is explicitly requested. Always
+      // opt in for streaming so the token popup gets full cache stats.
+      if (stream)
+        'stream_options': const <String, Object?>{'include_usage': true},
       if (tools.isNotEmpty)
         'tools': tools
             .map((item) => item.toOpenAiJson())
@@ -564,23 +572,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     final usageMap = usage is Map<String, Object?>
         ? usage
         : Map<String, Object?>.from(usage as Map);
-    final promptTokensDetails = usageMap['prompt_tokens_details'];
-    final cachedTokens = promptTokensDetails is Map
-        ? _readInt(promptTokensDetails['cached_tokens'])
-        : null;
-    // DeepSeek surfaces cache stats as flat keys on `usage` instead of
-    // OpenAI's nested `prompt_tokens_details.cached_tokens` form. Spec:
-    // https://api-docs.deepseek.com/guides/kv_cache
-    final deepseekCacheHit = _readInt(usageMap['prompt_cache_hit_tokens']);
-    // Some second-party gateways / self-hosted vLLM forks emit a flat
-    // `cached_tokens` (no nested wrapper). Final tier of fallback.
-    final flatCachedTokens = _readInt(usageMap['cached_tokens']);
-    return AiTokenUsage(
-      promptTokens: _readInt(usageMap['prompt_tokens']),
-      completionTokens: _readInt(usageMap['completion_tokens']),
-      totalTokens: _readInt(usageMap['total_tokens']),
-      cacheReadTokens: cachedTokens ?? deepseekCacheHit ?? flatCachedTokens,
-    );
+    return AiTokenUsageParser.parseOpenAi(usageMap);
   }
 
   @override
@@ -1072,28 +1064,18 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     final usageMap = usage is Map<String, Object?>
         ? usage
         : Map<String, Object?>.from(usage as Map);
-    final promptTokens = _readInt(usageMap['input_tokens']);
-    final completionTokens = _readInt(usageMap['output_tokens']);
-    final cacheCreation = _readInt(usageMap['cache_creation_input_tokens']);
-    final cacheRead = _readInt(usageMap['cache_read_input_tokens']);
-    if (kDebugMode) {
+    final parsed = AiTokenUsageParser.parseClaude(usageMap);
+    if (parsed != null && kDebugMode) {
       // 2026-05-04 — 缓存命中诊断：观察 cache_read 与 cache_creation 比例。
       // 期望第二轮起 cache_read >> cache_creation。若每轮都偏向 creation，
       // 说明前缀有漂移源（settings 改动 / catalog 重排 / 时间戳渗透）。
       debugPrint(
-        '[claude.cache] read=$cacheRead creation=$cacheCreation '
-        'input=$promptTokens output=$completionTokens',
+        '[claude.cache] read=${parsed.cacheReadTokens} '
+        'creation=${parsed.cacheCreationTokens} '
+        'input=${parsed.promptTokens} output=${parsed.completionTokens}',
       );
     }
-    return AiTokenUsage(
-      promptTokens: promptTokens,
-      completionTokens: completionTokens,
-      totalTokens:
-          _readInt(usageMap['total_tokens']) ??
-          ((promptTokens ?? 0) + (completionTokens ?? 0)),
-      cacheCreationTokens: cacheCreation,
-      cacheReadTokens: cacheRead,
-    );
+    return parsed;
   }
 
   @override
@@ -1412,12 +1394,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     final usageMap = usage is Map<String, Object?>
         ? usage
         : Map<String, Object?>.from(usage as Map);
-    return AiTokenUsage(
-      promptTokens: _readInt(usageMap['promptTokenCount']),
-      completionTokens: _readInt(usageMap['candidatesTokenCount']),
-      totalTokens: _readInt(usageMap['totalTokenCount']),
-      cacheReadTokens: _readInt(usageMap['cachedContentTokenCount']),
-    );
+    return AiTokenUsageParser.parseGemini(usageMap);
   }
 
   @override
@@ -1611,7 +1588,8 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
 
   @override
   AiTokenUsage? parseUsage(String rawResponse) {
-    // Try the standard OpenAI format first.
+    // Try the standard OpenAI-compatible parser first (covers cached_tokens
+    // when newer Ollama builds expose it via prompt_tokens_details).
     final standardUsage = super.parseUsage(rawResponse);
     if (standardUsage != null && !standardUsage.isEmpty) {
       return standardUsage;

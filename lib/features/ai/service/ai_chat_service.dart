@@ -15,6 +15,7 @@ import '../model/ai_token_usage.dart';
 import 'ai_dsml_tool_call_parser.dart';
 import 'ai_image_generation_service.dart';
 import 'ai_protocol_adapter.dart';
+import 'ai_token_usage_parser.dart';
 import 'ai_transport_diagnostic_messages.dart';
 
 abstract class AiChatClient {
@@ -1261,18 +1262,23 @@ void _processOpenAiStreamEvent(
     final usageMap = usageJson is Map<String, Object?>
         ? usageJson
         : Map<String, Object?>.from(usageJson as Map);
-    final parsedUsage = AiTokenUsage(
-      promptTokens: _readInt(usageMap['prompt_tokens']),
-      completionTokens: _readInt(usageMap['completion_tokens']),
-      totalTokens: _readInt(usageMap['total_tokens']),
-    );
-    if (!parsedUsage.isEmpty) {
-      setUsage(parsedUsage);
+    final parsedUsage = AiTokenUsageParser.parseOpenAi(usageMap);
+    if (parsedUsage != null && !parsedUsage.isEmpty) {
+      // Merge with the previous frame so cache_* fields surfaced in an
+      // earlier chunk are preserved when later chunks omit them. DeepSeek
+      // and a few self-hosted gateways emit the cache stats only in the
+      // very first/last chunk.
+      final merged = AiTokenUsageParser.carryForward(usage(), parsedUsage);
+      setUsage(merged);
       markStreamActivity('usage');
       _debugAiStreamLog(
-        'model=${model.modelId} usage prompt=${parsedUsage.promptTokens ?? 0} completion=${parsedUsage.completionTokens ?? 0} total=${parsedUsage.totalTokens ?? 0}',
+        'model=${model.modelId} usage prompt=${merged.promptTokens ?? 0} '
+        'completion=${merged.completionTokens ?? 0} '
+        'total=${merged.totalTokens ?? 0} '
+        'cache_read=${merged.cacheReadTokens ?? 0} '
+        'cache_write=${merged.cacheCreationTokens ?? 0}',
       );
-      emitEvent(AiChatStreamEvent.usage(parsedUsage));
+      emitEvent(AiChatStreamEvent.usage(merged));
     }
   }
   final choices = decoded['choices'];
@@ -1421,21 +1427,15 @@ void _processClaudeStreamEvent(
           final usageMap = usageJson is Map<String, Object?>
               ? usageJson
               : Map<String, Object?>.from(usageJson);
-          final promptTokens = _readInt(usageMap['input_tokens']);
-          final completionTokens = _readInt(usageMap['output_tokens']);
-          final parsedUsage = AiTokenUsage(
-            promptTokens: promptTokens,
-            completionTokens: completionTokens,
-            totalTokens: (promptTokens ?? 0) + (completionTokens ?? 0),
-            cacheCreationTokens: _readInt(
-              usageMap['cache_creation_input_tokens'],
-            ),
-            cacheReadTokens: _readInt(usageMap['cache_read_input_tokens']),
-          );
-          if (!parsedUsage.isEmpty) {
-            setUsage(parsedUsage);
+          final parsedUsage = AiTokenUsageParser.parseClaude(usageMap);
+          if (parsedUsage != null && !parsedUsage.isEmpty) {
+            final merged = AiTokenUsageParser.carryForward(
+              usage(),
+              parsedUsage,
+            );
+            setUsage(merged);
             markStreamActivity('usage');
-            emitEvent(AiChatStreamEvent.usage(parsedUsage));
+            emitEvent(AiChatStreamEvent.usage(merged));
           }
         }
       }
@@ -1529,24 +1529,24 @@ void _processClaudeStreamEvent(
         final usageMap = usageJson is Map<String, Object?>
             ? usageJson
             : Map<String, Object?>.from(usageJson);
-        final inputTokens = _readInt(usageMap['input_tokens']);
-        final outputTokens = _readInt(usageMap['output_tokens']);
-        final parsedUsage = AiTokenUsage(
-          promptTokens: inputTokens,
-          completionTokens: outputTokens,
-          totalTokens: (inputTokens ?? 0) + (outputTokens ?? 0),
-          cacheCreationTokens: _readInt(
-            usageMap['cache_creation_input_tokens'],
-          ),
-          cacheReadTokens: _readInt(usageMap['cache_read_input_tokens']),
-        );
-        if (!parsedUsage.isEmpty) {
-          setUsage(parsedUsage);
+        final parsedUsage = AiTokenUsageParser.parseClaude(usageMap);
+        if (parsedUsage != null && !parsedUsage.isEmpty) {
+          // Merge with the message_start frame so cache_* fields are
+          // preserved even when message_delta only ships output_tokens.
+          final merged = AiTokenUsageParser.carryForward(
+            usage(),
+            parsedUsage,
+          );
+          setUsage(merged);
           markStreamActivity('usage');
           _debugAiStreamLog(
-            'model=${model.modelId} claude_usage input=${parsedUsage.promptTokens ?? 0} output=${parsedUsage.completionTokens ?? 0}',
+            'model=${model.modelId} claude_usage '
+            'input=${merged.promptTokens ?? 0} '
+            'output=${merged.completionTokens ?? 0} '
+            'cache_read=${merged.cacheReadTokens ?? 0} '
+            'cache_write=${merged.cacheCreationTokens ?? 0}',
           );
-          emitEvent(AiChatStreamEvent.usage(parsedUsage));
+          emitEvent(AiChatStreamEvent.usage(merged));
         }
       }
 
@@ -1621,16 +1621,12 @@ void _processGeminiStreamEvent(
     final usageMap = usageJson is Map<String, Object?>
         ? usageJson
         : Map<String, Object?>.from(usageJson);
-    final parsedUsage = AiTokenUsage(
-      promptTokens: _readInt(usageMap['promptTokenCount']),
-      completionTokens: _readInt(usageMap['candidatesTokenCount']),
-      totalTokens: _readInt(usageMap['totalTokenCount']),
-      cacheReadTokens: _readInt(usageMap['cachedContentTokenCount']),
-    );
-    if (!parsedUsage.isEmpty) {
-      setUsage(parsedUsage);
+    final parsedUsage = AiTokenUsageParser.parseGemini(usageMap);
+    if (parsedUsage != null && !parsedUsage.isEmpty) {
+      final merged = AiTokenUsageParser.carryForward(usage(), parsedUsage);
+      setUsage(merged);
       markStreamActivity('usage');
-      emitEvent(AiChatStreamEvent.usage(parsedUsage));
+      emitEvent(AiChatStreamEvent.usage(merged));
     }
   }
 
