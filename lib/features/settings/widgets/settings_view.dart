@@ -157,6 +157,10 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _responseTimeoutFocusNode;
   late final TextEditingController _streamIdleTimeoutController;
   late final FocusNode _streamIdleTimeoutFocusNode;
+  late final TextEditingController _streamMaxCharsPerSecondController;
+  late final FocusNode _streamMaxCharsPerSecondFocusNode;
+  late final TextEditingController _streamMaxMessageCardsPerSecondController;
+  late final FocusNode _streamMaxMessageCardsPerSecondFocusNode;
   late final TextEditingController _mcpLazyLoadingThresholdController;
   late final FocusNode _mcpLazyLoadingThresholdFocusNode;
   late final TextEditingController _mcpAutoProbeConcurrencyController;
@@ -209,6 +213,10 @@ class _SettingsViewState extends State<SettingsView> {
     _responseTimeoutFocusNode = FocusNode();
     _streamIdleTimeoutController = TextEditingController();
     _streamIdleTimeoutFocusNode = FocusNode();
+    _streamMaxCharsPerSecondController = TextEditingController();
+    _streamMaxCharsPerSecondFocusNode = FocusNode();
+    _streamMaxMessageCardsPerSecondController = TextEditingController();
+    _streamMaxMessageCardsPerSecondFocusNode = FocusNode();
     _mcpLazyLoadingThresholdController = TextEditingController();
     _mcpLazyLoadingThresholdFocusNode = FocusNode();
     _mcpAutoProbeConcurrencyController = TextEditingController();
@@ -260,6 +268,10 @@ class _SettingsViewState extends State<SettingsView> {
     _responseTimeoutFocusNode.dispose();
     _streamIdleTimeoutController.dispose();
     _streamIdleTimeoutFocusNode.dispose();
+    _streamMaxCharsPerSecondController.dispose();
+    _streamMaxCharsPerSecondFocusNode.dispose();
+    _streamMaxMessageCardsPerSecondController.dispose();
+    _streamMaxMessageCardsPerSecondFocusNode.dispose();
     _mcpLazyLoadingThresholdController.dispose();
     _mcpLazyLoadingThresholdFocusNode.dispose();
     _mcpAutoProbeConcurrencyController.dispose();
@@ -403,6 +415,21 @@ class _SettingsViewState extends State<SettingsView> {
     if (!_streamIdleTimeoutFocusNode.hasFocus &&
         _streamIdleTimeoutController.text != streamIdleTimeoutText) {
       _streamIdleTimeoutController.text = streamIdleTimeoutText;
+    }
+    final streamMaxCharsPerSecondText =
+        '${settingsController.aiStreamMaxCharsPerSecond}';
+    if (!_streamMaxCharsPerSecondFocusNode.hasFocus &&
+        _streamMaxCharsPerSecondController.text !=
+            streamMaxCharsPerSecondText) {
+      _streamMaxCharsPerSecondController.text = streamMaxCharsPerSecondText;
+    }
+    final streamMaxMessageCardsPerSecondText =
+        '${settingsController.aiStreamMaxMessageCardsPerSecond}';
+    if (!_streamMaxMessageCardsPerSecondFocusNode.hasFocus &&
+        _streamMaxMessageCardsPerSecondController.text !=
+            streamMaxMessageCardsPerSecondText) {
+      _streamMaxMessageCardsPerSecondController.text =
+          streamMaxMessageCardsPerSecondText;
     }
     final mcpLazyLoadingThresholdText =
         '${settingsController.mcpLazyLoadingThresholdTokens}';
@@ -1370,6 +1397,118 @@ class _SettingsViewState extends State<SettingsView> {
                         onPressed: () => _saveStreamIdleTimeout(
                           context,
                           _streamIdleTimeoutController.text,
+                        ),
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(
+                          AppLocalizations.of(context)!.settingsSaveTimeout,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              // 2026-05-17 — 流式输出节流：每秒最多向卡片追加渲染的字符数
+              _ResponsiveSettingRow(
+                title:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '每秒最大输出渲染字符'
+                    : 'Max Render Chars / Sec',
+                subtitle:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? 'AI 侧高速吐字时，UI 端按此速率均匀放出，避免卡片增量渲染卡顿、ANR 与列表抖动。0 表示关闭节流。默认 3。'
+                    : 'When AI streams chars at high speed, UI appends at this rate to avoid stutter, ANR and list bouncing. 0 disables throttling. Default 3.',
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _streamMaxCharsPerSecondController,
+                      focusNode: _streamMaxCharsPerSecondFocusNode,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: InputDecoration(
+                        labelText:
+                            Localizations.localeOf(
+                              context,
+                            ).languageCode.startsWith('zh')
+                            ? '每秒最大输出渲染字符'
+                            : 'Max Render Chars / Sec',
+                        hintText:
+                            '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
+                      ),
+                      onSubmitted: (value) =>
+                          _saveStreamMaxCharsPerSecond(context, value),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () => _saveStreamMaxCharsPerSecond(
+                          context,
+                          _streamMaxCharsPerSecondController.text,
+                        ),
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(
+                          AppLocalizations.of(context)!.settingsSaveTimeout,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              // 2026-05-17 — 卡片限速：每秒最多新追加多少张消息卡片
+              _ResponsiveSettingRow(
+                title:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '每秒最大输出消息卡片数'
+                    : 'Max Render Cards / Sec',
+                subtitle:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? 'AI 短时间内连续追加多张工具/助手卡片时，按此速率均匀放出，消除会话窗口的上下弹跳与抽搐。0 表示关闭节流。默认 1。'
+                    : 'When AI emits many tool/assistant cards in a burst, UI emits at this rate to eliminate jitter. 0 disables throttling. Default 1.',
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _streamMaxMessageCardsPerSecondController,
+                      focusNode: _streamMaxMessageCardsPerSecondFocusNode,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: InputDecoration(
+                        labelText:
+                            Localizations.localeOf(
+                              context,
+                            ).languageCode.startsWith('zh')
+                            ? '每秒最大输出消息卡片数'
+                            : 'Max Render Cards / Sec',
+                        hintText:
+                            '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
+                      ),
+                      onSubmitted: (value) =>
+                          _saveStreamMaxMessageCardsPerSecond(context, value),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () => _saveStreamMaxMessageCardsPerSecond(
+                          context,
+                          _streamMaxMessageCardsPerSecondController.text,
                         ),
                         icon: const Icon(Icons.save_outlined),
                         label: Text(
@@ -3480,6 +3619,70 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       AppLocalizations.of(context)!.settingsStreamIdleTimeoutSaved,
+    );
+  }
+
+  Future<void> _saveStreamMaxCharsPerSecond(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsedValue = int.tryParse(rawValue.trim());
+    const min = AppSettingsSnapshot.minAiStreamMaxCharsPerSecond;
+    const max = AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond;
+    if (parsedValue == null || parsedValue < min || parsedValue > max) {
+      _showSnackBar(context, l10n.settingsEnterAValueBetweenMinAnd(min, max));
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiStreamMaxCharsPerSecond(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _streamMaxCharsPerSecondController.text =
+          '${context.read<SettingsController>().aiStreamMaxCharsPerSecond}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _streamMaxCharsPerSecondController.text = '$parsedValue';
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    _showSnackBar(
+      context,
+      isZh ? '每秒最大输出渲染字符已保存。' : 'Max render chars / sec saved.',
+    );
+  }
+
+  Future<void> _saveStreamMaxMessageCardsPerSecond(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsedValue = int.tryParse(rawValue.trim());
+    const min = AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond;
+    const max = AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond;
+    if (parsedValue == null || parsedValue < min || parsedValue > max) {
+      _showSnackBar(context, l10n.settingsEnterAValueBetweenMinAnd(min, max));
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiStreamMaxMessageCardsPerSecond(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _streamMaxMessageCardsPerSecondController.text =
+          '${context.read<SettingsController>().aiStreamMaxMessageCardsPerSecond}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _streamMaxMessageCardsPerSecondController.text = '$parsedValue';
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    _showSnackBar(
+      context,
+      isZh ? '每秒最大输出消息卡片数已保存。' : 'Max render cards / sec saved.',
     );
   }
 
