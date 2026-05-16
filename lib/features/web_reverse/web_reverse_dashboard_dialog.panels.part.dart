@@ -618,6 +618,70 @@ class _MemoryPanel extends StatefulWidget {
 class _MemoryPanelState extends State<_MemoryPanel> {
   bool _capturing = false;
   ({String json, int bytes})? _last;
+  // V8 实时折线：每 1.5s 拉一次 JSHeapUsedSize / JSHeapTotalSize。
+  Timer? _heapTimer;
+  final List<double> _heapUsed = <double>[];
+  final List<double> _heapTotal = <double>[];
+  static const int _heapHistoryLen = 80;
+  // 采样收尾后的 top-N 函数。
+  ({int totalSize, List<({String label, int size})> top})? _samplingResult;
+
+  @override
+  void initState() {
+    super.initState();
+    _heapTimer = Timer.periodic(
+      const Duration(milliseconds: 1500),
+      (_) => _sampleHeap(),
+    );
+    unawaited(_sampleHeap());
+  }
+
+  @override
+  void dispose() {
+    _heapTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _sampleHeap() async {
+    if (!widget.controller.isRunning) return;
+    final r = await widget.controller.readJsHeap();
+    if (!mounted || r == null) return;
+    setState(() {
+      _heapUsed.add(r.used);
+      _heapTotal.add(r.total);
+      while (_heapUsed.length > _heapHistoryLen) {
+        _heapUsed.removeAt(0);
+        _heapTotal.removeAt(0);
+      }
+    });
+  }
+
+  Future<void> _toggleSampling() async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    if (widget.controller.isMemorySampling) {
+      final r = await widget.controller.stopMemorySampling();
+      if (!mounted) return;
+      setState(() => _samplingResult = r);
+      if (r == null) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(isZh ? '采样收尾失败' : 'Stop sampling failed'),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } else {
+      final ok = await widget.controller.startMemorySampling();
+      if (!mounted) return;
+      if (!ok) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(isZh ? '采样启动失败' : 'Start sampling failed'),
+          duration: const Duration(seconds: 2),
+        ));
+      } else {
+        setState(() => _samplingResult = null);
+      }
+    }
+  }
 
   Future<void> _capture() async {
     final isZh = widget.isZh;
@@ -697,6 +761,14 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── V8 实时堆使用折线 ─────────────────────────────────────
+          _V8HeapLiveCard(
+            used: _heapUsed,
+            total: _heapTotal,
+            isZh: isZh,
+          ),
+          const SizedBox(height: 12),
+          // ── 采样 / 快照工具栏 ──────────────────────────────────────
           Row(
             children: [
               Text(
@@ -720,6 +792,21 @@ class _MemoryPanelState extends State<_MemoryPanel> {
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
+                onPressed: _toggleSampling,
+                icon: Icon(
+                  widget.controller.isMemorySampling
+                      ? Icons.stop_circle_rounded
+                      : Icons.timeline_rounded,
+                  size: 18,
+                ),
+                label: Text(
+                  widget.controller.isMemorySampling
+                      ? (isZh ? '停止采样' : 'Stop sampling')
+                      : (isZh ? '开始采样' : 'Start sampling'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
                 onPressed: _last == null ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
                 label: Text(isZh ? '保存到文件' : 'Save to File'),
@@ -727,7 +814,11 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             ],
           ),
           const SizedBox(height: 12),
-          if (_last != null)
+          if (_samplingResult != null)
+            Expanded(
+              child: _SamplingTopList(result: _samplingResult!, isZh: isZh),
+            )
+          else if (_last != null)
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -760,13 +851,291 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           else
             Text(
               isZh
-                  ? '点击「采集快照」从浏览器拉取一次 V8 堆快照（可能需要数秒）。'
-                  : 'Click "Capture Snapshot" to take a V8 heap snapshot (a few seconds).',
+                  ? '点击「采集快照」拉一次 V8 堆快照；或「开始采样」做分配采样直到停止后看 Top-N。'
+                  : 'Click "Capture Snapshot" to take a heap snapshot, or start sampling for top-N allocation profile.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: cs.onSurfaceVariant,
                 height: 1.55,
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// V8 堆 Used/Total 实时折线卡片。
+class _V8HeapLiveCard extends StatelessWidget {
+  const _V8HeapLiveCard({
+    required this.used,
+    required this.total,
+    required this.isZh,
+  });
+
+  final List<double> used;
+  final List<double> total;
+  final bool isZh;
+
+  String _fmt(double v) {
+    if (v < 1024) return '${v.toStringAsFixed(0)} B';
+    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
+    return '${(v / 1024 / 1024).toStringAsFixed(2)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final lastUsed = used.isEmpty ? 0.0 : used.last;
+    final lastTotal = total.isEmpty ? 0.0 : total.last;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 200,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isZh ? 'V8 堆（实时，1.5s 间隔）' : 'V8 Heap (live, 1.5s)',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${isZh ? "已用" : "Used"}: ${_fmt(lastUsed)}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: cs.primary,
+                  ),
+                ),
+                Text(
+                  '${isZh ? "总量" : "Total"}: ${_fmt(lastTotal)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SizedBox(
+              height: 72,
+              child: CustomPaint(
+                painter: _DualLineSparkline(
+                  primary: used,
+                  secondary: total,
+                  primaryColor: cs.primary,
+                  secondaryColor: cs.tertiary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DualLineSparkline extends CustomPainter {
+  _DualLineSparkline({
+    required this.primary,
+    required this.secondary,
+    required this.primaryColor,
+    required this.secondaryColor,
+  });
+
+  final List<double> primary;
+  final List<double> secondary;
+  final Color primaryColor;
+  final Color secondaryColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (primary.length < 2) return;
+    final all = [...primary, ...secondary];
+    var min = all.first;
+    var max = all.first;
+    for (final v in all) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    final span = (max - min).abs() < 1e-9 ? 1 : (max - min);
+    Path build(List<double> values, {required bool fill}) {
+      final p = Path();
+      final stride = size.width / (values.length - 1);
+      for (var i = 0; i < values.length; i++) {
+        final x = i * stride;
+        final norm = (values[i] - min) / span;
+        final y = size.height - norm * size.height;
+        if (i == 0) {
+          p.moveTo(x, y);
+        } else {
+          p.lineTo(x, y);
+        }
+      }
+      if (fill) {
+        p.lineTo(size.width, size.height);
+        p.lineTo(0, size.height);
+        p.close();
+      }
+      return p;
+    }
+
+    canvas.drawPath(
+      build(secondary, fill: true),
+      Paint()
+        ..color = secondaryColor.withValues(alpha: 0.12)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      build(secondary, fill: false),
+      Paint()
+        ..color = secondaryColor
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke,
+    );
+    canvas.drawPath(
+      build(primary, fill: true),
+      Paint()
+        ..color = primaryColor.withValues(alpha: 0.22)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      build(primary, fill: false),
+      Paint()
+        ..color = primaryColor
+        ..strokeWidth = 1.6
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DualLineSparkline old) =>
+      old.primary != primary || old.secondary != secondary;
+}
+
+class _SamplingTopList extends StatelessWidget {
+  const _SamplingTopList({required this.result, required this.isZh});
+  final ({int totalSize, List<({String label, int size})> top}) result;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                isZh ? '采样 Top-N（按 selfSize）' : 'Sampling Top-N (selfSize)',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                isZh
+                    ? '总分配 ${(result.totalSize / 1024).toStringAsFixed(1)} KB'
+                    : 'Total ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: ListView.builder(
+              itemCount: result.top.length,
+              itemBuilder: (_, i) {
+                final r = result.top[i];
+                final ratio = result.totalSize == 0
+                    ? 0.0
+                    : r.size / result.totalSize;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 28,
+                        child: Text(
+                          '#${i + 1}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 4,
+                        child: Text(
+                          r.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Stack(
+                          children: [
+                            Container(
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainer,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                            FractionallySizedBox(
+                              widthFactor: ratio.clamp(0.0, 1.0),
+                              child: Container(
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: cs.primary,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 84,
+                        child: Text(
+                          '${(r.size / 1024).toStringAsFixed(1)} KB',
+                          textAlign: TextAlign.right,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );

@@ -194,6 +194,8 @@ class WebReverseSessionController extends ChangeNotifier {
         _onLogEntry(ev.params);
       case 'Security.securityStateChanged':
         _onSecurityStateChanged(ev.params);
+      case 'Fetch.requestPaused':
+        _onFetchRequestPaused(ev.params);
     }
   }
 
@@ -650,12 +652,33 @@ class WebReverseSessionController extends ChangeNotifier {
   }, true);
   document.addEventListener('input', (ev) => {
     const t = ev.target;
-    log({
-      type: 'input',
-      selector: buildSelector(t),
-      value: t && 'value' in t ? String(t.value).slice(0,200) : '',
-      ts: Date.now(),
-    });
+    if (!t || !('value' in t)) return;
+    // 智能去抖：连续 input 用 250ms 计时器合并；用户停手或失焦或回车提交时落帧。
+    // 防止每个键击都打一条 step，让 replay 既快又稳。
+    const sel = buildSelector(t);
+    if (!sel) return;
+    const key = '__oh_input_buf::' + sel;
+    if (window[key]) clearTimeout(window[key]);
+    const flush = () => {
+      window[key] = null;
+      log({
+        type: 'input',
+        selector: sel,
+        value: String(t.value).slice(0, 200),
+        ts: Date.now(),
+      });
+    };
+    window[key] = setTimeout(flush, 250);
+    // 一次性挂 blur / Enter，强制立刻 flush。
+    if (!t.__oh_flushers) {
+      t.__oh_flushers = true;
+      t.addEventListener('blur', () => {
+        if (window[key]) { clearTimeout(window[key]); flush(); }
+      }, { once: true });
+      t.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && window[key]) { clearTimeout(window[key]); flush(); }
+      });
+    }
   }, true);
   document.addEventListener('change', (ev) => {
     const t = ev.target;
@@ -1356,6 +1379,297 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (_) {
       return null;
     }
+  }
+
+  // ── 截图 ─────────────────────────────────────────────────────────────
+
+  /// 截当前可视区。返回 PNG / JPEG 字节；失败返回 null。
+  /// `quality` 仅 jpeg 有效（0-100）。
+  Future<Uint8List?> captureScreenshot({
+    String format = 'png',
+    int quality = 90,
+  }) async {
+    return _captureScreenshot(
+      format: format,
+      quality: quality,
+      capturePastViewport: false,
+    );
+  }
+
+  /// 截整页（自动滚动拼接）。Chromium ≥ 113 支持 `captureBeyondViewport`。
+  Future<Uint8List?> captureFullPageScreenshot({
+    String format = 'png',
+    int quality = 90,
+  }) async {
+    return _captureScreenshot(
+      format: format,
+      quality: quality,
+      capturePastViewport: true,
+    );
+  }
+
+  Future<Uint8List?> _captureScreenshot({
+    required String format,
+    required int quality,
+    required bool capturePastViewport,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final params = <String, Object?>{
+        'format': format,
+        if (format == 'jpeg') 'quality': quality.clamp(1, 100),
+        if (capturePastViewport) 'captureBeyondViewport': true,
+        'fromSurface': true,
+      };
+      // Page.getLayoutMetrics 取整页尺寸，让浏览器走 captureBeyondViewport。
+      if (capturePastViewport) {
+        final metrics = await cdp.send(
+          'Page.getLayoutMetrics',
+          sessionId: _pageSessionId,
+          timeout: const Duration(seconds: 10),
+        );
+        final content = metrics['cssContentSize'] as Map?;
+        if (content != null) {
+          params['clip'] = <String, Object?>{
+            'x': 0,
+            'y': 0,
+            'width': (content['width'] as num?)?.toDouble() ?? 0,
+            'height': (content['height'] as num?)?.toDouble() ?? 0,
+            'scale': 1,
+          };
+        }
+      }
+      final r = await cdp.send(
+        'Page.captureScreenshot',
+        params: params,
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 30),
+      );
+      final data = r['data'] as String?;
+      if (data == null || data.isEmpty) return null;
+      return base64Decode(data);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'captureScreenshot $format full=$capturePastViewport',
+        error,
+        stack,
+      );
+      return null;
+    }
+  }
+
+  // ── Memory: V8 实时采样（HeapProfiler.startSampling） ─────────────────
+
+  bool _samplingProfileRunning = false;
+  bool get isMemorySampling => _samplingProfileRunning;
+
+  /// 启动 V8 采样（HeapProfiler.startSampling）。失败返回 false。
+  Future<bool> startMemorySampling({double samplingInterval = 32768}) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    if (_samplingProfileRunning) return true;
+    try {
+      await cdp.send('HeapProfiler.enable', sessionId: _pageSessionId);
+      await cdp.send(
+        'HeapProfiler.startSampling',
+        params: <String, Object?>{'samplingInterval': samplingInterval},
+        sessionId: _pageSessionId,
+      );
+      _samplingProfileRunning = true;
+      notifyListeners();
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'startMemorySampling',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
+  /// 停止采样并返回汇总。停止前可多次调 stopMemorySampling 取中间快照。
+  Future<({int totalSize, List<({String label, int size})> top})?>
+      stopMemorySampling() async {
+    final cdp = _browserCdp;
+    if (cdp == null || !_samplingProfileRunning) return null;
+    try {
+      final r = await cdp.send(
+        'HeapProfiler.stopSampling',
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 10),
+      );
+      _samplingProfileRunning = false;
+      notifyListeners();
+      final profile = r['profile'] as Map?;
+      if (profile == null) return null;
+      // V8 SamplingHeapProfile 的 head 是火焰图根，递归累加 selfSize。
+      // 这里只展示 top-N 函数，不画完整 flamegraph（与 Chrome DevTools
+      // Memory → Allocation sampling profile 等价层级，需要用户自己导出）。
+      final tally = <String, int>{};
+      var total = 0;
+      void walk(Map node) {
+        final name = '${(node['callFrame'] as Map?)?['functionName'] ?? '(anon)'}';
+        final self = (node['selfSize'] as num?)?.toInt() ?? 0;
+        total += self;
+        tally.update(name, (v) => v + self, ifAbsent: () => self);
+        final children = node['children'] as List?;
+        if (children != null) {
+          for (final c in children.whereType<Map>()) {
+            walk(c);
+          }
+        }
+      }
+      walk(Map<String, Object?>.from(profile['head'] as Map));
+      final entries = tally.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      final top = entries
+          .take(15)
+          .map((e) => (label: e.key.isEmpty ? '(anonymous)' : e.key, size: e.value))
+          .toList(growable: false);
+      return (totalSize: total, top: top);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'stopMemorySampling',
+        error,
+        stack,
+      );
+      return null;
+    }
+  }
+
+  /// 拉一次 V8 内存上报（不停止采样）：JSHeapUsedSize / JSHeapTotalSize。
+  /// 用于面板的实时折线，避免 stopSampling 中断采样数据。
+  Future<({double used, double total})?> readJsHeap() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'Performance.getMetrics',
+        sessionId: _pageSessionId,
+      );
+      final list = r['metrics'] as List?;
+      if (list == null) return null;
+      double used = 0;
+      double tot = 0;
+      for (final m in list.whereType<Map>()) {
+        final name = '${m['name']}';
+        final v = (m['value'] as num?)?.toDouble() ?? 0;
+        if (name == 'JSHeapUsedSize') used = v;
+        if (name == 'JSHeapTotalSize') tot = v;
+      }
+      return (used: used, total: tot);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Network: Fetch 域代理（throttle / abort） ─────────────────────────
+
+  /// 通过 Fetch 域拦截全部请求。每次拦到都通过 [_pendingFetchRequests] 暴露
+  /// 给 dashboard，用户可手动 continue / abort / 修改延迟。
+  /// 启用后所有请求都需要 dashboard 显式放行；适合反爬调试与超时模拟，
+  /// 不建议默认开。
+  bool _fetchInterceptEnabled = false;
+  bool get isFetchInterceptEnabled => _fetchInterceptEnabled;
+  // 请求 ID -> 暂存的元信息（method / url），等用户决策。
+  final Map<String, Map<String, Object?>> _pendingFetchRequests =
+      <String, Map<String, Object?>>{};
+  List<({String requestId, String method, String url})>
+      get pendingFetchRequests => _pendingFetchRequests.entries
+          .map((e) => (
+                requestId: e.key,
+                method: '${e.value['method'] ?? 'GET'}',
+                url: '${e.value['url'] ?? ''}',
+              ))
+          .toList(growable: false);
+
+  Future<bool> setFetchInterceptEnabled(bool enabled) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      if (enabled) {
+        await cdp.send(
+          'Fetch.enable',
+          params: const <String, Object?>{
+            'patterns': [
+              <String, Object?>{'requestStage': 'Request'},
+            ],
+          },
+          sessionId: _pageSessionId,
+        );
+      } else {
+        await cdp.send('Fetch.disable', sessionId: _pageSessionId);
+        _pendingFetchRequests.clear();
+      }
+      _fetchInterceptEnabled = enabled;
+      notifyListeners();
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'setFetchInterceptEnabled',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
+  Future<void> continueFetchRequest(String requestId) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return;
+    _pendingFetchRequests.remove(requestId);
+    try {
+      await cdp.send(
+        'Fetch.continueRequest',
+        params: <String, Object?>{'requestId': requestId},
+        sessionId: _pageSessionId,
+      );
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  /// 终止某条请求；reason 见 CDP Network.ErrorReason 枚举。
+  Future<void> abortFetchRequest(String requestId, {String reason = 'Aborted'}) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return;
+    _pendingFetchRequests.remove(requestId);
+    try {
+      await cdp.send(
+        'Fetch.failRequest',
+        params: <String, Object?>{
+          'requestId': requestId,
+          'errorReason': reason,
+        },
+        sessionId: _pageSessionId,
+      );
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  /// 全部放行已暂存请求。
+  Future<void> continueAllFetch() async {
+    final ids = _pendingFetchRequests.keys.toList();
+    for (final id in ids) {
+      await continueFetchRequest(id);
+    }
+  }
+
+  void _onFetchRequestPaused(Map<String, Object?> p) {
+    final requestId = '${p['requestId']}';
+    final request = p['request'] as Map?;
+    if (requestId.isEmpty || request == null) return;
+    _pendingFetchRequests[requestId] = <String, Object?>{
+      'method': request['method'],
+      'url': request['url'],
+      'ts': DateTime.now().toUtc().toIso8601String(),
+    };
+    notifyListeners();
   }
 
   /// 是否在主 frame 导航时保留旧日志。关闭后下次导航自动清表。

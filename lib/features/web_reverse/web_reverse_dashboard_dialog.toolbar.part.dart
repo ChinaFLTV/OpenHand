@@ -120,6 +120,34 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       onPressed: () => _saveHarToFile(ctrl, isZh),
                     ),
                     const SizedBox(width: 8),
+                    _ToolbarIconButton(
+                      tooltip: isZh
+                          ? '截图（当前可视区）'
+                          : 'Screenshot (viewport)',
+                      icon: Icons.photo_camera_outlined,
+                      onPressed: () =>
+                          _saveScreenshot(ctrl, isZh, fullPage: false),
+                    ),
+                    const SizedBox(width: 8),
+                    _ToolbarIconButton(
+                      tooltip: isZh
+                          ? '截图（整页滚动拼接）'
+                          : 'Screenshot (full page)',
+                      icon: Icons.picture_in_picture_rounded,
+                      onPressed: () =>
+                          _saveScreenshot(ctrl, isZh, fullPage: true),
+                    ),
+                    const SizedBox(width: 8),
+                    _ToolbarTogglePill(
+                      label: isZh ? '请求拦截' : 'Intercept',
+                      icon: Icons.block_rounded,
+                      selected: ctrl.isFetchInterceptEnabled,
+                      onChanged: (v) async {
+                        await ctrl.setFetchInterceptEnabled(v);
+                      },
+                      reduceMotion: reduceMotion,
+                    ),
+                    const SizedBox(width: 8),
                     _ToolbarPrimaryPill(
                       icon: Icons.open_in_new_rounded,
                       label: isZh ? '打开官方 DevTools' : 'Open DevTools',
@@ -219,6 +247,73 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           : (isZh ? 'HAR 已保存到 $written' : 'HAR saved to $written')),
       duration: const Duration(seconds: 3),
     ));
+  }
+
+  Future<void> _saveScreenshot(
+    WebReverseSessionController ctrl,
+    bool isZh, {
+    required bool fullPage,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    const typeGroup = XTypeGroup(label: 'PNG', extensions: <String>['png']);
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: 'screenshot-${fullPage ? "full" : "viewport"}-$ts.png',
+        acceptedTypeGroups: const [typeGroup],
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'getSaveLocation screenshot',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '打开保存对话框失败' : 'Failed to open save dialog'),
+        duration: const Duration(seconds: 2),
+      ));
+      return;
+    }
+    if (location == null) return;
+    final bytes = fullPage
+        ? await ctrl.captureFullPageScreenshot()
+        : await ctrl.captureScreenshot();
+    if (!mounted) return;
+    if (bytes == null) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '截图失败' : 'Screenshot failed'),
+        duration: const Duration(seconds: 2),
+      ));
+      return;
+    }
+    try {
+      await File(location.path).writeAsBytes(bytes, flush: true);
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          isZh ? '已保存到 ${location.path}' : 'Saved to ${location.path}',
+        ),
+        duration: const Duration(seconds: 3),
+      ));
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'write screenshot',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '截图保存失败' : 'Screenshot save failed'),
+        duration: const Duration(seconds: 2),
+      ));
+    }
   }
 }
 

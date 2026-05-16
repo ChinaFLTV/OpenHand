@@ -103,6 +103,8 @@ class _NetworkBody extends StatelessWidget {
         selected != null && _networkByIdContains(all, selected.requestId);
     return Column(
       children: [
+        if (controller.isFetchInterceptEnabled)
+          _PendingFetchBanner(controller: controller, isZh: isZh),
         _ResourceFilterBar(
           value: resourceFilter,
           isZh: isZh,
@@ -586,5 +588,134 @@ class _Waterfall extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+
+/// 拦截模式横幅：列出待决策请求 + 全部放行/逐条 abort。
+/// 仅在 controller.isFetchInterceptEnabled 时显示。
+class _PendingFetchBanner extends StatelessWidget {
+  const _PendingFetchBanner({required this.controller, required this.isZh});
+
+  final WebReverseSessionController controller;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final pending = controller.pendingFetchRequests;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: cs.tertiaryContainer.withValues(alpha: 0.55),
+        border: Border(
+          bottom: BorderSide(color: cs.outlineVariant),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.block_rounded, size: 16, color: cs.onTertiaryContainer),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              isZh
+                  ? '请求拦截已启用：${pending.length} 个请求待决策（点击下方继续/中止）。'
+                  : 'Request intercept on: ${pending.length} pending.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onTertiaryContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (pending.isNotEmpty) ...[
+            FilledButton.tonal(
+              onPressed: controller.continueAllFetch,
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              child: Text(isZh ? '全部放行' : 'Continue all'),
+            ),
+            const SizedBox(width: 6),
+            PopupMenuButton<String>(
+              tooltip: isZh ? '查看待决策请求' : 'Pending requests',
+              icon: const Icon(Icons.list_alt_rounded, size: 18),
+              itemBuilder: (_) => [
+                for (final p in pending.take(20))
+                  PopupMenuItem(
+                    value: p.requestId,
+                    onTap: () => _showActions(context, p),
+                    child: Text(
+                      '${p.method} ${p.url}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showActions(
+    BuildContext context,
+    ({String requestId, String method, String url}) p,
+  ) {
+    Future.microtask(() async {
+      if (!context.mounted) return;
+      final isZh = this.isZh;
+      final action = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(isZh ? '处理拦截请求' : 'Handle intercepted request'),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${p.method} ${p.url}',
+                    style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 12)),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('Aborted'),
+              child: Text(isZh ? '中止 (Aborted)' : 'Abort'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop('AccessDenied'),
+              child: const Text('AccessDenied'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop('TimedOut'),
+              child: const Text('TimedOut'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop('continue'),
+              child: Text(isZh ? '继续' : 'Continue'),
+            ),
+          ],
+        ),
+      );
+      if (action == null) return;
+      if (action == 'continue') {
+        await controller.continueFetchRequest(p.requestId);
+      } else {
+        await controller.abortFetchRequest(p.requestId, reason: action);
+      }
+    });
   }
 }
