@@ -98,55 +98,69 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
   }
 
   Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
-    // 关闭按钮 + URL + 复制菜单同一行；用 crossAxisAlignment.center 把
-    // 关闭图标垂直居中，URL 用 vertical padding 对齐图标光学中点；
-    // URL 与左侧图标之间额外留 8px gap，避免视觉粘连。
+    // 2026-05-17 — 关闭按钮 + URL + 复制菜单同一行；显式 center 对齐确
+    // 保关闭图标永远视觉居中，URL 限制为单行 + 省略号避免双行换行后
+    // 图标看起来偏上；给 URL 一个固定 height + center 包裹再加一道
+    // 双层保险，即便后续主题字体变更也能稳定居中。
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Row(
         children: [
-          Tooltip(
-            message: isZh ? '关闭详情' : 'Close detail',
-            child: InkResponse(
-              onTap: widget.onClose,
-              radius: 18,
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 18,
-                  color: cs.onSurfaceVariant,
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: Tooltip(
+              message: isZh ? '关闭详情' : 'Close detail',
+              child: InkResponse(
+                onTap: widget.onClose,
+                radius: 18,
+                child: Center(
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: SelectableText(
-              widget.entry.url,
-              maxLines: 2,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                color: cs.onSurface,
-                height: 1.4,
+            child: SizedBox(
+              height: 32,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SelectableText(
+                  widget.entry.url,
+                  maxLines: 1,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: cs.onSurface,
+                    height: 1.2,
+                  ),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          Tooltip(
-            message: isZh ? '复制为...' : 'Copy as...',
-            child: PopupMenuButton<String>(
-              icon: const Icon(Icons.content_copy_rounded, size: 18),
-              padding: EdgeInsets.zero,
-              splashRadius: 18,
-              onSelected: (kind) => _copyAs(kind, isZh),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'url', child: Text('URL')),
-                PopupMenuItem(value: 'curl', child: Text('cURL (POSIX)')),
-                PopupMenuItem(value: 'curl-cmd', child: Text('cURL (Windows)')),
-                PopupMenuItem(value: 'fetch', child: Text('fetch')),
-                PopupMenuItem(value: 'fetch-node', child: Text('fetch (Node.js)')),
-              ],
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: Tooltip(
+              message: isZh ? '复制为...' : 'Copy as...',
+              child: PopupMenuButton<String>(
+                icon: const Icon(Icons.content_copy_rounded, size: 18),
+                padding: EdgeInsets.zero,
+                splashRadius: 18,
+                onSelected: (kind) => _copyAs(kind, isZh),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'url', child: Text('URL')),
+                  PopupMenuItem(value: 'curl', child: Text('cURL (POSIX)')),
+                  PopupMenuItem(value: 'curl-cmd', child: Text('cURL (Windows)')),
+                  PopupMenuItem(value: 'fetch', child: Text('fetch')),
+                  PopupMenuItem(value: 'fetch-node', child: Text('fetch (Node.js)')),
+                ],
+              ),
             ),
           ),
         ],

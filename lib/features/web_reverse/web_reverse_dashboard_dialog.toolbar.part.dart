@@ -634,7 +634,16 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
                 ),
                 decoration: InputDecoration(
                   isDense: true,
+                  // 2026-05-17 — 全局 InputDecorationTheme 默认 filled:true
+                  // 会让搜索胶囊内部再叠一层 fill，看起来像「胶囊里又套
+                  // 一只胶囊」。这里强制 filled:false + border:none，让
+                  // 文本输入区与外层 AnimatedContainer 的圆角胶囊融为一
+                  // 体，视觉上只保留最外层一道边。
+                  filled: false,
+                  fillColor: Colors.transparent,
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   hintText: widget.hint,
                   hintStyle: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant.withValues(alpha: 0.75),
@@ -704,11 +713,14 @@ class _ToolbarTogglePill extends StatelessWidget {
         duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
-          color: selected ? cs.secondaryContainer : Colors.transparent,
+          // 2026-05-17 — 与全局主色保持一致：选中态用 primaryContainer
+          // (而不是 secondaryContainer)，避免和会话顶部胶囊 / 设置项中
+          // "已启用并注入" 的绿调风格出现两套主题。
+          color: selected ? cs.primaryContainer : Colors.transparent,
           borderRadius: BorderRadius.circular(_kToolbarRadius),
           border: Border.all(
             color: selected
-                ? cs.secondary.withValues(alpha: 0.4)
+                ? cs.primary.withValues(alpha: 0.36)
                 : cs.outlineVariant,
           ),
         ),
@@ -726,7 +738,7 @@ class _ToolbarTogglePill extends StatelessWidget {
                     icon,
                     size: 14,
                     color: selected
-                        ? cs.onSecondaryContainer
+                        ? cs.onPrimaryContainer
                         : cs.onSurfaceVariant,
                   ),
                   const SizedBox(width: 6),
@@ -734,7 +746,7 @@ class _ToolbarTogglePill extends StatelessWidget {
                     label,
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: selected ? cs.onSecondaryContainer : cs.onSurface,
+                      color: selected ? cs.onPrimaryContainer : cs.onSurface,
                     ),
                   ),
                 ],
@@ -862,12 +874,12 @@ class _ToolbarThrottleButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: value == WebReverseThrottlePreset.none
                 ? Colors.transparent
-                : cs.tertiaryContainer,
+                : cs.primaryContainer,
             borderRadius: BorderRadius.circular(_kToolbarRadius),
             border: Border.all(
               color: value == WebReverseThrottlePreset.none
                   ? cs.outlineVariant
-                  : cs.tertiary.withValues(alpha: 0.4),
+                  : cs.primary.withValues(alpha: 0.36),
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -879,7 +891,7 @@ class _ToolbarThrottleButton extends StatelessWidget {
                 size: 14,
                 color: value == WebReverseThrottlePreset.none
                     ? cs.onSurfaceVariant
-                    : cs.onTertiaryContainer,
+                    : cs.onPrimaryContainer,
               ),
               const SizedBox(width: 6),
               Text(
@@ -888,7 +900,7 @@ class _ToolbarThrottleButton extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: value == WebReverseThrottlePreset.none
                       ? cs.onSurface
-                      : cs.onTertiaryContainer,
+                      : cs.onPrimaryContainer,
                 ),
               ),
               const SizedBox(width: 4),

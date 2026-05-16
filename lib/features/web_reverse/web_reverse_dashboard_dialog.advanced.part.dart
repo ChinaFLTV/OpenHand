@@ -275,13 +275,13 @@ Future<void> _showExtraHeadersDialog(
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          label: isZh ? '取消' : 'Cancel',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(isZh ? '保存' : 'Save'),
+          label: isZh ? '保存' : 'Save',
         ),
       ],
     ),
@@ -396,11 +396,11 @@ Future<void> _showCdpPaletteDialog(
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: Text(isZh ? '关闭' : 'Close'),
+          label: isZh ? '关闭' : 'Close',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () async {
             final m = method.text.trim();
             if (m.isEmpty) return;
@@ -412,7 +412,7 @@ Future<void> _showCdpPaletteDialog(
             result.value =
                 r == null ? '(null)' : const JsonEncoder.withIndent('  ').convert(r);
           },
-          child: Text(isZh ? '执行' : 'Run'),
+          label: isZh ? '执行' : 'Run',
         ),
       ],
     ),
@@ -540,11 +540,11 @@ Future<void> _showDiffPicker(
           ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            label: isZh ? '取消' : 'Cancel',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.primary(
             onPressed: (a == null || b == null)
                 ? null
                 : () {
@@ -555,7 +555,7 @@ Future<void> _showDiffPicker(
                           _DiffViewerDialog(a: a!, b: b!, isZh: isZh),
                     );
                   },
-            child: Text(isZh ? '对比' : 'Diff'),
+            label: isZh ? '对比' : 'Diff',
           ),
         ],
       ),
@@ -683,15 +683,12 @@ Future<void> _showServiceWorkersDialog(
               ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: Text(isZh ? '关闭' : 'Close'),
+          label: isZh ? '关闭' : 'Close',
         ),
         if (list.isNotEmpty)
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(dialogContext).colorScheme.error,
-            ),
+          OpenHandDialogActionButton.destructive(
             onPressed: () async {
               Navigator.of(dialogContext).pop();
               // 用 Runtime.evaluate 调 navigator.serviceWorker.getRegistrations 一键 unregister。
@@ -708,7 +705,7 @@ Future<void> _showServiceWorkersDialog(
                 duration: const Duration(seconds: 2),
               ));
             },
-            child: Text(isZh ? '全部反注册' : 'Unregister all'),
+            label: isZh ? '全部反注册' : 'Unregister all',
           ),
       ],
     ),
@@ -789,9 +786,9 @@ Future<void> _toggleMitmproxyBridge(
                   'then set client proxy to 127.0.0.1:8080 and trust the root cert via http://mitm.it.',
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(isZh ? '关闭' : 'Close'),
+            label: isZh ? '关闭' : 'Close',
           ),
         ],
       ),
@@ -814,13 +811,13 @@ Future<void> _toggleMitmproxyBridge(
                 'Captured traffic shows up under the mitmproxy resource type.',
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          label: isZh ? '取消' : 'Cancel',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(isZh ? '启动' : 'Start'),
+          label: isZh ? '启动' : 'Start',
         ),
       ],
     ),
@@ -896,7 +893,7 @@ Future<void> _toggleWebRtcCapture(
               ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () async {
             await Clipboard.setData(
               ClipboardData(text: const JsonEncoder.withIndent('  ').convert(entries)),
@@ -907,11 +904,11 @@ Future<void> _toggleWebRtcCapture(
               duration: const Duration(seconds: 1),
             ));
           },
-          child: Text(isZh ? '复制 JSON' : 'Copy JSON'),
+          label: isZh ? '复制 JSON' : 'Copy JSON',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: Text(isZh ? '关闭' : 'Close'),
+          label: isZh ? '关闭' : 'Close',
         ),
       ],
     ),
@@ -988,13 +985,13 @@ Future<void> _showWebcrackDialog(
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: Text(isZh ? '关闭' : 'Close'),
+          label: isZh ? '关闭' : 'Close',
         ),
         ValueListenableBuilder<bool>(
           valueListenable: running,
-          builder: (_, busy, _) => FilledButton.icon(
+          builder: (_, busy, _) => OpenHandDialogActionButton.primary(
             onPressed: busy
                 ? null
                 : () async {
@@ -1004,15 +1001,9 @@ Future<void> _showWebcrackDialog(
                     running.value = false;
                     output.value = r;
                   },
-            icon: Icon(
-              busy
-                  ? Icons.hourglass_top_rounded
-                  : Icons.code_off_rounded,
-              size: 16,
-            ),
-            label: Text(busy
+            label: busy
                 ? (isZh ? '处理中…' : 'Working…')
-                : (isZh ? '反混淆' : 'Deobfuscate')),
+                : (isZh ? '反混淆' : 'Deobfuscate'),
           ),
         ),
       ],

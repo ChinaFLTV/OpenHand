@@ -119,48 +119,74 @@ class _NetworkBody extends StatelessWidget {
         ),
         Divider(height: 1, color: cs.outlineVariant),
         Expanded(
-          child: hasSelection
-              ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      width: 480,
-                      child: _NetworkList(
-                        items: filtered,
-                        listKey: state._networkListKey,
-                        selectedId: selected.requestId,
-                        onSelect: (e) =>
-                            state.rebuildFromExternal(() => state._selectedRequest = e),
-                        onCopyUrl: (e) => _copyUrl(context, e, isZh),
-                        controller: controller,
-                        reduceMotion: reduceMotion,
-                        isZh: isZh,
+          // 2026-05-17 — 详情面板进出动画：用 AnimatedSwitcher 把"列表
+          // 独占" 与 "列表 + 详情" 两种 layout 之间的切换包裹起来，
+          // 详情侧从右滑入并淡入；关闭时反向滑出。同时面板宽度由
+          // AnimatedSize 缓动，避免直接 size jump 导致的视觉硬切。
+          child: AnimatedSwitcher(
+            duration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final fade = FadeTransition(opacity: animation, child: child);
+              if (child.key == const ValueKey<String>('with-detail')) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.04, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: fade,
+                );
+              }
+              return fade;
+            },
+            child: hasSelection
+                ? Row(
+                    key: const ValueKey<String>('with-detail'),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: 480,
+                        child: _NetworkList(
+                          items: filtered,
+                          listKey: state._networkListKey,
+                          selectedId: selected.requestId,
+                          onSelect: (e) => state.rebuildFromExternal(
+                              () => state._selectedRequest = e),
+                          onCopyUrl: (e) => _copyUrl(context, e, isZh),
+                          controller: controller,
+                          reduceMotion: reduceMotion,
+                          isZh: isZh,
+                        ),
                       ),
-                    ),
-                    VerticalDivider(width: 1, color: cs.outlineVariant),
-                    Expanded(
-                      child: _RequestDetailPanel(
-                        controller: controller,
-                        entry: selected,
-                        isZh: isZh,
-                        reduceMotion: reduceMotion,
-                        onClose: () =>
-                            state.rebuildFromExternal(() => state._selectedRequest = null),
+                      VerticalDivider(width: 1, color: cs.outlineVariant),
+                      Expanded(
+                        child: _RequestDetailPanel(
+                          controller: controller,
+                          entry: selected,
+                          isZh: isZh,
+                          reduceMotion: reduceMotion,
+                          onClose: () => state.rebuildFromExternal(
+                              () => state._selectedRequest = null),
+                        ),
                       ),
-                    ),
-                  ],
-                )
-              : _NetworkList(
-                  items: filtered,
-                  listKey: state._networkListKey,
-                  selectedId: null,
-                  onSelect: (e) =>
-                      state.rebuildFromExternal(() => state._selectedRequest = e),
-                  onCopyUrl: (e) => _copyUrl(context, e, isZh),
-                  controller: controller,
-                  reduceMotion: reduceMotion,
-                  isZh: isZh,
-                ),
+                    ],
+                  )
+                : _NetworkList(
+                    key: const ValueKey<String>('list-only'),
+                    items: filtered,
+                    listKey: state._networkListKey,
+                    selectedId: null,
+                    onSelect: (e) => state.rebuildFromExternal(
+                        () => state._selectedRequest = e),
+                    onCopyUrl: (e) => _copyUrl(context, e, isZh),
+                    controller: controller,
+                    reduceMotion: reduceMotion,
+                    isZh: isZh,
+                  ),
+          ),
         ),
       ],
     );
@@ -269,6 +295,7 @@ class _FilterChipPill extends StatelessWidget {
 
 class _NetworkList extends StatelessWidget {
   const _NetworkList({
+    super.key,
     required this.items,
     required this.listKey,
     required this.selectedId,
@@ -674,7 +701,7 @@ class _NetworkRow extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: r.body));
               if (!dialogContext.mounted) return;
@@ -683,11 +710,11 @@ class _NetworkRow extends StatelessWidget {
                 duration: const Duration(seconds: 1),
               ));
             },
-            child: Text(isZh ? '复制响应体' : 'Copy body'),
+            label: isZh ? '复制响应体' : 'Copy body',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(isZh ? '关闭' : 'Close'),
+            label: isZh ? '关闭' : 'Close',
           ),
         ],
       ),

@@ -1681,7 +1681,7 @@ class _SamplingTopList extends StatelessWidget {
                   ),
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: row.stack.join('\n')));
                 Navigator.of(dialogContext).pop();
@@ -1690,11 +1690,11 @@ class _SamplingTopList extends StatelessWidget {
                   duration: const Duration(seconds: 1),
                 ));
               },
-              child: Text(isZh ? '复制' : 'Copy'),
+              label: isZh ? '复制' : 'Copy',
             ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(isZh ? '关闭' : 'Close'),
+              label: isZh ? '关闭' : 'Close',
             ),
           ],
         );
@@ -2789,13 +2789,13 @@ class _RecorderPanelState extends State<_RecorderPanel> {
           ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            label: isZh ? '取消' : 'Cancel',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(isZh ? '添加' : 'Add'),
+            label: isZh ? '添加' : 'Add',
           ),
         ],
       ),
