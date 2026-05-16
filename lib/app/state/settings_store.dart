@@ -246,6 +246,12 @@ class SettingsStore {
           snapshot.aiStreamMaxMessageCardsPerSecond,
       'ai_stream_throttle_enabled': snapshot.aiStreamThrottleEnabled,
       'ai_stream_throttle_auto_mode': snapshot.aiStreamThrottleAutoMode,
+      'ai_stream_throttle_cloud_sync_provider':
+          snapshot.aiStreamThrottleCloudSyncProvider,
+      'ai_stream_throttle_cloud_sync_endpoint':
+          snapshot.aiStreamThrottleCloudSyncEndpoint,
+      'ai_stream_throttle_cloud_sync_token':
+          snapshot.aiStreamThrottleCloudSyncToken,
       'ai_stream_throttle_template_overrides': <String, Object?>{
         for (final entry in snapshot.aiStreamThrottleTemplateOverrides.entries)
           if (!entry.value.isEmpty) entry.key: entry.value.toJson(),
@@ -827,6 +833,15 @@ class SettingsStore {
     final aiStreamThrottleAutoMode = json['ai_stream_throttle_auto_mode'] is bool
         ? json['ai_stream_throttle_auto_mode'] as bool
         : AppSettingsSnapshot.defaultAiStreamThrottleAutoMode;
+    final aiStreamThrottleCloudSyncProvider =
+        '${json['ai_stream_throttle_cloud_sync_provider'] ?? AppSettingsSnapshot.defaultAiStreamThrottleCloudSyncProvider}'
+            .trim();
+    final aiStreamThrottleCloudSyncEndpoint =
+        '${json['ai_stream_throttle_cloud_sync_endpoint'] ?? AppSettingsSnapshot.defaultAiStreamThrottleCloudSyncEndpoint}'
+            .trim();
+    final aiStreamThrottleCloudSyncToken =
+        '${json['ai_stream_throttle_cloud_sync_token'] ?? AppSettingsSnapshot.defaultAiStreamThrottleCloudSyncToken}'
+            .trim();
     final aiAutoTitleEnabled = json['ai_auto_title_enabled'] is bool
         ? json['ai_auto_title_enabled'] as bool
         : true;
@@ -1231,6 +1246,9 @@ class SettingsStore {
       aiStreamMaxMessageCardsPerSecond: aiStreamMaxMessageCardsPerSecond,
       aiStreamThrottleEnabled: aiStreamThrottleEnabled,
       aiStreamThrottleAutoMode: aiStreamThrottleAutoMode,
+      aiStreamThrottleCloudSyncProvider: aiStreamThrottleCloudSyncProvider,
+      aiStreamThrottleCloudSyncEndpoint: aiStreamThrottleCloudSyncEndpoint,
+      aiStreamThrottleCloudSyncToken: aiStreamThrottleCloudSyncToken,
       aiStreamThrottleTemplateOverrides: aiStreamThrottleTemplateOverrides,
       aiAutoTitleEnabled: aiAutoTitleEnabled,
       aiDefaultSessionMode: aiDefaultSessionMode,

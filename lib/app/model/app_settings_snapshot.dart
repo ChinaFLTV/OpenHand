@@ -110,6 +110,11 @@ class AppSettingsSnapshot {
           defaultAiStreamMaxMessageCardsPerSecond,
       aiStreamThrottleEnabled: defaultAiStreamThrottleEnabled,
       aiStreamThrottleAutoMode: defaultAiStreamThrottleAutoMode,
+      aiStreamThrottleCloudSyncProvider:
+          defaultAiStreamThrottleCloudSyncProvider,
+      aiStreamThrottleCloudSyncEndpoint:
+          defaultAiStreamThrottleCloudSyncEndpoint,
+      aiStreamThrottleCloudSyncToken: defaultAiStreamThrottleCloudSyncToken,
       aiStreamThrottleTemplateOverrides:
           const <String, AiStreamThrottleOverride>{},
       aiAutoTitleEnabled: true,
@@ -233,6 +238,9 @@ class AppSettingsSnapshot {
     required this.aiStreamMaxMessageCardsPerSecond,
     required this.aiStreamThrottleEnabled,
     required this.aiStreamThrottleAutoMode,
+    required this.aiStreamThrottleCloudSyncProvider,
+    required this.aiStreamThrottleCloudSyncEndpoint,
+    required this.aiStreamThrottleCloudSyncToken,
     required this.aiStreamThrottleTemplateOverrides,
     required this.aiAutoTitleEnabled,
     required this.aiDefaultSessionMode,
@@ -562,6 +570,12 @@ class AppSettingsSnapshot {
   static const int autoStreamMaxCharsPerSecondMobile = 6;
   static const int autoStreamMaxMessageCardsPerSecondAuto = 2;
 
+  /// 2026-05-18 — 节流配置云端同步默认值；当前 provider/endpoint/token
+  /// 均空表示功能关闭。
+  static const String defaultAiStreamThrottleCloudSyncProvider = 'custom';
+  static const String defaultAiStreamThrottleCloudSyncEndpoint = '';
+  static const String defaultAiStreamThrottleCloudSyncToken = '';
+
   /// 子进程 graceful shutdown 等待窗口（毫秒）。在 SIGTERM 之后等待
   /// 该时长，若进程仍未退出则升级到 SIGKILL。值越大越仁慈，但 UI
   /// 取消反馈延迟也越大。
@@ -756,6 +770,18 @@ class AppSettingsSnapshot {
   /// 选择速率。
   final bool aiStreamThrottleAutoMode;
 
+  /// 2026-05-18 — 节流配置云端同步 provider 标识 (custom / icloud /
+  /// oauth)；当前仅 custom 走真实网络 IO，其余作为占位入口。
+  final String aiStreamThrottleCloudSyncProvider;
+
+  /// 2026-05-18 — 节流配置云端同步 endpoint（custom provider 走 HTTP
+  /// PUT/GET）。
+  final String aiStreamThrottleCloudSyncEndpoint;
+
+  /// 2026-05-18 — 节流配置云端同步 Bearer token；为空表示不发送
+  /// Authorization header。
+  final String aiStreamThrottleCloudSyncToken;
+
   /// 2026-05-17 — 每个线程模板对流式节流参数的独立覆盖（按 templateId
   /// 索引）。覆盖中的字段为 null 表示沿用全局值；isEmpty 的 entry 会被
   /// 持久化层剔除避免存储 noise。
@@ -914,6 +940,9 @@ class AppSettingsSnapshot {
     int? aiStreamMaxMessageCardsPerSecond,
     bool? aiStreamThrottleEnabled,
     bool? aiStreamThrottleAutoMode,
+    String? aiStreamThrottleCloudSyncProvider,
+    String? aiStreamThrottleCloudSyncEndpoint,
+    String? aiStreamThrottleCloudSyncToken,
     Map<String, AiStreamThrottleOverride>? aiStreamThrottleTemplateOverrides,
     bool? aiAutoTitleEnabled,
     String? aiDefaultSessionMode,
@@ -1082,6 +1111,14 @@ class AppSettingsSnapshot {
           aiStreamThrottleEnabled ?? this.aiStreamThrottleEnabled,
       aiStreamThrottleAutoMode:
           aiStreamThrottleAutoMode ?? this.aiStreamThrottleAutoMode,
+      aiStreamThrottleCloudSyncProvider:
+          aiStreamThrottleCloudSyncProvider ??
+          this.aiStreamThrottleCloudSyncProvider,
+      aiStreamThrottleCloudSyncEndpoint:
+          aiStreamThrottleCloudSyncEndpoint ??
+          this.aiStreamThrottleCloudSyncEndpoint,
+      aiStreamThrottleCloudSyncToken:
+          aiStreamThrottleCloudSyncToken ?? this.aiStreamThrottleCloudSyncToken,
       aiStreamThrottleTemplateOverrides:
           aiStreamThrottleTemplateOverrides ??
           this.aiStreamThrottleTemplateOverrides,

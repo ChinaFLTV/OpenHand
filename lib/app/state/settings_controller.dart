@@ -130,6 +130,12 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiStreamMaxMessageCardsPerSecond,
        _aiStreamThrottleEnabled = snapshot.aiStreamThrottleEnabled,
        _aiStreamThrottleAutoMode = snapshot.aiStreamThrottleAutoMode,
+       _aiStreamThrottleCloudSyncProvider =
+           snapshot.aiStreamThrottleCloudSyncProvider,
+       _aiStreamThrottleCloudSyncEndpoint =
+           snapshot.aiStreamThrottleCloudSyncEndpoint,
+       _aiStreamThrottleCloudSyncToken =
+           snapshot.aiStreamThrottleCloudSyncToken,
        _aiStreamThrottleTemplateOverrides = Map<String, AiStreamThrottleOverride>.unmodifiable(
          snapshot.aiStreamThrottleTemplateOverrides,
        ),
@@ -257,6 +263,9 @@ class SettingsController extends ChangeNotifier {
   int _aiStreamMaxMessageCardsPerSecond;
   bool _aiStreamThrottleEnabled;
   bool _aiStreamThrottleAutoMode;
+  String _aiStreamThrottleCloudSyncProvider;
+  String _aiStreamThrottleCloudSyncEndpoint;
+  String _aiStreamThrottleCloudSyncToken;
   Map<String, AiStreamThrottleOverride> _aiStreamThrottleTemplateOverrides;
   bool _aiAutoTitleEnabled;
   String _aiDefaultSessionMode;
@@ -420,6 +429,12 @@ class SettingsController extends ChangeNotifier {
   int get aiStreamMaxMessageCardsPerSecond => _aiStreamMaxMessageCardsPerSecond;
   bool get aiStreamThrottleEnabled => _aiStreamThrottleEnabled;
   bool get aiStreamThrottleAutoMode => _aiStreamThrottleAutoMode;
+  String get aiStreamThrottleCloudSyncProvider =>
+      _aiStreamThrottleCloudSyncProvider;
+  String get aiStreamThrottleCloudSyncEndpoint =>
+      _aiStreamThrottleCloudSyncEndpoint;
+  String get aiStreamThrottleCloudSyncToken =>
+      _aiStreamThrottleCloudSyncToken;
 
   /// 每个线程模板对流式节流参数的独立覆盖。返回不可变视图。
   Map<String, AiStreamThrottleOverride>
@@ -1510,6 +1525,41 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  /// 2026-05-18 — 节流配置云端同步 provider 标识。
+  Future<bool> updateAiStreamThrottleCloudSyncProvider(String value) async {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return false;
+    return _commitMutation(() {
+      if (_aiStreamThrottleCloudSyncProvider == normalized) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiStreamThrottleCloudSyncProvider = normalized;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiStreamThrottleCloudSyncEndpoint(String value) async {
+    final normalized = value.trim();
+    return _commitMutation(() {
+      if (_aiStreamThrottleCloudSyncEndpoint == normalized) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiStreamThrottleCloudSyncEndpoint = normalized;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiStreamThrottleCloudSyncToken(String value) async {
+    final normalized = value.trim();
+    return _commitMutation(() {
+      if (_aiStreamThrottleCloudSyncToken == normalized) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiStreamThrottleCloudSyncToken = normalized;
+      return _MutationDisposition.apply;
+    });
+  }
+
   /// 设置某个线程模板的字符节流覆盖。`value == null` 时清除该模板对该
   /// 字段的覆盖；当模板的两个覆盖字段都被清除时，整个 entry 一并删除。
   Future<bool> updateAiStreamThrottleCharsOverride(
@@ -2572,6 +2622,9 @@ class SettingsController extends ChangeNotifier {
       aiStreamMaxMessageCardsPerSecond: _aiStreamMaxMessageCardsPerSecond,
       aiStreamThrottleEnabled: _aiStreamThrottleEnabled,
       aiStreamThrottleAutoMode: _aiStreamThrottleAutoMode,
+      aiStreamThrottleCloudSyncProvider: _aiStreamThrottleCloudSyncProvider,
+      aiStreamThrottleCloudSyncEndpoint: _aiStreamThrottleCloudSyncEndpoint,
+      aiStreamThrottleCloudSyncToken: _aiStreamThrottleCloudSyncToken,
       aiStreamThrottleTemplateOverrides: _aiStreamThrottleTemplateOverrides,
       aiAutoTitleEnabled: _aiAutoTitleEnabled,
       aiDefaultSessionMode: _aiDefaultSessionMode,
@@ -2698,6 +2751,12 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiStreamMaxMessageCardsPerSecond;
     _aiStreamThrottleEnabled = snapshot.aiStreamThrottleEnabled;
     _aiStreamThrottleAutoMode = snapshot.aiStreamThrottleAutoMode;
+    _aiStreamThrottleCloudSyncProvider =
+        snapshot.aiStreamThrottleCloudSyncProvider;
+    _aiStreamThrottleCloudSyncEndpoint =
+        snapshot.aiStreamThrottleCloudSyncEndpoint;
+    _aiStreamThrottleCloudSyncToken =
+        snapshot.aiStreamThrottleCloudSyncToken;
     _aiStreamThrottleTemplateOverrides =
         Map<String, AiStreamThrottleOverride>.unmodifiable(
           snapshot.aiStreamThrottleTemplateOverrides,
