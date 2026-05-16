@@ -1,8 +1,14 @@
 part of 'openhand_home_page.dart';
 
-const int _messageMarkdownCollapseCharThreshold = 5000;
-const int _toolResultMarkdownCollapseCharThreshold = 1200;
-const int _messageMarkdownCollapseLineThreshold = 90;
+// 阶段㉒ — 触发「折叠 + 渐变预览」的字符 / 行阈值再下调一档，让 60+
+// 条历史会话首次打开时大部分长消息只解析 2000 字预览块（_previewCharCap），
+// 完整 markdown 解析推迟到用户主动展开时再触发。
+// 5000 → 2400 字符：覆盖典型 GPT-4 / Claude 长答的 ~1200 token 输出。
+// 1200 → 800：tool_result 压缩更激进 (Bash/grep 输出常以行计算)。
+// 90 → 45 行：长答列表 / 大段代码即时折叠。
+const int _messageMarkdownCollapseCharThreshold = 2400;
+const int _toolResultMarkdownCollapseCharThreshold = 800;
+const int _messageMarkdownCollapseLineThreshold = 45;
 
 /// Maximum message body size (in characters) at which we still attempt
 /// markdown parsing. Above this we render the raw text directly to keep
@@ -505,7 +511,9 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   // the parse/layout O(constant) without changing visible output (the
   // truncated prefix still far exceeds `maxHeight`, so the fade still
   // triggers correctly).
-  static const int _previewCharCap = 2000;
+  // 阶段㉒ — 2000 → 1200：240 px maxHeight 大约 9-12 行实际可见，
+  // 1200 字符（≈ 30 行 markdown）已远超可视范围；越短越快 parse。
+  static const int _previewCharCap = 1200;
 
   double? _contentHeight;
 
