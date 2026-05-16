@@ -1,3 +1,5 @@
+library;
+import '../../memory/index.dart';
 /// Hermes Talker 自主学习 LLM dispatcher (Task 18 Step 4-5 / 2026-04-25).
 ///
 /// 构造一个受限子 Agent：使用流式 chat 调用，把 `Memory` 和 `SkillManager`
@@ -15,11 +17,9 @@
 ///   字段（通过 [SelfLearningContext.onProgress]）。多轮工具调用以
 ///   `\n\n[tool-call round N 之后]\n\n` 作为分隔符追加，让用户能看到
 ///   完整思考 → 调用 → 再思考 → 回答的轨迹。
-library;
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
-import '../../memory/memory_controller.dart';
 import '../model/ai_model_catalog.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';

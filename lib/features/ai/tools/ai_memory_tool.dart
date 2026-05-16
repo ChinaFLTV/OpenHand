@@ -1,3 +1,5 @@
+library;
+import '../../memory/index.dart';
 /// Hermes Talker 专用 Memory 工具 (Task 18 / 2026-04-25).
 ///
 /// 提供给自我学习子 Agent 使用，将对话中的关键结论沉淀到 [MemoryController]
@@ -14,10 +16,7 @@
 /// 与其它内置工具的区别：本工具**不是 destructive**（delete 是白名单内
 /// 允许子 Agent 发起的行为），但仅在 Hermes Talker 自我学习场景下
 /// 被注册到工具目录（由 registry 的 `memoryControllerProvider` 控制）。
-library;
 
-import '../../memory/memory_controller.dart';
-import '../../memory/model/user_memory_entry.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';

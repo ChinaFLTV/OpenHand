@@ -7,8 +7,6 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../instructions/index.dart';
-import '../../memory/model/user_memory_entry.dart';
-import '../../skills/model/local_skill.dart';
 import '../model/ai_attachment.dart';
 import '../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
 import '../model/ai_model_config.dart';
@@ -23,6 +21,8 @@ import 'ai_plan_approval_detector.dart';
 import 'ai_prompt_template_repository.dart';
 import 'ai_protocol_adapter.dart';
 import 'ai_tool_runtime_service.dart';
+import '../../memory/index.dart';
+import '../../skills/index.dart';
 
 class AiPromptBuildResult {
   const AiPromptBuildResult({

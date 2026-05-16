@@ -7,10 +7,6 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 
-import '../../mcp/model/mcp_server.dart';
-import '../../mcp/model/mcp_tool.dart';
-import '../../mcp/service/mcp_tool_discovery_service.dart';
-import '../../skills/model/local_skill.dart';
 import '../model/ai_builtin_tool_config.dart';
 import '../model/ai_deny_command_rule.dart';
 import '../model/ai_model_config.dart';
@@ -26,6 +22,8 @@ import 'ai_file_mutation_ledger.dart';
 import 'ai_file_tracker_service.dart';
 import 'ai_protocol_adapter.dart';
 import 'ai_tool_execution_registry.dart';
+import '../../mcp/index.dart';
+import '../../skills/index.dart';
 
 enum AiRuntimeToolSource { builtin, mcp, skill }
 

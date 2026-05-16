@@ -1,12 +1,12 @@
 import '../../../app/support/openhand_paths.dart';
 import '../../instructions/index.dart';
 import '../../mcp/index.dart';
-import '../../memory/model/user_memory_entry.dart';
-import '../../skills/model/local_skill.dart';
 import 'ai_allow_command_rule.dart';
 import 'ai_builtin_tool_config.dart';
 import 'ai_deny_command_rule.dart';
 import 'ai_sandbox_settings.dart';
+import '../../memory/index.dart';
+import '../../skills/index.dart';
 
 class AiRepositorySnapshot {
   factory AiRepositorySnapshot.fromJson(Map<String, Object?> json) {
