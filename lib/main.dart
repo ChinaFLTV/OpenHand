@@ -14,16 +14,8 @@ import 'app/state/settings_controller.dart';
 import 'app/support/app_runtime_context.dart';
 import 'app/support/silent_log.dart';
 import 'app/support/system_proxy.dart';
-import 'features/ai/ai_session_controller.dart';
-import 'features/ai/service/ai_chat_service.dart';
-import 'features/ai/service/ai_claude_hook_service.dart';
+import 'features/ai/index.dart';
 import 'features/ai/service/ai_protocol_adapter.dart' as ai_protocol_adapter;
-import 'features/ai/service/lsp_client_service.dart';
-import 'features/ai/service/self_learning_dispatcher.dart';
-import 'features/ai/service/self_learning_runner.dart';
-import 'features/ai/service/self_learning_scheduler.dart';
-import 'features/ai/service/web_fetch/web_fetch_cache_store.dart';
-import 'features/ai/service/web_search/web_search_cache_store.dart';
 import 'features/crons/index.dart';
 import 'features/hooks/index.dart';
 import 'features/instructions/index.dart';
@@ -175,8 +167,7 @@ Future<void> _bootstrap() async {
   // AiSessionController so the Memory builtin tool (self-learning sub-agent)
   // can reach the real controller once it finishes loading.
   MemoryController? memoryControllerHandle;
-  final aiSessionControllerFuture = AiSessionController.create(
-    hookService: AiClaudeHookService(),
+  final aiModuleFuture = AiModule.bootstrap(
     userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
     memoryControllerProvider: () => memoryControllerHandle,
@@ -225,7 +216,8 @@ Future<void> _bootstrap() async {
   AppRuntimeContext.initialize(appInfo);
   developer.Timeline.startSync('openhand.boot.await_remaining_controllers');
   memoryControllerHandle = memory.controller;
-  final aiSessionController = await aiSessionControllerFuture;
+  final ai = await aiModuleFuture;
+  final aiSessionController = ai.controller;
   developer.Timeline.finishSync();
   // Make sure system-proxy detection has resolved before the user can
   // hit WebSearch/WebFetch. Best-effort — failures fall back to DIRECT.
@@ -390,9 +382,7 @@ Future<void> _bootstrap() async {
         ...InstructionsModule.providers(instructions),
         ...MessageGatewayModule.providers(messageGateway),
         ...PluginServiceModule.providers(pluginService),
-        ChangeNotifierProvider<AiSessionController>.value(
-          value: aiSessionController,
-        ),
+        ...AiModule.providers(ai),
         Provider<AppInfo>.value(value: appInfo),
       ],
       child: const OpenHandApp(),
