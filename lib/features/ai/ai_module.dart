@@ -4,7 +4,7 @@ import 'package:provider/single_child_widget.dart';
 import '../hooks/index.dart';
 import '../memory/index.dart';
 import 'ai_session_controller.dart';
-import 'service/ai_claude_hook_service.dart';
+import 'service/hook/ai_claude_hook_service.dart';
 
 /// Assembly point for the ai feature.
 ///

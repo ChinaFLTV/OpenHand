@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
-import '../service/ai_bash_tool_service.dart';
-import '../service/ai_chat_service.dart';
-import '../service/ai_claude_hook_service.dart';
-import '../service/ai_tool_runtime_service.dart';
+import '../service/bash/ai_bash_tool_service.dart';
+import '../service/chat/ai_chat_service.dart';
+import '../service/hook/ai_claude_hook_service.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_apply_file_diffs_tool.dart';
 import 'ai_ask_user_choice_tool.dart';
 import 'ai_bash_background_tool.dart';

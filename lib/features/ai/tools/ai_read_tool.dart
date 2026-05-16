@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../service/ai_claude_hook_service.dart';
-import '../service/ai_file_tracker_service.dart';
-import '../service/ai_tool_runtime_service.dart';
+import '../service/hook/ai_claude_hook_service.dart';
+import '../service/fs/ai_file_tracker_service.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_file_read_renderer.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';

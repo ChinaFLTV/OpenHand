@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../service/ai_file_history_service.dart';
-import '../service/ai_file_mutation_ledger.dart';
-import '../service/ai_file_tracker_service.dart';
-import '../service/ai_tool_runtime_service.dart';
+import '../service/fs/ai_file_history_service.dart';
+import '../service/fs/ai_file_mutation_ledger.dart';
+import '../service/fs/ai_file_tracker_service.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';

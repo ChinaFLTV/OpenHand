@@ -15,7 +15,7 @@ import 'app/support/app_runtime_context.dart';
 import 'app/support/silent_log.dart';
 import 'app/support/system_proxy.dart';
 import 'features/ai/index.dart';
-import 'features/ai/service/ai_protocol_adapter.dart' as ai_protocol_adapter;
+import 'features/ai/service/chat/ai_protocol_adapter.dart' as ai_protocol_adapter;
 import 'features/crons/index.dart';
 import 'features/hooks/index.dart';
 import 'features/instructions/index.dart';

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import '../../model/ai_web_fetch_settings.dart';
-import '../web_engine_telemetry_store_base.dart';
+import '../web_engine/web_engine_telemetry_store_base.dart';
 
 /// WebFetch 调用日志 + 引擎健康度的本地持久化存储。
 ///

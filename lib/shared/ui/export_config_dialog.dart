@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../features/ai/model/ai_session_message.dart';
-import '../../features/ai/service/ai_session_jsonl_exporter.dart';
+import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 

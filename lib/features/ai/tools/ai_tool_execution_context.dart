@@ -1,8 +1,8 @@
 import '../model/ai_deny_command_rule.dart';
 import '../model/ai_model_config.dart';
-import '../service/ai_bash_tool_service.dart';
-import '../service/ai_protocol_adapter.dart';
-import '../service/ai_tool_runtime_service.dart';
+import '../service/bash/ai_bash_tool_service.dart';
+import '../service/chat/ai_protocol_adapter.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
 
 class AiToolExecutionContext {
   const AiToolExecutionContext({

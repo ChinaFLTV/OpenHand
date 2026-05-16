@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
-import '../service/ai_bash_tool_service.dart';
-import '../service/ai_tool_runtime_service.dart';
-import '../service/lsp_client_service.dart';
+import '../service/bash/ai_bash_tool_service.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
+import '../service/lsp/lsp_client_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../../features/ai/service/ai_tool_execution_registry.dart';
+import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
 import 'silent_log.dart';
 
 /// 全局默认的子进程 graceful shutdown 等待窗口（毫秒）。AiSessionController

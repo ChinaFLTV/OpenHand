@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 import '../../model/ai_web_fetch_settings.dart';
-import '../web_engine_cache_store_base.dart';
+import '../web_engine/web_engine_cache_store_base.dart';
 
 /// URL → 抓取内容元数据 + 内容文件的本地持久化缓存。
 ///

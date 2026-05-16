@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../features/ai/service/ai_session_jsonl_exporter.dart';
+import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
 import 'animated_dialog.dart';
 
 /// Listenable controller backing the export progress dialog. Holds the

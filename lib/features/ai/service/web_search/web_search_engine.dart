@@ -2,10 +2,10 @@ import 'package:http/http.dart' as http;
 
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
-import '../web_engine_base.dart';
+import '../web_engine/web_engine_base.dart';
 
-export '../web_engine_base.dart' show WebEngineRequest;
-export '../web_engine_json_utils.dart'
+export '../web_engine/web_engine_base.dart' show WebEngineRequest;
+export '../web_engine/web_engine_json_utils.dart'
     show stringOf, readJsonPath, maybeJsonDecode;
 
 /// 单条搜索命中结果（统一抽象）。

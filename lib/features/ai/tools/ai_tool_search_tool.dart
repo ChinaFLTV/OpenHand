@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../service/ai_protocol_adapter.dart';
-import '../service/ai_tool_runtime_service.dart';
+import '../service/chat/ai_protocol_adapter.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';

@@ -1,11 +1,11 @@
 import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
-import '../service/ai_tool_runtime_service.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_web_fetch_settings.dart';
 import 'ai_web_search_settings.dart';
 
-export '../service/ai_tool_runtime_service.dart' show AiBuiltinToolKind;
+export '../service/runtime/ai_tool_runtime_service.dart' show AiBuiltinToolKind;
 export 'ai_web_fetch_settings.dart';
 export 'ai_web_search_settings.dart';
 

@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 import '../../model/ai_web_search_settings.dart';
-import '../web_engine_cache_store_base.dart';
+import '../web_engine/web_engine_cache_store_base.dart';
 
 /// 关键词 → summary 元数据的本地持久化缓存。
 ///

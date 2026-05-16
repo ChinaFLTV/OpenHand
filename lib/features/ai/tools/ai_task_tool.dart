@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
-import '../service/ai_bash_tool_service.dart';
-import '../service/ai_chat_service.dart';
-import '../service/ai_claude_hook_service.dart';
-import '../service/ai_protocol_adapter.dart';
-import '../service/ai_tool_runtime_service.dart';
+import '../service/bash/ai_bash_tool_service.dart';
+import '../service/chat/ai_chat_service.dart';
+import '../service/hook/ai_claude_hook_service.dart';
+import '../service/chat/ai_protocol_adapter.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';

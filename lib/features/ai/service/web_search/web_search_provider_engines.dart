@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_web_search_settings.dart';
-import '../web_engine_http_exception.dart';
+import '../web_engine/web_engine_http_exception.dart';
 import 'web_search_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────

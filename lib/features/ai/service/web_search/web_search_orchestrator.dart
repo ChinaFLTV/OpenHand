@@ -5,8 +5,8 @@ import 'package:http/http.dart' as http;
 
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
-import '../web_engine_concurrency.dart';
-import '../web_engine_quality.dart';
+import '../web_engine/web_engine_concurrency.dart';
+import '../web_engine/web_engine_quality.dart';
 import 'web_search_api_engines.dart';
 import 'web_search_engine.dart';
 import 'web_search_html_engines.dart';

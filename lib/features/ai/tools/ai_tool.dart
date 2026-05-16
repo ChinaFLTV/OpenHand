@@ -1,4 +1,4 @@
-import '../service/ai_tool_runtime_service.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_tool_execution_context.dart';
 
 /// 工具中断行为：用户发送新消息时当前工具的处理方式。

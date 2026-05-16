@@ -6,11 +6,11 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
-import '../service/ai_bash_tool_service.dart';
-import '../service/ai_file_history_service.dart';
-import '../service/ai_file_mutation_ledger.dart';
-import '../service/ai_file_tracker_service.dart';
-import '../service/ai_tool_runtime_service.dart';
+import '../service/bash/ai_bash_tool_service.dart';
+import '../service/fs/ai_file_history_service.dart';
+import '../service/fs/ai_file_mutation_ledger.dart';
+import '../service/fs/ai_file_tracker_service.dart';
+import '../service/runtime/ai_tool_runtime_service.dart';
 
 class AiToolUtils {
   AiToolUtils._();
