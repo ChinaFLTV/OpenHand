@@ -2520,6 +2520,7 @@ class _StreamThrottlePill extends StatelessWidget {
               templateId,
             );
         final disabled = effChars <= 0 || effCards <= 0;
+        final backlog = sessionController.sessionStreamCardBacklog(sessionId);
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
         final pillColor = disabled
@@ -2577,6 +2578,27 @@ class _StreamThrottlePill extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (backlog > 0) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.tertiary.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '+$backlog',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: iconColor,
+                            fontWeight: FontWeight.w800,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ],
                     if (override != null) ...[
                       const SizedBox(width: 4),
                       Icon(

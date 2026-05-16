@@ -1409,6 +1409,57 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
+              // 2026-05-17 — 节流总开关 + 自动模式入口（位于具体速率
+              // 配置项之前，让用户先决定"是否启用 / 是否自适应"再调
+              // 具体数字）
+              _ResponsiveSettingRow(
+                title:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '启用流式输出节流'
+                    : 'Enable Stream Throttle',
+                subtitle:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '一键开关字符 / 卡片节流。关闭后所有节流参数失效，AI 输出按真实速率全速渲染。'
+                    : 'Master switch for char/card throttling. When off, AI output renders at full speed.',
+                control: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Switch(
+                    value: settingsController.aiStreamThrottleEnabled,
+                    onChanged: (v) =>
+                        settingsController.updateAiStreamThrottleEnabled(v),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '节流自动模式'
+                    : 'Auto-Adaptive Throttle',
+                subtitle:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '按平台 / 设备性能自动选速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字符/秒、移动 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字符/秒；卡片统一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。开启后忽略下方手动配置。'
+                    : 'Auto-pick rates by platform: desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} chars/s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} chars/s; cards ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. Manual values below ignored when on.',
+                control: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Switch(
+                    value: settingsController.aiStreamThrottleAutoMode,
+                    onChanged: settingsController.aiStreamThrottleEnabled
+                        ? (v) =>
+                            settingsController.updateAiStreamThrottleAutoMode(v)
+                        : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
               // 2026-05-17 — 流式输出节流：每秒最多向卡片追加渲染的字符数
               _ResponsiveSettingRow(
                 title:
@@ -5673,20 +5724,35 @@ class _StreamThrottleTemplateOverridesEditor extends StatelessWidget {
     final overrides = settingsController.aiStreamThrottleTemplateOverrides;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final template in templates)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _TemplateOverrideRow(
+    // 2026-05-17 — 限制最大高度 + 内置滚动条，避免后续新增模板时把整个
+    // 设置板块继续撑开占据屏幕。BouncingScrollPhysics 让上下滑动呈现 Q
+    // 弹回弹手感。
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 360),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Scrollbar(
+        thumbVisibility: true,
+        child: ListView.separated(
+          shrinkWrap: true,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          itemCount: templates.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final template = templates[index];
+            return _TemplateOverrideRow(
               template: template,
               throttle: overrides[template.id],
               isZh: isZh,
               theme: theme,
-            ),
-          ),
-      ],
+            );
+          },
+        ),
+      ),
     );
   }
 }

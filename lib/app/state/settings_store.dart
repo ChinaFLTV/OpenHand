@@ -244,6 +244,8 @@ class SettingsStore {
       'ai_stream_max_chars_per_second': snapshot.aiStreamMaxCharsPerSecond,
       'ai_stream_max_message_cards_per_second':
           snapshot.aiStreamMaxMessageCardsPerSecond,
+      'ai_stream_throttle_enabled': snapshot.aiStreamThrottleEnabled,
+      'ai_stream_throttle_auto_mode': snapshot.aiStreamThrottleAutoMode,
       'ai_stream_throttle_template_overrides': <String, Object?>{
         for (final entry in snapshot.aiStreamThrottleTemplateOverrides.entries)
           if (!entry.value.isEmpty) entry.key: entry.value.toJson(),
@@ -819,6 +821,12 @@ class SettingsStore {
         }
       }
     }
+    final aiStreamThrottleEnabled = json['ai_stream_throttle_enabled'] is bool
+        ? json['ai_stream_throttle_enabled'] as bool
+        : AppSettingsSnapshot.defaultAiStreamThrottleEnabled;
+    final aiStreamThrottleAutoMode = json['ai_stream_throttle_auto_mode'] is bool
+        ? json['ai_stream_throttle_auto_mode'] as bool
+        : AppSettingsSnapshot.defaultAiStreamThrottleAutoMode;
     final aiAutoTitleEnabled = json['ai_auto_title_enabled'] is bool
         ? json['ai_auto_title_enabled'] as bool
         : true;
@@ -1221,6 +1229,8 @@ class SettingsStore {
       aiStreamIdleTimeoutSeconds: aiStreamIdleTimeoutSeconds,
       aiStreamMaxCharsPerSecond: aiStreamMaxCharsPerSecond,
       aiStreamMaxMessageCardsPerSecond: aiStreamMaxMessageCardsPerSecond,
+      aiStreamThrottleEnabled: aiStreamThrottleEnabled,
+      aiStreamThrottleAutoMode: aiStreamThrottleAutoMode,
       aiStreamThrottleTemplateOverrides: aiStreamThrottleTemplateOverrides,
       aiAutoTitleEnabled: aiAutoTitleEnabled,
       aiDefaultSessionMode: aiDefaultSessionMode,

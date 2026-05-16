@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' show FontFeature, ImageFilter;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
@@ -3240,6 +3240,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
       streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
+      streamThrottleEnabled: settingsController.aiStreamThrottleEnabled,
+      streamThrottleAutoMode: settingsController.aiStreamThrottleAutoMode,
       streamThrottleTemplateOverrides:
           settingsController.aiStreamThrottleTemplateOverrides,
       streamMaxMessageCardsPerSecond:
@@ -3495,6 +3497,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
       streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
+      streamThrottleEnabled: settingsController.aiStreamThrottleEnabled,
+      streamThrottleAutoMode: settingsController.aiStreamThrottleAutoMode,
       streamThrottleTemplateOverrides:
           settingsController.aiStreamThrottleTemplateOverrides,
       streamMaxMessageCardsPerSecond:
