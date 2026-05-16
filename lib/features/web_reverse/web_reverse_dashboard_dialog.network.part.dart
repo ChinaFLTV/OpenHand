@@ -691,7 +691,7 @@ class _PendingFetchBanner extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop('Aborted'),
-              child: Text(isZh ? '中止 (Aborted)' : 'Abort'),
+              child: Text(isZh ? '中止' : 'Abort'),
             ),
             TextButton(
               onPressed: () =>
@@ -703,6 +703,10 @@ class _PendingFetchBanner extends StatelessWidget {
                   Navigator.of(dialogContext).pop('TimedOut'),
               child: const Text('TimedOut'),
             ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('edit'),
+              child: Text(isZh ? '修改放行' : 'Modify & continue'),
+            ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop('continue'),
               child: Text(isZh ? '继续' : 'Continue'),
@@ -710,12 +714,107 @@ class _PendingFetchBanner extends StatelessWidget {
           ],
         ),
       );
-      if (action == null) return;
+      if (action == null || !context.mounted) return;
       if (action == 'continue') {
         await controller.continueFetchRequest(p.requestId);
+      } else if (action == 'edit') {
+        await _showEditDialog(context, p);
       } else {
         await controller.abortFetchRequest(p.requestId, reason: action);
       }
     });
+  }
+
+  Future<void> _showEditDialog(
+    BuildContext context,
+    ({String requestId, String method, String url}) p,
+  ) async {
+    final isZh = this.isZh;
+    final urlCtrl = TextEditingController(text: p.url);
+    final methodCtrl = TextEditingController(text: p.method);
+    final headersCtrl = TextEditingController(); // 一行 key:value
+    final bodyCtrl = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh ? '修改请求后放行' : 'Modify and continue'),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: urlCtrl,
+                  decoration: const InputDecoration(labelText: 'URL'),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: methodCtrl,
+                  decoration: const InputDecoration(labelText: 'Method'),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: headersCtrl,
+                  maxLines: 6,
+                  minLines: 3,
+                  decoration: InputDecoration(
+                    labelText: isZh
+                        ? 'Headers（每行 Key: Value，留空则保持原样）'
+                        : 'Headers (Key: Value per line; empty = keep original)',
+                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: bodyCtrl,
+                  maxLines: 6,
+                  minLines: 3,
+                  decoration: InputDecoration(
+                    labelText:
+                        isZh ? 'Body（留空则保持原样）' : 'Body (empty = keep original)',
+                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(isZh ? '放行' : 'Send'),
+          ),
+        ],
+      ),
+    );
+    if (result != true) return;
+    final headersRaw = headersCtrl.text.trim();
+    Map<String, String>? headers;
+    if (headersRaw.isNotEmpty) {
+      headers = <String, String>{};
+      for (final line in headersRaw.split('\n')) {
+        final idx = line.indexOf(':');
+        if (idx <= 0) continue;
+        headers[line.substring(0, idx).trim()] =
+            line.substring(idx + 1).trim();
+      }
+    }
+    final body = bodyCtrl.text;
+    final bodyB64 = body.isEmpty ? null : base64Encode(utf8.encode(body));
+    await controller.continueFetchRequestEdited(
+      p.requestId,
+      url: urlCtrl.text.trim().isEmpty ? null : urlCtrl.text.trim(),
+      method:
+          methodCtrl.text.trim().isEmpty ? null : methodCtrl.text.trim(),
+      headers: headers,
+      postDataBase64: bodyB64,
+    );
   }
 }

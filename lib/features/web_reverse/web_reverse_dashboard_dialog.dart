@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
+import 'web_reverse_screenshot_markup.dart';
 import 'web_reverse_session_controller.dart';
 
 part 'web_reverse_dashboard_dialog.network.part.dart';
@@ -137,44 +138,74 @@ class _WebReverseDashboardDialogState
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final ctrl = widget.controller;
     final isZh = _isZh();
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 760),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(theme, cs, isZh),
-            Divider(height: 1, color: cs.outlineVariant),
-            _buildToolbar(theme, cs, isZh, ctrl, reduceMotion),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-                switchInCurve: _kSwitchInCurve,
-                switchOutCurve: _kSwitchOutCurve,
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.02),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        // Cmd+Shift+R / Ctrl+Shift+R 启停 Recorder。
+        const SingleActivator(LogicalKeyboardKey.keyR,
+            meta: true, shift: true): () => _toggleRecorder(ctrl),
+        const SingleActivator(LogicalKeyboardKey.keyR,
+            control: true, shift: true): () => _toggleRecorder(ctrl),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Dialog(
+          backgroundColor: cs.surfaceContainer,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          insetPadding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 760),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(theme, cs, isZh),
+                Divider(height: 1, color: cs.outlineVariant),
+                _buildToolbar(theme, cs, isZh, ctrl, reduceMotion),
+                Divider(height: 1, color: cs.outlineVariant),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration:
+                        reduceMotion ? Duration.zero : _kSwitchDuration,
+                    switchInCurve: _kSwitchInCurve,
+                    switchOutCurve: _kSwitchOutCurve,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.02),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey<_Tab>(_tab),
+                      child: _buildBody(theme, cs, isZh, ctrl, reduceMotion),
+                    ),
                   ),
                 ),
-                child: KeyedSubtree(
-                  key: ValueKey<_Tab>(_tab),
-                  child: _buildBody(theme, cs, isZh, ctrl, reduceMotion),
-                ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _toggleRecorder(WebReverseSessionController ctrl) async {
+    if (ctrl.isRecording) {
+      await ctrl.stopRecording();
+    } else {
+      await ctrl.startRecording();
+    }
+    if (!mounted) return;
+    final isZh = _isZh();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ctrl.isRecording
+          ? (isZh ? '已开始录制（Cmd+Shift+R 再次按下停止）' : 'Recording started')
+          : (isZh ? '已停止录制' : 'Recording stopped')),
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {

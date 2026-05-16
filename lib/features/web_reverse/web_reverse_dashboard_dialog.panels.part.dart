@@ -624,7 +624,8 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   final List<double> _heapTotal = <double>[];
   static const int _heapHistoryLen = 80;
   // 采样收尾后的 top-N 函数。
-  ({int totalSize, List<({String label, int size})> top})? _samplingResult;
+  ({int totalSize, List<({String label, int size, List<String> stack})> top})?
+      _samplingResult;
 
   @override
   void initState() {
@@ -1025,7 +1026,10 @@ class _DualLineSparkline extends CustomPainter {
 
 class _SamplingTopList extends StatelessWidget {
   const _SamplingTopList({required this.result, required this.isZh});
-  final ({int totalSize, List<({String label, int size})> top}) result;
+  final ({
+    int totalSize,
+    List<({String label, int size, List<String> stack})> top
+  }) result;
   final bool isZh;
 
   @override
@@ -1070,67 +1074,75 @@ class _SamplingTopList extends StatelessWidget {
                 final ratio = result.totalSize == 0
                     ? 0.0
                     : r.size / result.totalSize;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 28,
-                        child: Text(
-                          '#${i + 1}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 4,
-                        child: Text(
-                          r.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 3,
-                        child: Stack(
-                          children: [
-                            Container(
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: cs.surfaceContainer,
-                                borderRadius: BorderRadius.circular(3),
-                              ),
+                return InkWell(
+                  onTap: () => _showStack(context, r),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 28,
+                          child: Text(
+                            '#${i + 1}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: cs.onSurfaceVariant,
                             ),
-                            FractionallySizedBox(
-                              widthFactor: ratio.clamp(0.0, 1.0),
-                              child: Container(
+                          ),
+                        ),
+                        Expanded(
+                          flex: 4,
+                          child: Text(
+                            r.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Stack(
+                            children: [
+                              Container(
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color: cs.primary,
+                                  color: cs.surfaceContainer,
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 84,
-                        child: Text(
-                          '${(r.size / 1024).toStringAsFixed(1)} KB',
-                          textAlign: TextAlign.right,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
+                              FractionallySizedBox(
+                                widthFactor: ratio.clamp(0.0, 1.0),
+                                child: Container(
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: cs.primary,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 84,
+                          child: Text(
+                            '${(r.size / 1024).toStringAsFixed(1)} KB',
+                            textAlign: TextAlign.right,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 16,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -1138,6 +1150,89 @@ class _SamplingTopList extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showStack(
+    BuildContext context,
+    ({String label, int size, List<String> stack}) row,
+  ) {
+    final isZh = this.isZh;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            isZh ? '调用栈：${row.label}' : 'Call stack: ${row.label}',
+          ),
+          content: SizedBox(
+            width: 720,
+            height: 420,
+            child: row.stack.isEmpty
+                ? Center(
+                    child: Text(
+                      isZh ? '(此节点无父级链)' : '(no parent stack)',
+                      style: TextStyle(
+                        color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: row.stack.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final entry = row.stack[row.stack.length - 1 - i];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 32,
+                              child: Text(
+                                '#$i',
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: SelectableText(
+                                entry,
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: row.stack.join('\n')));
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(isZh ? '已复制' : 'Copied'),
+                  duration: const Duration(seconds: 1),
+                ));
+              },
+              child: Text(isZh ? '复制' : 'Copy'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(isZh ? '关闭' : 'Close'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

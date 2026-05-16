@@ -641,13 +641,32 @@ class WebReverseSessionController extends ChangeNotifier {
   const log = (step) => {
     try { console.log('__OH_REC__', JSON.stringify(step)); } catch (_) {}
   };
+  // 连击去抖：同一选择器在 350ms 内的重复点击合并为一条 step。
+  // 既能压平用户双击 / 误连击，也保留真实"快速点两次"的语义（设置 doubleClick 标记）。
+  let _lastClickAt = 0;
+  let _lastClickSel = '';
   document.addEventListener('click', (ev) => {
     const t = ev.target;
+    const sel = buildSelector(t);
+    const now = Date.now();
+    if (sel && sel === _lastClickSel && (now - _lastClickAt) < 350) {
+      _lastClickAt = now;
+      log({
+        type: 'click',
+        selector: sel,
+        text: t && t.innerText ? String(t.innerText).slice(0, 60) : '',
+        ts: now,
+        doubleClick: true,
+      });
+      return;
+    }
+    _lastClickAt = now;
+    _lastClickSel = sel || '';
     log({
       type: 'click',
-      selector: buildSelector(t),
+      selector: sel,
       text: t && t.innerText ? String(t.innerText).slice(0, 60) : '',
-      ts: Date.now(),
+      ts: now,
     });
   }, true);
   document.addEventListener('input', (ev) => {
@@ -1492,7 +1511,7 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// 停止采样并返回汇总。停止前可多次调 stopMemorySampling 取中间快照。
-  Future<({int totalSize, List<({String label, int size})> top})?>
+  Future<({int totalSize, List<({String label, int size, List<String> stack})> top})?>
       stopMemorySampling() async {
     final cdp = _browserCdp;
     if (cdp == null || !_samplingProfileRunning) return null;
@@ -1506,29 +1525,45 @@ class WebReverseSessionController extends ChangeNotifier {
       notifyListeners();
       final profile = r['profile'] as Map?;
       if (profile == null) return null;
-      // V8 SamplingHeapProfile 的 head 是火焰图根，递归累加 selfSize。
-      // 这里只展示 top-N 函数，不画完整 flamegraph（与 Chrome DevTools
-      // Memory → Allocation sampling profile 等价层级，需要用户自己导出）。
-      final tally = <String, int>{};
+      // V8 SamplingHeapProfile 的 head 是火焰图根，递归累加 selfSize 并保留
+      // 完整 callFrame 链。点击下钻看 stack 时直接读 entry.stack。
+      final tally = <String, ({int size, List<String> stack})>{};
       var total = 0;
-      void walk(Map node) {
-        final name = '${(node['callFrame'] as Map?)?['functionName'] ?? '(anon)'}';
+      void walk(Map node, List<String> parentStack) {
+        final cf = (node['callFrame'] as Map?) ?? const <String, Object?>{};
+        final fnName = '${cf['functionName'] ?? '(anon)'}';
+        final url = '${cf['url'] ?? ''}';
+        final line = (cf['lineNumber'] as num?)?.toInt() ?? 0;
+        final col = (cf['columnNumber'] as num?)?.toInt() ?? 0;
+        final stackEntry = url.isEmpty
+            ? fnName
+            : '${fnName.isEmpty ? "(anonymous)" : fnName} @ $url:${line + 1}:${col + 1}';
+        final stack = [...parentStack, stackEntry];
         final self = (node['selfSize'] as num?)?.toInt() ?? 0;
         total += self;
-        tally.update(name, (v) => v + self, ifAbsent: () => self);
+        final old = tally[fnName];
+        if (old == null) {
+          tally[fnName] = (size: self, stack: stack);
+        } else {
+          tally[fnName] = (size: old.size + self, stack: old.stack);
+        }
         final children = node['children'] as List?;
         if (children != null) {
           for (final c in children.whereType<Map>()) {
-            walk(c);
+            walk(c, stack);
           }
         }
       }
-      walk(Map<String, Object?>.from(profile['head'] as Map));
+      walk(Map<String, Object?>.from(profile['head'] as Map), const []);
       final entries = tally.entries.toList()
-        ..sort((a, b) => b.value.compareTo(a.value));
+        ..sort((a, b) => b.value.size.compareTo(a.value.size));
       final top = entries
           .take(15)
-          .map((e) => (label: e.key.isEmpty ? '(anonymous)' : e.key, size: e.value))
+          .map((e) => (
+                label: e.key.isEmpty ? '(anonymous)' : e.key,
+                size: e.value.size,
+                stack: e.value.stack,
+              ))
           .toList(growable: false);
       return (totalSize: total, top: top);
     } catch (error, stack) {
@@ -1631,6 +1666,44 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (_) {}
+    notifyListeners();
+  }
+
+  /// 改写后再放行：可覆盖 url / method / headers / postData。
+  /// `headers` 字段：null = 保持原值；空 Map = 完全清空；非空 Map = 完全替换。
+  Future<void> continueFetchRequestEdited(
+    String requestId, {
+    String? url,
+    String? method,
+    Map<String, String>? headers,
+    String? postDataBase64,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return;
+    _pendingFetchRequests.remove(requestId);
+    try {
+      final params = <String, Object?>{'requestId': requestId};
+      if (url != null && url.isNotEmpty) params['url'] = url;
+      if (method != null && method.isNotEmpty) params['method'] = method;
+      if (headers != null) {
+        params['headers'] = headers.entries
+            .map((e) => <String, Object?>{'name': e.key, 'value': e.value})
+            .toList(growable: false);
+      }
+      if (postDataBase64 != null) params['postData'] = postDataBase64;
+      await cdp.send(
+        'Fetch.continueRequest',
+        params: params,
+        sessionId: _pageSessionId,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'continueFetchRequestEdited',
+        error,
+        stack,
+      );
+    }
     notifyListeners();
   }
 
@@ -1766,6 +1839,95 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return null;
     }
+  }
+
+  /// 反向加载：把外部 HAR 1.2 文档解析回 _networkRequests，便于离线复盘。
+  /// 加载会清空当前实时请求；不影响 artifacts 文件本身。
+  /// 返回 (loaded, skipped)。
+  ({int loaded, int skipped}) loadHarBytes(List<int> bytes) {
+    try {
+      final raw = utf8.decode(bytes);
+      final har = jsonDecode(raw);
+      if (har is! Map) return (loaded: 0, skipped: 0);
+      final log = har['log'] as Map?;
+      final entries = log?['entries'] as List?;
+      if (entries == null) return (loaded: 0, skipped: 0);
+      _networkRequests.clear();
+      _networkByRequestId.clear();
+      var loaded = 0;
+      var skipped = 0;
+      for (var i = 0; i < entries.length; i++) {
+        final raw = entries[i];
+        if (raw is! Map) {
+          skipped++;
+          continue;
+        }
+        final req = raw['request'] as Map?;
+        final res = raw['response'] as Map?;
+        if (req == null) {
+          skipped++;
+          continue;
+        }
+        final url = '${req['url'] ?? ''}';
+        final method = '${req['method'] ?? 'GET'}';
+        final reqHeaders = <String, String>{};
+        for (final h in (req['headers'] as List? ?? const [])
+            .whereType<Map>()) {
+          reqHeaders['${h['name'] ?? ''}'] = '${h['value'] ?? ''}';
+        }
+        final resHeaders = <String, String>{};
+        for (final h in (res?['headers'] as List? ?? const [])
+            .whereType<Map>()) {
+          resHeaders['${h['name'] ?? ''}'] = '${h['value'] ?? ''}';
+        }
+        final startedRaw = '${raw['startedDateTime'] ?? ''}';
+        DateTime started;
+        try {
+          started = DateTime.parse(startedRaw);
+        } catch (_) {
+          started = DateTime.now().toUtc().subtract(
+                Duration(milliseconds: entries.length - i),
+              );
+        }
+        final timeMs = (raw['time'] as num?)?.toInt() ?? 0;
+        final entry = CdpNetworkEntry(
+          requestId: 'har-$i',
+          url: url,
+          method: method,
+          timestamp: started,
+          resourceType: _resourceTypeFromMime('${res?['content']?['mimeType'] ?? ''}'),
+        )
+          ..requestHeaders = reqHeaders
+          ..requestPostData = (req['postData'] as Map?)?['text'] as String?
+          ..responseHeaders = resHeaders
+          ..statusCode = (res?['status'] as num?)?.toInt()
+          ..statusText = res?['statusText'] as String?
+          ..mimeType = '${res?['content']?['mimeType'] ?? ''}'
+          ..encodedDataLength = (res?['bodySize'] as num?)?.toInt()
+          ..responseReceivedAt = started.add(Duration(milliseconds: timeMs ~/ 2))
+          ..loadingFinishedAt = started.add(Duration(milliseconds: timeMs));
+        _networkByRequestId[entry.requestId] = entry;
+        _networkRequests.add(entry);
+        loaded++;
+      }
+      notifyListeners();
+      return (loaded: loaded, skipped: skipped);
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'loadHarBytes', error, stack);
+      return (loaded: 0, skipped: 0);
+    }
+  }
+
+  static String _resourceTypeFromMime(String mime) {
+    final m = mime.toLowerCase();
+    if (m.startsWith('image/')) return 'Image';
+    if (m.contains('javascript')) return 'Script';
+    if (m.contains('json')) return 'Fetch';
+    if (m.contains('css')) return 'Stylesheet';
+    if (m.contains('html')) return 'Document';
+    if (m.contains('font')) return 'Font';
+    if (m.startsWith('audio/') || m.startsWith('video/')) return 'Media';
+    return 'Other';
   }
 
   @override

@@ -121,6 +121,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
+                      tooltip: isZh ? '导入 HAR 反向加载' : 'Load HAR file',
+                      icon: Icons.unarchive_rounded,
+                      onPressed: () => _loadHarFromFile(ctrl, isZh),
+                    ),
+                    const SizedBox(width: 8),
+                    _ToolbarIconButton(
                       tooltip: isZh
                           ? '截图（当前可视区）'
                           : 'Screenshot (viewport)',
@@ -255,6 +261,20 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     required bool fullPage,
   }) async {
     final messenger = ScaffoldMessenger.of(context);
+    final bytes = fullPage
+        ? await ctrl.captureFullPageScreenshot()
+        : await ctrl.captureScreenshot();
+    if (!mounted) return;
+    if (bytes == null) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '截图失败' : 'Screenshot failed'),
+        duration: const Duration(seconds: 2),
+      ));
+      return;
+    }
+    // 让用户在导出前先标注（涂鸦 / 矩形 / 文字）。
+    final marked = await showScreenshotMarkupDialog(context, image: bytes);
+    if (!mounted || marked == null) return;
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
@@ -281,19 +301,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       return;
     }
     if (location == null) return;
-    final bytes = fullPage
-        ? await ctrl.captureFullPageScreenshot()
-        : await ctrl.captureScreenshot();
-    if (!mounted) return;
-    if (bytes == null) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '截图失败' : 'Screenshot failed'),
-        duration: const Duration(seconds: 2),
-      ));
-      return;
-    }
     try {
-      await File(location.path).writeAsBytes(bytes, flush: true);
+      await File(location.path).writeAsBytes(marked, flush: true);
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
         content: Text(
@@ -311,6 +320,51 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
         content: Text(isZh ? '截图保存失败' : 'Screenshot save failed'),
+        duration: const Duration(seconds: 2),
+      ));
+    }
+  }
+
+  Future<void> _loadHarFromFile(
+    WebReverseSessionController ctrl,
+    bool isZh,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    const typeGroup = XTypeGroup(label: 'HAR', extensions: <String>['har', 'json']);
+    XFile? file;
+    try {
+      file = await openFile(acceptedTypeGroups: const [typeGroup]);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'openFile har',
+        error,
+        stack,
+      );
+    }
+    if (file == null) return;
+    try {
+      final bytes = await file.readAsBytes();
+      final r = ctrl.loadHarBytes(bytes);
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          isZh
+              ? '已加载 ${r.loaded} 条；跳过 ${r.skipped} 条无效条目'
+              : 'Loaded ${r.loaded}; skipped ${r.skipped}',
+        ),
+        duration: const Duration(seconds: 3),
+      ));
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'parse har',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? 'HAR 解析失败' : 'HAR parse failed'),
         duration: const Duration(seconds: 2),
       ));
     }
