@@ -5069,7 +5069,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     //      仍按原逻辑消费 + schedule，保持流式期间贴底跟随。
     final sessionIdChanged = previousSignature == null ||
         !previousSignature.startsWith('${session!.id}|');
-    _scheduleAutoFollowIfNeeded(consumePendingRequest: !sessionIdChanged);
+    if (sessionIdChanged) {
+      // 会话切换：transcript 内部已通过 jumpToBottomOnInit + 16 帧 settle
+      // 自行贴底；这里再额外发一个 *jump*（非 animate） 兜底，避免与
+      // transcript 的 jumpTo 互相打架。
+      _scheduleAutoFollowIfNeeded(
+        consumePendingRequest: false,
+        animated: false,
+      );
+    } else {
+      _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
+    }
   }
 
   void _handleComposerLayoutChanged() {

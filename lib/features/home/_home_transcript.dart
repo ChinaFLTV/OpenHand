@@ -382,9 +382,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   /// markdown 异步解析、图片解码等导致后续帧布局抖动场景。最长 [maxFrames]
   /// 帧内寻底；若连续两帧 maxScrollExtent 与当前 pixels 距离 < 0.5 px，
   /// 视为已稳定提前结束。
+  /// 阶段㉓b：循环对「用户主动滚动」让位 —— 若上一次循环 jumpTo 后下一帧
+  /// 读到 pixels 已被外力（用户拖拽）改变，立即中止后续 jumpTo，避免与
+  /// 用户操作互相打架。
   void _settleJumpToBottom({required int maxFrames}) {
     if (maxFrames <= 0) return;
     var stableFrames = 0;
+    double? lastJumpedTo;
     void scheduleNext(int remaining) {
       if (remaining <= 0) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -399,6 +403,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             : null;
         if (position == null) {
           scheduleNext(remaining - 1);
+          return;
+        }
+        // 如果上一次 jumpTo 之后 pixels 不再等于 target（容忍 1 px 浮点
+        // 误差），说明在两帧之间发生了「非本循环」的滚动 —— 通常是
+        // 用户手势或别处的 scrollTo / animateTo，立刻让位中止循环。
+        if (lastJumpedTo != null &&
+            (position.pixels - lastJumpedTo!).abs() > 1) {
           return;
         }
         final target = position.maxScrollExtent;
@@ -417,6 +428,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           // 第二个 attached position (cross-fade 期间) 触发 Scrollbar
           // single-position 校验。
           position.jumpTo(target);
+          lastJumpedTo = target;
         }
         scheduleNext(remaining - 1);
       });
@@ -456,6 +468,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
         });
       });
+      // 阶段㉓c：edge case 兜底 —— 极少数情况下 widget 实例会在不重建 key
+      // 的前提下被赋予新 session（例如父级 KeyedSubtree 被复用），此时
+      // initState 不会重跑，而 jumpToBottomOnInit 也不会再读到 true。
+      // 显式驱动一次 settle 循环把视口拉到底部，避免与「session 切换默认
+      // 应贴底」语义冲突。
+      if (widget.jumpToBottomOnInit) {
+        _settleJumpToBottom(maxFrames: 16);
+      }
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
       final previousWindowStartIndex = _windowStartIndex;
