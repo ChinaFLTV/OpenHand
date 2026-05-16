@@ -51,6 +51,12 @@ pnpm install --frozen-lockfile=false
 pnpm build
 popd >/dev/null
 
+# vite 当前不主动产出 assets/，但 pubspec.yaml 已声明 assets/web/assets/，
+# 缺目录会触发 flutter analyze 的 asset_directory_does_not_exist 警告。
+# 在 vite build 之后总是确保该目录存在 + 占位文件，让 rootBundle 永远扫得到。
+mkdir -p "$OUT_DIR/assets"
+[[ -f "$OUT_DIR/assets/.gitkeep" ]] || : > "$OUT_DIR/assets/.gitkeep"
+
 # ---- 校验关键产物已生成 -----------------------------------------------------
 missing=()
 for f in app.js app.css index.html; do

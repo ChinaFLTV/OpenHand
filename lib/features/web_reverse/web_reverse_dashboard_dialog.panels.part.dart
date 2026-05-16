@@ -989,14 +989,28 @@ class _AppTabPill extends StatelessWidget {
   }
 }
 
-class _CookiesTable extends StatelessWidget {
+class _CookiesTable extends StatefulWidget {
   const _CookiesTable({required this.cookies});
   final List<Map<String, Object?>> cookies;
+
+  @override
+  State<_CookiesTable> createState() => _CookiesTableState();
+}
+
+class _CookiesTableState extends State<_CookiesTable> {
+  final ScrollController _hCtrl = ScrollController();
+
+  @override
+  void dispose() {
+    _hCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final cookies = widget.cookies;
     if (cookies.isEmpty) {
       return Center(
         child: Text('(empty)',
@@ -1005,7 +1019,9 @@ class _CookiesTable extends StatelessWidget {
       );
     }
     return Scrollbar(
+      controller: _hCtrl,
       child: SingleChildScrollView(
+        controller: _hCtrl,
         scrollDirection: Axis.horizontal,
         child: SingleChildScrollView(
           child: DataTable(
@@ -1320,7 +1336,13 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                               onPressed: _loading ? null : _loadMore,
                               icon: const Icon(Icons.expand_more_rounded,
                                   size: 16),
-                              label: const Text('Load more'),
+                              label: Text(
+                                Localizations.localeOf(context)
+                                        .languageCode
+                                        .startsWith('zh')
+                                    ? '加载更多'
+                                    : 'Load more',
+                              ),
                             ),
                         ],
                       ),

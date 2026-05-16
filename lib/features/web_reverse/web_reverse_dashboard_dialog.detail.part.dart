@@ -699,9 +699,27 @@ class _TimingTab extends StatelessWidget {
       '${t.toIso8601String().split('T').last.split('.').first} (${t.toIso8601String().split('T').first})';
 }
 
-class _CodeBlock extends StatelessWidget {
+class _CodeBlock extends StatefulWidget {
   const _CodeBlock({required this.text});
   final String text;
+
+  @override
+  State<_CodeBlock> createState() => _CodeBlockState();
+}
+
+class _CodeBlockState extends State<_CodeBlock> {
+  // 内层水平 / 外层垂直各持一个 controller，避免 Scrollbar 蹭 Primary 又找不到
+  // attached ScrollPosition 时抛 "Scrollbar's ScrollController has no
+  // ScrollPosition attached"。两个轴分别独立的 controller 是正确做法。
+  final ScrollController _hCtrl = ScrollController();
+  final ScrollController _vCtrl = ScrollController();
+
+  @override
+  void dispose() {
+    _hCtrl.dispose();
+    _vCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -715,16 +733,23 @@ class _CodeBlock extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(12),
       child: Scrollbar(
+        controller: _vCtrl,
         thumbVisibility: true,
         child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              text,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                color: cs.onSurface,
-                height: 1.5,
+          controller: _vCtrl,
+          child: Scrollbar(
+            controller: _hCtrl,
+            notificationPredicate: (n) => n.depth == 1,
+            child: SingleChildScrollView(
+              controller: _hCtrl,
+              scrollDirection: Axis.horizontal,
+              child: SelectableText(
+                widget.text,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: cs.onSurface,
+                  height: 1.5,
+                ),
               ),
             ),
           ),
