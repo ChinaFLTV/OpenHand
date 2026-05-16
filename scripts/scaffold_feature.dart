@@ -27,18 +27,27 @@ void main(List<String> args) {
   final pascal = _pascalCase(name);
   root.createSync(recursive: true);
 
-  for (final sub in const ['model', 'data', 'service', 'widgets', 'state']) {
-    final d = Directory('${root.path}/$sub');
-    d.createSync(recursive: true);
-    File('${d.path}/.gitkeep').writeAsStringSync('');
-  }
+  try {
+    for (final sub in const ['model', 'data', 'service', 'widgets', 'state']) {
+      final d = Directory('${root.path}/$sub');
+      d.createSync(recursive: true);
+      File('${d.path}/.gitkeep').writeAsStringSync('');
+    }
 
-  File('${root.path}/${name}_controller.dart')
-      .writeAsStringSync(_controllerTemplate(pascal));
-  File('${root.path}/${name}_module.dart')
-      .writeAsStringSync(_moduleTemplate(pascal, name));
-  File('${root.path}/index.dart').writeAsStringSync(_indexTemplate(name));
-  File('${root.path}/README.md').writeAsStringSync(_readmeTemplate(name));
+    File('${root.path}/${name}_controller.dart')
+        .writeAsStringSync(_controllerTemplate(pascal));
+    File('${root.path}/${name}_module.dart')
+        .writeAsStringSync(_moduleTemplate(pascal, name));
+    File('${root.path}/index.dart').writeAsStringSync(_indexTemplate(name));
+    File('${root.path}/README.md').writeAsStringSync(_readmeTemplate(name));
+  } catch (e, st) {
+    stderr.writeln('[scaffold] failed: $e');
+    stderr.writeln(st);
+    try {
+      root.deleteSync(recursive: true);
+    } catch (_) {}
+    exit(1);
+  }
 
   stdout.writeln('[scaffold] generated lib/features/$name');
 }
