@@ -2815,6 +2815,9 @@ class _StreamThroughputMiniGaugeState
     extends State<_StreamThroughputMiniGauge> {
   Timer? _ticker;
   List<int> _samples = const <int>[];
+  // 2026-05-18 — 鼠标悬停 / 触屏长按时高亮的桶索引；null = 不高亮。
+  int? _hoveredIndex;
+  Offset? _hoverLocal;
 
   @override
   void initState() {
@@ -2898,17 +2901,95 @@ class _StreamThroughputMiniGaugeState
           const SizedBox(height: 8),
           SizedBox(
             height: 56,
-            child: CustomPaint(
-              painter: _ThroughputBarsPainter(
-                samples: samples,
-                cap: cap,
-                color: scheme.primary,
-                gridColor: scheme.outlineVariant.withValues(alpha: 0.6),
-                limitColor: scheme.tertiary.withValues(alpha: 0.45),
-                limitValue: widget.maxRate,
-                overLimitColor: scheme.error,
-              ),
-              size: const Size(double.infinity, 56),
+            // 2026-05-18 — 鼠标悬停 / 触屏拖动时高亮当前桶并展示
+            // tooltip：根据指针 X 计算 bucketIndex，setState 重绘
+            // painter 让对应柱子 stroke 一圈高亮 + 头顶气泡显示
+            // "Ns 前 · X/s"。
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                int? indexAt(Offset local) {
+                  if (samples.isEmpty || width <= 0) return null;
+                  if (local.dx < 0 || local.dx > width) return null;
+                  final n = samples.length;
+                  const gap = 1.5;
+                  final totalGap = gap * (n - 1);
+                  final barW = (width - totalGap) / n;
+                  // bucket 0 在最右；指针 X = (n-1-i) * (barW+gap)..+barW
+                  final visualSlot =
+                      (local.dx / (barW + gap)).floor().clamp(0, n - 1);
+                  return n - 1 - visualSlot;
+                }
+
+                return MouseRegion(
+                  onHover: (event) {
+                    final i = indexAt(event.localPosition);
+                    if (i != _hoveredIndex || event.localPosition != _hoverLocal) {
+                      setState(() {
+                        _hoveredIndex = i;
+                        _hoverLocal = event.localPosition;
+                      });
+                    }
+                  },
+                  onExit: (_) {
+                    if (_hoveredIndex != null) {
+                      setState(() {
+                        _hoveredIndex = null;
+                        _hoverLocal = null;
+                      });
+                    }
+                  },
+                  child: GestureDetector(
+                    onTapDown: (d) {
+                      final i = indexAt(d.localPosition);
+                      setState(() {
+                        _hoveredIndex = i;
+                        _hoverLocal = d.localPosition;
+                      });
+                    },
+                    onPanUpdate: (d) {
+                      final i = indexAt(d.localPosition);
+                      setState(() {
+                        _hoveredIndex = i;
+                        _hoverLocal = d.localPosition;
+                      });
+                    },
+                    onPanEnd: (_) => setState(() {
+                      _hoveredIndex = null;
+                      _hoverLocal = null;
+                    }),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _ThroughputBarsPainter(
+                              samples: samples,
+                              cap: cap,
+                              color: scheme.primary,
+                              gridColor: scheme.outlineVariant
+                                  .withValues(alpha: 0.6),
+                              limitColor:
+                                  scheme.tertiary.withValues(alpha: 0.45),
+                              limitValue: widget.maxRate,
+                              overLimitColor: scheme.error,
+                              hoveredIndex: _hoveredIndex,
+                              hoverHighlightColor: scheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (_hoveredIndex != null && _hoverLocal != null)
+                          _ThroughputTooltip(
+                            samples: samples,
+                            hoveredIndex: _hoveredIndex!,
+                            anchor: _hoverLocal!,
+                            limitValue: widget.maxRate,
+                            isZh: isZh,
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -2926,6 +3007,8 @@ class _ThroughputBarsPainter extends CustomPainter {
     required this.limitColor,
     required this.limitValue,
     required this.overLimitColor,
+    this.hoveredIndex,
+    this.hoverHighlightColor,
   });
 
   final List<int> samples;
@@ -2935,6 +3018,8 @@ class _ThroughputBarsPainter extends CustomPainter {
   final Color limitColor;
   final int limitValue;
   final Color overLimitColor;
+  final int? hoveredIndex;
+  final Color? hoverHighlightColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -3017,6 +3102,16 @@ class _ThroughputBarsPainter extends CustomPainter {
           highlight,
         );
       }
+      // 鼠标悬停 / 触屏选中时给当前柱描一圈：让交互即时被感知。
+      if (hoveredIndex == i &&
+          hoverHighlightColor != null &&
+          clamped > 0) {
+        final ring = Paint()
+          ..color = hoverHighlightColor!
+          ..strokeWidth = 1.2
+          ..style = PaintingStyle.stroke;
+        canvas.drawRRect(rrect.deflate(0.4), ring);
+      }
     }
   }
 
@@ -3041,6 +3136,92 @@ class _ThroughputBarsPainter extends CustomPainter {
     return old.color != color ||
         old.gridColor != gridColor ||
         old.limitColor != limitColor ||
-        old.overLimitColor != overLimitColor;
+        old.overLimitColor != overLimitColor ||
+        old.hoveredIndex != hoveredIndex ||
+        old.hoverHighlightColor != hoverHighlightColor;
+  }
+}
+
+
+/// 仪表盘 hover tooltip 气泡：固定 anchor.x ± 56 偏移，避免触屏点击
+/// 时手指挡住读数；超出右边界自动翻转到左侧。
+class _ThroughputTooltip extends StatelessWidget {
+  const _ThroughputTooltip({
+    required this.samples,
+    required this.hoveredIndex,
+    required this.anchor,
+    required this.limitValue,
+    required this.isZh,
+  });
+
+  final List<int> samples;
+  final int hoveredIndex;
+  final Offset anchor;
+  final int limitValue;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    if (hoveredIndex < 0 || hoveredIndex >= samples.length) {
+      return const SizedBox.shrink();
+    }
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final value = samples[hoveredIndex];
+    final ago = hoveredIndex; // bucket 0 = 当前秒，i = i 秒前
+    final overLimit = limitValue > 0 && value > limitValue;
+    final color = overLimit ? scheme.error : scheme.primary;
+    final bg = overLimit ? scheme.errorContainer : scheme.primaryContainer;
+    final fg = overLimit ? scheme.onErrorContainer : scheme.onPrimaryContainer;
+    final timeLabel = ago == 0
+        ? (isZh ? '当前秒' : 'now')
+        : (isZh ? '${ago}s 前' : '${ago}s ago');
+    return Positioned(
+      left: anchor.dx,
+      top: 0,
+      child: FractionalTranslation(
+        translation: const Offset(-0.5, -1.05),
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: bg.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: color.withValues(alpha: 0.46)),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: scheme.shadow.withValues(alpha: 0.16),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  overLimit
+                      ? Icons.priority_high_rounded
+                      : Icons.bolt_rounded,
+                  size: 12,
+                  color: color,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isZh
+                      ? '$timeLabel · $value/s'
+                      : '$timeLabel · $value/s',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
