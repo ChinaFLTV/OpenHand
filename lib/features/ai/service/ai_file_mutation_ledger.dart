@@ -303,6 +303,28 @@ class AiFileMutationLedger {
   final Random _rand = Random.secure();
   bool _migratedLegacy = false;
 
+  // Per-session in-memory caches for records and undone set. The session
+  // ledger / state files are mutated only through this class, so we can
+  // invalidate the cache reliably whenever this instance writes. Cross-
+  // process mutations (extremely rare for app state) would not be reflected,
+  // but no such writers exist today; the trade-off saves up to N redundant
+  // disk reads when N round summary cards open simultaneously on session
+  // resume — each card was previously triggering a full ledger.jsonl scan
+  // plus a state.json read.
+  final Map<String, List<FileMutationRecord>> _recordsCache =
+      <String, List<FileMutationRecord>>{};
+  final Map<String, Set<String>> _undoneCache = <String, Set<String>>{};
+
+  void _invalidateSessionCache(String sessionId) {
+    _recordsCache.remove(sessionId);
+    _undoneCache.remove(sessionId);
+  }
+
+  void _invalidateAllCaches() {
+    _recordsCache.clear();
+    _undoneCache.clear();
+  }
+
   String get _root =>
       _rootOverride ??
       p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history');
@@ -486,6 +508,7 @@ class AiFileMutationLedger {
       final ledger = _ledgerFile(sessionId);
       final line = '${jsonEncode(record.toJson())}\n';
       await ledger.writeAsString(line, mode: FileMode.append, flush: true);
+      _invalidateSessionCache(sessionId);
       // 写入后按当前配置即时收紧每文件历史数。autoCleanupDays 在启动时已处理。
       try {
         final cfg = await loadConfig();
@@ -508,11 +531,16 @@ class AiFileMutationLedger {
 
   Future<List<FileMutationRecord>> recordsForSession(String sessionId) async {
     if (sessionId.trim().isEmpty) return const <FileMutationRecord>[];
+    final cached = _recordsCache[sessionId];
+    if (cached != null) return cached;
     await _ensureInitialized();
     final ledger = _ledgerFile(sessionId);
     final records = <FileMutationRecord>[];
     try {
-      if (!await ledger.exists()) return const <FileMutationRecord>[];
+      if (!await ledger.exists()) {
+        _recordsCache[sessionId] = const <FileMutationRecord>[];
+        return const <FileMutationRecord>[];
+      }
       final lines = await ledger.readAsLines();
       for (final raw in lines) {
         final trimmed = raw.trim();
@@ -541,7 +569,9 @@ class AiFileMutationLedger {
       silentLog('ai_file_mutation_ledger', 'read ledger', error, stack);
     }
     records.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return records;
+    final immutable = List<FileMutationRecord>.unmodifiable(records);
+    _recordsCache[sessionId] = immutable;
+    return immutable;
   }
 
   Future<List<FileMutationView>> viewsForToolCall({
@@ -849,6 +879,7 @@ class AiFileMutationLedger {
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'clearSession', error, stack);
     }
+    _invalidateSessionCache(sessionId);
     await gcUnreferencedBlobs();
   }
 
@@ -877,6 +908,7 @@ class AiFileMutationLedger {
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'clearSessionsExcept', error, stack);
     }
+    _invalidateAllCaches();
     await gcUnreferencedBlobs();
     return removed;
   }
@@ -884,6 +916,7 @@ class AiFileMutationLedger {
   /// 删除最早 `now - retention` 之前的全部会话 ledger（同时回收 blob）。
   Future<int> pruneOlderThan(Duration retention) async {
     var removed = 0;
+    final pruned = <String>{};
     try {
       final cutoff = DateTime.now().subtract(retention);
       final sessions = _sessionsDir();
@@ -893,6 +926,7 @@ class AiFileMutationLedger {
         try {
           final stat = await entity.stat();
           if (stat.modified.isBefore(cutoff)) {
+            pruned.add(p.basename(entity.path));
             await entity.delete(recursive: true);
             removed++;
           }
@@ -902,6 +936,9 @@ class AiFileMutationLedger {
       }
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'pruneOlderThan', error, stack);
+    }
+    for (final sid in pruned) {
+      _invalidateSessionCache(sid);
     }
     await gcUnreferencedBlobs();
     return removed;
@@ -939,6 +976,7 @@ class AiFileMutationLedger {
       }
       await writeFileAtomically(ledger, buffer.toString());
     }
+    _invalidateSessionCache(sessionId);
     final survivorIds = survivors.map((r) => r.recordId).toSet();
     final undone = await _loadUndoneSet(sessionId);
     undone.removeWhere((id) => !survivorIds.contains(id));
@@ -984,6 +1022,7 @@ class AiFileMutationLedger {
           }
           await writeFileAtomically(ledger, buffer.toString());
         }
+        _invalidateSessionCache(sessionId);
         // 同步精简 undone 集合
         final undone = await _loadUndoneSet(sessionId);
         undone.removeWhere((id) => !keepIds.contains(id));
@@ -1131,16 +1170,26 @@ class AiFileMutationLedger {
   // ───────────────────────── 内部工具 ─────────────────────────
 
   Future<Set<String>> _loadUndoneSet(String sessionId) async {
+    final cached = _undoneCache[sessionId];
+    if (cached != null) return Set<String>.from(cached);
     try {
       final state = _stateFile(sessionId);
-      if (!await state.exists()) return <String>{};
+      if (!await state.exists()) {
+        _undoneCache[sessionId] = const <String>{};
+        return <String>{};
+      }
       final raw = await state.readAsString();
-      if (raw.trim().isEmpty) return <String>{};
+      if (raw.trim().isEmpty) {
+        _undoneCache[sessionId] = const <String>{};
+        return <String>{};
+      }
       final parsed = jsonDecode(raw);
       if (parsed is Map<String, Object?>) {
         final list = parsed['undone'];
         if (list is List) {
-          return list.whereType<String>().toSet();
+          final undone = list.whereType<String>().toSet();
+          _undoneCache[sessionId] = Set<String>.unmodifiable(undone);
+          return undone;
         }
       }
     } on FileSystemException catch (error, stack) {
@@ -1150,6 +1199,7 @@ class AiFileMutationLedger {
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'loadUndoneSet', error, stack);
     }
+    _undoneCache[sessionId] = const <String>{};
     return <String>{};
   }
 
@@ -1158,6 +1208,7 @@ class AiFileMutationLedger {
       final state = _stateFile(sessionId);
       if (undone.isEmpty) {
         await _deleteFileIfPresent(state, 'delete empty undone state');
+        _undoneCache[sessionId] = const <String>{};
         return;
       }
       final dir = _sessionDir(sessionId);
@@ -1166,12 +1217,15 @@ class AiFileMutationLedger {
         state,
         jsonEncode(<String, Object?>{'undone': undone.toList()..sort()}),
       );
+      _undoneCache[sessionId] = Set<String>.unmodifiable(undone);
     } on FileSystemException catch (error, stack) {
       if (!_isMissingFileSystemException(error)) {
         silentLog('ai_file_mutation_ledger', 'saveUndoneSet', error, stack);
       }
+      _undoneCache.remove(sessionId);
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'saveUndoneSet', error, stack);
+      _undoneCache.remove(sessionId);
     }
   }
 
@@ -1439,6 +1493,7 @@ class AiFileMutationLedger {
           imported += 1;
         }
         await writeFileAtomically(ledger, buffer.toString());
+        _invalidateSessionCache(sid);
         // 还原 undone 集合：合并存在的 undone 列表。
         final undoneList = sessionEntry['undone'];
         if (undoneList is List) {
