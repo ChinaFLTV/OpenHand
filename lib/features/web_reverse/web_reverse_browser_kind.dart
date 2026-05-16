@@ -1,3 +1,5 @@
+import 'dart:io';
+
 /// Web 逆向会话支持的 Chromium 同核浏览器候选清单。
 ///
 /// Chrome 是首选；用户未安装 Chrome 时按下面顺序探测同核降级品。
@@ -25,6 +27,43 @@ enum WebReverseBrowserKind {
   final String displayName;
   final String macBundleId;
   final String macAppPath;
+
+  /// 在 PATH 上探测时使用的 CLI 名候选（按优先级排列）。
+  /// 主要给 Linux / Windows 兜底。
+  List<String> get cliCandidates => switch (this) {
+    WebReverseBrowserKind.chrome => const ['google-chrome', 'google-chrome-stable', 'chrome'],
+    WebReverseBrowserKind.chromeBeta => const ['google-chrome-beta'],
+    WebReverseBrowserKind.edge => const ['microsoft-edge', 'msedge'],
+    WebReverseBrowserKind.brave => const ['brave-browser', 'brave'],
+    WebReverseBrowserKind.chromium => const ['chromium', 'chromium-browser'],
+  };
+
+  /// Windows 下默认安装路径候选（绝对路径，支持 64-bit / 32-bit）。
+  List<String> get windowsExecutableCandidates {
+    final pf = Platform.environment['ProgramFiles'] ?? r'C:\Program Files';
+    final pfx86 = Platform.environment['ProgramFiles(x86)'] ?? r'C:\Program Files (x86)';
+    final localApp = Platform.environment['LOCALAPPDATA'] ?? '';
+    return switch (this) {
+      WebReverseBrowserKind.chrome => [
+          '$pf\\Google\\Chrome\\Application\\chrome.exe',
+          '$pfx86\\Google\\Chrome\\Application\\chrome.exe',
+          if (localApp.isNotEmpty) '$localApp\\Google\\Chrome\\Application\\chrome.exe',
+        ],
+      WebReverseBrowserKind.chromeBeta => [
+          '$pf\\Google\\Chrome Beta\\Application\\chrome.exe',
+          '$pfx86\\Google\\Chrome Beta\\Application\\chrome.exe',
+        ],
+      WebReverseBrowserKind.edge => [
+          '$pf\\Microsoft\\Edge\\Application\\msedge.exe',
+          '$pfx86\\Microsoft\\Edge\\Application\\msedge.exe',
+        ],
+      WebReverseBrowserKind.brave => [
+          '$pf\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+          '$pfx86\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+        ],
+      WebReverseBrowserKind.chromium => const [],
+    };
+  }
 
   static WebReverseBrowserKind? fromId(String? id) {
     if (id == null || id.isEmpty) return null;

@@ -37,7 +37,7 @@ class WebReverseWindowDock {
 
   /// 启动周期吸附。重复 start 是幂等操作。
   void start() {
-    if (!Platform.isMacOS) return;
+    if (!Platform.isMacOS && !Platform.isLinux && !Platform.isWindows) return;
     if (_running) return;
     _running = true;
     _timer = Timer.periodic(tickInterval, (_) => unawaited(_tick()));
@@ -55,16 +55,28 @@ class WebReverseWindowDock {
   Future<void> _tick() async {
     if (!_running) return;
     try {
-      final bounds = await _readOpenHandBounds();
-      if (bounds == null) return;
-      await _moveBrowserWindow(bounds);
+      if (Platform.isMacOS) {
+        final bounds = await _readOpenHandBoundsMacOS();
+        if (bounds == null) return;
+        await _moveBrowserWindowMacOS(bounds);
+      } else if (Platform.isLinux) {
+        final bounds = await _readOpenHandBoundsLinux();
+        if (bounds == null) return;
+        await _moveBrowserWindowLinux(bounds);
+      } else if (Platform.isWindows) {
+        final bounds = await _readOpenHandBoundsWindows();
+        if (bounds == null) return;
+        await _moveBrowserWindowWindows(bounds);
+      }
     } catch (_) {
       // 静默吞掉单 tick 错误，下个 tick 会自然重试。
     }
   }
 
+  // ── macOS ────────────────────────────────────────────────────────────
+
   /// 通过 System Events 读 OpenHand 主窗口的 bounds（屏幕坐标 x, y, w, h）。
-  Future<_Bounds?> _readOpenHandBounds() async {
+  Future<_Bounds?> _readOpenHandBoundsMacOS() async {
     // 进程名取自 macOS 应用 bundle 的 CFBundleName。Flutter 默认使用项目名
     // 'openhand'，发布版可能改为 'OpenHand'；这里两个都试。
     for (final procName in const ['openhand', 'OpenHand']) {
@@ -104,7 +116,7 @@ return ""
   }
 
   /// 把浏览器主窗口移到 OpenHand 主窗口的右侧，高度对齐。
-  Future<void> _moveBrowserWindow(_Bounds parent) async {
+  Future<void> _moveBrowserWindowMacOS(_Bounds parent) async {
     final newX = parent.x + parent.w + gap;
     final newY = parent.y;
     final newH = parent.h;
@@ -129,6 +141,162 @@ end tell
       '/usr/bin/osascript',
       ['-e', script],
       timeout: const Duration(seconds: 1),
+      tag: 'web_reverse_window_dock',
+    );
+  }
+
+  // ── Linux ────────────────────────────────────────────────────────────
+  // 依赖 `wmctrl`（绝大多数 X11 桌面默认装）。
+  // - `wmctrl -lG` 输出每个窗口的 wid + x y w h + host + title。
+  // - `wmctrl -i -r <wid> -e 0,x,y,w,h` 改窗口位置/尺寸。
+  // - Wayland 下大概率失败；当前阶段不专门处理。
+
+  Future<_Bounds?> _readOpenHandBoundsLinux() async {
+    final result = await runProcessWithTimeout(
+      'wmctrl',
+      const ['-lG'],
+      timeout: const Duration(seconds: 1),
+      tag: 'web_reverse_window_dock',
+    );
+    final raw = result?.stdout.toString() ?? '';
+    if (raw.isEmpty) return null;
+    for (final line in raw.split('\n')) {
+      final parts = line.split(RegExp(r'\s+'));
+      if (parts.length < 8) continue;
+      final title = parts.sublist(7).join(' ');
+      final tl = title.toLowerCase();
+      if (!tl.contains('openhand')) continue;
+      final x = int.tryParse(parts[2]);
+      final y = int.tryParse(parts[3]);
+      final w = int.tryParse(parts[4]);
+      final h = int.tryParse(parts[5]);
+      if (x == null || y == null || w == null || h == null) continue;
+      return _Bounds(x, y, w, h);
+    }
+    return null;
+  }
+
+  Future<void> _moveBrowserWindowLinux(_Bounds parent) async {
+    final result = await runProcessWithTimeout(
+      'wmctrl',
+      const ['-lG'],
+      timeout: const Duration(seconds: 1),
+      tag: 'web_reverse_window_dock',
+    );
+    final raw = result?.stdout.toString() ?? '';
+    String? wid;
+    for (final line in raw.split('\n')) {
+      final parts = line.split(RegExp(r'\s+'));
+      if (parts.length < 8) continue;
+      final title = parts.sublist(7).join(' ').toLowerCase();
+      // 命中浏览器主窗——按进程名宽松匹配。
+      if (title.contains(browserAppName.toLowerCase())) {
+        wid = parts[0];
+        break;
+      }
+    }
+    if (wid == null) return;
+    final newX = parent.x + parent.w + gap;
+    final newY = parent.y;
+    const newW = 720;
+    final newH = parent.h;
+    await runProcessWithTimeout(
+      'wmctrl',
+      ['-i', '-r', wid, '-e', '0,$newX,$newY,$newW,$newH'],
+      timeout: const Duration(seconds: 1),
+      tag: 'web_reverse_window_dock',
+    );
+  }
+
+  // ── Windows ──────────────────────────────────────────────────────────
+  // 用 PowerShell + Win32 API。FindWindow + MoveWindow 单条 ps1 一次性完成。
+
+  Future<_Bounds?> _readOpenHandBoundsWindows() async {
+    const script = r'''
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class W {
+  [DllImport("user32.dll")] public static extern IntPtr FindWindow(string c, string n);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] public static extern int EnumWindows(EnumProc p, IntPtr l);
+  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder s, int n);
+  public delegate bool EnumProc(IntPtr h, IntPtr l);
+  public struct RECT { public int L; public int T; public int R; public int B; }
+}
+"@
+$matchTitle = "OpenHand"
+$found = [IntPtr]::Zero
+$proc = [W+EnumProc] {
+  param($h, $l)
+  $sb = New-Object System.Text.StringBuilder 256
+  [W]::GetWindowText($h, $sb, 256) | Out-Null
+  if ($sb.ToString() -like "*$matchTitle*") { $script:found = $h; return $false }
+  return $true
+}
+[W]::EnumWindows($proc, [IntPtr]::Zero) | Out-Null
+if ($script:found -ne [IntPtr]::Zero) {
+  $r = New-Object W+RECT
+  [W]::GetWindowRect($script:found, [ref]$r) | Out-Null
+  Write-Output ("{0},{1},{2},{3}" -f $r.L, $r.T, ($r.R - $r.L), ($r.B - $r.T))
+}
+''';
+    final result = await runProcessWithTimeout(
+      'powershell.exe',
+      ['-NoProfile', '-Command', script],
+      timeout: const Duration(seconds: 2),
+      tag: 'web_reverse_window_dock',
+    );
+    final raw = result?.stdout.toString().trim();
+    if (raw == null || raw.isEmpty) return null;
+    final parts = raw.split(',');
+    if (parts.length != 4) return null;
+    final x = int.tryParse(parts[0].trim());
+    final y = int.tryParse(parts[1].trim());
+    final w = int.tryParse(parts[2].trim());
+    final h = int.tryParse(parts[3].trim());
+    if (x == null || y == null || w == null || h == null) return null;
+    return _Bounds(x, y, w, h);
+  }
+
+  Future<void> _moveBrowserWindowWindows(_Bounds parent) async {
+    final newX = parent.x + parent.w + gap;
+    final newY = parent.y;
+    const newW = 720;
+    final newH = parent.h;
+    final script = r'''
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class W {
+  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int h2, bool repaint);
+  [DllImport("user32.dll")] public static extern int EnumWindows(EnumProc p, IntPtr l);
+  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder s, int n);
+  public delegate bool EnumProc(IntPtr h, IntPtr l);
+}
+"@
+$matchTitle = "''' +
+        browserAppName +
+        r'''"
+$found = [IntPtr]::Zero
+$proc = [W+EnumProc] {
+  param($h, $l)
+  $sb = New-Object System.Text.StringBuilder 256
+  [W]::GetWindowText($h, $sb, 256) | Out-Null
+  if ($sb.ToString() -like "*$matchTitle*") { $script:found = $h; return $false }
+  return $true
+}
+[W]::EnumWindows($proc, [IntPtr]::Zero) | Out-Null
+if ($script:found -ne [IntPtr]::Zero) {
+  [W]::MoveWindow($script:found, ''' +
+        '$newX, $newY, $newW, $newH' +
+        r''', $true) | Out-Null
+}
+''';
+    await runProcessWithTimeout(
+      'powershell.exe',
+      ['-NoProfile', '-Command', script],
+      timeout: const Duration(seconds: 2),
       tag: 'web_reverse_window_dock',
     );
   }
