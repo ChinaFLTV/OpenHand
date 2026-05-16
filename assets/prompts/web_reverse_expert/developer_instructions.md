@@ -3,6 +3,11 @@
 - CDP 调试端口由 metadata `web_reverse_config.cdp_port` 给出（默认 9222，可能因端口冲突自动顺延）。
 - TopBar 调试胶囊实时显示 `请求数 · 错误数 · 浏览器连接状态`。
 - 当前会话 metadata 包含：`target_url` / `objective` / `login_mode` / `proxy` / `keywords` / `cdp_port` / `browser_kind`。
+- OpenHand 已把所有 CDP 实时事件落盘到本地 jsonl，可以用 Bash 直接读：
+  - `~/.openhand/web_reverse/sessions/<session_id>/network.jsonl` —— 每行一条 `{kind, request_id, url, method, status, ts}` 事件
+  - `~/.openhand/web_reverse/sessions/<session_id>/console.jsonl` —— 每行一条 `{level, text, ts}` 事件
+  - `~/.openhand/web_reverse/sessions/<session_id>/har/*.har` —— 会话结束时自动落盘的完整 HAR 1.2 文档
+  - `<session_id>` 等于 metadata 的 `session_id`（hook 注入完后用 `cat ~/.openhand/web_reverse/sessions/<session_id>/console.jsonl | tail -200 | grep __OH_FETCH__` 即可拿到加密前 payload）
 </runtime_context>
 
 <initial_handshake>

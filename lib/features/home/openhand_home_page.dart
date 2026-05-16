@@ -2541,6 +2541,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final controller = WebReverseSessionController(
       config: setup.config,
       executablePath: setup.executablePath,
+      artifactsRootDir: '$userDataDirRoot/sessions/${session.id}',
     );
     _webReverseControllers[session.id] = controller;
     controller.addListener(_onWebReverseControllerChanged);
@@ -2614,6 +2615,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final controller = WebReverseSessionController(
       config: config,
       executablePath: probe.executablePath!,
+      artifactsRootDir:
+          '${OpenHandPaths.defaultRootDirectoryPath()}/web_reverse/sessions/${session.id}',
     );
     _webReverseControllers[session.id] = controller;
     controller.addListener(_onWebReverseControllerChanged);

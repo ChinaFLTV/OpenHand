@@ -221,6 +221,24 @@ class _WebReverseDashboardDialogState
           ),
           const SizedBox(width: 4),
           Tooltip(
+            message: isZh ? '立即导出 HAR' : 'Export HAR now',
+            child: IconButton(
+              onPressed: () async {
+                final path = await ctrl.exportHarNow();
+                if (!mounted) return;
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.showSnackBar(SnackBar(
+                  content: Text(path == null
+                      ? (isZh ? 'HAR 导出失败' : 'HAR export failed')
+                      : (isZh ? 'HAR 已导出: $path' : 'HAR exported: $path')),
+                  duration: const Duration(seconds: 3),
+                ));
+              },
+              icon: const Icon(Icons.archive_rounded, size: 20),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Tooltip(
             message: isZh
                 ? '在系统浏览器中打开官方 DevTools（F12 等价）'
                 : 'Open native DevTools (F12 equivalent)',

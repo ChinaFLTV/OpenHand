@@ -6,6 +6,7 @@ import '../../app/support/silent_log.dart';
 import 'web_reverse_browser_kind.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
+import 'web_reverse_session_artifacts.dart';
 import 'web_reverse_session_config.dart';
 import 'web_reverse_window_dock.dart';
 
@@ -26,15 +27,25 @@ class WebReverseSessionController extends ChangeNotifier {
   WebReverseSessionController({
     required this.config,
     required this.executablePath,
+    required this.artifactsRootDir,
     WebReverseBrowserLauncher? launcher,
     WebReverseWindowDock? dock,
-  }) : _launcher = launcher ?? WebReverseBrowserLauncher(),
-       _dock = dock;
+    WebReverseSessionArtifacts? artifacts,
+  })  : _launcher = launcher ?? WebReverseBrowserLauncher(),
+        _dock = dock,
+        _artifacts =
+            artifacts ?? WebReverseSessionArtifacts(rootDir: artifactsRootDir);
 
   final WebReverseSessionConfig config;
   final String executablePath;
+
+  /// 会话工作目录，默认 `~/.openhand/web_reverse/<session_id>`。
+  /// 落盘的 jsonl / HAR / 截图都放这里，方便模型 Bash 读取。
+  final String artifactsRootDir;
+
   final WebReverseBrowserLauncher _launcher;
   WebReverseWindowDock? _dock;
+  final WebReverseSessionArtifacts _artifacts;
 
   WebReverseLaunchResult? _launchResult;
   WebReverseCdpClient? _browserCdp;
@@ -46,6 +57,8 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _stopped = false;
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+  String? _lastHarPath;
+  String? get lastHarPath => _lastHarPath;
 
   bool get isRunning => _started && !_stopped;
 
@@ -81,6 +94,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (_started) return;
     _started = true;
     try {
+      await _artifacts.init();
       _launchResult = await _launcher.launch(
         executablePath: executablePath,
         browserKind: config.browserKind,
@@ -163,10 +177,12 @@ class WebReverseSessionController extends ChangeNotifier {
     final requestId = '${p['requestId']}';
     final request = p['request'] as Map?;
     if (request == null) return;
+    final url = '${request['url'] ?? ''}';
+    final method = '${request['method'] ?? 'GET'}';
     final entry = CdpNetworkEntry(
       requestId: requestId,
-      url: '${request['url'] ?? ''}',
-      method: '${request['method'] ?? 'GET'}',
+      url: url,
+      method: method,
       timestamp: DateTime.now(),
       resourceType: '${p['type'] ?? 'Other'}',
     );
@@ -176,6 +192,23 @@ class WebReverseSessionController extends ChangeNotifier {
       final old = _networkRequests.removeAt(0);
       _networkByRequestId.remove(old.requestId);
     }
+    final headers = (request['headers'] as Map?)?.cast<String, Object?>();
+    _artifacts
+      ..appendNetwork(<String, Object?>{
+        'kind': 'request',
+        'request_id': requestId,
+        'url': url,
+        'method': method,
+        'ts': entry.timestamp.toUtc().toIso8601String(),
+      })
+      ..recordHarRequest(
+        requestId: requestId,
+        url: url,
+        method: method,
+        headers: headers ?? const <String, Object?>{},
+        postData: request['postData'] as String?,
+        startedAt: entry.timestamp,
+      );
     notifyListeners();
   }
 
@@ -185,11 +218,32 @@ class WebReverseSessionController extends ChangeNotifier {
     if (response == null) return;
     final entry = _networkByRequestId[requestId];
     if (entry == null) return;
-    entry.statusCode = (response['status'] as num?)?.toInt();
-    entry.mimeType = '${response['mimeType'] ?? ''}';
+    final status = (response['status'] as num?)?.toInt();
+    final mime = '${response['mimeType'] ?? ''}';
+    entry.statusCode = status;
+    entry.mimeType = mime;
     entry.fromCache = response['fromDiskCache'] == true ||
         response['fromMemoryCache'] == true ||
         response['fromServiceWorker'] == true;
+    final headers = (response['headers'] as Map?)?.cast<String, Object?>();
+    _artifacts
+      ..appendNetwork(<String, Object?>{
+        'kind': 'response',
+        'request_id': requestId,
+        'status': status,
+        'mime': mime,
+        'from_cache': entry.fromCache,
+        'ts': DateTime.now().toUtc().toIso8601String(),
+      })
+      ..recordHarResponse(
+        requestId: requestId,
+        status: status ?? 0,
+        statusText: '${response['statusText'] ?? ''}',
+        mimeType: mime,
+        headers: headers ?? const <String, Object?>{},
+        bodySize: (response['encodedDataLength'] as num?)?.toInt(),
+      )
+      ..recordHarFinished(requestId, DateTime.now());
     notifyListeners();
   }
 
@@ -197,8 +251,17 @@ class WebReverseSessionController extends ChangeNotifier {
     final requestId = '${p['requestId']}';
     final entry = _networkByRequestId[requestId];
     if (entry == null) return;
+    final err = '${p['errorText'] ?? 'failed'}';
     entry.failed = true;
-    entry.errorText = '${p['errorText'] ?? 'failed'}';
+    entry.errorText = err;
+    _artifacts
+      ..appendNetwork(<String, Object?>{
+        'kind': 'failed',
+        'request_id': requestId,
+        'error': err,
+        'ts': DateTime.now().toUtc().toIso8601String(),
+      })
+      ..recordHarFailed(requestId, err, DateTime.now());
     notifyListeners();
   }
 
@@ -221,12 +284,18 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _appendConsole(String level, String text) {
+    final ts = DateTime.now();
     _consoleMessages.add(
-      CdpConsoleEntry(level: level, text: text, timestamp: DateTime.now()),
+      CdpConsoleEntry(level: level, text: text, timestamp: ts),
     );
     while (_consoleMessages.length > _maxConsoleEntries) {
       _consoleMessages.removeAt(0);
     }
+    _artifacts.appendConsole(<String, Object?>{
+      'level': level,
+      'text': text,
+      'ts': ts.toUtc().toIso8601String(),
+    });
     notifyListeners();
   }
 
@@ -255,6 +324,13 @@ class WebReverseSessionController extends ChangeNotifier {
         p.kill();
       } catch (_) {}
     }
+    // 收尾产物：先导 HAR（用 in-memory drafts），再关 artifacts。
+    try {
+      _lastHarPath = await _artifacts.exportHar();
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'export HAR', error, stack);
+    }
+    await _artifacts.close();
   }
 
   /// 清空 dashboard 缓冲（用户在 dashboard 点"清空"按钮时调用）。
@@ -274,6 +350,17 @@ class WebReverseSessionController extends ChangeNotifier {
       params: <String, Object?>{'cacheDisabled': disabled},
       sessionId: _pageSessionId,
     );
+  }
+
+  /// 立即导出当前 HAR 草稿。返回写出路径或 null。
+  /// 调用后 in-memory drafts 仍保留，stop() 时会再导一份；用户从 dashboard 手动触发用。
+  Future<String?> exportHarNow() async {
+    final path = await _artifacts.exportHar();
+    if (path != null) {
+      _lastHarPath = path;
+      notifyListeners();
+    }
+    return path;
   }
 
   @override
