@@ -2765,6 +2765,28 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     try {
       final activationGeneration = ++_sessionActivationGeneration;
+      // 阶段㉒ — 同步预亮 placeholder 防首帧爆裂：
+      // 之前流程是「点击会话 → selectSession 触发 notifyListeners →
+      // build 同帧把新 transcript 直接 mount → 等下一帧 listener 才设
+      // _preparingTranscriptSessionId」，导致用户看见 1 帧"光秃秃的真
+      // 实 transcript 在同步堆 N 张消息卡片"，正是 ANR 主因。
+      // 现在在调 selectSession 之前同步置位，让接下来的 build 直接渲染
+      // placeholder 而不是真实 transcript，把 mount 延后到 placeholder
+      // 反向淡出之后；与 _scheduleTranscriptReveal 的帧预算 + 320ms
+      // 兜底配合。极小会话 (<15 条) 跳过本路径，照旧无闪烁直接 mount。
+      AiSession? targetSession;
+      for (final candidate in sessionController.sessions) {
+        if (candidate.id == sessionId) {
+          targetSession = candidate;
+          break;
+        }
+      }
+      if (_shouldPrepareTranscript(targetSession) &&
+          _preparingTranscriptSessionId != sessionId) {
+        setState(() {
+          _preparingTranscriptSessionId = sessionId;
+        });
+      }
       await _awaitEndOfFrame();
       if (!mounted || activationGeneration != _sessionActivationGeneration) {
         return;

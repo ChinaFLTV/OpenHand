@@ -339,6 +339,19 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   static const int _dripStartChunkSize = 1;
   static const int _dripActivationThreshold = 2;
   static const Duration _dripStepInterval = Duration(milliseconds: 400);
+  // 阶段㉒：首次打开会话首屏专用的快速 drip 节拍。把 visible window 内
+  // 的气泡按 90 ms/张分摊到帧间登场，远低于 streaming 期 400 ms 的
+  // 「肉眼可见漫步」节拍，达到「打开后内容快速但不挤入」的折中。
+  // 同时与 [_MarkdownFrameScheduler] 的 1/帧 节流互补：drip 控制
+  // 「卡片树何时挂载」，scheduler 控制「markdown 何时解析」，两者
+  // 串联起来把首屏总耗时摊到 ~10 帧 (160 ms) 内陆续完成。
+  static const Duration _firstOpenDripStep = Duration(milliseconds: 90);
+  // 极小会话 (≤ _firstOpenSyncMaterializeMaxCount 张可见气泡) 跳过 drip
+  // 直接全量物化，避免空帧闪烁。
+  static const int _firstOpenSyncMaterializeMaxCount = 3;
+  // 首批立刻物化几张：让用户在第一时间就能看到「最新一条 + 上一条」的
+  // 完整气泡，剩下按 _firstOpenDripStep 节拍逐张追加。
+  static const int _firstOpenInitialChunk = 2;
 
   @override
   void initState() {
@@ -352,19 +365,31 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // synchronously inside this same frame is the dominant ANR source the
     // user reported. We mirror the `didUpdateWidget` (session-switch) path:
     // start with an empty list so the shell can paint immediately, then
-    // build the visible window on the next frame so the heavy bubble work
-    // does not bottleneck the first paint. Tiny sessions (< 6 visible
-    // messages) skip the defer to avoid an unnecessary blank frame.
+    // build the visible window over a few frames using the drip mechanism
+    // so the heavy bubble work does not bottleneck any single frame.
     final initialVisible = _visibleMessagesForWindow();
-    if (initialVisible.length <= 5) {
+    if (initialVisible.length <= _firstOpenSyncMaterializeMaxCount) {
       _replaceRenderEntries(initialVisible, animate: false);
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
+        // 阶段㉒：先即时物化最近 _firstOpenInitialChunk 张消息，让首屏
+        // 立刻有内容；之后每帧追加 1 张，直至 visible window 全部到位。
+        // _materializedTailLimit 配合 _visibleMessagesForWindow 实现
+        // 「从尾部往前」逐张展开 — 用户最关心的「最新消息」先到位。
+        final fullCount = initialVisible.length;
+        final initialChunk = math.min(_firstOpenInitialChunk, fullCount);
         setState(() {
+          _materializedTailLimit = initialChunk;
           _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
         });
+        if (initialChunk < fullCount) {
+          _beginIncrementalDrip(
+            initialChunk,
+            stepInterval: _firstOpenDripStep,
+          );
+        }
       });
     }
     _syncVisibleError();
@@ -404,9 +429,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       // Switching sessions used to rebuild the full transcript synchronously
       // inside `didUpdateWidget`, which on large sessions blocked the frame
       // that paints the new toolbar / shell. We now reset to an empty list
-      // immediately so the cross-fade can start, then materialise the
-      // visible window on the next frame so the heavy bubble build does not
-      // bottleneck the transition itself.
+      // immediately so the cross-fade can start, then drip the visible
+      // window over a few frames using the same staged-materialization
+      // path as initState, so heavy bubble builds never bottleneck the
+      // transition.
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
       _initialBuildDone = false;
@@ -414,9 +440,25 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
+        final initialVisible = _visibleMessagesForWindow();
+        if (initialVisible.length <= _firstOpenSyncMaterializeMaxCount) {
+          setState(() {
+            _replaceRenderEntries(initialVisible, animate: false);
+          });
+          return;
+        }
+        final fullCount = initialVisible.length;
+        final initialChunk = math.min(_firstOpenInitialChunk, fullCount);
         setState(() {
+          _materializedTailLimit = initialChunk;
           _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
         });
+        if (initialChunk < fullCount) {
+          _beginIncrementalDrip(
+            initialChunk,
+            stepInterval: _firstOpenDripStep,
+          );
+        }
       });
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
@@ -475,10 +517,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   /// Begins (or refreshes) an incremental drip that grows
   /// `_materializedTailLimit` from [initialLimit] one step at a time
-  /// every [_dripStepInterval] until it reaches the full visible tail
+  /// every [stepInterval] until it reaches the full visible tail
   /// length. Safe to call repeatedly — re-arms the timer rather than
-  /// stacking timers.
-  void _beginIncrementalDrip(int initialLimit) {
+  /// stacking timers. [stepInterval] 默认为 [_dripStepInterval] (400 ms,
+  /// streaming 期节拍)，首次打开会话场景请显式传入
+  /// [_firstOpenDripStep] (90 ms) 让首屏内容快速到位。
+  void _beginIncrementalDrip(
+    int initialLimit, {
+    Duration stepInterval = _dripStepInterval,
+  }) {
     final fullCount = _fullVisibleTailCount();
     if (initialLimit >= fullCount) {
       _stopIncrementalDrip();
@@ -486,7 +533,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     _materializedTailLimit = math.max(0, initialLimit);
     _dripTimer?.cancel();
-    _dripTimer = Timer.periodic(_dripStepInterval, (timer) {
+    _dripTimer = Timer.periodic(stepInterval, (timer) {
       if (!mounted) {
         timer.cancel();
         _dripTimer = null;

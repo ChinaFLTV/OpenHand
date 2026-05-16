@@ -182,47 +182,64 @@ class _WorkspaceView extends StatelessWidget {
                         key: ValueKey<String>('content-${currentSession!.id}'),
                         child: Stack(
                           children: [
+                            // 阶段㉒：placeholder 阶段直接 SizedBox 占位，不
+                            // 把 _SessionTranscript 树挂进 widget tree。之前
+                            // 用 AnimatedOpacity(0) 隐身但保留 mount 的写法，
+                            // initState/build/markdown 解析照常跑，等于 ANR
+                            // 隐藏在 placeholder 背后。现在严格延后到
+                            // transcriptPreparing 反向之后才 mount，让
+                            // placeholder 阶段主线程完全空出来给首帧布局。
                             Positioned.fill(
                               child: AnimatedOpacity(
-                                // 瞬间使其隐身以彻底遮盖背后的列表疯狂重排乱跳的现象
                                 opacity: transcriptPreparing ? 0.0 : 1.0,
                                 duration: transcriptPreparing
                                     ? Duration.zero
                                     : const Duration(milliseconds: 160),
                                 curve: Curves.easeOutCubic,
-                                child: _SessionTranscript(
-                                  key: ValueKey<String>(
-                                    'messages-${currentSession!.id}',
-                                  ),
-                                  controller: messageScrollController,
-                                  onScrollNotification:
-                                      onMessageScrollNotification,
-                                  session: currentSession!,
-                                  liveRuntimeToolPreview:
-                                      liveRuntimeToolPreview,
-                                  sendPhase: sendPhase,
-                                  planTimelineCollapsed: planTimelineCollapsed,
-                                  onPlanTimelineCollapsedChanged:
-                                      onPlanTimelineCollapsedChanged,
-                                  onLayoutChanged: onTranscriptLayoutChanged,
-                                  onRevealOlderMessages: onRevealOlderMessages,
-                                  onEditMessage: onEditMessage,
-                                  onCopyMessage: onCopyMessage,
-                                  onDeleteMessage: onDeleteMessage,
-                                  onDeleteMessageFromHere:
-                                      onDeleteMessageFromHere,
-                                  onDismissError: onDismissError,
-                                  // Jump to the very bottom on the first frame when the
-                                  // session was just activated, so the user never sees a
-                                  // flash from scroll-top to scroll-bottom.
-                                  jumpToBottomOnInit: jumpToBottomOnInit,
-                                  fileExplorerVisible: fileExplorerVisible,
-                                  onFileExplorerToggled: onFileExplorerToggled,
-                                  activeProfile: selectedModel
-                                      ?.modelProfiles[selectedModel!.modelId],
-                                  claudeStyle: selectedModel?.protocolType ==
-                                      AiProtocolType.claude,
-                                ),
+                                child: transcriptPreparing
+                                    ? const SizedBox.expand()
+                                    : _SessionTranscript(
+                                        key: ValueKey<String>(
+                                          'messages-${currentSession!.id}',
+                                        ),
+                                        controller: messageScrollController,
+                                        onScrollNotification:
+                                            onMessageScrollNotification,
+                                        session: currentSession!,
+                                        liveRuntimeToolPreview:
+                                            liveRuntimeToolPreview,
+                                        sendPhase: sendPhase,
+                                        planTimelineCollapsed:
+                                            planTimelineCollapsed,
+                                        onPlanTimelineCollapsedChanged:
+                                            onPlanTimelineCollapsedChanged,
+                                        onLayoutChanged:
+                                            onTranscriptLayoutChanged,
+                                        onRevealOlderMessages:
+                                            onRevealOlderMessages,
+                                        onEditMessage: onEditMessage,
+                                        onCopyMessage: onCopyMessage,
+                                        onDeleteMessage: onDeleteMessage,
+                                        onDeleteMessageFromHere:
+                                            onDeleteMessageFromHere,
+                                        onDismissError: onDismissError,
+                                        // Jump to the very bottom on the first
+                                        // frame when the session was just
+                                        // activated, so the user never sees a
+                                        // flash from scroll-top to
+                                        // scroll-bottom.
+                                        jumpToBottomOnInit: jumpToBottomOnInit,
+                                        fileExplorerVisible: fileExplorerVisible,
+                                        onFileExplorerToggled:
+                                            onFileExplorerToggled,
+                                        activeProfile: selectedModel
+                                            ?.modelProfiles[
+                                              selectedModel!.modelId
+                                            ],
+                                        claudeStyle:
+                                            selectedModel?.protocolType ==
+                                            AiProtocolType.claude,
+                                      ),
                               ),
                             ),
                             // Overlay mask that visually hides the initial rendering
