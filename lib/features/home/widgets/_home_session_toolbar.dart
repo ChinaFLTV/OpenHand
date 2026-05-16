@@ -96,6 +96,8 @@ class _SessionToolbar extends StatelessWidget {
                             ),
                             if (session.templateId == 'hermes_talker')
                               const _HermesSelfLearningWarningPill(),
+                            if (session.templateId == 'web_reverse_expert')
+                              _WebReverseDebugPill(sessionId: session.id),
                             const SizedBox(width: 8),
                             _ToolbarPill(
                               icon: Icons.data_object_rounded,
@@ -2317,4 +2319,136 @@ _ContextStatsBreakdown _computeMessageCharBreakdown(AiSession session) {
     toolChars: toolChars,
     otherChars: otherChars,
   );
+}
+
+
+/// Web 逆向专家会话的调试胶囊：实时显示「请求数 · 错误数 · 浏览器连接状态」，
+/// 点击打开 CDP 仪表盘弹窗。
+///
+/// Controller 的获取走 `_OpenhandHomePageState` 提供的查询方法，
+/// 避免在 part 文件里持有可见 controller 字段。
+class _WebReverseDebugPill extends StatefulWidget {
+  const _WebReverseDebugPill({required this.sessionId});
+  final String sessionId;
+
+  @override
+  State<_WebReverseDebugPill> createState() => _WebReverseDebugPillState();
+}
+
+class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
+  WebReverseSessionController? _controller;
+
+  void _attachIfNeeded() {
+    final state = context.findAncestorStateOfType<_OpenHandHomePageState>();
+    final ctrl = state?.webReverseControllerFor(widget.sessionId);
+    if (identical(ctrl, _controller)) return;
+    _controller?.removeListener(_onChanged);
+    _controller = ctrl;
+    _controller?.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _attachIfNeeded();
+    final ctrl = _controller;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    final running = ctrl?.isRunning ?? false;
+    final reqs = ctrl?.networkRequests.length ?? 0;
+    final errs = ctrl?.errorCount ?? 0;
+    final dotColor = !running
+        ? cs.outline
+        : (errs > 0 ? cs.error : cs.primary);
+    final label = running
+        ? '$reqs · ${isZh ? "$errs 错" : "$errs err"}'
+        : (isZh ? '未连接' : 'offline');
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: AnimatedContainer(
+        duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: !running
+                ? cs.outlineVariant
+                : (errs > 0 ? cs.error : cs.primary).withValues(alpha: 0.4),
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: ctrl == null
+                ? null
+                : () => showWebReverseDashboardDialog(context, controller: ctrl),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedContainer(
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: dotColor,
+                      shape: BoxShape.circle,
+                      boxShadow: running && errs == 0
+                          ? [
+                              BoxShadow(
+                                color: dotColor.withValues(alpha: 0.55),
+                                blurRadius: 6,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.bug_report_rounded,
+                    size: 13,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  AnimatedSwitcher(
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
+                    transitionBuilder: (c, a) => FadeTransition(opacity: a, child: c),
+                    child: Text(
+                      label,
+                      key: ValueKey<String>(label),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

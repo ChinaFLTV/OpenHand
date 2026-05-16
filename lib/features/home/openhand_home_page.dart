@@ -68,6 +68,7 @@ import '../message_gateway/index.dart';
 import '../plugin_service/index.dart';
 import '../settings/index.dart';
 import '../skills/index.dart';
+import '../web_reverse/index.dart';
 import 'util/editor_indentation.dart';
 import 'util/message_path_linking.dart';
 import 'util/slash_command_parser.dart';
@@ -203,6 +204,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   HardnessSessionRecord? _persistedHardnessSession;
   Timer? _hardnessSessionSaveTimer;
   HardnessPhase? _lastHardnessAwaitingApprovalPhase;
+
+  // Active Web Reverse Expert sessions, keyed by session id. Each holds a
+  // controller managing one external Chrome process + CDP channel.
+  final Map<String, WebReverseSessionController> _webReverseControllers =
+      <String, WebReverseSessionController>{};
 
   // Programming Expert: file explorer & inline editor state.
   bool _fileExplorerVisible = false;
@@ -599,6 +605,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
     _activeHardnessOrchestrator?.cancel();
     _activeHardnessOrchestrator?.dispose();
+    for (final ctrl in _webReverseControllers.values) {
+      unawaited(ctrl.stop());
+      ctrl.dispose();
+    }
+    _webReverseControllers.clear();
     _hardnessSessionSaveTimer?.cancel();
     _editorTabsSaveTimer?.cancel();
     // Flush pending editor tabs before disposal.
@@ -2480,6 +2491,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       unawaited(_generateHardnessAutoTitle(record.id, config.task));
       return true;
     }
+    if (templateId == 'web_reverse_expert') {
+      final result = await _showWebReverseSetupAndCreate(
+        runtimeContext: runtimeContext,
+      );
+      return result;
+    }
     return _createSession(
       templateId: templateId,
       runtimeContext: runtimeContext,
@@ -2490,6 +2507,70 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           .read<SettingsController>()
           .aiDefaultFullAccessPermission,
     );
+  }
+
+  /// 创建一个 Web 逆向专家会话：弹设置对话框 → 启动浏览器/CDP →
+  /// 把 controller 绑到 session.id → 写入会话 metadata → 拼 prompt 发送。
+  Future<bool> _showWebReverseSetupAndCreate({
+    AiSessionRuntimeContext? runtimeContext,
+  }) async {
+    final userDataDirRoot =
+        '${OpenHandPaths.defaultRootDirectoryPath()}/web_reverse';
+    final setup = await showWebReverseSetupDialog(
+      context,
+      userDataDirRoot: userDataDirRoot,
+    );
+    if (!mounted || setup == null) return false;
+    final created = await _createSession(
+      templateId: 'web_reverse_expert',
+      runtimeContext: runtimeContext,
+    );
+    if (!created || !mounted) return false;
+    final sessionController = context.read<AiSessionController>();
+    final session = sessionController.currentSession;
+    if (session == null) return created;
+    // 写入 metadata，便于 SessionDetailPage / 调试胶囊定位 controller。
+    await sessionController.updateSessionMetadata(
+      session.id,
+      <String, Object?>{
+        'web_reverse_config': setup.config.toJson(),
+      },
+    );
+    if (!mounted) return created;
+    // 启动 controller。
+    final controller = WebReverseSessionController(
+      config: setup.config,
+      executablePath: setup.executablePath,
+    );
+    _webReverseControllers[session.id] = controller;
+    controller.addListener(_onWebReverseControllerChanged);
+    try {
+      await controller.start();
+    } catch (error, stack) {
+      silentLog('openhand_home_page', 'web reverse start', error, stack);
+      if (mounted) {
+        showFriendlyErrorSnackBar(
+          context,
+          message: '$error',
+          fallback: 'Web 逆向会话启动失败',
+        );
+      }
+    }
+    if (!mounted) return created;
+    // 替换 composer 文本并发送首条 prompt。
+    _replaceComposerText(setup.config.toRequestTemplate());
+    await _sendMessage();
+    return created;
+  }
+
+  void _onWebReverseControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  /// 给定 sessionId 返回当前活跃的 Web 逆向 controller（无则 null）。
+  WebReverseSessionController? webReverseControllerFor(String sessionId) {
+    return _webReverseControllers[sessionId];
   }
 
   HardnessSessionRecord _snapshotHardnessRecord(
