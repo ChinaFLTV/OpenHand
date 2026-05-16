@@ -10,6 +10,8 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/media_preview_dialog.dart';
+import 'web_reverse_launch_diagnosis.dart';
+import 'web_reverse_profile_cleaner.dart';
 import 'web_reverse_screenshot_markup.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -166,6 +168,12 @@ class _WebReverseDashboardDialogState
               children: [
                 _buildHeader(theme, cs, isZh),
                 Divider(height: 1, color: cs.outlineVariant),
+                if ((ctrl.errorMessage ?? '').trim().isNotEmpty)
+                  _DiagnosisBanner(
+                    controller: ctrl,
+                    isZh: isZh,
+                    reduceMotion: reduceMotion,
+                  ),
                 _buildToolbar(theme, cs, isZh, ctrl, reduceMotion),
                 Divider(height: 1, color: cs.outlineVariant),
                 Expanded(
@@ -469,6 +477,308 @@ class _OverviewBody extends StatelessWidget {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// Dashboard 顶部的诊断 banner：当 [WebReverseSessionController.errorMessage]
+/// 不为空时挂在 header 与 toolbar 之间，把 [WebReverseLaunchDiagnosis]
+/// 的"现象 / 根因 / 建议"渲染成一张可操作卡片，提供：
+///   · 清理冲突 profile（删 SingletonLock 等残留锁）
+///   · 重置整个 profile（rm -rf user-data-dir，红字次要按钮）
+///   · 复制完整原始报错
+///   · 关闭 banner（清掉 errorMessage）
+class _DiagnosisBanner extends StatefulWidget {
+  const _DiagnosisBanner({
+    required this.controller,
+    required this.isZh,
+    required this.reduceMotion,
+  });
+
+  final WebReverseSessionController controller;
+  final bool isZh;
+  final bool reduceMotion;
+
+  @override
+  State<_DiagnosisBanner> createState() => _DiagnosisBannerState();
+}
+
+class _DiagnosisBannerState extends State<_DiagnosisBanner> {
+  bool _expanded = true;
+  bool _busy = false;
+
+  Future<void> _cleanLocks() async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    final r = await cleanWebReverseProfileLocks(
+      widget.controller.config.userDataDir,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    messenger.showSnackBar(SnackBar(
+      content: Text(
+        isZh
+            ? '已清理 ${r.deleted} 个锁文件'
+            : 'Removed ${r.deleted} lock file(s)',
+      ),
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
+  Future<void> _resetProfile() async {
+    final isZh = widget.isZh;
+    final dir = widget.controller.config.userDataDir;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh ? '重置整个 profile' : 'Reset entire profile'),
+        content: Text(
+          isZh
+              ? '此操作会递归删除整个 user-data-dir：\n\n$dir\n\n'
+                  '会丢失该 profile 下的 Cookies / Login Data / 已安装扩展 / 浏览历史 等所有数据。'
+                  '本会话下次启动会创建一个全新 profile。\n\n确定继续吗？'
+              : 'This recursively removes the user-data-dir:\n\n$dir\n\n'
+                  'You will lose Cookies / Login Data / extensions / history under this profile. '
+                  'A fresh profile will be created on next launch.\n\nContinue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(isZh ? '确认重置' : 'Reset'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      // 安全防护：拒绝重置过短或可能误伤的路径（必须含 web_reverse 关键词）。
+      if (!dir.contains('web_reverse') || dir.length < 16) {
+        throw const FileSystemException('安全策略拒绝：路径不在 OpenHand web_reverse 子目录中');
+      }
+      final d = Directory(dir);
+      if (await d.exists()) {
+        await d.delete(recursive: true);
+      }
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '已重置 profile：$dir' : 'Profile reset: $dir'),
+        duration: const Duration(seconds: 3),
+      ));
+      // 重置后 errorMessage 通常已不再适用，自动收起 banner。
+      widget.controller.clearErrorMessage();
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard_dialog', 'reset profile', error, stack);
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '重置失败：$error' : 'Reset failed: $error'),
+        duration: const Duration(seconds: 3),
+      ));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _copyRaw(WebReverseLaunchDiagnosis diagnosis) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: diagnosis.fullText));
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(
+      content: Text(widget.isZh ? '已复制原始报错' : 'Raw error copied'),
+      duration: const Duration(seconds: 1),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    final raw = widget.controller.errorMessage ?? '';
+    final diagnosis = WebReverseLaunchDiagnosis.parse(raw);
+    return AnimatedSize(
+      duration:
+          widget.reduceMotion ? Duration.zero : const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
+        decoration: BoxDecoration(
+          color: cs.errorContainer.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.error.withValues(alpha: 0.65)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.report_gmailerrorred_rounded,
+                    size: 18, color: cs.error),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    diagnosis.phenomenon,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: cs.onErrorContainer,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  tooltip: _expanded
+                      ? (isZh ? '收起' : 'Collapse')
+                      : (isZh ? '展开' : 'Expand'),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  icon: Icon(_expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded),
+                ),
+                IconButton(
+                  tooltip: isZh ? '关闭诊断' : 'Dismiss',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: widget.controller.clearErrorMessage,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                ),
+              ],
+            ),
+            if (_expanded) ...[
+              const SizedBox(height: 8),
+              for (var i = 0; i < diagnosis.causes.length; i++) ...[
+                _CauseEntry(cause: diagnosis.causes[i], index: i, isZh: isZh),
+                if (i != diagnosis.causes.length - 1)
+                  const SizedBox(height: 8),
+              ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: _busy ? null : _cleanLocks,
+                    icon: Icon(
+                      _busy
+                          ? Icons.hourglass_top_rounded
+                          : Icons.cleaning_services_rounded,
+                      size: 16,
+                    ),
+                    label: Text(_busy
+                        ? (isZh ? '处理中…' : 'Working…')
+                        : (isZh ? '清理冲突 profile' : 'Clean profile locks')),
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                  // 重置整个 profile：红字次要按钮，明确危险操作。
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _resetProfile,
+                    icon: Icon(Icons.delete_forever_rounded,
+                        size: 16, color: cs.error),
+                    label: Text(
+                      isZh ? '重置整个 profile' : 'Reset entire profile',
+                      style: TextStyle(color: cs.error),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      side: BorderSide(color: cs.error.withValues(alpha: 0.7)),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _copyRaw(diagnosis),
+                    icon: const Icon(Icons.copy_all_rounded, size: 16),
+                    label: Text(isZh ? '复制原始报错' : 'Copy raw error'),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CauseEntry extends StatelessWidget {
+  const _CauseEntry({
+    required this.cause,
+    required this.index,
+    required this.isZh,
+  });
+
+  final WebReverseLaunchCause cause;
+  final int index;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  isZh ? '可能根因 ${index + 1}' : 'Cause ${index + 1}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  cause.title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            cause.suggestion,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );

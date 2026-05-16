@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
@@ -520,6 +522,73 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
     await _refreshLockState();
   }
 
+  Future<void> _onResetPressed() async {
+    final isZh = widget.isZh;
+    final dir = widget.userDataDir;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh ? '重置整个 profile' : 'Reset entire profile'),
+        content: Text(
+          isZh
+              ? '此操作会递归删除整个 user-data-dir：\n\n$dir\n\n'
+                  '会丢失该 profile 下的 Cookies / Login Data / 已安装扩展 / 浏览历史 等所有数据。'
+                  '下次创建会话会自动重建。\n\n确定继续吗？'
+              : 'This recursively removes the user-data-dir:\n\n$dir\n\n'
+                  'You will lose Cookies / Login Data / extensions / history. A fresh profile is rebuilt on next launch.\n\nContinue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(isZh ? '确认重置' : 'Reset'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      // 安全策略：路径必须包含 web_reverse，避免误删用户其他目录。
+      if (!dir.contains('web_reverse') || dir.length < 16) {
+        throw const FileSystemException(
+          '安全策略拒绝：路径不在 OpenHand web_reverse 子目录中',
+        );
+      }
+      final d = Directory(dir);
+      if (await d.exists()) {
+        await d.delete(recursive: true);
+      }
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '已重置 profile：$dir' : 'Profile reset: $dir'),
+        duration: const Duration(seconds: 3),
+      ));
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_setup_dialog',
+        'reset profile',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '重置失败：$error' : 'Reset failed: $error'),
+        duration: const Duration(seconds: 3),
+      ));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+      await _refreshLockState();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -535,66 +604,99 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
           color: hasLock ? cs.error : cs.outlineVariant,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            hasLock ? Icons.lock_clock_rounded : Icons.folder_rounded,
-            size: 18,
-            color: hasLock ? cs.error : cs.onSurfaceVariant,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isZh ? 'Profile 目录' : 'User Data Dir',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  widget.userDataDir,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    color: cs.onSurface,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (hasLock) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    isZh
-                        ? '检测到 SingletonLock / lockfile 残留，可能阻止浏览器再次启动。'
-                        : 'Stale SingletonLock / lockfile detected — may block next launch.',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.error,
-                      fontWeight: FontWeight.w700,
+          Row(
+            children: [
+              Icon(
+                hasLock ? Icons.lock_clock_rounded : Icons.folder_rounded,
+                size: 18,
+                color: hasLock ? cs.error : cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isZh ? 'Profile 目录' : 'User Data Dir',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
-              ],
-            ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.userDataDir,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        color: cs.onSurface,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (hasLock) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        isZh
+                            ? '检测到 SingletonLock / lockfile 残留，可能阻止浏览器再次启动。'
+                            : 'Stale SingletonLock / lockfile detected — may block next launch.',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.error,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          FilledButton.tonalIcon(
-            onPressed: _busy ? null : _onCleanPressed,
-            icon: Icon(
-              _busy ? Icons.hourglass_top_rounded : Icons.cleaning_services_rounded,
-              size: 16,
-            ),
-            label: Text(
-              _busy
-                  ? (isZh ? '清理中…' : 'Cleaning…')
-                  : (isZh ? '清理冲突 profile' : 'Clean profile locks'),
-            ),
-            style: FilledButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-            ),
+          const SizedBox(height: 10),
+          // 双按钮：清理（轻）+ 重置（重）。
+          // - 清理：默认 tonal 蓝绿主调，安全。
+          // - 重置：红字 OutlinedButton，凸显其破坏性。
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: WrapAlignment.end,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _busy ? null : _onCleanPressed,
+                icon: Icon(
+                  _busy
+                      ? Icons.hourglass_top_rounded
+                      : Icons.cleaning_services_rounded,
+                  size: 16,
+                ),
+                label: Text(
+                  _busy
+                      ? (isZh ? '清理中…' : 'Cleaning…')
+                      : (isZh ? '清理冲突 profile' : 'Clean profile locks'),
+                ),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _onResetPressed,
+                icon: Icon(
+                  Icons.delete_forever_rounded,
+                  size: 16,
+                  color: cs.error,
+                ),
+                label: Text(
+                  isZh ? '重置整个 profile' : 'Reset entire profile',
+                  style: TextStyle(color: cs.error),
+                ),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  side: BorderSide(color: cs.error.withValues(alpha: 0.7)),
+                ),
+              ),
+            ],
           ),
         ],
       ),

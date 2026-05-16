@@ -61,6 +61,14 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _preserveLog = true;
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+
+  /// 由 dashboard banner 在用户主动关闭诊断卡片后调用：把 [_errorMessage]
+  /// 清空，让 banner 不再渲染。下次 start() 失败会重置为新的错误文本。
+  void clearErrorMessage() {
+    if (_errorMessage == null) return;
+    _errorMessage = null;
+    _safeNotify();
+  }
   String? _lastHarPath;
   String? get lastHarPath => _lastHarPath;
 
