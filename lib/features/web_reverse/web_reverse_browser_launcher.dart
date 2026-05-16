@@ -43,14 +43,15 @@ class WebReverseBrowserLauncher {
 
   final http.Client Function()? httpClientFactory;
 
-  /// 在 [9222, 9242) 区间挑一个空闲端口。
+  /// 在 [9222, 9322) 区间挑一个空闲端口（百端口区间，支持上百个并发会话）。
+  /// 之前用 9222-9242（20 个）容易在多会话场景碰撞。
   ///
   /// 检测策略：
   /// 1. 先尝试 HTTP GET `http://127.0.0.1:<port>/json/version` —— 200 就是别人的 CDP，跳过；
   ///    `Connection refused` 才是真空闲。
   /// 2. 再 ServerSocket.bind 一次确认本进程能 listen，避免操作系统级保留。
   /// 这两步组合能避开"用户已开 Chrome 占 9222"的常见冲突。
-  Future<int?> pickFreePort({int start = 9222, int end = 9242}) async {
+  Future<int?> pickFreePort({int start = 9222, int end = 9322}) async {
     final probeClient = httpClientFactory?.call() ?? http.Client();
     final ownsClient = httpClientFactory == null;
     try {
@@ -101,7 +102,7 @@ class WebReverseBrowserLauncher {
     if (port == null) {
       throw const WebReverseLaunchException(
         WebReverseLaunchFailure.noFreePort,
-        '9222-9242 区间没有空闲端口可用',
+        '9222-9322 区间没有空闲端口可用',
       );
     }
     await Directory(userDataDir).create(recursive: true);

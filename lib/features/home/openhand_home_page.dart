@@ -2615,7 +2615,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String _formatWebReverseLaunchError(WebReverseLaunchException error) {
     final headline = switch (error.failure) {
       WebReverseLaunchFailure.noFreePort =>
-        '9222-9242 端口区间已被占用，无法分配 CDP 端口',
+        '9222-9322 端口区间已被占用，无法分配 CDP 端口',
       WebReverseLaunchFailure.spawnFailed =>
         '浏览器进程启动失败',
       WebReverseLaunchFailure.cdpHandshakeFailed =>

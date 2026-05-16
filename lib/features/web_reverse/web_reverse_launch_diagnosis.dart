@@ -33,7 +33,7 @@ class WebReverseLaunchDiagnosis {
       ));
     }
 
-    // ② 端口被占：另一个 CDP 实例在 9222-9242 区间。
+    // ② 端口被占：另一个 CDP 实例在 9222-9322 区间。
     if (has(const [
       'address already in use',
       'failed to bind',
@@ -44,7 +44,7 @@ class WebReverseLaunchDiagnosis {
       matched.add(const WebReverseLaunchCause(
         title: '远端调试端口被占用',
         suggestion:
-            '退出已存在的 Chrome / Edge / Brave 实例，或用 lsof / netstat 找到占用 9222-9242 的进程后再启动。',
+            '退出已存在的 Chrome / Edge / Brave 实例，或用 lsof / netstat 找到占用 9222-9322 的进程后再启动。',
       ));
     }
 
@@ -103,7 +103,7 @@ class WebReverseLaunchDiagnosis {
       matched.add(const WebReverseLaunchCause(
         title: '安全软件 / 防火墙拦截 127.0.0.1 监听',
         suggestion:
-            '把 OpenHand.app 与浏览器可执行文件加入安全软件信任列表，并允许其监听 9222-9242 端口；macOS 上同时检查"系统设置 → 网络 → 防火墙"。',
+            '把 OpenHand.app 与浏览器可执行文件加入安全软件信任列表，并允许其监听 9222-9322 端口；macOS 上同时检查"系统设置 → 网络 → 防火墙"。',
       ));
     }
 

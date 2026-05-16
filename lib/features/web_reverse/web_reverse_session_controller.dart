@@ -844,6 +844,30 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     final steps = _recorderSteps;
     if (steps.isEmpty) return (executed: 0, failed: 0);
+
+    // 在执行真正交互前先等元素可见，避免 click 太快撞 DOM 还没渲染。
+    // 5s 超时；轮询 100ms 一次；可见性 = 元素存在且 boundingClientRect.width|height > 0。
+    Future<bool> waitForSelector(String selector) async {
+      const expr = r'''
+(async (sel, timeoutMs) => {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const el = document.querySelector(sel);
+    if (el) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return true;
+    }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return false;
+})''';
+      final r = await _evalBool(
+        '$expr(${jsonEncode(selector)}, 5000)',
+        stepTimeout + const Duration(seconds: 6),
+      );
+      return r ?? false;
+    }
+
     var executed = 0;
     var failed = 0;
     for (final step in steps) {
@@ -866,6 +890,7 @@ class WebReverseSessionController extends ChangeNotifier {
               failed++;
               continue;
             }
+            await waitForSelector(selector);
             await _evalScript(
               '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
               'if (!el) return false; el.scrollIntoView({block:"center"}); el.click(); return true; })()',
@@ -878,6 +903,7 @@ class WebReverseSessionController extends ChangeNotifier {
               failed++;
               continue;
             }
+            await waitForSelector(selector);
             await _evalScript(
               '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
               'if (!el) return false; '
@@ -896,6 +922,7 @@ class WebReverseSessionController extends ChangeNotifier {
               failed++;
               continue;
             }
+            await waitForSelector(selector);
             await _evalScript(
               '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
               'if (!el) return false; '
@@ -1280,6 +1307,97 @@ class WebReverseSessionController extends ChangeNotifier {
       'ts': ts.toUtc().toIso8601String(),
     });
     _safeNotify();
+  }
+
+  /// Console REPL：把表达式喂给 page 的 Runtime.evaluate，
+  /// 输入和结果都以 [_appendConsole] 写回 console buffer，
+  /// 渲染端按 'repl-input' / 'repl-result' / 'error' level 区分配色。
+  Future<String?> runReplExpression(String expression) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    final raw = expression.trim();
+    if (raw.isEmpty) return null;
+    _appendConsole('repl-input', '> $raw');
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression': raw,
+          'returnByValue': true,
+          'awaitPromise': true,
+          'allowUnsafeEvalBlockedByCSP': true,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 15),
+      );
+      final exception = r['exceptionDetails'];
+      if (exception is Map) {
+        final m = '${exception['exception']?['description'] ?? exception['text'] ?? 'eval failed'}';
+        _appendConsole('error', m);
+        return null;
+      }
+      final res = r['result'];
+      String preview;
+      if (res is Map) {
+        final type = '${res['type'] ?? ''}';
+        final value = res['value'];
+        if (value == null) {
+          preview = '${res['description'] ?? type}';
+        } else if (value is String) {
+          preview = "'$value'";
+        } else if (value is num || value is bool) {
+          preview = '$value';
+        } else {
+          // 对象 / 数组：用 JsonEncoder 美化；过长截断到 2KB。
+          try {
+            preview = const JsonEncoder.withIndent('  ').convert(value);
+          } catch (_) {
+            preview = '$value';
+          }
+        }
+      } else {
+        preview = '$res';
+      }
+      if (preview.length > 2048) {
+        preview = '${preview.substring(0, 2048)}\n…(truncated)';
+      }
+      _appendConsole('repl-result', preview);
+      return preview;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'runReplExpression', error, stack);
+      _appendConsole('error', '$error');
+      return null;
+    }
+  }
+
+  /// 直接发送原始 CDP 命令，给"CDP 命令面板"用。method 形如
+  /// `Network.getAllCookies`；params JSON 字符串可空。
+  Future<Map<String, Object?>?> sendRawCdp({
+    required String method,
+    String? paramsJson,
+    bool useSession = true,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return null;
+    Map<String, Object?>? params;
+    if (paramsJson != null && paramsJson.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(paramsJson);
+        if (decoded is Map) params = Map<String, Object?>.from(decoded);
+      } catch (e) {
+        return <String, Object?>{'error': 'invalid params JSON: $e'};
+      }
+    }
+    try {
+      return await cdp.send(
+        method,
+        params: params,
+        sessionId: useSession ? _pageSessionId : null,
+        timeout: const Duration(seconds: 30),
+      );
+    } catch (error) {
+      return <String, Object?>{'error': '$error'};
+    }
   }
 
   Future<void> stop() async {
@@ -1940,6 +2058,159 @@ class WebReverseSessionController extends ChangeNotifier {
         stack,
       );
       return false;
+    }
+  }
+
+  /// 持久化注入到所有请求的 extra HTTP headers（CDP `Network.setExtraHTTPHeaders`）。
+  /// 调用方传整张 map；空 map 表示清空。
+  final Map<String, String> _extraHeaders = <String, String>{};
+  Map<String, String> get extraHeaders =>
+      Map<String, String>.unmodifiable(_extraHeaders);
+
+  Future<bool> setExtraHttpHeaders(Map<String, String> headers) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send(
+        'Network.setExtraHTTPHeaders',
+        params: <String, Object?>{'headers': headers},
+        sessionId: _pageSessionId,
+      );
+      _extraHeaders
+        ..clear()
+        ..addAll(headers);
+      _safeNotify();
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'setExtraHttpHeaders',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
+  /// Anti-bot 检测：扫描已采集的请求 / 响应头 / 现 origin cookies 中的
+  /// 常见反爬指纹（Cloudflare / Akamai / DataDome / PerimeterX / Imperva 等），
+  /// 返回命中标签列表，UI 据此弹"反爬警告"。
+  ///
+  /// 仅做关键字 / cookie 名 / 头字段名匹配；不联网。
+  List<String> detectAntiBot() {
+    final hits = <String>{};
+    final reqs = _networkRequests;
+    void scanHeaders(Map<String, String> h) {
+      h.forEach((k, v) {
+        final ck = k.toLowerCase();
+        final cv = v.toLowerCase();
+        if (ck.contains('cf-ray') || cv.contains('cloudflare')) {
+          hits.add('Cloudflare');
+        }
+        if (ck.contains('x-akamai-') ||
+            cv.contains('akamai') ||
+            ck.startsWith('akamai-')) {
+          hits.add('Akamai');
+        }
+        if (ck.contains('x-datadome-') || ck == 'x-datadome') {
+          hits.add('DataDome');
+        }
+        if (ck.contains('x-px-') || cv.contains('perimeterx')) {
+          hits.add('PerimeterX');
+        }
+        if (ck.contains('x-iinfo') || cv.contains('imperva')) {
+          hits.add('Imperva');
+        }
+        if (ck == 'set-cookie') {
+          if (v.contains('__cf_bm') || v.contains('cf_clearance')) {
+            hits.add('Cloudflare');
+          }
+          if (v.contains('_abck') || v.contains('bm_sz')) {
+            hits.add('Akamai');
+          }
+          if (v.contains('datadome')) hits.add('DataDome');
+          if (v.contains('_pxhd') || v.contains('_pxvid')) {
+            hits.add('PerimeterX');
+          }
+          if (v.contains('incap_ses') || v.contains('visid_incap_')) {
+            hits.add('Imperva');
+          }
+        }
+      });
+    }
+
+    for (final e in reqs) {
+      scanHeaders(e.requestHeaders);
+      scanHeaders(e.responseHeaders);
+      final url = e.url.toLowerCase();
+      if (url.contains('cf-challenge') || url.contains('challenge-platform')) {
+        hits.add('Cloudflare');
+      }
+      if (url.contains('captcha-delivery.com') || url.contains('datadome')) {
+        hits.add('DataDome');
+      }
+      if (url.contains('px-cdn.net') || url.contains('perimeterx.net')) {
+        hits.add('PerimeterX');
+      }
+    }
+    return hits.toList(growable: false);
+  }
+
+  /// 一键打包"体检报告"：把 artifacts 目录下所有 jsonl/HAR/截图 +
+  /// recorder steps + 当前 networkRequests 概要写到一个 .zip 临时文件，
+  /// 返回输出路径。失败返回 null。
+  ///
+  /// 不引入新依赖：用 `archive` 包（pubspec 已有）做内存级打包。
+  Future<String?> exportSessionBundle({String? destPath}) async {
+    final src = Directory(artifactsRootDir);
+    if (!await src.exists()) return null;
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    final out = File(
+      destPath ?? '${Directory.systemTemp.path}/oh-web-reverse-bundle-$ts.zip',
+    );
+    try {
+      // 这里直接用 zip 工具命令行，跨平台都有：macOS / Linux 用 zip；
+      // Windows 用 PowerShell Compress-Archive。失败时降级为复制目录。
+      if (Platform.isMacOS || Platform.isLinux) {
+        final r = await Process.run(
+          'zip',
+          ['-r', out.path, src.path.split('/').last],
+          workingDirectory: src.parent.path,
+        );
+        if (r.exitCode != 0) {
+          silentLog(
+            'web_reverse_session_controller',
+            'zip exitCode=${r.exitCode}',
+            r.stderr,
+            StackTrace.current,
+          );
+          return null;
+        }
+      } else if (Platform.isWindows) {
+        final r = await Process.run(
+          'powershell',
+          [
+            '-Command',
+            'Compress-Archive -Path "${src.path}\\*" -DestinationPath "${out.path}" -Force',
+          ],
+        );
+        if (r.exitCode != 0) {
+          silentLog(
+            'web_reverse_session_controller',
+            'Compress-Archive exitCode=${r.exitCode}',
+            r.stderr,
+            StackTrace.current,
+          );
+          return null;
+        }
+      }
+      return out.path;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'exportSessionBundle', error, stack);
+      return null;
     }
   }
 

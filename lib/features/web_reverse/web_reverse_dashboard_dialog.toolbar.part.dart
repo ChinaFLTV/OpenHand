@@ -154,6 +154,14 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       reduceMotion: reduceMotion,
                     ),
                     const SizedBox(width: 8),
+                    // 高级菜单：把"持久 Header / 体检报告 / 原生 CDP / 反向脚本"
+                    // 等低频但威力强的功能合到一颗按钮，避免 Toolbar 二行膨胀。
+                    _ToolbarIconButton(
+                      tooltip: isZh ? '高级工具' : 'Advanced',
+                      icon: Icons.tune_rounded,
+                      onPressed: () => _showAdvancedMenu(context, ctrl, isZh),
+                    ),
+                    const SizedBox(width: 8),
                     _ToolbarPrimaryPill(
                       icon: Icons.open_in_new_rounded,
                       label: isZh ? '打开官方 DevTools' : 'Open DevTools',
@@ -400,6 +408,20 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         duration: const Duration(seconds: 2),
       ));
     }
+  }
+
+  /// 高级工具菜单：聚合体检报告 / 持久化 Header / CDP 命令面板 /
+  /// 反向脚本一键导出 / AI 接口分析。这些都是低频但杠杆很大的入口，
+  /// 合成一颗 Toolbar 图标按钮的弹窗里，避免污染主 toolbar 视觉。
+  void _showAdvancedMenu(
+    BuildContext context,
+    WebReverseSessionController ctrl,
+    bool isZh,
+  ) {
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => _AdvancedMenuDialog(controller: ctrl, isZh: isZh),
+    );
   }
 }
 

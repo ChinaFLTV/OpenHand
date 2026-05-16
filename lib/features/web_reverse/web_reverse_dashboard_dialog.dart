@@ -20,6 +20,7 @@ part 'web_reverse_dashboard_dialog.console.part.dart';
 part 'web_reverse_dashboard_dialog.detail.part.dart';
 part 'web_reverse_dashboard_dialog.toolbar.part.dart';
 part 'web_reverse_dashboard_dialog.panels.part.dart';
+part 'web_reverse_dashboard_dialog.advanced.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -424,6 +425,7 @@ class _OverviewBody extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final ctrl = controller;
+    final antiBot = ctrl.detectAntiBot();
     final stats = <(String, String)>[
       (isZh ? '请求数' : 'Requests', '${ctrl.networkRequests.length}'),
       (
@@ -441,44 +443,98 @@ class _OverviewBody extends StatelessWidget {
       (isZh ? '浏览器' : 'Browser', ctrl.browserVersion ?? '-'),
       (isZh ? 'CDP 端口' : 'CDP Port', '${ctrl.cdpPort ?? '-'}'),
     ];
-    return Padding(
+    return ListView(
       padding: const EdgeInsets.all(20),
-      child: GridView.count(
-        crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 2.4,
-        children: [
-          for (final (label, value) in stats)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: cs.outlineVariant),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    label,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
+      children: [
+        if (antiBot.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: BoxDecoration(
+              color: cs.tertiaryContainer.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.tertiary.withValues(alpha: 0.6)),
             ),
-        ],
-      ),
+            child: Row(
+              children: [
+                Icon(Icons.shield_moon_rounded,
+                    color: cs.onTertiaryContainer, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isZh ? '检测到反爬指纹' : 'Anti-bot signals detected',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: cs.onTertiaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        antiBot.join(' · '),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onTertiaryContainer,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isZh
+                            ? '此站点使用反爬服务，纯 curl/fetch 复现可能失败。建议保留浏览器流程，或为请求脚本叠加 cookie / TLS 指纹工具。'
+                            : 'This site uses anti-bot services. Bare curl/fetch may fail; keep the browser flow or add cookie / TLS fingerprint tooling.',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onTertiaryContainer,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 3,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 2.4,
+          children: [
+            for (final (label, value) in stats)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: cs.outlineVariant),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
