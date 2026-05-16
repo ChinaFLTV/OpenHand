@@ -15,14 +15,26 @@ import '../../app/support/silent_log.dart';
 /// - 单条 WebSocket，单线性 id 序列。
 /// - 命令通过 [send] 走 future-based 请求-响应。
 /// - 事件通过 [events] 流给上层订阅。
+///
+/// 自动重连：当 WebSocket 因网络抖动 / 浏览器 GPU 进程重启等被动断开时，
+/// 触发 [_scheduleReconnect]，使用指数退避（200ms → 400ms → 800ms …，
+/// 上限 5s）尝试最多 [reconnectMaxAttempts] 次。重连成功后会自动 emit
+/// [CdpReconnectEvent] 给上层，上层负责重新 enable 各 domain。
 class WebReverseCdpClient {
-  WebReverseCdpClient({required this.endpoint});
+  WebReverseCdpClient({
+    required this.endpoint,
+    this.reconnectMaxAttempts = 6,
+  });
 
   /// `webSocketDebuggerUrl`，形如 `ws://127.0.0.1:9222/devtools/browser/<uuid>`。
   final String endpoint;
 
+  /// 自动重连最多尝试次数，超过后放弃并抛出最后一次错误。
+  final int reconnectMaxAttempts;
+
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
+  bool _reconnecting = false;
 
   /// 已发出但尚未收到响应的命令。
   final Map<int, Completer<Map<String, Object?>>> _pending =
@@ -126,7 +138,51 @@ class WebReverseCdpClient {
 
   void _onDone() {
     _failAllPending(StateError('CDP WebSocket closed'));
-    _closed = true;
+    if (!_closed) {
+      // 非主动 close → 异常断开，尝试自动重连。
+      _scheduleReconnect();
+    }
+  }
+
+  void _scheduleReconnect() {
+    if (_reconnecting || _closed) return;
+    _reconnecting = true;
+    () async {
+      var delayMs = 200;
+      for (var attempt = 1; attempt <= reconnectMaxAttempts; attempt++) {
+        if (_closed) return;
+        await Future<void>.delayed(Duration(milliseconds: delayMs));
+        try {
+          final channel = WebSocketChannel.connect(Uri.parse(endpoint));
+          await channel.ready;
+          _channel = channel;
+          _subscription = channel.stream.listen(
+            _onMessage,
+            onError: _onError,
+            onDone: _onDone,
+            cancelOnError: false,
+          );
+          _reconnecting = false;
+          if (!_eventCtrl.isClosed) {
+            _eventCtrl.add(CdpEvent(
+              method: '__cdp_reconnected__',
+              params: <String, Object?>{'attempt': attempt},
+            ));
+          }
+          return;
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_cdp_client',
+            'reconnect attempt $attempt',
+            error,
+            stack,
+          );
+          delayMs = (delayMs * 2).clamp(200, 5000);
+        }
+      }
+      _reconnecting = false;
+      _closed = true;
+    }();
   }
 
   void _failAllPending(Object error) {

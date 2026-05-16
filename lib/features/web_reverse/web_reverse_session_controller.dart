@@ -179,6 +179,11 @@ class WebReverseSessionController extends ChangeNotifier {
 
   void _onCdpEvent(CdpEvent ev) {
     switch (ev.method) {
+      case '__cdp_reconnected__':
+        // CDP 抖动断开后自动重连成功 → 重新 enable 各 domain。
+        // 不阻塞事件循环，全部 fire-and-forget。
+        unawaited(_reattachAfterReconnect());
+        return;
       case 'Network.requestWillBeSent':
         _onRequestWillBeSent(ev.params);
       case 'Network.responseReceived':
@@ -205,6 +210,8 @@ class WebReverseSessionController extends ChangeNotifier {
         _onSecurityStateChanged(ev.params);
       case 'Fetch.requestPaused':
         _onFetchRequestPaused(ev.params);
+      case 'Debugger.scriptParsed':
+        _onScriptParsed(ev.params);
     }
   }
 
@@ -1293,6 +1300,36 @@ class WebReverseSessionController extends ChangeNotifier {
     _appendConsole(level, text);
   }
 
+  /// CDP 重连成功后调用：把 Page / Network / Runtime / Log 等 domain 重新 enable，
+  /// 同时再次 attach 到 page target，确保事件不丢。
+  Future<void> _reattachAfterReconnect() async {
+    final cdp = _browserCdp;
+    if (cdp == null) return;
+    try {
+      // 重新 attach；CDP 重连后 sessionId 失效。
+      await _attachToFirstPage();
+      // 把"已选好的"用户配置重新下发给浏览器：节流 / 持久 Header / 屏蔽 URL / 拦截开关。
+      if (_extraHeaders.isNotEmpty) {
+        await cdp.send(
+          'Network.setExtraHTTPHeaders',
+          params: <String, Object?>{'headers': _extraHeaders},
+          sessionId: _pageSessionId,
+        );
+      }
+      if (_blockedUrls.isNotEmpty) {
+        await cdp.send(
+          'Network.setBlockedURLs',
+          params: <String, Object?>{'urls': _blockedUrls.toList()},
+          sessionId: _pageSessionId,
+        );
+      }
+      _appendConsole('info', '[OpenHand] CDP 已自动重连，已恢复网络 / 控制台监听');
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', '_reattachAfterReconnect',
+          error, stack);
+    }
+  }
+
   void _appendConsole(String level, String text) {
     final ts = DateTime.now();
     _consoleMessages.add(
@@ -2059,6 +2096,198 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return false;
     }
+  }
+
+  /// Debugger 已 attach 的脚本（`Debugger.scriptParsed`）。Sources tab 用。
+  /// key=scriptId，value=(url, isModule)。源码本身在 [_scriptSources] 缓存。
+  final Map<String, ({String url, bool isModule})> _parsedScripts =
+      <String, ({String url, bool isModule})>{};
+  Map<String, ({String url, bool isModule})> get parsedScripts =>
+      Map<String, ({String url, bool isModule})>.unmodifiable(_parsedScripts);
+  final Map<String, String> _scriptSources = <String, String>{};
+
+  void _onScriptParsed(Map<String, Object?> p) {
+    final id = p['scriptId'] as String?;
+    if (id == null || id.isEmpty) return;
+    final url = '${p['url'] ?? ''}';
+    if (url.isEmpty) return;
+    _parsedScripts[id] = (url: url, isModule: p['isModule'] == true);
+  }
+
+  /// 在 page 上启用 Debugger domain；调用后 [_onScriptParsed] 会陆续填充 [_parsedScripts]。
+  Future<bool> enableDebugger() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send('Debugger.enable', sessionId: _pageSessionId);
+      return true;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'enableDebugger', error, stack);
+      return false;
+    }
+  }
+
+  /// 拉取脚本源码。CDP `Debugger.getScriptSource`。
+  /// 命中过的脚本缓存到 [_scriptSources]，重复点同一个 URL 不再发请求。
+  Future<String?> getScriptSource(String scriptId) async {
+    final cached = _scriptSources[scriptId];
+    if (cached != null) return cached;
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'Debugger.getScriptSource',
+        params: <String, Object?>{'scriptId': scriptId},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 15),
+      );
+      final src = r['scriptSource'] as String?;
+      if (src != null) _scriptSources[scriptId] = src;
+      return src;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'getScriptSource', error, stack);
+      return null;
+    }
+  }
+
+  /// 按 URL+lineNumber 下断点。返回 breakpointId 用于后续 remove。
+  Future<String?> setBreakpointByUrl({
+    required String url,
+    required int lineNumber,
+    int columnNumber = 0,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'Debugger.setBreakpointByUrl',
+        params: <String, Object?>{
+          'url': url,
+          'lineNumber': lineNumber,
+          'columnNumber': columnNumber,
+        },
+        sessionId: _pageSessionId,
+      );
+      return r['breakpointId'] as String?;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'setBreakpointByUrl', error, stack);
+      return null;
+    }
+  }
+
+  Future<bool> removeBreakpoint(String breakpointId) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send(
+        'Debugger.removeBreakpoint',
+        params: <String, Object?>{'breakpointId': breakpointId},
+        sessionId: _pageSessionId,
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'removeBreakpoint', error, stack);
+      return false;
+    }
+  }
+
+  Future<bool> resumeDebugger() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send('Debugger.resume', sessionId: _pageSessionId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 简易 JS 美化：单遍扫描，按 `{` `}` `;` `,` 缩进 / 换行。
+  /// 不引入新依赖；牺牲 prettier 的精度换取零依赖、纯 Dart 实现。
+  /// 输入超长（>= 2MB）时直接返回原文，避免阻塞 UI。
+  static String prettifyJs(String src) {
+    if (src.length >= 2 * 1024 * 1024) return src;
+    final out = StringBuffer();
+    var indent = 0;
+    var inString = false;
+    var stringChar = '';
+    var prev = '';
+    var inLineComment = false;
+    var inBlockComment = false;
+    void newline() {
+      out.write('\n');
+      out.write('  ' * indent);
+    }
+
+    for (var i = 0; i < src.length; i++) {
+      final c = src[i];
+      final next = i + 1 < src.length ? src[i + 1] : '';
+      if (inLineComment) {
+        out.write(c);
+        if (c == '\n') {
+          inLineComment = false;
+          out.write('  ' * indent);
+        }
+        prev = c;
+        continue;
+      }
+      if (inBlockComment) {
+        out.write(c);
+        if (c == '*' && next == '/') {
+          out.write(next);
+          i++;
+          inBlockComment = false;
+        }
+        prev = c;
+        continue;
+      }
+      if (!inString) {
+        if (c == '/' && next == '/') {
+          inLineComment = true;
+          out.write(c);
+          continue;
+        }
+        if (c == '/' && next == '*') {
+          inBlockComment = true;
+          out.write(c);
+          continue;
+        }
+      }
+      if (inString) {
+        out.write(c);
+        if (c == stringChar && prev != r'\') inString = false;
+      } else {
+        if (c == '"' || c == "'" || c == '`') {
+          inString = true;
+          stringChar = c;
+          out.write(c);
+        } else if (c == '{') {
+          out.write(c);
+          indent++;
+          newline();
+        } else if (c == '}') {
+          indent = (indent - 1).clamp(0, 100);
+          newline();
+          out.write(c);
+        } else if (c == ';') {
+          out.write(c);
+          newline();
+        } else if (c == ',') {
+          out.write(c);
+          // 简单启发式：嵌套深度 > 0 时换行，避免一行参数列表也炸开。
+          if (indent > 0) newline();
+        } else if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+          // 跳过空白；indent 自带缩进。
+          if (out.isNotEmpty && out.toString().codeUnits.last != 0x20 && out.toString().codeUnits.last != 0x0a) {
+            out.write(' ');
+          }
+        } else {
+          out.write(c);
+        }
+      }
+      prev = c;
+    }
+    return out.toString();
   }
 
   /// 持久化注入到所有请求的 extra HTTP headers（CDP `Network.setExtraHTTPHeaders`）。
