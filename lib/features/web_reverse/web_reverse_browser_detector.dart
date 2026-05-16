@@ -31,113 +31,44 @@ class WebReverseBrowserDetector {
   WebReverseBrowserDetector();
 
   Future<WebReverseBrowserProbeResult> detect() async {
-    if (Platform.isMacOS) return _detectMacOS();
-    if (Platform.isWindows) return _detectWindows();
-    if (Platform.isLinux) return _detectLinux();
-    return const WebReverseBrowserProbeResult(
-      browser: null,
-      executablePath: null,
-      versionLine: null,
-    );
+    final all = await detectAll();
+    return all.isEmpty
+        ? const WebReverseBrowserProbeResult(
+            browser: null,
+            executablePath: null,
+            versionLine: null,
+          )
+        : all.first;
   }
 
-  Future<WebReverseBrowserProbeResult> _detectMacOS() async {
+  /// 探测所有已安装的同核浏览器（按 [WebReverseBrowserKind.values] 优先级排序），
+  /// 找不到时返回空列表。UI 层据此填浏览器下拉。
+  Future<List<WebReverseBrowserProbeResult>> detectAll() async {
+    if (Platform.isMacOS) return _detectAllOn(_findExecutableMacOS);
+    if (Platform.isWindows) return _detectAllOn(_findExecutableWindows);
+    if (Platform.isLinux) return _detectAllOn(_findExecutableLinux);
+    return const <WebReverseBrowserProbeResult>[];
+  }
+
+  Future<List<WebReverseBrowserProbeResult>> _detectAllOn(
+    Future<String?> Function(WebReverseBrowserKind kind) resolver,
+  ) async {
+    final out = <WebReverseBrowserProbeResult>[];
     for (final kind in WebReverseBrowserKind.values) {
-      final exe = await _findExecutable(kind);
+      final exe = await resolver(kind);
       if (exe == null) continue;
       final version = await _readVersion(exe);
-      return WebReverseBrowserProbeResult(
+      out.add(WebReverseBrowserProbeResult(
         browser: kind,
         executablePath: exe,
         versionLine: version,
-      );
+      ));
     }
-    return const WebReverseBrowserProbeResult(
-      browser: null,
-      executablePath: null,
-      versionLine: null,
-    );
+    return out;
   }
 
-  Future<WebReverseBrowserProbeResult> _detectWindows() async {
-    for (final kind in WebReverseBrowserKind.values) {
-      // 1) 默认安装路径
-      for (final candidate in kind.windowsExecutableCandidates) {
-        if (File(candidate).existsSync()) {
-          final v = await _readVersion(candidate);
-          return WebReverseBrowserProbeResult(
-            browser: kind,
-            executablePath: candidate,
-            versionLine: v,
-          );
-        }
-      }
-      // 2) 注册表 App Paths（HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\App Paths\<exe>）
-      final exeName = switch (kind) {
-        WebReverseBrowserKind.chrome ||
-        WebReverseBrowserKind.chromeBeta => 'chrome.exe',
-        WebReverseBrowserKind.edge => 'msedge.exe',
-        WebReverseBrowserKind.brave => 'brave.exe',
-        WebReverseBrowserKind.chromium => 'chromium.exe',
-      };
-      final reg = await runProcessWithTimeout(
-        'reg.exe',
-        [
-          'query',
-          'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\$exeName',
-          '/ve',
-        ],
-        timeout: const Duration(seconds: 2),
-        tag: 'web_reverse_browser_detector',
-      );
-      final raw = reg?.stdout.toString() ?? '';
-      // reg query 输出形如「(Default) REG_SZ <path>」
-      final match = RegExp(r'REG_SZ\s+(.+\.exe)', caseSensitive: false).firstMatch(raw);
-      final regPath = match?.group(1)?.trim();
-      if (regPath != null && regPath.isNotEmpty && File(regPath).existsSync()) {
-        final v = await _readVersion(regPath);
-        return WebReverseBrowserProbeResult(
-          browser: kind,
-          executablePath: regPath,
-          versionLine: v,
-        );
-      }
-    }
-    return const WebReverseBrowserProbeResult(
-      browser: null,
-      executablePath: null,
-      versionLine: null,
-    );
-  }
-
-  Future<WebReverseBrowserProbeResult> _detectLinux() async {
-    for (final kind in WebReverseBrowserKind.values) {
-      for (final cli in kind.cliCandidates) {
-        final which = await runProcessWithTimeout(
-          '/usr/bin/which',
-          [cli],
-          timeout: const Duration(seconds: 2),
-          tag: 'web_reverse_browser_detector',
-        );
-        final raw = which?.stdout.toString().trim();
-        if (raw != null && raw.isNotEmpty && File(raw).existsSync()) {
-          final v = await _readVersion(raw);
-          return WebReverseBrowserProbeResult(
-            browser: kind,
-            executablePath: raw,
-            versionLine: v,
-          );
-        }
-      }
-    }
-    return const WebReverseBrowserProbeResult(
-      browser: null,
-      executablePath: null,
-      versionLine: null,
-    );
-  }
-
-  Future<String?> _findExecutable(WebReverseBrowserKind kind) async {
+  // ── macOS 单 kind 解析（mdfind → 默认路径 → which） ────────────────
+  Future<String?> _findExecutableMacOS(WebReverseBrowserKind kind) async {
     // 1) mdfind 按 bundle id 查
     final mdfind = await runProcessWithTimeout(
       'mdfind',
@@ -184,6 +115,53 @@ class WebReverseBrowserDetector {
       WebReverseBrowserKind.chromium => 'Chromium',
     };
     return '$appPath/Contents/MacOS/$binaryName';
+  }
+
+  // ── Windows 单 kind 解析（默认路径 → reg App Paths） ───────────────
+  Future<String?> _findExecutableWindows(WebReverseBrowserKind kind) async {
+    for (final candidate in kind.windowsExecutableCandidates) {
+      if (File(candidate).existsSync()) return candidate;
+    }
+    final exeName = switch (kind) {
+      WebReverseBrowserKind.chrome ||
+      WebReverseBrowserKind.chromeBeta => 'chrome.exe',
+      WebReverseBrowserKind.edge => 'msedge.exe',
+      WebReverseBrowserKind.brave => 'brave.exe',
+      WebReverseBrowserKind.chromium => 'chromium.exe',
+    };
+    final reg = await runProcessWithTimeout(
+      'reg.exe',
+      [
+        'query',
+        'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\$exeName',
+        '/ve',
+      ],
+      timeout: const Duration(seconds: 2),
+      tag: 'web_reverse_browser_detector',
+    );
+    final raw = reg?.stdout.toString() ?? '';
+    final match = RegExp(r'REG_SZ\s+(.+\.exe)', caseSensitive: false)
+        .firstMatch(raw);
+    final regPath = match?.group(1)?.trim();
+    if (regPath != null && regPath.isNotEmpty && File(regPath).existsSync()) {
+      return regPath;
+    }
+    return null;
+  }
+
+  // ── Linux 单 kind 解析（which 多候选） ─────────────────────────────
+  Future<String?> _findExecutableLinux(WebReverseBrowserKind kind) async {
+    for (final cli in kind.cliCandidates) {
+      final which = await runProcessWithTimeout(
+        '/usr/bin/which',
+        [cli],
+        timeout: const Duration(seconds: 2),
+        tag: 'web_reverse_browser_detector',
+      );
+      final raw = which?.stdout.toString().trim();
+      if (raw != null && raw.isNotEmpty && File(raw).existsSync()) return raw;
+    }
+    return null;
   }
 
   Future<String?> _readVersion(String executable) async {

@@ -2545,8 +2545,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     _webReverseControllers[session.id] = controller;
     controller.addListener(_onWebReverseControllerChanged);
+    var launchOk = false;
     try {
       await controller.start();
+      launchOk = true;
+    } on WebReverseLaunchException catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'web reverse launch ${error.failure}',
+        error,
+        stack,
+      );
+      if (mounted) {
+        showFriendlyErrorSnackBar(
+          context,
+          message: switch (error.failure) {
+            WebReverseLaunchFailure.noFreePort =>
+                '9222-9242 端口区间已被占用。请关闭已开的 Chrome / Edge 实例，或自行释放端口后重试。',
+            WebReverseLaunchFailure.spawnFailed =>
+                '浏览器进程启动失败：${error.message}',
+            WebReverseLaunchFailure.cdpHandshakeFailed =>
+                'CDP 握手超时。常见原因：用户已有 Chrome 实例占着调试端口；请退出全部 Chrome 后重试。',
+          },
+          fallback: 'Web 逆向会话启动失败',
+        );
+      }
     } catch (error, stack) {
       silentLog('openhand_home_page', 'web reverse start', error, stack);
       if (mounted) {
@@ -2556,6 +2579,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           fallback: 'Web 逆向会话启动失败',
         );
       }
+    }
+    if (!launchOk) {
+      // 启动失败则把 dead controller 摘除，避免胶囊点击拿到残骸。
+      controller.removeListener(_onWebReverseControllerChanged);
+      _webReverseControllers.remove(session.id);
+      unawaited(controller.stop());
+      controller.dispose();
     }
     if (!mounted) return created;
     // 替换 composer 文本并发送首条 prompt。
@@ -2620,8 +2650,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     _webReverseControllers[session.id] = controller;
     controller.addListener(_onWebReverseControllerChanged);
+    var launchOk = false;
     try {
       await controller.start();
+      launchOk = true;
+    } on WebReverseLaunchException catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'restore web reverse ${error.failure}',
+        error,
+        stack,
+      );
+      if (mounted) {
+        showFriendlyErrorSnackBar(
+          context,
+          message: switch (error.failure) {
+            WebReverseLaunchFailure.noFreePort =>
+                '9222-9242 端口区间已被占用。请关闭已开的 Chrome / Edge 实例后重试。',
+            WebReverseLaunchFailure.spawnFailed =>
+                '浏览器进程启动失败：${error.message}',
+            WebReverseLaunchFailure.cdpHandshakeFailed =>
+                'CDP 握手超时。请退出全部 Chrome 实例后重试。',
+          },
+          fallback: '浏览器恢复启动失败',
+        );
+      }
     } catch (error, stack) {
       silentLog('openhand_home_page', 'restore web reverse', error, stack);
       if (mounted) {
@@ -2631,6 +2684,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           fallback: '浏览器恢复启动失败',
         );
       }
+    }
+    if (!launchOk) {
+      controller.removeListener(_onWebReverseControllerChanged);
+      _webReverseControllers.remove(session.id);
+      unawaited(controller.stop());
+      controller.dispose();
+      return null;
     }
     return controller;
   }

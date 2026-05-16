@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'web_reverse_browser_detector.dart';
-import 'web_reverse_browser_kind.dart';
 import 'web_reverse_install_guide_dialog.dart';
 import 'web_reverse_session_config.dart';
 
@@ -20,10 +21,10 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
 }) async {
   final detector = WebReverseBrowserDetector();
 
-  Future<WebReverseBrowserProbeResult?> ensureBrowserInstalled() async {
+  Future<List<WebReverseBrowserProbeResult>?> ensureBrowserInstalled() async {
     while (true) {
-      final probe = await detector.detect();
-      if (probe.isInstalled) return probe;
+      final all = await detector.detectAll();
+      if (all.isNotEmpty) return all;
       if (!context.mounted) return null;
       final decision = await showWebReverseInstallGuideDialog(context);
       if (decision == null ||
@@ -34,14 +35,14 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
     }
   }
 
-  final probe = await ensureBrowserInstalled();
-  if (probe == null || !context.mounted) return null;
+  final probes = await ensureBrowserInstalled();
+  if (probes == null || probes.isEmpty || !context.mounted) return null;
 
   return showAnimatedDialog<WebReverseSetupResult>(
     context: context,
     barrierDismissible: false,
     builder: (_) => _WebReverseSetupDialog(
-      probe: probe,
+      probes: probes,
       initialTargetUrl: initialTargetUrl,
       userDataDirRoot: userDataDirRoot,
     ),
@@ -60,12 +61,12 @@ class WebReverseSetupResult {
 
 class _WebReverseSetupDialog extends StatefulWidget {
   const _WebReverseSetupDialog({
-    required this.probe,
+    required this.probes,
     required this.initialTargetUrl,
     required this.userDataDirRoot,
   });
 
-  final WebReverseBrowserProbeResult probe;
+  final List<WebReverseBrowserProbeResult> probes;
   final String? initialTargetUrl;
   final String userDataDirRoot;
 
@@ -80,8 +81,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
   late final TextEditingController _proxyCtrl;
   late final TextEditingController _keywordsCtrl;
   WebReverseLoginMode _loginMode = WebReverseLoginMode.none;
-  late WebReverseBrowserKind _browserKind;
-  late String _executablePath;
+  late WebReverseBrowserProbeResult _selectedProbe;
 
   @override
   void initState() {
@@ -91,8 +91,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     _triggerCtrl = TextEditingController();
     _proxyCtrl = TextEditingController();
     _keywordsCtrl = TextEditingController();
-    _browserKind = widget.probe.browser ?? WebReverseBrowserKind.chrome;
-    _executablePath = widget.probe.executablePath ?? '';
+    _selectedProbe = widget.probes.first;
   }
 
   @override
@@ -130,8 +129,8 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
       objective: _objectiveCtrl.text.trim(),
       cdpPort: 9222,
       userDataDir:
-          '${widget.userDataDirRoot}/profile_${_browserKind.id}',
-      browserKind: _browserKind,
+          '${widget.userDataDirRoot}/profile_${_selectedProbe.browser!.id}',
+      browserKind: _selectedProbe.browser!,
       triggerActions: _triggerCtrl.text.trim().isEmpty
           ? null
           : _triggerCtrl.text.trim(),
@@ -140,7 +139,10 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
       keywords: keywords,
     );
     Navigator.of(context).pop(
-      WebReverseSetupResult(config: config, executablePath: _executablePath),
+      WebReverseSetupResult(
+        config: config,
+        executablePath: _selectedProbe.executablePath!,
+      ),
     );
   }
 
@@ -225,29 +227,36 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                     const SizedBox(height: 14),
                     _LabelText(isZh ? '浏览器（已检测）' : 'Browser (detected)'),
                     const SizedBox(height: 4),
-                    DropdownButtonFormField<WebReverseBrowserKind>(
-                      initialValue: _browserKind,
+                    DropdownButtonFormField<WebReverseBrowserProbeResult>(
+                      initialValue: _selectedProbe,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         isDense: true,
                         border: OutlineInputBorder(),
                       ),
-                      items: WebReverseBrowserKind.values
+                      items: widget.probes
                           .map(
-                            (k) => DropdownMenuItem(
-                              value: k,
-                              child: Text(k.displayName),
+                            (p) => DropdownMenuItem(
+                              value: p,
+                              child: Text(
+                                p.versionLine == null
+                                    ? p.browser!.displayName
+                                    : '${p.browser!.displayName}  ·  ${p.versionLine}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           )
                           .toList(growable: false),
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setState(() => _browserKind = v);
-                      },
+                      onChanged: widget.probes.length <= 1
+                          ? null
+                          : (v) {
+                              if (v == null) return;
+                              setState(() => _selectedProbe = v);
+                            },
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _executablePath,
+                      _selectedProbe.executablePath ?? '',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                         fontFamily: 'monospace',
@@ -281,18 +290,19 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
             ),
             Divider(height: 1, color: cs.outlineVariant),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(isZh ? '取消' : 'Cancel'),
+                    label: AppLocalizations.of(context)?.commonCancel ??
+                        (isZh ? '取消' : 'Cancel'),
                   ),
-                  const Spacer(),
-                  FilledButton.icon(
+                  const SizedBox(width: 12),
+                  OpenHandDialogActionButton.primary(
                     onPressed: _canSubmit ? _submit : null,
-                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: Text(isZh ? '启动会话' : 'Start session'),
+                    label: isZh ? '创建线程' : 'Create Thread',
                   ),
                 ],
               ),

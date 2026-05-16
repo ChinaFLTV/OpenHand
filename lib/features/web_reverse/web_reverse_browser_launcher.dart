@@ -43,21 +43,44 @@ class WebReverseBrowserLauncher {
 
   final http.Client Function()? httpClientFactory;
 
-  /// 在 [9222, 9242) 区间挑一个空闲端口。Chrome 默认 9222，被占用时顺延。
+  /// 在 [9222, 9242) 区间挑一个空闲端口。
+  ///
+  /// 检测策略：
+  /// 1. 先尝试 HTTP GET `http://127.0.0.1:<port>/json/version` —— 200 就是别人的 CDP，跳过；
+  ///    `Connection refused` 才是真空闲。
+  /// 2. 再 ServerSocket.bind 一次确认本进程能 listen，避免操作系统级保留。
+  /// 这两步组合能避开"用户已开 Chrome 占 9222"的常见冲突。
   Future<int?> pickFreePort({int start = 9222, int end = 9242}) async {
-    for (var port = start; port < end; port++) {
-      try {
-        final server = await ServerSocket.bind(
-          InternetAddress.loopbackIPv4,
-          port,
-        );
-        await server.close();
-        return port;
-      } on SocketException {
-        continue;
+    final probeClient = httpClientFactory?.call() ?? http.Client();
+    final ownsClient = httpClientFactory == null;
+    try {
+      for (var port = start; port < end; port++) {
+        // 1) 是否已被 CDP 占用？
+        try {
+          final resp = await probeClient
+              .get(Uri.parse('http://127.0.0.1:$port/json/version'))
+              .timeout(const Duration(milliseconds: 400));
+          if (resp.statusCode >= 200 && resp.statusCode < 500) {
+            // 端口活着且响应——大概率是别的浏览器实例占用，跳过。
+            continue;
+          }
+        } catch (_) {
+          // refused / timeout 都是好事，继续走 bind 探测。
+        }
+        // 2) 本进程能否 bind？
+        try {
+          final server =
+              await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+          await server.close();
+          return port;
+        } on SocketException {
+          continue;
+        }
       }
+      return null;
+    } finally {
+      if (ownsClient) probeClient.close();
     }
-    return null;
   }
 
   /// 启动浏览器并轮询 `/json/version` 直到拿到 webSocketDebuggerUrl。
@@ -81,6 +104,8 @@ class WebReverseBrowserLauncher {
     await Directory(userDataDir).create(recursive: true);
     final args = <String>[
       '--remote-debugging-port=$port',
+      '--remote-debugging-address=127.0.0.1',
+      '--remote-allow-origins=*',
       '--user-data-dir=$userDataDir',
       '--no-first-run',
       '--no-default-browser-check',

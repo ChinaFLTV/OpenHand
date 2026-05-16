@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
 
 /// 用户没有安装 Chrome 同核浏览器时弹出的引导对话框。
 ///
@@ -87,6 +89,13 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                       ),
                     ),
                   ),
+                  IconButton(
+                    tooltip: isZh ? '关闭' : 'Close',
+                    onPressed: () => Navigator.of(context).pop(
+                      WebReverseInstallGuideDecision.cancelled,
+                    ),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -120,6 +129,12 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => _openDownloadUrl(context),
+                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                      label: Text(isZh ? '在浏览器打开' : 'Open'),
+                    ),
                   ],
                 ),
               ),
@@ -137,33 +152,21 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(
                       WebReverseInstallGuideDecision.cancelled,
                     ),
-                    child: Text(isZh ? '取消' : 'Cancel'),
+                    label: AppLocalizations.of(context)?.commonCancel ??
+                        (isZh ? '取消' : 'Cancel'),
                   ),
-                  const Spacer(),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      await _openDownloadUrl(context);
-                      if (context.mounted) {
-                        Navigator.of(context).pop(
-                          WebReverseInstallGuideDecision.openedDownloadPage,
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: Text(isZh ? '打开下载页' : 'Open download'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
+                  const SizedBox(width: 12),
+                  OpenHandDialogActionButton.primary(
                     onPressed: () => Navigator.of(context).pop(
                       WebReverseInstallGuideDecision.rechecked,
                     ),
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: Text(isZh ? '我已安装，重新检测' : 'I have installed, recheck'),
+                    label: isZh ? '我已安装' : 'I Have Installed',
                   ),
                 ],
               ),
