@@ -79,6 +79,10 @@ import { TitleSummaryDialog } from '../components/TitleSummaryDialog';
 import { MediaGeneratingPlaceholder } from '../components/MediaGeneratingPlaceholder';
 
 const PAGE_SIZE = 80;
+// 阶段㉔：首屏初始消息条数。从原 80 收紧到 20，让 60+ 条历史会话首次
+// 打开只需渲染最近 20 张消息卡片，markdown 解析量与 DOM 节点数一并骤
+// 降；用户上滑触底「加载更早」按钮按 PAGE_SIZE 增量加载历史。
+const INITIAL_PAGE_SIZE = 20;
 
 /// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
@@ -1802,7 +1806,7 @@ export function SessionDetailPage() {
     lastTailContentLengthRef.current = 0;
     Promise.all([
       getSession(requestSessionId, { signal: ctrl.signal }),
-      listMessages(requestSessionId, { limit: PAGE_SIZE, tail: true, signal: ctrl.signal }),
+      listMessages(requestSessionId, { limit: INITIAL_PAGE_SIZE, tail: true, signal: ctrl.signal }),
     ])
       .then(([d, m]) => {
         if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;

@@ -10,16 +10,76 @@
 //   _SafeMarkdownBody 阈值语义对齐.
 // - 表格 / 任务列表 / 删除线由 remark-gfm 提供.
 // - 链接强制 target=_blank rel=noopener; 图片 lazy loading.
+// - 阶段㉔: 全局帧节流 — 同一帧内多个 Markdown 同时挂载时, 队列
+//   逐帧解析每帧最多一个非平凡组件, 避免 60+ 长会话首屏 N 个 react-markdown
+//   并行 parse 卡死主线程; 1 KB 以下短消息保持同步, 减少视觉闪烁。
 
-import { useMemo } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { showSnackbar } from './Snackbar';
 
 const CONTENT_TOO_BIG_BYTES = 120 * 1024;
+/// 1 KB 以上的内容首次挂载时走帧节流 deferred 路径 (首帧 plain text 占位
+/// + 下一空闲帧补回 markdown), 避免会话打开时多卡片同步 parse 卡顿。
+const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 1024;
 const LOCAL_MEDIA_EXT = /\.(?:png|jpe?g|gif|webp|bmp|heic|svg|mp4|webm|mov|m4v|mp3|wav|ogg|m4a|flac|aac)(?:[?#].*)?$/i;
 const MARKDOWN_MEDIA_REF = /!?\[[^\]\n]{0,240}\]\(([^)\r\n]+)\)/g;
+
+/// 阶段㉔: 全局帧节流的 markdown 解析调度器。打开长会话时多张消息卡片
+/// 在同一帧内全部 mount, 之前每张都同步走 react-markdown / rehype 解析,
+/// 主线程一次性占用数百毫秒 (JS thread 卡死, 用户看到 white blank)。
+/// 改为按帧节流, 每帧最多 1 个 markdown 升级渲染, 剩下的卡片以 plain
+/// text 占位, 直到本帧完成后下一帧再升级。与 App 端
+/// _MarkdownFrameScheduler 思路完全对齐。
+const MARKDOWN_FRAME_BUDGET_PER_FRAME = 2;
+class MarkdownFrameScheduler {
+  private pending: Array<() => void> = [];
+  private draining = false;
+
+  schedule(task: () => void): () => void {
+    let cancelled = false;
+    const wrapped = () => {
+      if (!cancelled) task();
+    };
+    this.pending.push(wrapped);
+    if (!this.draining) {
+      this.draining = true;
+      this.scheduleDrain();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }
+
+  private scheduleDrain(): void {
+    // requestAnimationFrame 与 React 的 commit 节奏对齐 (browser 在每个
+    // VSync 触发, 16.6ms 一帧)。requestIdleCallback 在 Safari 下不被支持,
+    // 这里统一用 rAF 保证跨浏览器一致行为。
+    const cb = () => {
+      const batch = this.pending.splice(0, MARKDOWN_FRAME_BUDGET_PER_FRAME);
+      for (const task of batch) {
+        try {
+          task();
+        } catch (_e) {
+          // 任务自身抛错不影响调度器继续 drain。
+        }
+      }
+      if (this.pending.length > 0) {
+        this.scheduleDrain();
+      } else {
+        this.draining = false;
+      }
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(cb);
+    } else {
+      setTimeout(cb, 16);
+    }
+  }
+}
+const markdownFrameScheduler = new MarkdownFrameScheduler();
 
 export function normalizeMarkdownDestination(raw: string): string {
   let value = raw.trim();
@@ -62,6 +122,30 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
   const content = source ?? '';
   const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
   const tooBig = content.length > CONTENT_TOO_BIG_BYTES;
+
+  // 阶段㉔: 帧节流 deferred 路径。raw / tooBig 已经走 plain text 路径，无需
+  // 帧节流。中等以上内容 (> MARKDOWN_DEFERRED_PARSE_THRESHOLD) 首次挂载时
+  // 先 plain text 占位, 把 react-markdown / rehype 解析推迟到下一空闲帧
+  // (帧节流调度器), 避免长会话首屏多卡片同步 parse 撑爆主线程。
+  const shouldDeferParse = !raw && !tooBig
+    && content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD;
+  const [parseReady, setParseReady] = useState(!shouldDeferParse);
+  const lastSourceRef = useRef<string>(content);
+  useEffect(() => {
+    if (!shouldDeferParse) {
+      if (!parseReady) setParseReady(true);
+      lastSourceRef.current = content;
+      return;
+    }
+    if (lastSourceRef.current === content && parseReady) return;
+    lastSourceRef.current = content;
+    // 内容变更后重新 defer 一次, 避免流式追加时立刻 parse 引发 jank。
+    if (parseReady) return;
+    const cancel = markdownFrameScheduler.schedule(() => {
+      setParseReady(true);
+    });
+    return cancel;
+  }, [shouldDeferParse, content, parseReady]);
 
   const fontFamily = mono
     ? 'ui-monospace, SFMono-Regular, Menlo, monospace'
@@ -227,6 +311,22 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
         {content}
         {tooBig ? `\n\n[content truncated for performance — ${content.length} bytes]` : ''}
       </pre>
+    );
+  }
+
+  // 阶段㉔: deferred parse 期间渲染 plain text 占位, 让首屏布局立刻完成。
+  // 占位用与最终 markdown 相同的容器 (.oh-markdown), 避免 parse 完成后
+  // 容器尺寸/主题色突变。
+  if (!parseReady) {
+    return (
+      <div class="oh-markdown text-sm" style={{ fontFamily }}>
+        <pre
+          class="whitespace-pre-wrap break-words"
+          style={{ margin: 0, fontFamily: 'inherit' }}
+        >
+          {markdownContent}
+        </pre>
+      </div>
     );
   }
 

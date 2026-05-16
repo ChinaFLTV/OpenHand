@@ -4242,6 +4242,17 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 /* Markdown 渲染 (react-markdown) 专用样式 + highlight.js GitHub 配色子集 */
+
+/* 阶段㉔: 长会话首次打开性能 — 让消息卡片在视窗外时由浏览器跳过样式
+ * 计算 / 布局 / 绘制 (content-visibility: auto)。 contain-intrinsic-size
+ * 给一个保守的占位高度，避免滚动条跳动。可视区进入后浏览器自动
+ * 完成 layout/paint。Chromium / Edge / Safari 16+ 全部支持，旧浏览器
+ * 自动忽略此属性退化为正常渲染。 */
+.oh-message-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 220px;
+}
+
 .oh-markdown {
   line-height: 1.65;
 }
