@@ -624,21 +624,25 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
               transitionBuilder: (c, a) =>
                   FadeTransition(opacity: a, child: ScaleTransition(scale: a, child: c)),
               child: _hasText
-                  ? IconButton(
+                  ? InkResponse(
                       key: const ValueKey('clear'),
-                      tooltip: 'Clear',
-                      onPressed: () {
+                      onTap: () {
                         widget.controller.clear();
                         widget.onChanged('');
                       },
-                      icon: const Icon(Icons.cancel_rounded, size: 16),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 24,
-                        minHeight: 24,
+                      radius: 14,
+                      // 用极简的圆形点击响应替代 IconButton：原 IconButton 自带
+                      // 36×36 命中圈在胶囊里会形成"胶囊里又套一个圆"的视觉，
+                      // 这里仅保留图标本体并通过 InkResponse 给一个无 fill 的
+                      // 圆形 ripple，外形与外层胶囊浑然一体。
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.cancel_rounded,
+                          size: 14,
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
-                      visualDensity: VisualDensity.compact,
-                      color: cs.onSurfaceVariant,
                     )
                   : const SizedBox.shrink(key: ValueKey('empty')),
             ),

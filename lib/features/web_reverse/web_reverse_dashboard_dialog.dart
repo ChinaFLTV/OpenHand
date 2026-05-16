@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/media_preview_dialog.dart';
 import 'web_reverse_screenshot_markup.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -157,6 +158,11 @@ class _WebReverseDashboardDialogState
             constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 760),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              // 关键：所有子项横向拉到 Dialog 全宽，避免不同 tab 切换时
+              // body 内容更窄导致 Column 把 toolbar 行整体回缩并重新居中
+              // （Network 行能拉满工具条变左对齐；Console / 性能行 body 窄、
+              // 工具条又默认 MainAxisSize.min，外层 stretch 会强制铺满）。
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildHeader(theme, cs, isZh),
                 Divider(height: 1, color: cs.outlineVariant),
@@ -311,13 +317,91 @@ class _WebReverseDashboardDialogState
   ) async {
     final port = ctrl.cdpPort;
     if (port == null) return;
-    final url = 'http://127.0.0.1:$port/';
-    if (Platform.isMacOS) {
-      await Process.run('/usr/bin/open', [url]);
-    } else if (Platform.isWindows) {
-      await Process.run('cmd', ['/c', 'start', '', url]);
-    } else if (Platform.isLinux) {
-      await Process.run('xdg-open', [url]);
+    // 直接打开 http://127.0.0.1:<port>/ 只会拿到 CDP 的 JSON list 页（一片空白）。
+    // 真实的 DevTools 前端 URL 来自 `GET /json/list` 里每条 target 的
+    // devtoolsFrontendUrl 字段，类似：
+    //   /devtools/inspector.html?ws=127.0.0.1:9223/devtools/page/<id>
+    // 拿到这个相对 URL 后拼上 `http://127.0.0.1:<port>` 才是 F12 全功能面板。
+    final isZh = _isZh();
+    final messenger = ScaffoldMessenger.of(context);
+    String? frontendUrl;
+    try {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 3);
+      try {
+        final req = await client.getUrl(
+          Uri.parse('http://127.0.0.1:$port/json/list'),
+        );
+        final res = await req.close().timeout(const Duration(seconds: 3));
+        final body = await res.transform(utf8.decoder).join();
+        final list = jsonDecode(body);
+        if (list is List) {
+          // 优先 type=page 且非 about:blank；否则取第一个 page；最后兜底任意 target。
+          Map<String, Object?>? best;
+          for (final item in list.whereType<Map>()) {
+            final m = Map<String, Object?>.from(item);
+            final type = '${m['type'] ?? ''}';
+            final url = '${m['url'] ?? ''}';
+            if (type == 'page' && !url.startsWith('about:')) {
+              best = m;
+              break;
+            }
+          }
+          best ??= list
+              .whereType<Map>()
+              .where((m) => m['type'] == 'page')
+              .map((m) => Map<String, Object?>.from(m))
+              .firstOrNull;
+          best ??= list
+              .whereType<Map>()
+              .map((m) => Map<String, Object?>.from(m))
+              .firstOrNull;
+          final fe = best?['devtoolsFrontendUrl'] as String?;
+          if (fe != null && fe.isNotEmpty) {
+            frontendUrl = fe.startsWith('http')
+                ? fe
+                : 'http://127.0.0.1:$port$fe';
+          }
+        }
+      } finally {
+        client.close(force: true);
+      }
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'fetch /json/list',
+        error,
+        stack,
+      );
+    }
+    // 找不到合适的 frontend URL 时降级回根目录，至少不让用户面对空白。
+    final url = frontendUrl ?? 'http://127.0.0.1:$port/json/list';
+    try {
+      if (Platform.isMacOS) {
+        await Process.run('/usr/bin/open', [url]);
+      } else if (Platform.isWindows) {
+        await Process.run('cmd', ['/c', 'start', '', url]);
+      } else if (Platform.isLinux) {
+        await Process.run('xdg-open', [url]);
+      }
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'open devtools url',
+        error,
+        stack,
+      );
+    }
+    if (!mounted) return;
+    if (frontendUrl == null) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          isZh
+              ? '未找到可用的 DevTools 前端，已退到 /json/list 列表页'
+              : 'No DevTools frontend found; opened /json/list fallback',
+        ),
+        duration: const Duration(seconds: 3),
+      ));
     }
   }
 }

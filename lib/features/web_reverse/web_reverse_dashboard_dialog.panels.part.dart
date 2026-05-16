@@ -273,13 +273,14 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 Expanded(
                   child: SizedBox(
                     height: 48,
-                    child: CustomPaint(
-                      painter: _Sparkline(
-                        values: _fpsHistory,
-                        color: cs.primary,
-                        fillBelow: true,
-                        upperBound: 60,
-                      ),
+                    // FPS 折线同样使用 AnimatedSparkline，让 1s 一次的更新
+                    // 看起来像水波而不是台阶。
+                    child: _AnimatedSparkline(
+                      values: _fpsHistory,
+                      color: cs.primary,
+                      fillBelow: true,
+                      upperBound: 60,
+                      reduceMotion: widget.reduceMotion,
                     ),
                   ),
                 ),
@@ -328,12 +329,20 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    m.$1,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
+                                  // 指标名 i18n：显示翻译后的友好名 + 原 CDP 名
+                                  // 双行；保留原名是为了让懂 CDP 的用户随手对照
+                                  // Performance.getMetrics 文档。
+                                  Tooltip(
+                                    message: m.$1,
+                                    child: Text(
+                                      _localizedMetricName(m.$1, isZh),
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
+                                        color: cs.onSurfaceVariant,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
                                     _formatMetric(m.$1, m.$2),
@@ -342,12 +351,14 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                                   ),
                                   SizedBox(
                                     height: 24,
-                                    child: CustomPaint(
-                                      painter: _Sparkline(
-                                        values: history,
-                                        color: cs.primary,
-                                        fillBelow: true,
-                                      ),
+                                    // sparkline 用 AnimatedSparkline 平滑过渡：
+                                    // 数据每 2s 一次跳变会太硬，加 240ms 缓动
+                                    // 让折线落点像液面一样平滑接管。
+                                    child: _AnimatedSparkline(
+                                      values: history,
+                                      color: cs.primary,
+                                      fillBelow: true,
+                                      reduceMotion: widget.reduceMotion,
                                     ),
                                   ),
                                 ],
@@ -387,6 +398,243 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     final lo = _metrics.where((m) => !highlights.contains(m.$1)).toList()
       ..sort((a, b) => a.$1.compareTo(b.$1));
     return [...hi, ...lo];
+  }
+}
+
+/// CDP `Performance.getMetrics` 指标名 → 本地化展示名。
+/// 仅做覆盖性翻译；未命中名直接回退到原名（保证未来 CDP 新增字段时不会丢字段）。
+String _localizedMetricName(String cdpName, bool isZh) {
+  if (!isZh) {
+    // 英文环境下用更人类可读的展示名替换驼峰原名（如 Frames Per Second）。
+    return _enFriendlyMetricName(cdpName);
+  }
+  switch (cdpName) {
+    // 生命周期 / 时间
+    case 'Timestamp':
+      return '时间戳';
+    case 'AudioHandlers':
+      return '音频处理器';
+    case 'AudioWorkletProcessors':
+      return '音频 Worklet 处理器';
+    case 'Documents':
+      return 'Document 数';
+    case 'Frames':
+      return 'Frame 数';
+    case 'JSEventListeners':
+      return 'JS 事件监听器';
+    case 'Nodes':
+      return 'DOM 节点数';
+    case 'LayoutCount':
+      return '布局次数';
+    case 'RecalcStyleCount':
+      return '样式重算次数';
+    case 'LayoutDuration':
+      return '布局耗时';
+    case 'RecalcStyleDuration':
+      return '样式重算耗时';
+    case 'DevToolsCommandDuration':
+      return 'DevTools 命令耗时';
+    case 'ScriptDuration':
+      return '脚本耗时';
+    case 'V8CompileDuration':
+      return 'V8 编译耗时';
+    case 'TaskDuration':
+      return '任务耗时';
+    case 'TaskOtherDuration':
+      return '其他任务耗时';
+    case 'ThreadTime':
+      return '线程时间';
+    case 'ProcessTime':
+      return '进程时间';
+    case 'JSHeapUsedSize':
+      return 'JS 堆已用';
+    case 'JSHeapTotalSize':
+      return 'JS 堆总量';
+    case 'FirstMeaningfulPaint':
+      return '首次有意义绘制';
+    case 'DomContentLoaded':
+      return 'DOMContentLoaded';
+    case 'NavigationStart':
+      return '导航开始';
+    case 'AdSubframes':
+      return '广告子框架';
+    case 'ArrayBufferContents':
+      return 'ArrayBuffer 内容';
+    case 'Resources':
+      return '资源数';
+    case 'ContextLifecycleStateObservers':
+      return '上下文生命周期观察者';
+    case 'V8PerContextDatas':
+      return 'V8 上下文数据';
+    case 'WorkerGlobalScopes':
+      return 'Worker 全局作用域';
+    case 'UACSSResources':
+      return 'UA CSS 资源';
+    case 'RTCPeerConnections':
+      return 'WebRTC 连接';
+    case 'ResourceFetchers':
+      return '资源 Fetcher';
+    case 'AdSubframesEvictions':
+      return '广告子框架淘汰';
+    case 'NumberOfDocuments':
+      return 'Document 数（细分）';
+    case 'NumberOfActiveAndInactiveAnimations':
+      return '活动/休眠动画数';
+    case 'NumberOfMediaContexts':
+      return '媒体上下文数';
+    case 'AdFrameSubframes':
+      return '广告子框架（嵌套）';
+    case 'AnimationCallbackPropertyTreeBuildersTime':
+      return '动画属性树构建耗时';
+    case 'PaintingTime':
+      return '绘制耗时';
+    case 'CompositingTime':
+      return '合成耗时';
+    case 'CSSStyleSheets':
+      return 'CSS 样式表';
+    case 'ImageHolders':
+      return '图片占位符';
+    case 'CompositorVisibleRectChange':
+      return '合成器可见矩形变更';
+    default:
+      return cdpName;
+  }
+}
+
+String _enFriendlyMetricName(String cdpName) {
+  switch (cdpName) {
+    case 'JSHeapUsedSize':
+      return 'JS Heap Used';
+    case 'JSHeapTotalSize':
+      return 'JS Heap Total';
+    case 'TaskDuration':
+      return 'Task Duration';
+    case 'TaskOtherDuration':
+      return 'Task Other Duration';
+    case 'LayoutDuration':
+      return 'Layout Duration';
+    case 'RecalcStyleDuration':
+      return 'Recalc Style Duration';
+    case 'ScriptDuration':
+      return 'Script Duration';
+    case 'V8CompileDuration':
+      return 'V8 Compile Duration';
+    case 'DevToolsCommandDuration':
+      return 'DevTools Cmd Duration';
+    case 'FirstMeaningfulPaint':
+      return 'First Meaningful Paint';
+    case 'DomContentLoaded':
+      return 'DOMContentLoaded';
+    case 'NavigationStart':
+      return 'Navigation Start';
+    case 'JSEventListeners':
+      return 'JS Event Listeners';
+    case 'LayoutCount':
+      return 'Layout Count';
+    case 'RecalcStyleCount':
+      return 'Recalc Style Count';
+    default:
+      return cdpName;
+  }
+}
+
+/// 平滑动画版 Sparkline：当传入 [values] 改变时不再瞬时跳点，
+/// 而是用 240ms 的 easeOutCubic 把"上一组"折线值插值到"下一组"。
+/// 配合 [_PerformancePanelState] 的 2s 周期采样，能让曲线像水波一样滑过。
+class _AnimatedSparkline extends StatefulWidget {
+  const _AnimatedSparkline({
+    required this.values,
+    required this.color,
+    this.fillBelow = false,
+    this.upperBound,
+    this.reduceMotion = false,
+  });
+
+  final List<double> values;
+  final Color color;
+  final bool fillBelow;
+  final double? upperBound;
+  final bool reduceMotion;
+
+  @override
+  State<_AnimatedSparkline> createState() => _AnimatedSparklineState();
+}
+
+class _AnimatedSparklineState extends State<_AnimatedSparkline>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ac = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+  );
+  late List<double> _from = List<double>.from(widget.values);
+  late List<double> _to = List<double>.from(widget.values);
+
+  @override
+  void didUpdateWidget(covariant _AnimatedSparkline old) {
+    super.didUpdateWidget(old);
+    if (!_listEquals(old.values, widget.values)) {
+      _from = _resampleTo(_currentValues(), widget.values.length);
+      _to = List<double>.from(widget.values);
+      if (widget.reduceMotion) {
+        _ac.value = 1;
+      } else {
+        _ac
+          ..reset()
+          ..animateTo(1, curve: Curves.easeOutCubic);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _ac.dispose();
+    super.dispose();
+  }
+
+  List<double> _currentValues() {
+    if (_from.length != _to.length) return _to;
+    if (!_ac.isAnimating && _ac.value == 1) return _to;
+    final t = _ac.value;
+    return List<double>.generate(
+      _to.length,
+      (i) => _from[i] + (_to[i] - _from[i]) * t,
+    );
+  }
+
+  List<double> _resampleTo(List<double> src, int n) {
+    if (src.length == n) return List<double>.from(src);
+    if (src.isEmpty) return List<double>.filled(n, 0);
+    if (src.length > n) {
+      // 缩短：取尾部 n 个，模拟历史窗口左移。
+      return src.sublist(src.length - n);
+    }
+    // 拉长：左侧补首值。
+    final pad = List<double>.filled(n - src.length, src.first);
+    return [...pad, ...src];
+  }
+
+  bool _listEquals(List<double> a, List<double> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ac,
+      builder: (_, _) => CustomPaint(
+        painter: _Sparkline(
+          values: _currentValues(),
+          color: widget.color,
+          fillBelow: widget.fillBelow,
+          upperBound: widget.upperBound,
+        ),
+      ),
+    );
   }
 }
 
@@ -987,13 +1235,11 @@ class _V8HeapLiveCard extends StatelessWidget {
           Expanded(
             child: SizedBox(
               height: 72,
-              child: CustomPaint(
-                painter: _DualLineSparkline(
-                  primary: used,
-                  secondary: total,
-                  primaryColor: usedColor,
-                  secondaryColor: cs.tertiary,
-                ),
+              child: _AnimatedDualSparkline(
+                primary: used,
+                secondary: total,
+                primaryColor: usedColor,
+                secondaryColor: cs.tertiary,
               ),
             ),
           ),
@@ -1128,6 +1374,120 @@ class _DualLineSparkline extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DualLineSparkline old) =>
       old.primary != primary || old.secondary != secondary;
+}
+
+/// 平滑动画版双线 Sparkline：与 [_AnimatedSparkline] 同思路，
+/// 在 primary / secondary 数据更新时用 240ms 缓动把上一帧线性插值到下一帧，
+/// 配合 V8 实时 1.5s 采样让"已用 / 总量"的曲线呈现 Q 弹流动感。
+class _AnimatedDualSparkline extends StatefulWidget {
+  const _AnimatedDualSparkline({
+    required this.primary,
+    required this.secondary,
+    required this.primaryColor,
+    required this.secondaryColor,
+  });
+
+  final List<double> primary;
+  final List<double> secondary;
+  final Color primaryColor;
+  final Color secondaryColor;
+
+  @override
+  State<_AnimatedDualSparkline> createState() => _AnimatedDualSparklineState();
+}
+
+class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ac = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+  );
+  late List<double> _fromPri = List<double>.from(widget.primary);
+  late List<double> _toPri = List<double>.from(widget.primary);
+  late List<double> _fromSec = List<double>.from(widget.secondary);
+  late List<double> _toSec = List<double>.from(widget.secondary);
+
+  @override
+  void didUpdateWidget(covariant _AnimatedDualSparkline old) {
+    super.didUpdateWidget(old);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    var changed = false;
+    if (!_eq(old.primary, widget.primary)) {
+      _fromPri = _resampleTo(_curPri(), widget.primary.length);
+      _toPri = List<double>.from(widget.primary);
+      changed = true;
+    }
+    if (!_eq(old.secondary, widget.secondary)) {
+      _fromSec = _resampleTo(_curSec(), widget.secondary.length);
+      _toSec = List<double>.from(widget.secondary);
+      changed = true;
+    }
+    if (changed) {
+      if (reduceMotion) {
+        _ac.value = 1;
+      } else {
+        _ac
+          ..reset()
+          ..animateTo(1, curve: Curves.easeOutCubic);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _ac.dispose();
+    super.dispose();
+  }
+
+  bool _eq(List<double> a, List<double> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  List<double> _resampleTo(List<double> src, int n) {
+    if (src.length == n) return List<double>.from(src);
+    if (src.isEmpty) return List<double>.filled(n, 0);
+    if (src.length > n) return src.sublist(src.length - n);
+    final pad = List<double>.filled(n - src.length, src.first);
+    return [...pad, ...src];
+  }
+
+  List<double> _curPri() {
+    if (_fromPri.length != _toPri.length || _ac.value == 1) return _toPri;
+    final t = _ac.value;
+    return List<double>.generate(
+      _toPri.length,
+      (i) => _fromPri[i] + (_toPri[i] - _fromPri[i]) * t,
+    );
+  }
+
+  List<double> _curSec() {
+    if (_fromSec.length != _toSec.length || _ac.value == 1) return _toSec;
+    final t = _ac.value;
+    return List<double>.generate(
+      _toSec.length,
+      (i) => _fromSec[i] + (_toSec[i] - _fromSec[i]) * t,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ac,
+      builder: (_, _) => CustomPaint(
+        painter: _DualLineSparkline(
+          primary: _curPri(),
+          secondary: _curSec(),
+          primaryColor: widget.primaryColor,
+          secondaryColor: widget.secondaryColor,
+        ),
+      ),
+    );
+  }
 }
 
 class _SamplingTopList extends StatelessWidget {

@@ -98,16 +98,29 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
   }
 
   Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
+    // 关闭按钮 + URL + 复制菜单同一行；用 crossAxisAlignment.center 把
+    // 关闭图标垂直居中，URL 用 vertical padding 对齐图标光学中点；
+    // URL 与左侧图标之间额外留 8px gap，避免视觉粘连。
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Row(
         children: [
-          IconButton(
-            tooltip: isZh ? '关闭详情' : 'Close detail',
-            onPressed: widget.onClose,
-            icon: const Icon(Icons.close_rounded, size: 18),
-            visualDensity: VisualDensity.compact,
+          Tooltip(
+            message: isZh ? '关闭详情' : 'Close detail',
+            child: InkResponse(
+              onTap: widget.onClose,
+              radius: 18,
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: SelectableText(
               widget.entry.url,
@@ -115,20 +128,26 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
               style: theme.textTheme.bodySmall?.copyWith(
                 fontFamily: 'monospace',
                 color: cs.onSurface,
+                height: 1.4,
               ),
             ),
           ),
-          PopupMenuButton<String>(
-            tooltip: isZh ? '复制为...' : 'Copy as...',
-            icon: const Icon(Icons.content_copy_rounded, size: 18),
-            onSelected: (kind) => _copyAs(kind, isZh),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'url', child: Text('URL')),
-              PopupMenuItem(value: 'curl', child: Text('cURL (POSIX)')),
-              PopupMenuItem(value: 'curl-cmd', child: Text('cURL (Windows)')),
-              PopupMenuItem(value: 'fetch', child: Text('fetch')),
-              PopupMenuItem(value: 'fetch-node', child: Text('fetch (Node.js)')),
-            ],
+          const SizedBox(width: 8),
+          Tooltip(
+            message: isZh ? '复制为...' : 'Copy as...',
+            child: PopupMenuButton<String>(
+              icon: const Icon(Icons.content_copy_rounded, size: 18),
+              padding: EdgeInsets.zero,
+              splashRadius: 18,
+              onSelected: (kind) => _copyAs(kind, isZh),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'url', child: Text('URL')),
+                PopupMenuItem(value: 'curl', child: Text('cURL (POSIX)')),
+                PopupMenuItem(value: 'curl-cmd', child: Text('cURL (Windows)')),
+                PopupMenuItem(value: 'fetch', child: Text('fetch')),
+                PopupMenuItem(value: 'fetch-node', child: Text('fetch (Node.js)')),
+              ],
+            ),
           ),
         ],
       ),
@@ -193,6 +212,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
     return switch (_tab) {
       _DetailTab.headers => _HeadersTab(entry: widget.entry, isZh: isZh),
       _DetailTab.preview => _BodyTab(
+          entry: widget.entry,
           loading: _bodyLoading,
           text: _bodyText,
           base64: _bodyBase64,
@@ -201,6 +221,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           isZh: isZh,
         ),
       _DetailTab.response => _BodyTab(
+          entry: widget.entry,
           loading: _bodyLoading,
           text: _bodyText,
           base64: _bodyBase64,
@@ -390,6 +411,7 @@ class _HeaderSection extends StatelessWidget {
 
 class _BodyTab extends StatelessWidget {
   const _BodyTab({
+    required this.entry,
     required this.loading,
     required this.text,
     required this.base64,
@@ -398,6 +420,7 @@ class _BodyTab extends StatelessWidget {
     required this.isZh,
   });
 
+  final CdpNetworkEntry entry;
   final bool loading;
   final String? text;
   final bool base64;
@@ -411,6 +434,29 @@ class _BodyTab extends StatelessWidget {
     final cs = theme.colorScheme;
     if (loading) {
       return const Center(child: CircularProgressIndicator());
+    }
+    final mime = (mimeType ?? '').toLowerCase();
+    // ── Preview tab：图片 / 音频 / 视频用嵌入式预览 + 点击大图 / 全屏 ─────
+    // Preview tab 是 Chrome DevTools 的 "Preview"，主要给媒体类型用；
+    // Response tab 仍走文本/二进制兜底，方便复制原始 body。
+    if (preview) {
+      if (mime.startsWith('image/')) {
+        return _ImageInlinePreview(entry: entry, bytesText: text, isZh: isZh);
+      }
+      if (mime.startsWith('audio/')) {
+        return _MediaInlinePreview(
+          entry: entry,
+          kind: MediaPreviewKind.audio,
+          isZh: isZh,
+        );
+      }
+      if (mime.startsWith('video/')) {
+        return _MediaInlinePreview(
+          entry: entry,
+          kind: MediaPreviewKind.video,
+          isZh: isZh,
+        );
+      }
     }
     if (text == null) {
       return Center(
@@ -925,4 +971,216 @@ class _MessagesTab extends StatelessWidget {
         10 => 'PONG',
         _ => 'OP$op',
       };
+}
+
+
+/// Preview tab 内的图片预览：缩略图直接展示在面板中，
+/// 点击弹出 `MediaPreviewDialog.bytes` 大图（与会话气泡里的图片预览复用）。
+/// 优先使用已缓存的 base64 body 解码；缓存为空时降级到 [Image.network]
+/// 的 URL 直拉模式（很多媒体站要求 referer，可能 401，这是预期行为）。
+class _ImageInlinePreview extends StatelessWidget {
+  const _ImageInlinePreview({
+    required this.entry,
+    required this.bytesText,
+    required this.isZh,
+  });
+
+  final CdpNetworkEntry entry;
+  final String? bytesText;
+  final bool isZh;
+
+  Uint8List? _decodeBytes() {
+    final t = bytesText;
+    if (t == null || t.isEmpty) return null;
+    try {
+      return base64Decode(t);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final bytes = _decodeBytes();
+    final fallbackName = entry.url.split('?').first.split('/').last;
+    final image = bytes != null
+        ? Image.memory(
+            bytes,
+            fit: BoxFit.contain,
+            errorBuilder: (c, _, _) => _broken(cs),
+          )
+        : Image.network(
+            entry.url,
+            fit: BoxFit.contain,
+            errorBuilder: (c, _, _) => _broken(cs),
+          );
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.image_rounded, size: 16, color: cs.primary),
+              const SizedBox(width: 6),
+              Text(
+                isZh ? '点击图片可全屏预览' : 'Tap to open large preview',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Center(
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    showAnimatedDialog<void>(
+                      context: context,
+                      builder: (_) => bytes != null
+                          ? MediaPreviewDialog.bytes(
+                              bytes: bytes,
+                              title: fallbackName.isEmpty
+                                  ? entry.url
+                                  : fallbackName,
+                              sourceUrl: entry.url,
+                              mimeType: entry.mimeType,
+                            )
+                          : MediaPreviewDialog.network(
+                              url: entry.url,
+                              title: fallbackName.isEmpty
+                                  ? entry.url
+                                  : fallbackName,
+                              mimeType: entry.mimeType,
+                            ),
+                    );
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: cs.outlineVariant),
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: image,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _broken(ColorScheme cs) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Icon(Icons.broken_image_outlined,
+              color: cs.error, size: 48),
+        ),
+      );
+}
+
+/// Preview tab 内的音频 / 视频预览：直接复用 MediaPreviewDialog 的内嵌
+/// player surface 给一个紧凑控件；同时提供"全屏预览"按钮。
+class _MediaInlinePreview extends StatelessWidget {
+  const _MediaInlinePreview({
+    required this.entry,
+    required this.kind,
+    required this.isZh,
+  });
+
+  final CdpNetworkEntry entry;
+  final MediaPreviewKind kind;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final fallbackName = entry.url.split('?').first.split('/').last;
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                kind == MediaPreviewKind.audio
+                    ? Icons.audiotrack_rounded
+                    : Icons.movie_rounded,
+                size: 16,
+                color: cs.primary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  fallbackName.isEmpty ? entry.url : fallbackName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.tonalIcon(
+                onPressed: () => showAnimatedDialog<void>(
+                  context: context,
+                  builder: (_) => MediaPreviewDialog.network(
+                    url: entry.url,
+                    title:
+                        fallbackName.isEmpty ? entry.url : fallbackName,
+                    mimeType: entry.mimeType,
+                    kind: kind,
+                  ),
+                ),
+                icon: const Icon(Icons.open_in_full_rounded, size: 16),
+                label: Text(isZh ? '全屏预览' : 'Open large'),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // 紧凑播放器：直接走 MediaPreviewDialog.network 的核心 surface。
+          // 这里我们简化为弹大图的入口已存在，inline 仅给一个引导 banner，
+          // 避免对外置 Chrome 网络鉴权（Referer/Cookie）做无意义的二次 fetch。
+          Container(
+            height: kind == MediaPreviewKind.audio ? 96 : 220,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  isZh
+                      ? '此请求识别为${kind == MediaPreviewKind.audio ? "音频" : "视频"}流，'
+                          '点击右上方「全屏预览」按钮即可在内嵌播放器中播放'
+                      : 'Detected as ${kind == MediaPreviewKind.audio ? "audio" : "video"} stream — tap "Open large" to play in the embedded player.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
