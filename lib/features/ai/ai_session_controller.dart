@@ -3227,15 +3227,20 @@ class AiSessionController extends ChangeNotifier {
       }
 
       charThrottle = _StreamCharThrottle(
-        maxCharsPerSecond: runtimeContext.streamMaxCharsPerSecond,
+        maxCharsPerSecond: runtimeContext.effectiveStreamMaxCharsPerSecond(
+          workingSession.templateId,
+        ),
         onTick: renderAssistantBuffered,
       );
       reasoningCharThrottle = _StreamCharThrottle(
-        maxCharsPerSecond: runtimeContext.streamMaxCharsPerSecond,
+        maxCharsPerSecond: runtimeContext.effectiveStreamMaxCharsPerSecond(
+          workingSession.templateId,
+        ),
         onTick: renderReasoningBuffered,
       );
       cardThrottle = _StreamCardThrottle(
-        maxCardsPerSecond: runtimeContext.streamMaxMessageCardsPerSecond,
+        maxCardsPerSecond: runtimeContext
+            .effectiveStreamMaxMessageCardsPerSecond(workingSession.templateId),
         onCardEmitted: () => schedulePreview('cardThrottle'),
       );
 

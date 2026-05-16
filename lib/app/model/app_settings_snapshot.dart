@@ -14,6 +14,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_stream_throttle_override.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -107,6 +108,8 @@ class AppSettingsSnapshot {
       aiStreamMaxCharsPerSecond: defaultAiStreamMaxCharsPerSecond,
       aiStreamMaxMessageCardsPerSecond:
           defaultAiStreamMaxMessageCardsPerSecond,
+      aiStreamThrottleTemplateOverrides:
+          const <String, AiStreamThrottleOverride>{},
       aiAutoTitleEnabled: true,
       aiDefaultSessionMode: defaultAiDefaultSessionMode,
       aiDefaultFullAccessPermission: false,
@@ -226,6 +229,7 @@ class AppSettingsSnapshot {
     required this.aiStreamIdleTimeoutSeconds,
     required this.aiStreamMaxCharsPerSecond,
     required this.aiStreamMaxMessageCardsPerSecond,
+    required this.aiStreamThrottleTemplateOverrides,
     required this.aiAutoTitleEnabled,
     required this.aiDefaultSessionMode,
     required this.aiDefaultFullAccessPermission,
@@ -729,6 +733,12 @@ class AppSettingsSnapshot {
   /// 2026-05-17 — 每秒最多向当前会话追加渲染的新消息卡片数。
   /// 0 表示关闭节流。
   final int aiStreamMaxMessageCardsPerSecond;
+
+  /// 2026-05-17 — 每个线程模板对流式节流参数的独立覆盖（按 templateId
+  /// 索引）。覆盖中的字段为 null 表示沿用全局值；isEmpty 的 entry 会被
+  /// 持久化层剔除避免存储 noise。
+  final Map<String, AiStreamThrottleOverride>
+  aiStreamThrottleTemplateOverrides;
   final bool aiAutoTitleEnabled;
   final String aiDefaultSessionMode;
   final bool aiDefaultFullAccessPermission;
@@ -880,6 +890,7 @@ class AppSettingsSnapshot {
     int? aiStreamIdleTimeoutSeconds,
     int? aiStreamMaxCharsPerSecond,
     int? aiStreamMaxMessageCardsPerSecond,
+    Map<String, AiStreamThrottleOverride>? aiStreamThrottleTemplateOverrides,
     bool? aiAutoTitleEnabled,
     String? aiDefaultSessionMode,
     bool? aiDefaultFullAccessPermission,
@@ -1043,6 +1054,9 @@ class AppSettingsSnapshot {
       aiStreamMaxMessageCardsPerSecond:
           aiStreamMaxMessageCardsPerSecond ??
           this.aiStreamMaxMessageCardsPerSecond,
+      aiStreamThrottleTemplateOverrides:
+          aiStreamThrottleTemplateOverrides ??
+          this.aiStreamThrottleTemplateOverrides,
       aiAutoTitleEnabled: aiAutoTitleEnabled ?? this.aiAutoTitleEnabled,
       aiDefaultSessionMode: aiDefaultSessionMode ?? this.aiDefaultSessionMode,
       aiDefaultFullAccessPermission:

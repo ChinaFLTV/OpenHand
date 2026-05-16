@@ -7,6 +7,7 @@ import 'ai_allow_command_rule.dart';
 import 'ai_builtin_tool_config.dart';
 import 'ai_deny_command_rule.dart';
 import 'ai_sandbox_settings.dart';
+import 'ai_stream_throttle_override.dart';
 
 class AiRepositorySnapshot {
   factory AiRepositorySnapshot.fromJson(Map<String, Object?> json) {
@@ -138,6 +139,8 @@ class AiSessionRuntimeContext {
     this.streamIdleTimeoutSeconds = 120,
     this.streamMaxCharsPerSecond = 3,
     this.streamMaxMessageCardsPerSecond = 1,
+    this.streamThrottleTemplateOverrides =
+        const <String, AiStreamThrottleOverride>{},
     this.autoTitleEnabled = true,
     this.autoTitleMaxRetryCount = 5,
     this.telemetryDebugEnabled = false,
@@ -333,6 +336,23 @@ class AiSessionRuntimeContext {
   /// 2026-05-17 — 每秒最多向当前会话追加渲染的新消息卡片数。
   /// 0 表示关闭节流。
   final int streamMaxMessageCardsPerSecond;
+
+  /// 2026-05-17 — 每个线程模板对流式节流参数的独立覆盖；命中模板的字段
+  /// 优先于全局值，未命中时回退到 [streamMaxCharsPerSecond] /
+  /// [streamMaxMessageCardsPerSecond]。
+  final Map<String, AiStreamThrottleOverride> streamThrottleTemplateOverrides;
+
+  /// 返回指定模板生效的字符节流速率：模板覆盖优先于全局。
+  int effectiveStreamMaxCharsPerSecond(String templateIdValue) {
+    final override = streamThrottleTemplateOverrides[templateIdValue];
+    return override?.charsPerSecond ?? streamMaxCharsPerSecond;
+  }
+
+  /// 返回指定模板生效的卡片节流速率：模板覆盖优先于全局。
+  int effectiveStreamMaxMessageCardsPerSecond(String templateIdValue) {
+    final override = streamThrottleTemplateOverrides[templateIdValue];
+    return override?.cardsPerSecond ?? streamMaxMessageCardsPerSecond;
+  }
 
   /// Whether to auto-generate session titles.
   final bool autoTitleEnabled;

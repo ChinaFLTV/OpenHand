@@ -11,6 +11,7 @@ import '../../features/ai/model/ai_lsp_backend_catalog.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_stream_throttle_override.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -126,6 +127,9 @@ class SettingsController extends ChangeNotifier {
        _aiStreamMaxCharsPerSecond = snapshot.aiStreamMaxCharsPerSecond,
        _aiStreamMaxMessageCardsPerSecond =
            snapshot.aiStreamMaxMessageCardsPerSecond,
+       _aiStreamThrottleTemplateOverrides = Map<String, AiStreamThrottleOverride>.unmodifiable(
+         snapshot.aiStreamThrottleTemplateOverrides,
+       ),
        _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled,
        _aiDefaultSessionMode = snapshot.aiDefaultSessionMode,
        _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission,
@@ -248,6 +252,7 @@ class SettingsController extends ChangeNotifier {
   int _aiStreamIdleTimeoutSeconds;
   int _aiStreamMaxCharsPerSecond;
   int _aiStreamMaxMessageCardsPerSecond;
+  Map<String, AiStreamThrottleOverride> _aiStreamThrottleTemplateOverrides;
   bool _aiAutoTitleEnabled;
   String _aiDefaultSessionMode;
   bool _aiDefaultFullAccessPermission;
@@ -408,6 +413,22 @@ class SettingsController extends ChangeNotifier {
   int get aiStreamIdleTimeoutSeconds => _aiStreamIdleTimeoutSeconds;
   int get aiStreamMaxCharsPerSecond => _aiStreamMaxCharsPerSecond;
   int get aiStreamMaxMessageCardsPerSecond => _aiStreamMaxMessageCardsPerSecond;
+
+  /// 每个线程模板对流式节流参数的独立覆盖。返回不可变视图。
+  Map<String, AiStreamThrottleOverride>
+  get aiStreamThrottleTemplateOverrides => _aiStreamThrottleTemplateOverrides;
+
+  /// 返回指定模板生效的字符节流速率：模板覆盖优先于全局值。
+  int effectiveStreamMaxCharsPerSecond(String templateId) {
+    final override = _aiStreamThrottleTemplateOverrides[templateId];
+    return override?.charsPerSecond ?? _aiStreamMaxCharsPerSecond;
+  }
+
+  /// 返回指定模板生效的卡片节流速率：模板覆盖优先于全局值。
+  int effectiveStreamMaxMessageCardsPerSecond(String templateId) {
+    final override = _aiStreamThrottleTemplateOverrides[templateId];
+    return override?.cardsPerSecond ?? _aiStreamMaxMessageCardsPerSecond;
+  }
   bool get aiAutoTitleEnabled => _aiAutoTitleEnabled;
   String get aiDefaultSessionMode => _aiDefaultSessionMode;
   bool get aiDefaultFullAccessPermission => _aiDefaultFullAccessPermission;
@@ -1425,6 +1446,100 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  /// 设置某个线程模板的字符节流覆盖。`value == null` 时清除该模板对该
+  /// 字段的覆盖；当模板的两个覆盖字段都被清除时，整个 entry 一并删除。
+  Future<bool> updateAiStreamThrottleCharsOverride(
+    String templateId,
+    int? value,
+  ) async {
+    if (templateId.trim().isEmpty) return false;
+    final clamped = value?.clamp(
+      AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
+      AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
+    );
+    return _commitMutation(() {
+      final next = Map<String, AiStreamThrottleOverride>.from(
+        _aiStreamThrottleTemplateOverrides,
+      );
+      final current = next[templateId];
+      final merged =
+          (current ?? const AiStreamThrottleOverride()).copyWith(
+            charsPerSecond: clamped,
+          );
+      if (merged.isEmpty) {
+        next.remove(templateId);
+      } else {
+        next[templateId] = merged;
+      }
+      if (_mapEquals(_aiStreamThrottleTemplateOverrides, next)) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiStreamThrottleTemplateOverrides =
+          Map<String, AiStreamThrottleOverride>.unmodifiable(next);
+      return _MutationDisposition.apply;
+    });
+  }
+
+  /// 设置某个线程模板的卡片节流覆盖。语义同 [updateAiStreamThrottleCharsOverride]。
+  Future<bool> updateAiStreamThrottleCardsOverride(
+    String templateId,
+    int? value,
+  ) async {
+    if (templateId.trim().isEmpty) return false;
+    final clamped = value?.clamp(
+      AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
+      AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
+    );
+    return _commitMutation(() {
+      final next = Map<String, AiStreamThrottleOverride>.from(
+        _aiStreamThrottleTemplateOverrides,
+      );
+      final current = next[templateId];
+      final merged =
+          (current ?? const AiStreamThrottleOverride()).copyWith(
+            cardsPerSecond: clamped,
+          );
+      if (merged.isEmpty) {
+        next.remove(templateId);
+      } else {
+        next[templateId] = merged;
+      }
+      if (_mapEquals(_aiStreamThrottleTemplateOverrides, next)) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiStreamThrottleTemplateOverrides =
+          Map<String, AiStreamThrottleOverride>.unmodifiable(next);
+      return _MutationDisposition.apply;
+    });
+  }
+
+  /// 清除指定模板的全部覆盖。
+  Future<bool> clearAiStreamThrottleOverride(String templateId) async {
+    if (templateId.trim().isEmpty) return false;
+    return _commitMutation(() {
+      if (!_aiStreamThrottleTemplateOverrides.containsKey(templateId)) {
+        return _MutationDisposition.successNoChange;
+      }
+      final next = Map<String, AiStreamThrottleOverride>.from(
+        _aiStreamThrottleTemplateOverrides,
+      )..remove(templateId);
+      _aiStreamThrottleTemplateOverrides =
+          Map<String, AiStreamThrottleOverride>.unmodifiable(next);
+      return _MutationDisposition.apply;
+    });
+  }
+
+  bool _mapEquals(
+    Map<String, AiStreamThrottleOverride> a,
+    Map<String, AiStreamThrottleOverride> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (b[entry.key] != entry.value) return false;
+    }
+    return true;
+  }
+
   Future<bool> updateAiAutoTitleEnabled(bool value) async {
     return _commitMutation(() {
       if (_aiAutoTitleEnabled == value) {
@@ -2301,6 +2416,7 @@ class SettingsController extends ChangeNotifier {
       aiStreamIdleTimeoutSeconds: _aiStreamIdleTimeoutSeconds,
       aiStreamMaxCharsPerSecond: _aiStreamMaxCharsPerSecond,
       aiStreamMaxMessageCardsPerSecond: _aiStreamMaxMessageCardsPerSecond,
+      aiStreamThrottleTemplateOverrides: _aiStreamThrottleTemplateOverrides,
       aiAutoTitleEnabled: _aiAutoTitleEnabled,
       aiDefaultSessionMode: _aiDefaultSessionMode,
       aiDefaultFullAccessPermission: _aiDefaultFullAccessPermission,
@@ -2424,6 +2540,10 @@ class SettingsController extends ChangeNotifier {
     _aiStreamMaxCharsPerSecond = snapshot.aiStreamMaxCharsPerSecond;
     _aiStreamMaxMessageCardsPerSecond =
         snapshot.aiStreamMaxMessageCardsPerSecond;
+    _aiStreamThrottleTemplateOverrides =
+        Map<String, AiStreamThrottleOverride>.unmodifiable(
+          snapshot.aiStreamThrottleTemplateOverrides,
+        );
     _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled;
     _aiDefaultSessionMode = snapshot.aiDefaultSessionMode;
     _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission;

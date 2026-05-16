@@ -4232,6 +4232,8 @@ class WebMessagePlatformService {
       streamMaxCharsPerSecond: _settingsController.aiStreamMaxCharsPerSecond,
       streamMaxMessageCardsPerSecond:
           _settingsController.aiStreamMaxMessageCardsPerSecond,
+      streamThrottleTemplateOverrides:
+          _settingsController.aiStreamThrottleTemplateOverrides,
       skippedInstructionIds: skippedInstructionIds,
       userInstructions:
           webGatewayIsDenyAllSelection(_config.allowedInstructionIds)

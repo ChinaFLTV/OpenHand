@@ -15,6 +15,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_stream_throttle_override.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -243,6 +244,10 @@ class SettingsStore {
       'ai_stream_max_chars_per_second': snapshot.aiStreamMaxCharsPerSecond,
       'ai_stream_max_message_cards_per_second':
           snapshot.aiStreamMaxMessageCardsPerSecond,
+      'ai_stream_throttle_template_overrides': <String, Object?>{
+        for (final entry in snapshot.aiStreamThrottleTemplateOverrides.entries)
+          if (!entry.value.isEmpty) entry.key: entry.value.toJson(),
+      },
       'ai_auto_title_enabled': snapshot.aiAutoTitleEnabled,
       'ai_default_session_mode': snapshot.aiDefaultSessionMode,
       'ai_default_full_access_permission':
@@ -800,6 +805,20 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
           )
         : AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond;
+    final rawStreamThrottleOverrides =
+        json['ai_stream_throttle_template_overrides'];
+    final aiStreamThrottleTemplateOverrides =
+        <String, AiStreamThrottleOverride>{};
+    if (rawStreamThrottleOverrides is Map) {
+      for (final entry in rawStreamThrottleOverrides.entries) {
+        final key = '${entry.key}'.trim();
+        if (key.isEmpty) continue;
+        final override = AiStreamThrottleOverride.fromJson(entry.value);
+        if (override != null) {
+          aiStreamThrottleTemplateOverrides[key] = override;
+        }
+      }
+    }
     final aiAutoTitleEnabled = json['ai_auto_title_enabled'] is bool
         ? json['ai_auto_title_enabled'] as bool
         : true;
@@ -1202,6 +1221,7 @@ class SettingsStore {
       aiStreamIdleTimeoutSeconds: aiStreamIdleTimeoutSeconds,
       aiStreamMaxCharsPerSecond: aiStreamMaxCharsPerSecond,
       aiStreamMaxMessageCardsPerSecond: aiStreamMaxMessageCardsPerSecond,
+      aiStreamThrottleTemplateOverrides: aiStreamThrottleTemplateOverrides,
       aiAutoTitleEnabled: aiAutoTitleEnabled,
       aiDefaultSessionMode: aiDefaultSessionMode,
       aiDefaultFullAccessPermission: aiDefaultFullAccessPermission,

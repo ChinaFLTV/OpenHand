@@ -24,6 +24,7 @@ export 'model/ai_sandbox_settings.dart';
 export 'model/ai_session.dart';
 export 'model/ai_session_message.dart';
 export 'model/ai_session_runtime_context.dart';
+export 'model/ai_stream_throttle_override.dart';
 export 'model/ai_thread_template.dart';
 export 'model/ai_token_usage.dart';
 export 'model/ai_web_fetch_settings.dart';

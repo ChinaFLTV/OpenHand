@@ -3240,6 +3240,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
       streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
+      streamThrottleTemplateOverrides:
+          settingsController.aiStreamThrottleTemplateOverrides,
       streamMaxMessageCardsPerSecond:
           settingsController.aiStreamMaxMessageCardsPerSecond,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
@@ -3493,6 +3495,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
       streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
+      streamThrottleTemplateOverrides:
+          settingsController.aiStreamThrottleTemplateOverrides,
       streamMaxMessageCardsPerSecond:
           settingsController.aiStreamMaxMessageCardsPerSecond,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
