@@ -1446,6 +1446,17 @@ class _SettingsViewState extends State<SettingsView> {
                       onSubmitted: (value) =>
                           _saveStreamMaxCharsPerSecond(context, value),
                     ),
+                    if (settingsController.aiStreamMaxCharsPerSecond <= 0) ...[
+                      const SizedBox(height: 8),
+                      _ThrottleDisabledBadge(
+                        message:
+                            Localizations.localeOf(
+                              context,
+                            ).languageCode.startsWith('zh')
+                            ? '节流已关闭：AI 端字符将按真实速率全速渲染。'
+                            : 'Throttle disabled: chars will be rendered at full speed.',
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -1502,6 +1513,18 @@ class _SettingsViewState extends State<SettingsView> {
                       onSubmitted: (value) =>
                           _saveStreamMaxMessageCardsPerSecond(context, value),
                     ),
+                    if (settingsController.aiStreamMaxMessageCardsPerSecond <=
+                        0) ...[
+                      const SizedBox(height: 8),
+                      _ThrottleDisabledBadge(
+                        message:
+                            Localizations.localeOf(
+                              context,
+                            ).languageCode.startsWith('zh')
+                            ? '节流已关闭：AI 端新增卡片将按真实速率全速追加。'
+                            : 'Throttle disabled: new cards will be appended at full speed.',
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -1519,6 +1542,24 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
                 controlMaxWidth: 360,
+              ),
+              // 2026-05-17 — 每个线程模板的节流参数独立覆盖入口
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '按线程模板覆盖节流参数'
+                    : 'Per-Template Throttle Overrides',
+                subtitle:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '为单个线程模板单独设置节流速率，未配置时回退到上方全局值。'
+                    : 'Override stream throttle per thread template; falls back to global values when unset.',
+                control: const _StreamThrottleTemplateOverridesEditor(),
+                controlMaxWidth: 720,
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
@@ -5566,6 +5607,290 @@ class _McpLazyLoadingHelpBanner extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// 节流被关闭（rate=0）时显示的醒目提示徽章。
+///
+/// 2026-05-17 — 用户在设置面板把「每秒最大输出渲染字符」或「每秒最大输
+/// 出消息卡片数」改成 0 后，应用端就完全跳过了对应方向的背压。这条徽
+/// 章高亮当前状态，避免用户在排查"输出卡顿/抽搐"时误以为节流仍在生效。
+class _ThrottleDisabledBadge extends StatelessWidget {
+  const _ThrottleDisabledBadge({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.error.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.flash_off_rounded, size: 18, color: scheme.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: scheme.onErrorContainer,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 「每个线程模板独立覆盖节流参数」的内联编辑器。
+///
+/// 2026-05-17 — 列出全部线程模板，每行展示模板名 + 两枚 SegmentedButton
+/// 风格的可编辑数字字段，留空 = 沿用全局值，输入 0 = 该模板单独关闭节
+/// 流并展示禁用提示，>0 = 用户自定义速率。提交时调用
+/// [SettingsController.updateAiStreamThrottleCharsOverride] 等方法落盘。
+class _StreamThrottleTemplateOverridesEditor extends StatelessWidget {
+  const _StreamThrottleTemplateOverridesEditor();
+
+  @override
+  Widget build(BuildContext context) {
+    final settingsController = context.watch<SettingsController>();
+    final sessionController = context.watch<AiSessionController>();
+    final templates = sessionController.templates;
+    final overrides = settingsController.aiStreamThrottleTemplateOverrides;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final template in templates)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _TemplateOverrideRow(
+              template: template,
+              throttle: overrides[template.id],
+              isZh: isZh,
+              theme: theme,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TemplateOverrideRow extends StatefulWidget {
+  const _TemplateOverrideRow({
+    required this.template,
+    required this.throttle,
+    required this.isZh,
+    required this.theme,
+  });
+
+  final AiThreadTemplate template;
+  final AiStreamThrottleOverride? throttle;
+  final bool isZh;
+  final ThemeData theme;
+
+  @override
+  State<_TemplateOverrideRow> createState() => _TemplateOverrideRowState();
+}
+
+class _TemplateOverrideRowState extends State<_TemplateOverrideRow> {
+  late final TextEditingController _charsCtrl;
+  late final TextEditingController _cardsCtrl;
+  late final FocusNode _charsFocus;
+  late final FocusNode _cardsFocus;
+
+  @override
+  void initState() {
+    super.initState();
+    _charsCtrl = TextEditingController(
+      text: widget.throttle?.charsPerSecond?.toString() ?? '',
+    );
+    _cardsCtrl = TextEditingController(
+      text: widget.throttle?.cardsPerSecond?.toString() ?? '',
+    );
+    _charsFocus = FocusNode();
+    _cardsFocus = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TemplateOverrideRow old) {
+    super.didUpdateWidget(old);
+    final newChars = widget.throttle?.charsPerSecond?.toString() ?? '';
+    if (!_charsFocus.hasFocus && _charsCtrl.text != newChars) {
+      _charsCtrl.text = newChars;
+    }
+    final newCards = widget.throttle?.cardsPerSecond?.toString() ?? '';
+    if (!_cardsFocus.hasFocus && _cardsCtrl.text != newCards) {
+      _cardsCtrl.text = newCards;
+    }
+  }
+
+  @override
+  void dispose() {
+    _charsCtrl.dispose();
+    _cardsCtrl.dispose();
+    _charsFocus.dispose();
+    _cardsFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final controller = context.read<SettingsController>();
+    int? parse(String raw) {
+      final t = raw.trim();
+      if (t.isEmpty) return null;
+      final v = int.tryParse(t);
+      if (v == null) return null;
+      return v;
+    }
+
+    final ok1 = await controller.updateAiStreamThrottleCharsOverride(
+      widget.template.id,
+      parse(_charsCtrl.text),
+    );
+    final ok2 = await controller.updateAiStreamThrottleCardsOverride(
+      widget.template.id,
+      parse(_cardsCtrl.text),
+    );
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    OpenHandSnackBar.show(
+      context,
+      messenger,
+      SnackBar(
+        content: Text(
+          ok1 && ok2
+              ? (widget.isZh ? '已保存模板覆盖。' : 'Template override saved.')
+              : (widget.isZh ? '保存失败。' : 'Failed to save.'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _clear() async {
+    final controller = context.read<SettingsController>();
+    final ok = await controller.clearAiStreamThrottleOverride(
+      widget.template.id,
+    );
+    if (!mounted) return;
+    if (ok) {
+      _charsCtrl.text = '';
+      _cardsCtrl.text = '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = widget.theme.colorScheme;
+    final hasOverride = widget.throttle != null;
+    final isZh = widget.isZh;
+    const globalChars = AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond;
+    const globalCards =
+        AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: hasOverride
+              ? scheme.primary.withValues(alpha: 0.45)
+              : scheme.outlineVariant,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(widget.template.iconData, size: 18, color: scheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  widget.template.name,
+                  style: widget.theme.textTheme.titleSmall,
+                ),
+              ),
+              if (hasOverride)
+                TextButton.icon(
+                  onPressed: _clear,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text(isZh ? '恢复全局' : 'Reset'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                width: 220,
+                child: TextField(
+                  controller: _charsCtrl,
+                  focusNode: _charsFocus,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: InputDecoration(
+                    labelText: isZh ? '字符 / 秒' : 'Chars / Sec',
+                    hintText: isZh
+                        ? '留空=全局($globalChars)'
+                        : 'Empty=global($globalChars)',
+                  ),
+                  onSubmitted: (_) => _save(),
+                ),
+              ),
+              SizedBox(
+                width: 220,
+                child: TextField(
+                  controller: _cardsCtrl,
+                  focusNode: _cardsFocus,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: InputDecoration(
+                    labelText: isZh ? '卡片 / 秒' : 'Cards / Sec',
+                    hintText: isZh
+                        ? '留空=全局($globalCards)'
+                        : 'Empty=global($globalCards)',
+                  ),
+                  onSubmitted: (_) => _save(),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save_outlined, size: 18),
+                label: Text(isZh ? '保存覆盖' : 'Save'),
+              ),
+            ],
+          ),
+          if (widget.throttle?.charsPerSecond == 0 ||
+              widget.throttle?.cardsPerSecond == 0) ...[
+            const SizedBox(height: 8),
+            _ThrottleDisabledBadge(
+              message: isZh
+                  ? '该模板的对应节流已被关闭：将按真实速率全速渲染。'
+                  : 'Throttle disabled for this template: full-speed rendering.',
+            ),
+          ],
         ],
       ),
     );

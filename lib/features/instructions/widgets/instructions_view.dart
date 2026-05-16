@@ -579,7 +579,14 @@ class _InstructionToggleChip extends StatelessWidget {
         size: 18,
         color: foregroundColor,
       ),
-      label: Text(enabled ? enabledLabel : disabledLabel),
+      // 与 [_MetadataChip] 共用的最小宽度，使密集排布时呈现整齐栅格感。
+      label: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: _kInstructionChipMinWidth),
+        child: Text(
+          enabled ? enabledLabel : disabledLabel,
+          textAlign: TextAlign.center,
+        ),
+      ),
       onPressed: onPressed,
       backgroundColor: backgroundColor,
       side: BorderSide(color: borderColor),
@@ -731,11 +738,14 @@ class _MetadataChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    // 与 [_InstructionToggleChip] 保持一致的尺寸/字号/形状/密度，
-    // 让卡片底部的胶囊行视觉节奏整齐统一。
+    // 与 [_InstructionToggleChip] 保持一致的尺寸/字号/形状/密度/最小宽度，
+    // 让卡片底部的胶囊行视觉节奏整齐统一，密集排布时呈现栅格感。
     return Chip(
       avatar: Icon(icon, size: 18, color: colorScheme.outline),
-      label: Text(label),
+      label: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: _kInstructionChipMinWidth),
+        child: Text(label, textAlign: TextAlign.center),
+      ),
       side: BorderSide(color: colorScheme.outlineVariant),
       backgroundColor: colorScheme.surfaceContainerHighest,
       shape: const StadiumBorder(),
@@ -748,6 +758,10 @@ class _MetadataChip extends StatelessWidget {
     );
   }
 }
+
+/// 指令卡片胶囊的统一最小宽度。让"v1.0"这种短标签也能与"已启用并注入"
+/// 这种长标签形成对齐的栅格感；超过此宽度时按内容自然撑开。
+const double _kInstructionChipMinWidth = 64;
 
 class _InstructionEditorDialog extends StatefulWidget {
   const _InstructionEditorDialog({required this.controller, this.source});
