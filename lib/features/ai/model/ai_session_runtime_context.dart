@@ -136,6 +136,8 @@ class AiSessionRuntimeContext {
     this.connectTimeoutSeconds = 60,
     this.responseTimeoutSeconds = 120,
     this.streamIdleTimeoutSeconds = 120,
+    this.streamMaxCharsPerSecond = 3,
+    this.streamMaxMessageCardsPerSecond = 1,
     this.autoTitleEnabled = true,
     this.autoTitleMaxRetryCount = 5,
     this.telemetryDebugEnabled = false,
@@ -323,6 +325,14 @@ class AiSessionRuntimeContext {
 
   /// Per-chunk stream idle timeout for streaming AI requests (seconds).
   final int streamIdleTimeoutSeconds;
+
+  /// 2026-05-17 — 流式输出节流：每秒最多向当前流式卡片追加渲染的字符数。
+  /// 0 表示关闭节流，>0 时使用令牌桶限速。
+  final int streamMaxCharsPerSecond;
+
+  /// 2026-05-17 — 每秒最多向当前会话追加渲染的新消息卡片数。
+  /// 0 表示关闭节流。
+  final int streamMaxMessageCardsPerSecond;
 
   /// Whether to auto-generate session titles.
   final bool autoTitleEnabled;

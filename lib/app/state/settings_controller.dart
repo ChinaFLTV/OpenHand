@@ -123,6 +123,9 @@ class SettingsController extends ChangeNotifier {
        _aiConnectTimeoutSeconds = snapshot.aiConnectTimeoutSeconds,
        _aiResponseTimeoutSeconds = snapshot.aiResponseTimeoutSeconds,
        _aiStreamIdleTimeoutSeconds = snapshot.aiStreamIdleTimeoutSeconds,
+       _aiStreamMaxCharsPerSecond = snapshot.aiStreamMaxCharsPerSecond,
+       _aiStreamMaxMessageCardsPerSecond =
+           snapshot.aiStreamMaxMessageCardsPerSecond,
        _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled,
        _aiDefaultSessionMode = snapshot.aiDefaultSessionMode,
        _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission,
@@ -243,6 +246,8 @@ class SettingsController extends ChangeNotifier {
   int _aiConnectTimeoutSeconds;
   int _aiResponseTimeoutSeconds;
   int _aiStreamIdleTimeoutSeconds;
+  int _aiStreamMaxCharsPerSecond;
+  int _aiStreamMaxMessageCardsPerSecond;
   bool _aiAutoTitleEnabled;
   String _aiDefaultSessionMode;
   bool _aiDefaultFullAccessPermission;
@@ -401,6 +406,8 @@ class SettingsController extends ChangeNotifier {
   int get aiConnectTimeoutSeconds => _aiConnectTimeoutSeconds;
   int get aiResponseTimeoutSeconds => _aiResponseTimeoutSeconds;
   int get aiStreamIdleTimeoutSeconds => _aiStreamIdleTimeoutSeconds;
+  int get aiStreamMaxCharsPerSecond => _aiStreamMaxCharsPerSecond;
+  int get aiStreamMaxMessageCardsPerSecond => _aiStreamMaxMessageCardsPerSecond;
   bool get aiAutoTitleEnabled => _aiAutoTitleEnabled;
   String get aiDefaultSessionMode => _aiDefaultSessionMode;
   bool get aiDefaultFullAccessPermission => _aiDefaultFullAccessPermission;
@@ -1384,6 +1391,40 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateAiStreamMaxCharsPerSecond(int value) async {
+    final normalizedValue =
+        value < AppSettingsSnapshot.minAiStreamMaxCharsPerSecond
+        ? AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond
+        : value.clamp(
+            AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
+            AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
+          );
+    return _commitMutation(() {
+      if (_aiStreamMaxCharsPerSecond == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiStreamMaxCharsPerSecond = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiStreamMaxMessageCardsPerSecond(int value) async {
+    final normalizedValue =
+        value < AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond
+        ? AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond
+        : value.clamp(
+            AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
+            AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
+          );
+    return _commitMutation(() {
+      if (_aiStreamMaxMessageCardsPerSecond == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiStreamMaxMessageCardsPerSecond = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> updateAiAutoTitleEnabled(bool value) async {
     return _commitMutation(() {
       if (_aiAutoTitleEnabled == value) {
@@ -2258,6 +2299,8 @@ class SettingsController extends ChangeNotifier {
       aiConnectTimeoutSeconds: _aiConnectTimeoutSeconds,
       aiResponseTimeoutSeconds: _aiResponseTimeoutSeconds,
       aiStreamIdleTimeoutSeconds: _aiStreamIdleTimeoutSeconds,
+      aiStreamMaxCharsPerSecond: _aiStreamMaxCharsPerSecond,
+      aiStreamMaxMessageCardsPerSecond: _aiStreamMaxMessageCardsPerSecond,
       aiAutoTitleEnabled: _aiAutoTitleEnabled,
       aiDefaultSessionMode: _aiDefaultSessionMode,
       aiDefaultFullAccessPermission: _aiDefaultFullAccessPermission,
@@ -2378,6 +2421,9 @@ class SettingsController extends ChangeNotifier {
     _aiConnectTimeoutSeconds = snapshot.aiConnectTimeoutSeconds;
     _aiResponseTimeoutSeconds = snapshot.aiResponseTimeoutSeconds;
     _aiStreamIdleTimeoutSeconds = snapshot.aiStreamIdleTimeoutSeconds;
+    _aiStreamMaxCharsPerSecond = snapshot.aiStreamMaxCharsPerSecond;
+    _aiStreamMaxMessageCardsPerSecond =
+        snapshot.aiStreamMaxMessageCardsPerSecond;
     _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled;
     _aiDefaultSessionMode = snapshot.aiDefaultSessionMode;
     _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission;

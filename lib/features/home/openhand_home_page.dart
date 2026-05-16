@@ -3239,6 +3239,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       connectTimeoutSeconds: settingsController.aiConnectTimeoutSeconds,
       responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
+      streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
+      streamMaxMessageCardsPerSecond:
+          settingsController.aiStreamMaxMessageCardsPerSecond,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
       autoTitleMaxRetryCount: settingsController.aiAutoTitleMaxRetryCount,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
@@ -3489,6 +3492,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       connectTimeoutSeconds: settingsController.aiConnectTimeoutSeconds,
       responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
+      streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
+      streamMaxMessageCardsPerSecond:
+          settingsController.aiStreamMaxMessageCardsPerSecond,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
       autoTitleMaxRetryCount: settingsController.aiAutoTitleMaxRetryCount,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,

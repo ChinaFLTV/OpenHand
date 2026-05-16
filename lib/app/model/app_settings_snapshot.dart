@@ -104,6 +104,9 @@ class AppSettingsSnapshot {
       aiConnectTimeoutSeconds: defaultAiConnectTimeoutSeconds,
       aiResponseTimeoutSeconds: defaultAiResponseTimeoutSeconds,
       aiStreamIdleTimeoutSeconds: defaultAiStreamIdleTimeoutSeconds,
+      aiStreamMaxCharsPerSecond: defaultAiStreamMaxCharsPerSecond,
+      aiStreamMaxMessageCardsPerSecond:
+          defaultAiStreamMaxMessageCardsPerSecond,
       aiAutoTitleEnabled: true,
       aiDefaultSessionMode: defaultAiDefaultSessionMode,
       aiDefaultFullAccessPermission: false,
@@ -221,6 +224,8 @@ class AppSettingsSnapshot {
     required this.aiConnectTimeoutSeconds,
     required this.aiResponseTimeoutSeconds,
     required this.aiStreamIdleTimeoutSeconds,
+    required this.aiStreamMaxCharsPerSecond,
+    required this.aiStreamMaxMessageCardsPerSecond,
     required this.aiAutoTitleEnabled,
     required this.aiDefaultSessionMode,
     required this.aiDefaultFullAccessPermission,
@@ -523,6 +528,21 @@ class AppSettingsSnapshot {
   static const int minAiStreamIdleTimeoutSeconds = 10;
   static const int maxAiStreamIdleTimeoutSeconds = 600;
 
+  /// 2026-05-17 — 流式输出渲染节流：每秒最多向当前流式消息卡片追加渲染的
+  /// 字符数（按 Unicode code point 计）。当 AI 侧短时间内回吐大量字符时，
+  /// 通过该背压阀控制 UI 端追加速率，避免主线程被 markdown/widget 重建洪
+  /// 水冲垮，从而保持 60fps 流畅滚动与稳定 UI。设置为 0 表示关闭节流。
+  static const int defaultAiStreamMaxCharsPerSecond = 3;
+  static const int minAiStreamMaxCharsPerSecond = 0;
+  static const int maxAiStreamMaxCharsPerSecond = 100000;
+
+  /// 2026-05-17 — 每秒最多向当前会话追加渲染的新消息卡片数。当 AI 侧
+  /// 同一轮内连发多个工具调用 / 助手分段时，先放出 1 个再节流后续，
+  /// 避免消息列表瞬间堆叠出现"上下弹跳/抽搐"。0 表示关闭节流。
+  static const int defaultAiStreamMaxMessageCardsPerSecond = 1;
+  static const int minAiStreamMaxMessageCardsPerSecond = 0;
+  static const int maxAiStreamMaxMessageCardsPerSecond = 60;
+
   /// 子进程 graceful shutdown 等待窗口（毫秒）。在 SIGTERM 之后等待
   /// 该时长，若进程仍未退出则升级到 SIGKILL。值越大越仁慈，但 UI
   /// 取消反馈延迟也越大。
@@ -701,6 +721,14 @@ class AppSettingsSnapshot {
   final int aiConnectTimeoutSeconds;
   final int aiResponseTimeoutSeconds;
   final int aiStreamIdleTimeoutSeconds;
+
+  /// 2026-05-17 — 流式输出节流：每秒最多向当前流式卡片追加的字符数。
+  /// 0 表示关闭节流。
+  final int aiStreamMaxCharsPerSecond;
+
+  /// 2026-05-17 — 每秒最多向当前会话追加渲染的新消息卡片数。
+  /// 0 表示关闭节流。
+  final int aiStreamMaxMessageCardsPerSecond;
   final bool aiAutoTitleEnabled;
   final String aiDefaultSessionMode;
   final bool aiDefaultFullAccessPermission;
@@ -850,6 +878,8 @@ class AppSettingsSnapshot {
     int? aiConnectTimeoutSeconds,
     int? aiResponseTimeoutSeconds,
     int? aiStreamIdleTimeoutSeconds,
+    int? aiStreamMaxCharsPerSecond,
+    int? aiStreamMaxMessageCardsPerSecond,
     bool? aiAutoTitleEnabled,
     String? aiDefaultSessionMode,
     bool? aiDefaultFullAccessPermission,
@@ -1008,6 +1038,11 @@ class AppSettingsSnapshot {
           aiResponseTimeoutSeconds ?? this.aiResponseTimeoutSeconds,
       aiStreamIdleTimeoutSeconds:
           aiStreamIdleTimeoutSeconds ?? this.aiStreamIdleTimeoutSeconds,
+      aiStreamMaxCharsPerSecond:
+          aiStreamMaxCharsPerSecond ?? this.aiStreamMaxCharsPerSecond,
+      aiStreamMaxMessageCardsPerSecond:
+          aiStreamMaxMessageCardsPerSecond ??
+          this.aiStreamMaxMessageCardsPerSecond,
       aiAutoTitleEnabled: aiAutoTitleEnabled ?? this.aiAutoTitleEnabled,
       aiDefaultSessionMode: aiDefaultSessionMode ?? this.aiDefaultSessionMode,
       aiDefaultFullAccessPermission:

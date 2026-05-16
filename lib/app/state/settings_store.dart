@@ -240,6 +240,9 @@ class SettingsStore {
       'ai_connect_timeout_seconds': snapshot.aiConnectTimeoutSeconds,
       'ai_response_timeout_seconds': snapshot.aiResponseTimeoutSeconds,
       'ai_stream_idle_timeout_seconds': snapshot.aiStreamIdleTimeoutSeconds,
+      'ai_stream_max_chars_per_second': snapshot.aiStreamMaxCharsPerSecond,
+      'ai_stream_max_message_cards_per_second':
+          snapshot.aiStreamMaxMessageCardsPerSecond,
       'ai_auto_title_enabled': snapshot.aiAutoTitleEnabled,
       'ai_default_session_mode': snapshot.aiDefaultSessionMode,
       'ai_default_full_access_permission':
@@ -776,6 +779,27 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
           )
         : AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds;
+    final rawStreamMaxChars = json['ai_stream_max_chars_per_second'];
+    final aiStreamMaxCharsPerSecond =
+        (rawStreamMaxChars is int &&
+            rawStreamMaxChars >=
+                AppSettingsSnapshot.minAiStreamMaxCharsPerSecond)
+        ? rawStreamMaxChars.clamp(
+            AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
+            AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
+          )
+        : AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond;
+    final rawStreamMaxMessageCards =
+        json['ai_stream_max_message_cards_per_second'];
+    final aiStreamMaxMessageCardsPerSecond =
+        (rawStreamMaxMessageCards is int &&
+            rawStreamMaxMessageCards >=
+                AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond)
+        ? rawStreamMaxMessageCards.clamp(
+            AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
+            AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
+          )
+        : AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond;
     final aiAutoTitleEnabled = json['ai_auto_title_enabled'] is bool
         ? json['ai_auto_title_enabled'] as bool
         : true;
@@ -1176,6 +1200,8 @@ class SettingsStore {
       aiConnectTimeoutSeconds: aiConnectTimeoutSeconds,
       aiResponseTimeoutSeconds: aiResponseTimeoutSeconds,
       aiStreamIdleTimeoutSeconds: aiStreamIdleTimeoutSeconds,
+      aiStreamMaxCharsPerSecond: aiStreamMaxCharsPerSecond,
+      aiStreamMaxMessageCardsPerSecond: aiStreamMaxMessageCardsPerSecond,
       aiAutoTitleEnabled: aiAutoTitleEnabled,
       aiDefaultSessionMode: aiDefaultSessionMode,
       aiDefaultFullAccessPermission: aiDefaultFullAccessPermission,

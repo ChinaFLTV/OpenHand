@@ -4229,6 +4229,9 @@ class WebMessagePlatformService {
                 .toList(growable: false),
       autoTitleEnabled: _settingsController.aiAutoTitleEnabled,
       autoTitleMaxRetryCount: _settingsController.aiAutoTitleMaxRetryCount,
+      streamMaxCharsPerSecond: _settingsController.aiStreamMaxCharsPerSecond,
+      streamMaxMessageCardsPerSecond:
+          _settingsController.aiStreamMaxMessageCardsPerSecond,
       skippedInstructionIds: skippedInstructionIds,
       userInstructions:
           webGatewayIsDenyAllSelection(_config.allowedInstructionIds)
