@@ -50,6 +50,7 @@ part 'state/_ai_session_utils.dart';
 part 'state/_ai_session_runtime_types.dart';
 part 'state/_ai_session_compression_helpers.dart';
 part 'state/_ai_session_manual_compaction.dart';
+part 'state/_ai_session_stream_throttle.dart';
 
 typedef WriteCommandConfirmationCallback =
     Future<BashCommandApprovalDecision> Function(
@@ -3160,6 +3161,84 @@ class AiSessionController extends ChangeNotifier {
         });
       }
 
+      // 2026-05-17 — 流式输出渲染节流：
+      //   * charThrottle / reasoningCharThrottle 限制每秒最多向当前流式
+      //     卡片显示多少 sanitized 字符；底层 raw buffer 仍按真实速率写
+      //     入，结束时由 syncFinalAssistantMessage / syncFinalReasoning
+      //     一次性对齐到完整内容。
+      //   * cardThrottle 限制每秒最多新创建多少张消息卡片；超额回调入
+      //     队后由内部 Timer 在下一令牌可用时回放，避免列表抖动。
+      late final _StreamCharThrottle charThrottle;
+      late final _StreamCharThrottle reasoningCharThrottle;
+      late final _StreamCardThrottle cardThrottle;
+
+      void renderAssistantBuffered() {
+        if (assistantRawBuffer.isEmpty && assistantMessageId == null) {
+          return;
+        }
+        final fullSanitized = _sanitizeVisibleModelContent(
+          assistantRawBuffer.toString(),
+        );
+        final visibleLen = charThrottle.renderableLength(fullSanitized.length);
+        final sanitizedContent = visibleLen >= fullSanitized.length
+            ? fullSanitized
+            : fullSanitized.substring(0, visibleLen);
+        if (sanitizedContent.isEmpty && assistantMessageId == null) {
+          return;
+        }
+        final resolvedMessageId = assistantMessageId ?? _idGenerator();
+        assistantMessageId = resolvedMessageId;
+        streamedSession = _upsertMessage(
+          streamedSession,
+          messageId: resolvedMessageId,
+          create: () => AiSessionMessage.assistant(
+            id: resolvedMessageId,
+            content: sanitizedContent,
+            createdAt: _clock().toUtc(),
+            modelId: model.id,
+            modelLabel: model.displayName,
+          ),
+          update: (message) => message.copyWith(
+            content: sanitizedContent,
+            modelId: model.id,
+            modelLabel: model.displayName,
+          ),
+        );
+        schedulePreview('charThrottle');
+      }
+
+      void renderReasoningBuffered() {
+        final fullSanitized = _sanitizeVisibleModelContent(
+          reasoningRawBuffer.toString(),
+        );
+        final visibleLen = reasoningCharThrottle.renderableLength(
+          fullSanitized.length,
+        );
+        final sanitizedContent = visibleLen >= fullSanitized.length
+            ? fullSanitized
+            : fullSanitized.substring(0, visibleLen);
+        if (sanitizedContent.isEmpty && reasoningMessageId == null) {
+          return;
+        }
+        pendingReasoningContent = sanitizedContent;
+        reasoningMessageId ??= _idGenerator();
+        hasPendingReasoningPreview = true;
+        schedulePreview('reasoningDelta');
+      }
+
+      charThrottle = _StreamCharThrottle(
+        maxCharsPerSecond: runtimeContext.streamMaxCharsPerSecond,
+        onTick: renderAssistantBuffered,
+      );
+      reasoningCharThrottle = _StreamCharThrottle(
+        maxCharsPerSecond: runtimeContext.streamMaxCharsPerSecond,
+        onTick: renderReasoningBuffered,
+      );
+      cardThrottle = _StreamCardThrottle(
+        maxCardsPerSecond: runtimeContext.streamMaxMessageCardsPerSecond,
+        onCardEmitted: () => schedulePreview('cardThrottle'),
+      );
+
       final subscription = streamResponse.events.listen((event) {
         var sessionChanged = false;
         switch (event.type) {
@@ -3170,30 +3249,18 @@ class AiSessionController extends ChangeNotifier {
               return;
             }
             assistantRawBuffer.write(delta);
-            final sanitizedContent = _sanitizeVisibleModelContent(
-              assistantRawBuffer.toString(),
-            );
-            if (sanitizedContent.isEmpty && assistantMessageId == null) {
+            // 若这是第一张 assistant 卡片且需要排队（卡片限速生效），
+            // 等令牌可用后再追加；否则直接走限速过的渲染逻辑。
+            final firstCardPending =
+                assistantMessageId == null &&
+                cardThrottle.isEnabled &&
+                !cardThrottle.tryAcquire(() {
+                  renderAssistantBuffered();
+                });
+            if (firstCardPending) {
               return;
             }
-            final resolvedMessageId = assistantMessageId ?? _idGenerator();
-            assistantMessageId = resolvedMessageId;
-            streamedSession = _upsertMessage(
-              streamedSession,
-              messageId: resolvedMessageId,
-              create: () => AiSessionMessage.assistant(
-                id: resolvedMessageId,
-                content: sanitizedContent,
-                createdAt: _clock().toUtc(),
-                modelId: model.id,
-                modelLabel: model.displayName,
-              ),
-              update: (message) => message.copyWith(
-                content: sanitizedContent,
-                modelId: model.id,
-                modelLabel: model.displayName,
-              ),
-            );
+            renderAssistantBuffered();
             sessionChanged = true;
             // Progressive DSML "constructing" preview: scan the raw buffer
             // for partial `<DSML:invoke>` blocks the model is text-streaming
@@ -3208,6 +3275,17 @@ class AiSessionController extends ChangeNotifier {
             );
             if (partialInvokes.isNotEmpty) {
               for (final invoke in partialInvokes) {
+                final isNewCard = !partialDsmlPreviewMessageIds.containsKey(
+                  invoke.id,
+                );
+                // 卡片限速：首次出现的 invoke 若无令牌则跳过本轮 UI 追
+                // 加；下一次 textDelta 重新扫描时若令牌已补充再放行。
+                // 流结束时 _syncToolCallMessagesFromResult 也会兜底。
+                if (isNewCard &&
+                    cardThrottle.isEnabled &&
+                    !cardThrottle.tryAcquire(() {})) {
+                  continue;
+                }
                 final messageId = partialDsmlPreviewMessageIds.putIfAbsent(
                   invoke.id,
                   _idGenerator,
@@ -3273,20 +3351,34 @@ class AiSessionController extends ChangeNotifier {
               return;
             }
             reasoningRawBuffer.write(delta);
-            final sanitizedContent = _sanitizeVisibleModelContent(
-              reasoningRawBuffer.toString(),
-            );
-            if (sanitizedContent.isEmpty && reasoningMessageId == null) {
+            // 推理卡片首次创建时遵守卡片限速；后续仅追加内容时直接走
+            // renderReasoningBuffered（内部含字符级限速）。
+            final firstReasoningCardPending =
+                reasoningMessageId == null &&
+                cardThrottle.isEnabled &&
+                !cardThrottle.tryAcquire(renderReasoningBuffered);
+            if (firstReasoningCardPending) {
               return;
             }
-            pendingReasoningContent = sanitizedContent;
-            reasoningMessageId ??= _idGenerator();
-            hasPendingReasoningPreview = true;
+            renderReasoningBuffered();
             sessionChanged = true;
           case AiChatStreamEventType.toolCallDelta:
             materializePendingReasoningPreview();
             final delta = event.toolCallDelta;
             if (delta == null) {
+              return;
+            }
+            // 卡片限速：如果这是该 index 的首次出现且无可用令牌，
+            // 直接丢弃本次 UI 追加（raw 数据无丢失：下一次 delta 会
+            // 再次到达，届时令牌可能已经补充；流结束时 result.toolCalls
+            // 也会经 _syncToolCallMessagesFromResult 兜底落库）。
+            // 已存在的卡片仅做内容更新，不消耗令牌、不会被丢弃。
+            final isNewToolCallCard = !toolCallMessageIds.containsKey(
+              delta.index,
+            );
+            if (isNewToolCallCard &&
+                cardThrottle.isEnabled &&
+                !cardThrottle.tryAcquire(() {})) {
               return;
             }
             final resolvedMessageId = toolCallMessageIds.putIfAbsent(
@@ -3402,6 +3494,11 @@ class AiSessionController extends ChangeNotifier {
         // state has been torn down.
         previewTimer?.cancel();
         previewTimer = null;
+        // 释放限速器：先放开字符余量、再回放 pending 卡片，避免错误后
+        // 还在后台尝试推进 UI。
+        charThrottle.release();
+        reasoningCharThrottle.release();
+        cardThrottle.releaseAll();
         await subscription.cancel();
         _setSessionCancelHandler(workingSession.id, null);
         materializePendingReasoningPreview();
@@ -3439,6 +3536,12 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       _setSessionCancelHandler(workingSession.id, null);
+      // 流正常结束：先放开字符限速，让 renderAssistantBuffered 在后续
+      // 入队回调里直接看到完整 sanitized 文本；再 releaseAll 卡片限速，
+      // 让队列里所有 pending 卡片一次性追加到会话中。
+      charThrottle.release();
+      reasoningCharThrottle.release();
+      cardThrottle.releaseAll();
       materializePendingReasoningPreview();
       final didCancelStream =
           result.wasCancelled || _isStopRequestedForSession(workingSession.id);
