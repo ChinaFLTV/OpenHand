@@ -351,7 +351,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   static const int _firstOpenSyncMaterializeMaxCount = 3;
   // 首批立刻物化几张：让用户在第一时间就能看到「最新一条 + 上一条」的
   // 完整气泡，剩下按 _firstOpenDripStep 节拍逐张追加。
-  static const int _firstOpenInitialChunk = 2;
+  // 阶段㉒b — 2 → 1：第一帧仅 mount 最新 1 张消息，把同帧 2 张 bubble
+  // 同步 build 的隐患连根拔起；剩余按 90ms drip 节拍追加，依旧能给到
+  // 「内容快速到位」的视感。
+  static const int _firstOpenInitialChunk = 1;
 
   @override
   void initState() {

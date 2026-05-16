@@ -13,7 +13,10 @@ const int _highlightSkipThresholdChars = 80 * 1024;
 /// < 1KB 的短代码片段同步高亮（瞬间完成，无闪烁）；
 /// >= 1KB 的代码块走 FrameScheduler 分帧高亮（首帧纯文本，后续帧补色）。
 /// _buildCodeBody 的 null 回退确保即使 span 为 null 也能显示内容。
-const int _highlightDeferThresholdChars = 1024;
+/// 阶段㉒ — 1024 → 256：tool_call 卡的 JSON 参数普遍 200-800 字符，
+/// 之前同步高亮路径在多 tool_call 同帧 mount 时叠加直接撑爆主线程。
+/// 降阈值让几乎所有非平凡代码块都走异步分帧高亮。
+const int _highlightDeferThresholdChars = 256;
 
 /// Process-wide LRU cache for parsed code-block `TextSpan`s. The same code
 /// snippet (e.g. a tool result, a generated diff) frequently appears in
@@ -37,9 +40,11 @@ class _HighlightFrameScheduler {
   final List<VoidCallback> _pending = [];
   bool _draining = false;
 
-  /// 每帧最多执行的 highlight 任务数。3 个代码块的 tokenize 通常
-  /// < 6ms（widget 树已简化），不会超过 16ms 帧预算。
-  static const int _maxPerFrame = 3;
+  /// 每帧最多执行的 highlight 任务数。
+  /// 阶段㉒：3 → 1。一些大段 bash/log 输出 tokenize 单次可能 ~30ms，
+  /// 同帧 3 个就直接撑爆 60 fps 帧预算。改为 1/帧后慢机器也能稳；
+  /// 配合 [_HighlightSpanCache] 第二次展开/滚回时仍能瞬时拉起。
+  static const int _maxPerFrame = 1;
 
   void schedule(VoidCallback task) {
     _pending.add(task);

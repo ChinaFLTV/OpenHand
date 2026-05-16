@@ -208,11 +208,16 @@ const int _resumeAutoFollowStabilizationFrameCount = 2;
 // finish first layout + scroll-to-bottom — preventing the "long blank"
 // window that was previously forced regardless of how fast the real list
 // rendered.
-const int _transcriptPreparationFrameBudget = 3;
+// 阶段㉒ — 3 → 6：placeholder 多停留几帧让 SizedBox.expand 替换前
+// 「老 transcript dispose + 新 placeholder mount + 首次绘制 + scroll-to-bottom」
+// 全链路有充裕时间收敛；否则 reveal 触发与气泡 mount 撞在同一帧，
+// drip 来不及把 markdown 解析摊开，仍然会触发首帧 jank。
+const int _transcriptPreparationFrameBudget = 6;
 // Hard cap so a single problematic session (e.g. huge transcript) never
 // leaves the user staring at the placeholder indefinitely. If real layout
 // has not finished within this window we reveal the transcript anyway.
-const Duration _transcriptPreparationMaxWait = Duration(milliseconds: 320);
+// 阶段㉒ — 320 → 480 ms：与 6 帧预算相匹配，给慢机器留出更多 buffer。
+const Duration _transcriptPreparationMaxWait = Duration(milliseconds: 480);
 const Duration _transcriptMessageDeleteAnimationDuration = Duration(
   // 2026-05-01: Bumped 220 → 320 ms so the collapse + fade can use the
   // Material 3 emphasized curve without feeling clipped. Pairs with the
