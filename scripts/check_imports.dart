@@ -8,10 +8,6 @@ import 'dart:io';
 ///   3. clients/web/src/features/<a>/**/*.{ts,tsx} 中禁止深路径
 ///      '@/features/<b>/<sub>/...' 或 '../<b>/<sub>/...'。
 ///
-/// 扫描范围（刻意收窄）：仅匹配单行 `import …;`（Dart）与 `… from '…'`（TS）。
-/// 显式不在范围内：多行 import、`export` re-export、动态 `import()`、`require()`、
-/// 以及裸副作用 `import 'x'`。如后续确有需要再单独扩展，不要悄悄放宽正则。
-///
 /// 用法：dart run scripts/check_imports.dart [root]
 ///   root 默认为当前目录；测试时可传 fixture 根。
 Future<void> main(List<String> args) async {
