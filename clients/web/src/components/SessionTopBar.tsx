@@ -38,7 +38,8 @@ export type SessionToolbarIconName =
   | 'files'
   | 'metadata'
   | 'audit'
-  | 'tokens';
+  | 'tokens'
+  | 'debug';
 
 type TopBarIconName = SessionToolbarIconName
   | 'back'
@@ -88,6 +89,8 @@ function TopBarIcon({ name, size = 16 }: { name: TopBarIconName; size?: number }
       return <svg {...common}><path d="M9 4h6l1 2h2v14H6V6h2z" /><path d="M9 12h3M9 16h6" /><path d="m14 11 1.2 1.2L18 9.5" /></svg>;
     case 'tokens':
       return <svg {...common}><ellipse cx="9" cy="7" rx="5" ry="2.5" /><path d="M4 7v5c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5V7" /><path d="M10 17c.9.6 2.4 1 4 1 2.8 0 5-1.1 5-2.5V11" /><path d="M14 8.5c2.8 0 5 1.1 5 2.5s-2.2 2.5-5 2.5" /></svg>;
+    case 'debug':
+      return <svg {...common}><rect x="6" y="9" width="12" height="10" rx="3" /><path d="M9 9V7a3 3 0 0 1 6 0v2" /><path d="M3 13h3M18 13h3M3 18l3-2M18 16l3 2M3 8l3 2M18 10l3-2" /></svg>;
     case 'rename':
       return <svg {...common}><path d="M4 20h4.4L19 9.4a2.1 2.1 0 0 0-3-3L5.4 17H4z" /><path d="m14.8 7.6 1.6 1.6" /></svg>;
     case 'export':

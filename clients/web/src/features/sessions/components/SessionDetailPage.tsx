@@ -65,6 +65,7 @@ import { useEventCallback } from '../../../hooks/useEventCallback';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
+import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
 import { PopMenu } from '../../../components/PopMenu';
@@ -1066,6 +1067,7 @@ export function SessionDetailPage() {
   const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
   const [tokenStatsOpen, setTokenStatsOpen] = useState(false);
   const [contextStatsOpen, setContextStatsOpen] = useState(false);
+  const [webReverseDashboardOpen, setWebReverseDashboardOpen] = useState(false);
   const [imageEditorInput, setImageEditorInput] = useState<ImageEditorInput | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
@@ -1113,6 +1115,7 @@ export function SessionDetailPage() {
     setSessionMetadataOpen(false);
     setTokenStatsOpen(false);
     setContextStatsOpen(false);
+    setWebReverseDashboardOpen(false);
     imageEditorResolverRef.current?.(null);
     imageEditorResolverRef.current = null;
     setImageEditorInput(null);
@@ -3062,6 +3065,20 @@ export function SessionDetailPage() {
         onClick: () => location.route('/files'),
       });
     }
+    if (session.template_id === 'web_reverse_expert') {
+      const meta = (session.metadata ?? {}) as Record<string, unknown>;
+      const cfg = meta['web_reverse_config'] as Record<string, unknown> | undefined;
+      const port = cfg?.['cdp_port'];
+      capsules.push({
+        key: 'web-reverse-debug',
+        icon: 'debug',
+        label: typeof port === 'number'
+          ? `CDP :${port}`
+          : t('topbar.webReverseDebug', 'CDP 调试'),
+        title: t('topbar.webReverseDebug.title', '查看 Web 逆向调试面板'),
+        onClick: () => setWebReverseDashboardOpen(true),
+      });
+    }
     return capsules;
   }, [session, totalKnown, sessionId]);
   const pull = usePullToRefresh(mainRef, {
@@ -3961,6 +3978,12 @@ export function SessionDetailPage() {
             // 压缩成功后由 SSE 推送会话快照，但拉一遍 detail 仍然是稳妥的兜底。
             void refresh();
           }}
+        />
+      ) : null}
+      {webReverseDashboardOpen && session ? (
+        <WebReverseDashboardDialog
+          session={session}
+          onClose={() => setWebReverseDashboardOpen(false)}
         />
       ) : null}
       {pendingDeleteAction ? (
@@ -5207,6 +5230,7 @@ function SessionMetadataDialog({
   const visibleMetadataEntries = Object.entries(metadata).filter(([key]) => {
     if (session.template_id === 'hardness_engineering' && key === 'hardness_config') return false;
     if (session.template_id === 'programming_expert' && key === 'programming_expert_config') return false;
+    if (session.template_id === 'web_reverse_expert' && key === 'web_reverse_config') return false;
     return true;
   });
   const planHistory = [...(session.plan_history ?? [])].reverse();
