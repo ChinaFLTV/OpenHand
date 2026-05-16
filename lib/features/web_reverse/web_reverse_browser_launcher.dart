@@ -144,27 +144,35 @@ class WebReverseBrowserLauncher {
     }
     // 收集 stderr 前 32KB，握手失败时把这段打到错误信息里，方便定位
     // "Profile 锁占用 / SUID sandbox / GPU init crash" 等真实根因。
+    //
+    // 注意：detachedWithStdio 模式下访问 [Process.exitCode] 会抛
+    // `Bad state: Process is detached`。我们改为用 stdout / stderr 流的
+    // 关闭事件推断进程退出（管道关闭即意味着子进程已退出）；任一管道
+    // 先关闭即认为已退出，并把 exitCode 标记为 null（OS 没把退出码透
+    // 到我们这里）。
     final stderrBuf = StringBuffer();
+    var processExited = false;
     StreamSubscription<String>? errSub;
     try {
-      errSub = process.stderr
-          .transform(systemEncoding.decoder)
-          .listen((chunk) {
-        if (stderrBuf.length < 32 * 1024) stderrBuf.write(chunk);
-      });
+      errSub = process.stderr.transform(systemEncoding.decoder).listen(
+        (chunk) {
+          if (stderrBuf.length < 32 * 1024) stderrBuf.write(chunk);
+        },
+        onDone: () {
+          processExited = true;
+        },
+      );
     } catch (_) {}
     // drain stdout 防止管道堵塞导致浏览器进程阻塞写入。
     StreamSubscription<List<int>>? outSub;
     try {
-      outSub = process.stdout.listen((_) {});
+      outSub = process.stdout.listen(
+        (_) {},
+        onDone: () {
+          processExited = true;
+        },
+      );
     } catch (_) {}
-    // 进程退出标记：CDP 没起来就早退出（典型场景 user-data-dir 被锁）。
-    var processExited = false;
-    int? processExitCode;
-    unawaited(process.exitCode.then((c) {
-      processExited = true;
-      processExitCode = c;
-    }));
     // 轮询 /json/version 拿 webSocketDebuggerUrl。
     // 退避策略：前 2s 用 150ms 间隔（macOS 上 chrome 通常 800ms 就能起 CDP），
     // 之后切到 400ms 间隔，减少对系统的压力但仍能在 30s 内多次命中。
@@ -208,9 +216,13 @@ class WebReverseBrowserLauncher {
       try {
         process.kill();
       } catch (_) {}
-      // 确认子进程退出，避免悬挂；最多等 1.5s。
+      // 确认子进程退出，避免悬挂；最多等 1.5s。detached 模式无法
+      // await exitCode，改为等任一 stdio 管道 done 即认为已退出。
       try {
-        await process.exitCode.timeout(const Duration(milliseconds: 1500));
+        await Future.any<void>(<Future<void>>[
+          if (errSub != null) errSub.asFuture<void>(),
+          if (outSub != null) outSub.asFuture<void>(),
+        ]).timeout(const Duration(milliseconds: 1500));
       } catch (_) {}
       await errSub?.cancel();
       await outSub?.cancel();
@@ -219,7 +231,7 @@ class WebReverseBrowserLauncher {
           ? ''
           : '\n浏览器 stderr 摘要：\n${err.length > 1024 ? "${err.substring(err.length - 1024)} (truncated)" : err}';
       final exitedHint = processExited
-          ? '\n浏览器进程已退出（exitCode=$processExitCode），常见为 user-data-dir 被另一实例锁定。'
+          ? '\n浏览器进程已提前退出（stdout/stderr 已关闭），常见为 user-data-dir 被另一实例锁定。'
           : '';
       throw WebReverseLaunchException(
         WebReverseLaunchFailure.cdpHandshakeFailed,
