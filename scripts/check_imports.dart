@@ -2,7 +2,8 @@ import 'dart:io';
 
 /// 扫描跨 feature 深路径 import。违规规则：
 ///   1. lib/features/<a>/**/*.dart 中 import 形如 '../../<b>/<sub>/...' 或
-///      'package:openhand/features/<b>/<sub>/...'（b != a 且 sub != 'index.dart' 且 sub != '<b>_module.dart'）。
+///      'package:openhand/features/<b>/<sub>/...'（b != a 且 sub 不是
+///      'index.dart'、'<b>_module.dart' 或 '<b>_controller.dart' 三者之一）。
 ///   2. lib/features/<a>/widgets/**/*.dart 中禁止 import '../service/...'。
 ///   3. clients/web/src/features/<a>/**/*.{ts,tsx} 中禁止深路径
 ///      '@/features/<b>/<sub>/...' 或 '../<b>/<sub>/...'。
