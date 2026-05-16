@@ -661,7 +661,49 @@ class _RenderMeasureSize extends RenderProxyBox {
 }
 
 class _MessageMarkdownThemeData {
+  const _MessageMarkdownThemeData({required this.styleSheet});
+
   factory _MessageMarkdownThemeData.fromMessageBubble({
+    required ThemeData theme,
+    required Color backgroundColor,
+    required Color textColor,
+    required bool useDarkCodeSurface,
+  }) {
+    // 阶段㉒：进程级缓存。`MarkdownStyleSheet.fromTheme + copyWith` 创建
+    // 数十个 TextStyle / BoxDecoration，60+ 长会话首次打开会重复触发
+    // N 次。按 (theme palette + bubble bg + text color + dark surface)
+    // 签名命中率极高（同 role/状态的 bubble 共享同一份 stylesheet），
+    // 命中后跳过整个工厂方法的重建工作。
+    final cacheKey = Object.hashAll(<Object?>[
+      theme.brightness.index,
+      theme.colorScheme.primary.toARGB32(),
+      theme.colorScheme.primaryContainer.toARGB32(),
+      theme.textTheme.bodyLarge?.fontSize,
+      theme.textTheme.bodyMedium?.fontSize,
+      backgroundColor.toARGB32(),
+      textColor.toARGB32(),
+      useDarkCodeSurface,
+    ]);
+    final cached = _markdownThemeDataCache[cacheKey];
+    if (cached != null) {
+      _markdownThemeDataCache.remove(cacheKey);
+      _markdownThemeDataCache[cacheKey] = cached; // touch LRU
+      return cached;
+    }
+    final result = _buildFromMessageBubble(
+      theme: theme,
+      backgroundColor: backgroundColor,
+      textColor: textColor,
+      useDarkCodeSurface: useDarkCodeSurface,
+    );
+    _markdownThemeDataCache[cacheKey] = result;
+    while (_markdownThemeDataCache.length > 64) {
+      _markdownThemeDataCache.remove(_markdownThemeDataCache.keys.first);
+    }
+    return result;
+  }
+
+  static _MessageMarkdownThemeData _buildFromMessageBubble({
     required ThemeData theme,
     required Color backgroundColor,
     required Color textColor,
@@ -778,10 +820,14 @@ class _MessageMarkdownThemeData {
       ),
     );
   }
-  const _MessageMarkdownThemeData({required this.styleSheet});
 
   final MarkdownStyleSheet styleSheet;
 }
+
+/// 阶段㉒：[_MessageMarkdownThemeData] 的 LRU 缓存。容量 64 足以覆盖
+/// 「亮/暗 × user/assistant/tool/reasoning × 选中/未选中」全部组合。
+final LinkedHashMap<int, _MessageMarkdownThemeData>
+    _markdownThemeDataCache = LinkedHashMap<int, _MessageMarkdownThemeData>();
 
 class _SafeMarkdownBody extends StatefulWidget {
   const _SafeMarkdownBody({
