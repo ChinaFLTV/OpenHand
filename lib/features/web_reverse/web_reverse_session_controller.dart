@@ -9,6 +9,7 @@ import 'web_reverse_browser_kind.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_har_replay_server.dart';
+import 'web_reverse_mitmproxy_bridge.dart';
 import 'web_reverse_session_artifacts.dart';
 import 'web_reverse_session_config.dart';
 import 'web_reverse_window_dock.dart';
@@ -1450,6 +1451,14 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<void> _safeStop() async {
     _dock?.stop();
     await _pageEventsSub?.cancel();
+    await _mitmSub?.cancel();
+    final br = _mitmBridge;
+    _mitmBridge = null;
+    if (br != null) {
+      try {
+        await br.close();
+      } catch (_) {}
+    }
     final har = _harReplayServer;
     _harReplayServer = null;
     if (har != null) {
@@ -1597,6 +1606,138 @@ class WebReverseSessionController extends ChangeNotifier {
         params: const <String, Object?>{
           'expression':
               '(()=>{const a=window.__oh_long_tasks||[];window.__oh_long_tasks=[];return JSON.stringify(a);})()',
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+      );
+      final raw = (r['result'] as Map?)?['value'];
+      if (raw is! String || raw.isEmpty) return const [];
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map((m) => Map<String, Object?>.from(m))
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  // ── WebRTC 资源捕获 ─────────────────────────────────────────────────
+  // CDP 不直接给 WebRTC 流量。在 page 内 hook RTCPeerConnection 构造函数 + 关键方法，
+  // 把 createOffer/createAnswer/setLocalDescription/setRemoteDescription/addIceCandidate
+  // /track/datachannel/getStats 的全部入参出参以 JSON 形式塞到 window.__oh_rtc_log。
+  bool _rtcInstalled = false;
+  Future<bool> installWebRtcCapture() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    if (_rtcInstalled) return true;
+    const js = r'''
+(() => {
+  if (window.__oh_rtc_installed) return;
+  window.__oh_rtc_installed = true;
+  const log = (kind, payload) => {
+    try {
+      const buf = window.__oh_rtc_log = window.__oh_rtc_log || [];
+      buf.push({ kind, ts: Date.now(), ...payload });
+      if (buf.length > 500) buf.splice(0, buf.length - 500);
+    } catch (_) {}
+  };
+  const Orig = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+  if (!Orig) return;
+  let nextId = 1;
+  function patched(...args) {
+    const pc = new Orig(...args);
+    const id = nextId++;
+    log('pc.create', { id, config: args[0] || null });
+    const wrap = (name) => {
+      const m = pc[name];
+      if (typeof m !== 'function') return;
+      pc[name] = async function(...a) {
+        log(name + ':call', { id, args: a.map(x => (x && x.toJSON) ? x.toJSON() : x) });
+        try {
+          const r = await m.apply(pc, a);
+          if (r && (r.sdp || r.type)) {
+            log(name + ':result', { id, sdp: r.sdp, type: r.type });
+          }
+          return r;
+        } catch (e) {
+          log(name + ':error', { id, error: String(e) });
+          throw e;
+        }
+      };
+    };
+    ['createOffer', 'createAnswer', 'setLocalDescription', 'setRemoteDescription', 'addIceCandidate'].forEach(wrap);
+    pc.addEventListener('icecandidate', (ev) => {
+      if (ev.candidate) {
+        log('icecandidate', {
+          id,
+          candidate: ev.candidate.candidate,
+          sdpMid: ev.candidate.sdpMid,
+          sdpMLineIndex: ev.candidate.sdpMLineIndex,
+        });
+      }
+    });
+    pc.addEventListener('track', (ev) => {
+      log('track', {
+        id,
+        kind: ev.track.kind,
+        readyState: ev.track.readyState,
+        muted: ev.track.muted,
+        streamIds: (ev.streams || []).map(s => s.id),
+      });
+    });
+    pc.addEventListener('datachannel', (ev) => {
+      log('datachannel', {
+        id,
+        label: ev.channel.label,
+        protocol: ev.channel.protocol,
+        ordered: ev.channel.ordered,
+      });
+    });
+    pc.addEventListener('connectionstatechange', () => {
+      log('connectionstatechange', { id, state: pc.connectionState });
+    });
+    pc.addEventListener('iceconnectionstatechange', () => {
+      log('iceconnectionstatechange', { id, state: pc.iceConnectionState });
+    });
+    return pc;
+  }
+  patched.prototype = Orig.prototype;
+  window.RTCPeerConnection = patched;
+  if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = patched;
+})();
+''';
+    try {
+      await cdp.send(
+        'Page.addScriptToEvaluateOnNewDocument',
+        params: const <String, Object?>{'source': js},
+        sessionId: _pageSessionId,
+      );
+      await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{'expression': js},
+        sessionId: _pageSessionId,
+      );
+      _rtcInstalled = true;
+      return true;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'installWebRtcCapture',
+          error, stack);
+      return false;
+    }
+  }
+
+  /// 拉取 WebRTC 日志并 drain。
+  Future<List<Map<String, Object?>>> readWebRtcLog() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{
+          'expression':
+              '(()=>{const a=window.__oh_rtc_log||[];window.__oh_rtc_log=[];return JSON.stringify(a);})()',
           'returnByValue': true,
         },
         sessionId: _pageSessionId,
@@ -2425,6 +2566,106 @@ class WebReverseSessionController extends ChangeNotifier {
     _harReplayServer = null;
     _safeNotify();
     await s.close();
+  }
+
+  // ── mitmproxy 桥接：抓 OpenHand 控制不到的流量（App 内嵌 webview / 第三方应用） ─
+  WebReverseMitmproxyBridge? _mitmBridge;
+  StreamSubscription<Map<String, Object?>>? _mitmSub;
+  WebReverseMitmproxyBridge? get mitmproxyBridge => _mitmBridge;
+  int _mitmCount = 0;
+  int get mitmproxyCount => _mitmCount;
+
+  Future<({int mitmPort, int callbackPort})?> startMitmproxyBridge({
+    int mitmPort = 8080,
+  }) async {
+    if (_mitmBridge != null) {
+      return (
+        mitmPort: _mitmBridge!.mitmPort,
+        callbackPort: _mitmBridge!.callbackPort,
+      );
+    }
+    final br = await WebReverseMitmproxyBridge.start(mitmPort: mitmPort);
+    if (br == null) return null;
+    _mitmBridge = br;
+    _mitmCount = 0;
+    _mitmSub = br.eventStream.listen((m) {
+      _mitmCount++;
+      // 把 mitmproxy 流量也注入 dashboard 的网络列表，统一观察口径。
+      // 这里只取核心字段做轻量适配；body 已 base64 缓存到 cachedBody 备查。
+      final kind = '${m['kind'] ?? ''}';
+      final url = '${m['url'] ?? ''}';
+      if (url.isEmpty) return;
+      if (kind == 'request') {
+        final entry = CdpNetworkEntry(
+          requestId: 'mitm-${m['ts'] ?? _mitmCount}',
+          url: url,
+          method: '${m['method'] ?? 'GET'}',
+          timestamp: DateTime.now(),
+          resourceType: 'mitmproxy',
+        );
+        final headers = (m['headers'] as List?) ?? const [];
+        for (final h in headers.whereType<List>()) {
+          if (h.length >= 2) {
+            entry.requestHeaders['${h[0]}'] = '${h[1]}';
+          }
+        }
+        final bodyB64 = m['body_b64'] as String?;
+        if (bodyB64 != null && bodyB64.isNotEmpty) {
+          try {
+            entry.requestPostData = utf8.decode(base64Decode(bodyB64));
+          } catch (_) {}
+        }
+        _networkRequests.add(entry);
+        _networkByRequestId[entry.requestId] = entry;
+        while (_networkRequests.length > _maxNetworkEntries) {
+          final removed = _networkRequests.removeAt(0);
+          _networkByRequestId.remove(removed.requestId);
+        }
+      } else if (kind == 'response') {
+        // 找最近一条同 url 的 mitm 请求并补响应。
+        final match = _networkRequests.lastWhere(
+          (e) => e.url == url && e.requestId.startsWith('mitm-'),
+          orElse: () => CdpNetworkEntry(
+            requestId: 'mitm-resp-${m['ts'] ?? _mitmCount}',
+            url: url,
+            method: 'GET',
+            timestamp: DateTime.now(),
+            resourceType: 'mitmproxy',
+          )..requestHeaders.clear(),
+        );
+        match.statusCode = (m['status'] as num?)?.toInt();
+        final headers = (m['headers'] as List?) ?? const [];
+        for (final h in headers.whereType<List>()) {
+          if (h.length >= 2) {
+            match.responseHeaders['${h[0]}'] = '${h[1]}';
+          }
+        }
+        match.responseReceivedAt = DateTime.now();
+        match.loadingFinishedAt = match.responseReceivedAt;
+        final bodyB64 = m['body_b64'] as String?;
+        if (bodyB64 != null && bodyB64.isNotEmpty) {
+          match.cachedBody = bodyB64;
+          match.cachedBodyBase64 = true;
+        }
+        if (!_networkByRequestId.containsKey(match.requestId)) {
+          _networkRequests.add(match);
+          _networkByRequestId[match.requestId] = match;
+        }
+      }
+      _safeNotify();
+    });
+    _safeNotify();
+    return (mitmPort: br.mitmPort, callbackPort: br.callbackPort);
+  }
+
+  Future<void> stopMitmproxyBridge() async {
+    final br = _mitmBridge;
+    if (br == null) return;
+    _mitmBridge = null;
+    await _mitmSub?.cancel();
+    _mitmSub = null;
+    _safeNotify();
+    await br.close();
   }
 
   /// 一键打包"体检报告"：把 artifacts 目录下所有 jsonl/HAR/截图 +

@@ -30,7 +30,7 @@
 - 调试通道：CDP WebSocket，端口由 metadata `web_reverse_config.cdp_port` 提供（区间 9222–9322）。
 - 工作目录：`WD/.web_reverse/<session_id>/` 下分 `network/` `scripts/` `screenshots/` `har/` 四个子目录，所有产物落在这里。
 - 浏览器窗口、TopBar 调试胶囊、CDP 仪表盘弹窗都已就位，无需你管理 UI；你只负责发指令、读结果、产出复现脚本。
-- Dashboard 弹窗内可用：Network / Console / Sources / Performance / Memory / Application / Security / Recorder 八个 tab + 高级工具菜单（持久 Header、CDP 命令面板、AI 请求摘要、请求对比、Service Worker 反注册、体检报告 zip 导出）+ Console 内嵌 REPL 输入框。CDP 抖动断开会自动重连并重新挂载持久 Header / 屏蔽 URL 等运行期状态。
+- Dashboard 弹窗内可用：Network / Console / Sources / Performance / Memory / Application / Security / Recorder 八个 tab + 高级工具菜单（持久 Header、CDP 命令面板、AI 请求摘要、请求对比、Service Worker 反注册、体检报告 zip 导出、HAR 重放 mock server、mitmproxy 系统级抓包桥接、WebRTC 资源捕获、webcrack JS 反混淆）+ Console 内嵌 REPL 输入框。CDP 抖动断开会自动重连并重新挂载持久 Header / 屏蔽 URL 等运行期状态。
 </environment>
 
 <workflow>

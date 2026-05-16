@@ -99,6 +99,43 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await _toggleHarReplayServer(context, controller, isZh);
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.swap_calls_rounded,
+        title: controller.mitmproxyBridge == null
+            ? (isZh ? '启动 mitmproxy 桥接' : 'Start mitmproxy bridge')
+            : (isZh
+                ? '停止 mitmproxy 桥接（已抓 ${controller.mitmproxyCount}）'
+                : 'Stop mitmproxy bridge (${controller.mitmproxyCount})'),
+        subtitle: isZh
+            ? '系统级抓包：把 App 内嵌 webview / 第三方应用流量也接入 dashboard'
+            : 'System-wide capture via mitmdump; routes 3rd-party app traffic into dashboard',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await _toggleMitmproxyBridge(context, controller, isZh);
+        },
+      ),
+      _AdvancedEntry(
+        icon: Icons.video_camera_back_rounded,
+        title: isZh ? 'WebRTC 资源捕获' : 'WebRTC capture',
+        subtitle: isZh
+            ? '注入 RTCPeerConnection hook，抓 SDP / ICE / Track 事件'
+            : 'Hook RTCPeerConnection to capture SDP / ICE / Track events',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await _toggleWebRtcCapture(context, controller, isZh);
+        },
+      ),
+      _AdvancedEntry(
+        icon: Icons.code_off_rounded,
+        title: isZh ? 'JS 反混淆（webcrack）' : 'JS deobfuscate (webcrack)',
+        subtitle: isZh
+            ? '用 npx webcrack 把粘贴的 JS 还原成可读形式（需 Node.js）'
+            : 'Run npx webcrack on pasted JS (Node.js required)',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await _showWebcrackDialog(context, isZh);
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -717,4 +754,317 @@ Future<void> _toggleHarReplayServer(
           Clipboard.setData(ClipboardData(text: '${r.port}')),
     ),
   ));
+}
+
+
+Future<void> _toggleMitmproxyBridge(
+  BuildContext context,
+  WebReverseSessionController ctrl,
+  bool isZh,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  if (ctrl.mitmproxyBridge != null) {
+    await ctrl.stopMitmproxyBridge();
+    if (!context.mounted) return;
+    messenger.showSnackBar(SnackBar(
+      content: Text(isZh ? '已停止 mitmproxy 桥接' : 'mitmproxy bridge stopped'),
+      duration: const Duration(seconds: 2),
+    ));
+    return;
+  }
+  // 先确认 mitmdump 在 PATH。
+  final exe = await WebReverseMitmproxyBridge.detectMitmdump();
+  if (exe == null) {
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh ? '未检测到 mitmdump' : 'mitmdump not found'),
+        content: Text(
+          isZh
+              ? '请先安装 mitmproxy（macOS：brew install mitmproxy；Linux：sudo apt install mitmproxy；Windows：从 https://mitmproxy.org 下载），'
+                  '并把 mitmdump 加入 PATH。\n\n'
+                  '装好后在客户端把代理指向 127.0.0.1:8080，并访问 http://mitm.it 安装根证书。'
+              : 'Install mitmproxy (macOS: brew install mitmproxy; Linux: sudo apt install mitmproxy; Windows: https://mitmproxy.org), '
+                  'then set client proxy to 127.0.0.1:8080 and trust the root cert via http://mitm.it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(isZh ? '关闭' : 'Close'),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
+  // 提示用户配置代理。
+  if (!context.mounted) return;
+  final go = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(isZh ? '即将启动 mitmproxy 桥接' : 'Start mitmproxy bridge'),
+      content: Text(
+        isZh
+            ? '将以 mitmdump -p 8080 启动；启动后请把目标客户端代理指向 127.0.0.1:8080。\n\n'
+                '首次使用须信任根证书：访问 http://mitm.it 按平台说明安装。\n\n'
+                '所有抓到的请求会以 mitmproxy 资源类型出现在 Network 列表。'
+            : 'Will run mitmdump -p 8080; route your client proxy to 127.0.0.1:8080.\n\n'
+                'First time? Trust the CA via http://mitm.it.\n\n'
+                'Captured traffic shows up under the mitmproxy resource type.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text(isZh ? '取消' : 'Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(isZh ? '启动' : 'Start'),
+        ),
+      ],
+    ),
+  );
+  if (go != true || !context.mounted) return;
+  final r = await ctrl.startMitmproxyBridge();
+  if (!context.mounted) return;
+  if (r == null) {
+    messenger.showSnackBar(SnackBar(
+      content: Text(isZh ? '启动失败（端口 8080 可能已被占）' : 'Failed (port 8080 in use?)'),
+      duration: const Duration(seconds: 3),
+    ));
+    return;
+  }
+  messenger.showSnackBar(SnackBar(
+    content: Text(
+      isZh
+          ? 'mitmproxy 桥接已启动：客户端代理 127.0.0.1:${r.mitmPort}（回调 :${r.callbackPort}）'
+          : 'mitmproxy up: proxy via 127.0.0.1:${r.mitmPort} (callback :${r.callbackPort})',
+    ),
+    duration: const Duration(seconds: 6),
+  ));
+}
+
+
+Future<void> _toggleWebRtcCapture(
+  BuildContext context,
+  WebReverseSessionController ctrl,
+  bool isZh,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final ok = await ctrl.installWebRtcCapture();
+  if (!context.mounted) return;
+  if (!ok) {
+    messenger.showSnackBar(SnackBar(
+      content: Text(isZh ? '注入失败（page 可能尚未就绪）' : 'Install failed'),
+      duration: const Duration(seconds: 2),
+    ));
+    return;
+  }
+  // 拉一次现有日志展示。
+  final entries = await ctrl.readWebRtcLog();
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(isZh ? 'WebRTC 捕获事件' : 'WebRTC events'),
+      content: SizedBox(
+        width: 720,
+        height: 460,
+        child: entries.isEmpty
+            ? Center(
+                child: Text(
+                  isZh
+                      ? '已注入 hook，但当前页面尚未触发 WebRTC。\n刷新或拨打音视频后再来此对话框查看。'
+                      : 'Hook installed but no WebRTC traffic yet. Trigger a call then reopen.',
+                  textAlign: TextAlign.center,
+                ),
+              )
+            : ListView.builder(
+                itemCount: entries.length,
+                itemBuilder: (_, idx) {
+                  final e = entries[idx];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: SelectableText(
+                      '[${e['kind']}] ${jsonEncode(e)}',
+                      style: const TextStyle(
+                          fontFamily: 'monospace', fontSize: 11),
+                    ),
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            await Clipboard.setData(
+              ClipboardData(text: const JsonEncoder.withIndent('  ').convert(entries)),
+            );
+            if (!dialogContext.mounted) return;
+            ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(
+              content: Text(isZh ? '已复制' : 'Copied'),
+              duration: const Duration(seconds: 1),
+            ));
+          },
+          child: Text(isZh ? '复制 JSON' : 'Copy JSON'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: Text(isZh ? '关闭' : 'Close'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _showWebcrackDialog(
+  BuildContext context,
+  bool isZh,
+) async {
+  final input = TextEditingController();
+  final output = ValueNotifier<String?>(null);
+  final running = ValueNotifier<bool>(false);
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(isZh ? 'JS 反混淆（webcrack）' : 'JS deobfuscate (webcrack)'),
+      content: SizedBox(
+        width: 760,
+        height: 520,
+        child: Column(
+          children: [
+            Text(
+              isZh
+                  ? '把混淆后的 JS 粘到这里 → 点"反混淆"将自动写到 /tmp 并跑 npx webcrack。需要本机已装 Node.js 与 npm。'
+                  : 'Paste obfuscated JS, then click Deobfuscate. Requires Node.js + npm; uses npx webcrack.',
+              style: Theme.of(dialogContext).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: TextField(
+                controller: input,
+                maxLines: null,
+                expands: true,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'paste obfuscated js…',
+                ),
+                style:
+                    const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ValueListenableBuilder<String?>(
+                valueListenable: output,
+                builder: (_, v, _) => Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(dialogContext)
+                        .colorScheme
+                        .surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(dialogContext)
+                          .colorScheme
+                          .outlineVariant,
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(10),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      v ??
+                          (isZh
+                              ? '反混淆结果会显示在这里。'
+                              : 'Deobfuscated result appears here.'),
+                      style: const TextStyle(
+                          fontFamily: 'monospace', fontSize: 11.5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: Text(isZh ? '关闭' : 'Close'),
+        ),
+        ValueListenableBuilder<bool>(
+          valueListenable: running,
+          builder: (_, busy, _) => FilledButton.icon(
+            onPressed: busy
+                ? null
+                : () async {
+                    if (input.text.trim().isEmpty) return;
+                    running.value = true;
+                    final r = await _runWebcrack(input.text);
+                    running.value = false;
+                    output.value = r;
+                  },
+            icon: Icon(
+              busy
+                  ? Icons.hourglass_top_rounded
+                  : Icons.code_off_rounded,
+              size: 16,
+            ),
+            label: Text(busy
+                ? (isZh ? '处理中…' : 'Working…')
+                : (isZh ? '反混淆' : 'Deobfuscate')),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<String> _runWebcrack(String src) async {
+  // 写入 temp 文件 + 跑 `npx -y webcrack@latest -o <outDir> <inFile>`，
+  // 完成后读 outDir/deobfuscated.js（或 webcrack 默认输出）回显。
+  final tmpDir = await Directory.systemTemp.createTemp('oh-webcrack-');
+  final input = File('${tmpDir.path}/input.js');
+  await input.writeAsString(src);
+  try {
+    // npx 第一次需要联网拉包；--yes 跳过提示。
+    final result = await Process.run(
+      'npx',
+      <String>[
+        '--yes',
+        'webcrack@latest',
+        input.path,
+        '-o',
+        tmpDir.path,
+      ],
+      runInShell: Platform.isWindows,
+    );
+    if (result.exitCode != 0) {
+      return '[webcrack 失败 exit=${result.exitCode}]\n${result.stderr}';
+    }
+    // webcrack 默认输出 deobfuscated.js + 其他文件；优先取它。
+    final out = File('${tmpDir.path}/deobfuscated.js');
+    if (await out.exists()) {
+      return await out.readAsString();
+    }
+    // 兜底：把整个 outDir 下所有 .js 拼起来。
+    final buf = StringBuffer();
+    for (final entity in tmpDir.listSync(recursive: true)) {
+      if (entity is File && entity.path.endsWith('.js')) {
+        buf
+          ..writeln('// ─── ${entity.path} ───')
+          ..writeln(await entity.readAsString())
+          ..writeln();
+      }
+    }
+    final s = buf.toString();
+    return s.isEmpty ? '[webcrack 无输出]' : s;
+  } catch (error, stack) {
+    silentLog('web_reverse_dashboard_dialog', 'webcrack', error, stack);
+    return '[执行异常]\n$error';
+  } finally {
+    try {
+      await tmpDir.delete(recursive: true);
+    } catch (_) {}
+  }
 }

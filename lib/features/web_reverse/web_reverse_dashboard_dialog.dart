@@ -11,6 +11,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import 'web_reverse_launch_diagnosis.dart';
+import 'web_reverse_mitmproxy_bridge.dart';
 import 'web_reverse_profile_actions.dart';
 import 'web_reverse_screenshot_markup.dart';
 import 'web_reverse_session_controller.dart';
