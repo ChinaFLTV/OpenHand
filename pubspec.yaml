@@ -62,6 +62,7 @@ flutter:
     - assets/branding/
     - assets/web/
     - assets/web/chunks/
+    - assets/web/assets/
 
 # Use system SQLite on macOS (avoids downloading from GitHub).
 hooks:

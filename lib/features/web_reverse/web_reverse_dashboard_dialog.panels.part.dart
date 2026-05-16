@@ -34,6 +34,13 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   final List<double> _fpsHistory = <double>[];
   bool _fpsBootstrapped = false;
 
+  // Long task：浏览器 PerformanceObserver 推到 window.__oh_long_tasks，
+  // 每 1s 拉一次清空，dashboard 展示最近 50 条。
+  Timer? _longTaskTimer;
+  bool _longTaskBootstrapped = false;
+  final List<Map<String, Object?>> _longTasks = <Map<String, Object?>>[];
+  static const int _longTasksMax = 50;
+
   @override
   void initState() {
     super.initState();
@@ -46,12 +53,17 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       const Duration(seconds: 1),
       (_) => _sampleFps(),
     );
+    _longTaskTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _sampleLongTasks(),
+    );
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
     _fpsTimer?.cancel();
+    _longTaskTimer?.cancel();
     super.dispose();
   }
 
@@ -82,6 +94,24 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       _fpsHistory.add(fps);
       while (_fpsHistory.length > _historyLen) {
         _fpsHistory.removeAt(0);
+      }
+    });
+  }
+
+  /// 在 page 内安装 PerformanceObserver longtask（首次），随后每秒拉一次新增。
+  Future<void> _sampleLongTasks() async {
+    final cdp = widget.controller;
+    if (!cdp.isRunning) return;
+    if (!_longTaskBootstrapped) {
+      _longTaskBootstrapped = true;
+      await cdp.installLongTaskObserver();
+    }
+    final fresh = await cdp.readLongTasks();
+    if (!mounted || fresh.isEmpty) return;
+    setState(() {
+      _longTasks.addAll(fresh);
+      while (_longTasks.length > _longTasksMax) {
+        _longTasks.removeAt(0);
       }
     });
   }
@@ -258,67 +288,85 @@ class _PerformancePanelState extends State<_PerformancePanel> {
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: _metrics.isEmpty
-                ? Center(
-                    child: Text(
-                      isZh ? '尚无指标数据。' : 'No metrics yet.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                : GridView.count(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 2.2,
-                    children: _orderedMetrics(highlights).map((m) {
-                      final history = _history[m.$1] ?? const <double>[];
-                      return AnimatedContainer(
-                        duration: widget.reduceMotion
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              m.$1,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _metrics.isEmpty
+                      ? Center(
+                          child: Text(
+                            isZh ? '尚无指标数据。' : 'No metrics yet.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: cs.onSurfaceVariant,
                             ),
-                            Text(
-                              _formatMetric(m.$1, m.$2),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
+                          ),
+                        )
+                      : GridView.count(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 2.2,
+                          children: _orderedMetrics(highlights).map((m) {
+                            final history =
+                                _history[m.$1] ?? const <double>[];
+                            return AnimatedContainer(
+                              duration: widget.reduceMotion
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 220),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
                               ),
-                            ),
-                            SizedBox(
-                              height: 24,
-                              child: CustomPaint(
-                                painter: _Sparkline(
-                                  values: history,
-                                  color: cs.primary,
-                                  fillBelow: true,
-                                ),
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: cs.outlineVariant),
                               ),
-                            ),
-                          ],
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    m.$1,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    _formatMetric(m.$1, m.$2),
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  SizedBox(
+                                    height: 24,
+                                    child: CustomPaint(
+                                      painter: _Sparkline(
+                                        values: history,
+                                        color: cs.primary,
+                                        fillBelow: true,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
                         ),
-                      );
-                    }).toList(),
+                ),
+                const SizedBox(width: 12),
+                // Long tasks 侧栏：固定 320 宽，紧凑列表 + 时长高亮。
+                SizedBox(
+                  width: 320,
+                  child: _LongTasksPane(
+                    tasks: _longTasks,
+                    isZh: isZh,
                   ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -339,6 +387,146 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     final lo = _metrics.where((m) => !highlights.contains(m.$1)).toList()
       ..sort((a, b) => a.$1.compareTo(b.$1));
     return [...hi, ...lo];
+  }
+}
+
+/// Long Task 列表：浏览器主线程 ≥50ms 的任务。颜色按时长分级。
+class _LongTasksPane extends StatelessWidget {
+  const _LongTasksPane({required this.tasks, required this.isZh});
+  final List<Map<String, Object?>> tasks;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    size: 16, color: cs.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    isZh ? '长任务（≥50ms 主线程阻塞）' : 'Long Tasks (≥50ms)',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainer,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${tasks.length}',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontFamily: 'monospace',
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: tasks.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        isZh
+                            ? '暂无长任务。\n刷新页面或交互后此处会实时刷新。'
+                            : 'No long tasks yet.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          height: 1.55,
+                        ),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: tasks.length,
+                    itemBuilder: (_, idx) {
+                      final t = tasks[tasks.length - 1 - idx];
+                      final dur = (t['duration'] as num?)?.toDouble() ?? 0;
+                      final color = dur >= 200
+                          ? cs.error
+                          : (dur >= 100 ? Colors.orange : cs.primary);
+                      final attribution = t['attribution'];
+                      final attribLabel = attribution is Map
+                          ? '${attribution['containerType'] ?? ''} '
+                              '${attribution['containerName'] ?? attribution['containerSrc'] ?? ''}'
+                          : '';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 28,
+                              margin: const EdgeInsets.only(right: 8, top: 2),
+                              decoration: BoxDecoration(
+                                color: color,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${dur.toStringAsFixed(0)} ms',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontFamily: 'monospace',
+                                      fontWeight: FontWeight.w800,
+                                      color: color,
+                                    ),
+                                  ),
+                                  if (attribLabel.trim().isNotEmpty)
+                                    Text(
+                                      attribLabel,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                        color: cs.onSurfaceVariant,
+                                        fontFamily: 'monospace',
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -733,6 +921,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
               _AppTab.sessionStorage =>
                 _StorageTable(rows: _storage),
               _AppTab.indexedDb => _IndexedDbTable(
+                  controller: widget.controller,
                   names: _idbNames,
                   described: _idbDescribed,
                 ),
@@ -927,97 +1116,351 @@ class _StorageTable extends StatelessWidget {
 // Application 子组件：IndexedDB / Cache Storage / Service Workers
 // ─────────────────────────────────────────────────────────────────────────
 
-class _IndexedDbTable extends StatelessWidget {
-  const _IndexedDbTable({required this.names, required this.described});
+class _IndexedDbTable extends StatefulWidget {
+  const _IndexedDbTable({
+    required this.controller,
+    required this.names,
+    required this.described,
+  });
 
+  final WebReverseSessionController controller;
   final List<String> names;
   final Map<String, ({int version, List<String> stores})> described;
+
+  @override
+  State<_IndexedDbTable> createState() => _IndexedDbTableState();
+}
+
+class _IndexedDbTableState extends State<_IndexedDbTable> {
+  /// 当前展开的 (db, store)；null 表示未展开。
+  ({String db, String store})? _selected;
+  List<Map<String, Object?>> _entries = const [];
+  bool _hasMore = false;
+  int _skipCount = 0;
+  bool _loading = false;
+
+  Future<void> _expand(String db, String store) async {
+    if (_loading) return;
+    setState(() {
+      _selected = (db: db, store: store);
+      _entries = const [];
+      _skipCount = 0;
+      _hasMore = false;
+      _loading = true;
+    });
+    final r = await widget.controller.readIndexedDbStore(
+      dbName: db,
+      storeName: store,
+    );
+    if (!mounted) return;
+    setState(() {
+      _entries = r?.entries ?? const [];
+      _hasMore = r?.hasMore ?? false;
+      _skipCount = _entries.length;
+      _loading = false;
+    });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading || !_hasMore || _selected == null) return;
+    setState(() => _loading = true);
+    final r = await widget.controller.readIndexedDbStore(
+      dbName: _selected!.db,
+      storeName: _selected!.store,
+      skipCount: _skipCount,
+    );
+    if (!mounted) return;
+    setState(() {
+      _entries = [..._entries, ...?r?.entries];
+      _hasMore = r?.hasMore ?? false;
+      _skipCount = _entries.length;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    if (names.isEmpty) {
+    if (widget.names.isEmpty) {
       return Center(
         child: Text('(empty)',
-            style:
-                theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant)),
       );
     }
-    return ListView.separated(
-      itemCount: names.length,
-      separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
-      itemBuilder: (_, i) {
-        final name = names[i];
-        final info = described[name];
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.storage_rounded, size: 16, color: cs.primary),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: SelectableText(
-                      name,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  if (info != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        'v${info.version}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontFamily: 'monospace',
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              if (info != null && info.stores.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
+    final selected = _selected;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 左：db / store 树
+        SizedBox(
+          width: 240,
+          child: ListView.builder(
+            itemCount: widget.names.length,
+            itemBuilder: (_, i) {
+              final name = widget.names[i];
+              final info = widget.described[name];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final s in info.stores)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainer,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.storage_rounded,
+                              size: 16, color: cs.primary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: SelectableText(
+                              name,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (info != null)
+                            Text(
+                              'v${info.version}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontFamily: 'monospace',
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (info != null)
+                      for (final s in info.stores)
+                        InkWell(
+                          onTap: () => _expand(name, s),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
-                        child: Text(
-                          s,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 11,
+                          child: Container(
+                            margin: const EdgeInsets.only(left: 22, top: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: selected != null &&
+                                      selected.db == name &&
+                                      selected.store == s
+                                  ? cs.primaryContainer
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.table_rows_rounded,
+                                    size: 12, color: cs.onSurfaceVariant),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    s,
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
                   ],
                 ),
-              ],
-            ],
+              );
+            },
           ),
-        );
-      },
+        ),
+        VerticalDivider(width: 1, color: cs.outlineVariant),
+        // 右：store entries 表
+        Expanded(
+          child: selected == null
+              ? Center(
+                  child: Text(
+                    '点击左侧 store 查看记录',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${selected.db} / ${selected.store}',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${_entries.length}${_hasMore ? "+" : ""}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (_hasMore)
+                            TextButton.icon(
+                              onPressed: _loading ? null : _loadMore,
+                              icon: const Icon(Icons.expand_more_rounded,
+                                  size: 16),
+                              label: const Text('Load more'),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: _entries.isEmpty && !_loading
+                          ? Center(
+                              child: Text('(empty)',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  )),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              itemCount:
+                                  _entries.length + (_loading ? 1 : 0),
+                              separatorBuilder: (_, _) => Divider(
+                                height: 1,
+                                color: cs.outlineVariant,
+                              ),
+                              itemBuilder: (_, i) {
+                                if (i >= _entries.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return _IndexedDbEntryRow(
+                                  entry: _entries[i],
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+        ),
+      ],
     );
+  }
+}
+
+/// IndexedDB.requestData 回来的单条记录视图。CDP 的 key/value 是嵌套 RemoteObject，
+/// 直接 jsonEncode 即可读到 description 字段；展开/收起避免一行撑爆。
+class _IndexedDbEntryRow extends StatefulWidget {
+  const _IndexedDbEntryRow({required this.entry});
+  final Map<String, Object?> entry;
+
+  @override
+  State<_IndexedDbEntryRow> createState() => _IndexedDbEntryRowState();
+}
+
+class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final entry = widget.entry;
+    final keyDesc = _describeRemoteObject(entry['key']);
+    final valDesc = _describeRemoteObject(entry['value']);
+    return InkWell(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _expanded
+                      ? Icons.keyboard_arrow_down_rounded
+                      : Icons.keyboard_arrow_right_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 4),
+                SizedBox(
+                  width: 200,
+                  child: Text(
+                    keyDesc,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    valDesc,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_expanded)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 0, 0),
+                child: SelectableText(
+                  const JsonEncoder.withIndent('  ').convert(entry),
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// CDP RemoteObject -> 人可读字符串。
+  static String _describeRemoteObject(Object? raw) {
+    if (raw is! Map) return '${raw ?? ''}';
+    final type = raw['type'];
+    final desc = raw['description'];
+    final value = raw['value'];
+    if (desc is String && desc.isNotEmpty) return desc;
+    if (value != null) return '$value';
+    return '<$type>';
   }
 }
 
@@ -1356,6 +1799,65 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     ));
   }
 
+  Future<void> _addAssertion(String kind) async {
+    final isZh = widget.isZh;
+    final selectorCtrl = TextEditingController();
+    final expectedCtrl = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          kind == 'assertText'
+              ? (isZh ? '断言：元素文本包含' : 'Assert: element text contains')
+              : (isZh ? '断言：元素可见' : 'Assert: element visible'),
+        ),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: selectorCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: isZh ? 'CSS 选择器' : 'CSS Selector',
+                  hintText: '#login-btn / .header > h1',
+                ),
+              ),
+              if (kind == 'assertText') ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: expectedCtrl,
+                  decoration: InputDecoration(
+                    labelText: isZh ? '期望包含的文本' : 'Expected text',
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(isZh ? '添加' : 'Add'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || result != true) return;
+    final selector = selectorCtrl.text.trim();
+    if (selector.isEmpty) return;
+    widget.controller.addAssertionStep(
+      kind,
+      selector: selector,
+      expected: kind == 'assertText' ? expectedCtrl.text : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1412,6 +1914,26 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 onPressed: ctrl.isRecording ? null : _import,
                 icon: const Icon(Icons.upload_file_rounded, size: 18),
                 label: Text(isZh ? '导入 JSON' : 'Import'),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                tooltip: isZh ? '添加断言' : 'Add assertion',
+                onSelected: (kind) => _addAssertion(kind),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'assertText',
+                    child: Text(isZh ? '断言文本（assertText）' : 'assertText'),
+                  ),
+                  PopupMenuItem(
+                    value: 'assertVisible',
+                    child: Text(isZh ? '断言可见（assertVisible）' : 'assertVisible'),
+                  ),
+                ],
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.rule_rounded, size: 18),
+                  label: Text(isZh ? '添加断言' : 'Add assertion'),
+                ),
               ),
               const SizedBox(width: 8),
               IconButton(

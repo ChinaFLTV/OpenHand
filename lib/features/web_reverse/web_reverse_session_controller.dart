@@ -456,6 +456,52 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  /// `IndexedDB.requestData` —— 读单个 object store 的前 N 条记录。
+  /// 返回 (entries, hasMore)；entries 元素为 `{key, primaryKey, value}` 的纯 Map。
+  Future<({List<Map<String, Object?>> entries, bool hasMore})?>
+      readIndexedDbStore({
+    required String dbName,
+    required String storeName,
+    int skipCount = 0,
+    int pageSize = 50,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final origin = await currentOrigin();
+      if (origin == null) return null;
+      final r = await cdp.send(
+        'IndexedDB.requestData',
+        params: <String, Object?>{
+          'securityOrigin': origin,
+          'databaseName': dbName,
+          'objectStoreName': storeName,
+          'indexName': '',
+          'skipCount': skipCount,
+          'pageSize': pageSize,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 10),
+      );
+      final list = r['objectStoreDataEntries'] as List?;
+      final hasMore = r['hasMore'] == true;
+      final entries = list
+              ?.whereType<Map>()
+              .map((m) => Map<String, Object?>.from(m))
+              .toList(growable: false) ??
+          const <Map<String, Object?>>[];
+      return (entries: entries, hasMore: hasMore);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'readIndexedDbStore $dbName/$storeName',
+        error,
+        stack,
+      );
+      return null;
+    }
+  }
+
   /// `CacheStorage.requestCacheNames` —— 当前 origin 下所有 Cache 名。
   Future<List<String>> listCacheStorage() async {
     final cdp = _browserCdp;
@@ -627,6 +673,13 @@ class WebReverseSessionController extends ChangeNotifier {
   window.addEventListener('hashchange', () => log({ type: 'navigate', url: location.href, ts: Date.now() }));
   window.addEventListener('popstate', () => log({ type: 'navigate', url: location.href, ts: Date.now() }));
   log({ type: 'navigate', url: location.href, ts: Date.now() });
+  // 暴露断言录制 API：用户可在 console 里手动调用插入断言步骤。
+  window.__oh_assert_text = (selector, expected) => {
+    log({ type: 'assertText', selector, expected: String(expected || ''), ts: Date.now() });
+  };
+  window.__oh_assert_visible = (selector) => {
+    log({ type: 'assertVisible', selector, ts: Date.now() });
+  };
 })();
 ''';
     try {
@@ -741,6 +794,42 @@ class WebReverseSessionController extends ChangeNotifier {
               'el.dispatchEvent(new Event("change", {bubbles: true})); return true; })()',
               stepTimeout,
             );
+          case 'assertText':
+            final selector = '${step['selector'] ?? ''}';
+            final expected = '${step['expected'] ?? ''}';
+            if (selector.isEmpty) {
+              failed++;
+              continue;
+            }
+            final ok = await _evalBool(
+              '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
+              'if (!el) return false; '
+              'const text = String(el.innerText || el.textContent || ""); '
+              'return text.includes(${jsonEncode(expected)}); })()',
+              stepTimeout,
+            );
+            if (ok != true) {
+              failed++;
+              continue;
+            }
+          case 'assertVisible':
+            final selector = '${step['selector'] ?? ''}';
+            if (selector.isEmpty) {
+              failed++;
+              continue;
+            }
+            final ok = await _evalBool(
+              '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
+              'if (!el) return false; '
+              'const r = el.getBoundingClientRect(); '
+              'const style = getComputedStyle(el); '
+              'return r.width > 0 && r.height > 0 && style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0; })()',
+              stepTimeout,
+            );
+            if (ok != true) {
+              failed++;
+              continue;
+            }
           default:
             // 未识别的步骤直接计为失败，但不阻断后续。
             failed++;
@@ -774,6 +863,38 @@ class WebReverseSessionController extends ChangeNotifier {
       sessionId: _pageSessionId,
       timeout: timeout,
     );
+  }
+
+  /// 类似 [_evalScript]，但同步取 expression 求值结果（returnByValue）的 bool。
+  Future<bool?> _evalBool(String expression, Duration timeout) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return null;
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression': expression,
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+        timeout: timeout,
+      );
+      final v = (r['result'] as Map?)?['value'];
+      return v is bool ? v : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 把一条断言追加到 _recorderSteps（让 UI 直接添加，不依赖浏览器 console）。
+  void addAssertionStep(String type, {required String selector, String? expected}) {
+    _recorderSteps.add(<String, Object?>{
+      'type': type,
+      'selector': selector,
+      if (expected != null) 'expected': expected,
+      'ts': DateTime.now().millisecondsSinceEpoch,
+    });
+    notifyListeners();
   }
 
   /// 替换当前 step 列表（导入 JSON 用）。
@@ -1136,6 +1257,85 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (_) {}
+  }
+
+  /// 安装 Long Task 观测：通过 PerformanceObserver 监听 entryType='longtask'
+  /// 的事件并塞进 window.__oh_long_tasks（环形缓冲，上限 200）。
+  /// 之后 [readLongTasks] 拉取并清空。
+  Future<void> installLongTaskObserver() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    const js = r'''
+(() => {
+  if (window.__oh_longtask_installed) return;
+  window.__oh_longtask_installed = true;
+  window.__oh_long_tasks = [];
+  try {
+    const po = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        const attrib = (entry.attribution && entry.attribution[0]) || null;
+        window.__oh_long_tasks.push({
+          name: entry.name,
+          start: entry.startTime,
+          duration: entry.duration,
+          ts: Date.now(),
+          attribution: attrib ? {
+            name: attrib.name,
+            containerType: attrib.containerType,
+            containerSrc: attrib.containerSrc,
+            containerId: attrib.containerId,
+            containerName: attrib.containerName,
+          } : null,
+        });
+        if (window.__oh_long_tasks.length > 200) window.__oh_long_tasks.shift();
+      }
+    });
+    po.observe({ entryTypes: ['longtask'] });
+  } catch (e) {
+    window.__oh_long_tasks_error = String(e);
+  }
+})();
+''';
+    try {
+      // init script 让后续导航也保留观测器；同时在当前 page 立即注入。
+      await cdp.send(
+        'Page.addScriptToEvaluateOnNewDocument',
+        params: <String, Object?>{'source': js},
+        sessionId: _pageSessionId,
+      );
+      await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{'expression': js},
+        sessionId: _pageSessionId,
+      );
+    } catch (_) {}
+  }
+
+  /// 拉取 long task 列表并 drain。failure 时返回空列表。
+  Future<List<Map<String, Object?>>> readLongTasks() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{
+          'expression':
+              '(()=>{const a=window.__oh_long_tasks||[];window.__oh_long_tasks=[];return JSON.stringify(a);})()',
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+      );
+      final raw = (r['result'] as Map?)?['value'];
+      if (raw is! String || raw.isEmpty) return const [];
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map((m) => Map<String, Object?>.from(m))
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// 读取 page 当前 FPS 值；installFpsCounter 应先调用。
