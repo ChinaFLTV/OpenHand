@@ -39,11 +39,11 @@ import 'service/chat/ai_protocol_adapter.dart';
 import 'service/runtime/ai_tool_execution_registry.dart';
 import 'service/runtime/ai_tool_runtime_service.dart';
 import 'service/mcp_bridge/mcp_loaded_tools_tracker.dart';
-import 'tools/ai_memory_tool.dart' show MemoryControllerProvider;
-import 'tools/ai_skill_manager_tool.dart';
-import 'tools/ai_tool_search_tool.dart';
-import 'tools/ai_web_fetch_tool.dart';
-import 'tools/ai_web_search_tool.dart';
+import 'tools/memory/ai_memory_tool.dart' show MemoryControllerProvider;
+import 'tools/skill/ai_skill_manager_tool.dart';
+import 'tools/search/ai_tool_search_tool.dart';
+import 'tools/web/ai_web_fetch_tool.dart';
+import 'tools/web/ai_web_search_tool.dart';
 
 part '_ai_session_models.dart';
 part '_ai_session_utils.dart';

@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../service/runtime/ai_tool_runtime_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 class AiGlobTool extends AiTool {
   @override

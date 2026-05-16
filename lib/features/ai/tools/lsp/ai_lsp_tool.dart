@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:path/path.dart' as p;
 
-import '../../../app/support/silent_log.dart';
-import '../service/bash/ai_bash_tool_service.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import '../service/lsp/lsp_client_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../../../app/support/silent_log.dart';
+import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/lsp/lsp_client_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 /// Multi-language LSP code intelligence tool backed by [AiLspClientService].
 class AiLspTool extends AiTool {

@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../service/fs/ai_file_history_service.dart';
-import '../service/fs/ai_file_mutation_ledger.dart';
-import '../service/fs/ai_file_tracker_service.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../service/fs/ai_file_history_service.dart';
+import '../../service/fs/ai_file_mutation_ledger.dart';
+import '../../service/fs/ai_file_tracker_service.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 /// 跨文件批量 hunk 应用工具。把多个 MultiEdit 操作合成单次调用：
 /// 一次提交可以包含 N 个文件、每个文件 M 个 hunk。

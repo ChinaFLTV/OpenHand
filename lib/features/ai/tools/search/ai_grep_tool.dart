@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../service/bash/ai_bash_tool_service.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 class AiGrepTool extends AiTool {
   @override

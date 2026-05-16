@@ -16,7 +16,7 @@ import '../../model/ai_session.dart';
 import '../../model/ai_session_message.dart';
 import '../../model/ai_session_runtime_context.dart';
 import '../../model/ai_thread_template.dart';
-import '../../tools/ai_task_tool.dart';
+import '../../tools/planning/ai_task_tool.dart';
 import '../bash/ai_bash_tool_service.dart';
 import '../hook/ai_claude_hook_service.dart';
 import '../runtime/ai_plan_approval_detector.dart';

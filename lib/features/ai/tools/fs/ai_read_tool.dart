@@ -3,13 +3,13 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../service/hook/ai_claude_hook_service.dart';
-import '../service/fs/ai_file_tracker_service.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/hook/ai_claude_hook_service.dart';
+import '../../service/fs/ai_file_tracker_service.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_file_read_renderer.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 class AiReadTool extends AiTool {
   AiReadTool({AiFileReadRenderer? renderer})

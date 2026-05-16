@@ -4,11 +4,11 @@ import 'dart:math';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
-import '../../../app/support/silent_log.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../../../app/support/silent_log.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 /// 2026-04-25 SkillManager tool — manages AI skills on disk.
 ///

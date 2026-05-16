@@ -12,7 +12,7 @@ import '../../model/ai_builtin_tool_config.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_session_runtime_context.dart';
-import '../../tools/ai_memory_tool.dart';
+import '../../tools/memory/ai_memory_tool.dart';
 import '../../tools/ai_tool_registry.dart';
 import '../../tools/ai_tool_utils.dart';
 import '../bash/ai_bash_tool_service.dart';

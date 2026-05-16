@@ -4,22 +4,22 @@ import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 
-import '../../../app/support/openhand_notification_service.dart';
-import '../../../app/support/silent_log.dart';
-import '../model/ai_model_config.dart';
-import '../model/ai_web_search_settings.dart';
-import '../service/bash/ai_bash_tool_service.dart';
-import '../service/chat/ai_chat_service.dart';
-import '../service/chat/ai_protocol_adapter.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import '../service/chat/ai_transport_diagnostic_messages.dart';
-import '../service/web_engine/web_engine_quality.dart';
-import '../service/web_search/web_search_cache_store.dart';
-import '../service/web_search/web_search_orchestrator.dart';
-import '../service/web_search/web_search_telemetry_store.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../../../app/support/openhand_notification_service.dart';
+import '../../../../app/support/silent_log.dart';
+import '../../model/ai_model_config.dart';
+import '../../model/ai_web_search_settings.dart';
+import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/chat/ai_chat_service.dart';
+import '../../service/chat/ai_protocol_adapter.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/chat/ai_transport_diagnostic_messages.dart';
+import '../../service/web_engine/web_engine_quality.dart';
+import '../../service/web_search/web_search_cache_store.dart';
+import '../../service/web_search/web_search_orchestrator.dart';
+import '../../service/web_search/web_search_telemetry_store.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 /// WebSearch sub-agent 实现：
 /// 1. 从 [AiBuiltinToolConfig.webSearchSettings] 读取引擎清单 / 并行 / 模型策略

@@ -2,17 +2,17 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../service/fs/ai_file_history_service.dart';
-import '../service/fs/ai_file_mutation_ledger.dart';
-import '../service/fs/ai_file_tracker_service.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../service/fs/ai_file_history_service.dart';
+import '../../service/fs/ai_file_mutation_ledger.dart';
+import '../../service/fs/ai_file_tracker_service.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
-class AiWriteTool extends AiTool {
+class AiMultiEditTool extends AiTool {
   @override
-  AiBuiltinToolKind get kind => AiBuiltinToolKind.write;
+  AiBuiltinToolKind get kind => AiBuiltinToolKind.multiEdit;
 
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
@@ -21,37 +21,26 @@ class AiWriteTool extends AiTool {
     final rawFilePath = '${args['file_path'] ?? ''}'.trim();
     if (rawFilePath.isEmpty) {
       return AiToolUtils.invalidResult(
-        'Write',
-        'Write requires a non-empty file_path.',
+        'MultiEdit',
+        'MultiEdit requires a non-empty file_path.',
       );
     }
-    // Resolve relative paths to absolute using the working directory rather
-    // than hard-rejecting them — models sometimes omit the leading '/'.
     final filePath = AiToolUtils.resolvePath(rawFilePath);
-    final content = '${args['content'] ?? ''}';
-
-    // Guard against excessively large writes that could exhaust memory or
-    // disk space.  10 MB is a generous limit for any single text file an AI
-    // model would reasonably produce.
-    const maxContentBytes = 10 * 1024 * 1024; // 10 MB
-    if (content.length > maxContentBytes) {
+    final edits = args['edits'];
+    if (edits is! List || edits.isEmpty) {
       return AiToolUtils.invalidResult(
-        'Write',
-        'Content exceeds the maximum allowed size '
-            '(${content.length} chars, limit $maxContentBytes). '
-            'Split the output into smaller files.',
+        'MultiEdit',
+        'MultiEdit requires a non-empty edits array.',
       );
     }
-
     final file = File(filePath);
-    final fileExists = await file.exists();
+    final bool fileExists = await file.exists();
 
     // 2026-04-13: 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
-      toolName: 'Write',
-      operationDescription: fileExists
-          ? 'Overwrite file with ${content.length} characters'
-          : 'Create new file with ${content.length} characters',
+      toolName: 'MultiEdit',
+      operationDescription:
+          'Apply ${edits.length} edit${edits.length > 1 ? 's' : ''} to file',
       targetPath: filePath,
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
       confirmWriteCommand: context.confirmWriteCommand,
@@ -69,7 +58,7 @@ class AiWriteTool extends AiTool {
         context.metadata['file_history'] as AiFileHistoryService?;
 
     final readValidation = await AiToolUtils.validateReadBeforeMutation(
-      toolName: 'Write',
+      toolName: 'MultiEdit',
       filePath: filePath,
       previouslyReadFiles: context.previouslyReadFiles,
       requireExistingFileRead: fileExists,
@@ -91,6 +80,48 @@ class AiWriteTool extends AiTool {
           await AiToolUtils.readFileContentForLedger(filePath);
     }
 
+    final String initialContent;
+    if (fileExists) {
+      try {
+        initialContent = await file.readAsString();
+      } on FormatException {
+        return AiToolUtils.invalidResult(
+          'MultiEdit',
+          'File does not appear to be a valid text file: $filePath',
+        );
+      }
+    } else {
+      initialContent = '';
+    }
+    var content = initialContent;
+    var isCreatingFile = !fileExists;
+    for (final rawEdit in edits) {
+      if (rawEdit is! Map) {
+        return AiToolUtils.invalidResult(
+          'MultiEdit',
+          'Each edit must be an object.',
+        );
+      }
+      final edit = Map<String, Object?>.from(rawEdit);
+      final oldString = '${edit['old_string'] ?? ''}';
+      final newString = '${edit['new_string'] ?? ''}';
+      final replaceAll = edit['replace_all'] == true;
+      if (oldString.isEmpty && isCreatingFile) {
+        content = newString;
+        isCreatingFile = false;
+        continue;
+      }
+      final replacement = AiToolUtils.replaceOnceOrAll(
+        content: content,
+        oldString: oldString,
+        newString: newString,
+        replaceAll: replaceAll,
+      );
+      if (!replacement.success) {
+        return AiToolUtils.invalidResult('MultiEdit', replacement.errorMessage);
+      }
+      content = replacement.content;
+    }
     await AiToolUtils.writeTextFileSafely(file, content);
 
     // 2026-04-12: 更新追踪器（写入成功后更新 lastReadTime）
@@ -105,46 +136,45 @@ class AiWriteTool extends AiTool {
       verificationContent = await file.readAsString();
     } catch (e) {
       return AiToolUtils.invalidResult(
-        'Write',
+        'MultiEdit',
         'File was written but verification read failed: $e',
       );
     }
     final verificationPassed = verificationContent == content;
-    // 2026-04-14: 修复验证逻辑 - 只要内容不匹配就报错（之前错误地要求同时满足字符数不匹配）
     if (!verificationPassed) {
       return AiToolUtils.invalidResult(
-        'Write',
-        'File was written but verification failed: content mismatch. '
-            'Expected ${content.length} chars, got ${verificationContent.length} chars. '
+        'MultiEdit',
+        'File was written but verification failed: content mismatch after write. '
             'This may indicate a write permission issue or concurrent modification.',
       );
     }
 
-    // 2026-05-03: 新型 ledger 记录双快照
+    // 2026-05-03: ledger 记录双快照
     final mutationLedger =
         context.metadata['mutation_ledger'] as AiFileMutationLedger?;
     final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
       ledger: mutationLedger,
       sessionId: context.sessionId,
       toolCallId: context.toolCall.id,
-      toolName: 'Write',
+      toolName: 'MultiEdit',
       filePath: filePath,
       kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
       beforeContent: beforeContentForLedger,
-      afterContent: content,
+      afterContent: verificationContent,
     );
 
     return AiToolUtils.simpleSuccessResult(
-      command: 'Write $filePath',
-      output: 'Wrote ${content.length} characters to $filePath (verified)',
+      command: 'MultiEdit $filePath',
+      output:
+          'Updated $filePath with ${edits.length} edit${edits.length > 1 ? 's' : ''} (verified)',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,
       metadata: <String, Object?>{
         'tool_source': 'builtin',
-        'file_mutation_kind': 'write',
+        'file_mutation_kind': 'multi_edit',
         'file_mutation_path': filePath,
-        'file_mutation_content_char_count': content.length,
+        'file_mutation_edit_count': edits.length,
         'file_mutation_verified': verificationPassed,
         if (versionId != null) 'file_mutation_history_version_id': versionId,
         if (ledgerRecordId != null)

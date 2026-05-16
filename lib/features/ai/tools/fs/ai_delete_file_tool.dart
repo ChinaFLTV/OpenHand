@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../service/bash/ai_bash_tool_service.dart';
-import '../service/fs/ai_file_mutation_ledger.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/fs/ai_file_mutation_ledger.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 /// 2026-04-10 DeleteFile 工具 — 对标 Cursor 的 delete_file。
 ///

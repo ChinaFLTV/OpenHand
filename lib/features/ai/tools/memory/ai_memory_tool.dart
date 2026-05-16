@@ -1,5 +1,5 @@
 library;
-import '../../memory/index.dart';
+import '../../../memory/index.dart';
 /// Hermes Talker 专用 Memory 工具 (Task 18 / 2026-04-25).
 ///
 /// 提供给自我学习子 Agent 使用，将对话中的关键结论沉淀到 [MemoryController]
@@ -17,11 +17,11 @@ import '../../memory/index.dart';
 /// 允许子 Agent 发起的行为），但仅在 Hermes Talker 自我学习场景下
 /// 被注册到工具目录（由 registry 的 `memoryControllerProvider` 控制）。
 
-import '../service/bash/ai_bash_tool_service.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 typedef MemoryControllerProvider = MemoryController? Function();
 

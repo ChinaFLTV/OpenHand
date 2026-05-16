@@ -1,9 +1,9 @@
-import '../../../app/support/safe_subprocess.dart';
-import '../service/bash/ai_bash_tool_service.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../../../app/support/safe_subprocess.dart';
+import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 /// 2026-04-10 Git 工具 — 提供结构化 Git 操作，对标 Cursor Agent 的 Git 集成。
 ///

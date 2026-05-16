@@ -2,16 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../../../app/support/silent_log.dart';
-import '../../../app/support/system_proxy.dart';
-import '../model/ai_deny_command_rule.dart';
-import '../service/bash/ai_bash_tool_service.dart';
-import '../service/sandbox/ai_sandbox_proxy_service.dart';
-import '../service/sandbox/ai_sandbox_service.dart';
-import '../service/runtime/ai_tool_runtime_service.dart';
-import 'ai_tool.dart';
-import 'ai_tool_execution_context.dart';
-import 'ai_tool_utils.dart';
+import '../../../../app/support/silent_log.dart';
+import '../../../../app/support/system_proxy.dart';
+import '../../model/ai_deny_command_rule.dart';
+import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/sandbox/ai_sandbox_proxy_service.dart';
+import '../../service/sandbox/ai_sandbox_service.dart';
+import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../ai_tool.dart';
+import '../ai_tool_execution_context.dart';
+import '../ai_tool_utils.dart';
 
 /// 长跑后台 Shell 工具。把 `Process.start` 启动的常驻进程拆解为 5 个 action：
 /// `start` / `write` / `read` / `stop` / `list`。
