@@ -20,6 +20,7 @@ export default defineConfig({
     sourcemap: false,
     target: 'es2022',
     cssCodeSplit: false,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         // 用确定性文件名，避免每次构建产生新 hash 导致 git diff 噪声
@@ -28,6 +29,24 @@ export default defineConfig({
         assetFileNames: (asset) => {
           if (asset.name?.endsWith('.css')) return 'app.css';
           return 'assets/[name][extname]';
+        },
+        // 按 vendor 与重 feature 拆 chunk，把 app.js 主块缩小。
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('preact') || id.includes('@preact')) return 'vendor-preact';
+            if (id.includes('marked') || id.includes('markdown')) return 'vendor-markdown';
+            if (id.includes('highlight')) return 'vendor-highlight';
+            return 'vendor';
+          }
+          if (id.includes('/features/sessions/')) return 'feature-sessions';
+          if (id.includes('/features/logs/')) return 'feature-logs';
+          if (id.includes('/features/ops/')) return 'feature-ops';
+          if (id.includes('/features/hardness/')) return 'feature-hardness';
+          if (id.includes('/features/toolbox/')) return 'feature-toolbox';
+          if (id.includes('/features/files/')) return 'feature-files';
+          if (id.includes('/features/plugins/')) return 'feature-plugins';
+          if (id.includes('/features/settings/')) return 'feature-settings';
+          return undefined;
         },
       },
     },
