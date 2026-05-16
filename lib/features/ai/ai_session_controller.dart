@@ -23,6 +23,7 @@ import 'model/ai_model_config.dart';
 import 'model/ai_session.dart';
 import 'model/ai_session_message.dart';
 import 'model/ai_session_runtime_context.dart';
+import 'model/ai_stream_throttle_override.dart';
 import 'model/ai_thread_template.dart';
 import 'model/ai_token_usage.dart';
 import 'service/bash/ai_bash_tool_service.dart';
@@ -568,6 +569,13 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, bool> _didCompressInLastSendBySession = <String, bool>{};
   final Map<String, int> _compressionFailureCountsBySession = <String, int>{};
 
+  /// 2026-05-17 — 会话级临时节流覆盖，仅本进程生效（不持久化）；用户可
+  /// 在线程会话顶部胶囊里临时调整字符 / 卡片限速，下次重启即恢复到模板/
+  /// 全局值。优先级：session > template > global。
+  final Map<String, AiStreamThrottleOverride> _sessionStreamThrottleOverrides =
+      <String, AiStreamThrottleOverride>{};
+  final ValueNotifier<int> _sessionStreamThrottleSignal = ValueNotifier<int>(0);
+
   /// 手动压缩防抖 — 同一会话两次手动压缩之间的最小间隔。
   /// 值不可低于 [_manualCompactionMinIntervalMs]，与「Cooldown」错误一并消化。
   final Map<String, DateTime> _lastManualCompactionAt = <String, DateTime>{};
@@ -640,6 +648,94 @@ class AiSessionController extends ChangeNotifier {
       List<AiSessionPersistenceIssue>.unmodifiable(_persistenceIssues);
   List<AiThreadTemplate> get templates => _templateRepository.templates;
   String get sessionsDirectoryPath => _store.sessionsDirectoryPath;
+
+  /// 当前会话级节流覆盖（不持久化，仅本进程生效）。命中 sessionId 才返
+  /// 回；未配置时为 null。UI 可通过 [streamThrottleOverrideSignal] 监听
+  /// 任何会话级覆盖的变更，实时刷新指示器。
+  AiStreamThrottleOverride? sessionStreamThrottleOverride(String sessionId) =>
+      _sessionStreamThrottleOverrides[sessionId];
+
+  /// 单调递增的信号；任意会话的节流覆盖被改写时 +1，UI 据此 setState。
+  ValueListenable<int> get streamThrottleOverrideSignal =>
+      _sessionStreamThrottleSignal;
+
+  /// 设置或清除某个会话的字符节流覆盖。`value == null` 表示清除该字段；
+  /// 当两个字段都被清除时，整个 entry 移除。
+  void setSessionStreamCharsOverride(String sessionId, int? value) {
+    if (sessionId.isEmpty) return;
+    final clamped = value?.clamp(
+      AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
+      AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
+    );
+    final current = _sessionStreamThrottleOverrides[sessionId];
+    final merged =
+        (current ?? const AiStreamThrottleOverride()).copyWith(
+          charsPerSecond: clamped,
+        );
+    if (merged.isEmpty) {
+      if (_sessionStreamThrottleOverrides.remove(sessionId) == null) return;
+    } else {
+      if (_sessionStreamThrottleOverrides[sessionId] == merged) return;
+      _sessionStreamThrottleOverrides[sessionId] = merged;
+    }
+    _sessionStreamThrottleSignal.value =
+        _sessionStreamThrottleSignal.value + 1;
+  }
+
+  /// 设置或清除某个会话的卡片节流覆盖。语义同
+  /// [setSessionStreamCharsOverride]。
+  void setSessionStreamCardsOverride(String sessionId, int? value) {
+    if (sessionId.isEmpty) return;
+    final clamped = value?.clamp(
+      AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
+      AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
+    );
+    final current = _sessionStreamThrottleOverrides[sessionId];
+    final merged =
+        (current ?? const AiStreamThrottleOverride()).copyWith(
+          cardsPerSecond: clamped,
+        );
+    if (merged.isEmpty) {
+      if (_sessionStreamThrottleOverrides.remove(sessionId) == null) return;
+    } else {
+      if (_sessionStreamThrottleOverrides[sessionId] == merged) return;
+      _sessionStreamThrottleOverrides[sessionId] = merged;
+    }
+    _sessionStreamThrottleSignal.value =
+        _sessionStreamThrottleSignal.value + 1;
+  }
+
+  /// 清除指定会话的全部覆盖；恢复到模板或全局值。
+  void clearSessionStreamThrottleOverride(String sessionId) {
+    if (sessionId.isEmpty) return;
+    if (_sessionStreamThrottleOverrides.remove(sessionId) == null) return;
+    _sessionStreamThrottleSignal.value =
+        _sessionStreamThrottleSignal.value + 1;
+  }
+
+  /// 解析有效字符限速：优先级 session > template > global。
+  int effectiveStreamCharsPerSecond({
+    required String sessionId,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    final session = _sessionStreamThrottleOverrides[sessionId];
+    if (session?.charsPerSecond != null) return session!.charsPerSecond!;
+    return runtimeContext.effectiveStreamMaxCharsPerSecond(
+      runtimeContext.templateId,
+    );
+  }
+
+  /// 解析有效卡片限速：优先级 session > template > global。
+  int effectiveStreamCardsPerSecond({
+    required String sessionId,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    final session = _sessionStreamThrottleOverrides[sessionId];
+    if (session?.cardsPerSecond != null) return session!.cardsPerSecond!;
+    return runtimeContext.effectiveStreamMaxMessageCardsPerSecond(
+      runtimeContext.templateId,
+    );
+  }
 
   /// Read-only accessor used by the self-learning scheduler to query
   /// sessions by template without reaching into private state.
@@ -768,6 +864,10 @@ class AiSessionController extends ChangeNotifier {
     _lastErrorMessagesBySession.remove(sessionId);
     _lastManualCompactionAt.remove(sessionId);
     _manualCompactionInflight.remove(sessionId);
+    if (_sessionStreamThrottleOverrides.remove(sessionId) != null) {
+      _sessionStreamThrottleSignal.value =
+          _sessionStreamThrottleSignal.value + 1;
+    }
   }
 
   void _pruneSessionScopedSendState() {
@@ -2669,6 +2769,7 @@ class AiSessionController extends ChangeNotifier {
     _toolRuntimeService.dispose();
     _chatClient.dispose();
     _loadedMcpToolsTracker.dispose();
+    _sessionStreamThrottleSignal.dispose();
     super.dispose();
   }
 
@@ -3049,6 +3150,9 @@ class AiSessionController extends ChangeNotifier {
             createdAt: _clock().toUtc(),
             modelId: model.id,
             modelLabel: model.displayName,
+            metadata: const <String, Object?>{
+              aiSessionMessageMetadataStreamingKey: false,
+            },
           ),
           update: (message) => message.copyWith(
             content: sanitizedContent.isEmpty
@@ -3056,6 +3160,10 @@ class AiSessionController extends ChangeNotifier {
                 : sanitizedContent,
             modelId: model.id,
             modelLabel: model.displayName,
+            metadata: <String, Object?>{
+              ...message.metadata,
+              aiSessionMessageMetadataStreamingKey: false,
+            },
           ),
         );
       }
@@ -3186,6 +3294,10 @@ class AiSessionController extends ChangeNotifier {
         if (sanitizedContent.isEmpty && assistantMessageId == null) {
           return;
         }
+        // 2026-05-17 — 还有未释放的字符余量则标记 streaming=true，让 UI
+        // 在尾部渲染打字机光标；停止时由 syncFinalAssistantMessage 把
+        // streaming 置为 false，光标随之消失。
+        final isStillStreaming = visibleLen < fullSanitized.length;
         final resolvedMessageId = assistantMessageId ?? _idGenerator();
         assistantMessageId = resolvedMessageId;
         streamedSession = _upsertMessage(
@@ -3197,11 +3309,18 @@ class AiSessionController extends ChangeNotifier {
             createdAt: _clock().toUtc(),
             modelId: model.id,
             modelLabel: model.displayName,
+            metadata: <String, Object?>{
+              aiSessionMessageMetadataStreamingKey: true,
+            },
           ),
           update: (message) => message.copyWith(
             content: sanitizedContent,
             modelId: model.id,
             modelLabel: model.displayName,
+            metadata: <String, Object?>{
+              ...message.metadata,
+              aiSessionMessageMetadataStreamingKey: isStillStreaming,
+            },
           ),
         );
         schedulePreview('charThrottle');
@@ -3226,21 +3345,27 @@ class AiSessionController extends ChangeNotifier {
         schedulePreview('reasoningDelta');
       }
 
+      // 优先级：session 临时覆盖 > 模板覆盖 > 全局值。
+      final sessionThrottleOverride =
+          _sessionStreamThrottleOverrides[workingSession.id];
+      final effChars = sessionThrottleOverride?.charsPerSecond ??
+          runtimeContext.effectiveStreamMaxCharsPerSecond(
+            workingSession.templateId,
+          );
+      final effCards = sessionThrottleOverride?.cardsPerSecond ??
+          runtimeContext.effectiveStreamMaxMessageCardsPerSecond(
+            workingSession.templateId,
+          );
       charThrottle = _StreamCharThrottle(
-        maxCharsPerSecond: runtimeContext.effectiveStreamMaxCharsPerSecond(
-          workingSession.templateId,
-        ),
+        maxCharsPerSecond: effChars,
         onTick: renderAssistantBuffered,
       );
       reasoningCharThrottle = _StreamCharThrottle(
-        maxCharsPerSecond: runtimeContext.effectiveStreamMaxCharsPerSecond(
-          workingSession.templateId,
-        ),
+        maxCharsPerSecond: effChars,
         onTick: renderReasoningBuffered,
       );
       cardThrottle = _StreamCardThrottle(
-        maxCardsPerSecond: runtimeContext
-            .effectiveStreamMaxMessageCardsPerSecond(workingSession.templateId),
+        maxCardsPerSecond: effCards,
         onCardEmitted: () => schedulePreview('cardThrottle'),
       );
 

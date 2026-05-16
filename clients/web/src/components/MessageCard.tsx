@@ -906,6 +906,13 @@ function MessageCardImpl({
             mono={style.mono === true}
           />
         )}
+        {!isUserBubble &&
+          !useStructuredToolBody &&
+          !useToolBody &&
+          message.kind !== 'file_mutation_summary' &&
+          streamingContent ? (
+          <TypewriterCaret />
+        ) : null}
       </ReasoningCollapsibleBody>
       {canCollapse && !streamingContent && !badgeCollapsed ? (
         <button
@@ -1312,6 +1319,28 @@ function ConstructingBadge() {
       <span class="oh-pulse-soft" aria-hidden style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
       {t('detail.tool.constructing', '参数构造中')}
     </span>
+  );
+}
+
+/// 流式助手消息尾部的「打字机」光标。配合 Dart 端 _StreamCharThrottle
+/// 一起，给低速率字符流式输出场景一个明确的"AI 仍在打字"视觉信号。
+function TypewriterCaret() {
+  return (
+    <span
+      class="oh-typewriter-caret"
+      aria-hidden
+      style={{
+        display: 'inline-block',
+        width: 8,
+        height: 14,
+        marginLeft: 4,
+        verticalAlign: '-2px',
+        borderRadius: 2,
+        background: 'currentColor',
+        opacity: 0.7,
+        animation: 'oh-typewriter-caret-blink 0.95s ease-in-out infinite alternate',
+      }}
+    />
   );
 }
 

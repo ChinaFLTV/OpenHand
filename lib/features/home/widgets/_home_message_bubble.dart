@@ -112,6 +112,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;
     final isStreamingReasoning = _isStreamingReasoningMessage(message);
+    final isStreamingAssistant =
+        message.kind == AiSessionMessageKind.assistant &&
+        message.metadata[aiSessionMessageMetadataStreamingKey] == true;
     final isToolCall =
         message.kind == AiSessionMessageKind.toolCall ||
         message.kind == AiSessionMessageKind.hook;
@@ -455,6 +458,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 : _messageMarkdownCollapseLineThreshold,
                             previewMaxHeight: isToolResult ? 176 : 240,
                           ),
+                          if (isStreamingAssistant) ...[
+                            const SizedBox(height: 4),
+                            _TypewriterCaret(color: textColor),
+                          ],
                         ],
                       ),
                     const SizedBox(height: 10),
@@ -3850,4 +3857,64 @@ class _FullscreenChromeButtonState extends State<_FullscreenChromeButton> {
 /// routes. Toggles play/pause on the embedded `<video>`/`<audio>` element.
 class _MediaPlayPauseIntent extends Intent {
   const _MediaPlayPauseIntent();
+}
+
+
+/// 流式助手消息尾部的「打字机」光标。
+///
+/// 2026-05-17 — 配合 [_StreamCharThrottle] 的 60fps 节流，给低速率字符
+/// 流式输出场景一个明确的"AI 仍在打字"视觉信号；停流时该 widget 直接
+/// 不再插入，光标随之消失。脉动节奏 1Hz、振幅 0.3↔1.0，整体克制，
+/// 不会喧宾夺主。
+class _TypewriterCaret extends StatefulWidget {
+  const _TypewriterCaret({required this.color});
+
+  final Color color;
+
+  @override
+  State<_TypewriterCaret> createState() => _TypewriterCaretState();
+}
+
+class _TypewriterCaretState extends State<_TypewriterCaret>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 950),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _ctrl.stop();
+      return _buildBlock(1);
+    }
+    if (!_ctrl.isAnimating) {
+      _ctrl.repeat(reverse: true);
+    }
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        // 0.3..1 区间脉冲，节奏温和不喧宾夺主。
+        final t = Curves.easeInOutSine.transform(_ctrl.value);
+        return _buildBlock(0.3 + 0.7 * t);
+      },
+    );
+  }
+
+  Widget _buildBlock(double opacity) {
+    return Container(
+      width: 8,
+      height: 16,
+      decoration: BoxDecoration(
+        color: widget.color.withValues(alpha: opacity),
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
 }

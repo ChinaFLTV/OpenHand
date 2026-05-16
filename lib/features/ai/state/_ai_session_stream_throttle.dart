@@ -82,8 +82,10 @@ class _StreamCharThrottle {
     if (_drainTimer != null || _disposed) {
       return;
     }
-    // 30fps 节奏即可：等价于一次 33ms 内放进 ceil(rate / 30) 个字符。
-    _drainTimer = Timer(const Duration(milliseconds: 33), () {
+    // 60fps 节奏：16ms 一次 tick，让字符在低速率（默认 3 字符/秒）下也
+    // 能感受到稳定的"打字机"节奏，而不是间歇性蹦出整块。在高速率下也
+    // 不会因为 tick 太密把主线程拖累——onTick 回调本身只做轻量切片。
+    _drainTimer = Timer(const Duration(milliseconds: 16), () {
       _drainTimer = null;
       if (_disposed) {
         return;
@@ -98,6 +100,14 @@ class _StreamCharThrottle {
         _scheduleDrain();
       }
     });
+  }
+
+  /// 当前距离释放下一个字符还差多少（[0, 1] 区间，1 = 即将释放）。
+  /// 用于给 UI 渲染半透明的"待出场字符"，让低速率下的渲染拥有连续动画。
+  double get partialCharProgress {
+    if (!isEnabled) return 1;
+    final clamped = _budget.clamp(0.0, 1.0);
+    return clamped;
   }
 
   /// 立刻释放剩余预算，供流结束 / 取消时把全部内容一次性显式刷出。
