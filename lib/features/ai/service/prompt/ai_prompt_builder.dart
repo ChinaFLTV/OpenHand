@@ -1026,7 +1026,9 @@ class AiPromptBuilder {
     // 此处进一步添加分组标题，让模型在阅读时明确优先级语义。
     // 2026-04-21 对机器专家线程模板，内建终端交互主流程拥有绝对最高优先级；
     // 外部 Skill / MCP 仅可作为辅助知识来源，不得替代目标终端执行入口。
+    // 2026-05-16 Web 逆向专家：CDP 通道由内建栈驱动，外部 MCP/Skill 仅作辅助。
     final isMachineExpert = templateId == 'machine_expert';
+    final isWebReverse = templateId == 'web_reverse_expert';
     final buffer = StringBuffer();
     if (compact) {
       buffer.writeln(
@@ -1048,6 +1050,15 @@ class AiPromptBuilder {
           'and MUST NOT replace or reorder this template\'s built-in workflow, its phase output templates, or its safety gates. '
           'All `write text` / `do script` / `keystroke` / `tmux send-keys` dispatch MUST go through the built-in Bash tool '
           'so it passes the local deny-list and write-command confirmation pipeline.',
+        );
+      } else if (isWebReverse) {
+        buffer.writeln(
+          'Capability invocation priority for the Web Reverse Expert template: '
+          'Builtin tools (Bash / Read / Write / Edit / Grep / Glob / WebFetch / WebSearch / TodoWrite) drive the workflow. '
+          'CDP-level browser observation (Network / Console / Page domains) is exposed by the OpenHand-managed external Chrome session — '
+          'do not try to launch a new browser or attach via Bash. '
+          'External skill__* / mcp__* tools may be used as auxiliary domain knowledge sources only and MUST NOT replace the built-in pipeline. '
+          'Hook scripts MUST be loaded from `assets/prompts/web_reverse_expert/snippets/`; never hand-craft hook code.',
         );
       } else {
         buffer.writeln(
@@ -1382,6 +1393,8 @@ class AiPromptBuilder {
         'You are OpenHand Programming Expert. Produce a relay-safe coding checkpoint.',
       'hermes_talker' =>
         'You are OpenHand Hermes Talker. Produce a relay-safe assistant checkpoint.',
+      'web_reverse_expert' =>
+        'You are OpenHand Web Reverse Expert. Produce a relay-safe browser-reverse checkpoint with target URL, identified API entry, hook scripts injected, and saved artifacts under WD/.web_reverse/.',
       _ => 'You are OpenHand. Produce a relay-safe conversation checkpoint.',
     };
     return '''CRITICAL: Respond with TEXT ONLY. Do not call tools.
