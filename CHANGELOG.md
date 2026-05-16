@@ -13,7 +13,7 @@ All notable changes to OpenHand will be documented in this file.
     `ToolSearchHistorySerializer.toJson` and preview its entries (timestamp,
     source, query, +added / total) in a read-only dialog. Parse failures
     surface the FormatException via SnackBar instead of crashing.
-  - Reusable `OhPill` shared widget in `lib/shared/widgets/oh_pill.dart`
+  - Reusable `OhPill` shared widget in `lib/shared/ui/oh_pill.dart`
     with widget tests covering icon / label / InkWell wiring and overflow
     behaviour.
   - `ToolSearchHistoryExportPrefs` (sqflite-backed KV) for "last save

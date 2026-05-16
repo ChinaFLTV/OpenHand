@@ -1,4 +1,4 @@
-// 模型选择弹窗 (1:1 对齐 App 端 lib/shared/widgets/model_search_selector.dart):
+// 模型选择弹窗 (1:1 对齐 App 端 lib/shared/ui/model_search_selector.dart):
 // - 搜索框自动聚焦, 多空格 token 全部命中才匹配
 // - 「最近使用」分组置顶 (持久化到 localStorage)
 // - 按 provider+protocol 分组, 当前激活模型加 check/radio icon
