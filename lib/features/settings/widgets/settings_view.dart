@@ -50,6 +50,7 @@ import '../../memory/memory_controller.dart';
 import '../../skills/skills_controller.dart';
 import '../data_cleanup/data_cleanup_models.dart';
 import '../data_cleanup/data_cleanup_service.dart';
+import '../service/throttle_cloud_sync_service.dart';
 import 'prompt_cache_breakpoint_bar.dart';
 import 'thread_session_management_dialog.dart';
 part '_settings_ai_model_editor.dart';
@@ -1669,6 +1670,25 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
                 controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              // 2026-05-18 — 节流配置云端同步入口；custom 走真实 HTTP
+              // PUT/GET，iCloud / OAuth 留占位入口
+              _ResponsiveSettingRow(
+                title:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '节流配置云端同步'
+                    : 'Cloud Sync',
+                subtitle:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '把节流配置推送 / 拉取到自定义 HTTP 端点。token 走 Authorization Bearer header；iCloud / OAuth 入口为后续接入预留。'
+                    : 'Push / pull throttle config to a custom HTTP endpoint via Bearer token. iCloud / OAuth are reserved for future native bridging.',
+                control: const _ThrottleCloudSyncEditor(),
+                controlMaxWidth: 720,
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
@@ -3923,23 +3943,14 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     if (file == null) return;
+    Map<String, Object?> nextDoc;
     try {
       final raw = await file.readAsString();
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
         throw const FormatException('Root must be a JSON object');
       }
-      final changed = await controller.importAiStreamThrottleConfig(
-        Map<String, Object?>.from(decoded),
-      );
-      if (!context.mounted) return;
-      _showSnackBar(
-        context,
-        changed
-            ? (isZh ? '节流配置已导入并应用。' : 'Throttle config imported.')
-            : (isZh ? '配置无变化。' : 'No changes detected.'),
-        kind: _SettingsSnackKind.success,
-      );
+      nextDoc = Map<String, Object?>.from(decoded);
     } catch (error, stack) {
       silentLog(
         'settings_view',
@@ -3953,7 +3964,95 @@ class _SettingsViewState extends State<SettingsView> {
         isZh ? '导入失败：${error.toString()}' : 'Import failed: $error',
         kind: _SettingsSnackKind.error,
       );
+      return;
     }
+    if (!context.mounted) return;
+    // 2026-05-18 — 应用前先弹「冲突预览」对话框，让用户看清哪些字段
+    // 会被覆盖；用户确认后才真正写入。
+    final current = controller.exportAiStreamThrottleConfig();
+    final diffs = _diffThrottleConfig(current, nextDoc);
+    if (diffs.isEmpty) {
+      _showSnackBar(
+        context,
+        isZh ? '配置无变化。' : 'No changes detected.',
+        kind: _SettingsSnackKind.success,
+      );
+      return;
+    }
+    final confirmed = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) => _ThrottleImportDiffDialog(
+        diffs: diffs,
+        isZh: isZh,
+      ),
+    );
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+    try {
+      final changed = await controller.importAiStreamThrottleConfig(nextDoc);
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        changed
+            ? (isZh ? '节流配置已导入并应用。' : 'Throttle config imported.')
+            : (isZh ? '配置无变化。' : 'No changes detected.'),
+        kind: _SettingsSnackKind.success,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'settings_view',
+        '_importAiStreamThrottleConfig.apply',
+        error,
+        stack,
+      );
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        isZh ? '应用失败：${error.toString()}' : 'Apply failed: $error',
+        kind: _SettingsSnackKind.error,
+      );
+    }
+  }
+
+  /// 2026-05-18 — 把 current 和 incoming 两份节流配置拍平后逐字段对
+  /// 比，返回 (label, current, next) 三元组。仅返回值发生变化的项；
+  /// 顺序固定（开关→自动→字符→卡片→各模板覆盖）方便预览阅读。
+  List<_ThrottleDiffRow> _diffThrottleConfig(
+    Map<String, Object?> current,
+    Map<String, Object?> next,
+  ) {
+    final rows = <_ThrottleDiffRow>[];
+    void add(String label, Object? before, Object? after) {
+      if (before == after) return;
+      rows.add(_ThrottleDiffRow(label, _formatValue(before), _formatValue(after)));
+    }
+
+    add('throttle_enabled', current['throttle_enabled'], next['throttle_enabled']);
+    add('auto_mode', current['auto_mode'], next['auto_mode']);
+    add(
+      'max_chars_per_second',
+      current['max_chars_per_second'],
+      next['max_chars_per_second'],
+    );
+    add(
+      'max_message_cards_per_second',
+      current['max_message_cards_per_second'],
+      next['max_message_cards_per_second'],
+    );
+    final curOv = (current['template_overrides'] as Map?) ?? const {};
+    final nextOv = (next['template_overrides'] as Map?) ?? const {};
+    final keys = <String>{...curOv.keys.cast<String>(), ...nextOv.keys.cast<String>()};
+    for (final tid in keys) {
+      add('overrides[$tid]', curOv[tid], nextOv[tid]);
+    }
+    return rows;
+  }
+
+  String _formatValue(Object? v) {
+    if (v == null) return '—';
+    if (v is bool) return v ? 'on' : 'off';
+    if (v is Map) return jsonEncode(v);
+    return v.toString();
   }
 
   Future<void> _saveCompressionThreshold(
@@ -6206,6 +6305,449 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
               fontWeight: FontWeight.w700,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// 节流配置 import 时的 diff 行：字段名 + 当前值 + 即将应用的值。
+class _ThrottleDiffRow {
+  const _ThrottleDiffRow(this.label, this.before, this.after);
+  final String label;
+  final String before;
+  final String after;
+}
+
+/// 节流配置 import 冲突预览弹窗：列出 diff，用户确认后再 apply。
+///
+/// 2026-05-18 — 直接 apply 容易让用户误覆盖未察觉的字段；先把所有差异
+/// 项以 「key · before → after」 行形式展示，并提供 取消 / 应用 两个
+/// OpenHandDialogActionButton 让用户做最后决策。
+class _ThrottleImportDiffDialog extends StatelessWidget {
+  const _ThrottleImportDiffDialog({
+    required this.diffs,
+    required this.isZh,
+  });
+
+  final List<_ThrottleDiffRow> diffs;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 560),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.compare_arrows_rounded,
+                      size: 20, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    isZh ? '节流配置 · 冲突预览' : 'Throttle Config · Diff Preview',
+                    style: theme.textTheme.titleLarge,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isZh
+                    ? '以下字段会被新 JSON 覆盖；点击「应用」后才正式生效。'
+                    : 'Below fields will be overwritten. Click "Apply" to commit.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: scheme.outlineVariant),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: diffs.length,
+                    separatorBuilder: (_, _) => Divider(
+                      height: 12,
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                    itemBuilder: (_, i) {
+                      final r = diffs[i];
+                      return Row(
+                        children: [
+                          Expanded(
+                            flex: 4,
+                            child: Text(
+                              r.label,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 5,
+                            child: Text(
+                              r.before,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.error,
+                                decoration: TextDecoration.lineThrough,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 14,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            flex: 5,
+                            child: Text(
+                              r.after,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.primary,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    label: isZh ? '取消' : 'Cancel',
+                  ),
+                  const SizedBox(width: 8),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    label: isZh ? '应用 ${diffs.length} 项' : 'Apply ${diffs.length}',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// 节流配置云端同步编辑器：provider 选择 + endpoint / token 输入 +
+/// push / pull 按钮。
+///
+/// 2026-05-18 — provider=custom 走真实 HTTP；icloud / oauth 仅显示占
+/// 位说明，触发 push / pull 时返回明确的"尚未实现"消息。
+class _ThrottleCloudSyncEditor extends StatefulWidget {
+  const _ThrottleCloudSyncEditor();
+
+  @override
+  State<_ThrottleCloudSyncEditor> createState() =>
+      _ThrottleCloudSyncEditorState();
+}
+
+class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
+  late final TextEditingController _endpointCtrl;
+  late final TextEditingController _tokenCtrl;
+  late final FocusNode _endpointFocus;
+  late final FocusNode _tokenFocus;
+  bool _busy = false;
+  String _status = '';
+  bool _statusError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = context.read<SettingsController>();
+    _endpointCtrl = TextEditingController(
+      text: c.aiStreamThrottleCloudSyncEndpoint,
+    );
+    _tokenCtrl = TextEditingController(
+      text: c.aiStreamThrottleCloudSyncToken,
+    );
+    _endpointFocus = FocusNode();
+    _tokenFocus = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _endpointCtrl.dispose();
+    _tokenCtrl.dispose();
+    _endpointFocus.dispose();
+    _tokenFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveCredentials() async {
+    final c = context.read<SettingsController>();
+    await c.updateAiStreamThrottleCloudSyncEndpoint(_endpointCtrl.text);
+    await c.updateAiStreamThrottleCloudSyncToken(_tokenCtrl.text);
+  }
+
+  Future<void> _push() async {
+    final c = context.read<SettingsController>();
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    setState(() {
+      _busy = true;
+      _status = '';
+      _statusError = false;
+    });
+    await _saveCredentials();
+    final provider = ThrottleCloudSyncProvider.fromStorage(
+      c.aiStreamThrottleCloudSyncProvider,
+    );
+    final result = await ThrottleCloudSyncService().push(
+      provider: provider,
+      endpoint: c.aiStreamThrottleCloudSyncEndpoint,
+      token: c.aiStreamThrottleCloudSyncToken,
+      config: c.exportAiStreamThrottleConfig(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _statusError = !result.ok;
+      _status = result.ok
+          ? (isZh ? '已推送：${result.message}' : 'Pushed: ${result.message}')
+          : (isZh ? '推送失败：${result.message}' : 'Push failed: ${result.message}');
+    });
+  }
+
+  Future<void> _pull() async {
+    final c = context.read<SettingsController>();
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    setState(() {
+      _busy = true;
+      _status = '';
+      _statusError = false;
+    });
+    await _saveCredentials();
+    final provider = ThrottleCloudSyncProvider.fromStorage(
+      c.aiStreamThrottleCloudSyncProvider,
+    );
+    final result = await ThrottleCloudSyncService().pull(
+      provider: provider,
+      endpoint: c.aiStreamThrottleCloudSyncEndpoint,
+      token: c.aiStreamThrottleCloudSyncToken,
+    );
+    if (!mounted) return;
+    if (!result.ok || result.config == null) {
+      setState(() {
+        _busy = false;
+        _statusError = true;
+        _status = isZh ? '拉取失败：${result.message}' : 'Pull failed: ${result.message}';
+      });
+      return;
+    }
+    final current = c.exportAiStreamThrottleConfig();
+    final diffs = _diffThrottleConfigPure(current, result.config!);
+    setState(() => _busy = false);
+    if (diffs.isEmpty) {
+      setState(() {
+        _statusError = false;
+        _status = isZh ? '配置无变化。' : 'No changes detected.';
+      });
+      return;
+    }
+    final confirmed = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) =>
+          _ThrottleImportDiffDialog(diffs: diffs, isZh: isZh),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    final changed = await c.importAiStreamThrottleConfig(result.config!);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _statusError = false;
+      _status = changed
+          ? (isZh ? '已应用云端配置。' : 'Cloud config applied.')
+          : (isZh ? '配置无变化。' : 'No changes detected.');
+    });
+  }
+
+  static List<_ThrottleDiffRow> _diffThrottleConfigPure(
+    Map<String, Object?> current,
+    Map<String, Object?> next,
+  ) {
+    final rows = <_ThrottleDiffRow>[];
+    String fmt(Object? v) {
+      if (v == null) return '—';
+      if (v is bool) return v ? 'on' : 'off';
+      if (v is Map) return jsonEncode(v);
+      return v.toString();
+    }
+
+    void add(String label, Object? a, Object? b) {
+      if (a == b) return;
+      rows.add(_ThrottleDiffRow(label, fmt(a), fmt(b)));
+    }
+
+    add('throttle_enabled', current['throttle_enabled'], next['throttle_enabled']);
+    add('auto_mode', current['auto_mode'], next['auto_mode']);
+    add(
+      'max_chars_per_second',
+      current['max_chars_per_second'],
+      next['max_chars_per_second'],
+    );
+    add(
+      'max_message_cards_per_second',
+      current['max_message_cards_per_second'],
+      next['max_message_cards_per_second'],
+    );
+    final curOv = (current['template_overrides'] as Map?) ?? const {};
+    final nextOv = (next['template_overrides'] as Map?) ?? const {};
+    final keys = <String>{...curOv.keys.cast<String>(), ...nextOv.keys.cast<String>()};
+    for (final tid in keys) {
+      add('overrides[$tid]', curOv[tid], nextOv[tid]);
+    }
+    return rows;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final c = context.watch<SettingsController>();
+    final providerEnum = ThrottleCloudSyncProvider.fromStorage(
+      c.aiStreamThrottleCloudSyncProvider,
+    );
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SegmentedButton<ThrottleCloudSyncProvider>(
+            segments: <ButtonSegment<ThrottleCloudSyncProvider>>[
+              ButtonSegment(
+                value: ThrottleCloudSyncProvider.custom,
+                icon: const Icon(Icons.cloud_outlined, size: 16),
+                label: Text(isZh ? '自定义 HTTP' : 'Custom HTTP'),
+              ),
+              const ButtonSegment(
+                value: ThrottleCloudSyncProvider.iCloud,
+                icon: Icon(Icons.cloud_circle_outlined, size: 16),
+                label: Text('iCloud'),
+              ),
+              const ButtonSegment(
+                value: ThrottleCloudSyncProvider.oauth,
+                icon: Icon(Icons.lock_outline_rounded, size: 16),
+                label: Text('OAuth'),
+              ),
+            ],
+            selected: <ThrottleCloudSyncProvider>{providerEnum},
+            onSelectionChanged: (s) {
+              if (s.isEmpty) return;
+              c.updateAiStreamThrottleCloudSyncProvider(s.first.storageValue);
+            },
+          ),
+          const SizedBox(height: 12),
+          if (providerEnum != ThrottleCloudSyncProvider.custom)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: scheme.tertiaryContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                isZh
+                    ? '${providerEnum == ThrottleCloudSyncProvider.iCloud ? "iCloud Drive" : "OAuth"} 同步入口已预留；当前版本暂未接入 native 桥接，请使用「自定义 HTTP」端点。'
+                    : '${providerEnum == ThrottleCloudSyncProvider.iCloud ? "iCloud Drive" : "OAuth"} sync placeholder; native bridging not wired up yet — use Custom HTTP for now.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onTertiaryContainer,
+                ),
+              ),
+            ),
+          if (providerEnum == ThrottleCloudSyncProvider.custom) ...[
+            TextField(
+              controller: _endpointCtrl,
+              focusNode: _endpointFocus,
+              decoration: InputDecoration(
+                labelText: isZh ? 'HTTP Endpoint URL' : 'HTTP Endpoint URL',
+                hintText: 'https://example.com/openhand/throttle',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _tokenCtrl,
+              focusNode: _tokenFocus,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: isZh ? 'Bearer Token (可选)' : 'Bearer Token (optional)',
+                hintText: '••••••••',
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _busy ? null : _push,
+                icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                label: Text(isZh ? '推送到云端' : 'Push'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: _busy ? null : _pull,
+                icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                label: Text(isZh ? '从云端拉取' : 'Pull'),
+              ),
+            ],
+          ),
+          if (_status.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: (_statusError ? scheme.errorContainer : scheme.primaryContainer)
+                    .withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                _status,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: _statusError
+                      ? scheme.onErrorContainer
+                      : scheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
