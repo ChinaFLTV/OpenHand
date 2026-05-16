@@ -582,6 +582,11 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, _StreamCardThrottle> _activeCardThrottles =
       <String, _StreamCardThrottle>{};
 
+  /// 2026-05-18 — 会话级活跃 charThrottle 引用，仅在该会话流式中存在；
+  /// 供 TopBar 仪表盘读取最近 30s 字符吞吐曲线。
+  final Map<String, _StreamCharThrottle> _activeCharThrottles =
+      <String, _StreamCharThrottle>{};
+
   /// 手动压缩防抖 — 同一会话两次手动压缩之间的最小间隔。
   /// 值不可低于 [_manualCompactionMinIntervalMs]，与「Cooldown」错误一并消化。
   final Map<String, DateTime> _lastManualCompactionAt = <String, DateTime>{};
@@ -666,6 +671,14 @@ class AiSessionController extends ChangeNotifier {
     final throttle = _activeCardThrottles[sessionId];
     if (throttle == null || !throttle.isEnabled) return 0;
     return throttle.pendingCount;
+  }
+
+  /// 2026-05-18 — 当前会话最近 30s 字符吞吐曲线快照（每秒一个桶，桶 0
+  /// = 当前秒）。非流式或限速关闭返回空列表。
+  List<int> sessionStreamCharThroughputSnapshot(String sessionId) {
+    final throttle = _activeCharThrottles[sessionId];
+    if (throttle == null) return const <int>[];
+    return throttle.throughputSnapshot();
   }
 
   /// 单调递增的信号；任意会话的节流覆盖被改写时 +1，UI 据此 setState。
@@ -3387,6 +3400,7 @@ class AiSessionController extends ChangeNotifier {
         },
       );
       _activeCardThrottles[workingSession.id] = cardThrottle;
+      _activeCharThrottles[workingSession.id] = charThrottle;
 
       final subscription = streamResponse.events.listen((event) {
         var sessionChanged = false;
@@ -3649,6 +3663,7 @@ class AiSessionController extends ChangeNotifier {
         reasoningCharThrottle.release();
         cardThrottle.releaseAll();
         _activeCardThrottles.remove(workingSession.id);
+        _activeCharThrottles.remove(workingSession.id);
         _sessionStreamThrottleSignal.value =
             _sessionStreamThrottleSignal.value + 1;
         await subscription.cancel();
@@ -3725,6 +3740,7 @@ class AiSessionController extends ChangeNotifier {
       reasoningCharThrottle.release();
       cardThrottle.releaseAll();
       _activeCardThrottles.remove(workingSession.id);
+      _activeCharThrottles.remove(workingSession.id);
       _sessionStreamThrottleSignal.value =
           _sessionStreamThrottleSignal.value + 1;
       materializePendingReasoningPreview();

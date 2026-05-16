@@ -2711,6 +2711,13 @@ class _StreamThrottleSessionDialogState
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(height: 12),
+              // 2026-05-18 — 实时字符吞吐 mini 仪表盘：30s 滑窗，每秒
+              // 一个柱；柱高 = chars/sec / max。流式过程中持续刷新。
+              _StreamThroughputMiniGauge(
+                sessionId: widget.sessionId,
+                maxRate: globalChars <= 0 ? 1 : globalChars,
+              ),
               const SizedBox(height: 16),
               TextField(
                 controller: _charsCtrl,
@@ -2781,5 +2788,232 @@ class _StreamThrottleSessionDialogState
         ),
       ),
     );
+  }
+}
+
+
+/// 节流 mini 仪表盘：30 秒滑动窗口的字符吞吐柱状图。
+///
+/// 2026-05-18 — 让用户在节流弹窗里直接看到 AI 当前正以多快的速度流出
+/// 字符；柱越高越接近设定速率上限，柱越低则说明令牌桶已经消耗完毕。
+/// 200ms 节奏轮询 controller 即可，自带 reduceMotion 跳过动画。
+class _StreamThroughputMiniGauge extends StatefulWidget {
+  const _StreamThroughputMiniGauge({
+    required this.sessionId,
+    required this.maxRate,
+  });
+
+  final String sessionId;
+  final int maxRate;
+
+  @override
+  State<_StreamThroughputMiniGauge> createState() =>
+      _StreamThroughputMiniGaugeState();
+}
+
+class _StreamThroughputMiniGaugeState
+    extends State<_StreamThroughputMiniGauge> {
+  Timer? _ticker;
+  List<int> _samples = const <int>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    _ticker = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      if (mounted) _refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _refresh() {
+    final controller = context.read<AiSessionController>();
+    final next = controller.sessionStreamCharThroughputSnapshot(
+      widget.sessionId,
+    );
+    if (!_listsEqual(next, _samples)) {
+      setState(() => _samples = next);
+    }
+  }
+
+  bool _listsEqual(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final samples = _samples;
+    final peak = samples.isEmpty ? 0 : samples.reduce(math.max);
+    final current = samples.isEmpty ? 0 : samples.first;
+    final cap = math.max(widget.maxRate, peak == 0 ? 1 : peak);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.show_chart_rounded,
+                size: 14,
+                color: scheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                isZh ? '字符吞吐 (30s)' : 'Chars Throughput (30s)',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                isZh
+                    ? '当前 $current/s · 峰 $peak/s · 上限 ${widget.maxRate}/s'
+                    : 'now $current/s · peak $peak/s · cap ${widget.maxRate}/s',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurface,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 56,
+            child: CustomPaint(
+              painter: _ThroughputBarsPainter(
+                samples: samples,
+                cap: cap,
+                color: scheme.primary,
+                gridColor: scheme.outlineVariant.withValues(alpha: 0.6),
+                limitColor: scheme.tertiary.withValues(alpha: 0.45),
+                limitValue: widget.maxRate,
+              ),
+              size: const Size(double.infinity, 56),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThroughputBarsPainter extends CustomPainter {
+  _ThroughputBarsPainter({
+    required this.samples,
+    required this.cap,
+    required this.color,
+    required this.gridColor,
+    required this.limitColor,
+    required this.limitValue,
+  });
+
+  final List<int> samples;
+  final int cap;
+  final Color color;
+  final Color gridColor;
+  final Color limitColor;
+  final int limitValue;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (samples.isEmpty || cap <= 0) {
+      _drawEmpty(canvas, size);
+      return;
+    }
+    // 网格底线：底部 1px
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(0, size.height - 0.5),
+      Offset(size.width, size.height - 0.5),
+      gridPaint,
+    );
+    // 上限参考线
+    if (limitValue > 0 && limitValue <= cap) {
+      final y = size.height - (limitValue / cap) * size.height;
+      final dashPaint = Paint()
+        ..color = limitColor
+        ..strokeWidth = 1.0;
+      const dashWidth = 4.0;
+      const dashGap = 3.0;
+      var x = 0.0;
+      while (x < size.width) {
+        canvas.drawLine(
+          Offset(x, y),
+          Offset(math.min(x + dashWidth, size.width), y),
+          dashPaint,
+        );
+        x += dashWidth + dashGap;
+      }
+    }
+    // 柱子：bucket 0 = 当前秒（最右侧），bucket N-1 = 30s 前（最左）
+    final n = samples.length;
+    const gap = 1.5;
+    final totalGap = gap * (n - 1);
+    final barW = (size.width - totalGap) / n;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final paintFaded = Paint()
+      ..color = color.withValues(alpha: 0.32)
+      ..style = PaintingStyle.fill;
+    for (var i = 0; i < n; i++) {
+      final v = samples[i];
+      // 把 bucket 0 渲染到最右；i 越大画越靠左。
+      final x = (n - 1 - i) * (barW + gap);
+      final h = cap == 0 ? 0.0 : (v / cap) * size.height;
+      final clamped = h.clamp(0.0, size.height);
+      final rect = Rect.fromLTWH(
+        x,
+        size.height - clamped,
+        barW,
+        clamped,
+      );
+      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(2));
+      canvas.drawRRect(rrect, i == 0 ? paint : paintFaded);
+    }
+  }
+
+  void _drawEmpty(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(0, size.height - 0.5),
+      Offset(size.width, size.height - 0.5),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ThroughputBarsPainter old) {
+    if (old.cap != cap || old.limitValue != limitValue) return true;
+    if (old.samples.length != samples.length) return true;
+    for (var i = 0; i < samples.length; i++) {
+      if (old.samples[i] != samples[i]) return true;
+    }
+    return old.color != color ||
+        old.gridColor != gridColor ||
+        old.limitColor != limitColor;
   }
 }

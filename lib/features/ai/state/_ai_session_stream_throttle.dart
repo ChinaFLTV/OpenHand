@@ -45,7 +45,9 @@ class _StreamCharThrottle {
   int renderableLength(int totalSanitizedLength) {
     _lastKnownTotal = totalSanitizedLength;
     if (!isEnabled || _disposed) {
+      final granted = totalSanitizedLength - _emittedChars;
       _emittedChars = totalSanitizedLength;
+      if (granted > 0) _recordEmission(granted);
       return totalSanitizedLength;
     }
     if (totalSanitizedLength <= _emittedChars) {
@@ -58,12 +60,58 @@ class _StreamCharThrottle {
       final granted = allowance >= pending ? pending : allowance;
       _emittedChars += granted;
       _budget -= granted;
+      _recordEmission(granted);
     }
     if (_emittedChars < totalSanitizedLength) {
       _scheduleDrain();
     }
     return _emittedChars;
   }
+
+  // ── 吞吐采样：保留最近 [_kThroughputBuckets] 秒的字符放出量，给
+  // TopBar 仪表盘画曲线。每秒一个桶，O(1) 更新。
+  static const int _kThroughputBuckets = 30;
+  final List<int> _throughputBuckets = List<int>.filled(_kThroughputBuckets, 0);
+  int _throughputBucketSecond = 0;
+
+  void _recordEmission(int chars) {
+    if (chars <= 0) return;
+    final nowSec =
+        DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (_throughputBucketSecond == 0) {
+      _throughputBucketSecond = nowSec;
+      _throughputBuckets[0] = chars;
+      return;
+    }
+    final delta = nowSec - _throughputBucketSecond;
+    if (delta <= 0) {
+      _throughputBuckets[0] += chars;
+      return;
+    }
+    if (delta >= _kThroughputBuckets) {
+      for (var i = 0; i < _kThroughputBuckets; i++) {
+        _throughputBuckets[i] = 0;
+      }
+    } else {
+      // 把现有桶向后挪 delta 位，老的丢失，新桶清零。
+      for (var i = _kThroughputBuckets - 1; i >= delta; i--) {
+        _throughputBuckets[i] = _throughputBuckets[i - delta];
+      }
+      for (var i = 0; i < delta; i++) {
+        _throughputBuckets[i] = 0;
+      }
+    }
+    _throughputBucketSecond = nowSec;
+    _throughputBuckets[0] = chars;
+  }
+
+  /// 最近 [_kThroughputBuckets] 秒的每秒字符吞吐快照，桶 0 = 当前秒，
+  /// 越往后越旧。返回不可变副本，UI 可直接喂给 painter。
+  List<int> throughputSnapshot() =>
+      List<int>.unmodifiable(_throughputBuckets);
+
+  /// 当前秒（桶 0）累计已放出的字符数。
+  int get currentSecondEmitted => _throughputBuckets[0];
 
   void _refill() {
     final now = DateTime.now();
