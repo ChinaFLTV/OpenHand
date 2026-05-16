@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import '../../ai/index.dart';
 import '../model/mcp_lazy_loading_mode.dart';
+
 class McpLazyLoadingApplier {
   const McpLazyLoadingApplier();
 

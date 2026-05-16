@@ -54,11 +54,7 @@ class _HardnessSessionTile extends StatelessWidget {
                   const Icon(Icons.edit_outlined, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    _localizedText(
-                      context,
-                      zh: '重命名线程',
-                      en: 'Rename Thread',
-                    ),
+                    _localizedText(context, zh: '重命名线程', en: 'Rename Thread'),
                   ),
                 ],
               ),
@@ -306,11 +302,7 @@ class _ThreadTile extends StatelessWidget {
                   const Icon(Icons.edit_outlined, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    _localizedText(
-                      context,
-                      zh: '重命名线程',
-                      en: 'Rename Thread',
-                    ),
+                    _localizedText(context, zh: '重命名线程', en: 'Rename Thread'),
                   ),
                 ],
               ),

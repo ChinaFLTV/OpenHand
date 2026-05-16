@@ -32,9 +32,7 @@ abstract final class AiPlanApprovalDetector {
     return _approvalPhrases.any(normalized.contains);
   }
 
-  static final RegExp _punctuationPattern = RegExp(
-    r'[\s!！。．\.,，、;；:：~～?？]+',
-  );
+  static final RegExp _punctuationPattern = RegExp(r'[\s!！。．\.,，、;；:：~～?？]+');
 
   /// Bare-equality approvals. Must match the FULL compact reply.
   static const Set<String> _standaloneApprovalReplies = <String>{

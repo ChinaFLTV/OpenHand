@@ -83,7 +83,8 @@ class _AiSessionExportConfigDialogState
       text: widget.initial.startIndex?.toString() ?? '1',
     );
     _endController = TextEditingController(
-      text: widget.initial.endIndex?.toString() ??
+      text:
+          widget.initial.endIndex?.toString() ??
           widget.totalMessages.toString(),
     );
   }
@@ -95,7 +96,8 @@ class _AiSessionExportConfigDialogState
     super.dispose();
   }
 
-  bool get _isZh => Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool get _isZh =>
+      Localizations.localeOf(context).languageCode.startsWith('zh');
 
   String _roleLabel(AiSessionMessageRole role) {
     switch (role) {
@@ -180,22 +182,26 @@ class _AiSessionExportConfigDialogState
     }
     if (_roles.isEmpty) {
       setState(() {
-        _rangeError =
-            _isZh ? '请至少选择一个 role。' : 'Pick at least one role.';
+        _rangeError = _isZh ? '请至少选择一个 role。' : 'Pick at least one role.';
       });
       return null;
     }
     if (_kinds.isEmpty) {
       setState(() {
-        _rangeError =
-            _isZh ? '请至少选择一个消息类型。' : 'Pick at least one message kind.';
+        _rangeError = _isZh
+            ? '请至少选择一个消息类型。'
+            : 'Pick at least one message kind.';
       });
       return null;
     }
     setState(() => _rangeError = null);
     return AiSessionExportConfig(
-      roles: _roles.length == AiSessionMessageRole.values.length ? null : _roles,
-      kinds: _kinds.length == AiSessionMessageKind.values.length ? null : _kinds,
+      roles: _roles.length == AiSessionMessageRole.values.length
+          ? null
+          : _roles,
+      kinds: _kinds.length == AiSessionMessageKind.values.length
+          ? null
+          : _kinds,
       includeDeleted: _includeDeleted,
       startIndex: start,
       endIndex: end,
@@ -265,22 +271,24 @@ class _AiSessionExportConfigDialogState
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: AiSessionMessageKind.values.map((kind) {
-                  final selected = _kinds.contains(kind);
-                  return FilterChip(
-                    label: Text(_kindLabel(kind)),
-                    selected: selected,
-                    onSelected: (value) {
-                      setState(() {
-                        if (value) {
-                          _kinds.add(kind);
-                        } else {
-                          _kinds.remove(kind);
-                        }
-                      });
-                    },
-                  );
-                }).toList(growable: false),
+                children: AiSessionMessageKind.values
+                    .map((kind) {
+                      final selected = _kinds.contains(kind);
+                      return FilterChip(
+                        label: Text(_kindLabel(kind)),
+                        selected: selected,
+                        onSelected: (value) {
+                          setState(() {
+                            if (value) {
+                              _kinds.add(kind);
+                            } else {
+                              _kinds.remove(kind);
+                            }
+                          });
+                        },
+                      );
+                    })
+                    .toList(growable: false),
               ),
               const SizedBox(height: 8),
               _SectionHeader(text: _isZh ? '消息区间' : 'Message Range'),
@@ -415,7 +423,8 @@ class _HardnessSessionExportConfigDialogState
       text: widget.initial.startIndex?.toString() ?? '1',
     );
     _endController = TextEditingController(
-      text: widget.initial.endIndex?.toString() ??
+      text:
+          widget.initial.endIndex?.toString() ??
           widget.totalPhaseLogs.toString(),
     );
   }
@@ -427,7 +436,8 @@ class _HardnessSessionExportConfigDialogState
     super.dispose();
   }
 
-  bool get _isZh => Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool get _isZh =>
+      Localizations.localeOf(context).languageCode.startsWith('zh');
 
   HardnessSessionExportConfig? _buildConfig() {
     int? start;

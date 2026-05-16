@@ -56,7 +56,6 @@ typedef WriteCommandConfirmationCallback =
       BashCommandApprovalRequest request,
     );
 
-
 class AiSessionController extends ChangeNotifier {
   AiSessionController._({
     required AiSessionStore store,
@@ -460,10 +459,12 @@ class AiSessionController extends ChangeNotifier {
       timeout: _autoTitleRequestTimeout,
     );
     final rawTitle = _sanitizeGeneratedTitle(completion.reply);
-    final title = rawTitle.isNotEmpty ? rawTitle : content.trim().substring(
-      0,
-      content.trim().length.clamp(0, maxTitleCharacters),
-    );
+    final title = rawTitle.isNotEmpty
+        ? rawTitle
+        : content.trim().substring(
+            0,
+            content.trim().length.clamp(0, maxTitleCharacters),
+          );
     if (title.isEmpty) return;
     final session = _sessionById(sessionId);
     if (session == null) return;
@@ -580,7 +581,7 @@ class AiSessionController extends ChangeNotifier {
   // 既保留首启 lazy 加载的成本，又避免重复 I/O 击穿主线程。
   Future<String>? _deviceIdFuture;
   Future<({List<String> ipAddresses, List<Map<String, Object?>> interfaces})>?
-      _networkSnapshotFuture;
+  _networkSnapshotFuture;
   String? _currentSessionId;
   AiSessionDeletionNotice? _lastDeletionNotice;
   String? _editingMessageId;
@@ -952,12 +953,10 @@ class AiSessionController extends ChangeNotifier {
       return;
     }
     // 发起标题生成（复用已有逻辑）
-    final sourceMessageId = session.autoTitleSourceMessageId ??
+    final sourceMessageId =
+        session.autoTitleSourceMessageId ??
         session.messages
-            .where(
-              (m) =>
-                  !m.isDeleted && m.kind == AiSessionMessageKind.user,
-            )
+            .where((m) => !m.isDeleted && m.kind == AiSessionMessageKind.user)
             .map((m) => m.id)
             .firstOrNull ??
         '';
@@ -1064,15 +1063,18 @@ class AiSessionController extends ChangeNotifier {
     // 含 900 ms 超时) 互不依赖，并行 await 让 createSession 的关键路径
     // 由「串行 I/O」收敛为「max(两路)」，再叠加缓存命中后的接近零延时。
     final deviceIdFuture = _deviceIdFuture ??= _readOrCreateDeviceId();
-    final networkFuture =
-        _networkSnapshotFuture ??= _localNetworkSnapshot();
+    final networkFuture = _networkSnapshotFuture ??= _localNetworkSnapshot();
     final results = await Future.wait<Object>(<Future<Object>>[
       deviceIdFuture,
       networkFuture,
     ]);
     final deviceId = results[0] as String;
-    final network = results[1]
-        as ({List<String> ipAddresses, List<Map<String, Object?>> interfaces});
+    final network =
+        results[1]
+            as ({
+              List<String> ipAddresses,
+              List<Map<String, Object?>> interfaces,
+            });
     final source = _defaultAppLoginSource(runtimeContext);
     return <String, Object?>{
       'web_gateway_context': <String, Object?>{
@@ -5795,7 +5797,6 @@ class AiSessionController extends ChangeNotifier {
   bool _looksLikePlanApproval(String content) =>
       AiPlanApprovalDetector.looksLikePlanApproval(content);
 
-
   Future<AiSession> _compressIfNeeded({
     required AiSession session,
     required AiModelConfig model,
@@ -7214,8 +7215,8 @@ $trimmedSummary''';
             !nextAutoTitleGeneratedAt.isAfter(liveAutoTitleGeneratedAt))) {
       return nextSession.copyWith(
         title: liveSession.title,
-        autoTitleAcquired: liveSession.autoTitleAcquired ||
-            nextSession.autoTitleAcquired,
+        autoTitleAcquired:
+            liveSession.autoTitleAcquired || nextSession.autoTitleAcquired,
         autoTitleGeneratedAt: liveAutoTitleGeneratedAt,
         autoTitleSourceMessageId: liveSession.autoTitleSourceMessageId,
       );

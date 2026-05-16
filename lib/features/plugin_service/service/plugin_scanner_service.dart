@@ -23,17 +23,21 @@ class PluginScannerService {
     final script = StringBuffer();
     script.writeln('export NVM_DIR="\${NVM_DIR:-$home/.nvm}"');
     script.writeln('[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"');
-    script.writeln('if command -v fnm >/dev/null 2>&1; then eval "\$(fnm env)"; fi');
+    script.writeln(
+      'if command -v fnm >/dev/null 2>&1; then eval "\$(fnm env)"; fi',
+    );
     script.writeln('export VOLTA_HOME="\${VOLTA_HOME:-$home/.volta}"');
     script.writeln('export PATH="\$VOLTA_HOME/bin:\$PATH"');
     script.writeln(command);
-    return Process.run(
-      _pickShell(), ['-c', script.toString()],
-    ).timeout(const Duration(seconds: 15));
+    return Process.run(_pickShell(), [
+      '-c',
+      script.toString(),
+    ]).timeout(const Duration(seconds: 15));
   }
 
   /// 直接从 nvm 目录结构解析当前默认 Node 版本（不依赖 shell）。
-  Future<({String version, String nodeBin, String npmBin})?> _resolveNvmDirect() async {
+  Future<({String version, String nodeBin, String npmBin})?>
+  _resolveNvmDirect() async {
     final home = Platform.environment['HOME'] ?? '';
     final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
     final versionsDir = Directory('$nvmDir/versions/node');
@@ -92,8 +96,16 @@ class PluginScannerService {
   }
 
   static int _compareVersions(String a, String b) {
-    final ap = a.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
-    final bp = b.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final ap = a
+        .substring(1)
+        .split('.')
+        .map((s) => int.tryParse(s) ?? 0)
+        .toList();
+    final bp = b
+        .substring(1)
+        .split('.')
+        .map((s) => int.tryParse(s) ?? 0)
+        .toList();
     for (int i = 0; i < 3; i++) {
       final av = i < ap.length ? ap[i] : 0;
       final bv = i < bp.length ? bp[i] : 0;
@@ -108,18 +120,24 @@ class PluginScannerService {
       // 方案 1：直接从 nvm 目录解析（最可靠）
       final nvm = await _resolveNvmDirect();
       if (nvm != null) {
-        final versionResult = await Process.run(nvm.nodeBin, ['--version'])
-            .timeout(const Duration(seconds: 5));
+        final versionResult = await Process.run(nvm.nodeBin, [
+          '--version',
+        ]).timeout(const Duration(seconds: 5));
         final version = versionResult.exitCode == 0
             ? versionResult.stdout.toString().trim()
             : nvm.version;
         String? latestVersion;
         try {
           if (File(nvm.npmBin).existsSync()) {
-            final r = await Process.run(nvm.npmBin, ['view', 'node', 'version'])
-                .timeout(const Duration(seconds: 10));
+            final r = await Process.run(nvm.npmBin, [
+              'view',
+              'node',
+              'version',
+            ]).timeout(const Duration(seconds: 10));
             if (r.exitCode == 0) {
-              final m = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(r.stdout.toString());
+              final m = RegExp(
+                r'(\d+\.\d+\.\d+)',
+              ).firstMatch(r.stdout.toString());
               if (m != null) latestVersion = 'v${m.group(1)}';
             }
           }
@@ -145,15 +163,19 @@ class PluginScannerService {
         }
         final pathResult = await _shellRun('which node');
         final installPath = pathResult.exitCode == 0
-            ? pathResult.stdout.toString().split('\n')
-                .lastWhere((l) => l.trim().startsWith('/'), orElse: () => '')
-                .trim()
+            ? pathResult.stdout
+                  .toString()
+                  .split('\n')
+                  .lastWhere((l) => l.trim().startsWith('/'), orElse: () => '')
+                  .trim()
             : null;
         String? latestVersion;
         try {
           final r = await _shellRun('npm view node version');
           if (r.exitCode == 0) {
-            final m = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(r.stdout.toString());
+            final m = RegExp(
+              r'(\d+\.\d+\.\d+)',
+            ).firstMatch(r.stdout.toString());
             if (m != null) latestVersion = 'v${m.group(1)}';
           }
         } catch (_) {}
@@ -204,7 +226,9 @@ class PluginScannerService {
         try {
           final r = await _shellRun('npm view playwright version');
           if (r.exitCode == 0) {
-            final m = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(r.stdout.toString());
+            final m = RegExp(
+              r'(\d+\.\d+\.\d+)',
+            ).firstMatch(r.stdout.toString());
             if (m != null) latestVersion = m.group(1);
           }
         } catch (_) {}

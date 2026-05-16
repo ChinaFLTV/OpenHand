@@ -249,7 +249,12 @@ class AiSkillManagerTool extends AiTool {
       try {
         await parent.delete();
       } catch (error, stack) {
-        silentLog('ai_skill_manager_tool', 'delete empty parent category dir', error, stack);
+        silentLog(
+          'ai_skill_manager_tool',
+          'delete empty parent category dir',
+          error,
+          stack,
+        );
       }
     }
 
@@ -721,7 +726,12 @@ class AiSkillManagerTool extends AiTool {
         try {
           await temp.delete();
         } catch (cleanupError, cleanupStack) {
-          silentLog('ai_skill_manager_tool', 'cleanup temp file after failed atomic write', cleanupError, cleanupStack);
+          silentLog(
+            'ai_skill_manager_tool',
+            'cleanup temp file after failed atomic write',
+            cleanupError,
+            cleanupStack,
+          );
         }
       }
       rethrow;

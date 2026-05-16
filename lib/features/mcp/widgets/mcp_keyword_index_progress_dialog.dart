@@ -90,7 +90,9 @@ class _McpKeywordIndexProgressDialogState
           l10n.mcpKeywordIndexBuildSummary(
             idx.totalServers,
             idx.totalTools,
-            idx.byName.length + idx.byDescription.length + idx.bySearchHint.length,
+            idx.byName.length +
+                idx.byDescription.length +
+                idx.bySearchHint.length,
             (idx.durationMs / 1000).toStringAsFixed(2),
           ),
           style: theme.textTheme.bodyMedium,
@@ -119,12 +121,7 @@ class _McpKeywordIndexProgressDialogState
         );
       }
     } else {
-      body.add(
-        LinearProgressIndicator(
-          value: ratio,
-          minHeight: 4,
-        ),
-      );
+      body.add(LinearProgressIndicator(value: ratio, minHeight: 4));
       body.add(const SizedBox(height: 12));
       body.add(
         Text(

@@ -130,7 +130,9 @@ class MediaCacheService {
         }
         if (aborted) {
           // 超限: 删除临时文件, 不缓存。
-          try { await tempFile.delete(); } catch (_) {}
+          try {
+            await tempFile.delete();
+          } catch (_) {}
           return;
         }
         // 原子重命名: 避免读到半写文件。

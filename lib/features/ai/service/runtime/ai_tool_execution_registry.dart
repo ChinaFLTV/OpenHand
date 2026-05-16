@@ -33,10 +33,9 @@ class AiToolExecutionRegistry with ChangeNotifier {
   ///
   /// 返回不可变快照；UI 端在 `addListener` 中重读即可。
   List<AiToolExecutionRecord> get activeRecords {
-    final list = _entries.values
-        .map((entry) => entry.record)
-        .toList(growable: false)
-      ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    final list =
+        _entries.values.map((entry) => entry.record).toList(growable: false)
+          ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
     return List<AiToolExecutionRecord>.unmodifiable(list);
   }
 

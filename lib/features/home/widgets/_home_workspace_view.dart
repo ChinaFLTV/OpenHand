@@ -166,7 +166,8 @@ class _WorkspaceView extends StatelessWidget {
                             onFileExplorerToggled: onFileExplorerToggled,
                             activeProfile: selectedModel
                                 ?.modelProfiles[selectedModel!.modelId],
-                            claudeStyle: selectedModel?.protocolType ==
+                            claudeStyle:
+                                selectedModel?.protocolType ==
                                 AiProtocolType.claude,
                           ),
                           const SizedBox(height: 14),
@@ -229,13 +230,14 @@ class _WorkspaceView extends StatelessWidget {
                                         // flash from scroll-top to
                                         // scroll-bottom.
                                         jumpToBottomOnInit: jumpToBottomOnInit,
-                                        fileExplorerVisible: fileExplorerVisible,
+                                        fileExplorerVisible:
+                                            fileExplorerVisible,
                                         onFileExplorerToggled:
                                             onFileExplorerToggled,
-                                        activeProfile: selectedModel
-                                            ?.modelProfiles[
-                                              selectedModel!.modelId
-                                            ],
+                                        activeProfile:
+                                            selectedModel
+                                                ?.modelProfiles[selectedModel!
+                                                .modelId],
                                         claudeStyle:
                                             selectedModel?.protocolType ==
                                             AiProtocolType.claude,
@@ -271,7 +273,8 @@ class _WorkspaceView extends StatelessWidget {
                                         onFileExplorerToggled,
                                     activeProfile: selectedModel
                                         ?.modelProfiles[selectedModel!.modelId],
-                                    claudeStyle: selectedModel?.protocolType ==
+                                    claudeStyle:
+                                        selectedModel?.protocolType ==
                                         AiProtocolType.claude,
                                   ),
                                 ),
@@ -593,9 +596,10 @@ class _ComposerInstructionsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = context.select<InstructionsController, List<UserInstructionEntry>>(
-      (c) => c.enabledEntries,
-    );
+    final entries = context
+        .select<InstructionsController, List<UserInstructionEntry>>(
+          (c) => c.enabledEntries,
+        );
     if (entries.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     return Padding(
@@ -641,10 +645,7 @@ class _ComposerInstructionChip extends StatelessWidget {
     return Material(
       color: baseColor,
       shape: StadiumBorder(
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant,
-          width: 0.5,
-        ),
+        side: BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5),
       ),
       child: InkWell(
         customBorder: const StadiumBorder(),
@@ -654,11 +655,7 @@ class _ComposerInstructionChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(
-                Icons.tips_and_updates_outlined,
-                size: 14,
-                color: fg,
-              ),
+              Icon(Icons.tips_and_updates_outlined, size: 14, color: fg),
               const SizedBox(width: 4),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 140),
@@ -668,8 +665,9 @@ class _ComposerInstructionChip extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: fg,
-                    decoration:
-                        skipped ? TextDecoration.lineThrough : TextDecoration.none,
+                    decoration: skipped
+                        ? TextDecoration.lineThrough
+                        : TextDecoration.none,
                   ),
                 ),
               ),

@@ -4434,15 +4434,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     //      最终视口卡在「最后一页消息列表的最旧那条」上。
     //   3. 同会话内消息追加场景 (sessionId 不变只 length/lastMessage 变)
     //      仍按原逻辑消费 + schedule，保持流式期间贴底跟随。
-    final sessionIdChanged = previousSignature == null ||
+    final sessionIdChanged =
+        previousSignature == null ||
         !previousSignature.startsWith('${session!.id}|');
     if (sessionIdChanged) {
       // 会话切换：transcript 内部已通过 jumpToBottomOnInit + 16 帧 settle
       // 自行贴底；这里再额外发一个 *jump*（非 animate） 兜底，避免与
       // transcript 的 jumpTo 互相打架。
-      _scheduleAutoFollowIfNeeded(
-        animated: false,
-      );
+      _scheduleAutoFollowIfNeeded(animated: false);
     } else {
       _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
     }
@@ -4939,14 +4938,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
     final userMessages = session.messages
-        .where((m) => !m.isDeleted && m.kind == AiSessionMessageKind.user && m.content.trim().isNotEmpty)
+        .where(
+          (m) =>
+              !m.isDeleted &&
+              m.kind == AiSessionMessageKind.user &&
+              m.content.trim().isNotEmpty,
+        )
         .toList(growable: false);
     if (userMessages.isEmpty) {
       _showHomeSnackBar(
         context,
         SnackBar(
           content: Text(
-            _localizedText(context, zh: '暂无用户消息可供总结', en: 'No user messages to summarize'),
+            _localizedText(
+              context,
+              zh: '暂无用户消息可供总结',
+              en: 'No user messages to summarize',
+            ),
           ),
         ),
       );
@@ -4963,7 +4971,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (model == null) {
       _showHomeSnackBar(
         context,
-        SnackBar(content: Text(_localizedText(context, zh: '未配置模型', en: 'No model configured'))),
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '未配置模型', en: 'No model configured'),
+          ),
+        ),
       );
       return;
     }
@@ -4997,9 +5009,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }) async {
     final result = await showAnimatedDialog<(int, int)>(
       context: context,
-      builder: (dialogContext) => _TitleSummaryRangeDialog(
-        userMessages: userMessages,
-      ),
+      builder: (dialogContext) =>
+          _TitleSummaryRangeDialog(userMessages: userMessages),
     );
     if (!mounted || result == null) return;
     final (startIdx, endIdx) = result;
@@ -5037,7 +5048,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             ),
             const SizedBox(width: 16),
             Text(
-              _localizedText(dialogContext, zh: '正在生成摘要标题…', en: 'Generating title…'),
+              _localizedText(
+                dialogContext,
+                zh: '正在生成摘要标题…',
+                en: 'Generating title…',
+              ),
             ),
           ],
         ),
@@ -5053,13 +5068,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (mounted) Navigator.of(context).pop();
       _showHomeSnackBar(
         context,
-        SnackBar(content: Text(_localizedText(context, zh: '标题生成成功', en: 'Title generated'))),
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '标题生成成功', en: 'Title generated'),
+          ),
+        ),
       );
     } catch (error) {
       if (mounted) Navigator.of(context).pop();
       _showHomeSnackBar(
         context,
-        SnackBar(content: Text('${_localizedText(context, zh: '标题生成失败', en: 'Title generation failed')}: $error')),
+        SnackBar(
+          content: Text(
+            '${_localizedText(context, zh: '标题生成失败', en: 'Title generation failed')}: $error',
+          ),
+        ),
       );
     }
   }

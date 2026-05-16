@@ -320,7 +320,8 @@ extension on _SettingsViewState {
       languageLabel: _editorLspLanguageLabel(context, language),
       summary: _editorLspSummary(context, settingsController, language),
       hasManagedInstallManifest: managedInstallManifest != null,
-      supportsManagedInstall: effectiveBackend != null &&
+      supportsManagedInstall:
+          effectiveBackend != null &&
           AiLspManagedInstallService.supportsManagedInstall(effectiveBackend),
       onTap: () => _openEditorLspConfigDialog(context, language),
     );
@@ -843,10 +844,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                     ),
                     const SizedBox(width: 12),
                     AnimatedSlide(
-                      offset: Offset(
-                        _hovered && !reduceMotion ? 0.18 : 0,
-                        0,
-                      ),
+                      offset: Offset(_hovered && !reduceMotion ? 0.18 : 0, 0),
                       duration: reduceMotion
                           ? Duration.zero
                           : const Duration(milliseconds: 180),
@@ -1078,7 +1076,12 @@ Future<_DetectedSdkVersion?> _detectDartSdkVersion(String sdkPath) async {
         }
       }
     } catch (error, stack) {
-      silentLog('settings_editor_lsp', 'detect Flutter SDK version', error, stack);
+      silentLog(
+        'settings_editor_lsp',
+        'detect Flutter SDK version',
+        error,
+        stack,
+      );
     }
   }
   return _detectCommandSdkVersion(
@@ -1905,7 +1908,12 @@ class _EditorLspInstallRunnerDialogState
     try {
       _process?.kill();
     } catch (error, stack) {
-      silentLog('settings_editor_lsp', 'kill install process on dispose', error, stack);
+      silentLog(
+        'settings_editor_lsp',
+        'kill install process on dispose',
+        error,
+        stack,
+      );
     }
     _scrollController.dispose();
     super.dispose();
@@ -2130,7 +2138,12 @@ class _EditorLspInstallRunnerDialogState
               try {
                 _process?.kill();
               } catch (error, stack) {
-                silentLog('settings_editor_lsp', 'kill install process on cancel', error, stack);
+                silentLog(
+                  'settings_editor_lsp',
+                  'kill install process on cancel',
+                  error,
+                  stack,
+                );
               }
               Navigator.of(context).pop(false);
             },

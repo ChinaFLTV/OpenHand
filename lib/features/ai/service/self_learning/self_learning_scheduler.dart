@@ -157,11 +157,13 @@ class SelfLearningScheduler {
       }
       triggered += 1;
       futures.add(
-        _dispatch(session).then((report) {
-          if (report != null) reports.add(report);
-        }).catchError((_) {
-          errors += 1;
-        }),
+        _dispatch(session)
+            .then((report) {
+              if (report != null) reports.add(report);
+            })
+            .catchError((_) {
+              errors += 1;
+            }),
       );
     }
 

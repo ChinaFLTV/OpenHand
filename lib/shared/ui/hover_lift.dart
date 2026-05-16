@@ -51,10 +51,7 @@ class _HoverLiftState extends State<HoverLift> {
         duration: reduceMotion ? Duration.zero : widget.duration,
         curve: widget.curve,
         builder: (context, value, child) {
-          return Transform.translate(
-            offset: Offset(0, value),
-            child: child,
-          );
+          return Transform.translate(offset: Offset(0, value), child: child);
         },
         child: widget.child,
       ),

@@ -33,7 +33,10 @@ List<TextSpan> ansiToSpans(
   void flush() {
     if (buffer.isEmpty) return;
     spans.add(
-      TextSpan(text: buffer.toString(), style: state.toTextStyle(base, colorScheme)),
+      TextSpan(
+        text: buffer.toString(),
+        style: state.toTextStyle(base, colorScheme),
+      ),
     );
     buffer.clear();
   }
@@ -44,7 +47,7 @@ List<TextSpan> ansiToSpans(
     if (ch == 0x1b && i + 1 < input.length) {
       final next = input.codeUnitAt(i + 1);
       // CSI: ESC [ ... letter
-      if (next == 0x5b /* [ */) {
+      if (next == 0x5b /* [ */ ) {
         final endIdx = _findCsiEnd(input, i + 2);
         if (endIdx == -1) {
           // Malformed — keep the literal ESC and continue.
@@ -53,7 +56,7 @@ List<TextSpan> ansiToSpans(
           continue;
         }
         final finalByte = input.codeUnitAt(endIdx);
-        if (finalByte == 0x6d /* m */) {
+        if (finalByte == 0x6d /* m */ ) {
           flush();
           final params = input.substring(i + 2, endIdx);
           state.applySgr(params);
@@ -63,7 +66,7 @@ List<TextSpan> ansiToSpans(
         continue;
       }
       // OSC: ESC ] ... BEL or ESC \\
-      if (next == 0x5d /* ] */) {
+      if (next == 0x5d /* ] */ ) {
         final stEnd = _findOscEnd(input, i + 2);
         if (stEnd == -1) {
           buffer.writeCharCode(ch);
@@ -113,7 +116,7 @@ int _findCsiEnd(String input, int start) {
 int _findOscEnd(String input, int start) {
   for (var i = start; i < input.length; i++) {
     final c = input.codeUnitAt(i);
-    if (c == 0x07 /* BEL */) return i + 1;
+    if (c == 0x07 /* BEL */ ) return i + 1;
     if (c == 0x1b && i + 1 < input.length && input.codeUnitAt(i + 1) == 0x5c) {
       return i + 2;
     }
@@ -150,7 +153,9 @@ class _AnsiState {
     final effectiveFg = inverse ? bg : fg;
     final effectiveBg = inverse ? fg : bg;
     if (effectiveFg != null) {
-      style = style.copyWith(color: dim ? effectiveFg.withValues(alpha: 0.66) : effectiveFg);
+      style = style.copyWith(
+        color: dim ? effectiveFg.withValues(alpha: 0.66) : effectiveFg,
+      );
     } else if (dim) {
       final c = style.color ?? colorScheme.onSurface;
       style = style.copyWith(color: c.withValues(alpha: 0.66));

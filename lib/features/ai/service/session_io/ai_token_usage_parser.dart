@@ -30,9 +30,11 @@ class AiTokenUsageParser {
   ///   * cache_creation_input_tokens
   ///   * prompt_cache_miss_tokens 不视为写入，仅作为 miss 记录被丢弃。
   static AiTokenUsage? parseOpenAi(Map<String, Object?> usageMap) {
-    final promptTokens = _readInt(usageMap['prompt_tokens']) ??
+    final promptTokens =
+        _readInt(usageMap['prompt_tokens']) ??
         _readInt(usageMap['input_tokens']);
-    final completionTokens = _readInt(usageMap['completion_tokens']) ??
+    final completionTokens =
+        _readInt(usageMap['completion_tokens']) ??
         _readInt(usageMap['output_tokens']);
     final totalTokens = _readInt(usageMap['total_tokens']);
 
@@ -85,7 +87,8 @@ class AiTokenUsageParser {
     return AiTokenUsage(
       promptTokens: promptTokens,
       completionTokens: completionTokens,
-      totalTokens: totalTokens ??
+      totalTokens:
+          totalTokens ??
           ((promptTokens ?? 0) + (completionTokens ?? 0) > 0
               ? (promptTokens ?? 0) + (completionTokens ?? 0)
               : null),
@@ -110,8 +113,12 @@ class AiTokenUsageParser {
     int? cacheCreation = _readInt(usageMap['cache_creation_input_tokens']);
     final creationDetails = _readMap(usageMap['cache_creation']);
     if (creationDetails != null) {
-      final ephemeral5m = _readInt(creationDetails['ephemeral_5m_input_tokens']);
-      final ephemeral1h = _readInt(creationDetails['ephemeral_1h_input_tokens']);
+      final ephemeral5m = _readInt(
+        creationDetails['ephemeral_5m_input_tokens'],
+      );
+      final ephemeral1h = _readInt(
+        creationDetails['ephemeral_1h_input_tokens'],
+      );
       final detailedSum = (ephemeral5m ?? 0) + (ephemeral1h ?? 0);
       // 优先使用平铺 cache_creation_input_tokens；缺失时退到子对象之和。
       cacheCreation ??= detailedSum > 0 ? detailedSum : null;
@@ -129,7 +136,8 @@ class AiTokenUsageParser {
     return AiTokenUsage(
       promptTokens: promptTokens,
       completionTokens: completionTokens,
-      totalTokens: totalTokens ??
+      totalTokens:
+          totalTokens ??
           ((promptTokens ?? 0) + (completionTokens ?? 0) > 0
               ? (promptTokens ?? 0) + (completionTokens ?? 0)
               : null),
@@ -205,8 +213,10 @@ class AiTokenUsageParser {
 
     return AiTokenUsage(
       promptTokens: incoming.promptTokens ?? previous.promptTokens,
-      completionTokens:
-          maxNullable(previous.completionTokens, incoming.completionTokens),
+      completionTokens: maxNullable(
+        previous.completionTokens,
+        incoming.completionTokens,
+      ),
       totalTokens: maxNullable(previous.totalTokens, incoming.totalTokens),
       cacheCreationTokens:
           incoming.cacheCreationTokens ?? previous.cacheCreationTokens,

@@ -73,7 +73,7 @@ class WebFetchTelemetryStore
   }
 
   Future<Map<AiWebFetchEngineKind, List<WebFetchEngineSample>>>
-      engineHistory() async {
+  engineHistory() async {
     final raw = await rawEngineHistory();
     final out = <AiWebFetchEngineKind, List<WebFetchEngineSample>>{};
     for (final entry in raw.entries) {
@@ -114,19 +114,19 @@ class WebFetchCallLog {
     final perEngineRaw = m['per_engine'];
     final perEngine = perEngineRaw is List
         ? perEngineRaw
-            .whereType<Map>()
-            .map(
-              (e) =>
-                  WebFetchPerEngineLog.fromJson(Map<String, Object?>.from(e)),
-            )
-            .toList(growable: false)
+              .whereType<Map>()
+              .map(
+                (e) =>
+                    WebFetchPerEngineLog.fromJson(Map<String, Object?>.from(e)),
+              )
+              .toList(growable: false)
         : const <WebFetchPerEngineLog>[];
     final winningRaw = '${m['winning_engine'] ?? ''}'.trim();
     final winning = winningRaw.isEmpty
         ? null
         : AiWebFetchEngineKind.values
-            .where((k) => k.name == winningRaw)
-            .firstOrNull;
+              .where((k) => k.name == winningRaw)
+              .firstOrNull;
     return WebFetchCallLog(
       timestampMs: (m['timestamp_ms'] as num?)?.toInt() ?? 0,
       url: '${m['url'] ?? ''}',
@@ -155,17 +155,17 @@ class WebFetchCallLog {
   final List<WebFetchPerEngineLog> perEngine;
 
   Map<String, Object?> toJson() => {
-        'timestamp_ms': timestampMs,
-        'url': url,
-        'cache_status': cacheStatus,
-        'success': success,
-        'total_duration_ms': totalDurationMs,
-        'content_chars': contentChars,
-        'fallback_used': fallbackUsed,
-        if (errorMessage != null) 'error_message': errorMessage,
-        if (winningEngine != null) 'winning_engine': winningEngine!.name,
-        'per_engine': perEngine.map((e) => e.toJson()).toList(growable: false),
-      };
+    'timestamp_ms': timestampMs,
+    'url': url,
+    'cache_status': cacheStatus,
+    'success': success,
+    'total_duration_ms': totalDurationMs,
+    'content_chars': contentChars,
+    'fallback_used': fallbackUsed,
+    if (errorMessage != null) 'error_message': errorMessage,
+    if (winningEngine != null) 'winning_engine': winningEngine!.name,
+    'per_engine': perEngine.map((e) => e.toJson()).toList(growable: false),
+  };
 }
 
 class WebFetchPerEngineLog {
@@ -198,12 +198,12 @@ class WebFetchPerEngineLog {
   final String? error;
 
   Map<String, Object?> toJson() => {
-        'kind': kind.name,
-        'success': success,
-        'content_bytes': contentBytes,
-        'elapsed_ms': elapsedMs,
-        if (error != null) 'error': error,
-      };
+    'kind': kind.name,
+    'success': success,
+    'content_bytes': contentBytes,
+    'elapsed_ms': elapsedMs,
+    if (error != null) 'error': error,
+  };
 }
 
 class WebFetchEngineStat {
@@ -230,8 +230,7 @@ class WebFetchEngineStat {
         lastError: m['last_error'] as String?,
         lastFailureAt: (m['last_failure_at'] as num?)?.toInt(),
         lastInvokedAt: (m['last_invoked_at'] as num?)?.toInt(),
-        consecutiveFailures:
-            (m['consecutive_failures'] as num?)?.toInt() ?? 0,
+        consecutiveFailures: (m['consecutive_failures'] as num?)?.toInt() ?? 0,
         cooldownUntilMs: (m['cooldown_until_ms'] as num?)?.toInt(),
         lastQuotaError: m['last_quota_error'] as String?,
         lastQuotaAt: (m['last_quota_at'] as num?)?.toInt(),

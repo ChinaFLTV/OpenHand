@@ -224,67 +224,67 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
         child: Stack(
           children: [
             Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _patternController,
-                decoration: InputDecoration(
-                  labelText: isChinese ? '匹配表达式' : 'Pattern',
-                  hintText: isChinese
-                      ? '例如：rm * 或 ^rm\\s+'
-                      : 'For example: rm * or ^rm\\s+',
-                ),
-                validator: (value) {
-                  if ((value ?? '').trim().isEmpty) {
-                    return isChinese
-                        ? '请输入要拦截的命令表达式。'
-                        : 'Enter the command pattern to block.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<AiDenyCommandMatchMode>(
-                initialValue: _matchMode,
-                decoration: InputDecoration(
-                  labelText: isChinese ? '匹配模式' : 'Match Mode',
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: AiDenyCommandMatchMode.simple,
-                    child: Text(isChinese ? '简单匹配' : 'Simple Match'),
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _patternController,
+                    decoration: InputDecoration(
+                      labelText: isChinese ? '匹配表达式' : 'Pattern',
+                      hintText: isChinese
+                          ? '例如：rm * 或 ^rm\\s+'
+                          : 'For example: rm * or ^rm\\s+',
+                    ),
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return isChinese
+                            ? '请输入要拦截的命令表达式。'
+                            : 'Enter the command pattern to block.';
+                      }
+                      return null;
+                    },
                   ),
-                  DropdownMenuItem(
-                    value: AiDenyCommandMatchMode.regex,
-                    child: Text(isChinese ? '正则匹配' : 'Regex Match'),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<AiDenyCommandMatchMode>(
+                    initialValue: _matchMode,
+                    decoration: InputDecoration(
+                      labelText: isChinese ? '匹配模式' : 'Match Mode',
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: AiDenyCommandMatchMode.simple,
+                        child: Text(isChinese ? '简单匹配' : 'Simple Match'),
+                      ),
+                      DropdownMenuItem(
+                        value: AiDenyCommandMatchMode.regex,
+                        child: Text(isChinese ? '正则匹配' : 'Regex Match'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+                      setState(() {
+                        _matchMode = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _noteController,
+                    decoration: InputDecoration(
+                      labelText: isChinese ? '备注' : 'Note',
+                      hintText: isChinese
+                          ? '可选，用于说明这条规则的用途'
+                          : 'Optional description for this rule',
+                    ),
+                    maxLines: 2,
                   ),
                 ],
-                onChanged: (value) {
-                  if (value == null) {
-                    return;
-                  }
-                  setState(() {
-                    _matchMode = value;
-                  });
-                },
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _noteController,
-                decoration: InputDecoration(
-                  labelText: isChinese ? '备注' : 'Note',
-                  hintText: isChinese
-                      ? '可选，用于说明这条规则的用途'
-                      : 'Optional description for this rule',
-                ),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
+            ),
             Positioned(
               top: 0,
               left: 0,
@@ -383,67 +383,67 @@ class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
         child: Stack(
           children: [
             Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _patternController,
-                decoration: InputDecoration(
-                  labelText: isChinese ? '匹配表达式' : 'Pattern',
-                  hintText: isChinese
-                      ? '例如：flutter test * 或 ^git\\s+commit'
-                      : 'For example: flutter test * or ^git\\s+commit',
-                ),
-                validator: (value) {
-                  if ((value ?? '').trim().isEmpty) {
-                    return isChinese
-                        ? '请输入要放行的命令表达式。'
-                        : 'Enter the command pattern to allow.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<AiDenyCommandMatchMode>(
-                initialValue: _matchMode,
-                decoration: InputDecoration(
-                  labelText: isChinese ? '匹配模式' : 'Match Mode',
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: AiDenyCommandMatchMode.simple,
-                    child: Text(isChinese ? '简单匹配' : 'Simple Match'),
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _patternController,
+                    decoration: InputDecoration(
+                      labelText: isChinese ? '匹配表达式' : 'Pattern',
+                      hintText: isChinese
+                          ? '例如：flutter test * 或 ^git\\s+commit'
+                          : 'For example: flutter test * or ^git\\s+commit',
+                    ),
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return isChinese
+                            ? '请输入要放行的命令表达式。'
+                            : 'Enter the command pattern to allow.';
+                      }
+                      return null;
+                    },
                   ),
-                  DropdownMenuItem(
-                    value: AiDenyCommandMatchMode.regex,
-                    child: Text(isChinese ? '正则匹配' : 'Regex Match'),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<AiDenyCommandMatchMode>(
+                    initialValue: _matchMode,
+                    decoration: InputDecoration(
+                      labelText: isChinese ? '匹配模式' : 'Match Mode',
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: AiDenyCommandMatchMode.simple,
+                        child: Text(isChinese ? '简单匹配' : 'Simple Match'),
+                      ),
+                      DropdownMenuItem(
+                        value: AiDenyCommandMatchMode.regex,
+                        child: Text(isChinese ? '正则匹配' : 'Regex Match'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+                      setState(() {
+                        _matchMode = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _noteController,
+                    decoration: InputDecoration(
+                      labelText: isChinese ? '备注' : 'Note',
+                      hintText: isChinese
+                          ? '可选，用于说明为什么允许这条命令'
+                          : 'Optional description for why this command is allowed',
+                    ),
+                    maxLines: 2,
                   ),
                 ],
-                onChanged: (value) {
-                  if (value == null) {
-                    return;
-                  }
-                  setState(() {
-                    _matchMode = value;
-                  });
-                },
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _noteController,
-                decoration: InputDecoration(
-                  labelText: isChinese ? '备注' : 'Note',
-                  hintText: isChinese
-                      ? '可选，用于说明为什么允许这条命令'
-                      : 'Optional description for why this command is allowed',
-                ),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
+            ),
             Positioned(
               top: 0,
               left: 0,

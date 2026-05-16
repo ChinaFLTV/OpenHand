@@ -140,8 +140,8 @@ class _HePaneHeader extends StatelessWidget {
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 380),
+                        ? Duration.zero
+                        : const Duration(milliseconds: 380),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     layoutBuilder: (currentChild, previousChildren) {
@@ -705,7 +705,6 @@ class _HeMetadataEntryRow extends StatelessWidget {
 // appears in the list. Uses easeOutBack so the card slightly overshoots and
 // settles back — giving that characteristic "Q弹丝滑" spring feel.
 // =============================================================================
-
 
 /// Backed by [HardnessPendingReplayBadge] (extracted for testability).
 typedef _HePendingReplayBadge = HardnessPendingReplayBadge;

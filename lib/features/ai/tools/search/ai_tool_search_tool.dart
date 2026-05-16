@@ -83,7 +83,9 @@ class AiToolSearchTool extends AiTool {
     final lines = <String>[];
     if (matches.isEmpty) {
       lines
-        ..add('⚠ ToolSearch matched 0 of ${deferred.length} deferred MCP tool(s).')
+        ..add(
+          '⚠ ToolSearch matched 0 of ${deferred.length} deferred MCP tool(s).',
+        )
         ..add('query: $query')
         ..add('')
         ..add(
@@ -129,10 +131,7 @@ class AiToolSearchTool extends AiTool {
   /// `+required` term gating) without constructing a full
   /// [AiToolExecutionContext].
   @visibleForTesting
-  List<String> debugRunSearch({
-    required String query,
-    int maxResults = 5,
-  }) {
+  List<String> debugRunSearch({required String query, int maxResults = 5}) {
     return _runSearch(
       query: query,
       maxResults: maxResults,
@@ -199,8 +198,8 @@ class AiToolSearchTool extends AiTool {
     final scored = <_ScoredToolMatch>[];
     for (final name in deferred) {
       final parsed = _parseToolName(name);
-      final descLower =
-          (deferredToolDefinitions[name]?.description ?? '').toLowerCase();
+      final descLower = (deferredToolDefinitions[name]?.description ?? '')
+          .toLowerCase();
       // Required-term gate.
       var passesRequired = true;
       for (final r in required) {
@@ -262,11 +261,7 @@ class AiToolSearchTool extends AiTool {
         .split(RegExp(r'\s+'))
         .where((p) => p.isNotEmpty)
         .toList(growable: false);
-    return _ParsedToolName(
-      parts: parts,
-      full: parts.join(' '),
-      isMcp: false,
-    );
+    return _ParsedToolName(parts: parts, full: parts.join(' '), isMcp: false);
   }
 
   String _renderFunctionsBlock(List<String> names) {

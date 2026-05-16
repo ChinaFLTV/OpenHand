@@ -25,8 +25,12 @@ abstract class WebEngineRequest {
 /// * [kind] / [isReady] / [fetch]：领域特定的单次抓取
 /// * [buildResult]：把 items/error/attempts/elapsed 装进领域 Result
 /// * [postProcess]：在成功路径上对 items 做过滤 / 截断 / take
-abstract class WebEngineBase<TKind, TItem, TRequest extends WebEngineRequest,
-    TResult> {
+abstract class WebEngineBase<
+  TKind,
+  TItem,
+  TRequest extends WebEngineRequest,
+  TResult
+> {
   TKind get kind;
   bool get isReady;
   int get maxRetries;

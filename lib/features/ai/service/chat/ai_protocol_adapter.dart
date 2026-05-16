@@ -680,11 +680,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
           } else {
             arguments = '$argsValue';
           }
-          return AiToolCall(
-            id: id,
-            name: name,
-            arguments: arguments,
-          );
+          return AiToolCall(id: id, name: name, arguments: arguments);
         })
         .whereType<AiToolCall>()
         .toList(growable: false);
@@ -778,7 +774,9 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       }
     }
 
-    if (cacheEnabled && remainingBreakpoints > 0 && requestMessages.isNotEmpty) {
+    if (cacheEnabled &&
+        remainingBreakpoints > 0 &&
+        requestMessages.isNotEmpty) {
       _injectMessageCacheBreakpoints(
         requestMessages,
         budget: remainingBreakpoints,
@@ -801,8 +799,10 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   /// 在 [requestMessages] 上按 mode/interval 注入剩余 cache_control breakpoint。
   /// 命中点位于命中消息的最后一个 content 块上。
   void _injectMessageCacheBreakpoints(
-    List<Map<String, Object?>> requestMessages,
-    {required int budget, required AiInputCacheRuntimeConfig config}) {
+    List<Map<String, Object?>> requestMessages, {
+    required int budget,
+    required AiInputCacheRuntimeConfig config,
+  }) {
     if (budget <= 0 || requestMessages.isEmpty) return;
     // 2026-05-04 — 优先尊重用户自定义的前 N-1 个静态缓存点位置。
     // 当 positions 长度匹配 (breakpointCount-1) 时：
@@ -811,7 +811,8 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     //   * 索引去重，再按预算 budget 截断。
     final positions = config.breakpointPositions;
     final lastIndex = requestMessages.length - 1;
-    if (positions.isNotEmpty && positions.length == config.breakpointCount - 1) {
+    if (positions.isNotEmpty &&
+        positions.length == config.breakpointCount - 1) {
       final selected = <int>{lastIndex};
       for (final p in positions) {
         final clamped = p.isFinite ? p.clamp(0.0, 1.0) : 1.0;

@@ -70,7 +70,9 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
         final loc = stream.headers['location'];
         await stream.stream.drain<void>();
         if (loc == null || loc.isEmpty) {
-          throw WebEngineHttpException('${kind.name} redirect missing Location');
+          throw WebEngineHttpException(
+            '${kind.name} redirect missing Location',
+          );
         }
         current = current.resolve(loc);
         continue;

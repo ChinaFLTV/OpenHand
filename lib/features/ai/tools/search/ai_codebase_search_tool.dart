@@ -393,7 +393,12 @@ class AiCodebaseSearchTool extends AiTool {
         }
       }
     } catch (error, stack) {
-      silentLog('ai_codebase_search_tool', 'walk codebase entries for keyword scan', error, stack);
+      silentLog(
+        'ai_codebase_search_tool',
+        'walk codebase entries for keyword scan',
+        error,
+        stack,
+      );
     }
 
     return results;

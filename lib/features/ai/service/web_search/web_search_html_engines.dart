@@ -153,11 +153,7 @@ class WebSearchSearxngEngine extends WebSearchEngine {
         ? base.substring(0, base.length - 1)
         : base;
     final uri = Uri.parse('$cleaned/search').replace(
-      queryParameters: {
-        'q': req.query,
-        'format': 'json',
-        'language': 'auto',
-      },
+      queryParameters: {'q': req.query, 'format': 'json', 'language': 'auto'},
     );
     final response = await httpClient.get(
       uri,

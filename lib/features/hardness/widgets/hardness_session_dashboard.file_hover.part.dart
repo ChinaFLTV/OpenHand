@@ -304,8 +304,7 @@ Future<void> _heOpenPathInFileBrowser(
     );
   } catch (error) {
     if (!context.mounted) return;
-    final isZh =
-        Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     showFriendlyErrorSnackBar(
       context,
       message: '$error',
@@ -317,4 +316,3 @@ Future<void> _heOpenPathInFileBrowser(
 // =============================================================================
 // _HeSteeringAssetsDialog — breadcrumb directory browser for steering files
 // =============================================================================
-

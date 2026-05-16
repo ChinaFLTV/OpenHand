@@ -585,4 +585,3 @@ void _showHomeSnackBarWithMessenger(
 ) {
   OpenHandSnackBar.show(context, messenger, snackBar);
 }
-

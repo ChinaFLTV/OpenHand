@@ -1306,7 +1306,9 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
         : await ledger.readBlob(v.record.afterSha!);
 
     // 当 blob 丢失但文件仍存在于磁盘时，尝试读取当前磁盘内容作为回退。
-    if (after == null && v.record.afterSha != null && v.record.filePath.isNotEmpty) {
+    if (after == null &&
+        v.record.afterSha != null &&
+        v.record.filePath.isNotEmpty) {
       try {
         final file = File(v.record.filePath);
         if (await file.exists()) {
@@ -2792,8 +2794,7 @@ class _RoundFileMutationSummaryCardState
                   _localizedTextStatic(
                     context,
                     zh: '目标消息位于上下文压缩点之前，已跳转到最早可见消息。',
-                    en:
-                        'Target message is before compression point. Jumped to earliest visible message.',
+                    en: 'Target message is before compression point. Jumped to earliest visible message.',
                   ),
                 ),
               ),
@@ -2935,10 +2936,7 @@ class _RoundFileMutationSummaryCardState
         .replaceAll(':', '-')
         .replaceAll('.', '-');
     final suggested = 'openhand-round-mutations-$timestamp.json';
-    const typeGroup = XTypeGroup(
-      label: 'JSON',
-      extensions: <String>['json'],
-    );
+    const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
 
     FileSaveLocation? location;
     try {

@@ -58,7 +58,9 @@ class WebSearchGrokEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebEngineHttpException('Grok ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException(
+        'Grok ${response.statusCode}: ${response.body}',
+      );
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final citations = readJsonPath<List>(body, ['citations']) ?? const [];
@@ -131,7 +133,9 @@ class WebSearchGeminiEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebEngineHttpException('Gemini ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException(
+        'Gemini ${response.statusCode}: ${response.body}',
+      );
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final chunks =

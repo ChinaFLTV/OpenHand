@@ -87,7 +87,8 @@ Future<int> _scanDart(String root) async {
         continue;
       }
       // 跨 feature：仅允许 barrel 三种入口。
-      final allowed = sub == 'index.dart' ||
+      final allowed =
+          sub == 'index.dart' ||
           sub == '${target}_module.dart' ||
           sub == '${target}_controller.dart';
       if (!allowed) {
@@ -111,8 +112,10 @@ String? _resolveDartImport({
   // package:openhand/<sub> → <libAbs>/<sub>
   const pkgPrefix = 'package:openhand/';
   if (raw.startsWith(pkgPrefix)) {
-    return _normalize('$libAbs${Platform.pathSeparator}'
-        '${raw.substring(pkgPrefix.length).replaceAll('/', Platform.pathSeparator)}');
+    return _normalize(
+      '$libAbs${Platform.pathSeparator}'
+      '${raw.substring(pkgPrefix.length).replaceAll('/', Platform.pathSeparator)}',
+    );
   }
   // 其它 package: 第三方，跳过。
   if (raw.startsWith('package:')) return null;
@@ -122,7 +125,8 @@ String? _resolveDartImport({
   if (raw.contains(':')) return null;
   // 相对路径
   return _normalize(
-      '$fileDir${Platform.pathSeparator}${raw.replaceAll('/', Platform.pathSeparator)}');
+    '$fileDir${Platform.pathSeparator}${raw.replaceAll('/', Platform.pathSeparator)}',
+  );
 }
 
 String _normalize(String p) {

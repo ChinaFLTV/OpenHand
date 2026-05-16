@@ -7,7 +7,8 @@ import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_http_exception.dart';
 import 'web_search_engine.dart';
 
-export '../web_engine/web_engine_http_exception.dart' show WebEngineHttpException;
+export '../web_engine/web_engine_http_exception.dart'
+    show WebEngineHttpException;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure JSON-API engines: tavily, exa, linkup, bocha, baidu(qianfan), kimi
@@ -37,19 +38,24 @@ class WebSearchTavilyEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebEngineHttpException('Tavily ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException(
+        'Tavily ${response.statusCode}: ${response.body}',
+      );
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final results = (body['results'] as List?) ?? const [];
-    return results.whereType<Map>().map((r) {
-      return WebSearchEngineHit(
-        title: stringOf(r['title']),
-        url: stringOf(r['url']),
-        snippet: stringOf(r['content']),
-        score: (r['score'] as num?)?.toDouble(),
-        source: 'tavily',
-      );
-    }).toList(growable: false);
+    return results
+        .whereType<Map>()
+        .map((r) {
+          return WebSearchEngineHit(
+            title: stringOf(r['title']),
+            url: stringOf(r['url']),
+            snippet: stringOf(r['content']),
+            score: (r['score'] as num?)?.toDouble(),
+            source: 'tavily',
+          );
+        })
+        .toList(growable: false);
   }
 }
 
@@ -78,21 +84,26 @@ class WebSearchExaEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebEngineHttpException('Exa ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException(
+        'Exa ${response.statusCode}: ${response.body}',
+      );
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final results = (body['results'] as List?) ?? const [];
-    return results.whereType<Map>().map((r) {
-      final text = readJsonPath<String>(r, ['text']) ?? '';
-      return WebSearchEngineHit(
-        title: stringOf(r['title']),
-        url: stringOf(r['url']),
-        snippet: text.isEmpty ? stringOf(r['snippet']) : text,
-        score: (r['score'] as num?)?.toDouble(),
-        publishedAt: DateTime.tryParse(stringOf(r['publishedDate'])),
-        source: 'exa',
-      );
-    }).toList(growable: false);
+    return results
+        .whereType<Map>()
+        .map((r) {
+          final text = readJsonPath<String>(r, ['text']) ?? '';
+          return WebSearchEngineHit(
+            title: stringOf(r['title']),
+            url: stringOf(r['url']),
+            snippet: text.isEmpty ? stringOf(r['snippet']) : text,
+            score: (r['score'] as num?)?.toDouble(),
+            publishedAt: DateTime.tryParse(stringOf(r['publishedDate'])),
+            source: 'exa',
+          );
+        })
+        .toList(growable: false);
   }
 }
 
@@ -118,18 +129,24 @@ class WebSearchLinkupEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebEngineHttpException('Linkup ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException(
+        'Linkup ${response.statusCode}: ${response.body}',
+      );
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final results = (body['results'] as List?) ?? const [];
-    return results.whereType<Map>().take(req.maxResults).map((r) {
-      return WebSearchEngineHit(
-        title: stringOf(r['name']),
-        url: stringOf(r['url']),
-        snippet: stringOf(r['content']),
-        source: 'linkup',
-      );
-    }).toList(growable: false);
+    return results
+        .whereType<Map>()
+        .take(req.maxResults)
+        .map((r) {
+          return WebSearchEngineHit(
+            title: stringOf(r['name']),
+            url: stringOf(r['url']),
+            snippet: stringOf(r['content']),
+            source: 'linkup',
+          );
+        })
+        .toList(growable: false);
   }
 }
 
@@ -155,22 +172,27 @@ class WebSearchBochaEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebEngineHttpException('Bocha ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException(
+        'Bocha ${response.statusCode}: ${response.body}',
+      );
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final pages =
         readJsonPath<List>(body, ['data', 'webPages', 'value']) ?? const [];
-    return pages.whereType<Map>().map((r) {
-      return WebSearchEngineHit(
-        title: stringOf(r['name']),
-        url: stringOf(r['url']),
-        snippet: stringOf(r['summary']).isEmpty
-            ? stringOf(r['snippet'])
-            : stringOf(r['summary']),
-        publishedAt: DateTime.tryParse(stringOf(r['datePublished'])),
-        source: 'bocha',
-      );
-    }).toList(growable: false);
+    return pages
+        .whereType<Map>()
+        .map((r) {
+          return WebSearchEngineHit(
+            title: stringOf(r['name']),
+            url: stringOf(r['url']),
+            snippet: stringOf(r['summary']).isEmpty
+                ? stringOf(r['snippet'])
+                : stringOf(r['summary']),
+            publishedAt: DateTime.tryParse(stringOf(r['datePublished'])),
+            source: 'bocha',
+          );
+        })
+        .toList(growable: false);
   }
 }
 
@@ -200,20 +222,24 @@ class WebSearchBaiduEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebEngineHttpException('Baidu ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException(
+        'Baidu ${response.statusCode}: ${response.body}',
+      );
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
-    final references =
-        readJsonPath<List>(body, ['references']) ?? const [];
-    return references.whereType<Map>().map((r) {
-      return WebSearchEngineHit(
-        title: stringOf(r['title']),
-        url: stringOf(r['url']),
-        snippet: stringOf(r['content']),
-        publishedAt: DateTime.tryParse(stringOf(r['date'])),
-        source: 'baidu',
-      );
-    }).toList(growable: false);
+    final references = readJsonPath<List>(body, ['references']) ?? const [];
+    return references
+        .whereType<Map>()
+        .map((r) {
+          return WebSearchEngineHit(
+            title: stringOf(r['title']),
+            url: stringOf(r['url']),
+            snippet: stringOf(r['content']),
+            publishedAt: DateTime.tryParse(stringOf(r['date'])),
+            source: 'baidu',
+          );
+        })
+        .toList(growable: false);
   }
 }
 
@@ -264,7 +290,9 @@ class WebSearchKimiEngine extends WebSearchEngine {
       }),
     );
     if (response.statusCode != 200) {
-      throw WebEngineHttpException('Kimi ${response.statusCode}: ${response.body}');
+      throw WebEngineHttpException(
+        'Kimi ${response.statusCode}: ${response.body}',
+      );
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final references =

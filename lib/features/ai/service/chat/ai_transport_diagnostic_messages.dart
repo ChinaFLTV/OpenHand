@@ -32,10 +32,7 @@ class AiTransportDiagnosticMessages {
     return t.isEmpty ? '' : ' [$t]';
   }
 
-  static String handshake(
-    HandshakeException e, {
-    String contextLabel = '',
-  }) {
+  static String handshake(HandshakeException e, {String contextLabel = ''}) {
     final detail = e.message.trim();
     return _format(
       title: 'TLS handshake rejected · TLS 握手被拒绝${_suffix(contextLabel)}',
@@ -103,10 +100,7 @@ class AiTransportDiagnosticMessages {
     );
   }
 
-  static String httpClient(
-    http.ClientException e, {
-    String contextLabel = '',
-  }) {
+  static String httpClient(http.ClientException e, {String contextLabel = ''}) {
     return _format(
       title: 'HTTP client error · HTTP 客户端错误${_suffix(contextLabel)}',
       reason: 'HTTP 客户端在处理请求 / 响应阶段失败：${e.message}\n通常意味着连接中断、响应被截断、或服务端关闭连接。',
@@ -229,8 +223,7 @@ class AiTransportDiagnosticMessages {
     required String reason,
     required String try_,
     String? raw,
-  }) =>
-      _format(title: title, reason: reason, try_: try_, raw: raw);
+  }) => _format(title: title, reason: reason, try_: try_, raw: raw);
 
   static String _format({
     required String title,

@@ -1112,8 +1112,7 @@ class AiToolUtils {
         command: '$toolName $targetPath',
         workingDirectory: workingDirectory,
         stdout: '',
-        stderr:
-            '写操作确认超时（用户既未批准也未明确拒绝）。本次工具调用未执行；如仍需该副作用请重新征询用户意图后再次尝试。',
+        stderr: '写操作确认超时（用户既未批准也未明确拒绝）。本次工具调用未执行；如仍需该副作用请重新征询用户意图后再次尝试。',
         durationMs: 0,
         resultText:
             'status: timed_out\nreason: Write confirmation timed out — user did not respond.',
@@ -1143,8 +1142,7 @@ class AiToolUtils {
           command: '$toolName $targetPath',
           workingDirectory: workingDirectory,
           stdout: '',
-          stderr:
-              '写操作确认弹窗超时（用户既未批准也未明确拒绝）。本次工具调用未执行。',
+          stderr: '写操作确认弹窗超时（用户既未批准也未明确拒绝）。本次工具调用未执行。',
           durationMs: 0,
           resultText:
               'status: timed_out\nreason: Write confirmation timed out — user did not respond.',

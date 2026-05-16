@@ -369,8 +369,9 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       text: c.timeoutSeconds != null ? '${c.timeoutSeconds}' : '',
     );
     _maxRetriesController = TextEditingController(text: '${c.maxRetries}');
-    _retryBackoffMsController =
-        TextEditingController(text: '${c.retryBackoffMs}');
+    _retryBackoffMsController = TextEditingController(
+      text: '${c.retryBackoffMs}',
+    );
     _tagsController = TextEditingController(text: c.tags.join(', '));
     _enabled = c.enabled;
     _loadStrategy = c.loadStrategy;
@@ -381,8 +382,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
           c.webSearchSettings ?? AiWebSearchSettings.defaults();
     }
     if (c.kind == AiBuiltinToolKind.webFetch) {
-      _webFetchSettings =
-          c.webFetchSettings ?? AiWebFetchSettings.defaults();
+      _webFetchSettings = c.webFetchSettings ?? AiWebFetchSettings.defaults();
     }
   }
 
@@ -426,7 +426,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       0,
       AiBuiltinToolConfig.maxRetriesUpperBound,
     );
-    final parsedBackoff = int.tryParse(_retryBackoffMsController.text.trim()) ??
+    final parsedBackoff =
+        int.tryParse(_retryBackoffMsController.text.trim()) ??
         AiBuiltinToolConfig.defaultRetryBackoffMs;
     final retryBackoffMs = parsedBackoff.clamp(
       0,
@@ -717,18 +718,19 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                   FilteringTextInputFormatter.digitsOnly,
                                 ],
                                 decoration: InputDecoration(
-                                  labelText: AppLocalizations.of(context)!
-                                      .builtinToolTimeoutLabel,
+                                  labelText: AppLocalizations.of(
+                                    context,
+                                  )!.builtinToolTimeoutLabel,
                                   hintText: AppLocalizations.of(context)!
                                       .builtinToolTimeoutHint(
-                                    AiBuiltinToolConfig
-                                        .defaultTimeoutSeconds,
-                                  ),
+                                        AiBuiltinToolConfig
+                                            .defaultTimeoutSeconds,
+                                      ),
                                   helperText: AppLocalizations.of(context)!
                                       .builtinToolTimeoutHelper(
-                                    AiBuiltinToolConfig
-                                        .defaultTimeoutSeconds,
-                                  ),
+                                        AiBuiltinToolConfig
+                                            .defaultTimeoutSeconds,
+                                      ),
                                 ),
                               ),
                             ),
@@ -744,12 +746,14 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                               child: SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(
-                                  AppLocalizations.of(context)!
-                                      .builtinToolRetryLabel,
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.builtinToolRetryLabel,
                                 ),
                                 subtitle: Text(
-                                  AppLocalizations.of(context)!
-                                      .builtinToolRetryBody,
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.builtinToolRetryBody,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -771,14 +775,14 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                 decoration: InputDecoration(
                                   labelText: AppLocalizations.of(context)!
                                       .builtinToolMaxRetriesLabel(
-                                    AiBuiltinToolConfig
-                                        .maxRetriesUpperBound,
-                                  ),
+                                        AiBuiltinToolConfig
+                                            .maxRetriesUpperBound,
+                                      ),
                                   helperText: AppLocalizations.of(context)!
                                       .builtinToolMaxRetriesHelper(
-                                    AiBuiltinToolConfig
-                                        .maxRetriesUpperBound,
-                                  ),
+                                        AiBuiltinToolConfig
+                                            .maxRetriesUpperBound,
+                                      ),
                                 ),
                               ),
                             ),
@@ -795,16 +799,17 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                             FilteringTextInputFormatter.digitsOnly,
                           ],
                           decoration: InputDecoration(
-                            labelText: AppLocalizations.of(context)!
-                                .builtinToolBackoffLabel,
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.builtinToolBackoffLabel,
                             hintText: AppLocalizations.of(context)!
                                 .builtinToolBackoffHint(
-                              AiBuiltinToolConfig.defaultRetryBackoffMs,
-                            ),
+                                  AiBuiltinToolConfig.defaultRetryBackoffMs,
+                                ),
                             helperText: AppLocalizations.of(context)!
                                 .builtinToolBackoffHelper(
-                              AiBuiltinToolConfig.maxRetryBackoffMs,
-                            ),
+                                  AiBuiltinToolConfig.maxRetryBackoffMs,
+                                ),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -824,8 +829,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           _WebSearchSettingsEditor(
                             value: _webSearchSettings!,
                             availableModels: widget.availableModels,
-                            recentModelSelections:
-                                widget.recentModelSelections,
+                            recentModelSelections: widget.recentModelSelections,
                             onChanged: (next) =>
                                 setState(() => _webSearchSettings = next),
                           ),
@@ -833,14 +837,12 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         ],
 
                         // ── WebFetch-specific section ──
-                        if (widget.initial.kind ==
-                                AiBuiltinToolKind.webFetch &&
+                        if (widget.initial.kind == AiBuiltinToolKind.webFetch &&
                             _webFetchSettings != null) ...[
                           _WebFetchSettingsEditor(
                             value: _webFetchSettings!,
                             availableModels: widget.availableModels,
-                            recentModelSelections:
-                                widget.recentModelSelections,
+                            recentModelSelections: widget.recentModelSelections,
                             onChanged: (next) =>
                                 setState(() => _webFetchSettings = next),
                           ),

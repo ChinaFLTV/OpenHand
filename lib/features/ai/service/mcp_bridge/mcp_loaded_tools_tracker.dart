@@ -124,7 +124,9 @@ class McpLoadedToolsTracker {
               : addedNames.length);
     final query = queryRaw is String ? queryRaw.trim() : '';
     final sortedAdded = List<String>.from(addedNames)..sort();
-    _historyBySession.putIfAbsent(sessionId, () => <AiToolSearchLoadHistoryEntry>[]).add(
+    _historyBySession
+        .putIfAbsent(sessionId, () => <AiToolSearchLoadHistoryEntry>[])
+        .add(
           AiToolSearchLoadHistoryEntry(
             timestamp: DateTime.now().toUtc(),
             query: query,

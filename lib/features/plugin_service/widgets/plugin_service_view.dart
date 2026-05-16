@@ -194,8 +194,11 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded,
-              size: 18, color: theme.colorScheme.error),
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 18,
+            color: theme.colorScheme.error,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -303,7 +306,9 @@ class _PluginCard extends StatelessWidget {
                               const SizedBox(width: 10),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: stateColor.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(8),
@@ -359,27 +364,35 @@ class _PluginCard extends StatelessWidget {
               duration: const Duration(milliseconds: 280),
               curve: Curves.easeOutCubic,
               alignment: Alignment.topLeft,
-              child: plugin.status == PluginStatus.error &&
+              child:
+                  plugin.status == PluginStatus.error &&
                       plugin.errorMessage != null
                   ? Padding(
                       padding: const EdgeInsets.only(top: 10),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.errorContainer
-                              .withValues(alpha: 0.3),
+                          color: theme.colorScheme.errorContainer.withValues(
+                            alpha: 0.3,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: theme.colorScheme.error
-                                .withValues(alpha: 0.2),
+                            color: theme.colorScheme.error.withValues(
+                              alpha: 0.2,
+                            ),
                           ),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.error_outline_rounded,
-                                size: 16, color: theme.colorScheme.error),
+                            Icon(
+                              Icons.error_outline_rounded,
+                              size: 16,
+                              color: theme.colorScheme.error,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -433,9 +446,9 @@ class _PluginCard extends StatelessWidget {
             onPressed: isBusy
                 ? null
                 : () => controller.toggleEnabled(
-                      plugin.id,
-                      enabled: !plugin.enabled,
-                    ),
+                    plugin.id,
+                    enabled: !plugin.enabled,
+                  ),
             icon: Icon(
               plugin.enabled
                   ? Icons.toggle_on_rounded
@@ -469,7 +482,9 @@ class _PluginCard extends StatelessWidget {
             icon: const Icon(Icons.delete_outline_rounded, size: 18),
           ),
         // 操作中
-        if (plugin.isBusy && !plugin.isInstalled && plugin.status != PluginStatus.notInstalled)
+        if (plugin.isBusy &&
+            !plugin.isInstalled &&
+            plugin.status != PluginStatus.notInstalled)
           const SizedBox(
             width: 24,
             height: 24,
@@ -484,11 +499,16 @@ class _PluginCard extends StatelessWidget {
     for (final depId in plugin.dependencies) {
       final dep = controller.pluginById(depId);
       if (dep == null || !dep.isInstalled) {
-        _showPluginSnackBar(context, SnackBar(
-          content: Text(isZh
-              ? '需要先安装 ${dep?.name ?? depId}'
-              : '${dep?.name ?? depId} must be installed first'),
-        ));
+        _showPluginSnackBar(
+          context,
+          SnackBar(
+            content: Text(
+              isZh
+                  ? '需要先安装 ${dep?.name ?? depId}'
+                  : '${dep?.name ?? depId} must be installed first',
+            ),
+          ),
+        );
         return;
       }
     }
@@ -496,9 +516,11 @@ class _PluginCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isZh ? '安装 ${plugin.name}？' : 'Install ${plugin.name}?'),
-        content: Text(isZh
-            ? '将在本机安装 ${plugin.name}，可能需要下载依赖文件。'
-            : 'This will install ${plugin.name}. Dependencies may be downloaded.'),
+        content: Text(
+          isZh
+              ? '将在本机安装 ${plugin.name}，可能需要下载依赖文件。'
+              : 'This will install ${plugin.name}. Dependencies may be downloaded.',
+        ),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -516,12 +538,21 @@ class _PluginCard extends StatelessWidget {
     final success = await controller.installPlugin(plugin.id);
     if (!context.mounted) return;
     // 弹窗可能已被用户强制关闭，安全 pop
-    try { Navigator.of(context, rootNavigator: true).pop(); } catch (_) {}
-    _showPluginSnackBar(context, SnackBar(
-      content: Text(success
-          ? (isZh ? '${plugin.name} 安装成功' : '${plugin.name} installed')
-          : (isZh ? '${plugin.name} 安装失败' : '${plugin.name} install failed')),
-    ));
+    try {
+      Navigator.of(context, rootNavigator: true).pop();
+    } catch (_) {}
+    _showPluginSnackBar(
+      context,
+      SnackBar(
+        content: Text(
+          success
+              ? (isZh ? '${plugin.name} 安装成功' : '${plugin.name} installed')
+              : (isZh
+                    ? '${plugin.name} 安装失败'
+                    : '${plugin.name} install failed'),
+        ),
+      ),
+    );
   }
 
   Future<void> _doUpdate(BuildContext context) async {
@@ -530,9 +561,11 @@ class _PluginCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isZh ? '更新 ${plugin.name}？' : 'Update ${plugin.name}?'),
-        content: Text(isZh
-            ? '将 ${plugin.name} 从 ${plugin.installedVersion} 更新到 ${plugin.latestVersion}。'
-            : 'Update ${plugin.name} from ${plugin.installedVersion} to ${plugin.latestVersion}.'),
+        content: Text(
+          isZh
+              ? '将 ${plugin.name} 从 ${plugin.installedVersion} 更新到 ${plugin.latestVersion}。'
+              : 'Update ${plugin.name} from ${plugin.installedVersion} to ${plugin.latestVersion}.',
+        ),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -549,12 +582,19 @@ class _PluginCard extends StatelessWidget {
     _showOperationDialog(context, isZh ? '更新' : 'Update', plugin.name);
     final success = await controller.updatePlugin(plugin.id);
     if (!context.mounted) return;
-    try { Navigator.of(context, rootNavigator: true).pop(); } catch (_) {}
-    _showPluginSnackBar(context, SnackBar(
-      content: Text(success
-          ? (isZh ? '${plugin.name} 更新成功' : '${plugin.name} updated')
-          : (isZh ? '${plugin.name} 更新失败' : '${plugin.name} update failed')),
-    ));
+    try {
+      Navigator.of(context, rootNavigator: true).pop();
+    } catch (_) {}
+    _showPluginSnackBar(
+      context,
+      SnackBar(
+        content: Text(
+          success
+              ? (isZh ? '${plugin.name} 更新成功' : '${plugin.name} updated')
+              : (isZh ? '${plugin.name} 更新失败' : '${plugin.name} update failed'),
+        ),
+      ),
+    );
   }
 
   Future<void> _doUninstall(BuildContext context) async {
@@ -562,11 +602,16 @@ class _PluginCard extends StatelessWidget {
     for (final other in controller.plugins) {
       if (other.id == plugin.id) continue;
       if (other.isInstalled && other.dependencies.contains(plugin.id)) {
-        _showPluginSnackBar(context, SnackBar(
-          content: Text(isZh
-              ? '${other.name} 依赖 ${plugin.name}，请先卸载 ${other.name}'
-              : '${other.name} depends on ${plugin.name}. Uninstall it first.'),
-        ));
+        _showPluginSnackBar(
+          context,
+          SnackBar(
+            content: Text(
+              isZh
+                  ? '${other.name} 依赖 ${plugin.name}，请先卸载 ${other.name}'
+                  : '${other.name} depends on ${plugin.name}. Uninstall it first.',
+            ),
+          ),
+        );
         return;
       }
     }
@@ -574,9 +619,11 @@ class _PluginCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isZh ? '卸载 ${plugin.name}？' : 'Uninstall ${plugin.name}?'),
-        content: Text(isZh
-            ? '将从本机卸载 ${plugin.name}，此操作不可撤销。'
-            : 'This will remove ${plugin.name}. This cannot be undone.'),
+        content: Text(
+          isZh
+              ? '将从本机卸载 ${plugin.name}，此操作不可撤销。'
+              : 'This will remove ${plugin.name}. This cannot be undone.',
+        ),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -593,15 +640,28 @@ class _PluginCard extends StatelessWidget {
     _showOperationDialog(context, isZh ? '卸载' : 'Uninstall', plugin.name);
     final success = await controller.uninstallPlugin(plugin.id);
     if (!context.mounted) return;
-    try { Navigator.of(context, rootNavigator: true).pop(); } catch (_) {}
-    _showPluginSnackBar(context, SnackBar(
-      content: Text(success
-          ? (isZh ? '${plugin.name} 已卸载' : '${plugin.name} uninstalled')
-          : (isZh ? '${plugin.name} 卸载失败' : '${plugin.name} uninstall failed')),
-    ));
+    try {
+      Navigator.of(context, rootNavigator: true).pop();
+    } catch (_) {}
+    _showPluginSnackBar(
+      context,
+      SnackBar(
+        content: Text(
+          success
+              ? (isZh ? '${plugin.name} 已卸载' : '${plugin.name} uninstalled')
+              : (isZh
+                    ? '${plugin.name} 卸载失败'
+                    : '${plugin.name} uninstall failed'),
+        ),
+      ),
+    );
   }
 
-  void _showOperationDialog(BuildContext context, String action, String pluginName) {
+  void _showOperationDialog(
+    BuildContext context,
+    String action,
+    String pluginName,
+  ) {
     showAnimatedDialog(
       context: context,
       barrierDismissible: false,
@@ -625,11 +685,8 @@ class _PluginCard extends StatelessWidget {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     showAnimatedDialog(
       context: context,
-      builder: (ctx) => _PluginMcpDialog(
-        plugin: plugin,
-        controller: controller,
-        isZh: isZh,
-      ),
+      builder: (ctx) =>
+          _PluginMcpDialog(plugin: plugin, controller: controller, isZh: isZh),
     );
   }
 }
@@ -719,7 +776,9 @@ class _PluginOperationProgressDialogState
                 color: theme.colorScheme.surfaceContainerHigh,
                 border: Border(
                   bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                 ),
               ),
@@ -767,7 +826,9 @@ class _PluginOperationProgressDialogState
             // 环境信息
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.3,
+              ),
               child: DefaultTextStyle(
                 style: theme.textTheme.bodySmall!.copyWith(
                   fontFamily: 'monospace',
@@ -781,7 +842,11 @@ class _PluginOperationProgressDialogState
                     Text('PID: $pid'),
                     Text('OS: ${Platform.operatingSystem}'),
                     Text('Arch: ${Platform.version.split(' ').last}'),
-                    Text(isZh ? '日志: ${logs.length} 行' : 'Logs: ${logs.length} lines'),
+                    Text(
+                      isZh
+                          ? '日志: ${logs.length} 行'
+                          : 'Logs: ${logs.length} lines',
+                    ),
                   ],
                 ),
               ),
@@ -794,10 +859,7 @@ class _PluginOperationProgressDialogState
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
               )
             else
-              Container(
-                height: 3,
-                color: const Color(0xFF16A34A),
-              ),
+              Container(height: 3, color: const Color(0xFF16A34A)),
             // 终端输出区域
             Flexible(
               child: Container(
@@ -818,7 +880,8 @@ class _PluginOperationProgressDialogState
                         itemCount: logs.length,
                         itemBuilder: (context, index) {
                           final line = logs[index];
-                          final isError = line.startsWith('✗') ||
+                          final isError =
+                              line.startsWith('✗') ||
                               line.toLowerCase().startsWith('error');
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 2),
@@ -845,14 +908,18 @@ class _PluginOperationProgressDialogState
                 color: theme.colorScheme.surfaceContainerHigh,
                 border: Border(
                   top: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    isOperating ? Icons.hourglass_top_rounded : Icons.done_all_rounded,
+                    isOperating
+                        ? Icons.hourglass_top_rounded
+                        : Icons.done_all_rounded,
                     size: 14,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -918,7 +985,11 @@ class _PluginMetaRow extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.tag, size: 14, color: theme.colorScheme.onSurfaceVariant),
+              Icon(
+                Icons.tag,
+                size: 14,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 4),
               Text(
                 '${isZh ? "版本" : "Version"}: ${plugin.installedVersion}',
@@ -930,8 +1001,11 @@ class _PluginMetaRow extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.new_releases_outlined,
-                  size: 14, color: Color(0xFFF59E0B)),
+              const Icon(
+                Icons.new_releases_outlined,
+                size: 14,
+                color: Color(0xFFF59E0B),
+              ),
               const SizedBox(width: 4),
               Text(
                 '${isZh ? "可更新到" : "Update available"}: ${plugin.latestVersion}',
@@ -943,8 +1017,11 @@ class _PluginMetaRow extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.folder_outlined,
-                  size: 14, color: theme.colorScheme.onSurfaceVariant),
+              Icon(
+                Icons.folder_outlined,
+                size: 14,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 4),
               Text(plugin.installPath!, style: metaStyle),
             ],
@@ -970,8 +1047,11 @@ class _DependencyRow extends StatelessWidget {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     return Row(
       children: [
-        Icon(Icons.account_tree_outlined,
-            size: 14, color: theme.colorScheme.onSurfaceVariant),
+        Icon(
+          Icons.account_tree_outlined,
+          size: 14,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 6),
         Text(
           isZh ? '依赖: ' : 'Depends on: ',
@@ -988,7 +1068,9 @@ class _DependencyRow extends StatelessWidget {
               avatar: Icon(
                 installed ? Icons.check_circle : Icons.cancel,
                 size: 14,
-                color: installed ? const Color(0xFF16A34A) : theme.colorScheme.error,
+                color: installed
+                    ? const Color(0xFF16A34A)
+                    : theme.colorScheme.error,
               ),
               label: Text(
                 dep?.name ?? depId,
@@ -1023,7 +1105,11 @@ class _StatusDot extends StatelessWidget {
         color: surface,
         shape: BoxShape.circle,
         boxShadow: const [
-          BoxShadow(color: Color(0x1A000000), blurRadius: 2, offset: Offset(0, 1)),
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Center(
@@ -1077,10 +1163,7 @@ class _PluginStateCard extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                if (action != null) ...[
-                  const SizedBox(height: 16),
-                  action!,
-                ],
+                if (action != null) ...[const SizedBox(height: 16), action!],
               ],
             ),
           ),
@@ -1117,16 +1200,20 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
   Future<void> _loadEnvInfo() async {
     final info = <String, String>{};
     try {
-      info['OS'] = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+      info['OS'] =
+          '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
       info['Arch'] = Platform.version.split(' ').last;
       info['Dart'] = Platform.version.split(' ').first;
       info['PID'] = '$pid';
-      info[widget.isZh ? '处理器数' : 'Processors'] = '${Platform.numberOfProcessors}';
+      info[widget.isZh ? '处理器数' : 'Processors'] =
+          '${Platform.numberOfProcessors}';
       if (widget.plugin.installPath != null) {
-        info[widget.isZh ? '安装路径' : 'Install Path'] = widget.plugin.installPath!;
+        info[widget.isZh ? '安装路径' : 'Install Path'] =
+            widget.plugin.installPath!;
       }
       if (widget.plugin.installedVersion != null) {
-        info[widget.isZh ? '当前版本' : 'Version'] = widget.plugin.installedVersion!;
+        info[widget.isZh ? '当前版本' : 'Version'] =
+            widget.plugin.installedVersion!;
       }
       if (widget.plugin.latestVersion != null) {
         info[widget.isZh ? '最新版本' : 'Latest'] = widget.plugin.latestVersion!;
@@ -1134,13 +1221,15 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
       // 获取额外运行时信息
       if (widget.plugin.id == 'nodejs' && widget.plugin.isInstalled) {
         try {
-          final npmResult = await Process.run('npm', ['--version'])
-              .timeout(const Duration(seconds: 5));
+          final npmResult = await Process.run('npm', [
+            '--version',
+          ]).timeout(const Duration(seconds: 5));
           if (npmResult.exitCode == 0) {
             info['npm'] = npmResult.stdout.toString().trim();
           }
-          final npxResult = await Process.run('npx', ['--version'])
-              .timeout(const Duration(seconds: 5));
+          final npxResult = await Process.run('npx', [
+            '--version',
+          ]).timeout(const Duration(seconds: 5));
           if (npxResult.exitCode == 0) {
             info['npx'] = npxResult.stdout.toString().trim();
           }
@@ -1148,8 +1237,10 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
       }
       if (widget.plugin.id == 'playwright' && widget.plugin.isInstalled) {
         try {
-          final result = await Process.run('npx', ['playwright', '--version'])
-              .timeout(const Duration(seconds: 10));
+          final result = await Process.run('npx', [
+            'playwright',
+            '--version',
+          ]).timeout(const Duration(seconds: 10));
           if (result.exitCode == 0) {
             info['Playwright CLI'] = result.stdout.toString().trim();
           }
@@ -1185,14 +1276,19 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                 color: theme.colorScheme.surfaceContainerHigh,
                 border: Border(
                   bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded,
-                      size: 20, color: theme.colorScheme.primary),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -1222,9 +1318,15 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                           title: isZh ? '基本信息' : 'Basic Info',
                           icon: Icons.extension_rounded,
                           children: [
-                            _DetailRow(label: isZh ? '名称' : 'Name', value: plugin.name),
+                            _DetailRow(
+                              label: isZh ? '名称' : 'Name',
+                              value: plugin.name,
+                            ),
                             _DetailRow(label: 'ID', value: plugin.id),
-                            _DetailRow(label: isZh ? '描述' : 'Description', value: plugin.description),
+                            _DetailRow(
+                              label: isZh ? '描述' : 'Description',
+                              value: plugin.description,
+                            ),
                             _DetailRow(
                               label: isZh ? '状态' : 'Status',
                               value: plugin.status.name,
@@ -1324,7 +1426,9 @@ class _DetailSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.3,
+            ),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(
@@ -1441,14 +1545,19 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         bool npmInstalled = false;
         String? npmVersion;
         try {
-          final listResult = await Process.run(
-            'npm', ['list', '-g', '@playwright/mcp', '--depth=0'],
-          ).timeout(const Duration(seconds: 10));
-          npmInstalled = listResult.exitCode == 0 &&
+          final listResult = await Process.run('npm', [
+            'list',
+            '-g',
+            '@playwright/mcp',
+            '--depth=0',
+          ]).timeout(const Duration(seconds: 10));
+          npmInstalled =
+              listResult.exitCode == 0 &&
               listResult.stdout.toString().contains('@playwright/mcp');
           if (npmInstalled) {
-            final match = RegExp(r'@playwright/mcp@([\d.]+)')
-                .firstMatch(listResult.stdout.toString());
+            final match = RegExp(
+              r'@playwright/mcp@([\d.]+)',
+            ).firstMatch(listResult.stdout.toString());
             npmVersion = match?.group(1);
           }
         } catch (_) {}
@@ -1458,7 +1567,8 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         try {
           final mcpController = context.read<McpController>();
           mcpRegistered = mcpController.servers.any(
-            (s) => s.name == 'Playwright MCP' ||
+            (s) =>
+                s.name == 'Playwright MCP' ||
                 s.command == 'npx' && s.args.contains('@playwright/mcp'),
           );
         } catch (_) {}
@@ -1471,7 +1581,11 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
   }
 
   Future<void> _runMcpOperation(String action, List<String> args) async {
-    setState(() { _operating = true; _error = null; _logs.clear(); });
+    setState(() {
+      _operating = true;
+      _error = null;
+      _logs.clear();
+    });
     _addLog('> npm ${args.join(' ')}');
     _addLog('');
     try {
@@ -1517,7 +1631,10 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     try {
       final mcpController = context.read<McpController>();
       const mcpName = 'Playwright MCP';
-      if (action == '安装' || action == 'Install' || action == '更新' || action == 'Update') {
+      if (action == '安装' ||
+          action == 'Install' ||
+          action == '更新' ||
+          action == 'Update') {
         // 注册/更新 MCP 服务到 MCP 板块
         const server = McpServer(
           name: mcpName,
@@ -1546,10 +1663,11 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     ['install', '-g', '@playwright/mcp'],
   );
 
-  Future<void> _updateMcp() => _runMcpOperation(
-    widget.isZh ? '更新' : 'Update',
-    ['update', '-g', '@playwright/mcp'],
-  );
+  Future<void> _updateMcp() => _runMcpOperation(widget.isZh ? '更新' : 'Update', [
+    'update',
+    '-g',
+    '@playwright/mcp',
+  ]);
 
   Future<void> _uninstallMcp() => _runMcpOperation(
     widget.isZh ? '卸载' : 'Uninstall',
@@ -1576,13 +1694,19 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                 color: theme.colorScheme.surfaceContainerHigh,
                 border: Border(
                   bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.hub_rounded, size: 20, color: theme.colorScheme.primary),
+                  Icon(
+                    Icons.hub_rounded,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1647,7 +1771,10 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                           IconButton.filledTonal(
                             tooltip: isZh ? '更新' : 'Update',
                             onPressed: _operating ? null : _updateMcp,
-                            icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.system_update_alt_rounded,
+                              size: 18,
+                            ),
                           ),
                           const SizedBox(width: 6),
                           IconButton.filledTonal(
@@ -1656,7 +1783,10 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                             style: IconButton.styleFrom(
                               foregroundColor: theme.colorScheme.error,
                             ),
-                            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                            ),
                           ),
                         ],
                       ],
@@ -1694,7 +1824,8 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                           itemCount: _logs.length,
                           itemBuilder: (context, index) {
                             final line = _logs[index];
-                            final isErr = line.startsWith('✗') ||
+                            final isErr =
+                                line.startsWith('✗') ||
                                 line.toLowerCase().startsWith('error');
                             final isSuccess = line.startsWith('✓');
                             final isFail = line.startsWith('✗');
@@ -1707,8 +1838,8 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                                 color: isErr || isFail
                                     ? const Color(0xFFFF6B6B)
                                     : isSuccess
-                                        ? const Color(0xFF4ADE80)
-                                        : const Color(0xFFD4D4D4),
+                                    ? const Color(0xFF4ADE80)
+                                    : const Color(0xFFD4D4D4),
                               ),
                             );
                           },

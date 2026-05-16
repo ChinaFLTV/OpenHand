@@ -80,7 +80,7 @@ class WebSearchTelemetryStore
 
   /// 读取 engine_history.json，按引擎返回采样列表（按时间升序）。
   Future<Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>>
-      engineHistory() async {
+  engineHistory() async {
     final raw = await rawEngineHistory();
     final out = <AiWebSearchEngineKind, List<WebSearchEngineSample>>{};
     for (final entry in raw.entries) {
@@ -125,12 +125,13 @@ class WebSearchCallLog {
     final perEngineRaw = m['per_engine'];
     final perEngine = perEngineRaw is List
         ? perEngineRaw
-            .whereType<Map>()
-            .map(
-              (e) =>
-                  WebSearchPerEngineLog.fromJson(Map<String, Object?>.from(e)),
-            )
-            .toList(growable: false)
+              .whereType<Map>()
+              .map(
+                (e) => WebSearchPerEngineLog.fromJson(
+                  Map<String, Object?>.from(e),
+                ),
+              )
+              .toList(growable: false)
         : const <WebSearchPerEngineLog>[];
     return WebSearchCallLog(
       timestampMs: (m['timestamp_ms'] as num?)?.toInt() ?? 0,
@@ -164,19 +165,19 @@ class WebSearchCallLog {
   final List<WebSearchPerEngineLog> perEngine;
 
   Map<String, Object?> toJson() => {
-        'timestamp_ms': timestampMs,
-        'query': query,
-        'cache_status': cacheStatus,
-        'success': success,
-        'total_duration_ms': totalDurationMs,
-        'merged_hit_count': mergedHitCount,
-        'fallback_used': fallbackUsed,
-        'summary_chars': summaryChars,
-        if (errorMessage != null) 'error_message': errorMessage,
-        if (modelProtocol != null) 'model_protocol': modelProtocol,
-        if (modelId != null) 'model_id': modelId,
-        'per_engine': perEngine.map((e) => e.toJson()).toList(growable: false),
-      };
+    'timestamp_ms': timestampMs,
+    'query': query,
+    'cache_status': cacheStatus,
+    'success': success,
+    'total_duration_ms': totalDurationMs,
+    'merged_hit_count': mergedHitCount,
+    'fallback_used': fallbackUsed,
+    'summary_chars': summaryChars,
+    if (errorMessage != null) 'error_message': errorMessage,
+    if (modelProtocol != null) 'model_protocol': modelProtocol,
+    if (modelId != null) 'model_id': modelId,
+    'per_engine': perEngine.map((e) => e.toJson()).toList(growable: false),
+  };
 }
 
 class WebSearchPerEngineLog {
@@ -209,12 +210,12 @@ class WebSearchPerEngineLog {
   final String? error;
 
   Map<String, Object?> toJson() => {
-        'kind': kind.name,
-        'success': success,
-        'hit_count': hitCount,
-        'elapsed_ms': elapsedMs,
-        if (error != null) 'error': error,
-      };
+    'kind': kind.name,
+    'success': success,
+    'hit_count': hitCount,
+    'elapsed_ms': elapsedMs,
+    if (error != null) 'error': error,
+  };
 }
 
 class WebSearchEngineStat {
@@ -241,8 +242,7 @@ class WebSearchEngineStat {
         lastError: m['last_error'] as String?,
         lastFailureAt: (m['last_failure_at'] as num?)?.toInt(),
         lastInvokedAt: (m['last_invoked_at'] as num?)?.toInt(),
-        consecutiveFailures:
-            (m['consecutive_failures'] as num?)?.toInt() ?? 0,
+        consecutiveFailures: (m['consecutive_failures'] as num?)?.toInt() ?? 0,
         cooldownUntilMs: (m['cooldown_until_ms'] as num?)?.toInt(),
         lastQuotaError: m['last_quota_error'] as String?,
         lastQuotaAt: (m['last_quota_at'] as num?)?.toInt(),

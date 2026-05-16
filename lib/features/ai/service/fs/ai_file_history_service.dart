@@ -260,7 +260,12 @@ class AiFileHistoryService {
           final meta = jsonDecode(metaContent) as Map<String, Object?>;
           metadata = FileVersionInfo.fromJson(meta);
         } catch (error, stack) {
-          silentLog('ai_file_history_service', 'parse version meta', error, stack);
+          silentLog(
+            'ai_file_history_service',
+            'parse version meta',
+            error,
+            stack,
+          );
         }
       }
 
@@ -294,12 +299,22 @@ class AiFileHistoryService {
               }
             }
           } catch (error, stack) {
-            silentLog('ai_file_history_service', 'clear single history file', error, stack);
+            silentLog(
+              'ai_file_history_service',
+              'clear single history file',
+              error,
+              stack,
+            );
           }
         }
       }
     } catch (error, stack) {
-      silentLog('ai_file_history_service', 'iterate history dir for clear', error, stack);
+      silentLog(
+        'ai_file_history_service',
+        'iterate history dir for clear',
+        error,
+        stack,
+      );
     }
   }
 }

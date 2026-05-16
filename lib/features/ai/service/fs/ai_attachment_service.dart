@@ -91,7 +91,12 @@ class AiAttachmentService {
             try {
               await entity.delete();
             } catch (error, stack) {
-              silentLog('ai_attachment_service', 'delete legacy attachment file', error, stack);
+              silentLog(
+                'ai_attachment_service',
+                'delete legacy attachment file',
+                error,
+                stack,
+              );
             }
           }
         }
@@ -116,7 +121,12 @@ class AiAttachmentService {
         await directory.delete();
       }
     } catch (error, stack) {
-      silentLog('ai_attachment_service', 'maybe delete empty attachment dir', error, stack);
+      silentLog(
+        'ai_attachment_service',
+        'maybe delete empty attachment dir',
+        error,
+        stack,
+      );
     }
   }
 
@@ -220,7 +230,12 @@ class AiAttachmentService {
               await file.delete();
             }
           } catch (error, stack) {
-            silentLog('ai_attachment_service', 'rollback created attachment', error, stack);
+            silentLog(
+              'ai_attachment_service',
+              'rollback created attachment',
+              error,
+              stack,
+            );
           }
         }
       } else {

@@ -16,12 +16,7 @@ import 'package:flutter/foundation.dart';
 /// }
 /// ```
 @pragma('vm:prefer-inline')
-void silentLog(
-  String tag,
-  String where,
-  Object error, [
-  StackTrace? stack,
-]) {
+void silentLog(String tag, String where, Object error, [StackTrace? stack]) {
   if (!kDebugMode) {
     return;
   }

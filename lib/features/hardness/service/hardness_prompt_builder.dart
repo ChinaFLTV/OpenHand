@@ -10,6 +10,7 @@
 import '../../ai/index.dart';
 import '../model/hardness_phase.dart';
 import '../model/hardness_tool_affinity.dart';
+
 class HardnessPromptBuilder {
   const HardnessPromptBuilder();
 

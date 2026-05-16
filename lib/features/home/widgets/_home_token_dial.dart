@@ -158,9 +158,7 @@ class _TokenDialState extends State<_TokenDial>
                       ? Icons.bolt_rounded
                       : Icons.confirmation_number_rounded,
                   size: 14,
-                  color: hasCache
-                      ? Colors.green.shade600
-                      : colorScheme.primary,
+                  color: hasCache ? Colors.green.shade600 : colorScheme.primary,
                 ),
                 const SizedBox(width: 6),
                 if (hasCache) ...[
@@ -226,8 +224,9 @@ class _TokenDialPopup extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final cacheValueStyle = valueStyle?.copyWith(color: Colors.green.shade700);
-    final reasoningValueStyle =
-        valueStyle?.copyWith(color: Colors.purple.shade400);
+    final reasoningValueStyle = valueStyle?.copyWith(
+      color: Colors.purple.shade400,
+    );
     final promptTokens = statistics.totalPromptTokens ?? 0;
     final completionTokens = statistics.totalCompletionTokens ?? 0;
     final cacheRead = statistics.cacheReadTokens ?? 0;
@@ -235,8 +234,9 @@ class _TokenDialPopup extends StatelessWidget {
     final reasoning = statistics.reasoningTokens ?? 0;
     final total = statistics.totalTokens ?? 0;
     final cacheDenominator = promptTokens + cacheRead;
-    final cacheHitRatio =
-        cacheDenominator == 0 ? 0.0 : cacheRead / cacheDenominator;
+    final cacheHitRatio = cacheDenominator == 0
+        ? 0.0
+        : cacheRead / cacheDenominator;
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -261,7 +261,9 @@ class _TokenDialPopup extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              AppLocalizations.of(context)!.tokenPopupInputHeading.toUpperCase(),
+              AppLocalizations.of(
+                context,
+              )!.tokenPopupInputHeading.toUpperCase(),
               style: headStyle,
             ),
             const SizedBox(height: 6),
@@ -287,7 +289,9 @@ class _TokenDialPopup extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              AppLocalizations.of(context)!.tokenPopupOutputHeading.toUpperCase(),
+              AppLocalizations.of(
+                context,
+              )!.tokenPopupOutputHeading.toUpperCase(),
               style: headStyle,
             ),
             const SizedBox(height: 6),
@@ -339,7 +343,9 @@ class _TokenDialPopup extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             Text(
-              AppLocalizations.of(context)!.tokenPopupSessionHeading.toUpperCase(),
+              AppLocalizations.of(
+                context,
+              )!.tokenPopupSessionHeading.toUpperCase(),
               style: headStyle,
             ),
             const SizedBox(height: 6),
@@ -413,10 +419,7 @@ class _TokenDialPopup extends StatelessWidget {
         height: 1,
         color: colorScheme.outlineVariant.withValues(alpha: 0.4),
       ),
-      Text(
-        l10n.tokenPopupCostHeading.toUpperCase(),
-        style: headStyle,
-      ),
+      Text(l10n.tokenPopupCostHeading.toUpperCase(), style: headStyle),
       const SizedBox(height: 6),
       if (breakdown.inputUsd != null)
         _CostPopupRow(
@@ -780,8 +783,8 @@ class _RollingDigit extends StatelessWidget {
     // jitter as the digit changes (some font glyphs are slightly narrower).
     return AnimatedSwitcher(
       duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 360),
+          ? Duration.zero
+          : const Duration(milliseconds: 360),
       switchInCurve: Curves.easeOutBack,
       switchOutCurve: Curves.easeInCubic,
       transitionBuilder: (child, animation) {
@@ -809,7 +812,9 @@ class _RollingDigit extends StatelessWidget {
       child: Text(
         digit,
         key: ValueKey<String>(digit),
-        style: style.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+        style: style.copyWith(
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
       ),
     );
   }

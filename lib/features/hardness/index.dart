@@ -13,4 +13,7 @@ export 'service/hardness_prompt_builder.dart';
 export 'widgets/hardness_engineering_dialog.dart'
     show HardnessEngineeringDialog, showHardnessEngineeringDialog;
 export 'widgets/hardness_session_dashboard.dart'
-    show HardnessSessionDashboard, HardnessSessionPane, HardnessSessionPaneController;
+    show
+        HardnessSessionDashboard,
+        HardnessSessionPane,
+        HardnessSessionPaneController;

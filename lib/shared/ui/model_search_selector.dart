@@ -392,8 +392,9 @@ class _ModelTile extends StatelessWidget {
                   Text(
                     entry.modelId,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight:
-                          isActive ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight: isActive
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                       color: isActive ? colorScheme.primary : null,
                     ),
                     overflow: TextOverflow.ellipsis,

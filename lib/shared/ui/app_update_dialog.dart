@@ -347,8 +347,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
                       child: LinearProgressIndicator(
                         value: value,
                         minHeight: 8,
-                        backgroundColor:
-                            colorScheme.surfaceContainerHighest,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           colorScheme.primary,
                         ),

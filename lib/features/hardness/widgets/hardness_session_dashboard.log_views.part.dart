@@ -567,4 +567,3 @@ List<_HeOutputSegment> _heParseOutputSegmentsIsolate(List<String> lines) =>
 // Similar to _HeSubConversationView but operates on a tail of lines and
 // includes streaming indicators.
 // =============================================================================
-

@@ -1350,13 +1350,11 @@ class WebMessagePlatformService {
     );
     router.post(
       '/api/plugins/install',
-      (shelf.Request r) =>
-          _withAuth(r, (req, _) => _pluginInstallHandler(req)),
+      (shelf.Request r) => _withAuth(r, (req, _) => _pluginInstallHandler(req)),
     );
     router.post(
       '/api/plugins/update',
-      (shelf.Request r) =>
-          _withAuth(r, (req, _) => _pluginUpdateHandler(req)),
+      (shelf.Request r) => _withAuth(r, (req, _) => _pluginUpdateHandler(req)),
     );
     router.post(
       '/api/plugins/uninstall',
@@ -1742,19 +1740,21 @@ class WebMessagePlatformService {
         return _json(HttpStatus.ok, <String, Object?>{'items': <Object?>[]});
       }
       final items = controller.plugins
-          .map((p) => <String, Object?>{
-                'id': p.id,
-                'name': p.name,
-                'description': p.description,
-                'status': p.status.name,
-                'installed_version': p.installedVersion,
-                'latest_version': p.latestVersion,
-                'install_path': p.installPath,
-                'dependencies': p.dependencies,
-                'dependents': p.dependents,
-                'error_message': p.errorMessage,
-                'has_update': p.hasUpdate,
-              })
+          .map(
+            (p) => <String, Object?>{
+              'id': p.id,
+              'name': p.name,
+              'description': p.description,
+              'status': p.status.name,
+              'installed_version': p.installedVersion,
+              'latest_version': p.latestVersion,
+              'install_path': p.installPath,
+              'dependencies': p.dependencies,
+              'dependents': p.dependents,
+              'error_message': p.errorMessage,
+              'has_update': p.hasUpdate,
+            },
+          )
           .toList(growable: false);
       return _json(HttpStatus.ok, <String, Object?>{'items': items});
     } catch (e) {
@@ -1843,19 +1843,21 @@ class WebMessagePlatformService {
     }
     await controller.rescan();
     final items = controller.plugins
-        .map((p) => <String, Object?>{
-              'id': p.id,
-              'name': p.name,
-              'description': p.description,
-              'status': p.status.name,
-              'installed_version': p.installedVersion,
-              'latest_version': p.latestVersion,
-              'install_path': p.installPath,
-              'dependencies': p.dependencies,
-              'dependents': p.dependents,
-              'error_message': p.errorMessage,
-              'has_update': p.hasUpdate,
-            })
+        .map(
+          (p) => <String, Object?>{
+            'id': p.id,
+            'name': p.name,
+            'description': p.description,
+            'status': p.status.name,
+            'installed_version': p.installedVersion,
+            'latest_version': p.latestVersion,
+            'install_path': p.installPath,
+            'dependencies': p.dependencies,
+            'dependents': p.dependents,
+            'error_message': p.errorMessage,
+            'has_update': p.hasUpdate,
+          },
+        )
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
@@ -2764,15 +2766,19 @@ class WebMessagePlatformService {
     }
     final body = await _readJsonBody(request);
     if (body.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{'error': 'invalid_body'});
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'invalid_body',
+      });
     }
     final content = _string(body['content'], '').trim();
     if (content.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{'error': 'content_required'});
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'content_required',
+      });
     }
     // 使用目标会话当前所使用的模型（通过 provider config ID 直接查找）
-    final providerConfigId = session.lastUsedModelId ??
-        _settingsController.selectedAiModelId ?? '';
+    final providerConfigId =
+        session.lastUsedModelId ?? _settingsController.selectedAiModelId ?? '';
     AiModelConfig? model;
     if (providerConfigId.isNotEmpty) {
       model = _settingsController.aiModels
@@ -2781,12 +2787,15 @@ class WebMessagePlatformService {
     }
     model ??= _settingsController.selectedAiModel;
     if (model == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{'error': 'model_not_configured'});
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'model_not_configured',
+      });
     }
     try {
       final autoTitleSystemPrompt = await _sessionController
           .resolveAutoTitleSystemPromptForWeb(
-            maxTitleCharacters: _settingsController.aiGeneratedTitleMaxCharacters,
+            maxTitleCharacters:
+                _settingsController.aiGeneratedTitleMaxCharacters,
           );
       final promptMessages = <AiChatTurn>[
         AiChatTurn(role: AiChatRole.system, content: autoTitleSystemPrompt),

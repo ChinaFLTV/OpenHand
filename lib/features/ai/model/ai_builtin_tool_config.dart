@@ -328,7 +328,12 @@ class AiBuiltinToolConfig {
           schemaOverride = Map<String, Object?>.from(decoded);
         }
       } catch (error, stack) {
-        silentLog('ai_builtin_tool_config', 'decode schema_override JSON string', error, stack);
+        silentLog(
+          'ai_builtin_tool_config',
+          'decode schema_override JSON string',
+          error,
+          stack,
+        );
       }
     } else if (rawSchema is Map) {
       schemaOverride = Map<String, Object?>.from(rawSchema);
@@ -389,9 +394,7 @@ class AiBuiltinToolConfig {
       webSearchSettings: AiWebSearchSettings.fromJson(
         json['web_search_settings'],
       ),
-      webFetchSettings: AiWebFetchSettings.fromJson(
-        json['web_fetch_settings'],
-      ),
+      webFetchSettings: AiWebFetchSettings.fromJson(json['web_fetch_settings']),
     );
   }
 

@@ -85,9 +85,12 @@ class AiCostBreakdown {
         price == null ? null : tokens * price / 1000000.0;
 
     return AiCostBreakdown(
-      inputUsd: usage.promptTokens == null ? null : mul(effectivePrompt, inputPrice),
-      outputUsd:
-          usage.completionTokens == null ? null : mul(completion, outputPrice),
+      inputUsd: usage.promptTokens == null
+          ? null
+          : mul(effectivePrompt, inputPrice),
+      outputUsd: usage.completionTokens == null
+          ? null
+          : mul(completion, outputPrice),
       cacheReadUsd: usage.cacheReadTokens == null
           ? null
           : mul(cacheReadTokens, cacheReadPrice),
@@ -113,9 +116,9 @@ class AiCostBreakdown {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        if (inputUsd != null) 'input_usd': inputUsd,
-        if (outputUsd != null) 'output_usd': outputUsd,
-        if (cacheReadUsd != null) 'cache_read_usd': cacheReadUsd,
-        if (cacheWriteUsd != null) 'cache_write_usd': cacheWriteUsd,
-      };
+    if (inputUsd != null) 'input_usd': inputUsd,
+    if (outputUsd != null) 'output_usd': outputUsd,
+    if (cacheReadUsd != null) 'cache_read_usd': cacheReadUsd,
+    if (cacheWriteUsd != null) 'cache_write_usd': cacheWriteUsd,
+  };
 }

@@ -228,10 +228,7 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
       parent: _controller,
       curve: Curves.easeOutBack,
     );
-    _fade = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    );
+    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
     _offset = Tween<Offset>(
       begin: const Offset(0, 0.22),
       end: Offset.zero,
@@ -276,13 +273,14 @@ class _SnackBarCloseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onInverseSurface
-        .withValues(alpha: 0.7);
+    final color = Theme.of(
+      context,
+    ).colorScheme.onInverseSurface.withValues(alpha: 0.7);
     return GestureDetector(
       onTap: () {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar(
-          reason: SnackBarClosedReason.dismiss,
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).hideCurrentSnackBar(reason: SnackBarClosedReason.dismiss);
       },
       behavior: HitTestBehavior.opaque,
       child: Padding(

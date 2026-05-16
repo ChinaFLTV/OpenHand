@@ -1122,7 +1122,12 @@ abstract final class AiLspManagedInstallService {
         }
       }
     } catch (error, stack) {
-      silentLog('ai_lsp_managed_install_service', 'detect arch via uname', error, stack);
+      silentLog(
+        'ai_lsp_managed_install_service',
+        'detect arch via uname',
+        error,
+        stack,
+      );
     }
     return '';
   }

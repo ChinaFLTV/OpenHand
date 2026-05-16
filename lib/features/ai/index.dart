@@ -2,7 +2,6 @@
 // so sibling features only need a single 'features/ai/index.dart' import.
 // Re-narrow with 'show' clauses on a per-symbol basis only if proven necessary.
 
-
 export 'ai_module.dart';
 export 'ai_session_controller.dart';
 

@@ -87,8 +87,9 @@ class AiWriteTool extends AiTool {
         toolCallId: context.toolCall.id,
         fileHistory: fileHistory,
       );
-      beforeContentForLedger =
-          await AiToolUtils.readFileContentForLedger(filePath);
+      beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
+        filePath,
+      );
     }
 
     await AiToolUtils.writeTextFileSafely(file, content);

@@ -119,31 +119,45 @@ void main() {
         system.toLowerCase().contains('## atomic change discipline') ||
         system.contains('原子化变更纪律') ||
         system.contains('不确定性诚实');
-    final tonePolicyMarker =
-        system.toLowerCase().contains('## memory tone policy');
+    final tonePolicyMarker = system.toLowerCase().contains(
+      '## memory tone policy',
+    );
     final cjkRatio = _cjkRatioPct(system);
 
     final assembled = _appendMemoryTonePolicyIfAbsent(
       _appendV4DisciplineIfAbsent(system),
     );
 
-    File('${outDir.path}/system_instructions.assembled.md')
-        .writeAsStringSync(assembled);
+    File(
+      '${outDir.path}/system_instructions.assembled.md',
+    ).writeAsStringSync(assembled);
     File('${outDir.path}/system_instructions.raw.md').writeAsStringSync(system);
-    File('${outDir.path}/developer_instructions.md')
-        .writeAsStringSync(developer);
-    File('${outDir.path}/compression_summary_instructions.md')
-        .writeAsStringSync(compression);
+    File(
+      '${outDir.path}/developer_instructions.md',
+    ).writeAsStringSync(developer);
+    File(
+      '${outDir.path}/compression_summary_instructions.md',
+    ).writeAsStringSync(compression);
 
     print('• ${t.id}');
-    print('    raw chars     : sys=${system.length} dev=${developer.length} '
-        'comp=${compression.length}');
-    print('    assembled sys : ${assembled.length} chars '
-        '(+${assembled.length - system.length})');
-    print('    cjk ratio     : ${cjkRatio.toStringAsFixed(1)}% '
-        '(→ ${_looksLikeChinese(system) ? "zh" : "en"} discipline)');
-    print('    v4 marker     : ${v4Marker ? "PRESENT (skip append)" : "absent (append)"}');
-    print('    tone marker   : ${tonePolicyMarker ? "PRESENT (skip append)" : "absent (append)"}');
+    print(
+      '    raw chars     : sys=${system.length} dev=${developer.length} '
+      'comp=${compression.length}',
+    );
+    print(
+      '    assembled sys : ${assembled.length} chars '
+      '(+${assembled.length - system.length})',
+    );
+    print(
+      '    cjk ratio     : ${cjkRatio.toStringAsFixed(1)}% '
+      '(→ ${_looksLikeChinese(system) ? "zh" : "en"} discipline)',
+    );
+    print(
+      '    v4 marker     : ${v4Marker ? "PRESENT (skip append)" : "absent (append)"}',
+    );
+    print(
+      '    tone marker   : ${tonePolicyMarker ? "PRESENT (skip append)" : "absent (append)"}',
+    );
     print('    out dir       : ${outDir.path}');
     print('');
   }

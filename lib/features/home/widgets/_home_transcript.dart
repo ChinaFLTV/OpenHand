@@ -134,6 +134,7 @@ class _TranscriptScrollDispatcher {
           completer.complete();
         }
       }
+
       timeout = Timer(const Duration(milliseconds: 250), () {
         if (!completer.isCompleted) completer.complete();
       });
@@ -762,10 +763,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   /// 防抖：同一时刻只允许一次 in-flight 的滚动。重复点击在已有
   /// 任务进行时直接复用其 future，杜绝多次 reveal-older + ensureVisible
   /// 叠加导致的"上下抽搐"。
-  Future<bool> _scrollToMessageId(
-    String messageId, {
-    bool highlight = false,
-  }) {
+  Future<bool> _scrollToMessageId(String messageId, {bool highlight = false}) {
     final existing = _activeScrollFuture;
     if (existing != null && _activeScrollTargetId == messageId) {
       return existing;
@@ -863,9 +861,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       32,
       (display.length / _transcriptWindowIncrement).ceil() + 2,
     );
-    while (mounted &&
-        targetDisplayIndex < _windowStartIndex &&
-        safety-- > 0) {
+    while (mounted && targetDisplayIndex < _windowStartIndex && safety-- > 0) {
       await _revealOlderMessages(display.length);
       await WidgetsBinding.instance.endOfFrame;
       if (await tryEnsureVisible()) return true;
@@ -956,8 +952,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         final topOffset = currentOffset + localOffset.dy;
         // 选最接近 renderIndex 的锚点：误差最小，估算最准。
         if (anchorRenderIndex == null ||
-            (i - renderIndex).abs() <
-                (anchorRenderIndex - renderIndex).abs()) {
+            (i - renderIndex).abs() < (anchorRenderIndex - renderIndex).abs()) {
           anchorRenderIndex = i;
           anchorTopOffset = topOffset;
         }
@@ -988,11 +983,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       scrollController.jumpTo(goal);
       return true;
     }
-    await scrollController.animateTo(
-      goal,
-      duration: duration,
-      curve: curve,
-    );
+    await scrollController.animateTo(goal, duration: duration, curve: curve);
     return true;
   }
 
@@ -1900,13 +1891,20 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.info_outline_rounded, size: 14,
-                        color: colorScheme.onErrorContainer.withValues(alpha: 0.8)),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: colorScheme.onErrorContainer.withValues(
+                        alpha: 0.8,
+                      ),
+                    ),
                     const SizedBox(width: 5),
                     Text(
                       '查看详情 / View details',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onErrorContainer.withValues(alpha: 0.8),
+                        color: colorScheme.onErrorContainer.withValues(
+                          alpha: 0.8,
+                        ),
                         fontWeight: FontWeight.w600,
                       ),
                     ),

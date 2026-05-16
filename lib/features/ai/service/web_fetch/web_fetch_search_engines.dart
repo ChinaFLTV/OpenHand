@@ -41,8 +41,7 @@ class WebFetchKimiEngine extends WebFetchEngine {
         'messages': [
           {
             'role': 'user',
-            'content':
-                '请抓取 ${req.url} 的核心内容并原样返回（保留章节、列表、代码块）。',
+            'content': '请抓取 ${req.url} 的核心内容并原样返回（保留章节、列表、代码块）。',
           },
         ],
         'tools': [
@@ -78,7 +77,9 @@ class WebFetchKimiEngine extends WebFetchEngine {
     return [
       WebFetchEngineContent(
         url: req.url,
-        title: stringOf(hit['title']).isEmpty ? req.url : stringOf(hit['title']),
+        title: stringOf(hit['title']).isEmpty
+            ? req.url
+            : stringOf(hit['title']),
         content: content,
       ),
     ];
@@ -128,7 +129,9 @@ class WebFetchBaiduEngine extends WebFetchEngine {
     return [
       WebFetchEngineContent(
         url: req.url,
-        title: stringOf(hit['title']).isEmpty ? req.url : stringOf(hit['title']),
+        title: stringOf(hit['title']).isEmpty
+            ? req.url
+            : stringOf(hit['title']),
         content: content,
         publishedAt: DateTime.tryParse(stringOf(hit['date'])),
       ),
@@ -257,7 +260,8 @@ class WebFetchGrokEngine extends WebFetchEngine {
         'messages': [
           {
             'role': 'system',
-            'content': 'You are a webpage extractor. Reply with the page content.',
+            'content':
+                'You are a webpage extractor. Reply with the page content.',
           },
           {
             'role': 'user',

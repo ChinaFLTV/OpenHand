@@ -17,10 +17,7 @@ class AiLsTool extends AiTool {
     final startedAt = Stopwatch()..start();
     final rawPath = '${args['path'] ?? ''}'.trim();
     if (rawPath.isEmpty) {
-      return AiToolUtils.invalidResult(
-        'LS',
-        'LS requires a non-empty path.',
-      );
+      return AiToolUtils.invalidResult('LS', 'LS requires a non-empty path.');
     }
     // 2026-04-28: 与 Read/Write/Edit 等其它工具对齐 —— 模型经常传相对路径
     // （如 "."、"src/"），原本的 requireAbsoluteDirectoryPath 会硬拒并返回

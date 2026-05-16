@@ -84,9 +84,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
       // the workspace pane to roughly twice the SafeArea outer inset.
       // Force the drawer to fill its parent so the visible right edge of
       // the navigation card lines up with the Card's clipped boundary.
-      drawerTheme: theme.drawerTheme.copyWith(
-        width: double.infinity,
-      ),
+      drawerTheme: theme.drawerTheme.copyWith(width: double.infinity),
       navigationDrawerTheme: theme.navigationDrawerTheme.copyWith(
         indicatorColor: colorScheme.primaryContainer,
         labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
@@ -227,7 +225,8 @@ class _NavigationPaneState extends State<_NavigationPane> {
             onRename: () => widget.onRenameSession(session),
             onDelete: () => widget.onDeleteSession(session),
             onExport: () => widget.onExportSession(session),
-            onGenerateTitle: () => widget.onGenerateTitleForSession?.call(session),
+            onGenerateTitle: () =>
+                widget.onGenerateTitleForSession?.call(session),
           ),
         ),
       );
@@ -360,7 +359,9 @@ class _NavigationPaneState extends State<_NavigationPane> {
             NavigationDrawerDestination(
               icon: const Icon(Icons.rule_folder_outlined),
               selectedIcon: const Icon(Icons.rule_folder_rounded),
-              label: Text(_localizedText(context, zh: '指令', en: 'Instructions')),
+              label: Text(
+                _localizedText(context, zh: '指令', en: 'Instructions'),
+              ),
             ),
             NavigationDrawerDestination(
               icon: const Icon(Icons.alt_route_outlined),

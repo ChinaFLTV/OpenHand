@@ -456,9 +456,7 @@ class AiImageGenerationService {
     } on TlsException catch (error) {
       throw AiMediaGenerationException(_MediaErrorMessages.tls(kind, error));
     } on SocketException catch (error) {
-      throw AiMediaGenerationException(
-        _MediaErrorMessages.socket(kind, error),
-      );
+      throw AiMediaGenerationException(_MediaErrorMessages.socket(kind, error));
     } on http.ClientException catch (error) {
       throw AiMediaGenerationException(
         _MediaErrorMessages.httpClient(kind, error),
@@ -1992,11 +1990,10 @@ class _MediaErrorMessages {
     int code, {
     String serverMessage = '',
     String contextHint = '',
-  }) =>
-      AiTransportDiagnosticMessages.httpStatus(
-        code,
-        serverMessage: serverMessage,
-        contextLabel: _label(kind),
-        contextHint: contextHint,
-      );
+  }) => AiTransportDiagnosticMessages.httpStatus(
+    code,
+    serverMessage: serverMessage,
+    contextLabel: _label(kind),
+    contextHint: contextHint,
+  );
 }

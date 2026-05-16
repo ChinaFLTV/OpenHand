@@ -2185,14 +2185,13 @@ class _ContextStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final valueStyle = (emphasize
-            ? theme.textTheme.bodyLarge
-            : theme.textTheme.bodyMedium)
-        ?.copyWith(
-          color: valueColor,
-          fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        );
+    final valueStyle =
+        (emphasize ? theme.textTheme.bodyLarge : theme.textTheme.bodyMedium)
+            ?.copyWith(
+              color: valueColor,
+              fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(

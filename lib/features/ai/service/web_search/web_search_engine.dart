@@ -143,17 +143,19 @@ abstract class WebSearchEngine
     required List<String> blocked,
   }) {
     if (allowed.isEmpty && blocked.isEmpty) return hits;
-    return hits.where((hit) {
-      final host = Uri.tryParse(hit.url)?.host.toLowerCase() ?? '';
-      if (allowed.isNotEmpty &&
-          !allowed.any((d) => host == d || host.endsWith('.$d'))) {
-        return false;
-      }
-      if (blocked.any((d) => host == d || host.endsWith('.$d'))) {
-        return false;
-      }
-      return true;
-    }).toList(growable: false);
+    return hits
+        .where((hit) {
+          final host = Uri.tryParse(hit.url)?.host.toLowerCase() ?? '';
+          if (allowed.isNotEmpty &&
+              !allowed.any((d) => host == d || host.endsWith('.$d'))) {
+            return false;
+          }
+          if (blocked.any((d) => host == d || host.endsWith('.$d'))) {
+            return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
   }
 }
 
@@ -185,5 +187,3 @@ class WebSearchEngineContext {
     return null;
   }
 }
-
-

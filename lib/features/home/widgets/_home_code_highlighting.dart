@@ -343,25 +343,24 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     // 确保 span 不为 null：如果 _highlightedSpan 仍为 null（理论上不应该，
     // 因为 didChangeDependencies 已经调用了 _ensureHighlightedSpan），
     // 回退到直接渲染纯文本，避免显示空白。
-    final span = _highlightedSpan ?? TextSpan(
-      text: widget.content,
-      style: _baseStyleForCurrentTheme(
-        widget.forceDarkSurface || widget.theme.brightness == Brightness.dark,
-      ),
-    );
+    final span =
+        _highlightedSpan ??
+        TextSpan(
+          text: widget.content,
+          style: _baseStyleForCurrentTheme(
+            widget.forceDarkSurface ||
+                widget.theme.brightness == Brightness.dark,
+          ),
+        );
     // 大代码块（> 8KB）使用 RichText 而非 SelectableText，避免
     // EditableText 层在大 TextSpan 上的 O(n) layout 开销。
     final useSelectable = widget.selectable && widget.content.length <= 8192;
     if (widget.wrapLines) {
-      return useSelectable
-          ? SelectableText.rich(span)
-          : RichText(text: span);
+      return useSelectable ? SelectableText.rich(span) : RichText(text: span);
     }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: useSelectable
-          ? SelectableText.rich(span)
-          : RichText(text: span),
+      child: useSelectable ? SelectableText.rich(span) : RichText(text: span),
     );
   }
 

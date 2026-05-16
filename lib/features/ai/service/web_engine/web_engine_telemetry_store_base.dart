@@ -92,11 +92,8 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     return _quotaErrorPattern.hasMatch(message);
   }
 
-  String defaultDirectoryPath() => p.join(
-        OpenHandPaths.defaultCacheDirectoryPath(),
-        subdir,
-        'telemetry',
-      );
+  String defaultDirectoryPath() =>
+      p.join(OpenHandPaths.defaultCacheDirectoryPath(), subdir, 'telemetry');
 
   /// 读取 `calls.json` 的原始 entry 数组（按 append 时间升序）。
   /// 调用方负责 reverse + take（旧 API 是返回新→旧）。
@@ -200,8 +197,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         final agg = <String, Map<String, Object?>>{};
         for (final entry in decoded.entries) {
           if (entry.value is Map) {
-            agg['${entry.key}'] =
-                Map<String, Object?>.from(entry.value as Map);
+            agg['${entry.key}'] = Map<String, Object?>.from(entry.value as Map);
           }
         }
         final cur = agg[kind.name];
@@ -288,7 +284,9 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
             if (item is Map) calls.add(Map<String, Object?>.from(item));
           }
         }
-      } catch (_) {/* corrupted: drop */}
+      } catch (_) {
+        /* corrupted: drop */
+      }
     }
     calls.add(callJson);
     if (calls.length > maxRecentCalls) {
@@ -306,19 +304,23 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         if (decoded is Map) {
           for (final entry in decoded.entries) {
             if (entry.value is Map) {
-              agg['${entry.key}'] =
-                  Map<String, Object?>.from(entry.value as Map);
+              agg['${entry.key}'] = Map<String, Object?>.from(
+                entry.value as Map,
+              );
             }
           }
         }
-      } catch (_) {/* corrupted: rebuild */}
+      } catch (_) {
+        /* corrupted: rebuild */
+      }
     }
     final cfg = cooldownConfig;
     for (final per in perEngine) {
       final key = per.kindName;
       final cur = agg[key] ?? <String, Object?>{};
       final totalCalls = ((cur['total_calls'] as num?)?.toInt() ?? 0) + 1;
-      final successCalls = ((cur['success_calls'] as num?)?.toInt() ?? 0) +
+      final successCalls =
+          ((cur['success_calls'] as num?)?.toInt() ?? 0) +
           (per.success ? 1 : 0);
       final totalDur =
           ((cur['total_duration_ms'] as num?)?.toInt() ?? 0) + per.elapsedMs;
@@ -389,7 +391,9 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
               }
             }
           }
-        } catch (_) {/* corrupted */}
+        } catch (_) {
+          /* corrupted */
+        }
       }
       for (final per in perEngine) {
         final key = per.kindName;

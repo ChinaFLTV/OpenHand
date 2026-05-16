@@ -14,10 +14,7 @@ import 'web_fetch_engine.dart';
 
 /// Firecrawl /v1/scrape — https://docs.firecrawl.dev/api-reference/endpoint/scrape
 class WebFetchFirecrawlEngine extends WebFetchEngine {
-  WebFetchFirecrawlEngine({
-    required super.config,
-    required super.httpClient,
-  });
+  WebFetchFirecrawlEngine({required super.config, required super.httpClient});
 
   @override
   bool get isReady => (config.apiKey ?? '').isNotEmpty;
@@ -96,14 +93,18 @@ class WebFetchTavilyEngine extends WebFetchEngine {
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final results = (body['results'] as List?) ?? const [];
-    return results.whereType<Map>().map((r) {
-      final raw = stringOf(r['raw_content']);
-      return WebFetchEngineContent(
-        url: stringOf(r['url']).isEmpty ? req.url : stringOf(r['url']),
-        title: req.url,
-        content: raw,
-      );
-    }).where((c) => c.content.isNotEmpty).toList(growable: false);
+    return results
+        .whereType<Map>()
+        .map((r) {
+          final raw = stringOf(r['raw_content']);
+          return WebFetchEngineContent(
+            url: stringOf(r['url']).isEmpty ? req.url : stringOf(r['url']),
+            title: req.url,
+            content: raw,
+          );
+        })
+        .where((c) => c.content.isNotEmpty)
+        .toList(growable: false);
   }
 }
 
@@ -135,15 +136,19 @@ class WebFetchExaEngine extends WebFetchEngine {
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
     final results = (body['results'] as List?) ?? const [];
-    return results.whereType<Map>().map((r) {
-      final text = stringOf(r['text']);
-      return WebFetchEngineContent(
-        url: stringOf(r['url']).isEmpty ? req.url : stringOf(r['url']),
-        title: stringOf(r['title']),
-        content: text,
-        publishedAt: DateTime.tryParse(stringOf(r['publishedDate'])),
-      );
-    }).where((c) => c.content.isNotEmpty).toList(growable: false);
+    return results
+        .whereType<Map>()
+        .map((r) {
+          final text = stringOf(r['text']);
+          return WebFetchEngineContent(
+            url: stringOf(r['url']).isEmpty ? req.url : stringOf(r['url']),
+            title: stringOf(r['title']),
+            content: text,
+            publishedAt: DateTime.tryParse(stringOf(r['publishedDate'])),
+          );
+        })
+        .where((c) => c.content.isNotEmpty)
+        .toList(growable: false);
   }
 }
 

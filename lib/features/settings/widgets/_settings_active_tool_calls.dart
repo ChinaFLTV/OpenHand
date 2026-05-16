@@ -277,10 +277,7 @@ class _ToolHardeningParamsPanelState extends State<_ToolHardeningParamsPanel> {
             ),
           ),
           const SizedBox(width: 8),
-          FilledButton.tonal(
-            onPressed: onSave,
-            child: const Text('Save'),
-          ),
+          FilledButton.tonal(onPressed: onSave, child: const Text('Save')),
         ],
       ),
     );

@@ -180,8 +180,8 @@ class _HeStreamingSubConversationState
                       AnimatedRotation(
                         turns: _showEarlierSegments ? 0.5 : 0,
                         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
                         curve: Curves.easeOutCubic,
                         child: Icon(
                           Icons.keyboard_arrow_down_rounded,
@@ -502,8 +502,8 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
                           duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                              ? Duration.zero
+                              : const Duration(milliseconds: 220),
                           curve: Curves.easeOutCubic,
                           child: Icon(
                             Icons.keyboard_arrow_down_rounded,
@@ -548,8 +548,8 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
                           duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                              ? Duration.zero
+                              : const Duration(milliseconds: 220),
                           curve: Curves.easeOutCubic,
                           child: Icon(
                             Icons.keyboard_arrow_down_rounded,
@@ -676,4 +676,3 @@ class _HeAnimatedSegmentEntryState extends State<_HeAnimatedSegmentEntry>
 
 final RegExp _heApiArgsMarker = RegExp(r'^\s*📥\s+(.+)$');
 final RegExp _heApiStatusMarker = RegExp(r'^\s*📤\s+(.+)$');
-

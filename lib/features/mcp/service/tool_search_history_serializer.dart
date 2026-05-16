@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-
 /// 把 [AiToolSearchLoadHistoryEntry] 序列化为 CSV / Markdown 的纯函数集合。
 ///
 /// 所有函数均为纯函数：不读 BuildContext、不写剪贴板、不依赖 setState；
@@ -17,6 +16,7 @@ import 'dart:convert';
 ///   - `+Added / Deferred` 列固定形如 `+3 / 7`
 ///   - 单元格内 `|` 转义为 `\|`、`\n` 折成空格，以避免破坏表格
 import '../../ai/index.dart';
+
 class ToolSearchHistorySerializer {
   const ToolSearchHistorySerializer._();
 
@@ -64,7 +64,8 @@ class ToolSearchHistorySerializer {
 
   static String _csvEscape(String raw) {
     if (raw.isEmpty) return '';
-    final needsQuote = raw.contains(',') ||
+    final needsQuote =
+        raw.contains(',') ||
         raw.contains('"') ||
         raw.contains('\n') ||
         raw.contains('\r');
@@ -112,7 +113,9 @@ class ToolSearchHistorySerializer {
     try {
       decoded = jsonDecode(source);
     } on FormatException catch (e) {
-      throw FormatException('ToolSearchHistorySerializer.fromJson: ${e.message}');
+      throw FormatException(
+        'ToolSearchHistorySerializer.fromJson: ${e.message}',
+      );
     }
     if (decoded is! Map) {
       throw const FormatException(

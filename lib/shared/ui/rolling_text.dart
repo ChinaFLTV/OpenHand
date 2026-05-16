@@ -33,12 +33,7 @@ class RollingText extends StatelessWidget {
     for (var i = 0; i < text.length; i += 1) {
       final ch = text[i];
       children.add(
-        _RollingChar(
-          char: ch,
-          slot: i,
-          style: style,
-          duration: duration,
-        ),
+        _RollingChar(char: ch, slot: i, style: style, duration: duration),
       );
     }
     return Row(mainAxisSize: MainAxisSize.min, children: children);

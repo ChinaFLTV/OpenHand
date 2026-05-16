@@ -651,7 +651,9 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
       fontFamily: 'monospace',
       fontSize: 13,
       height: 1.5,
-      color: isDark ? Colors.white.withValues(alpha: 0.92) : widget.colorScheme.onSurface,
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.92)
+          : widget.colorScheme.onSurface,
     );
 
     // Skip highlighting for very large blocks
@@ -684,19 +686,23 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
     final spans = <InlineSpan>[];
     for (final node in nodes) {
       if (node.value != null) {
-        spans.add(TextSpan(
-          text: node.value,
-          style: node.className == null
-              ? null
-              : _heStyleForClass(node.className, baseStyle, isDark),
-        ));
+        spans.add(
+          TextSpan(
+            text: node.value,
+            style: node.className == null
+                ? null
+                : _heStyleForClass(node.className, baseStyle, isDark),
+          ),
+        );
       } else {
-        spans.add(TextSpan(
-          style: node.className == null
-              ? null
-              : _heStyleForClass(node.className, baseStyle, isDark),
-          children: _buildNodes(node.children, baseStyle, isDark),
-        ));
+        spans.add(
+          TextSpan(
+            style: node.className == null
+                ? null
+                : _heStyleForClass(node.className, baseStyle, isDark),
+            children: _buildNodes(node.children, baseStyle, isDark),
+          ),
+        );
       }
     }
     return spans;
@@ -711,13 +717,23 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
           fontStyle: FontStyle.italic,
         );
       }
-      if (const {'keyword', 'selector-tag', 'meta-keyword', 'doctag'}.contains(cls)) {
+      if (const {
+        'keyword',
+        'selector-tag',
+        'meta-keyword',
+        'doctag',
+      }.contains(cls)) {
         return base.copyWith(
           color: isDark ? const Color(0xFFF9A8D4) : const Color(0xFF0B57D0),
           fontWeight: FontWeight.w700,
         );
       }
-      if (const {'string', 'regexp', 'attribute', 'template-variable'}.contains(cls)) {
+      if (const {
+        'string',
+        'regexp',
+        'attribute',
+        'template-variable',
+      }.contains(cls)) {
         return base.copyWith(
           color: isDark ? const Color(0xFFFDE68A) : const Color(0xFFB42318),
         );
@@ -727,13 +743,28 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
           color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
         );
       }
-      if (const {'title', 'function', 'section', 'title.function_', 'title.class_'}.contains(cls)) {
+      if (const {
+        'title',
+        'function',
+        'section',
+        'title.function_',
+        'title.class_',
+      }.contains(cls)) {
         return base.copyWith(
           color: isDark ? const Color(0xFF67E8F9) : const Color(0xFF7C3AED),
           fontWeight: FontWeight.w700,
         );
       }
-      if (const {'type', 'built_in', 'class', 'params', 'variable', 'selector-id', 'selector-class', 'property'}.contains(cls)) {
+      if (const {
+        'type',
+        'built_in',
+        'class',
+        'params',
+        'variable',
+        'selector-id',
+        'selector-class',
+        'property',
+      }.contains(cls)) {
         return base.copyWith(
           color: isDark ? const Color(0xFFC4B5FD) : const Color(0xFF8A3C00),
           fontWeight: FontWeight.w600,
@@ -756,34 +787,36 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
   void _copyCode() {
     _copiedResetTimer?.cancel();
     setState(() => _copied = true);
-    Clipboard.setData(ClipboardData(text: widget.content)).then((_) {
-      if (!mounted) return;
-      _showHardnessSnackBar(
-        context,
-        SnackBar(
-          content: Text(
-            Localizations.localeOf(context).languageCode.startsWith('zh')
-                ? '代码已复制'
-                : 'Code copied',
-          ),
-          duration: const Duration(milliseconds: 1800),
-        ),
-      );
-    }).catchError((Object _) {
-      if (!mounted) return;
-      setState(() => _copied = false);
-      _showHardnessSnackBar(
-        context,
-        SnackBar(
-          content: Text(
-            Localizations.localeOf(context).languageCode.startsWith('zh')
-                ? '复制失败'
-                : 'Copy failed',
-          ),
-          duration: const Duration(milliseconds: 1800),
-        ),
-      );
-    });
+    Clipboard.setData(ClipboardData(text: widget.content))
+        .then((_) {
+          if (!mounted) return;
+          _showHardnessSnackBar(
+            context,
+            SnackBar(
+              content: Text(
+                Localizations.localeOf(context).languageCode.startsWith('zh')
+                    ? '代码已复制'
+                    : 'Code copied',
+              ),
+              duration: const Duration(milliseconds: 1800),
+            ),
+          );
+        })
+        .catchError((Object _) {
+          if (!mounted) return;
+          setState(() => _copied = false);
+          _showHardnessSnackBar(
+            context,
+            SnackBar(
+              content: Text(
+                Localizations.localeOf(context).languageCode.startsWith('zh')
+                    ? '复制失败'
+                    : 'Copy failed',
+              ),
+              duration: const Duration(milliseconds: 1800),
+            ),
+          );
+        });
     _copiedResetTimer = Timer(const Duration(milliseconds: 1600), () {
       if (mounted) setState(() => _copied = false);
     });
@@ -791,8 +824,8 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.darkSurface ||
-        Theme.of(context).brightness == Brightness.dark;
+    final isDark =
+        widget.darkSurface || Theme.of(context).brightness == Brightness.dark;
     final cs = widget.colorScheme;
     final effectiveLanguage = _heNormalizeCodeLanguage(widget.language);
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
@@ -828,9 +861,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               decoration: BoxDecoration(
                 color: headerColor,
-                border: Border(
-                  bottom: BorderSide(color: borderColor),
-                ),
+                border: Border(bottom: BorderSide(color: borderColor)),
               ),
               child: Row(
                 children: [

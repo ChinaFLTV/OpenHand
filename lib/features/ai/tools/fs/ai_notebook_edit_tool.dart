@@ -91,8 +91,9 @@ class AiNotebookEditTool extends AiTool {
     // 2026-05-03: 双快照中的 before 捕获
     final mutationLedger =
         context.metadata['mutation_ledger'] as AiFileMutationLedger?;
-    final beforeContentForLedger =
-        await AiToolUtils.readFileContentForLedger(notebookPath);
+    final beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
+      notebookPath,
+    );
 
     late final Object? decoded;
     try {
@@ -175,8 +176,9 @@ class AiNotebookEditTool extends AiTool {
     );
 
     // 2026-05-03: ledger 记录双快照
-    final afterContentForLedger =
-        await AiToolUtils.readFileContentForLedger(notebookPath);
+    final afterContentForLedger = await AiToolUtils.readFileContentForLedger(
+      notebookPath,
+    );
     final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
       ledger: mutationLedger,
       sessionId: context.sessionId,

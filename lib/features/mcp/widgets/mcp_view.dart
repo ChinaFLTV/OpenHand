@@ -420,11 +420,9 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
 
     // 对于 STDIO 类型的 npx/uvx 服务，询问是否同时清理底层包
     bool shouldCleanupDeps = false;
-    final isNpxService = server.type == McpServerType.stdio &&
-        _isPackageManagerCommand(server);
-    final npxPackageName = isNpxService
-        ? _extractPackageName(server)
-        : null;
+    final isNpxService =
+        server.type == McpServerType.stdio && _isPackageManagerCommand(server);
+    final npxPackageName = isNpxService ? _extractPackageName(server) : null;
 
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
@@ -513,9 +511,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     try {
       // 1. 卸载全局包
-      final result = await Process.run(
-        'npm', ['uninstall', '-g', packageName],
-      ).timeout(const Duration(seconds: 30));
+      final result = await Process.run('npm', [
+        'uninstall',
+        '-g',
+        packageName,
+      ]).timeout(const Duration(seconds: 30));
 
       // 2. 清理该服务在隔离缓存中的残留
       final cacheRoot = mcpStdioIsolatedCacheRoot();
@@ -536,9 +536,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       if (result.exitCode == 0) {
         _showSnackBar(
           context,
-          isZh
-              ? '$packageName 依赖已清理'
-              : '$packageName dependency cleaned up',
+          isZh ? '$packageName 依赖已清理' : '$packageName dependency cleaned up',
           kind: _SnackKind.success,
         );
       } else {
@@ -554,9 +552,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       if (!context.mounted) return;
       _showSnackBar(
         context,
-        isZh
-            ? '$packageName 清理异常：$e'
-            : '$packageName cleanup error: $e',
+        isZh ? '$packageName 清理异常：$e' : '$packageName cleanup error: $e',
         kind: _SnackKind.error,
       );
     }
@@ -1461,433 +1457,460 @@ class _McpServerCard extends StatelessWidget {
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            server.initials,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              color: colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: _McpHealthStatusDot(
-                            server: server,
-                            healthStatus: healthStatus,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
                         children: [
-                          Text(server.name, style: theme.textTheme.titleLarge),
-                          const SizedBox(height: 6),
-                          Text(
-                            server.type.label(l10n),
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: colorScheme.primary,
+                          Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              server.initials,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            server.summary,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: _McpHealthStatusDot(
+                              server: server,
+                              healthStatus: healthStatus,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        // GestureDetector 吞掉按钮区域的点击事件，
-                        // 阻止冒泡到父级 InkWell 触发 onTap（编辑弹窗）。
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {},
-                          child: Wrap(
-                          alignment: WrapAlignment.end,
-                          spacing: 4,
-                          runSpacing: 4,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Tooltip(
-                              message: _localizedText(
-                                context,
-                                zh: '健康检测',
-                                en: 'Health Check',
-                              ),
-                              child: SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: IconButton.filledTonal(
-                                  onPressed: healthStatus.isChecking
-                                      ? null
-                                      : onCheckHealth,
-                                  icon: healthStatus.isChecking
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.2,
-                                          ),
-                                        )
-                                      : Icon(
-                                          _healthStatusActionIcon(healthStatus),
-                                        ),
-                                ),
+                            Text(
+                              server.name,
+                              style: theme.textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              server.type.label(l10n),
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: colorScheme.primary,
                               ),
                             ),
-                            Tooltip(
-                              message: _localizedText(
-                                context,
-                                zh: '刷新 Tool 检测',
-                                en: 'Refresh Tool Scan',
-                              ),
-                              child: SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: IconButton.filledTonal(
-                                  onPressed: toolCatalog.isLoading
-                                      ? null
-                                      : onRefreshTools,
-                                  icon: toolCatalog.isLoading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.refresh_rounded),
-                                ),
-                              ),
-                            ),
-                            Tooltip(
-                              message: _localizedText(
-                                context,
-                                zh: '一键重连：重新拉取 Tools 并立即健康复测',
-                                en: 'Reconnect: re-scan Tools and re-run health check',
-                              ),
-                              child: SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: IconButton.filledTonal(
-                                  onPressed: onReconnect,
-                                  icon: const Icon(Icons.cyclone_rounded),
-                                ),
-                              ),
-                            ),
-                            // STDIO 专属按钮：运行/停止、日志、详情
-                            if (server.type == McpServerType.stdio)
-                              _StdioProcessButtons(server: server),
-                            SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: AnimatedPopupMenuButton<_McpCardAction>(
-                                tooltip: _localizedText(
-                                  context,
-                                  zh: '更多操作',
-                                  en: 'More actions',
-                                ),
-                                onSelected: onActionSelected,
-                                itemBuilder: (context) {
-                                  return [
-                                    PopupMenuItem<_McpCardAction>(
-                                      value: _McpCardAction.viewDetails,
-                                      child: Text(
-                                        _localizedText(
-                                          context,
-                                          zh: '服务详情',
-                                          en: 'Server details',
-                                        ),
-                                      ),
-                                    ),
-                                    PopupMenuItem<_McpCardAction>(
-                                      value: _McpCardAction.viewHistory,
-                                      child: Text(
-                                        _localizedText(
-                                          context,
-                                          zh: '查看探测历史',
-                                          en: 'View probe history',
-                                        ),
-                                      ),
-                                    ),
-                                    PopupMenuItem<_McpCardAction>(
-                                      value: _McpCardAction.edit,
-                                      child: Text(l10n.commonEdit),
-                                    ),
-                                    PopupMenuItem<_McpCardAction>(
-                                      value: _McpCardAction.delete,
-                                      child: Text(l10n.commonDelete),
-                                    ),
-                                  ];
-                                },
+                            const SizedBox(height: 6),
+                            Text(
+                              server.summary,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Align(
+                          alignment: Alignment.topRight,
+                          // GestureDetector 吞掉按钮区域的点击事件，
+                          // 阻止冒泡到父级 InkWell 触发 onTap（编辑弹窗）。
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {},
+                            child: Wrap(
+                              alignment: WrapAlignment.end,
+                              spacing: 4,
+                              runSpacing: 4,
+                              children: [
+                                Tooltip(
+                                  message: _localizedText(
+                                    context,
+                                    zh: '健康检测',
+                                    en: 'Health Check',
+                                  ),
+                                  child: SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: IconButton.filledTonal(
+                                      onPressed: healthStatus.isChecking
+                                          ? null
+                                          : onCheckHealth,
+                                      icon: healthStatus.isChecking
+                                          ? const SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.2,
+                                              ),
+                                            )
+                                          : Icon(
+                                              _healthStatusActionIcon(
+                                                healthStatus,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: _localizedText(
+                                    context,
+                                    zh: '刷新 Tool 检测',
+                                    en: 'Refresh Tool Scan',
+                                  ),
+                                  child: SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: IconButton.filledTonal(
+                                      onPressed: toolCatalog.isLoading
+                                          ? null
+                                          : onRefreshTools,
+                                      icon: toolCatalog.isLoading
+                                          ? const SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.2,
+                                              ),
+                                            )
+                                          : const Icon(Icons.refresh_rounded),
+                                    ),
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: _localizedText(
+                                    context,
+                                    zh: '一键重连：重新拉取 Tools 并立即健康复测',
+                                    en: 'Reconnect: re-scan Tools and re-run health check',
+                                  ),
+                                  child: SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: IconButton.filledTonal(
+                                      onPressed: onReconnect,
+                                      icon: const Icon(Icons.cyclone_rounded),
+                                    ),
+                                  ),
+                                ),
+                                // STDIO 专属按钮：运行/停止、日志、详情
+                                if (server.type == McpServerType.stdio)
+                                  _StdioProcessButtons(server: server),
+                                SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child:
+                                      AnimatedPopupMenuButton<_McpCardAction>(
+                                        tooltip: _localizedText(
+                                          context,
+                                          zh: '更多操作',
+                                          en: 'More actions',
+                                        ),
+                                        onSelected: onActionSelected,
+                                        itemBuilder: (context) {
+                                          return [
+                                            PopupMenuItem<_McpCardAction>(
+                                              value: _McpCardAction.viewDetails,
+                                              child: Text(
+                                                _localizedText(
+                                                  context,
+                                                  zh: '服务详情',
+                                                  en: 'Server details',
+                                                ),
+                                              ),
+                                            ),
+                                            PopupMenuItem<_McpCardAction>(
+                                              value: _McpCardAction.viewHistory,
+                                              child: Text(
+                                                _localizedText(
+                                                  context,
+                                                  zh: '查看探测历史',
+                                                  en: 'View probe history',
+                                                ),
+                                              ),
+                                            ),
+                                            PopupMenuItem<_McpCardAction>(
+                                              value: _McpCardAction.edit,
+                                              child: Text(l10n.commonEdit),
+                                            ),
+                                            PopupMenuItem<_McpCardAction>(
+                                              value: _McpCardAction.delete,
+                                              child: Text(l10n.commonDelete),
+                                            ),
+                                          ];
+                                        },
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _McpServerToggleChip(
+                          enabled: server.enabled,
+                          onPressed: () => onToggleEnabled(!server.enabled),
+                        ),
+                        // STDIO 进程运行状态 chip
+                        if (server.type == McpServerType.stdio)
+                          AnimatedBuilder(
+                            animation: McpStdioProcessManager.instance,
+                            builder: (context, _) {
+                              final processInfo = McpStdioProcessManager
+                                  .instance
+                                  .infoFor(server.name);
+                              if (processInfo.isStopped &&
+                                  processInfo.errorMessage == null) {
+                                return const SizedBox.shrink();
+                              }
+                              final chipIcon = switch (processInfo.state) {
+                                StdioProcessState.running =>
+                                  Icons.fiber_manual_record,
+                                StdioProcessState.starting =>
+                                  Icons.hourglass_top_rounded,
+                                StdioProcessState.stopping =>
+                                  Icons.hourglass_bottom_rounded,
+                                StdioProcessState.stopped =>
+                                  Icons.error_outline_rounded,
+                              };
+                              final chipLabel = switch (processInfo.state) {
+                                StdioProcessState.running => _localizedText(
+                                  context,
+                                  zh: '进程运行中 · PID ${processInfo.pid}',
+                                  en: 'Running · PID ${processInfo.pid}',
+                                ),
+                                StdioProcessState.starting => _localizedText(
+                                  context,
+                                  zh: '进程启动中',
+                                  en: 'Starting',
+                                ),
+                                StdioProcessState.stopping => _localizedText(
+                                  context,
+                                  zh: '进程停止中',
+                                  en: 'Stopping',
+                                ),
+                                StdioProcessState.stopped => _localizedText(
+                                  context,
+                                  zh: '进程异常退出',
+                                  en: 'Process exited',
+                                ),
+                              };
+                              return _McpStatusChip(
+                                icon: chipIcon,
+                                label: chipLabel,
+                              );
+                            },
+                          ),
+                        if (server.headers.isNotEmpty)
+                          _McpStatusChip(
+                            icon: Icons.badge_outlined,
+                            label: _localizedText(
+                              context,
+                              zh: '${server.headers.length} 个 Header',
+                              en: '${server.headers.length} Headers',
+                            ),
+                          ),
+                        if (healthStatus.isChecking ||
+                            healthStatus.lastCheckedAt != null)
+                          _McpStatusChip(
+                            icon: _healthStatusChipIcon(healthStatus),
+                            label: _healthStatusSummary(context, healthStatus),
+                          ),
+                        if (healthStatus.latencyMs != null &&
+                            healthStatus.isHealthy)
+                          _McpStatusChip(
+                            icon: Icons.speed_rounded,
+                            label: _localizedText(
+                              context,
+                              zh: '${healthStatus.latencyMs} ms',
+                              en: '${healthStatus.latencyMs} ms',
+                            ),
+                          ),
+                        if (healthStatus.lastCheckedAt != null &&
+                            !healthStatus.isChecking)
+                          _McpStatusChip(
+                            icon: Icons.history_toggle_off_rounded,
+                            label: _formatRelativePast(
+                              context,
+                              healthStatus.lastCheckedAt!,
+                            ),
+                          ),
+                        if (healthStatus.needsAttention)
+                          _McpAttentionChip(
+                            consecutiveFailures:
+                                healthStatus.consecutiveFailures,
+                          ),
+                        if (toolCatalog.isLoading)
+                          AnimatedBuilder(
+                            animation: mcpStdioBootstrapStatus,
+                            builder: (context, _) {
+                              final liveLine =
+                                  server.type == McpServerType.stdio
+                                  ? mcpStdioBootstrapStatus.statusOf(
+                                      server.name,
+                                    )
+                                  : null;
+                              final tooltipBase =
+                                  server.type == McpServerType.stdio
+                                  ? _localizedText(
+                                      context,
+                                      zh:
+                                          '首次启动通常较慢：npx / uvx 需要在线拉取 npm / PyPI 包并安装。\n'
+                                          '本应用给 stdio MCP 留最长 6 分钟的发现窗口。',
+                                      en:
+                                          'First launch is usually slow: npx / uvx '
+                                          'pulls npm / PyPI packages on demand. '
+                                          'OpenHand grants stdio MCP servers up to '
+                                          '6 minutes for discovery.',
+                                    )
+                                  : _localizedText(
+                                      context,
+                                      zh: '正在扫描该 MCP 服务暴露的 Tool 列表。',
+                                      en:
+                                          'Scanning the tool list exposed by this '
+                                          'MCP server.',
+                                    );
+                              final tooltipMsg =
+                                  liveLine != null && liveLine.isNotEmpty
+                                  ? '$tooltipBase\n\n$liveLine'
+                                  : tooltipBase;
+                              // 标签：拿到 stderr 行后切到「首启 · 实时进度」，否则保持初始文案。
+                              final label = server.type == McpServerType.stdio
+                                  ? (liveLine != null && liveLine.isNotEmpty
+                                        ? _truncateMiddle(liveLine)
+                                        : _localizedText(
+                                            context,
+                                            zh: '首启准备中…',
+                                            en: 'Bootstrapping…',
+                                          ))
+                                  : _localizedText(
+                                      context,
+                                      zh: '扫描 Tool 中',
+                                      en: 'Scanning Tools',
+                                    );
+                              return Tooltip(
+                                message: tooltipMsg,
+                                child: _McpStatusChip(
+                                  icon: Icons.radar_rounded,
+                                  label: label,
+                                ),
+                              );
+                            },
+                          )
+                        else if (toolCatalog.lastScannedAt != null)
+                          _McpStatusChip(
+                            icon: Icons.build_circle_outlined,
+                            label: _localizedText(
+                              context,
+                              zh: '${toolCatalog.tools.length} 个 Tool',
+                              en: '${toolCatalog.tools.length} Tools',
+                            ),
+                          ),
+                        if (toolCatalog.lastScannedAt != null)
+                          _McpStatusChip(
+                            icon: Icons.schedule_rounded,
+                            label: _formatStatusTime(
+                              context,
+                              toolCatalog.lastScannedAt!,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (healthStatus.hasError) ...[
+                    const SizedBox(height: 14),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _McpInlineNotice(
+                        icon: Icons.health_and_safety_outlined,
+                        color: colorScheme.errorContainer,
+                        foregroundColor: colorScheme.onErrorContainer,
+                        message: healthStatus.errorMessage!,
+                      ),
+                    ),
+                  ],
+                  if (toolCatalog.hasError) ...[
+                    const SizedBox(height: 14),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _McpInlineNotice(
+                        icon: Icons.error_outline_rounded,
+                        color: colorScheme.errorContainer,
+                        foregroundColor: colorScheme.onErrorContainer,
+                        message: toolCatalog.errorMessage!,
+                      ),
+                    ),
+                  ],
+                  if (toolCatalog.hasWarning) ...[
+                    const SizedBox(height: 14),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _McpInlineNotice(
+                        icon: Icons.warning_amber_rounded,
+                        color: colorScheme.tertiaryContainer,
+                        foregroundColor: colorScheme.onTertiaryContainer,
+                        message: toolCatalog.warningMessage!,
+                      ),
+                    ),
+                  ],
+                  if (toolCatalog.tools.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _McpToolPreview(server: server, toolCatalog: toolCatalog),
+                  ] else if (!toolCatalog.isLoading &&
+                      !toolCatalog.hasError) ...[
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        server.enabled
+                            ? _localizedText(
+                                context,
+                                zh: '暂未发现可用 Tool，可手动刷新重试。',
+                                en: 'No tools were discovered yet. Try refreshing this service.',
+                              )
+                            : _localizedText(
+                                context,
+                                zh: '服务已禁用，可手动刷新检测 Tool 信息。',
+                                en: 'This service is disabled. Refresh manually to inspect its tools.',
+                              ),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _McpServerToggleChip(
-                        enabled: server.enabled,
-                        onPressed: () => onToggleEnabled(!server.enabled),
-                      ),
-                      // STDIO 进程运行状态 chip
-                      if (server.type == McpServerType.stdio)
-                        AnimatedBuilder(
-                          animation: McpStdioProcessManager.instance,
-                          builder: (context, _) {
-                            final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
-                            if (processInfo.isStopped && processInfo.errorMessage == null) {
-                              return const SizedBox.shrink();
-                            }
-                            final chipIcon = switch (processInfo.state) {
-                              StdioProcessState.running => Icons.fiber_manual_record,
-                              StdioProcessState.starting => Icons.hourglass_top_rounded,
-                              StdioProcessState.stopping => Icons.hourglass_bottom_rounded,
-                              StdioProcessState.stopped => Icons.error_outline_rounded,
-                            };
-                            final chipLabel = switch (processInfo.state) {
-                              StdioProcessState.running => _localizedText(
-                                context,
-                                zh: '进程运行中 · PID ${processInfo.pid}',
-                                en: 'Running · PID ${processInfo.pid}',
-                              ),
-                              StdioProcessState.starting => _localizedText(
-                                context, zh: '进程启动中', en: 'Starting',
-                              ),
-                              StdioProcessState.stopping => _localizedText(
-                                context, zh: '进程停止中', en: 'Stopping',
-                              ),
-                              StdioProcessState.stopped => _localizedText(
-                                context, zh: '进程异常退出', en: 'Process exited',
-                              ),
-                            };
-                            return _McpStatusChip(icon: chipIcon, label: chipLabel);
-                          },
-                        ),
-                      if (server.headers.isNotEmpty)
-                        _McpStatusChip(
-                          icon: Icons.badge_outlined,
-                          label: _localizedText(
-                            context,
-                            zh: '${server.headers.length} 个 Header',
-                            en: '${server.headers.length} Headers',
-                          ),
-                        ),
-                      if (healthStatus.isChecking ||
-                          healthStatus.lastCheckedAt != null)
-                        _McpStatusChip(
-                          icon: _healthStatusChipIcon(healthStatus),
-                          label: _healthStatusSummary(context, healthStatus),
-                        ),
-                      if (healthStatus.latencyMs != null &&
-                          healthStatus.isHealthy)
-                        _McpStatusChip(
-                          icon: Icons.speed_rounded,
-                          label: _localizedText(
-                            context,
-                            zh: '${healthStatus.latencyMs} ms',
-                            en: '${healthStatus.latencyMs} ms',
-                          ),
-                        ),
-                      if (healthStatus.lastCheckedAt != null &&
-                          !healthStatus.isChecking)
-                        _McpStatusChip(
-                          icon: Icons.history_toggle_off_rounded,
-                          label: _formatRelativePast(
-                            context,
-                            healthStatus.lastCheckedAt!,
-                          ),
-                        ),
-                      if (healthStatus.needsAttention)
-                        _McpAttentionChip(
-                          consecutiveFailures: healthStatus.consecutiveFailures,
-                        ),
-                      if (toolCatalog.isLoading)
-                        AnimatedBuilder(
-                          animation: mcpStdioBootstrapStatus,
-                          builder: (context, _) {
-                            final liveLine = server.type == McpServerType.stdio
-                                ? mcpStdioBootstrapStatus.statusOf(server.name)
-                                : null;
-                            final tooltipBase =
-                                server.type == McpServerType.stdio
-                                ? _localizedText(
-                                    context,
-                                    zh:
-                                        '首次启动通常较慢：npx / uvx 需要在线拉取 npm / PyPI 包并安装。\n'
-                                        '本应用给 stdio MCP 留最长 6 分钟的发现窗口。',
-                                    en:
-                                        'First launch is usually slow: npx / uvx '
-                                        'pulls npm / PyPI packages on demand. '
-                                        'OpenHand grants stdio MCP servers up to '
-                                        '6 minutes for discovery.',
-                                  )
-                                : _localizedText(
-                                    context,
-                                    zh: '正在扫描该 MCP 服务暴露的 Tool 列表。',
-                                    en:
-                                        'Scanning the tool list exposed by this '
-                                        'MCP server.',
-                                  );
-                            final tooltipMsg =
-                                liveLine != null && liveLine.isNotEmpty
-                                ? '$tooltipBase\n\n$liveLine'
-                                : tooltipBase;
-                            // 标签：拿到 stderr 行后切到「首启 · 实时进度」，否则保持初始文案。
-                            final label = server.type == McpServerType.stdio
-                                ? (liveLine != null && liveLine.isNotEmpty
-                                      ? _truncateMiddle(liveLine)
-                                      : _localizedText(
-                                          context,
-                                          zh: '首启准备中…',
-                                          en: 'Bootstrapping…',
-                                        ))
-                                : _localizedText(
-                                    context,
-                                    zh: '扫描 Tool 中',
-                                    en: 'Scanning Tools',
-                                  );
-                            return Tooltip(
-                              message: tooltipMsg,
-                              child: _McpStatusChip(
-                                icon: Icons.radar_rounded,
-                                label: label,
-                              ),
-                            );
-                          },
-                        )
-                      else if (toolCatalog.lastScannedAt != null)
-                        _McpStatusChip(
-                          icon: Icons.build_circle_outlined,
-                          label: _localizedText(
-                            context,
-                            zh: '${toolCatalog.tools.length} 个 Tool',
-                            en: '${toolCatalog.tools.length} Tools',
-                          ),
-                        ),
-                      if (toolCatalog.lastScannedAt != null)
-                        _McpStatusChip(
-                          icon: Icons.schedule_rounded,
-                          label: _formatStatusTime(
-                            context,
-                            toolCatalog.lastScannedAt!,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (healthStatus.hasError) ...[
-                  const SizedBox(height: 14),
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    child: _McpInlineNotice(
-                      icon: Icons.health_and_safety_outlined,
-                      color: colorScheme.errorContainer,
-                      foregroundColor: colorScheme.onErrorContainer,
-                      message: healthStatus.errorMessage!,
-                    ),
-                  ),
                 ],
-                if (toolCatalog.hasError) ...[
-                  const SizedBox(height: 14),
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    child: _McpInlineNotice(
-                      icon: Icons.error_outline_rounded,
-                      color: colorScheme.errorContainer,
-                      foregroundColor: colorScheme.onErrorContainer,
-                      message: toolCatalog.errorMessage!,
-                    ),
-                  ),
-                ],
-                if (toolCatalog.hasWarning) ...[
-                  const SizedBox(height: 14),
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    child: _McpInlineNotice(
-                      icon: Icons.warning_amber_rounded,
-                      color: colorScheme.tertiaryContainer,
-                      foregroundColor: colorScheme.onTertiaryContainer,
-                      message: toolCatalog.warningMessage!,
-                    ),
-                  ),
-                ],
-                if (toolCatalog.tools.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  _McpToolPreview(server: server, toolCatalog: toolCatalog),
-                ] else if (!toolCatalog.isLoading && !toolCatalog.hasError) ...[
-                  const SizedBox(height: 14),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      server.enabled
-                          ? _localizedText(
-                              context,
-                              zh: '暂未发现可用 Tool，可手动刷新重试。',
-                              en: 'No tools were discovered yet. Try refreshing this service.',
-                            )
-                          : _localizedText(
-                              context,
-                              zh: '服务已禁用，可手动刷新检测 Tool 信息。',
-                              en: 'This service is disabled. Refresh manually to inspect its tools.',
-                            ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -1924,14 +1947,18 @@ class _StdioProcessButtons extends StatelessWidget {
                       ? null
                       : () {
                           if (info.isRunning) {
-                            McpStdioProcessManager.instance.stopServer(server.name);
+                            McpStdioProcessManager.instance.stopServer(
+                              server.name,
+                            );
                           } else {
                             McpStdioProcessManager.instance.startServer(server);
                           }
                         },
                   style: info.isRunning
                       ? IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF16A34A).withValues(alpha: 0.15),
+                          backgroundColor: const Color(
+                            0xFF16A34A,
+                          ).withValues(alpha: 0.15),
                           foregroundColor: const Color(0xFF16A34A),
                         )
                       : null,
@@ -1951,11 +1978,7 @@ class _StdioProcessButtons extends StatelessWidget {
             ),
             // 日志按钮
             Tooltip(
-              message: _localizedText(
-                context,
-                zh: '查看日志',
-                en: 'View logs',
-              ),
+              message: _localizedText(context, zh: '查看日志', en: 'View logs'),
               child: SizedBox(
                 width: 44,
                 height: 44,
@@ -2020,9 +2043,9 @@ class _McpStatusChip extends StatelessWidget {
       label: Text(label),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.compact,
-      labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-        color: colorScheme.onSurface,
-      ),
+      labelStyle: Theme.of(
+        context,
+      ).textTheme.labelLarge?.copyWith(color: colorScheme.onSurface),
     );
   }
 }
@@ -3319,237 +3342,268 @@ class _McpProbeDetailsDialog extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680, maxHeight: 620),
-        child: Selector<
-          McpController,
-          ({
-            List<McpServer> servers,
-            int autoProbeConcurrency,
-            int activeAutoProbeSlots,
-            int queuedAutoProbeTasks,
-            bool autoToolRefreshInProgress,
-            bool autoHealthCheckInProgress,
-            DateTime? lastBatchProbeAt,
-            DateTime? nextScheduledProbeAt,
-          })
-        >(
-          selector: (_, c) => (
-            servers: c.servers,
-            autoProbeConcurrency: c.autoProbeConcurrency,
-            activeAutoProbeSlots: c.activeAutoProbeSlots,
-            queuedAutoProbeTasks: c.queuedAutoProbeTasks,
-            autoToolRefreshInProgress: c.isAutoToolRefreshInProgress,
-            autoHealthCheckInProgress: c.isAutoHealthCheckInProgress,
-            lastBatchProbeAt: c.lastBatchProbeAt,
-            nextScheduledProbeAt: c.nextScheduledProbeAt,
-          ),
-          builder: (context, snap, _) {
-            final controller = context.read<McpController>();
-            final hasWork = snap.activeAutoProbeSlots > 0 ||
-                snap.queuedAutoProbeTasks > 0 ||
-                snap.autoToolRefreshInProgress ||
-                snap.autoHealthCheckInProgress;
-            final progress = snap.autoProbeConcurrency <= 0
-                ? 0.0
-                : (snap.activeAutoProbeSlots / snap.autoProbeConcurrency)
-                    .clamp(0.0, 1.0)
-                    .toDouble();
+        child:
+            Selector<
+              McpController,
+              ({
+                List<McpServer> servers,
+                int autoProbeConcurrency,
+                int activeAutoProbeSlots,
+                int queuedAutoProbeTasks,
+                bool autoToolRefreshInProgress,
+                bool autoHealthCheckInProgress,
+                DateTime? lastBatchProbeAt,
+                DateTime? nextScheduledProbeAt,
+              })
+            >(
+              selector: (_, c) => (
+                servers: c.servers,
+                autoProbeConcurrency: c.autoProbeConcurrency,
+                activeAutoProbeSlots: c.activeAutoProbeSlots,
+                queuedAutoProbeTasks: c.queuedAutoProbeTasks,
+                autoToolRefreshInProgress: c.isAutoToolRefreshInProgress,
+                autoHealthCheckInProgress: c.isAutoHealthCheckInProgress,
+                lastBatchProbeAt: c.lastBatchProbeAt,
+                nextScheduledProbeAt: c.nextScheduledProbeAt,
+              ),
+              builder: (context, snap, _) {
+                final controller = context.read<McpController>();
+                final hasWork =
+                    snap.activeAutoProbeSlots > 0 ||
+                    snap.queuedAutoProbeTasks > 0 ||
+                    snap.autoToolRefreshInProgress ||
+                    snap.autoHealthCheckInProgress;
+                final progress = snap.autoProbeConcurrency <= 0
+                    ? 0.0
+                    : (snap.activeAutoProbeSlots / snap.autoProbeConcurrency)
+                          .clamp(0.0, 1.0)
+                          .toDouble();
 
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 标题栏
-                Container(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHigh,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 标题栏
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHigh,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: colorScheme.outlineVariant.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: hasWork
+                                  ? colorScheme.primaryContainer
+                                  : colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              hasWork
+                                  ? Icons.radar_rounded
+                                  : Icons.speed_outlined,
+                              color: hasWork
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.onSurfaceVariant,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isZh ? 'MCP 探测详情' : 'MCP Probe Details',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  hasWork
+                                      ? (isZh ? '探测池运行中' : 'Probe pool active')
+                                      : (isZh ? '探测池空闲' : 'Probe pool idle'),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, size: 18),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: hasWork
-                              ? colorScheme.primaryContainer
-                              : colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          hasWork ? Icons.radar_rounded : Icons.speed_outlined,
-                          color: hasWork
-                              ? colorScheme.onPrimaryContainer
-                              : colorScheme.onSurfaceVariant,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isZh ? 'MCP 探测详情' : 'MCP Probe Details',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              hasWork
-                                  ? (isZh ? '探测池运行中' : 'Probe pool active')
-                                  : (isZh ? '探测池空闲' : 'Probe pool idle'),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, size: 18),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                ),
-                // 进度条
-                _McpAnimatedProgressBar(
-                  value: progress,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                  reduceMotion: MediaQuery.disableAnimationsOf(context),
-                ),
-                // 内容
-                Flexible(
-                  child: ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      // 探测池状态
-                      _ProbeSection(
-                        title: isZh ? '探测池状态' : 'Pool Status',
-                        icon: Icons.commit_rounded,
+                    // 进度条
+                    _McpAnimatedProgressBar(
+                      value: progress,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      reduceMotion: MediaQuery.disableAnimationsOf(context),
+                    ),
+                    // 内容
+                    Flexible(
+                      child: ListView(
+                        padding: const EdgeInsets.all(20),
                         children: [
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
+                          // 探测池状态
+                          _ProbeSection(
+                            title: isZh ? '探测池状态' : 'Pool Status',
+                            icon: Icons.commit_rounded,
                             children: [
-                              _McpStatusChip(
-                                icon: Icons.commit_rounded,
-                                label: isZh
-                                    ? '槽位 ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}'
-                                    : 'Slots ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}',
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  _McpStatusChip(
+                                    icon: Icons.commit_rounded,
+                                    label: isZh
+                                        ? '槽位 ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}'
+                                        : 'Slots ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}',
+                                  ),
+                                  _McpStatusChip(
+                                    icon: Icons.queue_rounded,
+                                    label: isZh
+                                        ? '排队 ${snap.queuedAutoProbeTasks}'
+                                        : 'Queued ${snap.queuedAutoProbeTasks}',
+                                  ),
+                                  _McpStatusChip(
+                                    icon: Icons.build_circle_outlined,
+                                    label:
+                                        'Tools ${snap.autoToolRefreshInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
+                                  ),
+                                  _McpStatusChip(
+                                    icon: Icons.health_and_safety_outlined,
+                                    label:
+                                        '${isZh ? "健康" : "Health"} ${snap.autoHealthCheckInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
+                                  ),
+                                  if (snap.lastBatchProbeAt != null)
+                                    _McpStatusChip(
+                                      icon: Icons.history_rounded,
+                                      label:
+                                          '${isZh ? "上次" : "Last"} ${_formatRelativePast(context, snap.lastBatchProbeAt!)}',
+                                    ),
+                                  if (snap.nextScheduledProbeAt != null &&
+                                      !hasWork)
+                                    _McpStatusChip(
+                                      icon: Icons.schedule_rounded,
+                                      label:
+                                          '${isZh ? "下次" : "Next"} ${_formatRelativeFuture(context, snap.nextScheduledProbeAt!)}',
+                                    ),
+                                ],
                               ),
-                              _McpStatusChip(
-                                icon: Icons.queue_rounded,
-                                label: isZh
-                                    ? '排队 ${snap.queuedAutoProbeTasks}'
-                                    : 'Queued ${snap.queuedAutoProbeTasks}',
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // 探测控制
+                          _ProbeSection(
+                            title: isZh ? '探测控制' : 'Probe Controls',
+                            icon: Icons.tune_rounded,
+                            children: [
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  FilledButton.tonalIcon(
+                                    onPressed: hasWork
+                                        ? null
+                                        : () {
+                                            // 强制触发：先 deactivate 再 activate 以重置状态
+                                            controller.setPageActive(false);
+                                            Future.delayed(
+                                              const Duration(milliseconds: 200),
+                                              () {
+                                                controller.setPageActive(true);
+                                              },
+                                            );
+                                          },
+                                    icon: const Icon(
+                                      Icons.play_arrow_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      isZh ? '强制触发探测' : 'Force Probe',
+                                    ),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: !hasWork
+                                        ? null
+                                        : () {
+                                            // 中断：deactivate 停止所有探测
+                                            controller.setPageActive(false);
+                                          },
+                                    icon: const Icon(
+                                      Icons.stop_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      isZh ? '中断当前探测' : 'Stop Probing',
+                                    ),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () async {
+                                      await controller.refresh();
+                                      // refresh 完成后重新激活探测
+                                      controller.setPageActive(true);
+                                    },
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      isZh ? '重载服务列表' : 'Reload Servers',
+                                    ),
+                                  ),
+                                ],
                               ),
-                              _McpStatusChip(
-                                icon: Icons.build_circle_outlined,
-                                label: 'Tools ${snap.autoToolRefreshInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
-                              ),
-                              _McpStatusChip(
-                                icon: Icons.health_and_safety_outlined,
-                                label: '${isZh ? "健康" : "Health"} ${snap.autoHealthCheckInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
-                              ),
-                              if (snap.lastBatchProbeAt != null)
-                                _McpStatusChip(
-                                  icon: Icons.history_rounded,
-                                  label: '${isZh ? "上次" : "Last"} ${_formatRelativePast(context, snap.lastBatchProbeAt!)}',
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // 各服务探测状态
+                          _ProbeSection(
+                            title: isZh
+                                ? '服务探测状态 (${snap.servers.length} 个服务)'
+                                : 'Server Probe Status (${snap.servers.length} servers)',
+                            icon: Icons.dns_outlined,
+                            children: [
+                              for (final server in snap.servers)
+                                _ProbeServerRow(
+                                  server: server,
+                                  controller: controller,
                                 ),
-                              if (snap.nextScheduledProbeAt != null && !hasWork)
-                                _McpStatusChip(
-                                  icon: Icons.schedule_rounded,
-                                  label: '${isZh ? "下次" : "Next"} ${_formatRelativeFuture(context, snap.nextScheduledProbeAt!)}',
+                              if (snap.servers.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  child: Text(
+                                    isZh ? '暂无服务' : 'No servers',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
                                 ),
                             ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      // 探测控制
-                      _ProbeSection(
-                        title: isZh ? '探测控制' : 'Probe Controls',
-                        icon: Icons.tune_rounded,
-                        children: [
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              FilledButton.tonalIcon(
-                                onPressed: hasWork
-                                    ? null
-                                    : () {
-                                        // 强制触发：先 deactivate 再 activate 以重置状态
-                                        controller.setPageActive(false);
-                                        Future.delayed(const Duration(milliseconds: 200), () {
-                                          controller.setPageActive(true);
-                                        });
-                                      },
-                                icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                                label: Text(isZh ? '强制触发探测' : 'Force Probe'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: !hasWork
-                                    ? null
-                                    : () {
-                                        // 中断：deactivate 停止所有探测
-                                        controller.setPageActive(false);
-                                      },
-                                icon: const Icon(Icons.stop_rounded, size: 18),
-                                label: Text(isZh ? '中断当前探测' : 'Stop Probing'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  await controller.refresh();
-                                  // refresh 完成后重新激活探测
-                                  controller.setPageActive(true);
-                                },
-                                icon: const Icon(Icons.refresh_rounded, size: 18),
-                                label: Text(isZh ? '重载服务列表' : 'Reload Servers'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // 各服务探测状态
-                      _ProbeSection(
-                        title: isZh
-                            ? '服务探测状态 (${snap.servers.length} 个服务)'
-                            : 'Server Probe Status (${snap.servers.length} servers)',
-                        icon: Icons.dns_outlined,
-                        children: [
-                          for (final server in snap.servers)
-                            _ProbeServerRow(
-                              server: server,
-                              controller: controller,
-                            ),
-                          if (snap.servers.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                isZh ? '暂无服务' : 'No servers',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                    ),
+                  ],
+                );
+              },
+            ),
       ),
     );
   }
@@ -3646,7 +3700,8 @@ class _ProbeServerRow extends StatelessWidget {
                   : (isZh ? '点击启用此服务探测' : 'Enable probing'),
               child: IconButton(
                 onPressed: () => controller.updateServerProbeEnabled(
-                  server.name, !server.probeEnabled,
+                  server.name,
+                  !server.probeEnabled,
                 ),
                 icon: Icon(
                   server.probeEnabled
@@ -3667,7 +3722,9 @@ class _ProbeServerRow extends StatelessWidget {
             width: 8,
             height: 8,
             decoration: BoxDecoration(
-              color: server.probeEnabled ? statusColor : colorScheme.outlineVariant,
+              color: server.probeEnabled
+                  ? statusColor
+                  : colorScheme.outlineVariant,
               shape: BoxShape.circle,
             ),
           ),
@@ -3677,7 +3734,9 @@ class _ProbeServerRow extends StatelessWidget {
               server.name,
               style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w500,
-                color: server.probeEnabled ? null : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color: server.probeEnabled
+                    ? null
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -3686,7 +3745,9 @@ class _ProbeServerRow extends StatelessWidget {
           Text(
             server.probeEnabled ? statusLabel : (isZh ? '不探测' : 'No probe'),
             style: theme.textTheme.labelSmall?.copyWith(
-              color: server.probeEnabled ? statusColor : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              color: server.probeEnabled
+                  ? statusColor
+                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               fontWeight: FontWeight.w600,
             ),
           ),

@@ -74,8 +74,8 @@ class CronsView extends StatelessWidget {
         Expanded(
           child: AnimatedSwitcher(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             child: (isLoading && entries.isEmpty)
@@ -106,8 +106,7 @@ class CronsView extends StatelessWidget {
                           child: _CronEntryCard(
                             entry: entry,
                             isZh: isZh,
-                            onEdit: () =>
-                                _showCronEditorDialog(context, entry),
+                            onEdit: () => _showCronEditorDialog(context, entry),
                             onToggle: (enabled) {
                               controller.toggleCronEnabled(
                                 entry.id,
@@ -115,8 +114,7 @@ class CronsView extends StatelessWidget {
                               );
                             },
                             onDelete: () => _confirmDelete(context, entry),
-                            onHistory: () =>
-                                _showHistoryDialog(context, entry),
+                            onHistory: () => _showHistoryDialog(context, entry),
                             onRunNow: () => controller.runNow(entry.id),
                           ),
                         );
@@ -1840,8 +1838,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           onTap: () => onChanged(!value),
           child: AnimatedContainer(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(

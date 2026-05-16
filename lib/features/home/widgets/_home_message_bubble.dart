@@ -535,7 +535,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           _MessageActionButton(
                             onPressed: () async => widget.onAudit!.call(),
                             icon: Icons.fact_check_outlined,
-                            label: _localizedText(context, zh: '审计', en: 'Audit'),
+                            label: _localizedText(
+                              context,
+                              zh: '审计',
+                              en: 'Audit',
+                            ),
                           ),
                       ],
                     ),
@@ -1033,10 +1037,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       _kMinDialogW,
       viewport.width - _kInsetPadding * 2,
     );
-    final maxDialogH = math.max(
-      200.0,
-      viewport.height - _kInsetPadding * 2,
-    );
+    final maxDialogH = math.max(200.0, viewport.height - _kInsetPadding * 2);
     // body (图片显示区) 的最大可用尺寸: 扣除头部 + 分隔线 + 四周统一 padding。
     final maxBodyW = math.max(0.0, maxDialogW - _kPadding * 2);
     final maxBodyH = math.max(
@@ -1065,8 +1066,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       bodyH = math.max(0.0, side);
     }
 
-    final dialogW = (bodyW + _kPadding * 2)
-        .clamp(_kMinDialogW, maxDialogW);
+    final dialogW = (bodyW + _kPadding * 2).clamp(_kMinDialogW, maxDialogW);
 
     return Focus(
       autofocus: true,
@@ -1081,9 +1081,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       child: Dialog(
         insetPadding: const EdgeInsets.all(_kInsetPadding),
         backgroundColor: colorScheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
         child: AnimatedSize(
           duration: disableAnim
@@ -1202,7 +1200,10 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
           MediaCacheService.instance.cacheInBackground(urlString);
         }
         return _SafeMarkdownBodyState._fadeInImageFrameBuilder(
-          context, child, frame, wasSynchronouslyLoaded,
+          context,
+          child,
+          frame,
+          wasSynchronouslyLoaded,
         );
       },
       loadingBuilder: (context, child, loadingProgress) {
@@ -1269,10 +1270,18 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.broken_image_outlined, size: 48, color: colorScheme.error),
+              Icon(
+                Icons.broken_image_outlined,
+                size: 48,
+                color: colorScheme.error,
+              ),
               const SizedBox(height: 12),
               Text(
-                _localizedText(context, zh: '无法加载图片', en: 'Failed to load image'),
+                _localizedText(
+                  context,
+                  zh: '无法加载图片',
+                  en: 'Failed to load image',
+                ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.error,
                 ),

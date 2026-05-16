@@ -66,6 +66,7 @@ class _AppearOnceState extends State<AppearOnce>
     _ctrl = ctrl;
     ctrl.forward();
   }
+
   void _onStatus(AnimationStatus status) {
     if (status != AnimationStatus.completed) return;
     final ctrl = _ctrl;

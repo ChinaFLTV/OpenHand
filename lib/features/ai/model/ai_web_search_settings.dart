@@ -386,18 +386,14 @@ class AiWebSearchSettings {
       cacheMaxBytes: cacheMaxBytes ?? this.cacheMaxBytes,
       cooldownTier1Failures:
           cooldownTier1Failures ?? this.cooldownTier1Failures,
-      cooldownTier1Seconds:
-          cooldownTier1Seconds ?? this.cooldownTier1Seconds,
+      cooldownTier1Seconds: cooldownTier1Seconds ?? this.cooldownTier1Seconds,
       cooldownTier2Failures:
           cooldownTier2Failures ?? this.cooldownTier2Failures,
-      cooldownTier2Seconds:
-          cooldownTier2Seconds ?? this.cooldownTier2Seconds,
+      cooldownTier2Seconds: cooldownTier2Seconds ?? this.cooldownTier2Seconds,
       cooldownTier3Failures:
           cooldownTier3Failures ?? this.cooldownTier3Failures,
-      cooldownTier3Seconds:
-          cooldownTier3Seconds ?? this.cooldownTier3Seconds,
-      cooldownQuotaSeconds:
-          cooldownQuotaSeconds ?? this.cooldownQuotaSeconds,
+      cooldownTier3Seconds: cooldownTier3Seconds ?? this.cooldownTier3Seconds,
+      cooldownQuotaSeconds: cooldownQuotaSeconds ?? this.cooldownQuotaSeconds,
       alertSuccessRatePct: alertSuccessRatePct ?? this.alertSuccessRatePct,
       alertAvgDurationMs: alertAvgDurationMs ?? this.alertAvgDurationMs,
       throttlePerMinute: throttlePerMinute ?? this.throttlePerMinute,
@@ -444,12 +440,7 @@ class AiWebSearchSettings {
           json = Map<String, Object?>.from(decoded);
         }
       } catch (error, stack) {
-        silentLog(
-          'ai_web_search_settings',
-          'decode JSON string',
-          error,
-          stack,
-        );
+        silentLog('ai_web_search_settings', 'decode JSON string', error, stack);
         return null;
       }
     }

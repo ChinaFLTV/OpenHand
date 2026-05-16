@@ -77,10 +77,7 @@ abstract class AppUpdateDataSource {
 
 /// GitHub Release 数据源实现。
 class GitHubReleaseDataSource implements AppUpdateDataSource {
-  GitHubReleaseDataSource({
-    this.owner = 'ChinaFLTV',
-    this.repo = 'OpenHand',
-  });
+  GitHubReleaseDataSource({this.owner = 'ChinaFLTV', this.repo = 'OpenHand'});
 
   final String owner;
   final String repo;
@@ -171,8 +168,8 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     final releaseName = '${json['name'] ?? tagName}'.trim();
     final releaseNotes = '${json['body'] ?? ''}'.trim();
     final publishedAtStr = '${json['published_at'] ?? ''}'.trim();
-    final publishedAt = DateTime.tryParse(publishedAtStr)?.toLocal() ??
-        DateTime.now();
+    final publishedAt =
+        DateTime.tryParse(publishedAtStr)?.toLocal() ?? DateTime.now();
     final isPreRelease = json['prerelease'] == true;
     // 解析平台对应的下载资产
     final assets = json['assets'];

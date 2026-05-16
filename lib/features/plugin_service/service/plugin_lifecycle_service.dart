@@ -71,9 +71,12 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         onProgress: onProgress,
       );
       if (result.exitCode == 0) {
-        final lines = result.stdout.split('\n')
+        final lines = result.stdout
+            .split('\n')
             .map((l) => l.trim())
-            .where((l) => l.startsWith('v') && RegExp(r'^v\d+\.\d+').hasMatch(l))
+            .where(
+              (l) => l.startsWith('v') && RegExp(r'^v\d+\.\d+').hasMatch(l),
+            )
             .toList();
         final version = lines.isNotEmpty ? lines.last : '';
         if (version.isNotEmpty) {
@@ -96,8 +99,9 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     }
 
     // 其次 fnm
-    final fnmCheck = await Process.run('which', ['fnm'])
-        .timeout(const Duration(seconds: 5));
+    final fnmCheck = await Process.run('which', [
+      'fnm',
+    ]).timeout(const Duration(seconds: 5));
     if (fnmCheck.exitCode == 0) {
       onProgress?.call('使用 fnm 安装 Node.js LTS…');
       final result = await _runWithProgress(
@@ -107,10 +111,13 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        await Process.run('fnm', ['default', 'lts-latest'])
-            .timeout(const Duration(seconds: 10));
-        final verify = await Process.run('node', ['--version'])
-            .timeout(const Duration(seconds: 8));
+        await Process.run('fnm', [
+          'default',
+          'lts-latest',
+        ]).timeout(const Duration(seconds: 10));
+        final verify = await Process.run('node', [
+          '--version',
+        ]).timeout(const Duration(seconds: 8));
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js $version 安装成功');
@@ -128,8 +135,9 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     }
 
     // 最后 brew
-    final brewCheck = await Process.run('which', ['brew'])
-        .timeout(const Duration(seconds: 5));
+    final brewCheck = await Process.run('which', [
+      'brew',
+    ]).timeout(const Duration(seconds: 5));
     if (brewCheck.exitCode == 0) {
       onProgress?.call('使用 Homebrew 安装 Node.js…');
       final result = await _runWithProgress(
@@ -139,8 +147,9 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await Process.run('node', ['--version'])
-            .timeout(const Duration(seconds: 8));
+        final verify = await Process.run('node', [
+          '--version',
+        ]).timeout(const Duration(seconds: 8));
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js $version 安装成功');
@@ -159,7 +168,8 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
 
     return const PluginOperationResult(
       success: false,
-      message: '未找到可用的包管理器 (nvm / fnm / brew)。请手动安装 Node.js: https://nodejs.org',
+      message:
+          '未找到可用的包管理器 (nvm / fnm / brew)。请手动安装 Node.js: https://nodejs.org',
     );
   }
 
@@ -168,8 +178,9 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     void Function(String line)? onProgress,
   }) async {
     // 前置检查：NodeJS 必须已安装
-    final nodeCheck = await Process.run('node', ['--version'])
-        .timeout(const Duration(seconds: 8));
+    final nodeCheck = await Process.run('node', [
+      '--version',
+    ]).timeout(const Duration(seconds: 8));
     if (nodeCheck.exitCode != 0) {
       return const PluginOperationResult(
         success: false,
@@ -198,13 +209,15 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
       timeout: const Duration(minutes: 10),
     );
     // 验证
-    final verify = await Process.run('npx', ['playwright', '--version'])
-        .timeout(const Duration(seconds: 15));
+    final verify = await Process.run('npx', [
+      'playwright',
+      '--version',
+    ]).timeout(const Duration(seconds: 15));
     if (verify.exitCode == 0) {
-      final version = verify.stdout
-          .toString()
-          .trim()
-          .replaceFirst(RegExp(r'^Version\s+', caseSensitive: false), '');
+      final version = verify.stdout.toString().trim().replaceFirst(
+        RegExp(r'^Version\s+', caseSensitive: false),
+        '',
+      );
       onProgress?.call('Playwright $version 安装成功');
       return PluginOperationResult(
         success: true,
@@ -225,8 +238,9 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
   }) async {
     onProgress?.call('正在检测 Node.js 安装方式…');
     // 先获取当前 node 路径，判断安装来源
-    final whichResult = await Process.run('which', ['node'])
-        .timeout(const Duration(seconds: 5));
+    final whichResult = await Process.run('which', [
+      'node',
+    ]).timeout(const Duration(seconds: 5));
     final nodePath = whichResult.exitCode == 0
         ? whichResult.stdout.toString().trim()
         : '';
@@ -235,7 +249,8 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     final isNvm = nodePath.contains('.nvm/');
     final isFnm = nodePath.contains('.fnm/') || nodePath.contains('/fnm/');
     final isVolta = nodePath.contains('.volta/');
-    final isBrew = nodePath.contains('/homebrew/') ||
+    final isBrew =
+        nodePath.contains('/homebrew/') ||
         nodePath.contains('/Cellar/') ||
         nodePath.startsWith('/opt/homebrew/') ||
         nodePath.startsWith('/usr/local/bin/');
@@ -251,9 +266,12 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
       );
       if (result.exitCode == 0) {
         // 从 stdout 最后一行提取版本号（node --version 的输出）
-        final lines = result.stdout.split('\n')
+        final lines = result.stdout
+            .split('\n')
             .map((l) => l.trim())
-            .where((l) => l.startsWith('v') && RegExp(r'^v\d+\.\d+').hasMatch(l))
+            .where(
+              (l) => l.startsWith('v') && RegExp(r'^v\d+\.\d+').hasMatch(l),
+            )
             .toList();
         final version = lines.isNotEmpty ? lines.last : '';
         if (version.isNotEmpty) {
@@ -286,10 +304,13 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        await Process.run('fnm', ['default', 'lts-latest'])
-            .timeout(const Duration(seconds: 10));
-        final verify = await Process.run('node', ['--version'])
-            .timeout(const Duration(seconds: 8));
+        await Process.run('fnm', [
+          'default',
+          'lts-latest',
+        ]).timeout(const Duration(seconds: 10));
+        final verify = await Process.run('node', [
+          '--version',
+        ]).timeout(const Duration(seconds: 8));
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js 已更新到 $version');
@@ -315,8 +336,9 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await Process.run('node', ['--version'])
-            .timeout(const Duration(seconds: 8));
+        final verify = await Process.run('node', [
+          '--version',
+        ]).timeout(const Duration(seconds: 8));
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js 已更新到 $version');
@@ -342,8 +364,9 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await Process.run('node', ['--version'])
-            .timeout(const Duration(seconds: 8));
+        final verify = await Process.run('node', [
+          '--version',
+        ]).timeout(const Duration(seconds: 8));
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js 已更新到 $version');
@@ -362,8 +385,9 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
 
     // 兜底：尝试 fnm → brew 顺序
     onProgress?.call('未能确定安装方式，尝试可用的包管理器…');
-    final fnmCheck = await Process.run('which', ['fnm'])
-        .timeout(const Duration(seconds: 5));
+    final fnmCheck = await Process.run('which', [
+      'fnm',
+    ]).timeout(const Duration(seconds: 5));
     if (fnmCheck.exitCode == 0) {
       final result = await _runWithProgress(
         'fnm',
@@ -372,10 +396,13 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        await Process.run('fnm', ['default', 'lts-latest'])
-            .timeout(const Duration(seconds: 10));
-        final verify = await Process.run('node', ['--version'])
-            .timeout(const Duration(seconds: 8));
+        await Process.run('fnm', [
+          'default',
+          'lts-latest',
+        ]).timeout(const Duration(seconds: 10));
+        final verify = await Process.run('node', [
+          '--version',
+        ]).timeout(const Duration(seconds: 8));
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           return PluginOperationResult(
@@ -388,7 +415,8 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     }
     return const PluginOperationResult(
       success: false,
-      message: '未找到可用的包管理器来更新 Node.js。\n'
+      message:
+          '未找到可用的包管理器来更新 Node.js。\n'
           '请根据您的安装方式手动更新：\n'
           '  · nvm: nvm install --lts\n'
           '  · fnm: fnm install --lts\n'
@@ -428,13 +456,15 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
       onProgress: onProgress,
       timeout: const Duration(minutes: 10),
     );
-    final verify = await Process.run('npx', ['playwright', '--version'])
-        .timeout(const Duration(seconds: 15));
+    final verify = await Process.run('npx', [
+      'playwright',
+      '--version',
+    ]).timeout(const Duration(seconds: 15));
     if (verify.exitCode == 0) {
-      final version = verify.stdout
-          .toString()
-          .trim()
-          .replaceFirst(RegExp(r'^Version\s+', caseSensitive: false), '');
+      final version = verify.stdout.toString().trim().replaceFirst(
+        RegExp(r'^Version\s+', caseSensitive: false),
+        '',
+      );
       return PluginOperationResult(
         success: true,
         message: 'Playwright 已更新到 $version',
@@ -459,14 +489,14 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
       );
     }
     onProgress?.call('正在卸载 Node.js…');
-    final brewCheck = await Process.run('which', ['brew'])
-        .timeout(const Duration(seconds: 5));
+    final brewCheck = await Process.run('which', [
+      'brew',
+    ]).timeout(const Duration(seconds: 5));
     if (brewCheck.exitCode == 0) {
-      final result = await _runWithProgress(
-        'brew',
-        ['uninstall', 'node'],
-        onProgress: onProgress,
-      );
+      final result = await _runWithProgress('brew', [
+        'uninstall',
+        'node',
+      ], onProgress: onProgress);
       if (result.exitCode == 0) {
         onProgress?.call('Node.js 已卸载');
         return const PluginOperationResult(
@@ -490,11 +520,11 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     void Function(String line)? onProgress,
   }) async {
     onProgress?.call('正在卸载 Playwright…');
-    final result = await _runWithProgress(
-      'npm',
-      ['uninstall', '-g', 'playwright'],
-      onProgress: onProgress,
-    );
+    final result = await _runWithProgress('npm', [
+      'uninstall',
+      '-g',
+      'playwright',
+    ], onProgress: onProgress);
     if (result.exitCode == 0) {
       onProgress?.call('Playwright 已卸载');
       return const PluginOperationResult(
@@ -549,11 +579,7 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         stderr: stderrLines.join('\n'),
       );
     } catch (e) {
-      return _SimpleProcessResult(
-        exitCode: -1,
-        stdout: '',
-        stderr: '$e',
-      );
+      return _SimpleProcessResult(exitCode: -1, stdout: '', stderr: '$e');
     }
   }
 }

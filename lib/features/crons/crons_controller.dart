@@ -620,11 +620,11 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
         return;
       }
-      final result = await runProcessWithTimeout(
-        'cut',
-        const <String>['-d:', '-f1', '/etc/passwd'],
-        tag: 'crons_controller',
-      );
+      final result = await runProcessWithTimeout('cut', const <String>[
+        '-d:',
+        '-f1',
+        '/etc/passwd',
+      ], tag: 'crons_controller');
       if (result != null && result.exitCode == 0) {
         final users = (result.stdout as String)
             .split('\n')
@@ -843,10 +843,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         ),
       );
       await _store.updateOne(
-        _entries.firstWhere(
-          (e) => e.id == entry.id,
-          orElse: () => entry,
-        ),
+        _entries.firstWhere((e) => e.id == entry.id, orElse: () => entry),
       );
 
       await _sendExecutionNotification(entry, record);

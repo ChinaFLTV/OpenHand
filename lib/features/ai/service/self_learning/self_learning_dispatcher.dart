@@ -1,4 +1,5 @@
 library;
+
 import '../../../../app/state/settings_controller.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../memory/index.dart';
@@ -321,10 +322,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
         );
         if (spokeIntent && !alreadyNudged && round + 1 < maxToolCallRounds) {
           turns.add(
-            AiChatTurn(
-              role: AiChatRole.assistant,
-              content: result.reply,
-            ),
+            AiChatTurn(role: AiChatRole.assistant, content: result.reply),
           );
           turns.add(
             const AiChatTurn(
@@ -577,8 +575,10 @@ bool _looksLikeUnfulfilledIntent({
     RegExp(r'skill[_\s-]?manager'),
     RegExp(r'我\s*(?:将|要|准备|打算|应该|会|需要)\s*(?:调用|更新|新增|追加|删除|patch|edit|create)'),
     RegExp(r'(?:更新|新增|追加|修订|纠正)\s*(?:画像|user_profile|记忆|技能|skill)'),
-    RegExp(r'\b(?:I\s+(?:will|should|need\s+to)|let\s+me)\s+(?:call|update|append|add|delete|invoke)\b',
-        caseSensitive: false),
+    RegExp(
+      r'\b(?:I\s+(?:will|should|need\s+to)|let\s+me)\s+(?:call|update|append|add|delete|invoke)\b',
+      caseSensitive: false,
+    ),
   ];
   for (final pat in intentPatterns) {
     if (pat.hasMatch(combined)) return true;

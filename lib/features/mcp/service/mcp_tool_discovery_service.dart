@@ -16,6 +16,7 @@ import '../model/mcp_server_health.dart';
 import '../model/mcp_stdio_mirror_mode.dart';
 import '../model/mcp_tool.dart';
 import 'mcp_stdio_process_manager.dart';
+
 abstract class McpToolDiscoveryService {
   Future<McpToolCatalog> discoverTools(McpServer server);
   Future<McpServerHealth> checkHealth(McpServer server);
@@ -259,7 +260,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     debugPrint('[mcp.discover] ${server.name}: attempting borrowSession');
     final managedSession = await McpStdioProcessManager.instance
         .borrowSessionForDiscovery(server.name);
-    debugPrint('[mcp.discover] ${server.name}: borrowSession result=${managedSession != null ? "OK" : "NULL"}');
+    debugPrint(
+      '[mcp.discover] ${server.name}: borrowSession result=${managedSession != null ? "OK" : "NULL"}',
+    );
     if (managedSession != null) {
       try {
         return _listTools(
@@ -267,8 +270,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             _jsonRpcRequest(
               id: _nextId(),
               method: 'tools/list',
-              params:
-                  cursor == null ? null : <String, Object?>{'cursor': cursor},
+              params: cursor == null
+                  ? null
+                  : <String, Object?>{'cursor': cursor},
             ),
           ),
           serverInstructions: managedSession.instructions,
@@ -279,7 +283,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     // 兜底：borrowSession 失败（进程启动失败/握手超时），回退到独立进程。
-    debugPrint('[mcp.discover] ${server.name}: FALLBACK to independent process');
+    debugPrint(
+      '[mcp.discover] ${server.name}: FALLBACK to independent process',
+    );
     final session = await _initializeStdioSession(server);
     try {
       return _listTools(
@@ -413,10 +419,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           _jsonRpcRequest(
             id: _nextId(),
             method: 'tools/call',
-            params: <String, Object?>{
-              'name': toolName,
-              'arguments': arguments,
-            },
+            params: <String, Object?>{'name': toolName, 'arguments': arguments},
           ),
           timeout: _toolCallTimeout,
         ),
@@ -449,9 +452,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     if (processInfo.isRunning && processInfo.pid != null) {
       // 验证进程是否仍然存活（发送 signal 0 不会杀死进程，只检查是否存在）
       try {
-        final checkResult = await Process.run(
-          'kill', ['-0', '${processInfo.pid}'],
-        ).timeout(const Duration(seconds: 2));
+        final checkResult = await Process.run('kill', [
+          '-0',
+          '${processInfo.pid}',
+        ]).timeout(const Duration(seconds: 2));
         if (checkResult.exitCode == 0) return; // 进程存活，健康
       } catch (_) {}
     }
@@ -2170,10 +2174,10 @@ String _diagnoseStdioStderr(String stderr) {
   // chrome-devtools-mcp 特有：需要 Chrome/Chromium 浏览器可用
   if (lower.contains('chrome') &&
       (lower.contains('not found') ||
-       lower.contains('no chrome') ||
-       lower.contains('cannot find') ||
-       lower.contains('failed to launch') ||
-       lower.contains('connect econnrefused'))) {
+          lower.contains('no chrome') ||
+          lower.contains('cannot find') ||
+          lower.contains('failed to launch') ||
+          lower.contains('connect econnrefused'))) {
     return '【诊断 / Diagnosis】 chrome-devtools-mcp 需要本机安装 Chrome 或 Chromium 浏览器。\n'
         '【建议 / Try】\n'
         '  · 确认 Chrome / Chromium 已安装且可正常启动\n'
@@ -2731,12 +2735,18 @@ void _setHeaderIgnoreCase(
 
 /// 直接扫描 nvm/volta 目录定位 npx 包的入口脚本，不依赖 shell 环境。
 class _NpxPackageResolution {
-  const _NpxPackageResolution({required this.nodeBin, required this.entryScript});
+  const _NpxPackageResolution({
+    required this.nodeBin,
+    required this.entryScript,
+  });
   final String nodeBin;
   final String entryScript;
 }
 
-_NpxPackageResolution? _resolveNpxPackageDirectly(String packageName, String? home) {
+_NpxPackageResolution? _resolveNpxPackageDirectly(
+  String packageName,
+  String? home,
+) {
   if (home == null || home.isEmpty) return null;
   // 清理包名（移除 @version 后缀，如 @playwright/mcp@latest → @playwright/mcp）
   final cleanName = packageName.replaceAll(RegExp(r'@[^/]*$'), '');
@@ -2749,15 +2759,24 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(String packageName, String? ho
     final versions = <String>[];
     try {
       for (final entity in versionsDir.listSync()) {
-        if (entity is Directory && entity.path.split('/').last.startsWith('v')) {
+        if (entity is Directory &&
+            entity.path.split('/').last.startsWith('v')) {
           versions.add(entity.path.split('/').last);
         }
       }
     } catch (_) {}
     // 按版本号降序排列，优先使用最新版本
     versions.sort((a, b) {
-      final ap = a.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
-      final bp = b.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
+      final ap = a
+          .substring(1)
+          .split('.')
+          .map((s) => int.tryParse(s) ?? 0)
+          .toList();
+      final bp = b
+          .substring(1)
+          .split('.')
+          .map((s) => int.tryParse(s) ?? 0)
+          .toList();
       for (int i = 0; i < 3; i++) {
         final av = i < ap.length ? ap[i] : 0;
         final bv = i < bp.length ? bp[i] : 0;
@@ -2767,10 +2786,13 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(String packageName, String? ho
     });
     for (final version in versions) {
       final nodeBin = '$nvmDir/versions/node/$version/bin/node';
-      final packageDir = '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
+      final packageDir =
+          '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
       if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
         final entry = _findPackageBinEntry(packageDir);
-        if (entry != null) return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
+        if (entry != null) {
+          return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
+        }
       }
     }
   }
@@ -2782,10 +2804,17 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(String packageName, String? ho
       for (final entity in Directory(fnmDir).listSync()) {
         if (entity is Directory) {
           final nodeBin = '${entity.path}/installation/bin/node';
-          final packageDir = '${entity.path}/installation/lib/node_modules/$cleanName';
-          if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
+          final packageDir =
+              '${entity.path}/installation/lib/node_modules/$cleanName';
+          if (File(nodeBin).existsSync() &&
+              Directory(packageDir).existsSync()) {
             final entry = _findPackageBinEntry(packageDir);
-            if (entry != null) return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
+            if (entry != null) {
+              return _NpxPackageResolution(
+                nodeBin: nodeBin,
+                entryScript: entry,
+              );
+            }
           }
         }
       }
@@ -2801,7 +2830,9 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(String packageName, String? ho
       for (final nodeBin in systemNodes) {
         if (File(nodeBin).existsSync()) {
           final entry = _findPackageBinEntry(packageDir);
-          if (entry != null) return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
+          if (entry != null) {
+            return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
+          }
         }
       }
     }

@@ -1533,10 +1533,7 @@ void _processClaudeStreamEvent(
         if (parsedUsage != null && !parsedUsage.isEmpty) {
           // Merge with the message_start frame so cache_* fields are
           // preserved even when message_delta only ships output_tokens.
-          final merged = AiTokenUsageParser.carryForward(
-            usage(),
-            parsedUsage,
-          );
+          final merged = AiTokenUsageParser.carryForward(usage(), parsedUsage);
           setUsage(merged);
           markStreamActivity('usage');
           _debugAiStreamLog(

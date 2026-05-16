@@ -180,8 +180,9 @@ class AiApplyFileDiffsTool extends AiTool {
           toolCallId: context.toolCall.id,
           fileHistory: fileHistory,
         );
-        beforeContentForLedger =
-            await AiToolUtils.readFileContentForLedger(plan.filePath);
+        beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
+          plan.filePath,
+        );
       }
       await AiToolUtils.writeTextFileSafely(plan.file, plan.newContent);
       await AiToolUtils.updateTrackerAfterMutation(
@@ -212,9 +213,7 @@ class AiApplyFileDiffsTool extends AiTool {
         toolCallId: context.toolCall.id,
         toolName: 'ApplyFileDiffs',
         filePath: plan.filePath,
-        kind: plan.existed
-            ? FileMutationKind.modify
-            : FileMutationKind.create,
+        kind: plan.existed ? FileMutationKind.modify : FileMutationKind.create,
         beforeContent: beforeContentForLedger,
         afterContent: verify,
       );
@@ -240,15 +239,18 @@ class AiApplyFileDiffsTool extends AiTool {
       command: 'ApplyFileDiffs (${results.length} files)',
       output: lines.join('\n'),
       durationMs: startedAt.elapsedMilliseconds,
-      workingDirectory:
-          results.isEmpty ? null : p.dirname(results.first.filePath),
+      workingDirectory: results.isEmpty
+          ? null
+          : p.dirname(results.first.filePath),
       isWriteCommand: true,
       metadata: <String, Object?>{
         'tool_source': 'builtin',
         'file_mutation_kind': 'apply_file_diffs',
         'file_mutation_file_count': results.length,
-        'file_mutation_total_hunks':
-            results.fold<int>(0, (acc, r) => acc + r.hunkCount),
+        'file_mutation_total_hunks': results.fold<int>(
+          0,
+          (acc, r) => acc + r.hunkCount,
+        ),
         'file_mutation_paths': results.map((r) => r.filePath).toList(),
         'file_mutation_version_ids': <String, String?>{
           for (final r in results) r.filePath: r.versionId,

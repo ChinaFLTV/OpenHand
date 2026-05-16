@@ -6,9 +6,7 @@ void main() {
     final tmp = await Directory.systemTemp.createTemp('check_imports_test');
     final f = File('${tmp.path}/lib/features/a/widgets/x.dart')
       ..createSync(recursive: true);
-    f.writeAsStringSync(
-      "import '../../b/service/y.dart';\n",
-    );
+    f.writeAsStringSync("import '../../b/service/y.dart';\n");
     final result = await Process.run('dart', [
       'run',
       'scripts/check_imports.dart',

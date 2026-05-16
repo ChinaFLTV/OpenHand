@@ -645,8 +645,8 @@ class _HeStructuredToolSection extends StatelessWidget {
                 ),
                 AnimatedSwitcher(
                   duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 240),
+                      ? Duration.zero
+                      : const Duration(milliseconds: 240),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   layoutBuilder: (current, previous) => Stack(
@@ -690,9 +690,7 @@ class _HeStructuredToolSection extends StatelessWidget {
                             ),
                           ),
                         )
-                      : const SizedBox.shrink(
-                          key: ValueKey<String>('empty'),
-                        ),
+                      : const SizedBox.shrink(key: ValueKey<String>('empty')),
                 ),
               ],
             ),
@@ -1299,4 +1297,3 @@ class _HeStructuredLogLines extends StatelessWidget {
 // =============================================================================
 // _HeReviewVerdictInfo — parsed review verdict from a userInput segment
 // =============================================================================
-

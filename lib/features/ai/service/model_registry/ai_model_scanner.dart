@@ -24,7 +24,8 @@ class AiModelScanResult {
 /// Scans an AI provider's API to discover available model IDs.
 class AiModelScanner {
   AiModelScanner({http.Client? httpClient})
-    : _httpClient = httpClient ?? SystemProxyResolver.instance.createHttpClient();
+    : _httpClient =
+          httpClient ?? SystemProxyResolver.instance.createHttpClient();
 
   final http.Client _httpClient;
 
@@ -168,10 +169,7 @@ class AiModelScanner {
     if (response.statusCode == 401 || response.statusCode == 403) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: _ScanErrorMessages.httpStatus(
-          response.statusCode,
-          isAuth: true,
-        ),
+        error: _ScanErrorMessages.httpStatus(response.statusCode, isAuth: true),
       );
     }
     if (response.statusCode != 200) {
@@ -430,7 +428,8 @@ class AiModelScanner {
           modelIds: fallback,
           error: _ScanErrorMessages._format(
             title: 'Empty model list · 未返回任何模型',
-            reason: '服务端 /v1/models 端点连通但返回了空列表。多数中转 代理不提供该接口，或者仅准许某一个账号调用后才返回。',
+            reason:
+                '服务端 /v1/models 端点连通但返回了空列表。多数中转 代理不提供该接口，或者仅准许某一个账号调用后才返回。',
             try_:
                 '· 在「手动添加模型 ID」处直接录入希望使用的模型名\n'
                 '· 联系中转方确认 /v1/models 是否需要付费 / 鉴权',
@@ -467,10 +466,7 @@ class AiModelScanner {
     if (response.statusCode == 401 || response.statusCode == 403) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: _ScanErrorMessages.httpStatus(
-          response.statusCode,
-          isAuth: true,
-        ),
+        error: _ScanErrorMessages.httpStatus(response.statusCode, isAuth: true),
       );
     }
     if (response.statusCode != 200) {
@@ -586,20 +582,18 @@ class _ScanErrorMessages {
   static String handshake(HandshakeException e) =>
       AiTransportDiagnosticMessages.handshake(e);
 
-  static String tls(TlsException e) =>
-      AiTransportDiagnosticMessages.tls(e);
+  static String tls(TlsException e) => AiTransportDiagnosticMessages.tls(e);
 
   static String timeout(Duration limit) =>
       AiTransportDiagnosticMessages.timeout(limit);
 
-  static String http(HttpException e) =>
-      AiTransportDiagnosticMessages.format(
-        title: 'HTTP protocol error · HTTP 协议错误',
-        reason:
-            'HTTP 客户端在解析响应阶段失败：${e.message}\n'
-            '通常意味着服务端返回的并非合法 HTTP 报文，或响应被中间设备截断。',
-        try_: '· 复核 Base URL 是否指向了 HTTPS 端口\n· 联系中转方确认是否做了端口劫持',
-      );
+  static String http(HttpException e) => AiTransportDiagnosticMessages.format(
+    title: 'HTTP protocol error · HTTP 协议错误',
+    reason:
+        'HTTP 客户端在解析响应阶段失败：${e.message}\n'
+        '通常意味着服务端返回的并非合法 HTTP 报文，或响应被中间设备截断。',
+    try_: '· 复核 Base URL 是否指向了 HTTPS 端口\n· 联系中转方确认是否做了端口劫持',
+  );
 
   static String socket(SocketException e) {
     final msg = e.message.toLowerCase();
@@ -678,8 +672,7 @@ class _ScanErrorMessages {
             '  · 当前令牌不具备访问该模型 / 接口的权限\n'
             '  · IP 地理位置不在中转方允许的区域\n'
             '  · 触发了中转方的 WAF / 风控规则';
-        suggest =
-            '· 在中转方控制台确认账号余额与权限\n· 切换网络或地区后重试\n· 联系中转方支持核实账号状态';
+        suggest = '· 在中转方控制台确认账号余额与权限\n· 切换网络或地区后重试\n· 联系中转方支持核实账号状态';
         break;
       case 404:
         title = 'Endpoint not found (404) · 端点不存在';
@@ -769,11 +762,10 @@ class _ScanErrorMessages {
     required String reason,
     required String try_,
     String? raw,
-  }) =>
-      AiTransportDiagnosticMessages.format(
-        title: title,
-        reason: reason,
-        try_: try_,
-        raw: raw,
-      );
+  }) => AiTransportDiagnosticMessages.format(
+    title: title,
+    reason: reason,
+    try_: try_,
+    raw: raw,
+  );
 }

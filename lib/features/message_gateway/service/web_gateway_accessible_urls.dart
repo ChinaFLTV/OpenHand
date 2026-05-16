@@ -18,17 +18,15 @@ List<String> computeWebGatewayAccessibleUrls({
   if (boundPort == null) return const <String>[];
   final port = boundPort;
   final normalized = listenHost.trim();
-  final isWildcard = normalized.isEmpty ||
+  final isWildcard =
+      normalized.isEmpty ||
       normalized == '0.0.0.0' ||
       normalized == '::' ||
       normalized == '::0';
   if (!isWildcard) {
     return List<String>.unmodifiable(<String>['http://$normalized:$port']);
   }
-  final urls = <String>{
-    'http://localhost:$port',
-    'http://127.0.0.1:$port',
-  };
+  final urls = <String>{'http://localhost:$port', 'http://127.0.0.1:$port'};
   for (final addr in localIPv4Addresses) {
     if (addr.isEmpty) continue;
     urls.add('http://$addr:$port');

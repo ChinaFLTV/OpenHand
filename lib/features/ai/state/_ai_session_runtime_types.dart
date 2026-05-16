@@ -77,4 +77,3 @@ class AiManualCompactionResult {
 
   bool get ok => status == AiManualCompactionStatus.success;
 }
-

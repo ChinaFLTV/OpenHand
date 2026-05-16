@@ -169,10 +169,7 @@ class _WriteConfirmationOutcome {
     : this._(decision: d, cancelled: false);
 
   const _WriteConfirmationOutcome.cancelled()
-    : this._(
-        decision: BashCommandApprovalDecision.cancelled,
-        cancelled: true,
-      );
+    : this._(decision: BashCommandApprovalDecision.cancelled, cancelled: true);
 
   final BashCommandApprovalDecision decision;
   final bool cancelled;
@@ -1315,10 +1312,7 @@ class AiBashToolService {
         .resolveSubprocessEnvironment();
     final mergedEnvironment = proxyEnv.isEmpty
         ? null
-        : <String, String>{
-            ...Platform.environment,
-            ...proxyEnv,
-          };
+        : <String, String>{...Platform.environment, ...proxyEnv};
     final process = Platform.isWindows
         ? await Process.start(
             shellExecutable,

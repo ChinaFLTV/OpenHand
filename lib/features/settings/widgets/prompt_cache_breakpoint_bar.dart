@@ -374,9 +374,7 @@ class _StructureSegmentTile extends StatelessWidget {
           height: height,
           decoration: BoxDecoration(
             color: segment.color.withValues(alpha: 0.88),
-            border: Border(
-              right: BorderSide(color: theme.colorScheme.surface),
-            ),
+            border: Border(right: BorderSide(color: theme.colorScheme.surface)),
           ),
           alignment: Alignment.center,
           child: Padding(

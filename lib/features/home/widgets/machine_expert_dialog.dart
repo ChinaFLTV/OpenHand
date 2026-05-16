@@ -14,6 +14,7 @@ import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 
 import '../../ai/index.dart';
+
 class MachineExpertDialog extends StatefulWidget {
   const MachineExpertDialog({
     super.key,
@@ -311,9 +312,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     try {
       await _updateTabsForWindowInternal(window, currentFetchId);
     } finally {
-      if (mounted &&
-          _fetchSequence == currentFetchId &&
-          _isLoading) {
+      if (mounted && _fetchSequence == currentFetchId && _isLoading) {
         setState(() {
           _isLoading = false;
         });
@@ -519,7 +518,8 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
       listen: false,
     );
     final latestModels = settingsController?.aiModels ?? widget.availableModels;
-    final latestRecent = settingsController?.recentModelSelections ??
+    final latestRecent =
+        settingsController?.recentModelSelections ??
         widget.recentModelSelections;
     if (latestModels.isEmpty) {
       return;
@@ -634,14 +634,10 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         // Trigger accessibility / automation prompt by asking for a property.
         // Hard timeout + child kill is mandatory to avoid leaking osascript
         // child processes that could disrupt the host app's input method.
-        await runProcessWithTimeout(
-          'osascript',
-          [
-            '-e',
-            'try\ntell application "$appName" to get id\nend try',
-          ],
-          tag: 'machine_expert_dialog',
-        );
+        await runProcessWithTimeout('osascript', [
+          '-e',
+          'try\ntell application "$appName" to get id\nend try',
+        ], tag: 'machine_expert_dialog');
       } catch (error, stack) {
         silentLog(
           'machine_expert_dialog',
@@ -699,86 +695,86 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
           child: Stack(
             children: [
               SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDropdownItem(
-                      label: '终端程序',
-                      value: _selectedTerminal,
-                      items: _allTerminalsCached,
-                      onChanged: (value) {
-                        if (value != null && value != _selectedTerminal) {
-                          setState(() {
-                            _selectedTerminal = value;
-                          });
-                          _updateWindowsForTerminal(value);
-                        }
-                      },
+                    Text(
+                      '请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                    const SizedBox(width: 16),
-                    _buildDropdownItem(
-                      label: _loc(context, zh: '窗口', en: 'Window'),
-                      value: _selectedWindow,
-                      items: _windows,
-                      displayLabelBuilder: (w) => w,
-                      onChanged: (value) {
-                        if (value != null && value != _selectedWindow) {
-                          setState(() {
-                            _selectedWindow = value;
-                          });
-                          _updateTabsForWindow(value);
-                        }
-                      },
+                    const SizedBox(height: 24),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildDropdownItem(
+                          label: '终端程序',
+                          value: _selectedTerminal,
+                          items: _allTerminalsCached,
+                          onChanged: (value) {
+                            if (value != null && value != _selectedTerminal) {
+                              setState(() {
+                                _selectedTerminal = value;
+                              });
+                              _updateWindowsForTerminal(value);
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 16),
+                        _buildDropdownItem(
+                          label: _loc(context, zh: '窗口', en: 'Window'),
+                          value: _selectedWindow,
+                          items: _windows,
+                          displayLabelBuilder: (w) => w,
+                          onChanged: (value) {
+                            if (value != null && value != _selectedWindow) {
+                              setState(() {
+                                _selectedWindow = value;
+                              });
+                              _updateTabsForWindow(value);
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 16),
+                        _buildDropdownItem(
+                          label: _loc(context, zh: '会话', en: 'Session'),
+                          value: _selectedTab,
+                          items: _tabs,
+                          displayLabelBuilder: (t) => t,
+                          onChanged: (value) {
+                            if (value != null && value != _selectedTab) {
+                              setState(() {
+                                _selectedTab = value;
+                              });
+                            }
+                          },
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    _buildDropdownItem(
-                      label: _loc(context, zh: '会话', en: 'Session'),
-                      value: _selectedTab,
-                      items: _tabs,
-                      displayLabelBuilder: (t) => t,
-                      onChanged: (value) {
-                        if (value != null && value != _selectedTab) {
-                          setState(() {
-                            _selectedTab = value;
-                          });
-                        }
-                      },
+                    const SizedBox(height: 24),
+                    _buildModelSelector(context),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: _taskController,
+                      maxLines: 8,
+                      minLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: '任务需求',
+                        hintText: '描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...',
+                        alignLabelWithHint: true,
+                        border: OutlineInputBorder(),
+                        helperText: '机器专家将根据该需求和终端现场进行交互式执行。',
+                      ),
                     ),
+                    if (_isLoading) ...[
+                      const SizedBox(height: 16),
+                      const LinearProgressIndicator(),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 24),
-                _buildModelSelector(context),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: _taskController,
-                  maxLines: 8,
-                  minLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: '任务需求',
-                    hintText: '描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...',
-                    alignLabelWithHint: true,
-                    border: OutlineInputBorder(),
-                    helperText: '机器专家将根据该需求和终端现场进行交互式执行。',
-                  ),
-                ),
-                if (_isLoading) ...[
-                  const SizedBox(height: 16),
-                  const LinearProgressIndicator(),
-                ],
-              ],
-            ),
-          ),
+              ),
               Positioned(
                 top: 0,
                 left: 0,

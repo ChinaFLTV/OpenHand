@@ -55,7 +55,8 @@ extension AiSessionControllerManualCompaction on AiSessionController {
     }
     final consecutiveFailures =
         _compressionFailureCountsBySession[normalizedId] ?? 0;
-    if (consecutiveFailures >= AiSessionController._maxConsecutiveCompressionFailures) {
+    if (consecutiveFailures >=
+        AiSessionController._maxConsecutiveCompressionFailures) {
       return const AiManualCompactionResult(
         status: AiManualCompactionStatus.circuitBreaker,
         message: 'circuit_breaker',
@@ -67,7 +68,8 @@ extension AiSessionControllerManualCompaction on AiSessionController {
         ? percentLeftRaw.toDouble()
         : null;
     if (percentLeft != null &&
-        percentLeft > AiSessionController._manualCompactionRefusePercentLeftAbove) {
+        percentLeft >
+            AiSessionController._manualCompactionRefusePercentLeftAbove) {
       return const AiManualCompactionResult(
         status: AiManualCompactionStatus.notNeeded,
         message: 'usage_too_low',

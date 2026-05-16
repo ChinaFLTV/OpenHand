@@ -83,8 +83,9 @@ class AiEditTool extends AiTool {
     // 2026-05-03: 新型 ledger — 双快照捕获 before 内容
     final mutationLedger =
         context.metadata['mutation_ledger'] as AiFileMutationLedger?;
-    final beforeContentForLedger =
-        await AiToolUtils.readFileContentForLedger(filePath);
+    final beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
+      filePath,
+    );
 
     final String content;
     try {

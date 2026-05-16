@@ -1,4 +1,5 @@
 library;
+
 import 'dart:async';
 
 import '../../../../app/support/silent_log.dart';
@@ -141,17 +142,16 @@ class SelfLearningSessionReport {
   final String? error;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'session_id': sessionId,
-        'session_title': sessionTitle,
-        'status': status,
-        'summary': summary,
-        if (mutations.isNotEmpty) 'mutations': mutations,
-        if (aiResponse != null && aiResponse!.isNotEmpty)
-          'ai_response': aiResponse,
-        if (aiReasoning != null && aiReasoning!.isNotEmpty)
-          'ai_reasoning': aiReasoning,
-        if (error != null && error!.isNotEmpty) 'error': error,
-      };
+    'session_id': sessionId,
+    'session_title': sessionTitle,
+    'status': status,
+    'summary': summary,
+    if (mutations.isNotEmpty) 'mutations': mutations,
+    if (aiResponse != null && aiResponse!.isNotEmpty) 'ai_response': aiResponse,
+    if (aiReasoning != null && aiReasoning!.isNotEmpty)
+      'ai_reasoning': aiReasoning,
+    if (error != null && error!.isNotEmpty) 'error': error,
+  };
 }
 
 class SelfLearningRunner {
@@ -333,7 +333,12 @@ class SelfLearningRunner {
           try {
             await pendingFlush;
           } catch (error, stack) {
-            silentLog('self_learning_runner', 'await pendingFlush (success path)', error, stack);
+            silentLog(
+              'self_learning_runner',
+              'await pendingFlush (success path)',
+              error,
+              stack,
+            );
           }
         }
 
@@ -372,7 +377,12 @@ class SelfLearningRunner {
           try {
             await pendingFlush;
           } catch (flushError, flushStack) {
-            silentLog('self_learning_runner', 'await pendingFlush (error path)', flushError, flushStack);
+            silentLog(
+              'self_learning_runner',
+              'await pendingFlush (error path)',
+              flushError,
+              flushStack,
+            );
           }
         }
         finalReport = SelfLearningSessionReport(

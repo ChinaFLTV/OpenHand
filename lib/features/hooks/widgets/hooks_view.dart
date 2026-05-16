@@ -61,8 +61,8 @@ class HooksView extends StatelessWidget {
         Expanded(
           child: AnimatedSwitcher(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             child: entries.isEmpty
@@ -87,8 +87,7 @@ class HooksView extends StatelessWidget {
                           child: _HookEntryCard(
                             entry: entry,
                             isZh: isZh,
-                            onEdit: () =>
-                                _showHookEditorDialog(context, entry),
+                            onEdit: () => _showHookEditorDialog(context, entry),
                             onToggle: (enabled) {
                               hooksController.toggleHookEnabled(
                                 entry.id,
@@ -156,29 +155,29 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-            Icon(
-              Icons.webhook_outlined,
-              size: 64,
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+          Icon(
+            Icons.webhook_outlined,
+            size: 64,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            isZh ? '暂无 Hook 配置' : 'No hooks configured yet',
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 16),
-            Text(
-              isZh ? '暂无 Hook 配置' : 'No hooks configured yet',
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isZh
+                ? '点击右上角「新增 Hook」按钮开始配置。'
+                : 'Click "New Hook" above to get started.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
             ),
-            const SizedBox(height: 8),
-            Text(
-              isZh
-                  ? '点击右上角「新增 Hook」按钮开始配置。'
-                  : 'Click "New Hook" above to get started.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }

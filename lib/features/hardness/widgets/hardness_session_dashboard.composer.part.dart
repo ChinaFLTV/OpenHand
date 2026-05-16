@@ -229,8 +229,8 @@ class _HeComposer extends StatelessWidget {
 
     final expandedContent = AnimatedContainer(
       duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 260),
+          ? Duration.zero
+          : const Duration(milliseconds: 260),
       curve: Curves.easeInOutCubicEmphasized,
       width: double.infinity,
       height: manualPhaseEnabled ? 176 : 80,
@@ -369,8 +369,8 @@ class _HeComposer extends StatelessWidget {
               child: AnimatedRotation(
                 turns: isCollapsed ? 0.5 : 0,
                 duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
                 child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),
@@ -472,8 +472,8 @@ class _HeComposer extends StatelessWidget {
       color: colorScheme.surfaceContainerHigh,
       child: AnimatedContainer(
         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 260),
+            ? Duration.zero
+            : const Duration(milliseconds: 260),
         curve: Curves.easeInOutCubicEmphasized,
         padding: EdgeInsets.fromLTRB(18, 14, 18, isCollapsed ? 10 : 18),
         child: Column(
@@ -793,9 +793,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
     final cliNames = kHardnessCliCatalog
         .where((c) => c.supportsHeadless)
         .toList();
-    final settingsController = Provider.of<SettingsController?>(
-      context,
-    );
+    final settingsController = Provider.of<SettingsController?>(context);
     final settingsModels =
         settingsController?.aiModels ?? const <AiModelConfig>[];
     final configuredAiModelConfigId = roleConfig.aiModelConfigId?.trim();
@@ -934,4 +932,3 @@ class _HePendingPhaseEditor extends StatelessWidget {
     );
   }
 }
-

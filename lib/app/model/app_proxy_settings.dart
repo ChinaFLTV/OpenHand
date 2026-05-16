@@ -8,17 +8,9 @@
 // secrets, this is the place to plug in.
 import 'dart:convert';
 
-enum AppProxyMode {
-  disabled,
-  automatic,
-  manual,
-}
+enum AppProxyMode { disabled, automatic, manual }
 
-enum AppProxyProtocol {
-  http,
-  https,
-  socks,
-}
+enum AppProxyProtocol { http, https, socks }
 
 extension AppProxyModeJson on AppProxyMode {
   String get jsonValue {
@@ -92,18 +84,18 @@ class AppProxySettings {
   });
 
   factory AppProxySettings.defaults() => const AppProxySettings(
-        mode: AppProxyMode.automatic,
-        protocols: <AppProxyProtocol>{
-          AppProxyProtocol.http,
-          AppProxyProtocol.https,
-        },
-        host: '',
-        port: 7890,
-        authEnabled: false,
-        username: '',
-        password: '',
-        exceptions: <String>[],
-      );
+    mode: AppProxyMode.automatic,
+    protocols: <AppProxyProtocol>{
+      AppProxyProtocol.http,
+      AppProxyProtocol.https,
+    },
+    host: '',
+    port: 7890,
+    authEnabled: false,
+    username: '',
+    password: '',
+    exceptions: <String>[],
+  );
 
   /// Lenient JSON decoder. Unknown fields are ignored. Bad shapes fall
   /// back to defaults() so a corrupted settings file never crashes the
@@ -132,11 +124,13 @@ class AppProxySettings {
         : defaults.host;
     final port = rawJson['port'] is int
         ? (rawJson['port'] as int).clamp(1, 65535)
-        : (rawJson['port'] is String && int.tryParse(rawJson['port'] as String) != null
-            ? int.parse(rawJson['port'] as String).clamp(1, 65535)
-            : defaults.port);
-    final authEnabled =
-        rawJson['auth_enabled'] is bool ? rawJson['auth_enabled'] as bool : false;
+        : (rawJson['port'] is String &&
+                  int.tryParse(rawJson['port'] as String) != null
+              ? int.parse(rawJson['port'] as String).clamp(1, 65535)
+              : defaults.port);
+    final authEnabled = rawJson['auth_enabled'] is bool
+        ? rawJson['auth_enabled'] as bool
+        : false;
     final username = rawJson['username'] is String
         ? (rawJson['username'] as String)
         : '';
@@ -195,17 +189,16 @@ class AppProxySettings {
       'https://www.google.com/generate_204';
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'mode': mode.jsonValue,
-        'protocols':
-            protocols.map((p) => p.jsonValue).toList(growable: false),
-        'host': host,
-        'port': port,
-        'auth_enabled': authEnabled,
-        'username': username,
-        'password': password,
-        'exceptions': List<String>.unmodifiable(exceptions),
-        'test_endpoint': testEndpoint,
-      };
+    'mode': mode.jsonValue,
+    'protocols': protocols.map((p) => p.jsonValue).toList(growable: false),
+    'host': host,
+    'port': port,
+    'auth_enabled': authEnabled,
+    'username': username,
+    'password': password,
+    'exceptions': List<String>.unmodifiable(exceptions),
+    'test_endpoint': testEndpoint,
+  };
 
   AppProxySettings copyWith({
     AppProxyMode? mode,
@@ -260,16 +253,16 @@ class AppProxySettings {
 
   @override
   int get hashCode => Object.hash(
-        mode,
-        host,
-        port,
-        authEnabled,
-        username,
-        password,
-        Object.hashAll(protocols),
-        Object.hashAll(exceptions),
-        testEndpoint,
-      );
+    mode,
+    host,
+    port,
+    authEnabled,
+    username,
+    password,
+    Object.hashAll(protocols),
+    Object.hashAll(exceptions),
+    testEndpoint,
+  );
 }
 
 bool _listEquals<T>(List<T> a, List<T> b) {

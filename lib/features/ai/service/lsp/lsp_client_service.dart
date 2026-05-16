@@ -1030,8 +1030,10 @@ class AiLspClientService {
         return -1;
       },
     );
-    final output = await stdoutFuture
-        .timeout(const Duration(milliseconds: 200), onTimeout: () => '');
+    final output = await stdoutFuture.timeout(
+      const Duration(milliseconds: 200),
+      onTimeout: () => '',
+    );
     if (timedOut) {
       // Slow PATH (network mount, fuse, etc.) — leave cache untouched
       // so the next LSP startup retries.
@@ -1784,8 +1786,9 @@ class _AiLspSession {
     // listener stays attached after the process is killed and `_onData` may
     // still fire into a session whose buffers/maps have already been cleared,
     // and the underlying stream is never released.
-    _stdoutSubscription =
-        _process!.stdout.transform(utf8.decoder).listen(_onData);
+    _stdoutSubscription = _process!.stdout
+        .transform(utf8.decoder)
+        .listen(_onData);
     // Drain stderr so the LSP server is not blocked writing diagnostics.
     // Surface any drain failures in debug builds to aid troubleshooting —
     // they are silently swallowed otherwise.
@@ -2424,7 +2427,12 @@ class _AiLspSession {
       _sendNotification('exit', <String, Object?>{});
       await Future<void>.delayed(const Duration(milliseconds: 80));
     } catch (error, stack) {
-      silentLog('lsp_client_service', 'graceful LSP shutdown handshake', error, stack);
+      silentLog(
+        'lsp_client_service',
+        'graceful LSP shutdown handshake',
+        error,
+        stack,
+      );
     }
     _process = null;
     process.kill();

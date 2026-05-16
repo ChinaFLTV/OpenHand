@@ -45,106 +45,106 @@ class _UserProfileSettingsButtonState
         },
         child: MicroPressFeedback(
           child: Material(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => _showUserProfileDialog(context),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.account_circle_outlined,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => _showUserProfileDialog(context),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.account_circle_outlined,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            _localizedText(
-                              context,
-                              zh: hasProfile ? '查看 / 更新用户画像' : '建立用户画像',
-                              en: hasProfile
-                                  ? 'View / Update Profile'
-                                  : 'Set Up Profile',
-                            ),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (hasProfile)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.tertiaryContainer,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
+                          Row(
+                            children: [
+                              Text(
                                 _localizedText(
                                   context,
-                                  zh: '已配置',
-                                  en: 'Configured',
+                                  zh: hasProfile ? '查看 / 更新用户画像' : '建立用户画像',
+                                  en: hasProfile
+                                      ? 'View / Update Profile'
+                                      : 'Set Up Profile',
                                 ),
-                                style: theme.textTheme.labelSmall?.copyWith(
+                                style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: colorScheme.onTertiaryContainer,
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              if (hasProfile)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.tertiaryContainer,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    _localizedText(
+                                      context,
+                                      zh: '已配置',
+                                      en: 'Configured',
+                                    ),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.onTertiaryContainer,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            preview,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.4,
                             ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        preview,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.4,
-                        ),
+                    ),
+                    const SizedBox(width: 8),
+                    AnimatedSlide(
+                      offset: Offset(_hovered && !reduceMotion ? 0.18 : 0, 0),
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                AnimatedSlide(
-                  offset: Offset(_hovered && !reduceMotion ? 0.18 : 0, 0),
-                  duration: reduceMotion
-                      ? Duration.zero
-                      : const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  child: Icon(
-                    Icons.chevron_right_rounded,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
         ),
       ),
     );
@@ -204,7 +204,8 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final hasExisting = context
+    final hasExisting =
+        context
             .read<MemoryController>()
             .userProfile
             ?.content
@@ -222,116 +223,113 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.account_circle_outlined,
-                      color: colorScheme.primary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _localizedText(
-                          context,
-                          zh: '用户画像 · User Profile',
-                          en: 'User Profile',
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.account_circle_outlined,
+                          color: colorScheme.primary,
                         ),
-                        style: theme.textTheme.headlineSmall,
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _localizedText(
+                              context,
+                              zh: '用户画像 · User Profile',
+                              en: 'User Profile',
+                            ),
+                            style: theme.textTheme.headlineSmall,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _localizedText(
-                    context,
-                    zh:
-                        '用一段话描述你希望 AI 长期记住的偏好、关注领域与交流风格。该画像将作为系统提示词的固定上下文模块，跨所有线程模板自动生效；自我学习也会基于本字段做增量优化。',
-                    en:
-                        'Describe in one paragraph the long-term preferences, focus areas and communication style you want the AI to remember. The profile is injected as a fixed system-prompt module across all thread templates; self-learning incrementally refines it.',
-                  ),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: TextField(
-                    controller: _contentController,
-                    enabled: !_isSaving,
-                    expands: true,
-                    maxLines: null,
-                    textAlignVertical: TextAlignVertical.top,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
+                    const SizedBox(height: 6),
+                    Text(
+                      _localizedText(
                         context,
-                        zh: '画像内容',
-                        en: 'Profile Content',
+                        zh: '用一段话描述你希望 AI 长期记住的偏好、关注领域与交流风格。该画像将作为系统提示词的固定上下文模块，跨所有线程模板自动生效；自我学习也会基于本字段做增量优化。',
+                        en: 'Describe in one paragraph the long-term preferences, focus areas and communication style you want the AI to remember. The profile is injected as a fixed system-prompt module across all thread templates; self-learning incrementally refines it.',
                       ),
-                      alignLabelWithHint: true,
-                      hintText: _localizedText(
-                        context,
-                        zh: '示例：语言风格轻松可爱；关注娱乐圈明星、技术新闻；偏好亲切自然、不啰嗦的回复…',
-                        en:
-                            'e.g. casual & warm tone; loves entertainment industry & tech news; prefers concise replies…',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.45,
                       ),
-                      border: const OutlineInputBorder(),
                     ),
-                  ),
-                ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _errorMessage!,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.error,
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: TextField(
+                        controller: _contentController,
+                        enabled: !_isSaving,
+                        expands: true,
+                        maxLines: null,
+                        textAlignVertical: TextAlignVertical.top,
+                        decoration: InputDecoration(
+                          labelText: _localizedText(
+                            context,
+                            zh: '画像内容',
+                            en: 'Profile Content',
+                          ),
+                          alignLabelWithHint: true,
+                          hintText: _localizedText(
+                            context,
+                            zh: '示例：语言风格轻松可爱；关注娱乐圈明星、技术新闻；偏好亲切自然、不啰嗦的回复…',
+                            en: 'e.g. casual & warm tone; loves entertainment industry & tech news; prefers concise replies…',
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-                if (_isSaving) ...[
-                  const SizedBox(height: 12),
-                  const LinearProgressIndicator(),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    if (hasExisting)
-                      TextButton.icon(
-                        onPressed: _isSaving ? null : _handleClear,
-                        icon: Icon(
-                          Icons.delete_outline_rounded,
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _errorMessage!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.error,
                         ),
-                        label: Text(
-                          _localizedText(context, zh: '清空画像', en: 'Clear'),
-                          style: TextStyle(color: colorScheme.error),
+                      ),
+                    ],
+                    if (_isSaving) ...[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(),
+                    ],
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        if (hasExisting)
+                          TextButton.icon(
+                            onPressed: _isSaving ? null : _handleClear,
+                            icon: Icon(
+                              Icons.delete_outline_rounded,
+                              color: colorScheme.error,
+                            ),
+                            label: Text(
+                              _localizedText(context, zh: '清空画像', en: 'Clear'),
+                              style: TextStyle(color: colorScheme.error),
+                            ),
+                          ),
+                        const Spacer(),
+                        OutlinedButton(
+                          onPressed: _isSaving
+                              ? null
+                              : () => Navigator.of(context).pop(false),
+                          child: Text(
+                            _localizedText(context, zh: '取消', en: 'Cancel'),
+                          ),
                         ),
-                      ),
-                    const Spacer(),
-                    OutlinedButton(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      child: Text(
-                        _localizedText(context, zh: '取消', en: 'Cancel'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    FilledButton.icon(
-                      onPressed: _isSaving ? null : _handleSave,
-                      icon: const Icon(Icons.save_outlined),
-                      label: Text(
-                        _localizedText(context, zh: '保存', en: 'Save'),
-                      ),
+                        const SizedBox(width: 12),
+                        FilledButton.icon(
+                          onPressed: _isSaving ? null : _handleSave,
+                          icon: const Icon(Icons.save_outlined),
+                          label: Text(
+                            _localizedText(context, zh: '保存', en: 'Save'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
               Positioned(
                 top: 0,
                 left: 0,
@@ -369,8 +367,8 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
     });
     try {
       await context.read<MemoryController>().upsertUserProfile(
-            content: content,
-          );
+        content: content,
+      );
     } catch (error) {
       if (!mounted) return;
       setState(() {

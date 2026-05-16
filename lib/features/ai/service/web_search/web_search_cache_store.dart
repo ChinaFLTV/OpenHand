@@ -50,11 +50,12 @@ class WebSearchCacheStore extends WebEngineCacheStoreBase<AiWebSearchSettings> {
     required List<String> blockedDomains,
     required String localeTag,
   }) {
-    final enabled = settings
-        .enabledEnginesInOrder()
-        .map((e) => '${e.kind.name}:${e.weight}:${e.truncationChars}')
-        .toList(growable: false)
-      ..sort();
+    final enabled =
+        settings
+            .enabledEnginesInOrder()
+            .map((e) => '${e.kind.name}:${e.weight}:${e.truncationChars}')
+            .toList(growable: false)
+          ..sort();
     final allow = [...allowedDomains]..sort();
     final block = [...blockedDomains]..sort();
     final payload = jsonEncode(<String, Object?>{
@@ -102,10 +103,7 @@ class WebSearchCacheStore extends WebEngineCacheStoreBase<AiWebSearchSettings> {
       key: key,
       settings: settings,
       payload: summary,
-      extraEntryFields: <String, Object?>{
-        'query': query,
-        ...metadata,
-      },
+      extraEntryFields: <String, Object?>{'query': query, ...metadata},
     );
   }
 }

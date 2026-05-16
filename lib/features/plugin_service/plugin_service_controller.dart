@@ -74,10 +74,7 @@ class PluginServiceController extends ChangeNotifier {
   void toggleEnabled(String pluginId, {required bool enabled}) {
     _plugins = [
       for (final p in _plugins)
-        if (p.id == pluginId)
-          p.copyWith(enabled: enabled)
-        else
-          p,
+        if (p.id == pluginId) p.copyWith(enabled: enabled) else p,
     ];
     // 如果禁用 nodejs，连带禁用依赖它的 playwright
     if (!enabled && pluginId == 'nodejs') {
@@ -111,24 +108,20 @@ class PluginServiceController extends ChangeNotifier {
     notifyListeners();
     try {
       final result = switch (pluginId) {
-        'nodejs' => await _lifecycle.installNodeJs(
-          onProgress: _addLog,
-        ),
-        'playwright' => await _lifecycle.installPlaywright(
-          onProgress: _addLog,
-        ),
-        _ => const PluginOperationResult(
-          success: false,
-          message: '未知插件',
-        ),
+        'nodejs' => await _lifecycle.installNodeJs(onProgress: _addLog),
+        'playwright' => await _lifecycle.installPlaywright(onProgress: _addLog),
+        _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
         operationSuccessSignal.value++;
         await rescan();
         return true;
       } else {
-        _updatePluginStatus(pluginId, PluginStatus.error,
-            errorMessage: result.message);
+        _updatePluginStatus(
+          pluginId,
+          PluginStatus.error,
+          errorMessage: result.message,
+        );
         _errorMessage = result.message;
         notifyListeners();
         return false;
@@ -156,18 +149,18 @@ class PluginServiceController extends ChangeNotifier {
       final result = switch (pluginId) {
         'nodejs' => await _lifecycle.updateNodeJs(onProgress: _addLog),
         'playwright' => await _lifecycle.updatePlaywright(onProgress: _addLog),
-        _ => const PluginOperationResult(
-          success: false,
-          message: '未知插件',
-        ),
+        _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
         operationSuccessSignal.value++;
         await rescan();
         return true;
       } else {
-        _updatePluginStatus(pluginId, PluginStatus.error,
-            errorMessage: result.message);
+        _updatePluginStatus(
+          pluginId,
+          PluginStatus.error,
+          errorMessage: result.message,
+        );
         _errorMessage = result.message;
         notifyListeners();
         return false;
@@ -201,7 +194,8 @@ class PluginServiceController extends ChangeNotifier {
     _updatePluginStatus(pluginId, PluginStatus.uninstalling);
     notifyListeners();
     try {
-      final playwrightInstalled = pluginById('playwright')?.isInstalled ?? false;
+      final playwrightInstalled =
+          pluginById('playwright')?.isInstalled ?? false;
       final result = switch (pluginId) {
         'nodejs' => await _lifecycle.uninstallNodeJs(
           playwrightInstalled: playwrightInstalled,
@@ -210,18 +204,18 @@ class PluginServiceController extends ChangeNotifier {
         'playwright' => await _lifecycle.uninstallPlaywright(
           onProgress: _addLog,
         ),
-        _ => const PluginOperationResult(
-          success: false,
-          message: '未知插件',
-        ),
+        _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
         operationSuccessSignal.value++;
         await rescan();
         return true;
       } else {
-        _updatePluginStatus(pluginId, PluginStatus.error,
-            errorMessage: result.message);
+        _updatePluginStatus(
+          pluginId,
+          PluginStatus.error,
+          errorMessage: result.message,
+        );
         _errorMessage = result.message;
         notifyListeners();
         return false;
@@ -249,10 +243,7 @@ class PluginServiceController extends ChangeNotifier {
     // 将所有处于操作中状态的插件重置为 notInstalled 或 installed（通过 rescan 恢复）
     _plugins = [
       for (final p in _plugins)
-        if (p.isBusy)
-          p.copyWith(status: PluginStatus.installed)
-        else
-          p,
+        if (p.isBusy) p.copyWith(status: PluginStatus.installed) else p,
     ];
     notifyListeners();
     // 异步重新扫描以获取真实状态

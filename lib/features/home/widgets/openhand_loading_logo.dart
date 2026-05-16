@@ -91,9 +91,7 @@ class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
                     child: SizedBox(
                       width: logoSize,
                       height: logoSize,
-                      child: Image.asset(
-                        'assets/branding/openhand_logo.png',
-                      ),
+                      child: Image.asset('assets/branding/openhand_logo.png'),
                     ),
                   ),
                 ],
@@ -178,7 +176,5 @@ class _OrbitPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _OrbitPainter old) =>
-      old.progress != progress ||
-      old.color1 != color1 ||
-      old.color2 != color2;
+      old.progress != progress || old.color1 != color1 || old.color2 != color2;
 }

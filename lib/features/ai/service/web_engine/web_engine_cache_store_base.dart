@@ -98,7 +98,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         if (entity is File) {
           try {
             total += await entity.length();
-          } catch (_) {/* ignore single-file failure */}
+          } catch (_) {
+            /* ignore single-file failure */
+          }
         }
       }
     } catch (error, stack) {
@@ -153,7 +155,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
               final raw = await indexFile.readAsString();
               final decoded = jsonDecode(raw);
               if (decoded is Map) root = Map<String, Object?>.from(decoded);
-            } catch (_) {/* corrupt index: 视作空 */}
+            } catch (_) {
+              /* corrupt index: 视作空 */
+            }
           }
           final entries = root['entries'] is Map
               ? Map<String, Object?>.from(root['entries'] as Map)
@@ -177,7 +181,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
                 if (await f.exists()) {
                   try {
                     await f.delete();
-                  } catch (_) {/* tolerate */}
+                  } catch (_) {
+                    /* tolerate */
+                  }
                 }
               }
               removedExpired++;
@@ -207,9 +213,13 @@ abstract class WebEngineCacheStoreBase<TSettings> {
               try {
                 await entity.delete();
                 removedOrphanFiles++;
-              } catch (_) {/* tolerate */}
+              } catch (_) {
+                /* tolerate */
+              }
             }
-          } catch (_) {/* tolerate listing failure */}
+          } catch (_) {
+            /* tolerate listing failure */
+          }
 
           root['entries'] = entries;
           try {
@@ -336,7 +346,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         final raw = await indexFile.readAsString();
         final decoded = jsonDecode(raw);
         if (decoded is Map) root = Map<String, Object?>.from(decoded);
-      } catch (_) {/* keep empty root */}
+      } catch (_) {
+        /* keep empty root */
+      }
     }
     final entries = root['entries'] is Map
         ? Map<String, Object?>.from(root['entries'] as Map)
@@ -423,11 +435,13 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     final ordered = entries.entries.toList()
       ..sort((a, b) {
         final av =
-            (a.value is Map ? (a.value as Map)['last_accessed_at'] : 0) as num? ??
-                0;
+            (a.value is Map ? (a.value as Map)['last_accessed_at'] : 0)
+                as num? ??
+            0;
         final bv =
-            (b.value is Map ? (b.value as Map)['last_accessed_at'] : 0) as num? ??
-                0;
+            (b.value is Map ? (b.value as Map)['last_accessed_at'] : 0)
+                as num? ??
+            0;
         return av.compareTo(bv);
       });
 
@@ -462,4 +476,3 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     }
   }
 }
-

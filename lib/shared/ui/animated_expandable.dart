@@ -86,9 +86,7 @@ class AnimatedExpandable extends StatelessWidget {
                     padding: EdgeInsets.only(top: bodyTopPadding),
                     child: Builder(builder: body),
                   )
-                : const SizedBox.shrink(
-                    key: ValueKey<String>('collapsed'),
-                  ),
+                : const SizedBox.shrink(key: ValueKey<String>('collapsed')),
           ),
         ],
       ),
@@ -121,11 +119,7 @@ class AnimatedExpandChevron extends StatelessWidget {
           ? Duration.zero
           : duration,
       curve: Curves.easeOutCubic,
-      child: Icon(
-        Icons.keyboard_arrow_right_rounded,
-        size: size,
-        color: color,
-      ),
+      child: Icon(Icons.keyboard_arrow_right_rounded, size: size, color: color),
     );
   }
 }

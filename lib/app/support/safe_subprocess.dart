@@ -45,8 +45,7 @@ Future<ProcessResult?> runProcessWithTimeout(
   final effectiveGracefulMs =
       gracefulShutdownMs ?? safeSubprocessDefaultGracefulShutdownMs;
   Process? process;
-  final shouldRegisterKiller =
-      toolCallId != null && toolCallId.isNotEmpty;
+  final shouldRegisterKiller = toolCallId != null && toolCallId.isNotEmpty;
   try {
     process = await Process.start(
       executable,

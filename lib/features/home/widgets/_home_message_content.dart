@@ -78,8 +78,8 @@ class _CompressionCheckpointBody extends StatelessWidget {
                   AnimatedRotation(
                     turns: expanded ? 0.5 : 0,
                     duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
                     child: Icon(
                       Icons.keyboard_arrow_down_rounded,
@@ -93,8 +93,8 @@ class _CompressionCheckpointBody extends StatelessWidget {
               ClipRect(
                 child: AnimatedSize(
                   duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                      ? Duration.zero
+                      : const Duration(milliseconds: 220),
                   curve: Curves.easeInOutCubic,
                   alignment: Alignment.topLeft,
                   child: expanded
@@ -259,9 +259,7 @@ class _StreamingReasoningBody extends StatelessWidget {
             ),
           )
         : KeyedSubtree(
-            key: const ValueKey<String>(
-              'streaming-reasoning-markdown-preview',
-            ),
+            key: const ValueKey<String>('streaming-reasoning-markdown-preview'),
             child: _MarkdownPreviewBody(
               data: effectiveContent,
               maxHeight: _reasoningPreviewMaxHeight,
@@ -435,8 +433,8 @@ class _CollapsibleMessageMarkdownBodyState
         ClipRect(
           child: AnimatedSize(
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 280),
+                ? Duration.zero
+                : const Duration(milliseconds: 280),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topLeft,
             clipBehavior: Clip.none,
@@ -811,9 +809,7 @@ class _MessageMarkdownThemeData {
         // vs 18), 让 clip path 完全包含内层 Border.all 的外边缘像素,
         // 避免 Clip.hardEdge 在圆角处裁掉边框。
         codeblockPadding: EdgeInsets.zero,
-        codeblockDecoration: const BoxDecoration(
-          borderRadius: _borderRadius19,
-        ),
+        codeblockDecoration: const BoxDecoration(borderRadius: _borderRadius19),
         horizontalRuleDecoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor, width: 1.2)),
         ),
@@ -826,8 +822,8 @@ class _MessageMarkdownThemeData {
 
 /// 阶段㉒：[_MessageMarkdownThemeData] 的 LRU 缓存。容量 64 足以覆盖
 /// 「亮/暗 × user/assistant/tool/reasoning × 选中/未选中」全部组合。
-final LinkedHashMap<int, _MessageMarkdownThemeData>
-    _markdownThemeDataCache = LinkedHashMap<int, _MessageMarkdownThemeData>();
+final LinkedHashMap<int, _MessageMarkdownThemeData> _markdownThemeDataCache =
+    LinkedHashMap<int, _MessageMarkdownThemeData>();
 
 class _SafeMarkdownBody extends StatefulWidget {
   const _SafeMarkdownBody({
@@ -1362,7 +1358,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
                 MediaCacheService.instance.cacheInBackground(urlString);
               }
               return _fadeInImageFrameBuilder(
-                context, child, frame, wasSynchronouslyLoaded,
+                context,
+                child,
+                frame,
+                wasSynchronouslyLoaded,
               );
             },
             loadingBuilder: (context, child, loadingProgress) {

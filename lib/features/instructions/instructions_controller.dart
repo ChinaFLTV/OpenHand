@@ -63,9 +63,8 @@ class InstructionsController extends ChangeNotifier {
 
   /// 当前所有 enabled 的指令，按 sortOrder 升序。供 prompt builder /
   /// composer 调用。
-  List<UserInstructionEntry> get enabledEntries => _entriesView
-      .where((entry) => entry.enabled)
-      .toList(growable: false);
+  List<UserInstructionEntry> get enabledEntries =>
+      _entriesView.where((entry) => entry.enabled).toList(growable: false);
 
   final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
 

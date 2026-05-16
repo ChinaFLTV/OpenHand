@@ -188,10 +188,12 @@ class AiModelProfile {
       supportsAttachments: json['supports_attachments'] as bool?,
       inputUsdPer1M: _readNullableNonNegativeDouble(json['input_usd_per_1m']),
       outputUsdPer1M: _readNullableNonNegativeDouble(json['output_usd_per_1m']),
-      cacheReadUsdPer1M:
-          _readNullableNonNegativeDouble(json['cache_read_usd_per_1m']),
-      cacheWriteUsdPer1M:
-          _readNullableNonNegativeDouble(json['cache_write_usd_per_1m']),
+      cacheReadUsdPer1M: _readNullableNonNegativeDouble(
+        json['cache_read_usd_per_1m'],
+      ),
+      cacheWriteUsdPer1M: _readNullableNonNegativeDouble(
+        json['cache_write_usd_per_1m'],
+      ),
     );
   }
 
@@ -226,8 +228,10 @@ class AiModelProfile {
   /// pricing 页的数据，应避免 LLM 凭空估算。
   final double? inputUsdPer1M;
   final double? outputUsdPer1M;
+
   /// 缓存命中读取价（一般为输入价的 0.1–0.25）。
   final double? cacheReadUsdPer1M;
+
   /// 缓存创建写入价（一般为输入价的 1.25）。
   final double? cacheWriteUsdPer1M;
 
@@ -335,8 +339,7 @@ class AiModelProfile {
         'supports_attachments': supportsAttachments,
       if (inputUsdPer1M != null) 'input_usd_per_1m': inputUsdPer1M,
       if (outputUsdPer1M != null) 'output_usd_per_1m': outputUsdPer1M,
-      if (cacheReadUsdPer1M != null)
-        'cache_read_usd_per_1m': cacheReadUsdPer1M,
+      if (cacheReadUsdPer1M != null) 'cache_read_usd_per_1m': cacheReadUsdPer1M,
       if (cacheWriteUsdPer1M != null)
         'cache_write_usd_per_1m': cacheWriteUsdPer1M,
     };

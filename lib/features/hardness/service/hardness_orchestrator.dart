@@ -14,6 +14,7 @@ import '../model/hardness_session_config.dart';
 import '../service/hardness_api_phase_runner.dart';
 import '../service/hardness_cli_catalog.dart';
 import '../service/hardness_prompt_builder.dart';
+
 const int kHardnessOrchestratorVersion = 1;
 const String kHardnessOrchestratorDisplayVersion = '1.0.0';
 
@@ -768,7 +769,12 @@ class HardnessOrchestrator extends ChangeNotifier {
     try {
       process.kill(); // SIGTERM
     } catch (error, stack) {
-      silentLog('hardness_orchestrator', 'SIGTERM active CLI process', error, stack);
+      silentLog(
+        'hardness_orchestrator',
+        'SIGTERM active CLI process',
+        error,
+        stack,
+      );
     }
     // Escalate to SIGKILL after 3 seconds if the process hasn't exited.
     Future.delayed(const Duration(seconds: 3), () {
@@ -776,7 +782,12 @@ class HardnessOrchestrator extends ChangeNotifier {
         try {
           process.kill(ProcessSignal.sigkill);
         } catch (error, stack) {
-          silentLog('hardness_orchestrator', 'SIGKILL active CLI process (escalation)', error, stack);
+          silentLog(
+            'hardness_orchestrator',
+            'SIGKILL active CLI process (escalation)',
+            error,
+            stack,
+          );
         }
       }
     });
@@ -1204,7 +1215,12 @@ class HardnessOrchestrator extends ChangeNotifier {
     try {
       _activeProcess?.kill();
     } catch (error, stack) {
-      silentLog('hardness_orchestrator', 'kill active process during dispose', error, stack);
+      silentLog(
+        'hardness_orchestrator',
+        'kill active process during dispose',
+        error,
+        stack,
+      );
     }
     super.dispose();
   }

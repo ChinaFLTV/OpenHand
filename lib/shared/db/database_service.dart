@@ -144,12 +144,8 @@ class DatabaseService {
     batch.execute(
       'CREATE INDEX idx_sessions_display_order ON sessions(display_order)',
     );
-    batch.execute(
-      'CREATE INDEX idx_sessions_pinned ON sessions(pinned)',
-    );
-    batch.execute(
-      'CREATE INDEX idx_sessions_archived ON sessions(archived)',
-    );
+    batch.execute('CREATE INDEX idx_sessions_pinned ON sessions(pinned)');
+    batch.execute('CREATE INDEX idx_sessions_archived ON sessions(archived)');
 
     // ----- Messages (one per row, linked to session) -----
     batch.execute('''
@@ -288,9 +284,7 @@ class DatabaseService {
     // means "no manual order"; sessions sort by updated_at DESC for
     // those rows. Manual rows sort by display_order ASC first.
     if (oldVersion < 4) {
-      await db.execute(
-        'ALTER TABLE sessions ADD COLUMN display_order INTEGER',
-      );
+      await db.execute('ALTER TABLE sessions ADD COLUMN display_order INTEGER');
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_sessions_display_order '
         'ON sessions(display_order)',

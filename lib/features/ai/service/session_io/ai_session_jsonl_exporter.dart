@@ -95,13 +95,13 @@ class AiSessionExportConfig {
   static const AiSessionExportConfig defaults = AiSessionExportConfig();
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'roles': roles?.map((role) => role.storageValue).toList(),
-        'kinds': kinds?.map((kind) => kind.storageValue).toList(),
-        'include_deleted': includeDeleted,
-        'start_index': startIndex,
-        'end_index': endIndex,
-        'pretty_print': prettyPrint,
-      };
+    'roles': roles?.map((role) => role.storageValue).toList(),
+    'kinds': kinds?.map((kind) => kind.storageValue).toList(),
+    'include_deleted': includeDeleted,
+    'start_index': startIndex,
+    'end_index': endIndex,
+    'pretty_print': prettyPrint,
+  };
 }
 
 /// User-tunable configuration for a Hardness session export operation.
@@ -124,10 +124,10 @@ class HardnessSessionExportConfig {
       HardnessSessionExportConfig();
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'start_index': startIndex,
-        'end_index': endIndex,
-        'pretty_print': prettyPrint,
-      };
+    'start_index': startIndex,
+    'end_index': endIndex,
+    'pretty_print': prettyPrint,
+  };
 }
 
 String _encodePayload(Map<String, Object?> payload, {required bool pretty}) {
@@ -173,23 +173,27 @@ Future<ExportResult> exportAiSessionToJsonl({
     final upperRaw = (config.endIndex != null && config.endIndex! >= 1)
         ? config.endIndex!
         : fullMessages.length;
-    final upper = upperRaw > fullMessages.length ? fullMessages.length : upperRaw;
+    final upper = upperRaw > fullMessages.length
+        ? fullMessages.length
+        : upperRaw;
     final ranged = (lower >= upper)
         ? const <AiSessionMessage>[]
         : fullMessages.sublist(lower, upper);
 
-    final messages = ranged.where((message) {
-      if (!config.includeDeleted && message.isDeleted) return false;
-      final roleFilter = config.roles;
-      if (roleFilter != null && !roleFilter.contains(message.role)) {
-        return false;
-      }
-      final kindFilter = config.kinds;
-      if (kindFilter != null && !kindFilter.contains(message.kind)) {
-        return false;
-      }
-      return true;
-    }).toList(growable: false);
+    final messages = ranged
+        .where((message) {
+          if (!config.includeDeleted && message.isDeleted) return false;
+          final roleFilter = config.roles;
+          if (roleFilter != null && !roleFilter.contains(message.role)) {
+            return false;
+          }
+          final kindFilter = config.kinds;
+          if (kindFilter != null && !kindFilter.contains(message.kind)) {
+            return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
     final total = messages.length + 1; // +1 for the session header line.
 
     Future<void> emit(Map<String, Object?> payload) async {
@@ -236,10 +240,7 @@ Future<ExportResult> exportAiSessionToJsonl({
         );
       }
       final message = messages[i];
-      await emit(<String, Object?>{
-        'type': 'message',
-        ...message.toJson(),
-      });
+      await emit(<String, Object?>{'type': 'message', ...message.toJson()});
       if ((i + 1) % _flushEvery == 0) {
         await localSink.flush();
         onProgress?.call(ExportProgress(processed: lines, total: total));

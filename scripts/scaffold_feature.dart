@@ -7,20 +7,21 @@ import 'dart:io';
 void main(List<String> args) {
   if (args.length != 1 || args.first.isEmpty) {
     stderr.writeln(
-        '[scaffold] usage: dart run scripts/scaffold_feature.dart <feature_name>');
+      '[scaffold] usage: dart run scripts/scaffold_feature.dart <feature_name>',
+    );
     exit(2);
   }
   final name = args.first;
   if (!RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(name)) {
-    stderr.writeln(
-        '[scaffold] feature name must be snake_case (got: $name)');
+    stderr.writeln('[scaffold] feature name must be snake_case (got: $name)');
     exit(2);
   }
 
   final root = Directory('lib/features/$name');
   if (root.existsSync()) {
     stderr.writeln(
-        '[scaffold] lib/features/$name already exists, refusing to overwrite');
+      '[scaffold] lib/features/$name already exists, refusing to overwrite',
+    );
     exit(1);
   }
 
@@ -34,10 +35,12 @@ void main(List<String> args) {
       File('${d.path}/.gitkeep').writeAsStringSync('');
     }
 
-    File('${root.path}/${name}_controller.dart')
-        .writeAsStringSync(_controllerTemplate(pascal));
-    File('${root.path}/${name}_module.dart')
-        .writeAsStringSync(_moduleTemplate(pascal, name));
+    File(
+      '${root.path}/${name}_controller.dart',
+    ).writeAsStringSync(_controllerTemplate(pascal));
+    File(
+      '${root.path}/${name}_module.dart',
+    ).writeAsStringSync(_moduleTemplate(pascal, name));
     File('${root.path}/index.dart').writeAsStringSync(_indexTemplate(name));
     File('${root.path}/README.md').writeAsStringSync(_readmeTemplate(name));
   } catch (e, st) {
@@ -60,7 +63,8 @@ String _pascalCase(String snake) {
       .join();
 }
 
-String _controllerTemplate(String pascal) => '''
+String _controllerTemplate(String pascal) =>
+    '''
 import 'package:flutter/foundation.dart';
 
 /// $pascal feature controller.
@@ -77,7 +81,8 @@ class ${pascal}Controller extends ChangeNotifier {
 }
 ''';
 
-String _moduleTemplate(String pascal, String snake) => '''
+String _moduleTemplate(String pascal, String snake) =>
+    '''
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
@@ -101,12 +106,14 @@ class ${pascal}Module {
 }
 ''';
 
-String _indexTemplate(String snake) => '''
+String _indexTemplate(String snake) =>
+    '''
 export '${snake}_controller.dart';
 export '${snake}_module.dart';
 ''';
 
-String _readmeTemplate(String snake) => '''
+String _readmeTemplate(String snake) =>
+    '''
 # $snake
 
 ## 职责

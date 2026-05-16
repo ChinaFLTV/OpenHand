@@ -411,7 +411,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       listen: false,
     );
     final latestModels = settingsController?.aiModels ?? widget.availableModels;
-    final latestRecent = settingsController?.recentModelSelections ??
+    final latestRecent =
+        settingsController?.recentModelSelections ??
         widget.recentModelSelections;
     final picked = await showModelSearchSelector(
       context: context,

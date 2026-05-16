@@ -102,8 +102,12 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
     // 截取消息内容作为 tooltip 预览
     String previewLabel(int idx) {
       if (idx < 0 || idx >= total) return '#${idx + 1}';
-      final content = widget.userMessages[idx].content.replaceAll(RegExp(r'\s+'), ' ').trim();
-      final preview = content.length > 20 ? '${content.substring(0, 18)}…' : content;
+      final content = widget.userMessages[idx].content
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      final preview = content.length > 20
+          ? '${content.substring(0, 18)}…'
+          : content;
       return preview.isEmpty ? '#${idx + 1}' : preview;
     }
 
@@ -116,7 +120,9 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isZh ? '选择参与标题总结的用户消息区间' : 'Select user message range for title summary',
+              isZh
+                  ? '选择参与标题总结的用户消息区间'
+                  : 'Select user message range for title summary',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -125,10 +131,14 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${isZh ? '起始' : 'From'}: #${_startIdx + 1}',
-                    style: theme.textTheme.labelMedium),
-                Text('${isZh ? '结束' : 'To'}: #${_endIdx + 1}',
-                    style: theme.textTheme.labelMedium),
+                Text(
+                  '${isZh ? '起始' : 'From'}: #${_startIdx + 1}',
+                  style: theme.textTheme.labelMedium,
+                ),
+                Text(
+                  '${isZh ? '结束' : 'To'}: #${_endIdx + 1}',
+                  style: theme.textTheme.labelMedium,
+                ),
               ],
             ),
             const SizedBox(height: 8),

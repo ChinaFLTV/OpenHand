@@ -342,7 +342,12 @@ class _ProgrammingExpertProjectDialogState
             }
           }
         } catch (error, stack) {
-          silentLog('project_dialog', 'list directory for language probe', error, stack);
+          silentLog(
+            'project_dialog',
+            'list directory for language probe',
+            error,
+            stack,
+          );
         }
       }
       return false;

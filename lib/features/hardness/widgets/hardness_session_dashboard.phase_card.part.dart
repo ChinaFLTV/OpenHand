@@ -220,8 +220,8 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     // borderColor interpolation automatically.
     return AnimatedContainer(
       duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 380),
+          ? Duration.zero
+          : const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -650,8 +650,8 @@ class _HePhaseMetaRow extends StatelessWidget {
     // the pill itself already signals activity.
     final statusIndicator = AnimatedSwitcher(
       duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 260),
+          ? Duration.zero
+          : const Duration(milliseconds: 260),
       transitionBuilder: (child, animation) {
         return FadeTransition(
           opacity: animation,
@@ -700,8 +700,8 @@ class _HePhaseMetaRow extends StatelessWidget {
           AnimatedRotation(
             turns: expanded ? 0.5 : 0,
             duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
             child: Icon(
               Icons.keyboard_arrow_down_rounded,
@@ -752,4 +752,3 @@ class _HePhaseMetaRow extends StatelessWidget {
 //                    full Markdown-rendered content
 //                    "Raw" toggle: classic coloured monospace
 // =============================================================================
-

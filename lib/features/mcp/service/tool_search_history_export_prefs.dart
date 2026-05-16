@@ -28,7 +28,12 @@ class ToolSearchHistoryExportPrefs {
       if (v == null || v.trim().isEmpty) return null;
       return v;
     } catch (error, stack) {
-      silentLog('tool_search_history_export_prefs', 'readLastDir', error, stack);
+      silentLog(
+        'tool_search_history_export_prefs',
+        'readLastDir',
+        error,
+        stack,
+      );
       return null;
     }
   }

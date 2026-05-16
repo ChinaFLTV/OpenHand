@@ -113,7 +113,9 @@ class McpStdioProcessManager extends ChangeNotifier {
 
       final logs = <String>[];
       logs.add('[${_timestamp()}] 进程已启动 (PID: ${process.pid})');
-      logs.add('[${_timestamp()}] 命令: ${launch.executable} ${launch.args.join(' ')}');
+      logs.add(
+        '[${_timestamp()}] 命令: ${launch.executable} ${launch.args.join(' ')}',
+      );
       logs.add('');
 
       final responseRouter = _ManagedResponseRouter();
@@ -132,54 +134,70 @@ class McpStdioProcessManager extends ChangeNotifier {
 
       // 监听 stdout - 同时用于日志、握手响应检测和 discovery 响应路由
       final handshakeCompleter = Completer<bool>();
-      process.stdout.transform(utf8.decoder).listen(
-        (data) {
-          // 优先尝试路由到 discovery session 的 pending requests
-          final routed = responseRouter.tryRoute(data);
-          _appendLog(name, data, isStderr: false);
-          // 检测 MCP initialize 响应
-          if (!handshakeCompleter.isCompleted &&
-              (data.contains('"result"') || data.contains('"protocolVersion"'))) {
-            handshakeCompleter.complete(true);
-          }
-          // 如果路由成功但日志已记录，不影响功能
-          if (routed) return;
-        },
-        onError: (e) {
-          responseRouter.failAll(e is Object ? e : StateError('$e'));
-          _appendLog(name, '[stdout error] $e', isStderr: true);
-        },
-        onDone: () {
-          responseRouter.failAll(StateError('stdout closed'));
-          _appendLog(name, '[stdout closed]', isStderr: false);
-          if (!handshakeCompleter.isCompleted) handshakeCompleter.complete(false);
-        },
-      );
+      process.stdout
+          .transform(utf8.decoder)
+          .listen(
+            (data) {
+              // 优先尝试路由到 discovery session 的 pending requests
+              final routed = responseRouter.tryRoute(data);
+              _appendLog(name, data, isStderr: false);
+              // 检测 MCP initialize 响应
+              if (!handshakeCompleter.isCompleted &&
+                  (data.contains('"result"') ||
+                      data.contains('"protocolVersion"'))) {
+                handshakeCompleter.complete(true);
+              }
+              // 如果路由成功但日志已记录，不影响功能
+              if (routed) return;
+            },
+            onError: (e) {
+              responseRouter.failAll(e is Object ? e : StateError('$e'));
+              _appendLog(name, '[stdout error] $e', isStderr: true);
+            },
+            onDone: () {
+              responseRouter.failAll(StateError('stdout closed'));
+              _appendLog(name, '[stdout closed]', isStderr: false);
+              if (!handshakeCompleter.isCompleted) {
+                handshakeCompleter.complete(false);
+              }
+            },
+          );
 
       // 监听 stderr
-      process.stderr.transform(utf8.decoder).listen(
-        (data) => _appendLog(name, data, isStderr: true),
-        onError: (e) => _appendLog(name, '[stderr error] $e', isStderr: true),
-        onDone: () => _appendLog(name, '[stderr closed]', isStderr: false),
-      );
+      process.stderr
+          .transform(utf8.decoder)
+          .listen(
+            (data) => _appendLog(name, data, isStderr: true),
+            onError: (e) =>
+                _appendLog(name, '[stderr error] $e', isStderr: true),
+            onDone: () => _appendLog(name, '[stderr closed]', isStderr: false),
+          );
 
       // 监听进程退出
-      unawaited(process.exitCode.then((code) {
-        _appendLog(name, '\n[${_timestamp()}] 进程已退出 (exit code: $code)', isStderr: false);
-        responseRouter.failAll(StateError('process exited with code $code'));
-        final current = _processes[name];
-        if (current != null) {
-          _processes[name] = _ManagedProcess(
-            info: current.info.copyWith(
-              state: StdioProcessState.stopped,
-              clearPid: true,
-            ),
-            responseRouter: current.responseRouter,
+      unawaited(
+        process.exitCode.then((code) {
+          _appendLog(
+            name,
+            '\n[${_timestamp()}] 进程已退出 (exit code: $code)',
+            isStderr: false,
           );
-          notifyListeners();
-        }
-        if (!handshakeCompleter.isCompleted) handshakeCompleter.complete(false);
-      }));
+          responseRouter.failAll(StateError('process exited with code $code'));
+          final current = _processes[name];
+          if (current != null) {
+            _processes[name] = _ManagedProcess(
+              info: current.info.copyWith(
+                state: StdioProcessState.stopped,
+                clearPid: true,
+              ),
+              responseRouter: current.responseRouter,
+            );
+            notifyListeners();
+          }
+          if (!handshakeCompleter.isCompleted) {
+            handshakeCompleter.complete(false);
+          }
+        }),
+      );
 
       // 启动后自动执行 MCP 协议握手
       unawaited(_initializeMcpProtocol(name, process, handshakeCompleter));
@@ -224,11 +242,11 @@ class McpStdioProcessManager extends ChangeNotifier {
         await managed.process!.exitCode
             .timeout(const Duration(seconds: 2))
             .catchError((_) {
-          if (!Platform.isWindows) {
-            managed.process!.kill(ProcessSignal.sigkill);
-          }
-          return -1;
-        });
+              if (!Platform.isWindows) {
+                managed.process!.kill(ProcessSignal.sigkill);
+              }
+              return -1;
+            });
       }
     } catch (e) {
       _appendLog(serverName, '[${_timestamp()}] 停止异常: $e', isStderr: true);
@@ -281,12 +299,16 @@ class McpStdioProcessManager extends ChangeNotifier {
     _ManagedProcess? managed = _processes[serverName];
     // 完全不存在 entry — 调用方应先触发 startServer
     if (managed == null) {
-      debugPrint('[mcp.borrow] $serverName: no entry in _processes, returning null');
+      debugPrint(
+        '[mcp.borrow] $serverName: no entry in _processes, returning null',
+      );
       return null;
     }
     // 已停止（非启动中）— 没有可复用的进程
     if (managed.info.isStopped && managed.process == null) {
-      debugPrint('[mcp.borrow] $serverName: stopped and no process, returning null');
+      debugPrint(
+        '[mcp.borrow] $serverName: stopped and no process, returning null',
+      );
       return null;
     }
 
@@ -297,7 +319,9 @@ class McpStdioProcessManager extends ChangeNotifier {
     var waitIterations = 0;
     while (!managed!.handshakeCompleted || managed.process == null) {
       if (DateTime.now().isAfter(deadline)) {
-        debugPrint('[mcp.borrow] $serverName: handshake wait timeout after ${waitIterations * 200}ms');
+        debugPrint(
+          '[mcp.borrow] $serverName: handshake wait timeout after ${waitIterations * 200}ms',
+        );
         return null;
       }
       await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -314,10 +338,14 @@ class McpStdioProcessManager extends ChangeNotifier {
     }
 
     if (managed.responseRouter == null) {
-      debugPrint('[mcp.borrow] $serverName: responseRouter is null, returning null');
+      debugPrint(
+        '[mcp.borrow] $serverName: responseRouter is null, returning null',
+      );
       return null;
     }
-    debugPrint('[mcp.borrow] $serverName: SUCCESS, borrowing session (waited ${waitIterations * 200}ms)');
+    debugPrint(
+      '[mcp.borrow] $serverName: SUCCESS, borrowing session (waited ${waitIterations * 200}ms)',
+    );
     _sessionBorrowCount[serverName] =
         (_sessionBorrowCount[serverName] ?? 0) + 1;
     return ManagedStdioSession._(managed.process!, managed.responseRouter!);
@@ -340,7 +368,9 @@ class McpStdioProcessManager extends ChangeNotifier {
     final lines = data.split('\n');
     final currentLogs = List<String>.from(managed.info.logs);
     for (final line in lines) {
-      if (line.trim().isEmpty && currentLogs.isNotEmpty && currentLogs.last.isEmpty) {
+      if (line.trim().isEmpty &&
+          currentLogs.isNotEmpty &&
+          currentLogs.last.isEmpty) {
         continue; // 避免连续空行
       }
       if (isStderr) {
@@ -484,8 +514,10 @@ class McpStdioProcessManager extends ChangeNotifier {
       await process.stdin.flush();
 
       // 等待 stdout 中出现响应（最多 90 秒，npx 首次运行需要下载包）
-      final gotResponse = await responseCompleter.future
-          .timeout(const Duration(seconds: 90), onTimeout: () => false);
+      final gotResponse = await responseCompleter.future.timeout(
+        const Duration(seconds: 90),
+        onTimeout: () => false,
+      );
 
       if (gotResponse) {
         _appendLog(serverName, '[${_timestamp()}] ✓ MCP 握手成功', isStderr: false);
@@ -498,7 +530,11 @@ class McpStdioProcessManager extends ChangeNotifier {
         process.stdin.add(utf8.encode(notification));
         process.stdin.add(const [0x0A]);
         await process.stdin.flush();
-        _appendLog(serverName, '[${_timestamp()}] ✓ 服务已就绪，可正常使用', isStderr: false);
+        _appendLog(
+          serverName,
+          '[${_timestamp()}] ✓ 服务已就绪，可正常使用',
+          isStderr: false,
+        );
 
         // 标记握手完成，允许 discovery service 复用此进程
         final current = _processes[serverName];
@@ -511,7 +547,11 @@ class McpStdioProcessManager extends ChangeNotifier {
           );
         }
       } else {
-        _appendLog(serverName, '[${_timestamp()}] ⚠ 握手超时或进程已退出', isStderr: false);
+        _appendLog(
+          serverName,
+          '[${_timestamp()}] ⚠ 握手超时或进程已退出',
+          isStderr: false,
+        );
       }
     } catch (e) {
       _appendLog(serverName, '[${_timestamp()}] ⚠ 握手异常: $e', isStderr: false);
@@ -539,19 +579,27 @@ class McpStdioProcessManager extends ChangeNotifier {
       if (uptime != null) {
         info['运行时长'] = _formatDuration(uptime);
       }
-      info['启动时间'] = managed.info.startedAt!.toLocal().toString().split('.').first;
+      info['启动时间'] = managed.info.startedAt!
+          .toLocal()
+          .toString()
+          .split('.')
+          .first;
     }
 
-    info['操作系统'] = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+    info['操作系统'] =
+        '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
     info['处理器数'] = '${Platform.numberOfProcessors}';
     info['Dart 版本'] = Platform.version.split(' ').first;
 
     // 尝试获取进程内存信息（macOS/Linux）
     if (managed?.info.pid != null && !Platform.isWindows) {
       try {
-        final result = await Process.run(
-          'ps', ['-o', 'rss=', '-p', '${managed!.info.pid}'],
-        ).timeout(const Duration(seconds: 3));
+        final result = await Process.run('ps', [
+          '-o',
+          'rss=',
+          '-p',
+          '${managed!.info.pid}',
+        ]).timeout(const Duration(seconds: 3));
         if (result.exitCode == 0) {
           final rssKb = int.tryParse(result.stdout.toString().trim());
           if (rssKb != null) {
@@ -562,9 +610,11 @@ class McpStdioProcessManager extends ChangeNotifier {
 
       // 获取线程数
       try {
-        final result = await Process.run(
-          'ps', ['-M', '-p', '${managed!.info.pid}'],
-        ).timeout(const Duration(seconds: 3));
+        final result = await Process.run('ps', [
+          '-M',
+          '-p',
+          '${managed!.info.pid}',
+        ]).timeout(const Duration(seconds: 3));
         if (result.exitCode == 0) {
           final lines = result.stdout.toString().trim().split('\n');
           info['线程数'] = '${lines.length - 1}'; // 减去 header 行
@@ -602,8 +652,12 @@ class McpStdioProcessManager extends ChangeNotifier {
   }
 
   static String _formatDuration(Duration d) {
-    if (d.inDays > 0) return '${d.inDays}天 ${d.inHours % 24}时 ${d.inMinutes % 60}分';
-    if (d.inHours > 0) return '${d.inHours}时 ${d.inMinutes % 60}分 ${d.inSeconds % 60}秒';
+    if (d.inDays > 0) {
+      return '${d.inDays}天 ${d.inHours % 24}时 ${d.inMinutes % 60}分';
+    }
+    if (d.inHours > 0) {
+      return '${d.inHours}时 ${d.inMinutes % 60}分 ${d.inSeconds % 60}秒';
+    }
     if (d.inMinutes > 0) return '${d.inMinutes}分 ${d.inSeconds % 60}秒';
     return '${d.inSeconds}秒';
   }
@@ -763,7 +817,6 @@ class _DirectLaunch {
   const _DirectLaunch({
     required this.executable,
     required this.args,
-    this.environment,
   });
   final String executable;
   final List<String> args;
@@ -786,7 +839,9 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
 
   if (isNpx && allArgs.isNotEmpty) {
     final packageName = allArgs.first.trim();
-    final extraArgs = allArgs.length > 1 ? allArgs.sublist(1) : const <String>[];
+    final extraArgs = allArgs.length > 1
+        ? allArgs.sublist(1)
+        : const <String>[];
 
     // 尝试通过 login shell 定位已安装包的实际路径
     final resolved = await _resolveNpxPackagePath(packageName);
@@ -800,12 +855,12 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
 
   // 回退：通过 login shell 执行原始命令
   final shell = _pickShellForLaunch();
-  final cmdLine = [executable, ...allArgs].map((p) => p.contains(' ') ? "'$p'" : p).join(' ');
+  final cmdLine = [
+    executable,
+    ...allArgs,
+  ].map((p) => p.contains(' ') ? "'$p'" : p).join(' ');
   // 使用 exec 替换 shell 进程，确保 stdin 直接连接到目标进程
-  return _DirectLaunch(
-    executable: shell,
-    args: ['-l', '-c', 'exec $cmdLine'],
-  );
+  return _DirectLaunch(executable: shell, args: ['-l', '-c', 'exec $cmdLine']);
 }
 
 class _ResolvedNpxPackage {
@@ -829,7 +884,8 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
       final versions = <String>[];
       try {
         for (final entity in versionsDir.listSync()) {
-          if (entity is Directory && entity.path.split('/').last.startsWith('v')) {
+          if (entity is Directory &&
+              entity.path.split('/').last.startsWith('v')) {
             versions.add(entity.path.split('/').last);
           }
         }
@@ -838,7 +894,8 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
       // 从最新版本开始查找包
       for (final version in versions.reversed) {
         final nodeBin = '$nvmDir/versions/node/$version/bin/node';
-        final packageDir = '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
+        final packageDir =
+            '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
         if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
           final entry = _findBinEntry(packageDir);
           if (entry != null) {
@@ -868,15 +925,19 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
   // 策略 3：通过 login shell 查询（兜底）
   try {
     final shell = _pickShellForLaunch();
-    final result = await Process.run(
-      shell, ['-l', '-c', 'which node && npm root -g'],
-    ).timeout(const Duration(seconds: 8));
+    final result = await Process.run(shell, [
+      '-l',
+      '-c',
+      'which node && npm root -g',
+    ]).timeout(const Duration(seconds: 8));
     if (result.exitCode == 0) {
       final lines = result.stdout.toString().trim().split('\n');
       if (lines.length >= 2) {
         final nodeBin = lines[0].trim();
         final globalRoot = lines[1].trim();
-        if (nodeBin.isNotEmpty && globalRoot.isNotEmpty && File(nodeBin).existsSync()) {
+        if (nodeBin.isNotEmpty &&
+            globalRoot.isNotEmpty &&
+            File(nodeBin).existsSync()) {
           final packageDir = '$globalRoot/$cleanName';
           if (Directory(packageDir).existsSync()) {
             final entry = _findBinEntry(packageDir);
@@ -905,14 +966,24 @@ String? _findBinEntry(String packageDir) {
     } else if (bin is Map && bin.isNotEmpty) {
       entryScript = '$packageDir/${bin.values.first}';
     }
-    if (entryScript != null && File(entryScript).existsSync()) return entryScript;
+    if (entryScript != null && File(entryScript).existsSync()) {
+      return entryScript;
+    }
   } catch (_) {}
   return null;
 }
 
 int _compareVersions(String a, String b) {
-  final ap = a.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
-  final bp = b.substring(1).split('.').map((s) => int.tryParse(s) ?? 0).toList();
+  final ap = a
+      .substring(1)
+      .split('.')
+      .map((s) => int.tryParse(s) ?? 0)
+      .toList();
+  final bp = b
+      .substring(1)
+      .split('.')
+      .map((s) => int.tryParse(s) ?? 0)
+      .toList();
   for (int i = 0; i < 3; i++) {
     final av = i < ap.length ? ap[i] : 0;
     final bv = i < bp.length ? bp[i] : 0;
@@ -924,7 +995,9 @@ int _compareVersions(String a, String b) {
 /// 选择 login shell。
 String _pickShellForLaunch() {
   final preferred = Platform.environment['SHELL']?.trim();
-  if (preferred != null && preferred.isNotEmpty && File(preferred).existsSync()) {
+  if (preferred != null &&
+      preferred.isNotEmpty &&
+      File(preferred).existsSync()) {
     return preferred;
   }
   if (File('/bin/zsh').existsSync()) return '/bin/zsh';

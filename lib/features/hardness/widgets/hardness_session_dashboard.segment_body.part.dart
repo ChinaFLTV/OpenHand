@@ -316,8 +316,8 @@ class _HeThinkingSegmentBody extends StatelessWidget {
     return ClipRect(
       child: AnimatedSize(
         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
         curve: Curves.easeInOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -376,8 +376,8 @@ class _HeStreamingThinkingBody extends StatelessWidget {
     return ClipRect(
       child: AnimatedSize(
         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -630,8 +630,8 @@ class _HeCommandStripState extends State<_HeCommandStrip>
       onTap: _toggle,
       child: AnimatedContainer(
         duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -692,4 +692,3 @@ class _HeCommandStripState extends State<_HeCommandStrip>
 }
 
 // ── Markdown content with collapse/expand ─────────────────────────────────
-

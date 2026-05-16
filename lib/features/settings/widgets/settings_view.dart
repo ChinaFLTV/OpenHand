@@ -763,10 +763,12 @@ class _SettingsViewState extends State<SettingsView> {
           if (!kIsWeb) ...[
             const SizedBox(height: 18),
             _ResponsiveSettingRow(
-              title: Localizations.localeOf(context).languageCode.startsWith('zh')
+              title:
+                  Localizations.localeOf(context).languageCode.startsWith('zh')
                   ? '检查更新'
                   : 'Check for Updates',
-              subtitle: Localizations.localeOf(context).languageCode.startsWith('zh')
+              subtitle:
+                  Localizations.localeOf(context).languageCode.startsWith('zh')
                   ? '从 GitHub Release 检查是否有新版本可用。'
                   : 'Check GitHub Releases for a newer version.',
               control: Align(
@@ -775,7 +777,9 @@ class _SettingsViewState extends State<SettingsView> {
                   onPressed: () => _showUpdateCheckDialog(context, appInfo),
                   icon: const Icon(Icons.system_update_outlined, size: 18),
                   label: Text(
-                    Localizations.localeOf(context).languageCode.startsWith('zh')
+                    Localizations.localeOf(
+                          context,
+                        ).languageCode.startsWith('zh')
                         ? '检查更新'
                         : 'Check',
                   ),
@@ -1394,10 +1398,16 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: Localizations.localeOf(context).languageCode.startsWith('zh')
+                title:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
                     ? '标题获取最大重试次数'
                     : 'Title Retry Max Count',
-                subtitle: Localizations.localeOf(context).languageCode.startsWith('zh')
+                subtitle:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
                     ? '当自动标题生成失败后，后续每次打开该会话时尝试重新获取标题的最大次数。超过此次数后将使用回退策略。'
                     : 'Maximum number of retries to regenerate a session title on subsequent opens after the initial auto-title generation fails.',
                 controlMaxWidth: 200,

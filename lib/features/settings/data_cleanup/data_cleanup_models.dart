@@ -105,8 +105,6 @@ String formatHumanBytes(int bytes) {
     size /= 1024.0;
     unitIndex++;
   }
-  final fractionDigits = size >= 100
-      ? 0
-      : (size >= 10 ? 1 : 2);
+  final fractionDigits = size >= 100 ? 0 : (size >= 10 ? 1 : 2);
   return '${size.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
 }

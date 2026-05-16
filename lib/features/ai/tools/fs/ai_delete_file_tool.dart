@@ -87,8 +87,9 @@ class AiDeleteFileTool extends AiTool {
       // 2026-05-03: 在删除前抓取 before 内容入 ledger
       final mutationLedger =
           context.metadata['mutation_ledger'] as AiFileMutationLedger?;
-      final beforeContentForLedger =
-          await AiToolUtils.readFileContentForLedger(filePath);
+      final beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
+        filePath,
+      );
       await file.delete();
       final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
         ledger: mutationLedger,

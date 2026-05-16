@@ -10,6 +10,7 @@ import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../skills/index.dart';
 import 'message_gateway_controller.dart';
+
 class MessageGatewayModule {
   MessageGatewayModule._({required this.controller});
 
@@ -39,8 +40,6 @@ class MessageGatewayModule {
   }
 
   static List<SingleChildWidget> providers(MessageGatewayModule m) => [
-    ChangeNotifierProvider<MessageGatewayController>.value(
-      value: m.controller,
-    ),
+    ChangeNotifierProvider<MessageGatewayController>.value(value: m.controller),
   ];
 }

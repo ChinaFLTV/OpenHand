@@ -6,6 +6,7 @@
 
 import '../../ai/index.dart';
 import 'hardness_phase.dart';
+
 enum HardnessToolCategory {
   /// File system operations: Read, Glob, LS, DeleteFile
   filesystem,

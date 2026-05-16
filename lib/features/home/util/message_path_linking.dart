@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 
 import '../../ai/index.dart';
+
 const int _resolvedMessagePathCacheLimit = 512;
 
 final Map<String, MessageResolvedPath?> _resolvedMessagePathCache =

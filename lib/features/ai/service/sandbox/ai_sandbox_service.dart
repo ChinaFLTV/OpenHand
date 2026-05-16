@@ -291,8 +291,9 @@ class AiSandboxService {
       'sandbox_enabled': settings.enabled,
       'sandbox_tool_name': toolName,
       if (userProxyEnvironment.isNotEmpty)
-        'user_proxy_env_keys': userProxyEnvironment.keys
-            .toList(growable: false),
+        'user_proxy_env_keys': userProxyEnvironment.keys.toList(
+          growable: false,
+        ),
     };
     if (!settings.enabled || !settings.shouldSandboxBuiltinTool(toolName)) {
       return AiSandboxLaunchSpec.unsandboxed(

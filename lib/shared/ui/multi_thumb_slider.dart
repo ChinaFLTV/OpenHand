@@ -80,9 +80,7 @@ class _MultiThumbSliderState extends State<MultiThumbSlider> {
     final trackColor = widget.disabled
         ? disabledColor
         : colorScheme.surfaceContainerHighest;
-    final accent = widget.disabled
-        ? disabledColor
-        : colorScheme.primary;
+    final accent = widget.disabled ? disabledColor : colorScheme.primary;
     return SizedBox(
       height: widget.height,
       child: LayoutBuilder(
@@ -93,8 +91,7 @@ class _MultiThumbSliderState extends State<MultiThumbSlider> {
             onPanStart: widget.disabled
                 ? null
                 : (details) {
-                    final v =
-                        _xToValue(details.localPosition.dx, width);
+                    final v = _xToValue(details.localPosition.dx, width);
                     final idx = _nearestIndex(v);
                     setState(() => _draggingIndex = idx);
                     _updateValue(idx, v);
@@ -104,8 +101,7 @@ class _MultiThumbSliderState extends State<MultiThumbSlider> {
                 : (details) {
                     final idx = _draggingIndex;
                     if (idx == null) return;
-                    final v =
-                        _xToValue(details.localPosition.dx, width);
+                    final v = _xToValue(details.localPosition.dx, width);
                     _updateValue(idx, v);
                   },
             onPanEnd: widget.disabled
@@ -117,8 +113,7 @@ class _MultiThumbSliderState extends State<MultiThumbSlider> {
             onTapDown: widget.disabled
                 ? null
                 : (details) {
-                    final v =
-                        _xToValue(details.localPosition.dx, width);
+                    final v = _xToValue(details.localPosition.dx, width);
                     final idx = _nearestIndex(v);
                     _updateValue(idx, v);
                     widget.onChangeEnd?.call(widget.values);
@@ -145,16 +140,12 @@ class _MultiThumbSliderState extends State<MultiThumbSlider> {
                 Positioned(
                   left: width - widget.thumbRadius * 2,
                   top: (widget.height - widget.thumbRadius * 2) / 2,
-                  child: _AnchorEnd(
-                    radius: widget.thumbRadius,
-                    color: accent,
-                  ),
+                  child: _AnchorEnd(radius: widget.thumbRadius, color: accent),
                 ),
                 // 拖拽拇指
                 for (var i = 0; i < widget.values.length; i++)
                   Positioned(
-                    left: widget.values[i] *
-                        (width - widget.thumbRadius * 2),
+                    left: widget.values[i] * (width - widget.thumbRadius * 2),
                     top: (widget.height - widget.thumbRadius * 2) / 2,
                     child: _Thumb(
                       radius: widget.thumbRadius,
@@ -192,12 +183,7 @@ class _Thumb extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: color, width: isActive ? 3 : 2),
         boxShadow: isActive
-            ? [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.35),
-                  blurRadius: 6,
-                ),
-              ]
+            ? [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 6)]
             : null,
       ),
     );
@@ -215,10 +201,7 @@ class _AnchorEnd extends StatelessWidget {
     return Container(
       width: radius * 2,
       height: radius * 2,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       child: Icon(
         Icons.lock_rounded,
         size: radius,

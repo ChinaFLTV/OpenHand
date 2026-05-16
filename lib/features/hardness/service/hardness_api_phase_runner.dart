@@ -12,6 +12,7 @@ import '../../mcp/index.dart';
 import '../model/hardness_phase.dart';
 import '../service/hardness_orchestrator.dart';
 import '../service/hardness_prompt_builder.dart';
+
 class HardnessApiPhaseResult {
   const HardnessApiPhaseResult({
     required this.success,
@@ -289,8 +290,7 @@ class HardnessApiPhaseRunner {
             runtimeContext: runtimeContext,
             toolRuntimeService: _toolRuntimeService,
             alreadyLoadedNames:
-                _loadedMcpToolsBySession[phaseSessionId] ??
-                const <String>{},
+                _loadedMcpToolsBySession[phaseSessionId] ?? const <String>{},
           )
         : rawToolCatalog;
 
@@ -587,8 +587,7 @@ class HardnessApiPhaseRunner {
 
           // Absorb tool_search_loaded_names so subsequent rounds in this
           // phase see the just-pulled MCP tools as live (not deferred).
-          final loadedNames =
-              result.metadata['tool_search_loaded_names'];
+          final loadedNames = result.metadata['tool_search_loaded_names'];
           if (loadedNames is List && loadedNames.isNotEmpty) {
             final bucket = _loadedMcpToolsBySession.putIfAbsent(
               phaseSessionId,

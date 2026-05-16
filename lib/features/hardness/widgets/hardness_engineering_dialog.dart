@@ -18,6 +18,7 @@ import '../model/hardness_session_config.dart';
 import '../service/hardness_cli_catalog.dart';
 import 'hardness_cli_install_dialog.dart';
 import 'hardness_cli_login_dialog.dart';
+
 const double _kHardnessModeDropdownWidth = 132;
 
 class HardnessEngineeringDialog extends StatefulWidget {

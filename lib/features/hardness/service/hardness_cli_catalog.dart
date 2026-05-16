@@ -998,7 +998,12 @@ Future<String?> _tryLoginShellExec(String executable) async {
       if (out.isNotEmpty) return executable;
     }
   } catch (error, stack) {
-    silentLog('hardness_cli_catalog', '$executable --version probe (POSIX)', error, stack);
+    silentLog(
+      'hardness_cli_catalog',
+      '$executable --version probe (POSIX)',
+      error,
+      stack,
+    );
   }
   return null;
 }

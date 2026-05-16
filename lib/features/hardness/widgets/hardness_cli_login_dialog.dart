@@ -326,170 +326,179 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
         child: Stack(
           children: [
             Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              isZh
-                  ? '该弹窗会在应用内启动交互式 CLI 登录流程。过程中 CLI 可能会自动打开外部浏览器，请根据提示完成授权。'
-                  : 'This dialog runs the CLI login flow in-app. The CLI may open your browser externally during authentication.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.8),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  isZh
+                      ? '该弹窗会在应用内启动交互式 CLI 登录流程。过程中 CLI 可能会自动打开外部浏览器，请根据提示完成授权。'
+                      : 'This dialog runs the CLI login flow in-app. The CLI may open your browser externally during authentication.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                child: Row(
+                const SizedBox(height: 12),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SelectableText(
+                            _commandPreview,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              color: colorScheme.onSurface,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: _copyCommand,
+                          tooltip: isZh ? '复制命令' : 'Copy command',
+                          icon: const Icon(
+                            Icons.content_copy_rounded,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
                   children: [
+                    Icon(
+                      _errorMessage != null
+                          ? Icons.error_outline_rounded
+                          : _finished
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.terminal_rounded,
+                      size: 16,
+                      color: _errorMessage != null
+                          ? colorScheme.error
+                          : _finished
+                          ? Colors.green.shade600
+                          : colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: SelectableText(
-                        _commandPreview,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
-                          color: colorScheme.onSurface,
-                          height: 1.4,
+                      child: Text(
+                        statusText,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: _errorMessage != null
+                              ? colorScheme.error
+                              : colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: _copyCommand,
-                      tooltip: isZh ? '复制命令' : 'Copy command',
-                      icon: const Icon(Icons.content_copy_rounded, size: 18),
-                    ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(
-                  _errorMessage != null
-                      ? Icons.error_outline_rounded
-                      : _finished
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.terminal_rounded,
-                  size: 16,
-                  color: _errorMessage != null
-                      ? colorScheme.error
-                      : _finished
-                      ? Colors.green.shade600
-                      : colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
+                const SizedBox(height: 10),
                 Expanded(
-                  child: Text(
-                    statusText,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: _errorMessage != null
-                          ? colorScheme.error
-                          : colorScheme.onSurfaceVariant,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Scrollbar(
-                  controller: _scrollController,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(14),
-                    child: SelectableText(
-                      _errorMessage ??
-                          (_output.isEmpty
-                              ? (isZh
-                                    ? '等待 CLI 输出...'
-                                    : 'Waiting for CLI output...')
-                              : _output),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        fontSize: 12.5,
-                        height: 1.55,
-                        color: _errorMessage != null
-                            ? const Color(0xFFFCA5A5)
-                            : const Color(0xFFE2E8F0),
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(14),
+                        child: SelectableText(
+                          _errorMessage ??
+                              (_output.isEmpty
+                                  ? (isZh
+                                        ? '等待 CLI 输出...'
+                                        : 'Waiting for CLI output...')
+                                  : _output),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            fontSize: 12.5,
+                            height: 1.55,
+                            color: _errorMessage != null
+                                ? const Color(0xFFFCA5A5)
+                                : const Color(0xFFE2E8F0),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _inputController,
-                    enabled: !_starting && !_finished && _errorMessage == null,
-                    onSubmitted: (_) => _sendLine(),
-                    decoration: InputDecoration(
-                      labelText: isZh ? '发送输入' : 'Send input',
-                      hintText: isZh
-                          ? '输入内容后回车；留空可直接发送回车'
-                          : 'Type a reply and press Enter; leave empty to send Enter',
-                      border: const OutlineInputBorder(),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _inputController,
+                        enabled:
+                            !_starting && !_finished && _errorMessage == null,
+                        onSubmitted: (_) => _sendLine(),
+                        decoration: InputDecoration(
+                          labelText: isZh ? '发送输入' : 'Send input',
+                          hintText: isZh
+                              ? '输入内容后回车；留空可直接发送回车'
+                              : 'Type a reply and press Enter; leave empty to send Enter',
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    FilledButton.icon(
+                      onPressed:
+                          (!_starting && !_finished && _errorMessage == null)
+                          ? _sendLine
+                          : null,
+                      icon: const Icon(Icons.keyboard_return_rounded, size: 18),
+                      label: Text(isZh ? '发送' : 'Send'),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                FilledButton.icon(
-                  onPressed: (!_starting && !_finished && _errorMessage == null)
-                      ? _sendLine
-                      : null,
-                  icon: const Icon(Icons.keyboard_return_rounded, size: 18),
-                  label: Text(isZh ? '发送' : 'Send'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed:
+                          (!_starting && !_finished && _errorMessage == null)
+                          ? () => _sendControlCode(27)
+                          : null,
+                      icon: const Icon(Icons.keyboard_hide_rounded, size: 16),
+                      label: Text(isZh ? '发送 Esc' : 'Send Esc'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed:
+                          (!_starting && !_finished && _errorMessage == null)
+                          ? () => _sendControlCode(3)
+                          : null,
+                      icon: const Icon(Icons.cancel_rounded, size: 16),
+                      label: const Text('Ctrl+C'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _openInTerminal,
+                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                      label: Text(isZh ? '在终端中打开' : 'Open in Terminal'),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: (!_starting && !_finished && _errorMessage == null)
-                      ? () => _sendControlCode(27)
-                      : null,
-                  icon: const Icon(Icons.keyboard_hide_rounded, size: 16),
-                  label: Text(isZh ? '发送 Esc' : 'Send Esc'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: (!_starting && !_finished && _errorMessage == null)
-                      ? () => _sendControlCode(3)
-                      : null,
-                  icon: const Icon(Icons.cancel_rounded, size: 16),
-                  label: const Text('Ctrl+C'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _openInTerminal,
-                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                  label: Text(isZh ? '在终端中打开' : 'Open in Terminal'),
-                ),
-              ],
-            ),
-          ],
-        ),
             Positioned(
               top: 0,
               left: 0,

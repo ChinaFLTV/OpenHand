@@ -825,7 +825,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       listen: false,
     );
     final latestModels = settingsController?.aiModels ?? widget.availableModels;
-    final latestRecent = settingsController?.recentModelSelections ??
+    final latestRecent =
+        settingsController?.recentModelSelections ??
         widget.recentModelSelections;
     showModelSearchSelector(
       context: btnContext,

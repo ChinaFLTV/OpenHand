@@ -129,10 +129,7 @@ class DataCleanupService {
 
   /// MCP 配置文件大小。
   Future<DataCleanupSizeReport> measureMcpConfig() {
-    return compute(
-      _isolateMeasureFile,
-      _settingsController.mcpServersFilePath,
-    );
+    return compute(_isolateMeasureFile, _settingsController.mcpServersFilePath);
   }
 
   /// 技能目录体积。
@@ -172,19 +169,19 @@ class DataCleanupService {
 
   /// 所有分类合计。计算独立分支的并集，**不会**重复加和。
   Future<DataCleanupSizeReport> measureAll() async {
-    final results = await Future.wait<DataCleanupSizeReport>(<
-      Future<DataCleanupSizeReport>
-    >[
-      measureMultimedia(),
-      measureSessions(),
-      measureAppCache(),
-      measureLogs(),
-      measureUserMemory(),
-      measureMcpConfig(),
-      measureSkillsDirectory(),
-      measureLspDirectory(),
-      measureMutationLedger(),
-    ]);
+    final results = await Future.wait<DataCleanupSizeReport>(
+      <Future<DataCleanupSizeReport>>[
+        measureMultimedia(),
+        measureSessions(),
+        measureAppCache(),
+        measureLogs(),
+        measureUserMemory(),
+        measureMcpConfig(),
+        measureSkillsDirectory(),
+        measureLspDirectory(),
+        measureMutationLedger(),
+      ],
+    );
     return results.fold<DataCleanupSizeReport>(
       DataCleanupSizeReport.empty,
       (acc, item) => acc + item,
