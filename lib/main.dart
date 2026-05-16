@@ -148,6 +148,7 @@ Future<void> _bootstrap() async {
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
   final hooksModuleFuture = HooksModule.bootstrap();
+  final instructionsModuleFuture = InstructionsModule.bootstrap();
   // 2026-05-03: kick off system-proxy detection in parallel with the
   // controllers — internal HTTP clients (WebSearch / WebFetch) consult
   // SystemProxyResolver lazily, so this is purely best-effort.
@@ -215,7 +216,7 @@ Future<void> _bootstrap() async {
   // 同步构造 + 后台 refresh，确保启动期间不阻塞首帧。
   // 2026-05-16 — 经 InstructionsModule.bootstrap 装配（即时完成的 Future，
   // 保留懒初始化语义）。
-  final instructions = await InstructionsModule.bootstrap();
+  final instructions = await instructionsModuleFuture;
   unawaited(instructions.controller.refresh());
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo);

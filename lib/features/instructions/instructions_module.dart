@@ -1,7 +1,6 @@
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
-import 'data/instructions_store.dart';
 import 'instructions_controller.dart';
 
 /// Assembly point for the instructions feature.
@@ -14,10 +13,8 @@ class InstructionsModule {
 
   final InstructionsController controller;
 
-  static Future<InstructionsModule> bootstrap({
-    InstructionsStore? store,
-  }) async {
-    final controller = InstructionsController.uninitialized(store: store);
+  static Future<InstructionsModule> bootstrap() async {
+    final controller = InstructionsController.uninitialized();
     return InstructionsModule._(controller: controller);
   }
 
