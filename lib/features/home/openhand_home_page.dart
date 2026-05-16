@@ -2688,7 +2688,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!launchOk) {
       controller.removeListener(_onWebReverseControllerChanged);
       _webReverseControllers.remove(session.id);
-      unawaited(controller.stop());
+      // 必须先 await stop()，stop 内部的收尾 I/O 才能在 dispose 之前完成；
+      // 旧实现 unawaited(stop) + dispose() 会触发 dispose 后的 notifyListeners。
+      try {
+        await controller.stop();
+      } catch (error, stack) {
+        silentLog('openhand_home_page', 'restore web reverse stop', error,
+            stack);
+      }
       controller.dispose();
       return null;
     }

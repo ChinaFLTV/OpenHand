@@ -57,6 +57,7 @@ class WebReverseSessionController extends ChangeNotifier {
 
   bool _started = false;
   bool _stopped = false;
+  bool _disposed = false;
   bool _preserveLog = true;
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
@@ -116,7 +117,7 @@ class WebReverseSessionController extends ChangeNotifier {
         browserAppName: _browserAppNameFor(config.browserKind),
       );
       _dock!.start();
-      notifyListeners();
+      _safeNotify();
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'start', error, stack);
       _errorMessage = error.toString();
@@ -599,7 +600,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (explanations != null) {
       _securityExplanationsJson = jsonEncode(explanations);
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   // ── Recorder（极简）──────────────────────────────────────────────────
@@ -786,7 +787,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       _recorderSteps.clear();
       _recording = true;
-      notifyListeners();
+      _safeNotify();
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'startRecording', error, stack);
     }
@@ -819,7 +820,7 @@ class WebReverseSessionController extends ChangeNotifier {
         );
       } catch (_) {}
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 把已录制的 step 序列在浏览器里按时间间隔重放：
@@ -996,7 +997,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (expected != null) 'expected': expected,
       'ts': DateTime.now().millisecondsSinceEpoch,
     });
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 替换当前 step 列表（导入 JSON 用）。
@@ -1004,13 +1005,13 @@ class WebReverseSessionController extends ChangeNotifier {
     _recorderSteps
       ..clear()
       ..addAll(steps);
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 清空 step 列表。
   void clearRecorderSteps() {
     _recorderSteps.clear();
-    notifyListeners();
+    _safeNotify();
   }
 
   void _onRequestWillBeSent(Map<String, Object?> p) {
@@ -1065,7 +1066,7 @@ class WebReverseSessionController extends ChangeNotifier {
         postData: entry.requestPostData,
         startedAt: entry.timestamp,
       );
-    notifyListeners();
+    _safeNotify();
   }
 
   void _onResponseReceived(Map<String, Object?> p) {
@@ -1106,7 +1107,7 @@ class WebReverseSessionController extends ChangeNotifier {
         headers: Map<String, Object?>.from(headers),
         bodySize: entry.encodedDataLength,
       );
-    notifyListeners();
+    _safeNotify();
   }
 
   void _onLoadingFailed(Map<String, Object?> p) {
@@ -1125,7 +1126,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'ts': DateTime.now().toUtc().toIso8601String(),
       })
       ..recordHarFailed(requestId, err, DateTime.now());
-    notifyListeners();
+    _safeNotify();
   }
 
   void _onLoadingFinished(Map<String, Object?> p) {
@@ -1136,7 +1137,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final encoded = (p['encodedDataLength'] as num?)?.toInt();
     if (encoded != null) entry.encodedDataLength = encoded;
     _artifacts.recordHarFinished(requestId, DateTime.now());
-    notifyListeners();
+    _safeNotify();
   }
 
   void _onWebSocketCreated(Map<String, Object?> p) {
@@ -1156,7 +1157,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final old = _networkRequests.removeAt(0);
       _networkByRequestId.remove(old.requestId);
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   void _onWebSocketFrame(
@@ -1195,7 +1196,7 @@ class WebReverseSessionController extends ChangeNotifier {
           : payload,
       'ts': DateTime.now().toUtc().toIso8601String(),
     });
-    notifyListeners();
+    _safeNotify();
   }
 
   void _onFrameNavigated(Map<String, Object?> p) {
@@ -1206,7 +1207,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (!_preserveLog) {
       _networkRequests.clear();
       _networkByRequestId.clear();
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -1242,7 +1243,7 @@ class WebReverseSessionController extends ChangeNotifier {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
           _recorderSteps.add(Map<String, Object?>.from(decoded));
-          notifyListeners();
+          _safeNotify();
         }
       } catch (_) {}
     }
@@ -1270,14 +1271,14 @@ class WebReverseSessionController extends ChangeNotifier {
       'text': text,
       'ts': ts.toUtc().toIso8601String(),
     });
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> stop() async {
     if (_stopped) return;
     _stopped = true;
     await _safeStop();
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> _safeStop() async {
@@ -1312,7 +1313,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _networkRequests.clear();
     _networkByRequestId.clear();
     _consoleMessages.clear();
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 在浏览器主 page 上启用/关闭缓存。
@@ -1557,7 +1558,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
       _samplingProfileRunning = true;
-      notifyListeners();
+      _safeNotify();
       return true;
     } catch (error, stack) {
       silentLog(
@@ -1582,7 +1583,7 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 10),
       );
       _samplingProfileRunning = false;
-      notifyListeners();
+      _safeNotify();
       final profile = r['profile'] as Map?;
       if (profile == null) return null;
       // V8 SamplingHeapProfile 的 head 是火焰图根，递归累加 selfSize 并保留
@@ -1701,7 +1702,7 @@ class WebReverseSessionController extends ChangeNotifier {
         _pendingFetchRequests.clear();
       }
       _fetchInterceptEnabled = enabled;
-      notifyListeners();
+      _safeNotify();
       return true;
     } catch (error, stack) {
       silentLog(
@@ -1725,7 +1726,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (_) {}
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 改写后再放行：可覆盖 url / method / headers / postData。
@@ -1763,7 +1764,7 @@ class WebReverseSessionController extends ChangeNotifier {
         stack,
       );
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 终止某条请求；reason 见 CDP Network.ErrorReason 枚举。
@@ -1781,7 +1782,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (_) {}
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 全部放行已暂存请求。
@@ -1801,7 +1802,7 @@ class WebReverseSessionController extends ChangeNotifier {
       'url': request['url'],
       'ts': DateTime.now().toUtc().toIso8601String(),
     };
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 已被屏蔽的 URL pattern 集合（CDP `Network.setBlockedURLs`）。
@@ -1828,7 +1829,7 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<void> _flushBlockedUrls() async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) {
-      notifyListeners();
+      _safeNotify();
       return;
     }
     try {
@@ -1845,7 +1846,7 @@ class WebReverseSessionController extends ChangeNotifier {
         stack,
       );
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 在浏览器里重发指定请求（按 entry 当前的 method/url/headers/postData）。
@@ -1907,7 +1908,7 @@ class WebReverseSessionController extends ChangeNotifier {
   set preserveLog(bool v) {
     if (_preserveLog == v) return;
     _preserveLog = v;
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 设置网络节流模式：normal / offline / slow3g / fast3g。
@@ -1973,7 +1974,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final path = await _artifacts.exportHar();
     if (path != null) {
       _lastHarPath = path;
-      notifyListeners();
+      _safeNotify();
     }
     return path;
   }
@@ -1985,7 +1986,7 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       await File(src).copy(destPath);
       _lastHarPath = destPath;
-      notifyListeners();
+      _safeNotify();
       return destPath;
     } catch (error, stack) {
       silentLog(
@@ -2100,7 +2101,7 @@ class WebReverseSessionController extends ChangeNotifier {
           ..clear()
           ..addEntries(combined.map((e) => MapEntry(e.requestId, e)));
       }
-      notifyListeners();
+      _safeNotify();
       return (loaded: loaded, skipped: skipped);
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'loadHarBytes', error, stack);
@@ -2122,8 +2123,18 @@ class WebReverseSessionController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    // 不阻塞 dispose；safeStop 内部所有调用都已对 _disposed 做了短路。
     unawaited(_safeStop());
     super.dispose();
+  }
+
+  /// dispose 后再 notifyListeners 会抛 assertion。所有内部状态变更点统一走
+  /// 这一层，避免任何回调（CDP 事件 / 异步收尾）在 controller 已 dispose
+  /// 后再触发监听器。
+  void _safeNotify() {
+    if (_disposed) return;
+    notifyListeners();
   }
 
   String _browserAppNameFor(WebReverseBrowserKind k) {
