@@ -339,22 +339,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   static const int _dripStartChunkSize = 1;
   static const int _dripActivationThreshold = 2;
   static const Duration _dripStepInterval = Duration(milliseconds: 400);
-  // 阶段㉒：首次打开会话首屏专用的快速 drip 节拍。把 visible window 内
-  // 的气泡按 90 ms/张分摊到帧间登场，远低于 streaming 期 400 ms 的
-  // 「肉眼可见漫步」节拍，达到「打开后内容快速但不挤入」的折中。
-  // 同时与 [_MarkdownFrameScheduler] 的 1/帧 节流互补：drip 控制
-  // 「卡片树何时挂载」，scheduler 控制「markdown 何时解析」，两者
-  // 串联起来把首屏总耗时摊到 ~10 帧 (160 ms) 内陆续完成。
-  static const Duration _firstOpenDripStep = Duration(milliseconds: 90);
-  // 极小会话 (≤ _firstOpenSyncMaterializeMaxCount 张可见气泡) 跳过 drip
-  // 直接全量物化，避免空帧闪烁。
-  static const int _firstOpenSyncMaterializeMaxCount = 3;
-  // 首批立刻物化几张：让用户在第一时间就能看到「最新一条 + 上一条」的
-  // 完整气泡，剩下按 _firstOpenDripStep 节拍逐张追加。
-  // 阶段㉒b — 2 → 1：第一帧仅 mount 最新 1 张消息，把同帧 2 张 bubble
-  // 同步 build 的隐患连根拔起；剩余按 90ms drip 节拍追加，依旧能给到
-  // 「内容快速到位」的视感。
-  static const int _firstOpenInitialChunk = 1;
 
   @override
   void initState() {
@@ -363,61 +347,82 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
     // First-open jank fix: when the user picks an existing thread for the
     // first time, the workspace pane and the transcript both mount in the
-    // same frame. Materialising N message render entries (each later mounts
-    // a heavy `_MessageBubble` with markdown / code-highlight passes)
-    // synchronously inside this same frame is the dominant ANR source the
-    // user reported. We mirror the `didUpdateWidget` (session-switch) path:
-    // start with an empty list so the shell can paint immediately, then
-    // build the visible window over a few frames using the drip mechanism
-    // so the heavy bubble work does not bottleneck any single frame.
-    final initialVisible = _visibleMessagesForWindow();
-    if (initialVisible.length <= _firstOpenSyncMaterializeMaxCount) {
-      _replaceRenderEntries(initialVisible, animate: false);
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (_renderEntries.isNotEmpty) return;
-        // 阶段㉒：先即时物化最近 _firstOpenInitialChunk 张消息，让首屏
-        // 立刻有内容；之后每帧追加 1 张，直至 visible window 全部到位。
-        // _materializedTailLimit 配合 _visibleMessagesForWindow 实现
-        // 「从尾部往前」逐张展开 — 用户最关心的「最新消息」先到位。
-        final fullCount = initialVisible.length;
-        final initialChunk = math.min(_firstOpenInitialChunk, fullCount);
-        setState(() {
-          _materializedTailLimit = initialChunk;
-          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
-        });
-        if (initialChunk < fullCount) {
-          _beginIncrementalDrip(
-            initialChunk,
-            stepInterval: _firstOpenDripStep,
-          );
-        }
-      });
-    }
+    // same frame. We materialise the visible window's render entries
+    // immediately on this frame — they are pure data classes and the heavy
+    // widget work (markdown parse / syntax highlight) is throttled to
+    // ~1 task / frame by [_MarkdownFrameScheduler] + [_HighlightFrameScheduler].
+    // Combined with `cacheExtent: 120` on the ListView (which only mounts
+    // bubbles inside the actual viewport + ~120 px buffer), the heavy work
+    // naturally spreads across post-mount frames without any drip wrapper.
+    //
+    // 阶段㉒c (回滚 drip)：首屏「按 1/帧 drip」会把 _visibleMessagesForWindow
+    // 截断成「window 开头若干条」，导致用户看到的是最近窗口的「最旧」一条
+    // 而不是最新一条 — 与 transcript 默认应当落底的语义直接冲突。回滚到
+    // 「render entries 一次性物化、ListView 自然懒挂载」的策略。
+    _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
     _syncVisibleError();
     // Immediately jump to the bottom on the first rendered frame, before the
     // parent's postFrameCallback chain fires. This prevents the user from ever
     // seeing the list start at scroll-offset 0 while a forced scroll-to-bottom
     // is pending, which manifests as a jarring flash/jump animation.
+    // 阶段㉓：单 shot jumpTo 在长会话首屏并不可靠 —— ListView.builder 在
+    // markdown 异步解析期间会陆续完成 lazy layout，maxScrollExtent
+    // 会在 mount 后 ~10 帧内持续增大；首帧 jump 之后视口虽然贴底，但
+    // 第 N 个 bubble 解析完成、高度从纯文本占位扩张到富文本时，贴底
+    // 状态会被打破而无法恢复（因为父级 settle 通常 8 帧内已耗尽）。
+    // 改为「16 帧 (~266 ms) 滚动停留循环」：每一帧都重新 read maxScrollExtent
+    // 并 jumpTo，命中真正稳定的底部之后立即终止。期间任何一次距离 ≤ 0.5 px
+    // 即视为已稳定，提前退出循环避免无意义重排。
     if (widget.jumpToBottomOnInit) {
+      _settleJumpToBottom(maxFrames: 16);
+    }
+  }
+
+  /// 通过逐帧重读 `maxScrollExtent + jumpTo` 的方式贴底，覆盖 ListView 在
+  /// markdown 异步解析、图片解码等导致后续帧布局抖动场景。最长 [maxFrames]
+  /// 帧内寻底；若连续两帧 maxScrollExtent 与当前 pixels 距离 < 0.5 px，
+  /// 视为已稳定提前结束。
+  void _settleJumpToBottom({required int maxFrames}) {
+    if (maxFrames <= 0) return;
+    var stableFrames = 0;
+    void scheduleNext(int remaining) {
+      if (remaining <= 0) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final controller = widget.controller;
-        if (controller.hasClients) {
-          final position = controller.positions.isNotEmpty
-              ? controller.positions.last
-              : null;
-          if (position != null && position.maxScrollExtent > 0) {
-            // Jump on the specific position rather than
-            // `controller.jumpTo` so a transient second attached position
-            // (session cross-fade) does not trigger the `Scrollbar` /
-            // `RawScrollbar` single-position validation.
-            position.jumpTo(position.maxScrollExtent);
-          }
+        if (!controller.hasClients) {
+          scheduleNext(remaining - 1);
+          return;
         }
+        final position = controller.positions.isNotEmpty
+            ? controller.positions.last
+            : null;
+        if (position == null) {
+          scheduleNext(remaining - 1);
+          return;
+        }
+        final target = position.maxScrollExtent;
+        if (target <= 0) {
+          scheduleNext(remaining - 1);
+          return;
+        }
+        final distance = (target - position.pixels).abs();
+        if (distance < 0.5) {
+          stableFrames += 1;
+          // 连续 2 帧已经贴底，认为稳定，提前退出循环。
+          if (stableFrames >= 2) return;
+        } else {
+          stableFrames = 0;
+          // 用 specific position 而不是 controller.jumpTo 避免命中
+          // 第二个 attached position (cross-fade 期间) 触发 Scrollbar
+          // single-position 校验。
+          position.jumpTo(target);
+        }
+        scheduleNext(remaining - 1);
       });
     }
+
+    scheduleNext(maxFrames);
   }
 
   @override
@@ -431,11 +436,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
       // Switching sessions used to rebuild the full transcript synchronously
       // inside `didUpdateWidget`, which on large sessions blocked the frame
-      // that paints the new toolbar / shell. We now reset to an empty list
-      // immediately so the cross-fade can start, then drip the visible
-      // window over a few frames using the same staged-materialization
-      // path as initState, so heavy bubble builds never bottleneck the
-      // transition.
+      // that paints the new toolbar / shell. We reset to an empty list
+      // immediately so the cross-fade can start, then materialise the
+      // visible window on the next frame; the markdown / highlight work
+      // is throttled by [_MarkdownFrameScheduler] / [_HighlightFrameScheduler]
+      // and the ListView's `cacheExtent: 120` keeps off-viewport mounts cheap.
+      // 阶段㉒c (回滚 drip)：drip-based first-open materialisation 会在
+      // `_visibleMessagesForWindow()` 处把窗口截断成「头部若干条」，
+      // 与 transcript 应当落底到最新一条的语义直接冲突。回滚到「next
+      // frame 全量物化 + ListView 自然懒挂载」策略。
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
       _initialBuildDone = false;
@@ -443,25 +452,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
-        final initialVisible = _visibleMessagesForWindow();
-        if (initialVisible.length <= _firstOpenSyncMaterializeMaxCount) {
-          setState(() {
-            _replaceRenderEntries(initialVisible, animate: false);
-          });
-          return;
-        }
-        final fullCount = initialVisible.length;
-        final initialChunk = math.min(_firstOpenInitialChunk, fullCount);
         setState(() {
-          _materializedTailLimit = initialChunk;
           _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
         });
-        if (initialChunk < fullCount) {
-          _beginIncrementalDrip(
-            initialChunk,
-            stepInterval: _firstOpenDripStep,
-          );
-        }
       });
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
@@ -520,15 +513,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   /// Begins (or refreshes) an incremental drip that grows
   /// `_materializedTailLimit` from [initialLimit] one step at a time
-  /// every [stepInterval] until it reaches the full visible tail
+  /// every [_dripStepInterval] until it reaches the full visible tail
   /// length. Safe to call repeatedly — re-arms the timer rather than
-  /// stacking timers. [stepInterval] 默认为 [_dripStepInterval] (400 ms,
-  /// streaming 期节拍)，首次打开会话场景请显式传入
-  /// [_firstOpenDripStep] (90 ms) 让首屏内容快速到位。
-  void _beginIncrementalDrip(
-    int initialLimit, {
-    Duration stepInterval = _dripStepInterval,
-  }) {
+  /// stacking timers.
+  void _beginIncrementalDrip(int initialLimit) {
     final fullCount = _fullVisibleTailCount();
     if (initialLimit >= fullCount) {
       _stopIncrementalDrip();
@@ -536,7 +524,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     _materializedTailLimit = math.max(0, initialLimit);
     _dripTimer?.cancel();
-    _dripTimer = Timer.periodic(stepInterval, (timer) {
+    _dripTimer = Timer.periodic(_dripStepInterval, (timer) {
       if (!mounted) {
         timer.cancel();
         _dripTimer = null;
