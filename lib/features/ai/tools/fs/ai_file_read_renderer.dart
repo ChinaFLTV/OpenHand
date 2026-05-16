@@ -5,8 +5,8 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
-import 'ai_read_tool.dart';
 import '../ai_tool_utils.dart';
+import 'ai_read_tool.dart';
 
 class AiFileReadRenderer {
   const AiFileReadRenderer();

@@ -12,16 +12,16 @@ import '../../model/ai_builtin_tool_config.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_session_runtime_context.dart';
-import '../../tools/memory/ai_memory_tool.dart';
 import '../../tools/ai_tool_registry.dart';
 import '../../tools/ai_tool_utils.dart';
+import '../../tools/memory/ai_memory_tool.dart';
 import '../bash/ai_bash_tool_service.dart';
 import '../chat/ai_chat_service.dart';
-import '../hook/ai_claude_hook_service.dart';
+import '../chat/ai_protocol_adapter.dart';
 import '../fs/ai_file_history_service.dart';
 import '../fs/ai_file_mutation_ledger.dart';
 import '../fs/ai_file_tracker_service.dart';
-import '../chat/ai_protocol_adapter.dart';
+import '../hook/ai_claude_hook_service.dart';
 import 'ai_tool_execution_registry.dart';
 
 enum AiRuntimeToolSource { builtin, mcp, skill }

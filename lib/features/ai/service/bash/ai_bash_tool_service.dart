@@ -6,8 +6,8 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../model/ai_deny_command_rule.dart';
-import '../sandbox/ai_sandbox_service.dart';
 import '../runtime/ai_tool_execution_registry.dart';
+import '../sandbox/ai_sandbox_service.dart';
 
 const Utf8Decoder _shellOutputDecoder = Utf8Decoder(allowMalformed: true);
 

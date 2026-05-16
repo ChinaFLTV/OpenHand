@@ -14,8 +14,8 @@ import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../dsml/ai_dsml_tool_call_parser.dart';
 import '../media/ai_image_generation_service.dart';
-import 'ai_protocol_adapter.dart';
 import '../session_io/ai_token_usage_parser.dart';
+import 'ai_protocol_adapter.dart';
 import 'ai_transport_diagnostic_messages.dart';
 
 abstract class AiChatClient {

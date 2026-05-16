@@ -18,11 +18,11 @@ import '../../model/ai_session_runtime_context.dart';
 import '../../model/ai_thread_template.dart';
 import '../../tools/planning/ai_task_tool.dart';
 import '../bash/ai_bash_tool_service.dart';
+import '../chat/ai_protocol_adapter.dart';
 import '../hook/ai_claude_hook_service.dart';
 import '../runtime/ai_plan_approval_detector.dart';
-import 'ai_prompt_template_repository.dart';
-import '../chat/ai_protocol_adapter.dart';
 import '../runtime/ai_tool_runtime_service.dart';
+import 'ai_prompt_template_repository.dart';
 
 class AiPromptBuildResult {
   const AiPromptBuildResult({
