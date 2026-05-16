@@ -61,6 +61,7 @@ flutter:
     - assets/prompts/web_reverse_expert/snippets/
     - assets/branding/
     - assets/web/
+    - assets/web/chunks/
 
 # Use system SQLite on macOS (avoids downloading from GitHub).
 hooks:

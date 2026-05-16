@@ -1556,14 +1556,20 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     if (children == null || children.isEmpty) {
       return const SizedBox.shrink();
     }
-    if (children.length == 1) {
-      return children.single;
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: children,
-    );
+    final body = children.length == 1
+        ? children.single
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          );
+    // 表格 cell 在 flutter_markdown_plus 内部各自挂的 SelectableText 是
+    // 互不相通的"选择孤岛"，且与 TableCell + Wrap 的布局组合下，鼠标
+    // 命中区被父级 TableCell 偷走 → 用户感知是"无法选中表格单元格"。
+    // 用 SelectionArea 包一层即可让整棵子树进入统一的 selection registrar，
+    // 既支持跨节点选择，又不破坏内部 SelectableText 自身的选择行为。
+    if (!widget.selectable) return body;
+    return SelectionArea(child: body);
   }
 }
 
