@@ -5,10 +5,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/support/safe_subprocess.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import 'hardness_cli_catalog.dart';
+import '../../../app/support/safe_subprocess.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../service/hardness_cli_catalog.dart';
 
 class HardnessCliLoginDialog extends StatefulWidget {
   const HardnessCliLoginDialog({super.key, required this.entry});

@@ -5,16 +5,16 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import '../../app/support/silent_log.dart';
-import '../ai/model/ai_model_config.dart';
-import '../ai/model/ai_session_runtime_context.dart';
-import 'hardness_api_phase_runner.dart';
-import 'hardness_cli_catalog.dart';
-import 'hardness_prompt_builder.dart';
-import 'model/hardness_phase.dart';
-import 'model/hardness_phase_context_config.dart';
-import 'model/hardness_role_config.dart';
-import 'model/hardness_session_config.dart';
+import '../../../app/support/silent_log.dart';
+import '../../ai/model/ai_model_config.dart';
+import '../../ai/model/ai_session_runtime_context.dart';
+import '../service/hardness_api_phase_runner.dart';
+import '../service/hardness_cli_catalog.dart';
+import '../service/hardness_prompt_builder.dart';
+import '../model/hardness_phase.dart';
+import '../model/hardness_phase_context_config.dart';
+import '../model/hardness_role_config.dart';
+import '../model/hardness_session_config.dart';
 
 /// Framework version for the Hardness Engineering orchestrator protocol.
 /// Increment when the prompt schema or orchestration logic changes

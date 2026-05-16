@@ -5,11 +5,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/support/safe_subprocess.dart';
-import '../../app/support/silent_log.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import 'hardness_cli_catalog.dart';
+import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../service/hardness_cli_catalog.dart';
 
 /// Shows a dialog that runs the CLI install command and streams output in real time.
 /// Pops with `true` when installation succeeds, `false` otherwise.

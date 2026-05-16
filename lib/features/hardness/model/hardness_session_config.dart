@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../hardness_cli_catalog.dart';
+import '../service/hardness_cli_catalog.dart';
 import 'hardness_role_config.dart';
 
 class HardnessSessionConfig {

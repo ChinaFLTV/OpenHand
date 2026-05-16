@@ -5,19 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
-import '../../app/state/settings_controller.dart';
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/model_search_selector.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import '../ai/model/ai_model_config.dart';
-import 'hardness_cli_catalog.dart';
+import '../../../app/state/settings_controller.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../ai/model/ai_model_config.dart';
+import '../service/hardness_cli_catalog.dart';
 import 'hardness_cli_install_dialog.dart';
 import 'hardness_cli_login_dialog.dart';
-import 'model/hardness_agent_role.dart';
-import 'model/hardness_role_config.dart';
-import 'model/hardness_session_config.dart';
+import '../model/hardness_agent_role.dart';
+import '../model/hardness_role_config.dart';
+import '../model/hardness_session_config.dart';
 
 const double _kHardnessModeDropdownWidth = 132;
 

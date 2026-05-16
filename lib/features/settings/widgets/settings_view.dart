@@ -64,7 +64,7 @@ import '../../ai/service/web_fetch/web_fetch_telemetry_store.dart';
 import '../../ai/service/web_search/web_search_cache_store.dart';
 import '../../ai/service/web_search/web_search_telemetry_store.dart';
 import '../../crons/crons_controller.dart';
-import '../../hardness/hardness_cli_catalog.dart';
+import '../../hardness/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/memory_controller.dart';
 import '../../skills/skills_controller.dart';

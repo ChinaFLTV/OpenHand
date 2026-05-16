@@ -29,7 +29,7 @@ import '../../ai/service/ai_bash_tool_service.dart'
 import '../../ai/service/ai_image_generation_service.dart';
 import '../../ai/service/ai_protocol_adapter.dart';
 import '../../crons/crons_controller.dart';
-import '../../hardness/hardness_session_store.dart';
+import '../../hardness/index.dart';
 import '../../instructions/index.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../mcp/model/mcp_tool.dart';

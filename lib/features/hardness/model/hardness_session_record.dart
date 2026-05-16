@@ -1,4 +1,4 @@
-import '../hardness_orchestrator.dart';
+import '../service/hardness_orchestrator.dart';
 import 'hardness_phase.dart';
 import 'hardness_session_config.dart';
 

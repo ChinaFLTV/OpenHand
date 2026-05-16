@@ -13,26 +13,26 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
-import '../../app/model/openhand_shortcut.dart';
-import '../../app/state/settings_controller.dart';
-import '../../app/support/silent_log.dart';
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/animated_expandable.dart';
-import '../../shared/ui/animated_menu.dart';
-import '../../shared/ui/animated_overlay.dart';
-import '../../shared/ui/error_snackbar.dart';
-import '../../shared/ui/model_search_selector.dart';
-import '../../shared/ui/oh_pill.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import '../ai/model/ai_model_config.dart';
-import '../home/message_path_linking.dart';
-import 'hardness_cli_catalog.dart';
-import 'hardness_orchestrator.dart';
-import 'model/hardness_phase.dart';
-import 'model/hardness_role_config.dart';
-import 'model/hardness_session_config.dart';
-import 'widgets/hardness_pending_replay_badge.dart';
+import '../../../app/model/openhand_shortcut.dart';
+import '../../../app/state/settings_controller.dart';
+import '../../../app/support/silent_log.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_expandable.dart';
+import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/animated_overlay.dart';
+import '../../../shared/ui/error_snackbar.dart';
+import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../ai/model/ai_model_config.dart';
+import '../../home/message_path_linking.dart';
+import '../service/hardness_cli_catalog.dart';
+import '../service/hardness_orchestrator.dart';
+import '../model/hardness_phase.dart';
+import '../model/hardness_role_config.dart';
+import '../model/hardness_session_config.dart';
+import 'hardness_pending_replay_badge.dart';
 
 // 2026-04-27 Split scaffolding (step 0). The implementation is being
 // progressively extracted into per-section part files. Each part shares the

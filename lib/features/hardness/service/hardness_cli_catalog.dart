@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../../app/support/safe_subprocess.dart';
-import '../../app/support/silent_log.dart';
+import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 
 enum HardnessCliAuthProbeMode { commandExitCode, localStateFile }
 
