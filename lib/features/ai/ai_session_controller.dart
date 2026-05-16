@@ -45,8 +45,8 @@ import 'tools/search/ai_tool_search_tool.dart';
 import 'tools/web/ai_web_fetch_tool.dart';
 import 'tools/web/ai_web_search_tool.dart';
 
-part '_ai_session_models.dart';
-part '_ai_session_utils.dart';
+part 'state/_ai_session_models.dart';
+part 'state/_ai_session_utils.dart';
 
 typedef WriteCommandConfirmationCallback =
     Future<BashCommandApprovalDecision> Function(

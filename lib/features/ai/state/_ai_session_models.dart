@@ -1,4 +1,4 @@
-part of 'ai_session_controller.dart';
+part of '../ai_session_controller.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper data classes extracted from ai_session_controller.dart.
