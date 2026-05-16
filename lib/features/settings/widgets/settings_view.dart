@@ -6591,6 +6591,29 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     });
   }
 
+  static String _providerHintMessage(
+    ThrottleCloudSyncProvider provider,
+    bool isZh,
+  ) {
+    switch (provider) {
+      case ThrottleCloudSyncProvider.iCloud:
+        if (Platform.isMacOS || Platform.isIOS) {
+          return isZh
+              ? 'iCloud Drive 同步已启用：通过 NSUbiquitousKeyValueStore 与同账号其他 Apple 设备自动同步（容量上限 1MB）。'
+              : 'iCloud sync is wired via NSUbiquitousKeyValueStore (1MB cap). Throttle config is mirrored across same-account Apple devices.';
+        }
+        return isZh
+            ? 'iCloud 同步仅支持 macOS / iOS；当前平台请使用「自定义 HTTP」。'
+            : 'iCloud sync is macOS / iOS only; use Custom HTTP on this platform.';
+      case ThrottleCloudSyncProvider.oauth:
+        return isZh
+            ? 'OAuth 同步入口已预留；当前版本暂未接入 native SDK，请先使用其他 provider。'
+            : 'OAuth sync placeholder; native SDK not wired up yet — pick another provider for now.';
+      case ThrottleCloudSyncProvider.custom:
+        return '';
+    }
+  }
+
   static List<_ThrottleDiffRow> _diffThrottleConfigPure(
     Map<String, Object?> current,
     Map<String, Object?> next,
@@ -6684,9 +6707,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                isZh
-                    ? '${providerEnum == ThrottleCloudSyncProvider.iCloud ? "iCloud Drive" : "OAuth"} 同步入口已预留；当前版本暂未接入 native 桥接，请使用「自定义 HTTP」端点。'
-                    : '${providerEnum == ThrottleCloudSyncProvider.iCloud ? "iCloud Drive" : "OAuth"} sync placeholder; native bridging not wired up yet — use Custom HTTP for now.',
+                _providerHintMessage(providerEnum, isZh),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onTertiaryContainer,
                 ),

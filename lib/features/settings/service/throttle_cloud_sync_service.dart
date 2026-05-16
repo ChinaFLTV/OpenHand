@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
@@ -83,8 +84,11 @@ class ThrottleCloudSyncService {
 
   final http.Client? _client;
 
-  /// 把 [config] 推送到云端。`provider == iCloud / oauth` 时仅返回失
-  /// 败结果，提示用户走 native 端集成。
+  /// 与 macOS / iOS native 端 CloudSyncBridge 共用的 method channel。
+  static const MethodChannel _icloudChannel = MethodChannel('openhand/cloud_sync');
+
+  /// 把 [config] 推送到云端。`provider == iCloud` 时走 native 端的
+  /// NSUbiquitousKeyValueStore；`oauth` 仍未实现，直接 fail-fast。
   Future<ThrottleCloudSyncResult> push({
     required ThrottleCloudSyncProvider provider,
     required String endpoint,
@@ -93,9 +97,7 @@ class ThrottleCloudSyncService {
   }) async {
     switch (provider) {
       case ThrottleCloudSyncProvider.iCloud:
-        return ThrottleCloudSyncResult.failure(
-          'iCloud Drive sync requires native bridging; not yet wired up.',
-        );
+        return _pushIcloud(config);
       case ThrottleCloudSyncProvider.oauth:
         return ThrottleCloudSyncResult.failure(
           'OAuth sync requires native SDK; not yet wired up.',
@@ -160,9 +162,7 @@ class ThrottleCloudSyncService {
   }) async {
     switch (provider) {
       case ThrottleCloudSyncProvider.iCloud:
-        return ThrottleCloudSyncResult.failure(
-          'iCloud Drive sync requires native bridging; not yet wired up.',
-        );
+        return _pullIcloud();
       case ThrottleCloudSyncProvider.oauth:
         return ThrottleCloudSyncResult.failure(
           'OAuth sync requires native SDK; not yet wired up.',
@@ -233,5 +233,94 @@ class ThrottleCloudSyncService {
   static String _truncate(String value, int max) {
     if (value.length <= max) return value;
     return '${value.substring(0, max)}…';
+  }
+
+  /// 2026-05-18 — iCloud 桥接：调 native CloudSyncBridge。
+  /// macOS / iOS 走 NSUbiquitousKeyValueStore（key-value，1MB 上限）；
+  /// 其他平台没有实现，channel 抛 MissingPluginException → 转换为
+  /// 友好错误信息。
+  Future<ThrottleCloudSyncResult> _pushIcloud(
+    Map<String, Object?> config,
+  ) async {
+    if (!Platform.isMacOS && !Platform.isIOS) {
+      return ThrottleCloudSyncResult.failure(
+        'iCloud sync is only supported on macOS / iOS.',
+      );
+    }
+    try {
+      final json = const JsonEncoder.withIndent('  ').convert(config);
+      final result = await _icloudChannel.invokeMapMethod<String, dynamic>(
+        'pushIcloud',
+        <String, dynamic>{'config_json': json},
+      );
+      final ok = result?['ok'] == true;
+      final synced = result?['synchronized'] == true;
+      if (!ok) {
+        return ThrottleCloudSyncResult.failure(
+          synced
+              ? 'iCloud rejected payload'
+              : 'iCloud sync deferred (will retry when connectivity returns)',
+        );
+      }
+      return ThrottleCloudSyncResult.success(
+        message: synced
+            ? 'iCloud sync ${utf8.encode(json).length} bytes'
+            : 'iCloud sync queued',
+      );
+    } on MissingPluginException {
+      return ThrottleCloudSyncResult.failure(
+        'iCloud channel not registered (host platform missing bridge).',
+      );
+    } catch (error, stack) {
+      silentLog('throttle_cloud_sync', 'pushIcloud', error, stack);
+      return ThrottleCloudSyncResult.failure('$error');
+    }
+  }
+
+  Future<ThrottleCloudSyncResult> _pullIcloud() async {
+    if (!Platform.isMacOS && !Platform.isIOS) {
+      return ThrottleCloudSyncResult.failure(
+        'iCloud sync is only supported on macOS / iOS.',
+      );
+    }
+    try {
+      final result = await _icloudChannel.invokeMapMethod<String, dynamic>(
+        'pullIcloud',
+      );
+      final ok = result?['ok'] == true;
+      final raw = (result?['config_json'] as String?) ?? '';
+      if (!ok || raw.isEmpty) {
+        return ThrottleCloudSyncResult.failure(
+          'iCloud has no throttle config yet for this account.',
+        );
+      }
+      final decoded = jsonDecode(raw);
+      Map<String, Object?>? cfg;
+      if (decoded is Map) {
+        final inner = decoded['config'];
+        if (inner is Map) {
+          cfg = Map<String, Object?>.from(inner);
+        } else {
+          cfg = Map<String, Object?>.from(decoded);
+        }
+      }
+      if (cfg == null) {
+        return ThrottleCloudSyncResult.failure(
+          'iCloud payload is not a JSON object',
+        );
+      }
+      return ThrottleCloudSyncResult.success(
+        config: cfg,
+        fetchedAt: DateTime.now().toUtc(),
+        message: 'iCloud OK',
+      );
+    } on MissingPluginException {
+      return ThrottleCloudSyncResult.failure(
+        'iCloud channel not registered (host platform missing bridge).',
+      );
+    } catch (error, stack) {
+      silentLog('throttle_cloud_sync', 'pullIcloud', error, stack);
+      return ThrottleCloudSyncResult.failure('$error');
+    }
   }
 }
