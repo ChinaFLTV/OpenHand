@@ -1,0 +1,109 @@
+import 'web_reverse_browser_kind.dart';
+
+/// Web 逆向会话的运行时配置，序列化进 session metadata。
+///
+/// 字段命名与 SessionDetailPage / openhand_home_page 中读取处保持一致，
+/// 修改时务必同步更新两端。
+class WebReverseSessionConfig {
+  const WebReverseSessionConfig({
+    required this.targetUrl,
+    required this.objective,
+    required this.cdpPort,
+    required this.userDataDir,
+    required this.browserKind,
+    this.triggerActions,
+    this.loginMode = WebReverseLoginMode.none,
+    this.proxy,
+    this.keywords = const <String>[],
+    this.harPath,
+  });
+
+  final String targetUrl;
+  final String objective;
+  final int cdpPort;
+  final String userDataDir;
+  final WebReverseBrowserKind browserKind;
+  final String? triggerActions;
+  final WebReverseLoginMode loginMode;
+  final String? proxy;
+  final List<String> keywords;
+  final String? harPath;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'target_url': targetUrl,
+    'objective': objective,
+    'cdp_port': cdpPort,
+    'user_data_dir': userDataDir,
+    'browser_kind': browserKind.id,
+    if (triggerActions != null) 'trigger_actions': triggerActions,
+    'login_mode': loginMode.id,
+    if (proxy != null) 'proxy': proxy,
+    if (keywords.isNotEmpty) 'keywords': keywords,
+    if (harPath != null) 'har_path': harPath,
+  };
+
+  static WebReverseSessionConfig? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final map = Map<String, Object?>.from(raw);
+    final targetUrl = '${map['target_url'] ?? ''}'.trim();
+    final objective = '${map['objective'] ?? ''}'.trim();
+    final cdpPort = (map['cdp_port'] as num?)?.toInt() ?? 0;
+    final userDataDir = '${map['user_data_dir'] ?? ''}'.trim();
+    final browserKind = WebReverseBrowserKind.fromId(
+      '${map['browser_kind'] ?? ''}',
+    );
+    if (targetUrl.isEmpty || cdpPort <= 0 || browserKind == null) return null;
+    return WebReverseSessionConfig(
+      targetUrl: targetUrl,
+      objective: objective,
+      cdpPort: cdpPort,
+      userDataDir: userDataDir,
+      browserKind: browserKind,
+      triggerActions: map['trigger_actions'] as String?,
+      loginMode: WebReverseLoginMode.fromId('${map['login_mode'] ?? ''}'),
+      proxy: map['proxy'] as String?,
+      keywords: (map['keywords'] as List?)?.cast<String>() ?? const <String>[],
+      harPath: map['har_path'] as String?,
+    );
+  }
+
+  /// 拼出会话首条 prompt 的 `<request_template>` 块，模型据此进入工作流。
+  String toRequestTemplate() {
+    final buf = StringBuffer()
+      ..writeln('<request_template>')
+      ..writeln('- 目标 URL：【$targetUrl】')
+      ..writeln('- 逆向目标：【$objective】');
+    if (triggerActions != null && triggerActions!.trim().isNotEmpty) {
+      buf.writeln('- 触发动作：【${triggerActions!.trim()}】');
+    }
+    buf.writeln('- 登录态：【${loginMode.label}】');
+    buf.writeln('- 浏览器：【${browserKind.displayName}】');
+    buf.writeln('- CDP 端口：【$cdpPort】');
+    if (proxy != null && proxy!.trim().isNotEmpty) {
+      buf.writeln('- 代理：【${proxy!.trim()}】');
+    }
+    if (keywords.isNotEmpty) {
+      buf.writeln('- 关键关键字：【${keywords.join(', ')}】');
+    }
+    buf.writeln('- 验收标准：【可在 curl / Dart / Python 中独立复现，无需浏览器】');
+    buf.write('</request_template>');
+    return buf.toString();
+  }
+}
+
+enum WebReverseLoginMode {
+  none('none', '无需登录'),
+  manual('manual', '用户手动登录后继续'),
+  storageState('storage_state', '使用已有 storageState');
+
+  const WebReverseLoginMode(this.id, this.label);
+  final String id;
+  final String label;
+
+  static WebReverseLoginMode fromId(String id) {
+    for (final v in values) {
+      if (v.id == id) return v;
+    }
+    return WebReverseLoginMode.none;
+  }
+}
