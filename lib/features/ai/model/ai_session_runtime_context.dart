@@ -1,5 +1,5 @@
 import '../../../app/support/openhand_paths.dart';
-import '../../instructions/model/user_instruction_entry.dart';
+import '../../instructions/index.dart';
 import '../../mcp/model/mcp_lazy_loading_mode.dart';
 import '../../mcp/model/mcp_server.dart';
 import '../../mcp/model/mcp_tool.dart';

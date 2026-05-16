@@ -10,16 +10,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../l10n/app_localizations.dart';
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/animated_menu.dart';
-import '../../shared/ui/appear_once.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/hover_lift.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import 'instructions_controller.dart';
-import 'model/user_instruction_entry.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../instructions_controller.dart';
+import '../model/user_instruction_entry.dart';
 
 enum _InstructionCardAction { edit, delete }
 

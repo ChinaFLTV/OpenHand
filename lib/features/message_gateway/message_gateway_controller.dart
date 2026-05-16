@@ -9,7 +9,7 @@ import '../ai/model/ai_thread_template.dart';
 import '../ai/service/ai_bash_tool_service.dart'
     show BashCommandApprovalDecision, BashCommandApprovalRequest;
 import '../crons/crons_controller.dart';
-import '../instructions/instructions_controller.dart';
+import '../instructions/index.dart';
 import '../mcp/mcp_controller.dart';
 import '../memory/memory_controller.dart';
 import '../plugin_service/plugin_service_controller.dart';

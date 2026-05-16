@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
-import '../../instructions/model/user_instruction_entry.dart';
+import '../../instructions/index.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../../skills/model/local_skill.dart';
 import '../model/ai_attachment.dart';
