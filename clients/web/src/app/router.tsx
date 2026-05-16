@@ -11,7 +11,7 @@ import { OpsPage } from '../pages/OpsPage';
 import { LogsPage } from '../pages/LogsPage';
 import { ToolboxPage } from '../pages/ToolboxPage';
 import { HardnessPage } from '../pages/HardnessPage';
-import { SettingsPage } from '../pages/SettingsPage';
+import { SettingsPage } from '../features/settings';
 import { PluginsPage } from '../pages/PluginsPage';
 import { Appear } from '../components/Appear';
 import { t } from '../i18n';

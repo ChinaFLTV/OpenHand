@@ -7,20 +7,20 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { TopBar } from '../components/TopBar';
-import { Appear } from '../components/Appear';
-import { MenuSelect } from '../components/MenuSelect';
-import { ApiError } from '../api/client';
+import { TopBar } from '../../../components/TopBar';
+import { Appear } from '../../../components/Appear';
+import { MenuSelect } from '../../../components/MenuSelect';
+import { ApiError } from '../../../api/client';
 import {
   fetchPreferences,
   updatePreferences,
   type PreferencesUpdate,
   type RemotePreferences,
 } from '../api/preferences';
-import { t, tNumber } from '../i18n';
-import { setRemoteReducedMotion } from '../hooks/useReducedMotion';
-import { syncRemoteDialogMotionSettings } from '../hooks/useDialogMotionSettings';
-import { showSnackbar } from '../components/Snackbar';
+import { t, tNumber } from '../../../i18n';
+import { setRemoteReducedMotion } from '../../../hooks/useReducedMotion';
+import { syncRemoteDialogMotionSettings } from '../../../hooks/useDialogMotionSettings';
+import { showSnackbar } from '../../../components/Snackbar';
 
 const LANG_LABEL: Record<string, string> = {
   zh_Hans: '简体中文',
