@@ -57,8 +57,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
               _ToolbarTogglePill(
                 label: isZh ? '保留日志' : 'Preserve log',
                 icon: Icons.history_toggle_off_rounded,
-                selected: _preserveLog,
-                onChanged: (v) => rebuildFromExternal(() => _preserveLog = v),
+                selected: ctrl.preserveLog,
+                onChanged: (v) => ctrl.preserveLog = v,
                 reduceMotion: reduceMotion,
               ),
               const SizedBox(width: 6),

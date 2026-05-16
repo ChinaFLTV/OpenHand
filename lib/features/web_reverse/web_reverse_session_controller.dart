@@ -56,6 +56,7 @@ class WebReverseSessionController extends ChangeNotifier {
 
   bool _started = false;
   bool _stopped = false;
+  bool _preserveLog = true;
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
   String? _lastHarPath;
@@ -176,6 +177,16 @@ class WebReverseSessionController extends ChangeNotifier {
         _onLoadingFailed(ev.params);
       case 'Network.loadingFinished':
         _onLoadingFinished(ev.params);
+      case 'Network.webSocketCreated':
+        _onWebSocketCreated(ev.params);
+      case 'Network.webSocketFrameSent':
+        _onWebSocketFrame(ev.params, CdpWebSocketDirection.sent);
+      case 'Network.webSocketFrameReceived':
+        _onWebSocketFrame(ev.params, CdpWebSocketDirection.received);
+      case 'Network.webSocketFrameError':
+        _onWebSocketFrame(ev.params, CdpWebSocketDirection.error);
+      case 'Page.frameNavigated':
+        _onFrameNavigated(ev.params);
       case 'Runtime.consoleAPICalled':
         _onConsoleApi(ev.params);
       case 'Log.entryAdded':
@@ -309,6 +320,77 @@ class WebReverseSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onWebSocketCreated(Map<String, Object?> p) {
+    final requestId = '${p['requestId']}';
+    if (_networkByRequestId.containsKey(requestId)) return;
+    final url = '${p['url'] ?? ''}';
+    final entry = CdpNetworkEntry(
+      requestId: requestId,
+      url: url,
+      method: 'GET',
+      timestamp: DateTime.now(),
+      resourceType: 'WebSocket',
+    );
+    _networkByRequestId[requestId] = entry;
+    _networkRequests.add(entry);
+    while (_networkRequests.length > _maxNetworkEntries) {
+      final old = _networkRequests.removeAt(0);
+      _networkByRequestId.remove(old.requestId);
+    }
+    notifyListeners();
+  }
+
+  void _onWebSocketFrame(
+    Map<String, Object?> p,
+    CdpWebSocketDirection direction,
+  ) {
+    final requestId = '${p['requestId']}';
+    final entry = _networkByRequestId[requestId];
+    if (entry == null) return;
+    final response = p['response'] as Map?;
+    final opcode = (response?['opcode'] as num?)?.toInt() ?? 0;
+    final mask = response?['mask'] == true;
+    var payload = '${response?['payloadData'] ?? ''}';
+    if (payload.length > 8192) payload = '${payload.substring(0, 8192)}…';
+    entry.wsFrames.add(CdpWebSocketFrame(
+      direction: direction,
+      timestamp: DateTime.now(),
+      opcode: opcode,
+      mask: mask,
+      payload: payload,
+      errorMessage: direction == CdpWebSocketDirection.error
+          ? '${p['errorMessage'] ?? ''}'
+          : null,
+    ));
+    // 防止单条 WS 累积爆炸。
+    while (entry.wsFrames.length > 2000) {
+      entry.wsFrames.removeAt(0);
+    }
+    _artifacts.appendNetwork(<String, Object?>{
+      'kind': 'ws_${direction.name}',
+      'request_id': requestId,
+      'opcode': opcode,
+      'mask': mask,
+      'payload_preview': payload.length > 256
+          ? '${payload.substring(0, 256)}…'
+          : payload,
+      'ts': DateTime.now().toUtc().toIso8601String(),
+    });
+    notifyListeners();
+  }
+
+  void _onFrameNavigated(Map<String, Object?> p) {
+    // 仅主 frame 导航才触发 Preserve log 联动；子 frame / iframe 忽略。
+    final frame = p['frame'] as Map?;
+    if (frame == null) return;
+    if (frame['parentId'] != null) return;
+    if (!_preserveLog) {
+      _networkRequests.clear();
+      _networkByRequestId.clear();
+      notifyListeners();
+    }
+  }
+
   static Map<String, String> _flattenHeaders(Object? raw) {
     if (raw is! Map) return const <String, String>{};
     final out = <String, String>{};
@@ -411,6 +493,14 @@ class WebReverseSessionController extends ChangeNotifier {
       params: <String, Object?>{'cacheDisabled': disabled},
       sessionId: _pageSessionId,
     );
+  }
+
+  /// 是否在主 frame 导航时保留旧日志。关闭后下次导航自动清表。
+  bool get preserveLog => _preserveLog;
+  set preserveLog(bool v) {
+    if (_preserveLog == v) return;
+    _preserveLog = v;
+    notifyListeners();
   }
 
   /// 设置网络节流模式：normal / offline / slow3g / fast3g。
@@ -574,9 +664,38 @@ class CdpNetworkEntry {
   String? cachedBody;
   bool cachedBodyBase64 = false;
 
+  /// WebSocket 专属：帧序列（双向）。CDP 通过 `Network.webSocketFrameSent` /
+  /// `webSocketFrameReceived` 推；非 WS 请求始终为空。
+  final List<CdpWebSocketFrame> wsFrames = <CdpWebSocketFrame>[];
+
+  bool get isWebSocket =>
+      resourceType.toLowerCase() == 'websocket' ||
+      resourceType.toLowerCase() == 'eventsource';
+
   bool get isError =>
       failed || (statusCode != null && statusCode! >= 400);
 }
+
+/// 一条 WebSocket 帧（发送 / 接收 / 错误）。`payload` 截断到 8KB 防止内存爆。
+class CdpWebSocketFrame {
+  CdpWebSocketFrame({
+    required this.direction,
+    required this.timestamp,
+    required this.opcode,
+    required this.mask,
+    required this.payload,
+    this.errorMessage,
+  });
+
+  final CdpWebSocketDirection direction;
+  final DateTime timestamp;
+  final int opcode; // 1=text, 2=binary, 8=close, 9=ping, 10=pong
+  final bool mask;
+  final String payload;
+  final String? errorMessage;
+}
+
+enum CdpWebSocketDirection { sent, received, error }
 
 /// 单条控制台消息的精简快照。
 class CdpConsoleEntry {

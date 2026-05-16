@@ -1,8 +1,8 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
-/// 单条请求的右侧详情面板，5 个 tab 与 Chrome DevTools 一致：
-/// Headers / Preview / Response / Initiator / Timing
-enum _DetailTab { headers, preview, response, initiator, timing }
+/// 单条请求的右侧详情面板，6 个 tab 与 Chrome DevTools 一致：
+/// Headers / Preview / Response / Initiator / Timing / Messages（仅 WS）。
+enum _DetailTab { headers, preview, response, initiator, timing, messages }
 
 class _RequestDetailPanel extends StatefulWidget {
   const _RequestDetailPanel({
@@ -118,25 +118,48 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
               ),
             ),
           ),
-          IconButton(
-            tooltip: isZh ? '复制 URL' : 'Copy URL',
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: widget.entry.url));
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(isZh ? '已复制 URL' : 'URL copied'),
-                duration: const Duration(seconds: 1),
-              ));
-            },
-            icon: const Icon(Icons.copy_rounded, size: 18),
-            visualDensity: VisualDensity.compact,
+          PopupMenuButton<String>(
+            tooltip: isZh ? '复制为...' : 'Copy as...',
+            icon: const Icon(Icons.content_copy_rounded, size: 18),
+            onSelected: (kind) => _copyAs(kind, isZh),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'url', child: Text('URL')),
+              PopupMenuItem(value: 'curl', child: Text('cURL (POSIX)')),
+              PopupMenuItem(value: 'curl-cmd', child: Text('cURL (Windows)')),
+              PopupMenuItem(value: 'fetch', child: Text('fetch')),
+              PopupMenuItem(value: 'fetch-node', child: Text('fetch (Node.js)')),
+            ],
           ),
         ],
       ),
     );
   }
 
+  void _copyAs(String kind, bool isZh) {
+    final text = switch (kind) {
+      'url' => widget.entry.url,
+      'curl' => _asCurl(widget.entry, windows: false),
+      'curl-cmd' => _asCurl(widget.entry, windows: true),
+      'fetch' => _asFetch(widget.entry, node: false),
+      'fetch-node' => _asFetch(widget.entry, node: true),
+      _ => widget.entry.url,
+    };
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(isZh ? '已复制为 $kind' : 'Copied as $kind'),
+      duration: const Duration(seconds: 1),
+    ));
+  }
+
   Widget _buildTabBar(ThemeData theme, ColorScheme cs, bool isZh) {
-    const tabs = _DetailTab.values;
+    final tabs = <_DetailTab>[
+      _DetailTab.headers,
+      _DetailTab.preview,
+      _DetailTab.response,
+      _DetailTab.initiator,
+      _DetailTab.timing,
+      if (widget.entry.isWebSocket) _DetailTab.messages,
+    ];
     return SizedBox(
       height: 36,
       child: Padding(
@@ -163,6 +186,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
         _DetailTab.response => 'Response',
         _DetailTab.initiator => 'Initiator',
         _DetailTab.timing => 'Timing',
+        _DetailTab.messages => 'Messages',
       };
 
   Widget _buildBody(ThemeData theme, ColorScheme cs, bool isZh) {
@@ -186,6 +210,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
         ),
       _DetailTab.initiator => _InitiatorTab(entry: widget.entry, isZh: isZh),
       _DetailTab.timing => _TimingTab(entry: widget.entry, isZh: isZh),
+      _DetailTab.messages => _MessagesTab(entry: widget.entry, isZh: isZh),
     };
   }
 }
@@ -707,4 +732,172 @@ class _CodeBlock extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// 把请求序列化为 cURL 命令字符串。POSIX 模式用单引号 + `\'` 转义；
+/// Windows cmd 用 `^"` 折行，简化处理沿用单行 + 双引号转义。
+String _asCurl(CdpNetworkEntry e, {required bool windows}) {
+  String quote(String s) {
+    if (windows) {
+      return '"${s.replaceAll('"', r'\"')}"';
+    }
+    return "'${s.replaceAll(r"'", r"'\''")}'";
+  }
+
+  final lineCont = windows ? ' ^\n  ' : ' \\\n  ';
+  final buf = StringBuffer('curl ${quote(e.url)}');
+  if (e.method.toUpperCase() != 'GET') {
+    buf.write('$lineCont-X ${quote(e.method)}');
+  }
+  for (final entry in e.requestHeaders.entries) {
+    final k = entry.key;
+    if (k.startsWith(':')) continue; // HTTP/2 伪头
+    buf.write('$lineCont-H ${quote("${entry.key}: ${entry.value}")}');
+  }
+  if (e.requestPostData != null && e.requestPostData!.isNotEmpty) {
+    buf.write('$lineCont--data-raw ${quote(e.requestPostData!)}');
+  }
+  return buf.toString();
+}
+
+/// 把请求序列化为 fetch 调用。Node.js 模式不带 credentials/redirect 默认值。
+String _asFetch(CdpNetworkEntry e, {required bool node}) {
+  String esc(String s) =>
+      '"${s.replaceAll(r'\\', r'\\\\').replaceAll('"', r'\"').replaceAll('\n', r'\n')}"';
+  final headers = <String>[];
+  e.requestHeaders.forEach((k, v) {
+    if (k.startsWith(':')) return;
+    headers.add('    ${esc(k)}: ${esc(v)}');
+  });
+  final init = <String>[];
+  init.add('  "method": ${esc(e.method)}');
+  if (headers.isNotEmpty) {
+    init.add('  "headers": {\n${headers.join(',\n')}\n  }');
+  }
+  if (e.requestPostData != null && e.requestPostData!.isNotEmpty) {
+    init.add('  "body": ${esc(e.requestPostData!)}');
+  }
+  if (!node) {
+    init.add('  "credentials": "include"');
+  }
+  return 'fetch(${esc(e.url)}, {\n${init.join(',\n')}\n});';
+}
+
+class _MessagesTab extends StatelessWidget {
+  const _MessagesTab({required this.entry, required this.isZh});
+  final CdpNetworkEntry entry;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final frames = entry.wsFrames;
+    if (frames.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            isZh
+                ? '尚未抓到 WebSocket 帧。在浏览器中触发动作后此处会实时刷新。'
+                : 'No WebSocket frames yet.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      reverse: true,
+      itemCount: frames.length,
+      itemBuilder: (_, idx) {
+        final f = frames[frames.length - 1 - idx];
+        final isSent = f.direction == CdpWebSocketDirection.sent;
+        final isErr = f.direction == CdpWebSocketDirection.error;
+        final color = isErr
+            ? cs.errorContainer
+            : (isSent ? cs.tertiaryContainer : cs.surfaceContainerHigh);
+        final onColor = isErr
+            ? cs.onErrorContainer
+            : (isSent ? cs.onTertiaryContainer : cs.onSurface);
+        final ts =
+            f.timestamp.toIso8601String().split('T').last.split('.').first;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Container(
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isErr
+                          ? Icons.error_outline_rounded
+                          : (isSent
+                              ? Icons.arrow_upward_rounded
+                              : Icons.arrow_downward_rounded),
+                      size: 14,
+                      color: onColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _opcodeLabel(f.opcode),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontFamily: 'monospace',
+                        color: onColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      ts,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: onColor.withValues(alpha: 0.7),
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${f.payload.length}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: onColor.withValues(alpha: 0.7),
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  f.errorMessage ?? f.payload,
+                  maxLines: 8,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: onColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  static String _opcodeLabel(int op) => switch (op) {
+        1 => 'TEXT',
+        2 => 'BIN',
+        8 => 'CLOSE',
+        9 => 'PING',
+        10 => 'PONG',
+        _ => 'OP$op',
+      };
 }

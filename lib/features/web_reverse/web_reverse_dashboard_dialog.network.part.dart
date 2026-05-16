@@ -302,6 +302,17 @@ class _NetworkList extends StatelessWidget {
         ),
       );
     }
+    // 计算 Waterfall 时间窗：取列表中最早的 timestamp 与最晚的 finishedAt 作为
+    // 总轴；不足 200ms 时强制拉到 200ms 避免短请求条带塌缩。
+    final earliest = items
+        .map((e) => e.timestamp)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+    final latest = items.fold<DateTime>(earliest, (acc, e) {
+      final tail = e.loadingFinishedAt ?? e.responseReceivedAt ?? e.timestamp;
+      return tail.isAfter(acc) ? tail : acc;
+    });
+    var totalMs = latest.difference(earliest).inMilliseconds;
+    if (totalMs < 200) totalMs = 200;
     return ListView.builder(
       padding: const EdgeInsets.all(8),
       itemCount: items.length,
@@ -313,6 +324,8 @@ class _NetworkList extends StatelessWidget {
             duration: reduceMotion ? Duration.zero : _kSwitchDuration,
             child: _NetworkRow(
               entry: e,
+              earliest: earliest,
+              totalMs: totalMs,
               selected: e.requestId == selectedId,
               onTap: () => onSelect(e),
               onCopyUrl: () => onCopyUrl(e),
@@ -371,12 +384,16 @@ class _AnimatedAppearOnceState extends State<_AnimatedAppearOnce>
 class _NetworkRow extends StatelessWidget {
   const _NetworkRow({
     required this.entry,
+    required this.earliest,
+    required this.totalMs,
     required this.selected,
     required this.onTap,
     required this.onCopyUrl,
   });
 
   final CdpNetworkEntry entry;
+  final DateTime earliest;
+  final int totalMs;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onCopyUrl;
@@ -443,6 +460,7 @@ class _NetworkRow extends StatelessWidget {
                 ),
               ),
               Expanded(
+                flex: 3,
                 child: Text(
                   fileName,
                   maxLines: 1,
@@ -451,6 +469,17 @@ class _NetworkRow extends StatelessWidget {
                     fontFamily: 'monospace',
                     color: onColor,
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Waterfall：宽 140，按整窗 totalMs 推算条带 left/width。
+              Expanded(
+                flex: 2,
+                child: _Waterfall(
+                  entry: entry,
+                  earliest: earliest,
+                  totalMs: totalMs,
+                  selected: selected,
                 ),
               ),
               if (entry.fromCache)
@@ -481,5 +510,81 @@ class _NetworkRow extends StatelessWidget {
     } catch (_) {
       return url;
     }
+  }
+}
+
+/// Waterfall 单行：用两段条带表示「请求—响应」「响应—结束」两个时间区间。
+/// 颜色随选中态切换；总轴长度由父级算好的 totalMs 控制。
+class _Waterfall extends StatelessWidget {
+  const _Waterfall({
+    required this.entry,
+    required this.earliest,
+    required this.totalMs,
+    required this.selected,
+  });
+
+  final CdpNetworkEntry entry;
+  final DateTime earliest;
+  final int totalMs;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final start = entry.timestamp.difference(earliest).inMilliseconds;
+    final mid = (entry.responseReceivedAt ?? entry.loadingFinishedAt ?? entry.timestamp)
+        .difference(earliest)
+        .inMilliseconds;
+    final end = (entry.loadingFinishedAt ?? entry.responseReceivedAt ?? entry.timestamp)
+        .difference(earliest)
+        .inMilliseconds;
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = c.maxWidth;
+        if (w <= 0 || totalMs <= 0) return const SizedBox.shrink();
+        double xOf(int ms) => (ms.clamp(0, totalMs) / totalMs) * w;
+        final leftX = xOf(start);
+        final midX = xOf(mid);
+        final endX = xOf(end);
+        final waitW = (midX - leftX).clamp(2.0, w);
+        final downloadW = (endX - midX).clamp(0.0, w);
+        return SizedBox(
+          height: 16,
+          child: Stack(
+            children: [
+              Positioned(
+                left: leftX,
+                top: 5,
+                child: Container(
+                  width: waitW,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? cs.onPrimaryContainer.withValues(alpha: 0.7)
+                        : cs.primary.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              if (downloadW > 0)
+                Positioned(
+                  left: midX,
+                  top: 5,
+                  child: Container(
+                    width: downloadW,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? cs.onPrimaryContainer
+                          : cs.tertiary.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

@@ -74,7 +74,6 @@ class _WebReverseDashboardDialogState
   String _networkFilter = '';
   _ResourceFilter _resourceFilter = _ResourceFilter.all;
   bool _cacheDisabled = false;
-  bool _preserveLog = true;
   WebReverseThrottlePreset _throttle = WebReverseThrottlePreset.none;
   CdpNetworkEntry? _selectedRequest;
   final TextEditingController _filterCtrl = TextEditingController();
