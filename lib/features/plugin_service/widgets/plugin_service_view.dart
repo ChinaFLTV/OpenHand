@@ -4,14 +4,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import '../mcp/mcp_controller.dart';
-import '../mcp/model/mcp_server.dart';
-import 'model/plugin_info.dart';
-import 'plugin_service_controller.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../mcp/mcp_controller.dart';
+import '../../mcp/model/mcp_server.dart';
+import '../model/plugin_info.dart';
+import '../plugin_service_controller.dart';
 
 void _showPluginSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.maybeOf(context);

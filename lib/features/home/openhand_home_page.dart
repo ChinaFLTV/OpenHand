@@ -108,7 +108,7 @@ import '../mcp/widgets/tool_search_loaded_dialog.dart';
 import '../memory/index.dart';
 import '../message_gateway/message_gateway_controller.dart';
 import '../message_gateway/message_gateway_view.dart';
-import '../plugin_service/plugin_service_view.dart';
+import '../plugin_service/index.dart';
 import '../settings/settings_view.dart';
 import '../skills/model/local_skill.dart';
 import '../skills/skills_controller.dart';
