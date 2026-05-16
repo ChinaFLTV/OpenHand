@@ -1,24 +1,8 @@
 library;
-import '../../memory/index.dart';
-/// Hermes Talker 自主学习执行器 (Task 18 / 2026-04-25).
-///
-/// 本类负责为单个 Hermes Talker 会话派发一次"自我学习"流程：
-///
-/// 1. 将会话元数据 `self_learning_in_progress` 置为 `true`，防止并发重入。
-/// 2. 构造子 Agent 上下文：当前用户画像 + 自主学习记忆 + 最近一条
-///    `selfLearning` 消息之后的对话切片。
-/// 3. 当可选的 [llmDispatcher] 回调存在时，将上下文交给外部 LLM 驱动的
-///    子 Agent 执行（该回调可调用 memory / skill_manager 工具）；否则
-///    仅记录一条 status='skipped' 的 `selfLearning` 消息。
-/// 4. 将执行结果持久化为 `selfLearning` 消息卡片。
-/// 5. 清理 `self_learning_in_progress` 标记。
-///
-/// 错误处理：任何异常都会被捕获并写入一条 `status='error'` 的
-/// `selfLearning` 消息；`self_learning_in_progress` 始终会被清理。
-
 import 'dart:async';
 
 import '../../../app/support/silent_log.dart';
+import '../../memory/index.dart';
 import '../ai_session_controller.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';

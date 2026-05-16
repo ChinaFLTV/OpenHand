@@ -1,19 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import '../model/mcp_lazy_loading_mode.dart';
-
-/// Applies the MCP tool lazy-loading policy to a resolved tool catalog.
-///
-/// Shared by `AiSessionController` (chat sessions) and
-/// `HardnessApiPhaseRunner` (Hardness Engineering phases) so both surfaces
-/// honor the same `mcpLazyLoadingMode` + `mcpLazyLoadingThresholdTokens`
-/// settings, and so a single ToolSearch tool instance is configured per turn.
-///
-/// Pure data transformation: returns a new catalog and mutates the
-/// (singleton) `AiToolSearchTool.deferredTool*` fields used by ToolSearch
-/// at execution time.
 import '../../ai/index.dart';
+import '../model/mcp_lazy_loading_mode.dart';
 class McpLazyLoadingApplier {
   const McpLazyLoadingApplier();
 

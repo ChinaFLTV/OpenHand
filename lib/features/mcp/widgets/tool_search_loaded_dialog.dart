@@ -11,13 +11,9 @@ import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../ai/index.dart';
 import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
-
-/// 弹出 [ToolSearchLoadedDialog] 的便捷入口。
-/// 复用方：[OpenHandHomePage] 的 SnackBar action、MCP 设置页快捷入口、
-/// 以及未来其它需要展示「本会话已加载 MCP 工具」的场景。
-import '../../ai/index.dart';
 Future<void> showToolSearchLoadedDialog(
   BuildContext context, {
   required List<String> names,

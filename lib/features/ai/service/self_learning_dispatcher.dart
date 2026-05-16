@@ -1,25 +1,7 @@
 library;
-import '../../memory/index.dart';
-/// Hermes Talker 自主学习 LLM dispatcher (Task 18 Step 4-5 / 2026-04-25).
-///
-/// 构造一个受限子 Agent：使用流式 chat 调用，把 `Memory` 和 `SkillManager`
-/// 作为仅有的两个工具暴露给模型，然后在工具调用循环中真正执行模型请求的
-/// 记忆/技能写入操作。每轮工具调用后把结果喂回模型继续对话，直到模型停止
-/// 调用工具（或达到最大轮次）。
-///
-/// 设计要点：
-/// * 只开放 `memory` + `skill_manager` 两个内置工具 — 没有 bash / web /
-///   文件读写。即使 prompt 被注入也无法越权。
-/// * 工具执行直接调用各自 `run(args)` 便捷入口，不走完整 runtime（省去
-///   permission gate / catalog 解析，这两者在受限子 Agent 上下文里意义
-///   不大），但依赖的持久化（MemoryController 队列 / 原子写）均已就绪。
-/// * 流式输出同时驱动 self_learning 卡片的 `ai_response` / `ai_reasoning`
-///   字段（通过 [SelfLearningContext.onProgress]）。多轮工具调用以
-///   `\n\n[tool-call round N 之后]\n\n` 作为分隔符追加，让用户能看到
-///   完整思考 → 调用 → 再思考 → 回答的轨迹。
-
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
+import '../../memory/index.dart';
 import '../model/ai_model_catalog.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';

@@ -10,13 +10,12 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
+import '../../ai/index.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_stdio_mirror_mode.dart';
 import '../model/mcp_tool.dart';
 import 'mcp_stdio_process_manager.dart';
-
-import '../../ai/index.dart';
 abstract class McpToolDiscoveryService {
   Future<McpToolCatalog> discoverTools(McpServer server);
   Future<McpServerHealth> checkHealth(McpServer server);

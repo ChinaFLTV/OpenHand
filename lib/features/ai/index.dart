@@ -2,6 +2,7 @@
 // so sibling features only need a single 'features/ai/index.dart' import.
 // Re-narrow with 'show' clauses on a per-symbol basis only if proven necessary.
 
+
 export 'ai_module.dart';
 export 'ai_session_controller.dart';
 
@@ -21,9 +22,9 @@ export 'model/ai_lsp_language_settings.dart';
 export 'model/ai_model_catalog.dart';
 export 'model/ai_model_config.dart';
 export 'model/ai_sandbox_settings.dart';
+export 'model/ai_session.dart';
 export 'model/ai_session_message.dart';
 export 'model/ai_session_runtime_context.dart';
-export 'model/ai_session.dart';
 export 'model/ai_thread_template.dart';
 export 'model/ai_token_usage.dart';
 export 'model/ai_web_fetch_settings.dart';
@@ -109,11 +110,11 @@ export 'tools/ai_read_tool.dart';
 export 'tools/ai_skill_manager_tool.dart';
 export 'tools/ai_task_tool.dart';
 export 'tools/ai_todo_write_tool.dart';
+export 'tools/ai_tool.dart';
 export 'tools/ai_tool_execution_context.dart';
 export 'tools/ai_tool_registry.dart';
 export 'tools/ai_tool_search_tool.dart';
 export 'tools/ai_tool_utils.dart';
-export 'tools/ai_tool.dart';
 export 'tools/ai_web_fetch_tool.dart';
 export 'tools/ai_web_search_tool.dart';
 export 'tools/ai_write_tool.dart';

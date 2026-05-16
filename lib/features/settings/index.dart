@@ -3,4 +3,4 @@
 export 'widgets/settings_view.dart'
     show SettingsView, showAiModelEditorDialog;
 export 'widgets/thread_session_management_dialog.dart'
-    show ThreadSessionManagementDialog;
+    show showThreadSessionManagementDialog;

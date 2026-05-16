@@ -7,13 +7,11 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
+import '../../ai/index.dart';
 import '../../mcp/index.dart';
+import '../model/hardness_phase.dart';
 import '../service/hardness_orchestrator.dart';
 import '../service/hardness_prompt_builder.dart';
-import '../model/hardness_phase.dart';
-
-/// Result of a single API-based Hardness phase execution.
-import '../../ai/index.dart';
 class HardnessApiPhaseResult {
   const HardnessApiPhaseResult({
     required this.success,

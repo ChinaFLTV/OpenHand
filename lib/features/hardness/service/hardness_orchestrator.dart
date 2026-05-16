@@ -6,18 +6,14 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
-import '../service/hardness_api_phase_runner.dart';
-import '../service/hardness_cli_catalog.dart';
-import '../service/hardness_prompt_builder.dart';
+import '../../ai/index.dart';
 import '../model/hardness_phase.dart';
 import '../model/hardness_phase_context_config.dart';
 import '../model/hardness_role_config.dart';
 import '../model/hardness_session_config.dart';
-
-/// Framework version for the Hardness Engineering orchestrator protocol.
-/// Increment when the prompt schema or orchestration logic changes
-/// in a breaking / significant way.
-import '../../ai/index.dart';
+import '../service/hardness_api_phase_runner.dart';
+import '../service/hardness_cli_catalog.dart';
+import '../service/hardness_prompt_builder.dart';
 const int kHardnessOrchestratorVersion = 1;
 const String kHardnessOrchestratorDisplayVersion = '1.0.0';
 

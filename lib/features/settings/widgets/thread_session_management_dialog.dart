@@ -13,11 +13,11 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../ai/index.dart';
 
 /// Shows the Thread Session Management dialog. Honors the global dialog
 /// animation settings (entrance/exit are picked from the nearest
 /// `SettingsController` automatically by [showAnimatedDialog]).
-import '../../ai/index.dart';
 Future<void> showThreadSessionManagementDialog(BuildContext context) {
   return showAnimatedDialog<void>(
     context: context,

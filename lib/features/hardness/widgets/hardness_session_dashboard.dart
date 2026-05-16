@@ -25,19 +25,14 @@ import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../ai/index.dart';
 import '../../home/message_path_linking.dart';
-import '../service/hardness_cli_catalog.dart';
-import '../service/hardness_orchestrator.dart';
 import '../model/hardness_phase.dart';
 import '../model/hardness_role_config.dart';
 import '../model/hardness_session_config.dart';
+import '../service/hardness_cli_catalog.dart';
+import '../service/hardness_orchestrator.dart';
 import 'hardness_pending_replay_badge.dart';
-
-// 2026-04-27 Split scaffolding (step 0). The implementation is being
-// progressively extracted into per-section part files. Each part shares the
-// same library scope, so all private types remain accessible without
-// changing call sites.
-import '../../ai/index.dart';
 part 'hardness_session_dashboard.header.part.dart';
 part 'hardness_session_dashboard.phase_card.part.dart';
 part 'hardness_session_dashboard.log_views.part.dart';

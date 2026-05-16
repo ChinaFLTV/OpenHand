@@ -11,14 +11,13 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
-import '../service/hardness_cli_catalog.dart';
-import 'hardness_cli_install_dialog.dart';
-import 'hardness_cli_login_dialog.dart';
+import '../../ai/index.dart';
 import '../model/hardness_agent_role.dart';
 import '../model/hardness_role_config.dart';
 import '../model/hardness_session_config.dart';
-
-import '../../ai/index.dart';
+import '../service/hardness_cli_catalog.dart';
+import 'hardness_cli_install_dialog.dart';
+import 'hardness_cli_login_dialog.dart';
 const double _kHardnessModeDropdownWidth = 132;
 
 class HardnessEngineeringDialog extends StatefulWidget {
