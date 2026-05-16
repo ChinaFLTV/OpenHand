@@ -345,10 +345,18 @@ class _InstructionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final taskTypes = entry.taskTypes.take(4).toList(growable: false);
-    final hiddenTaskTypeCount = entry.taskTypes.length - taskTypes.length;
-    final keywords = entry.keywords.take(4).toList(growable: false);
-    final hiddenKeywordCount = entry.keywords.length - keywords.length;
+    // 过滤空白项，避免持久化历史中遗留的空字符串渲染出"空胶囊"。
+    final visibleTaskTypes = entry.taskTypes
+        .where((value) => value.trim().isNotEmpty)
+        .toList(growable: false);
+    final visibleKeywords = entry.keywords
+        .where((value) => value.trim().isNotEmpty)
+        .toList(growable: false);
+    final taskTypes = visibleTaskTypes.take(4).toList(growable: false);
+    final hiddenTaskTypeCount = visibleTaskTypes.length - taskTypes.length;
+    final keywords = visibleKeywords.take(4).toList(growable: false);
+    final hiddenKeywordCount = visibleKeywords.length - keywords.length;
+    final trimmedVersion = entry.version.trim();
 
     return HoverLift(
       child: Card(
@@ -490,10 +498,11 @@ class _InstructionCard extends StatelessWidget {
                         disabledLabel: l10n.instructionDisabledStatus,
                         onPressed: () => onToggle(!entry.enabled),
                       ),
-                      _MetadataChip(
-                        icon: Icons.label_outline_rounded,
-                        label: 'v${entry.version}',
-                      ),
+                      if (trimmedVersion.isNotEmpty)
+                        _MetadataChip(
+                          icon: Icons.label_outline_rounded,
+                          label: 'v$trimmedVersion',
+                        ),
                       if (entry.applyTo.trim().isNotEmpty)
                         _MetadataChip(
                           icon: Icons.account_tree_outlined,
@@ -722,13 +731,17 @@ class _MetadataChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    // 与 [_InstructionToggleChip] 保持一致的尺寸/字号/形状/密度，
+    // 让卡片底部的胶囊行视觉节奏整齐统一。
     return Chip(
       avatar: Icon(icon, size: 18, color: colorScheme.outline),
       label: Text(label),
-      side: BorderSide.none,
+      side: BorderSide(color: colorScheme.outlineVariant),
       backgroundColor: colorScheme.surfaceContainerHighest,
-      labelStyle: theme.textTheme.labelSmall?.copyWith(
+      shape: const StadiumBorder(),
+      labelStyle: theme.textTheme.labelLarge?.copyWith(
         color: colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w600,
       ),
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

@@ -105,6 +105,23 @@ class InstructionsController extends ChangeNotifier {
     if (normalizedName.isEmpty || normalizedBody.isEmpty) {
       return false;
     }
+    final normalizedNotes = UserInstructionEntry.normalizeStringList(
+      notes,
+      maxItems: UserInstructionEntry.maxNotes,
+      maxItemLength: UserInstructionEntry.maxNoteLength,
+    );
+    final normalizedTaskTypes = UserInstructionEntry.normalizeStringList(
+      taskTypes,
+      maxItems: UserInstructionEntry.maxTaskTypes,
+      maxItemLength: 64,
+      dedupeCaseInsensitive: true,
+    );
+    final normalizedKeywords = UserInstructionEntry.normalizeStringList(
+      keywords,
+      maxItems: UserInstructionEntry.maxKeywords,
+      maxItemLength: 64,
+      dedupeCaseInsensitive: true,
+    );
     return _enqueueOperation(() async {
       final now = _clock();
       // 新指令排到末尾。
@@ -118,9 +135,9 @@ class InstructionsController extends ChangeNotifier {
         description: description,
         version: UserInstructionEntry.normalizeVersion(version),
         applyTo: applyTo,
-        notes: notes,
-        taskTypes: taskTypes,
-        keywords: keywords,
+        notes: normalizedNotes,
+        taskTypes: normalizedTaskTypes,
+        keywords: normalizedKeywords,
         enabled: enabled,
         sortOrder: maxOrder + 1,
         createdAt: now,
@@ -153,9 +170,29 @@ class InstructionsController extends ChangeNotifier {
             ? null
             : UserInstructionEntry.normalizeVersion(version),
         applyTo: applyTo,
-        notes: notes,
-        taskTypes: taskTypes,
-        keywords: keywords,
+        notes: notes == null
+            ? null
+            : UserInstructionEntry.normalizeStringList(
+                notes,
+                maxItems: UserInstructionEntry.maxNotes,
+                maxItemLength: UserInstructionEntry.maxNoteLength,
+              ),
+        taskTypes: taskTypes == null
+            ? null
+            : UserInstructionEntry.normalizeStringList(
+                taskTypes,
+                maxItems: UserInstructionEntry.maxTaskTypes,
+                maxItemLength: 64,
+                dedupeCaseInsensitive: true,
+              ),
+        keywords: keywords == null
+            ? null
+            : UserInstructionEntry.normalizeStringList(
+                keywords,
+                maxItems: UserInstructionEntry.maxKeywords,
+                maxItemLength: 64,
+                dedupeCaseInsensitive: true,
+              ),
         enabled: enabled,
         updatedAt: _clock(),
       );
