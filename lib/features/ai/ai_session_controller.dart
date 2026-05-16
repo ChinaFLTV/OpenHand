@@ -576,6 +576,12 @@ class AiSessionController extends ChangeNotifier {
       <String, AiStreamThrottleOverride>{};
   final ValueNotifier<int> _sessionStreamThrottleSignal = ValueNotifier<int>(0);
 
+  /// 2026-05-17 — 会话级活跃 cardThrottle 引用，仅在该会话流式中存在；
+  /// 用于 TopBar 节流胶囊读取当前积压卡片数。streaming 结束后由控制器
+  /// 清理。
+  final Map<String, _StreamCardThrottle> _activeCardThrottles =
+      <String, _StreamCardThrottle>{};
+
   /// 手动压缩防抖 — 同一会话两次手动压缩之间的最小间隔。
   /// 值不可低于 [_manualCompactionMinIntervalMs]，与「Cooldown」错误一并消化。
   final Map<String, DateTime> _lastManualCompactionAt = <String, DateTime>{};
@@ -654,6 +660,13 @@ class AiSessionController extends ChangeNotifier {
   /// 任何会话级覆盖的变更，实时刷新指示器。
   AiStreamThrottleOverride? sessionStreamThrottleOverride(String sessionId) =>
       _sessionStreamThrottleOverrides[sessionId];
+
+  /// 当前会话流式 cardThrottle 的积压卡片数；非流式或限速关闭返回 0。
+  int sessionStreamCardBacklog(String sessionId) {
+    final throttle = _activeCardThrottles[sessionId];
+    if (throttle == null || !throttle.isEnabled) return 0;
+    return throttle.pendingCount;
+  }
 
   /// 单调递增的信号；任意会话的节流覆盖被改写时 +1，UI 据此 setState。
   ValueListenable<int> get streamThrottleOverrideSignal =>
@@ -3366,8 +3379,14 @@ class AiSessionController extends ChangeNotifier {
       );
       cardThrottle = _StreamCardThrottle(
         maxCardsPerSecond: effCards,
-        onCardEmitted: () => schedulePreview('cardThrottle'),
+        onCardEmitted: () {
+          schedulePreview('cardThrottle');
+          // 卡片释放/积压变化时重用 signal 让 UI 即时刷新积压数。
+          _sessionStreamThrottleSignal.value =
+              _sessionStreamThrottleSignal.value + 1;
+        },
       );
+      _activeCardThrottles[workingSession.id] = cardThrottle;
 
       final subscription = streamResponse.events.listen((event) {
         var sessionChanged = false;
@@ -3629,6 +3648,9 @@ class AiSessionController extends ChangeNotifier {
         charThrottle.release();
         reasoningCharThrottle.release();
         cardThrottle.releaseAll();
+        _activeCardThrottles.remove(workingSession.id);
+        _sessionStreamThrottleSignal.value =
+            _sessionStreamThrottleSignal.value + 1;
         await subscription.cancel();
         _setSessionCancelHandler(workingSession.id, null);
         materializePendingReasoningPreview();
@@ -3666,15 +3688,47 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       _setSessionCancelHandler(workingSession.id, null);
-      // 流正常结束：先放开字符限速，让 renderAssistantBuffered 在后续
-      // 入队回调里直接看到完整 sanitized 文本；再 releaseAll 卡片限速，
-      // 让队列里所有 pending 卡片一次性追加到会话中。
+      final didCancelStreamEarly =
+          result.wasCancelled || _isStopRequestedForSession(workingSession.id);
+      // 2026-05-17 — 软排空：如果服务端 stream 比节流速率快得多，结束
+      // 时令牌桶里仍可能有几十/几百字符未释放。直接 release 会让 UI 一
+      // 次性 burst 出剩余内容，破坏打字机体验。这里改为先等令牌按节奏
+      // 把 pending 字符均匀放出（最长 wait = pending / rate * 1.2 +
+      // 缓冲；上限 8s 避免极端值卡住后续轮次）。如果用户主动 stop 或
+      // 出现错误，则跳过等待立即 release 把残余补齐。
+      if (!didCancelStreamEarly) {
+        final pendingChars = math.max(
+          assistantRawBuffer.length - 0,
+          reasoningRawBuffer.length - 0,
+        );
+        final effectiveCharsPerSec = effChars;
+        final maxWaitMs = effectiveCharsPerSec <= 0
+            ? 0
+            : math.min(
+                8000,
+                ((pendingChars * 1200) / effectiveCharsPerSec).ceil(),
+              );
+        if (maxWaitMs > 0) {
+          await Future.wait(<Future<void>>[
+            charThrottle.drainGracefully(
+              maxWait: Duration(milliseconds: maxWaitMs),
+            ),
+            reasoningCharThrottle.drainGracefully(
+              maxWait: Duration(milliseconds: maxWaitMs),
+            ),
+          ]).catchError((_) => <Object>[]);
+        }
+      }
+      // 流正常结束：放开字符余量、回放 pending 卡片，确保即便 drain
+      // 超时也能把残余字符一次性补到 UI（兜底）。
       charThrottle.release();
       reasoningCharThrottle.release();
       cardThrottle.releaseAll();
+      _activeCardThrottles.remove(workingSession.id);
+      _sessionStreamThrottleSignal.value =
+          _sessionStreamThrottleSignal.value + 1;
       materializePendingReasoningPreview();
-      final didCancelStream =
-          result.wasCancelled || _isStopRequestedForSession(workingSession.id);
+      final didCancelStream = didCancelStreamEarly;
       // Always preserve the intermediate assistant narration if it has
       // meaningful content after sanitization.  Previous versions removed this
       // message when tool calls were present, which caused the AI's chain-of-

@@ -137,8 +137,10 @@ class AiSessionRuntimeContext {
     this.connectTimeoutSeconds = 60,
     this.responseTimeoutSeconds = 120,
     this.streamIdleTimeoutSeconds = 120,
-    this.streamMaxCharsPerSecond = 3,
+    this.streamMaxCharsPerSecond = 5,
     this.streamMaxMessageCardsPerSecond = 1,
+    this.streamThrottleEnabled = true,
+    this.streamThrottleAutoMode = false,
     this.streamThrottleTemplateOverrides =
         const <String, AiStreamThrottleOverride>{},
     this.autoTitleEnabled = true,
@@ -342,14 +344,24 @@ class AiSessionRuntimeContext {
   /// [streamMaxMessageCardsPerSecond]。
   final Map<String, AiStreamThrottleOverride> streamThrottleTemplateOverrides;
 
+  /// 2026-05-17 — 全局节流总开关（false 时上述速率全部强制为 0）。
+  final bool streamThrottleEnabled;
+
+  /// 2026-05-17 — 自动模式（true 时按平台预设，覆盖手动配置）。
+  final bool streamThrottleAutoMode;
+
   /// 返回指定模板生效的字符节流速率：模板覆盖优先于全局。
   int effectiveStreamMaxCharsPerSecond(String templateIdValue) {
+    if (!streamThrottleEnabled) return 0;
+    if (streamThrottleAutoMode) return streamMaxCharsPerSecond;
     final override = streamThrottleTemplateOverrides[templateIdValue];
     return override?.charsPerSecond ?? streamMaxCharsPerSecond;
   }
 
   /// 返回指定模板生效的卡片节流速率：模板覆盖优先于全局。
   int effectiveStreamMaxMessageCardsPerSecond(String templateIdValue) {
+    if (!streamThrottleEnabled) return 0;
+    if (streamThrottleAutoMode) return streamMaxMessageCardsPerSecond;
     final override = streamThrottleTemplateOverrides[templateIdValue];
     return override?.cardsPerSecond ?? streamMaxMessageCardsPerSecond;
   }

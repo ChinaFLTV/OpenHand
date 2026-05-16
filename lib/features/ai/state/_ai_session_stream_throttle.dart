@@ -118,6 +118,26 @@ class _StreamCharThrottle {
     _emittedChars = 1 << 30;
     _budget = (1 << 30).toDouble();
   }
+
+  /// 当前是否还有 pending 字符未被释放给 UI（仅在 isEnabled=true 时有意义）。
+  bool get hasPending => isEnabled && !_disposed && _emittedChars < _lastKnownTotal;
+
+  /// 软排空：异步等待直到 _emittedChars 追上 _lastKnownTotal 或超过
+  /// [maxWait]。流结束后调用，让残余字符仍按节流速率均匀放出，避免
+  /// 「最后一刻一次性 burst 出全部内容」的糟糕观感。
+  ///
+  /// 返回 true 表示自然排空，false 表示因超时被外部强制 release。
+  Future<bool> drainGracefully({Duration? maxWait}) async {
+    if (!hasPending) return true;
+    final deadline = maxWait == null ? null : DateTime.now().add(maxWait);
+    while (hasPending) {
+      if (deadline != null && DateTime.now().isAfter(deadline)) {
+        return false;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 32));
+    }
+    return true;
+  }
 }
 
 /// 卡片级令牌桶限速器。
@@ -144,6 +164,10 @@ class _StreamCardThrottle {
   DateTime _lastTickAt;
 
   bool get isEnabled => maxCardsPerSecond > 0;
+
+  /// 当前积压的待发卡片数（仅在 isEnabled=true 时有意义）。供 TopBar
+  /// 节流胶囊把"等几张"实时反馈给用户。
+  int get pendingCount => _pending.length;
 
   bool tryAcquire(VoidCallback create) {
     if (_disposed || !isEnabled) {

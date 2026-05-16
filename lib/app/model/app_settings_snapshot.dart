@@ -108,6 +108,8 @@ class AppSettingsSnapshot {
       aiStreamMaxCharsPerSecond: defaultAiStreamMaxCharsPerSecond,
       aiStreamMaxMessageCardsPerSecond:
           defaultAiStreamMaxMessageCardsPerSecond,
+      aiStreamThrottleEnabled: defaultAiStreamThrottleEnabled,
+      aiStreamThrottleAutoMode: defaultAiStreamThrottleAutoMode,
       aiStreamThrottleTemplateOverrides:
           const <String, AiStreamThrottleOverride>{},
       aiAutoTitleEnabled: true,
@@ -229,6 +231,8 @@ class AppSettingsSnapshot {
     required this.aiStreamIdleTimeoutSeconds,
     required this.aiStreamMaxCharsPerSecond,
     required this.aiStreamMaxMessageCardsPerSecond,
+    required this.aiStreamThrottleEnabled,
+    required this.aiStreamThrottleAutoMode,
     required this.aiStreamThrottleTemplateOverrides,
     required this.aiAutoTitleEnabled,
     required this.aiDefaultSessionMode,
@@ -536,7 +540,7 @@ class AppSettingsSnapshot {
   /// 字符数（按 Unicode code point 计）。当 AI 侧短时间内回吐大量字符时，
   /// 通过该背压阀控制 UI 端追加速率，避免主线程被 markdown/widget 重建洪
   /// 水冲垮，从而保持 60fps 流畅滚动与稳定 UI。设置为 0 表示关闭节流。
-  static const int defaultAiStreamMaxCharsPerSecond = 3;
+  static const int defaultAiStreamMaxCharsPerSecond = 5;
   static const int minAiStreamMaxCharsPerSecond = 0;
   static const int maxAiStreamMaxCharsPerSecond = 100000;
 
@@ -546,6 +550,17 @@ class AppSettingsSnapshot {
   static const int defaultAiStreamMaxMessageCardsPerSecond = 1;
   static const int minAiStreamMaxMessageCardsPerSecond = 0;
   static const int maxAiStreamMaxMessageCardsPerSecond = 60;
+
+  /// 2026-05-17 — 全局节流总开关（默认 true）。关闭后字符 / 卡片限速
+  /// 全部失效，所有会话以真实速率全速渲染。
+  static const bool defaultAiStreamThrottleEnabled = true;
+
+  /// 2026-05-17 — 自动模式总开关（默认 false）。开启后自动按平台 /
+  /// 设备性能选择速率，忽略手动配置。
+  static const bool defaultAiStreamThrottleAutoMode = false;
+  static const int autoStreamMaxCharsPerSecondDesktop = 12;
+  static const int autoStreamMaxCharsPerSecondMobile = 6;
+  static const int autoStreamMaxMessageCardsPerSecondAuto = 2;
 
   /// 子进程 graceful shutdown 等待窗口（毫秒）。在 SIGTERM 之后等待
   /// 该时长，若进程仍未退出则升级到 SIGKILL。值越大越仁慈，但 UI
@@ -734,6 +749,13 @@ class AppSettingsSnapshot {
   /// 0 表示关闭节流。
   final int aiStreamMaxMessageCardsPerSecond;
 
+  /// 2026-05-17 — 全局节流总开关。关闭后字符 / 卡片限速全部失效。
+  final bool aiStreamThrottleEnabled;
+
+  /// 2026-05-17 — 自动模式总开关。开启后忽略手动配置，按平台 / 性能
+  /// 选择速率。
+  final bool aiStreamThrottleAutoMode;
+
   /// 2026-05-17 — 每个线程模板对流式节流参数的独立覆盖（按 templateId
   /// 索引）。覆盖中的字段为 null 表示沿用全局值；isEmpty 的 entry 会被
   /// 持久化层剔除避免存储 noise。
@@ -890,6 +912,8 @@ class AppSettingsSnapshot {
     int? aiStreamIdleTimeoutSeconds,
     int? aiStreamMaxCharsPerSecond,
     int? aiStreamMaxMessageCardsPerSecond,
+    bool? aiStreamThrottleEnabled,
+    bool? aiStreamThrottleAutoMode,
     Map<String, AiStreamThrottleOverride>? aiStreamThrottleTemplateOverrides,
     bool? aiAutoTitleEnabled,
     String? aiDefaultSessionMode,
@@ -1054,6 +1078,10 @@ class AppSettingsSnapshot {
       aiStreamMaxMessageCardsPerSecond:
           aiStreamMaxMessageCardsPerSecond ??
           this.aiStreamMaxMessageCardsPerSecond,
+      aiStreamThrottleEnabled:
+          aiStreamThrottleEnabled ?? this.aiStreamThrottleEnabled,
+      aiStreamThrottleAutoMode:
+          aiStreamThrottleAutoMode ?? this.aiStreamThrottleAutoMode,
       aiStreamThrottleTemplateOverrides:
           aiStreamThrottleTemplateOverrides ??
           this.aiStreamThrottleTemplateOverrides,
