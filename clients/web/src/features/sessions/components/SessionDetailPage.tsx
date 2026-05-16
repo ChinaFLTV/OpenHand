@@ -33,6 +33,8 @@ import {
   updateSessionFullAccessPermission,
   updateSessionMode,
   compactSession,
+  setSessionThrottle,
+  clearSessionThrottle,
   type CompactSessionResponse,
   type CompactSessionStatus,
   type SendMessageAttachment,
@@ -1015,6 +1017,15 @@ export function SessionDetailPage() {
   const [permissionSaving, setPermissionSaving] = useState(false);
   const [pendingFullAccess, setPendingFullAccess] = useState<boolean | null>(null);
   const [pendingWriteApproval, setPendingWriteApproval] = useState<PendingWriteApproval | null>(null);
+
+  /// 2026-05-17 — 当前会话的有效流式节流状态（来自 SSE snapshot）。用于
+  /// TopBar 节流胶囊渲染绿/灰色与字符/卡片速率。
+  const [streamThrottle, setStreamThrottle] = useState<{
+    chars: number;
+    cards: number;
+    hasOverride: boolean;
+  } | null>(null);
+  const [throttleDialogOpen, setThrottleDialogOpen] = useState(false);
   const [writeApprovalBusy, setWriteApprovalBusy] = useState(false);
 
   const detailAbortRef = useRef<AbortController | null>(null);
@@ -1115,6 +1126,7 @@ export function SessionDetailPage() {
     setSessionMetadataOpen(false);
     setTokenStatsOpen(false);
     setContextStatsOpen(false);
+    setThrottleDialogOpen(false);
     setWebReverseDashboardOpen(false);
     imageEditorResolverRef.current?.(null);
     imageEditorResolverRef.current = null;
@@ -1984,6 +1996,14 @@ export function SessionDetailPage() {
         setSendPhase(snap.send_phase);
         setLastError(snap.last_error);
         setPendingWriteApproval(snap.pending_write_approval ?? null);
+        const throttle = snap.effective_stream_throttle;
+        if (throttle) {
+          setStreamThrottle({
+            chars: throttle.chars_per_second ?? 0,
+            cards: throttle.cards_per_second ?? 0,
+            hasOverride: throttle.has_session_override === true,
+          });
+        }
       },
       onDeleted: () => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
@@ -3056,6 +3076,30 @@ export function SessionDetailPage() {
         onClick: () => setContextStatsOpen(true),
       });
     }
+    // 2026-05-17 — TopBar 节流指示胶囊：绿色 = 字符与卡片限速都开着；
+    // 灰色 = 任一被关闭或当前生效值为 0。点击打开会话级临时调整对话框。
+    if (streamThrottle) {
+      const disabled =
+        (streamThrottle.chars ?? 0) <= 0 || (streamThrottle.cards ?? 0) <= 0;
+      const label = disabled
+        ? t('topbar.throttle.off', '节流·关')
+        : t('topbar.throttle.value', '字{chars}·卡{cards}')
+            .replace('{chars}', String(streamThrottle.chars))
+            .replace('{cards}', String(streamThrottle.cards));
+      capsules.push({
+        key: 'stream-throttle',
+        icon: 'throttle',
+        label,
+        title: disabled
+          ? t(
+              'topbar.throttle.off.title',
+              '节流已关闭：AI 输出将以真实速率全速渲染。',
+            )
+          : t('topbar.throttle.on.title', '点击调整本会话节流速率（仅本进程生效）'),
+        tone: disabled ? 'muted' : 'success',
+        onClick: () => setThrottleDialogOpen(true),
+      });
+    }
     if (session.template_id === 'programming_expert') {
       capsules.push({
         key: 'files',
@@ -3080,7 +3124,7 @@ export function SessionDetailPage() {
       });
     }
     return capsules;
-  }, [session, totalKnown, sessionId]);
+  }, [session, totalKnown, sessionId, streamThrottle]);
   const pull = usePullToRefresh(mainRef, {
     enabled: !loadingDetail && !loadingOlder,
     onRefresh: async () => {
@@ -3984,6 +4028,13 @@ export function SessionDetailPage() {
         <WebReverseDashboardDialog
           session={session}
           onClose={() => setWebReverseDashboardOpen(false)}
+        />
+      ) : null}
+      {throttleDialogOpen && sessionId ? (
+        <SessionThrottleDialog
+          sessionId={sessionId}
+          current={streamThrottle}
+          onClose={() => setThrottleDialogOpen(false)}
         />
       ) : null}
       {pendingDeleteAction ? (
@@ -5645,6 +5696,178 @@ function SessionAuditDialog({
         >
           {json}
         </pre>
+      </div>
+    </div>
+  );
+  return <OverlayPortal>{node}</OverlayPortal>;
+}
+
+
+/// 2026-05-17 — 「会话级临时节流」弹窗。
+///
+/// 仅本进程生效，不持久化；用户可分别为字符 / 卡片速率指定 0..上限内的整
+/// 数；留空 = 沿用模板/全局值；0 = 该方向关闭节流并展示禁用提示。"恢复
+/// 默认"清除全部覆盖。
+function SessionThrottleDialog({
+  sessionId,
+  current,
+  onClose,
+}: {
+  sessionId: string;
+  current: { chars: number; cards: number; hasOverride: boolean } | null;
+  onClose: () => void;
+}) {
+  const initialChars = current?.hasOverride ? String(current.chars) : '';
+  const initialCards = current?.hasOverride ? String(current.cards) : '';
+  const [chars, setChars] = useState(initialChars);
+  const [cards, setCards] = useState(initialCards);
+  const [busy, setBusy] = useState(false);
+
+  const parse = (raw: string): number | null | undefined => {
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) return undefined;
+    const n = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(n) || n < 0) return null;
+    return n;
+  };
+
+  const apply = async () => {
+    const c = parse(chars);
+    const m = parse(cards);
+    if (c === null || m === null) {
+      showSnackbar(t('topbar.throttle.invalid', '请输入 0 或正整数'), {
+        tone: 'error',
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      const patch: { charsPerSecond?: number | null; cardsPerSecond?: number | null } = {};
+      patch.charsPerSecond = c === undefined ? null : c;
+      patch.cardsPerSecond = m === undefined ? null : m;
+      await setSessionThrottle(sessionId, patch);
+      showSnackbar(t('topbar.throttle.saved', '已应用本会话节流'), { tone: 'success' });
+      onClose();
+    } catch (err) {
+      showSnackbar(
+        `${t('topbar.throttle.failed', '应用节流失败')}：${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        { tone: 'error' },
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reset = async () => {
+    setBusy(true);
+    try {
+      await clearSessionThrottle(sessionId);
+      showSnackbar(t('topbar.throttle.reset', '已恢复模板/全局节流'), { tone: 'success' });
+      onClose();
+    } catch (err) {
+      showSnackbar(
+        `${t('topbar.throttle.failed', '应用节流失败')}：${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        { tone: 'error' },
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const node = (
+    <div
+      class="oh-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+      style={{ background: 'rgba(0,0,0,0.45)' }}
+    >
+      <div
+        class="oh-dialog-pop-in rounded-m3-md p-5 w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--m3-surface-container-high)' }}
+      >
+        <h2 class="text-base font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
+          {t('topbar.throttle.dialogTitle', '本会话流式节流（临时）')}
+        </h2>
+        <p class="text-xs mb-4" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {t(
+            'topbar.throttle.dialogHint',
+            '仅在当前进程内生效，重启即恢复模板/全局值。留空 = 沿用，0 = 关闭节流。',
+          )}
+        </p>
+        <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {t('topbar.throttle.charsLabel', '字符 / 秒')}
+        </label>
+        <input
+          type="number"
+          min={0}
+          value={chars}
+          onInput={(e) => setChars((e.target as HTMLInputElement).value)}
+          class="w-full mb-3 px-3 py-2 rounded-m3-sm text-sm"
+          style={{
+            background: 'var(--m3-surface)',
+            border: '1px solid var(--m3-outline-variant)',
+            color: 'var(--m3-on-surface)',
+          }}
+          placeholder={current ? String(current.chars) : '3'}
+        />
+        <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {t('topbar.throttle.cardsLabel', '卡片 / 秒')}
+        </label>
+        <input
+          type="number"
+          min={0}
+          value={cards}
+          onInput={(e) => setCards((e.target as HTMLInputElement).value)}
+          class="w-full mb-4 px-3 py-2 rounded-m3-sm text-sm"
+          style={{
+            background: 'var(--m3-surface)',
+            border: '1px solid var(--m3-outline-variant)',
+            color: 'var(--m3-on-surface)',
+          }}
+          placeholder={current ? String(current.cards) : '1'}
+        />
+        <div class="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={reset}
+            disabled={busy}
+            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+            style={{
+              border: '1px solid var(--m3-outline-variant)',
+              color: 'var(--m3-on-surface)',
+            }}
+          >
+            {t('topbar.throttle.reset.action', '恢复默认')}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+            style={{
+              border: '1px solid var(--m3-outline-variant)',
+              color: 'var(--m3-on-surface)',
+            }}
+          >
+            {t('common.cancel', '取消')}
+          </button>
+          <button
+            type="button"
+            onClick={apply}
+            disabled={busy}
+            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+            style={{
+              background: 'var(--m3-primary)',
+              color: 'var(--m3-on-primary)',
+            }}
+          >
+            {t('common.apply', '应用')}
+          </button>
+        </div>
       </div>
     </div>
   );

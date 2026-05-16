@@ -125,6 +125,8 @@ class _SessionToolbar extends StatelessWidget {
                                 },
                               ),
                             ],
+                            const SizedBox(width: 8),
+                            _StreamThrottlePill(sessionId: session.id),
                             if (_isInputCacheLocked(context, session)) ...[
                               const SizedBox(width: 8),
                               Tooltip(
@@ -2475,6 +2477,284 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// 顶栏「流式节流」状态指示胶囊。
+///
+/// 2026-05-17 — 颜色一目了然：
+///   * 绿色 = 字符/卡片限速都开着，输出会被均匀放出；
+///   * 灰色 = 任一限速被关闭（值为 0），即将看到"全速"输出；
+/// 点击打开对话框可临时调整本会话的字符/卡片速率（仅本进程生效，不
+/// 持久化），关闭对话框时若用户保留覆盖即生效，点"恢复"则清除。
+class _StreamThrottlePill extends StatelessWidget {
+  const _StreamThrottlePill({required this.sessionId});
+
+  final String sessionId;
+
+  @override
+  Widget build(BuildContext context) {
+    final sessionController = context.watch<AiSessionController>();
+    final settingsController = context.watch<SettingsController>();
+    // 监听临时覆盖变更信号，确保拨快慢即时反映在颜色与文案上。
+    return ValueListenableBuilder<int>(
+      valueListenable: sessionController.streamThrottleOverrideSignal,
+      builder: (context, _, _) {
+        final session = sessionController.sessions.firstWhere(
+          (s) => s.id == sessionId,
+          orElse: () => sessionController.sessions.first,
+        );
+        final templateId = session.templateId;
+        final override = sessionController.sessionStreamThrottleOverride(
+          sessionId,
+        );
+        final effChars = override?.charsPerSecond ??
+            settingsController.effectiveStreamMaxCharsPerSecond(templateId);
+        final effCards = override?.cardsPerSecond ??
+            settingsController.effectiveStreamMaxMessageCardsPerSecond(
+              templateId,
+            );
+        final disabled = effChars <= 0 || effCards <= 0;
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
+        final pillColor = disabled
+            ? scheme.surfaceContainerHighest
+            : scheme.tertiaryContainer.withValues(alpha: 0.78);
+        final iconColor = disabled
+            ? scheme.outline
+            : scheme.onTertiaryContainer;
+        final isZh =
+            Localizations.localeOf(context).languageCode.startsWith('zh');
+        final label = disabled
+            ? (isZh ? '节流·关' : 'Throttle·off')
+            : (isZh ? '字$effChars·卡$effCards' : 'Ch$effChars·Cd$effCards');
+        return MicroPressFeedback(
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: _borderRadius999,
+            child: InkWell(
+              borderRadius: _borderRadius999,
+              onTap: () => _showStreamThrottleDialog(
+                context,
+                sessionId: sessionId,
+                templateId: templateId,
+              ),
+              child: Container(
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: pillColor,
+                  borderRadius: _borderRadius999,
+                  border: Border.all(
+                    color: disabled
+                        ? scheme.outlineVariant
+                        : scheme.tertiary.withValues(alpha: 0.32),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      disabled
+                          ? Icons.flash_off_rounded
+                          : Icons.bolt_rounded,
+                      size: 14,
+                      color: iconColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: iconColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (override != null) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.history_rounded,
+                        size: 13,
+                        color: iconColor,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+Future<void> _showStreamThrottleDialog(
+  BuildContext context, {
+  required String sessionId,
+  required String templateId,
+}) async {
+  await showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _StreamThrottleSessionDialog(
+      sessionId: sessionId,
+      templateId: templateId,
+    ),
+  );
+}
+
+class _StreamThrottleSessionDialog extends StatefulWidget {
+  const _StreamThrottleSessionDialog({
+    required this.sessionId,
+    required this.templateId,
+  });
+
+  final String sessionId;
+  final String templateId;
+
+  @override
+  State<_StreamThrottleSessionDialog> createState() =>
+      _StreamThrottleSessionDialogState();
+}
+
+class _StreamThrottleSessionDialogState
+    extends State<_StreamThrottleSessionDialog> {
+  late final TextEditingController _charsCtrl;
+  late final TextEditingController _cardsCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final session = context.read<AiSessionController>();
+    final override = session.sessionStreamThrottleOverride(widget.sessionId);
+    _charsCtrl = TextEditingController(
+      text: override?.charsPerSecond?.toString() ?? '',
+    );
+    _cardsCtrl = TextEditingController(
+      text: override?.cardsPerSecond?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _charsCtrl.dispose();
+    _cardsCtrl.dispose();
+    super.dispose();
+  }
+
+  int? _parse(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return null;
+    return int.tryParse(t);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final settings = context.watch<SettingsController>();
+    final session = context.read<AiSessionController>();
+    final globalChars = settings.effectiveStreamMaxCharsPerSecond(
+      widget.templateId,
+    );
+    final globalCards = settings.effectiveStreamMaxMessageCardsPerSecond(
+      widget.templateId,
+    );
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isZh ? '本会话流式节流（临时）' : 'Session Throttle (Temporary)',
+                style: theme.textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isZh
+                    ? '仅在本进程内生效，重启即恢复。留空 = 沿用模板/全局值。'
+                    : 'In-memory only; resets on restart. Empty = use template/global.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _charsCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: InputDecoration(
+                  labelText: isZh
+                      ? '字符 / 秒（当前生效：$globalChars）'
+                      : 'Chars / Sec (current: $globalChars)',
+                  hintText:
+                      '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _cardsCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: InputDecoration(
+                  labelText: isZh
+                      ? '卡片 / 秒（当前生效：$globalCards）'
+                      : 'Cards / Sec (current: $globalCards)',
+                  hintText:
+                      '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      session.clearSessionStreamThrottleOverride(
+                        widget.sessionId,
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(isZh ? '恢复默认' : 'Reset'),
+                  ),
+                  const SizedBox(width: 8),
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: () => Navigator.of(context).pop(),
+                    label: isZh ? '取消' : 'Cancel',
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () {
+                      session.setSessionStreamCharsOverride(
+                        widget.sessionId,
+                        _parse(_charsCtrl.text),
+                      );
+                      session.setSessionStreamCardsOverride(
+                        widget.sessionId,
+                        _parse(_cardsCtrl.text),
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(isZh ? '应用' : 'Apply'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
