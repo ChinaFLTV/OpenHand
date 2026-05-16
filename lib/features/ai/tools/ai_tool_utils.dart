@@ -1100,7 +1100,7 @@ class AiToolUtils {
         outcome = await Future.any<_WriteConfirmationOutcome>([
           approvalFuture,
           cancelSignal.then(
-            (_) => _WriteConfirmationOutcome.fromDecision(
+            (_) => const _WriteConfirmationOutcome.fromDecision(
               BashCommandApprovalDecision.cancelled,
             ),
           ),

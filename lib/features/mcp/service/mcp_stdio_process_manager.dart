@@ -186,7 +186,6 @@ class McpStdioProcessManager extends ChangeNotifier {
     } catch (e) {
       _processes[name] = _ManagedProcess(
         info: StdioProcessInfo(
-          state: StdioProcessState.stopped,
           errorMessage: '$e',
           logs: ['[${_timestamp()}] 启动失败: $e'],
         ),
@@ -761,7 +760,11 @@ class _ManagedProcess {
 }
 
 class _DirectLaunch {
-  const _DirectLaunch({required this.executable, required this.args, this.environment});
+  const _DirectLaunch({
+    required this.executable,
+    required this.args,
+    this.environment,
+  });
   final String executable;
   final List<String> args;
   final Map<String, String>? environment;

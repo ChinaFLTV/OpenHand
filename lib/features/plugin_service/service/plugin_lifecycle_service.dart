@@ -466,7 +466,6 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
         'brew',
         ['uninstall', 'node'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 3),
       );
       if (result.exitCode == 0) {
         onProgress?.call('Node.js 已卸载');
@@ -495,7 +494,6 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
       'npm',
       ['uninstall', '-g', 'playwright'],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 3),
     );
     if (result.exitCode == 0) {
       onProgress?.call('Playwright 已卸载');

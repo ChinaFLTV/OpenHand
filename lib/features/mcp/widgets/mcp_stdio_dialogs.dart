@@ -17,7 +17,6 @@ import '../service/mcp_tool_discovery_service.dart';
 Future<void> showStdioLogDialog(BuildContext context, McpServer server) {
   return showAnimatedDialog(
     context: context,
-    barrierDismissible: true,
     builder: (ctx) => _StdioLogDialog(server: server),
   );
 }
@@ -291,13 +290,12 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
   _LogLineStyle _resolveLogLineStyle(String line) {
     // 空行
     if (line.trim().isEmpty) {
-      return const _LogLineStyle(color: Color(0xFF808080), fontSize: 11);
+      return const _LogLineStyle(color: Color(0xFF808080));
     }
     // 成功标记
     if (line.contains('✓')) {
       return const _LogLineStyle(
         color: Color(0xFF4ADE80),
-        fontSize: 11,
         bold: true,
       );
     }
@@ -305,7 +303,6 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     if (line.contains('⚠')) {
       return const _LogLineStyle(
         color: Color(0xFFFBBF24),
-        fontSize: 11,
         bold: true,
       );
     }
@@ -313,7 +310,6 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     if (line.contains('✗') || line.contains('[stderr error]') || line.contains('[stdout error]')) {
       return const _LogLineStyle(
         color: Color(0xFFF87171),
-        fontSize: 11,
         bold: true,
       );
     }
@@ -321,7 +317,6 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     if (line.startsWith('[') && RegExp(r'^\[\d{2}:\d{2}:\d{2}\]').hasMatch(line)) {
       return const _LogLineStyle(
         color: Color(0xFF93C5FD),
-        fontSize: 11,
         bold: true,
         topPadding: 4,
       );
@@ -330,7 +325,6 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     if (line.startsWith('[jsonrpc')) {
       return const _LogLineStyle(
         color: Color(0xFFA78BFA),
-        fontSize: 11,
         bold: true,
         topPadding: 4,
       );
@@ -354,21 +348,21 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
       final content = line.substring(8).trim().toLowerCase();
       // stderr 中的错误
       if (content.contains('error') || content.contains('fatal') || content.contains('failed')) {
-        return const _LogLineStyle(color: Color(0xFFF87171), fontSize: 11);
+        return const _LogLineStyle(color: Color(0xFFF87171));
       }
       // stderr 中的警告
       if (content.contains('warn') || content.contains('deprecat')) {
-        return const _LogLineStyle(color: Color(0xFFFBBF24), fontSize: 11);
+        return const _LogLineStyle(color: Color(0xFFFBBF24));
       }
       // stderr 中的普通信息输出（很多 MCP 服务把正常信息写到 stderr）
-      return const _LogLineStyle(color: Color(0xFFD4A574), fontSize: 11);
+      return const _LogLineStyle(color: Color(0xFFD4A574));
     }
     // stdout closed / stderr closed 等系统事件
     if (line.startsWith('[stdout') || line.startsWith('[stderr')) {
       return const _LogLineStyle(color: Color(0xFF6B7280), fontSize: 10.5);
     }
     // 普通 stdout 输出
-    return const _LogLineStyle(color: Color(0xFFE5E7EB), fontSize: 11);
+    return const _LogLineStyle(color: Color(0xFFE5E7EB));
   }
 
   String _formatUptime(Duration d) {
@@ -400,7 +394,6 @@ class _LogLineStyle {
 Future<void> showStdioDetailsDialog(BuildContext context, McpServer server) {
   return showAnimatedDialog(
     context: context,
-    barrierDismissible: true,
     builder: (ctx) => _StdioDetailsDialog(server: server),
   );
 }
@@ -712,7 +705,6 @@ class _InfoRow extends StatelessWidget {
 Future<void> showStdioDepsDialog(BuildContext context, McpServer server) {
   return showAnimatedDialog(
     context: context,
-    barrierDismissible: true,
     builder: (ctx) => _StdioDepsDialog(server: server),
   );
 }

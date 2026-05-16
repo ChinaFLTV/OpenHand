@@ -250,7 +250,7 @@ class PluginServiceController extends ChangeNotifier {
     _plugins = [
       for (final p in _plugins)
         if (p.isBusy)
-          p.copyWith(status: PluginStatus.installed, errorMessage: null)
+          p.copyWith(status: PluginStatus.installed)
         else
           p,
     ];

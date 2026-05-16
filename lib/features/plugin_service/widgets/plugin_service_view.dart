@@ -1519,12 +1519,12 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
       const mcpName = 'Playwright MCP';
       if (action == '安装' || action == 'Install' || action == '更新' || action == 'Update') {
         // 注册/更新 MCP 服务到 MCP 板块
-        final server = McpServer(
+        const server = McpServer(
           name: mcpName,
           type: McpServerType.stdio,
           enabled: true,
           command: 'npx',
-          args: const ['@playwright/mcp'],
+          args: ['@playwright/mcp'],
         );
         mcpController.saveServer(server, previousName: mcpName);
       } else if (action == '卸载' || action == 'Uninstall') {

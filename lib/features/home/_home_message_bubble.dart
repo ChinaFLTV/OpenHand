@@ -498,7 +498,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         opacity: value.clamp(0, 1).toDouble(),
                         child: Transform.scale(
                           scale: 0.85 + 0.15 * value,
-                          alignment: Alignment.center,
                           child: child,
                         ),
                       );

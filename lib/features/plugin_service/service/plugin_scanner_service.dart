@@ -132,7 +132,6 @@ class PluginScannerService {
           installedVersion: version,
           latestVersion: latestVersion,
           installPath: nvm.nodeBin,
-          dependencies: const [],
           dependents: const ['playwright'],
         );
       }
@@ -166,7 +165,6 @@ class PluginScannerService {
           installedVersion: version,
           latestVersion: latestVersion,
           installPath: installPath?.isEmpty == true ? null : installPath,
-          dependencies: const [],
           dependents: const ['playwright'],
         );
       }
@@ -181,7 +179,6 @@ class PluginScannerService {
     name: 'Node.js',
     description: 'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链',
     status: PluginStatus.notInstalled,
-    dependencies: [],
     dependents: ['playwright'],
   );
 
@@ -219,7 +216,6 @@ class PluginScannerService {
           installedVersion: version,
           latestVersion: latestVersion,
           dependencies: const ['nodejs'],
-          dependents: const [],
         );
       }
     } catch (e) {
@@ -234,7 +230,6 @@ class PluginScannerService {
     description: '浏览器自动化测试框架，支持 Chromium / Firefox / WebKit',
     status: PluginStatus.notInstalled,
     dependencies: ['nodejs'],
-    dependents: [],
   );
 
   /// 扫描所有已知插件。

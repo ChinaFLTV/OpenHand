@@ -5025,7 +5025,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // 自行贴底；这里再额外发一个 *jump*（非 animate） 兜底，避免与
       // transcript 的 jumpTo 互相打架。
       _scheduleAutoFollowIfNeeded(
-        consumePendingRequest: false,
         animated: false,
       );
     } else {
@@ -6963,7 +6962,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
     final selectedCount = _endIdx - _startIdx + 1;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     // 截取消息内容作为 tooltip 预览
-    String _previewLabel(int idx) {
+    String previewLabel(int idx) {
       if (idx < 0 || idx >= total) return '#${idx + 1}';
       final content = widget.userMessages[idx].content.replaceAll(RegExp(r'\s+'), ' ').trim();
       final preview = content.length > 20 ? '${content.substring(0, 18)}…' : content;
@@ -6998,12 +6997,11 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
             if (total > 1)
               RangeSlider(
                 values: RangeValues(_startIdx.toDouble(), _endIdx.toDouble()),
-                min: 0,
                 max: (total - 1).toDouble(),
                 divisions: total > 1 ? total - 1 : 1,
                 labels: RangeLabels(
-                  _previewLabel(_startIdx),
-                  _previewLabel(_endIdx),
+                  previewLabel(_startIdx),
+                  previewLabel(_endIdx),
                 ),
                 onChanged: (values) {
                   setState(() {
