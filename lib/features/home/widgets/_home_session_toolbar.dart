@@ -2906,6 +2906,7 @@ class _StreamThroughputMiniGaugeState
                 gridColor: scheme.outlineVariant.withValues(alpha: 0.6),
                 limitColor: scheme.tertiary.withValues(alpha: 0.45),
                 limitValue: widget.maxRate,
+                overLimitColor: scheme.error,
               ),
               size: const Size(double.infinity, 56),
             ),
@@ -2924,6 +2925,7 @@ class _ThroughputBarsPainter extends CustomPainter {
     required this.gridColor,
     required this.limitColor,
     required this.limitValue,
+    required this.overLimitColor,
   });
 
   final List<int> samples;
@@ -2932,6 +2934,7 @@ class _ThroughputBarsPainter extends CustomPainter {
   final Color gridColor;
   final Color limitColor;
   final int limitValue;
+  final Color overLimitColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2949,7 +2952,8 @@ class _ThroughputBarsPainter extends CustomPainter {
       gridPaint,
     );
     // 上限参考线
-    if (limitValue > 0 && limitValue <= cap) {
+    final hasLimit = limitValue > 0 && limitValue <= cap;
+    if (hasLimit) {
       final y = size.height - (limitValue / cap) * size.height;
       final dashPaint = Paint()
         ..color = limitColor
@@ -2971,15 +2975,8 @@ class _ThroughputBarsPainter extends CustomPainter {
     const gap = 1.5;
     final totalGap = gap * (n - 1);
     final barW = (size.width - totalGap) / n;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final paintFaded = Paint()
-      ..color = color.withValues(alpha: 0.32)
-      ..style = PaintingStyle.fill;
     for (var i = 0; i < n; i++) {
       final v = samples[i];
-      // 把 bucket 0 渲染到最右；i 越大画越靠左。
       final x = (n - 1 - i) * (barW + gap);
       final h = cap == 0 ? 0.0 : (v / cap) * size.height;
       final clamped = h.clamp(0.0, size.height);
@@ -2989,8 +2986,37 @@ class _ThroughputBarsPainter extends CustomPainter {
         barW,
         clamped,
       );
+      // 2026-05-18 — 柱状渐变：底部满色 → 顶部柔和透明，让"高度=吞
+      // 吐量"的视觉一眼就读得出来；超过 limitValue 的样本切换到红
+      // 色 overLimitColor，提示用户当前秒有超阈值释放。
+      final overLimit = hasLimit && limitValue > 0 && v > limitValue;
+      final baseColor = overLimit ? overLimitColor : color;
+      final isCurrent = i == 0;
+      final topAlpha = isCurrent ? 1.0 : 0.55;
+      final bottomAlpha = isCurrent ? 0.55 : 0.18;
+      final paint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[
+            baseColor.withValues(alpha: topAlpha),
+            baseColor.withValues(alpha: bottomAlpha),
+          ],
+        ).createShader(rect);
       final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(2));
-      canvas.drawRRect(rrect, i == 0 ? paint : paintFaded);
+      canvas.drawRRect(rrect, paint);
+      // 超阈值柱子加一道高亮顶边，让用户更明显感知"溢出令牌桶"。
+      if (overLimit && clamped > 1) {
+        final highlight = Paint()
+          ..color = overLimitColor
+          ..strokeWidth = 1.4
+          ..style = PaintingStyle.stroke;
+        canvas.drawLine(
+          Offset(rect.left, rect.top + 0.7),
+          Offset(rect.right, rect.top + 0.7),
+          highlight,
+        );
+      }
     }
   }
 
@@ -3014,6 +3040,7 @@ class _ThroughputBarsPainter extends CustomPainter {
     }
     return old.color != color ||
         old.gridColor != gridColor ||
-        old.limitColor != limitColor;
+        old.limitColor != limitColor ||
+        old.overLimitColor != overLimitColor;
   }
 }
