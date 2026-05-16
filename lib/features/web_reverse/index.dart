@@ -7,4 +7,5 @@ export 'web_reverse_dashboard_dialog.dart';
 export 'web_reverse_install_guide_dialog.dart';
 export 'web_reverse_session_config.dart';
 export 'web_reverse_session_controller.dart';
+export 'web_reverse_setup_dialog.dart';
 export 'web_reverse_window_dock.dart';
