@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 class _TokenDial extends StatefulWidget {
   const _TokenDial({

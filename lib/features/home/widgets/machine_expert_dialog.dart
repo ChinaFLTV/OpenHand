@@ -4,16 +4,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../app/model/app_settings_snapshot.dart';
-import '../../app/state/settings_controller.dart';
-import '../../app/support/safe_subprocess.dart';
-import '../../app/support/silent_log.dart';
-import '../../l10n/app_localizations.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/model_search_selector.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../app/model/app_settings_snapshot.dart';
+import '../../../app/state/settings_controller.dart';
+import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 
-import '../ai/index.dart';
+import '../../ai/index.dart';
 class MachineExpertDialog extends StatefulWidget {
   const MachineExpertDialog({
     super.key,

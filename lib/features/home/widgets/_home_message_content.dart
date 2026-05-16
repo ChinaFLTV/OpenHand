@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 // 阶段㉒ — 触发「折叠 + 渐变预览」的字符 / 行阈值再下调一档，让 60+
 // 条历史会话首次打开时大部分长消息只解析 2000 字预览块（_previewCharCap），

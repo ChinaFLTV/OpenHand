@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 /// Pretty-prints a JSON-ish value into a stable, human-readable string.
 String _auditFormatJson(Object? value) {

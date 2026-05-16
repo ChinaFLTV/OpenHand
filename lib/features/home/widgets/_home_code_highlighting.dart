@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 /// Maximum code-block length (in characters) at which we still attempt
 /// syntax highlighting. Beyond this we render plain monospace text to keep

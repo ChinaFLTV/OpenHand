@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 
-import '../../app/model/editor_indent.dart';
+import '../../../app/model/editor_indent.dart';
 
 class EditorIndentationEdit {
   const EditorIndentationEdit({

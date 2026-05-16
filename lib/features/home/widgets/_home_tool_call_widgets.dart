@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 class _ToolCallBody extends StatefulWidget {
   const _ToolCallBody({required this.message, required this.selectable});

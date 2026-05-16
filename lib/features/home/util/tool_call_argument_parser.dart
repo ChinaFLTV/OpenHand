@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import '../../app/support/silent_log.dart';
+import '../../../app/support/silent_log.dart';
 
 String parseBashToolCommandFromArguments(String rawArguments) {
   return _readToolArgumentValue(

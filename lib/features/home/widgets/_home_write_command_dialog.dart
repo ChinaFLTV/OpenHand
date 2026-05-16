@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 /// 写命令确认弹窗。返回值：
 /// * [BashCommandApprovalDecision.approved] —— 用户点击「允许执行」或敲回车

@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 /// Result returned by the programming expert configuration dialog.
 class _ProgrammingExpertConfig {

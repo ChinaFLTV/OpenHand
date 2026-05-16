@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // File Explorer Panel — replaces the navigation sidebar when toggled

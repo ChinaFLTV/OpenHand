@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 /// 阶段⑱：每个气泡的 BuildContext 注册到所属 transcript state 的局部
 /// 映射中，避免使用 GlobalObjectKey。GlobalObjectKey 在被 retake 时会

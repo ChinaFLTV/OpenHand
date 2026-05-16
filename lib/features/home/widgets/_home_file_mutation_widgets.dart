@@ -1,4 +1,4 @@
-part of 'openhand_home_page.dart';
+part of '../openhand_home_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // _FileMutationRow — shows file-change indicator for write/edit/multiedit tools
