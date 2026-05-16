@@ -1226,7 +1226,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // first frame and dominating first-open frame budgets on
               // large sessions. 320 still covers small fling overshoots
               // without re-laying-out neighbours.
-              cacheExtent: 320,
+              // 阶段㉒ — 320 → 120：用户反馈首次打开 60+ 条会话仍 ANR。
+              // 主因是 cacheExtent 320 px 在首屏 mount 时就开始构建 1-2
+              // 个 viewport 之外的气泡，叠加 visible 视窗的 3-5 个气泡，
+              // 一次性 8+ 个 _MessageBubble 同帧 mount + 各自调度
+              // markdown 解析。把 cacheExtent 收缩到 120 px 让 ListView
+              // 首屏严格只构建可见气泡，越界滚动时再 lazy 构建；牺牲
+              // 一点 fling 期的 buffer 换取首屏帧预算。
+              cacheExtent: 120,
               physics: const OpenHandBouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),

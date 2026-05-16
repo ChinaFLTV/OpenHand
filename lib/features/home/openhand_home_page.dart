@@ -188,11 +188,19 @@ const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // highlighting on its first build, so halving the eager window roughly
 // halves the worst-case first-frame cost. Older messages remain a single
 // scroll/tap away via the "load earlier" affordance.
-const int _transcriptInitialWindowSize = 14;
+// 阶段㉒ — 14 → 8：用户反馈 60+ 条会话首次打开仍卡；视窗高度内可见
+// 气泡通常仅 3-5 张，14 个 render entries 中绝大多数都在 cacheExtent
+// 之外被 ListView 立即 build (cacheExtent 320 px ≈ 1-2 张额外气泡)。
+// 把窗口收缩到 8 让首屏物化的 _MessageBubble 数量与真正可见的数量
+// 接近，markdown 帧节流的「待解析队列」深度减半，「Load earlier」
+// 按钮一击即可向前展开 25 条。
+const int _transcriptInitialWindowSize = 8;
 const int _transcriptWindowIncrement = 25;
 // Kick windowing in earlier so medium-sized sessions (20-40 msgs) also get
 // the cheap first-paint path; the user can expand on demand.
-const int _transcriptWindowingThreshold = 20;
+// 阶段㉒ — 20 → 12：让任何超过一屏的会话都启用 windowing，避免小会话
+// 也因 displayMessages.length ≥ 20 才触发缓存策略。
+const int _transcriptWindowingThreshold = 12;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
 // Number of post-layout frames to wait before revealing the freshly switched
 // transcript. Frame-driven gating replaces the former fixed 750 ms wall-clock

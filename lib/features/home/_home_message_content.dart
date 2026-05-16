@@ -808,7 +808,42 @@ class _SafeMarkdownBody extends StatefulWidget {
 // MarkdownBuilder.build() + 每个代码块的 widget 构造叠加起来就是
 // 主线程的致命负担。将阈值降到 800 字节让几乎所有含代码块的消息都
 // 走 deferred 路径，首帧仅渲染纯文本，下一帧再构建富文本树。
-const int _markdownDeferredParseThresholdChars = 800;
+// 阶段㉒ — 800 → 400：用户反馈 60+ 条历史消息会话首次打开仍卡顿，原因
+// 是历史里很多 ~600 字节的中等长度消息绕过了 deferred 路径，几张同帧
+// 同步解析就把 16 ms 帧预算撑爆。再降一档把更多消息纳入帧节流。
+const int _markdownDeferredParseThresholdChars = 400;
+
+/// 阶段㉒：进程级 AST 解析结果缓存。同一段 markdown 内容（按内容 +
+/// 主题/builder 签名 hash 索引）在多次 mount 之间复用 AST 节点，
+/// 避免「滚回去再滚回来」「跨会话引用同一段示例代码」时反复跑
+/// `md.Document.parseLines()`。AST 节点是纯数据结构，体积远小于
+/// 构建出的 widget 树，整体内存压力可控；512 entries 对单条 ~几 KiB
+/// 的消息内容已经足够覆盖典型 60+ 长会话。
+class _MarkdownAstCache {
+  _MarkdownAstCache();
+
+  static const int _maxEntries = 512;
+  final LinkedHashMap<int, List<md.Node>> _entries =
+      LinkedHashMap<int, List<md.Node>>();
+
+  List<md.Node>? get(int key) {
+    final value = _entries.remove(key);
+    if (value != null) {
+      _entries[key] = value;
+    }
+    return value;
+  }
+
+  void put(int key, List<md.Node> value) {
+    _entries.remove(key);
+    _entries[key] = value;
+    while (_entries.length > _maxEntries) {
+      _entries.remove(_entries.keys.first);
+    }
+  }
+}
+
+final _MarkdownAstCache _markdownAstCache = _MarkdownAstCache();
 
 /// 阶段㉑：全局帧节流的 markdown 解析调度器。
 ///
@@ -956,6 +991,18 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   void _parseMarkdown() {
+    developer.Timeline.startSync(
+      'openhand.markdown.parse',
+      arguments: <String, Object?>{'chars': widget.data.length},
+    );
+    try {
+      _parseMarkdownInner();
+    } finally {
+      developer.Timeline.finishSync();
+    }
+  }
+
+  void _parseMarkdownInner() {
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
@@ -992,15 +1039,31 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       return;
     }
     try {
-      final document = md.Document(
-        extensionSet: md.ExtensionSet.gitHubFlavored,
-        inlineSyntaxes: widget.inlineSyntaxes,
-        encodeHtml: false,
-      );
-      final astNodes = document.parseLines(
-        const LineSplitter().convert(normalizedSource),
-      );
-      _sanitizeMarkdownAst(astNodes);
+      // 阶段㉒：先查 AST 缓存。命中则直接复用，跳过昂贵的
+      // `md.Document.parseLines` + `_sanitizeMarkdownAst`。MarkdownBuilder
+      // 的 widget 构造仍按当前主题样式 fresh 跑一次，避免主题切换时
+      // 残留旧色。
+      final astCacheKey = Object.hashAll(<Object?>[
+        normalizedSource,
+        widget.inlineSyntaxes.length,
+        for (final syn in widget.inlineSyntaxes) syn.runtimeType,
+      ]);
+      final cachedAst = _markdownAstCache.get(astCacheKey);
+      final List<md.Node> astNodes;
+      if (cachedAst != null) {
+        astNodes = cachedAst;
+      } else {
+        final document = md.Document(
+          extensionSet: md.ExtensionSet.gitHubFlavored,
+          inlineSyntaxes: widget.inlineSyntaxes,
+          encodeHtml: false,
+        );
+        astNodes = document.parseLines(
+          const LineSplitter().convert(normalizedSource),
+        );
+        _sanitizeMarkdownAst(astNodes);
+        _markdownAstCache.put(astCacheKey, astNodes);
+      }
       final builder = MarkdownBuilder(
         delegate: this,
         selectable: widget.selectable,
