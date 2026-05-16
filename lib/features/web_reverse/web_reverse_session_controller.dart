@@ -393,6 +393,141 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  /// `IndexedDB.requestDatabaseNames` —— 当前 origin 下所有数据库名。
+  Future<List<String>> listIndexedDbNames() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      await cdp.send('IndexedDB.enable', sessionId: _pageSessionId);
+      final origin = await currentOrigin();
+      if (origin == null) return const [];
+      final r = await cdp.send(
+        'IndexedDB.requestDatabaseNames',
+        params: <String, Object?>{'securityOrigin': origin},
+        sessionId: _pageSessionId,
+      );
+      final list = r['databaseNames'] as List?;
+      return list?.whereType<String>().toList() ?? const [];
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'listIndexedDbNames',
+        error,
+        stack,
+      );
+      return const [];
+    }
+  }
+
+  /// `IndexedDB.requestDatabase` —— 拿单个 db 的 schema 摘要。
+  /// 返回字段：(name, version, objectStores)。
+  Future<({String name, int version, List<String> stores})?>
+      describeIndexedDb(String dbName) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final origin = await currentOrigin();
+      if (origin == null) return null;
+      final r = await cdp.send(
+        'IndexedDB.requestDatabase',
+        params: <String, Object?>{
+          'securityOrigin': origin,
+          'databaseName': dbName,
+        },
+        sessionId: _pageSessionId,
+      );
+      final db = r['databaseWithObjectStores'] as Map?;
+      if (db == null) return null;
+      final version = (db['version'] as num?)?.toInt() ?? 0;
+      final stores = (db['objectStores'] as List?)
+              ?.whereType<Map>()
+              .map((m) => '${m['name'] ?? ''}')
+              .toList(growable: false) ??
+          const <String>[];
+      return (name: dbName, version: version, stores: stores);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'describeIndexedDb $dbName',
+        error,
+        stack,
+      );
+      return null;
+    }
+  }
+
+  /// `CacheStorage.requestCacheNames` —— 当前 origin 下所有 Cache 名。
+  Future<List<String>> listCacheStorage() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      final origin = await currentOrigin();
+      if (origin == null) return const [];
+      final r = await cdp.send(
+        'CacheStorage.requestCacheNames',
+        params: <String, Object?>{'securityOrigin': origin},
+        sessionId: _pageSessionId,
+      );
+      final list = r['caches'] as List?;
+      return list
+              ?.whereType<Map>()
+              .map((m) => '${m['cacheName'] ?? ''}')
+              .where((n) => n.isNotEmpty)
+              .toList(growable: false) ??
+          const <String>[];
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'listCacheStorage',
+        error,
+        stack,
+      );
+      return const [];
+    }
+  }
+
+  /// `ServiceWorker.deliverPushMessage` 不暴露——这里只列已注册的 worker。
+  /// 数据来自 `ServiceWorker.workerVersionUpdated` 事件累积；这里同步发一次
+  /// `ServiceWorker.enable` 触发首次推送。
+  Future<List<Map<String, Object?>>> listServiceWorkers() async {
+    final cdp = _browserCdp;
+    if (cdp == null) return const [];
+    final list = <Map<String, Object?>>[];
+    StreamSubscription<CdpEvent>? sub;
+    try {
+      // 监听 30ms 收集；超过 250ms 强制 cut 防卡。
+      sub = cdp.events.listen((e) {
+        if (e.method == 'ServiceWorker.workerVersionUpdated') {
+          final versions = e.params['versions'] as List?;
+          if (versions == null) return;
+          for (final v in versions.whereType<Map>()) {
+            list.add(Map<String, Object?>.from(v));
+          }
+        }
+      });
+      await cdp.send('ServiceWorker.enable');
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      // 去重（按 versionId）。
+      final seen = <String>{};
+      final dedup = <Map<String, Object?>>[];
+      for (final v in list) {
+        final id = '${v['versionId'] ?? ''}';
+        if (id.isEmpty || seen.add(id)) dedup.add(v);
+      }
+      return dedup;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'listServiceWorkers',
+        error,
+        stack,
+      );
+      return const [];
+    } finally {
+      await sub?.cancel();
+    }
+  }
+
   // ── Security ─────────────────────────────────────────────────────────
 
   String? _securityState;
@@ -439,19 +574,59 @@ class WebReverseSessionController extends ChangeNotifier {
 (() => {
   if (window.__oh_recorder_installed) return;
   window.__oh_recorder_installed = true;
+  // 计算稳定 CSS 选择器：优先 #id，其次按 tag + nth-child 链向上回溯到 body。
+  const buildSelector = (el) => {
+    if (!el || el.nodeType !== 1) return null;
+    if (el.id) return '#' + CSS.escape(el.id);
+    const parts = [];
+    let node = el;
+    while (node && node.nodeType === 1 && node !== document.body && parts.length < 6) {
+      const parent = node.parentNode;
+      if (!parent) break;
+      const sibs = Array.from(parent.children).filter(c => c.tagName === node.tagName);
+      const nth = sibs.length === 1 ? '' : ':nth-of-type(' + (sibs.indexOf(node) + 1) + ')';
+      parts.unshift(node.tagName.toLowerCase() + nth);
+      node = parent;
+    }
+    return parts.length ? parts.join(' > ') : null;
+  };
   const log = (step) => {
     try { console.log('__OH_REC__', JSON.stringify(step)); } catch (_) {}
   };
   document.addEventListener('click', (ev) => {
     const t = ev.target;
-    log({ type: 'click', selector: t && t.outerHTML ? t.outerHTML.slice(0,80) : '?', ts: Date.now() });
+    log({
+      type: 'click',
+      selector: buildSelector(t),
+      text: t && t.innerText ? String(t.innerText).slice(0, 60) : '',
+      ts: Date.now(),
+    });
   }, true);
   document.addEventListener('input', (ev) => {
     const t = ev.target;
-    log({ type: 'input', value: t && 'value' in t ? String(t.value).slice(0,200) : '', ts: Date.now() });
+    log({
+      type: 'input',
+      selector: buildSelector(t),
+      value: t && 'value' in t ? String(t.value).slice(0,200) : '',
+      ts: Date.now(),
+    });
   }, true);
-  window.addEventListener('hashchange', () => log({ type: 'hashchange', url: location.href, ts: Date.now() }));
-  window.addEventListener('popstate', () => log({ type: 'popstate', url: location.href, ts: Date.now() }));
+  document.addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (t && (t.tagName === 'SELECT' || (t.type && /checkbox|radio/.test(t.type)))) {
+      log({
+        type: 'change',
+        selector: buildSelector(t),
+        value: t.tagName === 'SELECT' ? t.value :
+               t.type === 'checkbox' ? !!t.checked :
+               t.checked ? t.value : null,
+        ts: Date.now(),
+      });
+    }
+  }, true);
+  window.addEventListener('hashchange', () => log({ type: 'navigate', url: location.href, ts: Date.now() }));
+  window.addEventListener('popstate', () => log({ type: 'navigate', url: location.href, ts: Date.now() }));
+  log({ type: 'navigate', url: location.href, ts: Date.now() });
 })();
 ''';
     try {
@@ -489,6 +664,129 @@ class WebReverseSessionController extends ChangeNotifier {
       } catch (_) {}
       _recorderScriptIdentifier = null;
     }
+    notifyListeners();
+  }
+
+  /// 把已录制的 step 序列在浏览器里按时间间隔重放：
+  /// click / input / change 转为 Runtime.evaluate 模拟，navigate 转为 Page.navigate。
+  /// 返回值为 (执行步数, 失败步数)。
+  Future<({int executed, int failed})> replaySteps({
+    Duration interStepDelay = const Duration(milliseconds: 300),
+    Duration stepTimeout = const Duration(seconds: 5),
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) {
+      return (executed: 0, failed: 0);
+    }
+    final steps = _recorderSteps;
+    if (steps.isEmpty) return (executed: 0, failed: 0);
+    var executed = 0;
+    var failed = 0;
+    for (final step in steps) {
+      final type = '${step['type'] ?? ''}';
+      try {
+        switch (type) {
+          case 'navigate':
+            final url = '${step['url'] ?? ''}';
+            if (url.isNotEmpty) {
+              await cdp.send(
+                'Page.navigate',
+                params: <String, Object?>{'url': url},
+                sessionId: _pageSessionId,
+                timeout: stepTimeout,
+              );
+            }
+          case 'click':
+            final selector = '${step['selector'] ?? ''}';
+            if (selector.isEmpty) {
+              failed++;
+              continue;
+            }
+            await _evalScript(
+              '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
+              'if (!el) return false; el.scrollIntoView({block:"center"}); el.click(); return true; })()',
+              stepTimeout,
+            );
+          case 'input':
+            final selector = '${step['selector'] ?? ''}';
+            final value = '${step['value'] ?? ''}';
+            if (selector.isEmpty) {
+              failed++;
+              continue;
+            }
+            await _evalScript(
+              '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
+              'if (!el) return false; '
+              'const v = ${jsonEncode(value)}; '
+              'const proto = Object.getPrototypeOf(el); '
+              'const setter = Object.getOwnPropertyDescriptor(proto, "value") && Object.getOwnPropertyDescriptor(proto, "value").set; '
+              'if (setter) setter.call(el, v); else el.value = v; '
+              'el.dispatchEvent(new Event("input", {bubbles: true})); '
+              'el.dispatchEvent(new Event("change", {bubbles: true})); return true; })()',
+              stepTimeout,
+            );
+          case 'change':
+            final selector = '${step['selector'] ?? ''}';
+            final value = step['value'];
+            if (selector.isEmpty) {
+              failed++;
+              continue;
+            }
+            await _evalScript(
+              '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
+              'if (!el) return false; '
+              'const v = ${jsonEncode(value)}; '
+              'if (el.tagName === "SELECT") { el.value = v; } '
+              'else if (el.type === "checkbox") { el.checked = !!v; } '
+              'el.dispatchEvent(new Event("change", {bubbles: true})); return true; })()',
+              stepTimeout,
+            );
+          default:
+            // 未识别的步骤直接计为失败，但不阻断后续。
+            failed++;
+            continue;
+        }
+        executed++;
+      } catch (error, stack) {
+        failed++;
+        silentLog(
+          'web_reverse_session_controller',
+          'replay step $type',
+          error,
+          stack,
+        );
+      }
+      await Future<void>.delayed(interStepDelay);
+    }
+    return (executed: executed, failed: failed);
+  }
+
+  Future<void> _evalScript(String expression, Duration timeout) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return;
+    await cdp.send(
+      'Runtime.evaluate',
+      params: <String, Object?>{
+        'expression': expression,
+        'awaitPromise': true,
+        'returnByValue': true,
+      },
+      sessionId: _pageSessionId,
+      timeout: timeout,
+    );
+  }
+
+  /// 替换当前 step 列表（导入 JSON 用）。
+  void setRecorderSteps(List<Map<String, Object?>> steps) {
+    _recorderSteps
+      ..clear()
+      ..addAll(steps);
+    notifyListeners();
+  }
+
+  /// 清空 step 列表。
+  void clearRecorderSteps() {
+    _recorderSteps.clear();
     notifyListeners();
   }
 
@@ -803,6 +1101,61 @@ class WebReverseSessionController extends ChangeNotifier {
       params: <String, Object?>{'cacheDisabled': disabled},
       sessionId: _pageSessionId,
     );
+  }
+
+  /// 安装一个轻量 FPS 计数器到 page：基于 requestAnimationFrame 的滚动计数。
+  /// 之后通过 [readFps] 拉取最近 1 秒的 FPS 值。
+  Future<void> installFpsCounter() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    const js = r'''
+(() => {
+  if (window.__oh_fps_installed) return;
+  window.__oh_fps_installed = true;
+  let frames = 0;
+  let last = performance.now();
+  let fps = 0;
+  const tick = () => {
+    frames++;
+    const now = performance.now();
+    if (now - last >= 1000) {
+      fps = (frames * 1000) / (now - last);
+      frames = 0;
+      last = now;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  Object.defineProperty(window, '__oh_fps', { get: () => fps });
+})();
+''';
+    try {
+      await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{'expression': js},
+        sessionId: _pageSessionId,
+      );
+    } catch (_) {}
+  }
+
+  /// 读取 page 当前 FPS 值；installFpsCounter 应先调用。
+  Future<double?> readFps() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{
+          'expression': 'window.__oh_fps || 0',
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+      );
+      final v = (r['result'] as Map?)?['value'];
+      return v is num ? v.toDouble() : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 是否在主 frame 导航时保留旧日志。关闭后下次导航自动清表。

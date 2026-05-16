@@ -22,8 +22,17 @@ class _PerformancePanel extends StatefulWidget {
 class _PerformancePanelState extends State<_PerformancePanel> {
   Timer? _refreshTimer;
   List<(String, double)> _metrics = const [];
+  // 关键指标的滑动窗口（最近 60 个采样点 ≈ 2 分钟）。
+  final Map<String, List<double>> _history = <String, List<double>>{};
+  static const int _historyLen = 60;
   bool _tracing = false;
   Duration _traceDuration = const Duration(seconds: 5);
+
+  // FPS：用 requestAnimationFrame 在浏览器里采样上一秒帧数，
+  // 通过 Runtime.evaluate 拉回。
+  Timer? _fpsTimer;
+  final List<double> _fpsHistory = <double>[];
+  bool _fpsBootstrapped = false;
 
   @override
   void initState() {
@@ -33,18 +42,48 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       const Duration(seconds: 2),
       (_) => _refresh(),
     );
+    _fpsTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _sampleFps(),
+    );
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _fpsTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _refresh() async {
     final m = await widget.controller.performanceMetrics();
     if (!mounted) return;
+    for (final (name, value) in m) {
+      final list = _history.putIfAbsent(name, () => <double>[]);
+      list.add(value);
+      while (list.length > _historyLen) {
+        list.removeAt(0);
+      }
+    }
     setState(() => _metrics = m);
+  }
+
+  /// 在 page 内安装一个滑动 FPS 计数器（首次），随后每秒读一次。
+  Future<void> _sampleFps() async {
+    final cdp = widget.controller;
+    if (!cdp.isRunning) return;
+    if (!_fpsBootstrapped) {
+      _fpsBootstrapped = true;
+      await cdp.installFpsCounter();
+    }
+    final fps = await cdp.readFps();
+    if (!mounted || fps == null) return;
+    setState(() {
+      _fpsHistory.add(fps);
+      while (_fpsHistory.length > _historyLen) {
+        _fpsHistory.removeAt(0);
+      }
+    });
   }
 
   Future<void> _record() async {
@@ -108,6 +147,16 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isZh = widget.isZh;
+    const highlights = <String>[
+      'JSHeapUsedSize',
+      'JSHeapTotalSize',
+      'Documents',
+      'Frames',
+      'Nodes',
+      'LayoutCount',
+      'RecalcStyleCount',
+      'TaskDuration',
+    ];
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -153,6 +202,61 @@ class _PerformancePanelState extends State<_PerformancePanel> {
             ],
           ),
           const SizedBox(height: 12),
+          // FPS 横幅卡片：单独一行展示，sparkline 占满宽度。
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 110,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('FPS',
+                          style: theme.textTheme.labelMedium
+                              ?.copyWith(color: cs.onSurfaceVariant)),
+                      const SizedBox(height: 2),
+                      Text(
+                        _fpsHistory.isEmpty
+                            ? '—'
+                            : _fpsHistory.last.toStringAsFixed(1),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: _fpsHistory.isEmpty
+                              ? cs.onSurfaceVariant
+                              : (_fpsHistory.last >= 50
+                                  ? Colors.green
+                                  : (_fpsHistory.last >= 30
+                                      ? Colors.orange
+                                      : cs.error)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: CustomPaint(
+                      painter: _Sparkline(
+                        values: _fpsHistory,
+                        color: cs.primary,
+                        fillBelow: true,
+                        upperBound: 60,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           Expanded(
             child: _metrics.isEmpty
                 ? Center(
@@ -167,44 +271,53 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                     crossAxisCount: 3,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
-                    childAspectRatio: 2.6,
-                    children: [
-                      for (final (name, value) in _metrics)
-                        AnimatedContainer(
-                          duration: widget.reduceMotion
-                              ? Duration.zero
-                              : const Duration(milliseconds: 220),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: cs.outlineVariant),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                name,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _formatMetric(name, value),
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
+                    childAspectRatio: 2.2,
+                    children: _orderedMetrics(highlights).map((m) {
+                      final history = _history[m.$1] ?? const <double>[];
+                      return AnimatedContainer(
+                        duration: widget.reduceMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                    ],
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              m.$1,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              _formatMetric(m.$1, m.$2),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            SizedBox(
+                              height: 24,
+                              child: CustomPaint(
+                                painter: _Sparkline(
+                                  values: history,
+                                  color: cs.primary,
+                                  fillBelow: true,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                   ),
           ),
         ],
@@ -217,6 +330,82 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     if (v.abs() < 1000) return v.toStringAsFixed(2);
     return v.toStringAsFixed(0);
   }
+
+  /// 按 [highlights] 顺序排前面的高优先级指标，剩余按字母顺序拼后面。
+  List<(String, double)> _orderedMetrics(List<String> highlights) {
+    final hi = _metrics.where((m) => highlights.contains(m.$1)).toList()
+      ..sort((a, b) =>
+          highlights.indexOf(a.$1).compareTo(highlights.indexOf(b.$1)));
+    final lo = _metrics.where((m) => !highlights.contains(m.$1)).toList()
+      ..sort((a, b) => a.$1.compareTo(b.$1));
+    return [...hi, ...lo];
+  }
+}
+
+/// 极简 sparkline：垂直自适应到当前窗口的 min/max；
+/// fillBelow=true 时画线下半透明面，更直观体现趋势。
+class _Sparkline extends CustomPainter {
+  _Sparkline({
+    required this.values,
+    required this.color,
+    this.fillBelow = false,
+    this.upperBound,
+  });
+
+  final List<double> values;
+  final Color color;
+  final bool fillBelow;
+  final double? upperBound;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+    var min = values.first;
+    var max = values.first;
+    for (final v in values) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    final hi = upperBound != null ? math.max(max, upperBound!) : max;
+    final lo = math.min(min, hi - 1e-6);
+    final span = (hi - lo).abs() < 1e-9 ? 1 : (hi - lo);
+    final stride = size.width / (values.length - 1);
+    final path = Path();
+    for (var i = 0; i < values.length; i++) {
+      final x = i * stride;
+      final norm = (values[i] - lo) / span;
+      final y = size.height - norm * size.height;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    final stroke = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    if (fillBelow) {
+      final fill = Path.from(path)
+        ..lineTo(size.width, size.height)
+        ..lineTo(0, size.height)
+        ..close();
+      canvas.drawPath(
+        fill,
+        Paint()
+          ..color = color.withValues(alpha: 0.18)
+          ..style = PaintingStyle.fill,
+      );
+    }
+    canvas.drawPath(path, stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant _Sparkline old) =>
+      old.values != values ||
+      old.color != color ||
+      old.fillBelow != fillBelow ||
+      old.upperBound != upperBound;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -415,13 +604,25 @@ class _ApplicationPanel extends StatefulWidget {
   State<_ApplicationPanel> createState() => _ApplicationPanelState();
 }
 
-enum _AppTab { cookies, localStorage, sessionStorage }
+enum _AppTab {
+  cookies,
+  localStorage,
+  sessionStorage,
+  indexedDb,
+  cacheStorage,
+  serviceWorkers,
+}
 
 class _ApplicationPanelState extends State<_ApplicationPanel> {
   _AppTab _tab = _AppTab.cookies;
   String? _origin;
   List<Map<String, Object?>> _cookies = const [];
   List<({String key, String value})> _storage = const [];
+  List<String> _idbNames = const [];
+  Map<String, ({int version, List<String> stores})> _idbDescribed =
+      const <String, ({int version, List<String> stores})>{};
+  List<String> _cacheNames = const [];
+  List<Map<String, Object?>> _swVersions = const [];
   bool _loading = false;
 
   @override
@@ -434,19 +635,47 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
     if (_loading) return;
     setState(() => _loading = true);
     final origin = await widget.controller.currentOrigin();
-    final cookies = await widget.controller.listCookies();
+    final tab = _tab;
+    List<Map<String, Object?>> cookies = const [];
     List<({String key, String value})> storage = const [];
-    if (origin != null && origin.isNotEmpty) {
-      storage = await widget.controller.listDomStorage(
-        origin: origin,
-        isLocalStorage: _tab == _AppTab.localStorage,
-      );
+    List<String> idbNames = const [];
+    var idbDescribed =
+        const <String, ({int version, List<String> stores})>{};
+    List<String> cacheNames = const [];
+    List<Map<String, Object?>> swVersions = const [];
+    if (tab == _AppTab.cookies) {
+      cookies = await widget.controller.listCookies();
+    } else if (tab == _AppTab.localStorage || tab == _AppTab.sessionStorage) {
+      if (origin != null && origin.isNotEmpty) {
+        storage = await widget.controller.listDomStorage(
+          origin: origin,
+          isLocalStorage: tab == _AppTab.localStorage,
+        );
+      }
+    } else if (tab == _AppTab.indexedDb) {
+      idbNames = await widget.controller.listIndexedDbNames();
+      final acc = <String, ({int version, List<String> stores})>{};
+      for (final name in idbNames) {
+        final info = await widget.controller.describeIndexedDb(name);
+        if (info != null) {
+          acc[name] = (version: info.version, stores: info.stores);
+        }
+      }
+      idbDescribed = acc;
+    } else if (tab == _AppTab.cacheStorage) {
+      cacheNames = await widget.controller.listCacheStorage();
+    } else if (tab == _AppTab.serviceWorkers) {
+      swVersions = await widget.controller.listServiceWorkers();
     }
     if (!mounted) return;
     setState(() {
       _origin = origin;
       _cookies = cookies;
       _storage = storage;
+      _idbNames = idbNames;
+      _idbDescribed = idbDescribed;
+      _cacheNames = cacheNames;
+      _swVersions = swVersions;
       _loading = false;
     });
   }
@@ -461,9 +690,11 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: [
-              for (final t in _AppTab.values) ...[
+              for (final t in _AppTab.values)
                 _AppTabPill(
                   label: _appTabLabel(t, isZh),
                   active: _tab == t,
@@ -472,18 +703,21 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
                     _refresh();
                   },
                 ),
-                const SizedBox(width: 6),
-              ],
-              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
               if (_origin != null)
-                Text(
-                  _origin!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontFamily: 'monospace',
+                Expanded(
+                  child: Text(
+                    _origin!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontFamily: 'monospace',
+                    ),
                   ),
                 ),
-              const SizedBox(width: 8),
               IconButton(
                 tooltip: isZh ? '刷新' : 'Refresh',
                 onPressed: _loading ? null : _refresh,
@@ -491,11 +725,22 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Expanded(
-            child: _tab == _AppTab.cookies
-                ? _CookiesTable(cookies: _cookies)
-                : _StorageTable(rows: _storage),
+            child: switch (_tab) {
+              _AppTab.cookies => _CookiesTable(cookies: _cookies),
+              _AppTab.localStorage ||
+              _AppTab.sessionStorage =>
+                _StorageTable(rows: _storage),
+              _AppTab.indexedDb => _IndexedDbTable(
+                  names: _idbNames,
+                  described: _idbDescribed,
+                ),
+              _AppTab.cacheStorage =>
+                _NameListPanel(names: _cacheNames, isZh: isZh),
+              _AppTab.serviceWorkers =>
+                _ServiceWorkersTable(versions: _swVersions),
+            },
           ),
         ],
       ),
@@ -506,6 +751,9 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
         _AppTab.cookies => 'Cookies',
         _AppTab.localStorage => 'Local Storage',
         _AppTab.sessionStorage => 'Session Storage',
+        _AppTab.indexedDb => 'IndexedDB',
+        _AppTab.cacheStorage => 'Cache Storage',
+        _AppTab.serviceWorkers => 'Service Workers',
       };
 }
 
@@ -676,6 +924,219 @@ class _StorageTable extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Application 子组件：IndexedDB / Cache Storage / Service Workers
+// ─────────────────────────────────────────────────────────────────────────
+
+class _IndexedDbTable extends StatelessWidget {
+  const _IndexedDbTable({required this.names, required this.described});
+
+  final List<String> names;
+  final Map<String, ({int version, List<String> stores})> described;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    if (names.isEmpty) {
+      return Center(
+        child: Text('(empty)',
+            style:
+                theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+      );
+    }
+    return ListView.separated(
+      itemCount: names.length,
+      separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
+      itemBuilder: (_, i) {
+        final name = names[i];
+        final info = described[name];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.storage_rounded, size: 16, color: cs.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: SelectableText(
+                      name,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (info != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'v${info.version}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontFamily: 'monospace',
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (info != null && info.stores.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final s in info.stores)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainer,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: Text(
+                          s,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _NameListPanel extends StatelessWidget {
+  const _NameListPanel({required this.names, required this.isZh});
+  final List<String> names;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    if (names.isEmpty) {
+      return Center(
+        child: Text('(empty)',
+            style:
+                theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+      );
+    }
+    return ListView.builder(
+      itemCount: names.length,
+      itemBuilder: (_, i) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          children: [
+            Icon(Icons.folder_zip_rounded, size: 16, color: cs.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SelectableText(
+                names[i],
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceWorkersTable extends StatelessWidget {
+  const _ServiceWorkersTable({required this.versions});
+  final List<Map<String, Object?>> versions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    if (versions.isEmpty) {
+      return Center(
+        child: Text('(empty)',
+            style:
+                theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+      );
+    }
+    return ListView.separated(
+      itemCount: versions.length,
+      separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
+      itemBuilder: (_, i) {
+        final v = versions[i];
+        final status = '${v['runningStatus'] ?? v['status'] ?? ''}';
+        final url = '${v['scriptURL'] ?? ''}';
+        final scope = '${v['scopeURL'] ?? ''}';
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: status == 'running' || status == 'activated'
+                          ? cs.primaryContainer
+                          : cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      status.isEmpty ? '?' : status,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SelectableText(
+                      url,
+                      maxLines: 1,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (scope.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'scope: $scope',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Security：Security.securityStateChanged 实时
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -784,6 +1245,8 @@ class _RecorderPanel extends StatefulWidget {
 }
 
 class _RecorderPanelState extends State<_RecorderPanel> {
+  bool _replaying = false;
+
   Future<void> _save() async {
     final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
@@ -833,6 +1296,66 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     }
   }
 
+  Future<void> _import() async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
+    XFile? file;
+    try {
+      file = await openFile(acceptedTypeGroups: const [typeGroup]);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'openFile recorder',
+        error,
+        stack,
+      );
+    }
+    if (file == null) return;
+    try {
+      final raw = await file.readAsString();
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) throw const FormatException('not a list');
+      final steps = decoded
+          .whereType<Map>()
+          .map((m) => Map<String, Object?>.from(m))
+          .toList(growable: false);
+      widget.controller.setRecorderSteps(steps);
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '已导入 ${steps.length} 步' : 'Imported ${steps.length} steps'),
+        duration: const Duration(seconds: 2),
+      ));
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'parse recorder json',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '导入失败：JSON 格式不合法' : 'Import failed'),
+        duration: const Duration(seconds: 2),
+      ));
+    }
+  }
+
+  Future<void> _replay() async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _replaying = true);
+    final result = await widget.controller.replaySteps();
+    if (!mounted) return;
+    setState(() => _replaying = false);
+    messenger.showSnackBar(SnackBar(
+      content: Text(isZh
+          ? '重放完成：${result.executed} 步成功，${result.failed} 步失败'
+          : 'Replay done: ${result.executed} ok, ${result.failed} failed'),
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -864,9 +1387,39 @@ class _RecorderPanelState extends State<_RecorderPanel> {
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
+                onPressed:
+                    (steps.isEmpty || ctrl.isRecording || _replaying)
+                        ? null
+                        : _replay,
+                icon: Icon(
+                  _replaying
+                      ? Icons.hourglass_top_rounded
+                      : Icons.play_circle_rounded,
+                  size: 18,
+                ),
+                label: Text(_replaying
+                    ? (isZh ? '重放中…' : 'Replaying…')
+                    : (isZh ? '重放' : 'Replay')),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
                 onPressed: steps.isEmpty ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
-                label: Text(isZh ? '导出 JSON' : 'Export JSON'),
+                label: Text(isZh ? '导出 JSON' : 'Export'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: ctrl.isRecording ? null : _import,
+                icon: const Icon(Icons.upload_file_rounded, size: 18),
+                label: Text(isZh ? '导入 JSON' : 'Import'),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: isZh ? '清空' : 'Clear',
+                onPressed: (steps.isEmpty || ctrl.isRecording)
+                    ? null
+                    : ctrl.clearRecorderSteps,
+                icon: const Icon(Icons.cleaning_services_rounded, size: 18),
               ),
               const Spacer(),
               Text(
