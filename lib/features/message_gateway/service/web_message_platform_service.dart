@@ -24,10 +24,10 @@ import '../../ai/model/ai_session.dart';
 import '../../ai/model/ai_session_message.dart';
 import '../../ai/model/ai_session_runtime_context.dart';
 import '../../ai/model/ai_thread_template.dart';
-import '../../ai/service/ai_protocol_adapter.dart';
 import '../../ai/service/ai_bash_tool_service.dart'
     show BashCommandApprovalDecision, BashCommandApprovalRequest;
 import '../../ai/service/ai_image_generation_service.dart';
+import '../../ai/service/ai_protocol_adapter.dart';
 import '../../crons/crons_controller.dart';
 import '../../hardness/hardness_session_store.dart';
 import '../../instructions/instructions_controller.dart';

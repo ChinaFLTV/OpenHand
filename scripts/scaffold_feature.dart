@@ -2,8 +2,8 @@ import 'dart:io';
 
 /// Generate a feature directory matching the OpenHand P0 standard template.
 ///
-/// Usage: dart run scripts/scaffold_feature.dart <feature_name>
-/// `<feature_name>` must be snake_case.
+/// Usage: `dart run scripts/scaffold_feature.dart <feature_name>`
+/// where `<feature_name>` must be snake_case.
 void main(List<String> args) {
   if (args.length != 1 || args.first.isEmpty) {
     stderr.writeln(
