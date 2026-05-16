@@ -24,8 +24,7 @@ import 'features/ai/service/self_learning_runner.dart';
 import 'features/ai/service/self_learning_scheduler.dart';
 import 'features/ai/service/web_fetch/web_fetch_cache_store.dart';
 import 'features/ai/service/web_search/web_search_cache_store.dart';
-import 'features/crons/cron_history_cleanup_worker.dart';
-import 'features/crons/crons_controller.dart';
+import 'features/crons/index.dart';
 import 'features/hooks/index.dart';
 import 'features/instructions/index.dart';
 import 'features/mcp/mcp_controller.dart';
@@ -147,6 +146,7 @@ Future<void> _bootstrap() async {
   // are not on the critical path for showing the UI.
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
+  final cronsModuleFuture = CronsModule.bootstrap();
   final hooksModuleFuture = HooksModule.bootstrap();
   final instructionsModuleFuture = InstructionsModule.bootstrap();
   final memoryModuleFuture = MemoryModule.bootstrap();
@@ -214,7 +214,8 @@ Future<void> _bootstrap() async {
   // the sqlite load + scheduler startup in the background. The agent
   // handler is a plain field setter and does not require initialize() to
   // have completed.
-  final cronsController = CronsController.uninitialized();
+  final crons = await cronsModuleFuture;
+  final cronsController = crons.controller;
   // 2026-04-25 — InstructionsController: 与 memory 同样“非首屏关键路径”，
   // 同步构造 + 后台 refresh，确保启动期间不阻塞首帧。
   // 2026-05-16 — 经 InstructionsModule.bootstrap 装配（即时完成的 Future，
@@ -386,7 +387,7 @@ Future<void> _bootstrap() async {
         ChangeNotifierProvider<McpController>.value(value: mcpController),
         ...HooksModule.providers(hooks),
         ...MemoryModule.providers(memory),
-        ChangeNotifierProvider<CronsController>.value(value: cronsController),
+        ...CronsModule.providers(crons),
         ...InstructionsModule.providers(instructions),
         ChangeNotifierProvider<MessageGatewayController>.value(
           value: messageGatewayController,

@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 
-import '../../app/model/cron_config.dart';
-import '../../shared/db/database_service.dart';
+import '../../../app/model/cron_config.dart';
+import '../../../shared/db/database_service.dart';
 
 /// Persistence layer for cron jobs and execution history using SQLite.
 class CronsStore {

@@ -86,7 +86,7 @@ import '../ai/service/mcp_loaded_tools_tracker.dart';
 import '../ai/service/media_cache_service.dart';
 import '../ai/tools/ai_ask_user_choice_tool.dart';
 import '../crons/crons_controller.dart';
-import '../crons/crons_view.dart';
+import '../crons/widgets/crons_view.dart';
 import '../hardness/hardness_api_phase_runner.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../hardness/hardness_engineering_dialog.dart';

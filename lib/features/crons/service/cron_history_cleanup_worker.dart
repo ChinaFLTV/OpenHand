@@ -12,9 +12,9 @@ library;
 
 import 'dart:async';
 
-import '../../app/state/settings_controller.dart';
-import '../../app/support/silent_log.dart';
-import 'crons_controller.dart';
+import '../../../app/state/settings_controller.dart';
+import '../../../app/support/silent_log.dart';
+import '../crons_controller.dart';
 
 /// 控制全进程仅执行一次的标志位。即使被误调多次，也只生效首次。
 bool _hasRunInThisProcess = false;
