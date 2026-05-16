@@ -64,14 +64,9 @@ fi
 echo "[build_web] OK → $OUT_DIR/{index.html,app.js,app.css}"
 
 # ---- 跨 feature import 边界检查 --------------------------------------------
-# P0 plan-1/2/3 过渡期：旧 feature 未全部迁完，允许 SKIP_IMPORT_CHECK=1 跳过。
-# Plan-2/3 收尾后删除该开关，让 fail 成为硬约束。
-if [[ "${SKIP_IMPORT_CHECK:-0}" == "1" ]]; then
-  echo "[build_web] SKIP_IMPORT_CHECK=1，跳过 check_imports.dart"
-else
-  echo "[build_web] 跑 check_imports.dart"
-  if ! dart run scripts/check_imports.dart; then
-    echo "[build_web] FAIL：检测到跨 feature 深路径 import；修复或显式 SKIP_IMPORT_CHECK=1" >&2
-    exit 1
-  fi
+# 硬约束：违规即 fail。P0 plan-1/2/3/5 完成后过渡开关已移除。
+echo "[build_web] 跑 check_imports.dart"
+if ! dart run scripts/check_imports.dart; then
+  echo "[build_web] FAIL：检测到跨 feature 深路径 import；请走对应 feature 的 barrel" >&2
+  exit 1
 fi

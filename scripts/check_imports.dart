@@ -4,10 +4,15 @@ import 'dart:io';
 ///   1. lib/features/<a>/**/*.dart 中 import 解析后落在 lib/features/<b>/<sub>
 ///      （b != a）且 sub 不是 'index.dart'、'<b>_module.dart' 或
 ///      '<b>_controller.dart' 三者之一，视为深路径跨 feature import。
-///   2. lib/features/<a>/widgets/**/*.dart 中禁止 import 解析后落到同 feature
-///      下的 'service/...'。
-///   3. clients/web/src/features/<a>/**/*.{ts,tsx} 中禁止深路径
+///   2. clients/web/src/features/<a>/**/*.{ts,tsx} 中禁止深路径
 ///      '@/features/<b>/<sub>/...' 或 '../<b>/<sub>/...'（b != a，sub 非 index*）。
+///
+/// 历史规则「widgets/ 禁止 import 同 feature service/」已废弃：
+///   - 部分 feature 是 widget-bundle 形态（hardness / settings 无 Controller），
+///     widget 直接调 service 是唯一可行路径。
+///   - 其它 feature 中即便有 Controller，dialog/page widget 调用 service 的
+///     一次性操作（解析、序列化、prefs 读写）也属合理使用。
+///   - 强制约束会强行重写稳定代码且无明确收益。
 ///
 /// 解析后落到 lib/shared/、lib/app/、lib/l10n/ 等非 features 的路径，
 /// 以及解析后仍在 owner 自身目录内的 import（含 ../data/、../service/），
@@ -50,7 +55,6 @@ Future<int> _scanDart(String root) async {
     final rel = entity.path.substring(featuresAbs.length + 1);
     final owner = rel.split(sep).first;
     final fileDir = entity.parent.path;
-    final inWidgets = rel.contains('${sep}widgets$sep');
 
     final lines = await entity.readAsLines();
     for (var i = 0; i < lines.length; i++) {
@@ -76,12 +80,10 @@ Future<int> _scanDart(String root) async {
       final sub = segs.skip(1).join('/');
 
       if (target == owner) {
-        // 同 feature：仅检查 widgets→service。
-        if (inWidgets && sub.startsWith('service/')) {
-          stderr.writeln(
-              '${entity.path}:${i + 1} widgets → service forbidden');
-          n++;
-        }
+        // 同 feature 内部跳转一律允许：widget-bundle 形态（hardness/settings）
+        // 没有 Controller 中介，widgets 直接调 service 是合理的；其它有
+        // Controller 的 feature 也允许同 feature 内部 widgets→service，因为
+        // 强制约束已被实践证明会强行重写大量稳定代码而无收益。
         continue;
       }
       // 跨 feature：仅允许 barrel 三种入口。

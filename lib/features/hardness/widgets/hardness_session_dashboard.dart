@@ -26,7 +26,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../ai/index.dart';
-import '../../home/message_path_linking.dart';
+import '../../home/index.dart';
 import '../model/hardness_phase.dart';
 import '../model/hardness_role_config.dart';
 import '../model/hardness_session_config.dart';
