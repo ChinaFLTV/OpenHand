@@ -89,6 +89,21 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    developer.Timeline.startSync(
+      'openhand.bubble.build',
+      arguments: <String, Object?>{
+        'kind': widget.message.kind.storageValue,
+        'chars': widget.message.content.length,
+      },
+    );
+    try {
+      return _buildInner(context);
+    } finally {
+      developer.Timeline.finishSync();
+    }
+  }
+
+  Widget _buildInner(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final message = widget.message;
