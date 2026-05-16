@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
@@ -147,8 +148,15 @@ class WebReverseSessionController extends ChangeNotifier {
       },
     );
     _pageSessionId = attachResult['sessionId'] as String?;
-    // 启用相关 domain。
-    await cdp.send('Network.enable', sessionId: _pageSessionId);
+    // 启用相关 domain。给 Network 加大 buffer 让 getResponseBody 能拿到大文本。
+    await cdp.send(
+      'Network.enable',
+      params: const <String, Object?>{
+        'maxResourceBufferSize': 16 * 1024 * 1024,
+        'maxTotalBufferSize': 64 * 1024 * 1024,
+      },
+      sessionId: _pageSessionId,
+    );
     await cdp.send('Page.enable', sessionId: _pageSessionId);
     await cdp.send('Runtime.enable', sessionId: _pageSessionId);
     await cdp.send('Log.enable', sessionId: _pageSessionId);
@@ -166,6 +174,8 @@ class WebReverseSessionController extends ChangeNotifier {
         _onResponseReceived(ev.params);
       case 'Network.loadingFailed':
         _onLoadingFailed(ev.params);
+      case 'Network.loadingFinished':
+        _onLoadingFinished(ev.params);
       case 'Runtime.consoleAPICalled':
         _onConsoleApi(ev.params);
       case 'Log.entryAdded':
@@ -179,20 +189,36 @@ class WebReverseSessionController extends ChangeNotifier {
     if (request == null) return;
     final url = '${request['url'] ?? ''}';
     final method = '${request['method'] ?? 'GET'}';
+    final headers = _flattenHeaders(request['headers']);
     final entry = CdpNetworkEntry(
       requestId: requestId,
       url: url,
       method: method,
       timestamp: DateTime.now(),
       resourceType: '${p['type'] ?? 'Other'}',
-    );
+    )
+      ..requestHeaders = headers
+      ..requestPostData = request['postData'] as String?;
+    final initiator = p['initiator'] as Map?;
+    if (initiator != null) {
+      entry.initiatorType = initiator['type'] as String?;
+      entry.initiatorUrl = initiator['url'] as String?;
+      entry.initiatorLineNumber = (initiator['lineNumber'] as num?)?.toInt();
+      final stack = initiator['stack'] as Map?;
+      final frames = stack?['callFrames'] as List?;
+      if (frames != null) {
+        entry.initiatorStack = frames
+            .whereType<Map>()
+            .map((f) => Map<String, Object?>.from(f))
+            .toList(growable: false);
+      }
+    }
     _networkByRequestId[requestId] = entry;
     _networkRequests.add(entry);
     while (_networkRequests.length > _maxNetworkEntries) {
       final old = _networkRequests.removeAt(0);
       _networkByRequestId.remove(old.requestId);
     }
-    final headers = (request['headers'] as Map?)?.cast<String, Object?>();
     _artifacts
       ..appendNetwork(<String, Object?>{
         'kind': 'request',
@@ -205,8 +231,8 @@ class WebReverseSessionController extends ChangeNotifier {
         requestId: requestId,
         url: url,
         method: method,
-        headers: headers ?? const <String, Object?>{},
-        postData: request['postData'] as String?,
+        headers: Map<String, Object?>.from(headers),
+        postData: entry.requestPostData,
         startedAt: entry.timestamp,
       );
     notifyListeners();
@@ -220,12 +246,19 @@ class WebReverseSessionController extends ChangeNotifier {
     if (entry == null) return;
     final status = (response['status'] as num?)?.toInt();
     final mime = '${response['mimeType'] ?? ''}';
-    entry.statusCode = status;
-    entry.mimeType = mime;
-    entry.fromCache = response['fromDiskCache'] == true ||
-        response['fromMemoryCache'] == true ||
-        response['fromServiceWorker'] == true;
-    final headers = (response['headers'] as Map?)?.cast<String, Object?>();
+    final headers = _flattenHeaders(response['headers']);
+    entry
+      ..statusCode = status
+      ..statusText = response['statusText'] as String?
+      ..mimeType = mime
+      ..responseHeaders = headers
+      ..remoteAddress = _formatRemoteAddress(response)
+      ..protocol = response['protocol'] as String?
+      ..encodedDataLength = (response['encodedDataLength'] as num?)?.toInt()
+      ..fromCache = response['fromDiskCache'] == true ||
+          response['fromMemoryCache'] == true ||
+          response['fromServiceWorker'] == true
+      ..responseReceivedAt = DateTime.now();
     _artifacts
       ..appendNetwork(<String, Object?>{
         'kind': 'response',
@@ -240,10 +273,9 @@ class WebReverseSessionController extends ChangeNotifier {
         status: status ?? 0,
         statusText: '${response['statusText'] ?? ''}',
         mimeType: mime,
-        headers: headers ?? const <String, Object?>{},
-        bodySize: (response['encodedDataLength'] as num?)?.toInt(),
-      )
-      ..recordHarFinished(requestId, DateTime.now());
+        headers: Map<String, Object?>.from(headers),
+        bodySize: entry.encodedDataLength,
+      );
     notifyListeners();
   }
 
@@ -254,6 +286,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final err = '${p['errorText'] ?? 'failed'}';
     entry.failed = true;
     entry.errorText = err;
+    entry.loadingFinishedAt = DateTime.now();
     _artifacts
       ..appendNetwork(<String, Object?>{
         'kind': 'failed',
@@ -263,6 +296,34 @@ class WebReverseSessionController extends ChangeNotifier {
       })
       ..recordHarFailed(requestId, err, DateTime.now());
     notifyListeners();
+  }
+
+  void _onLoadingFinished(Map<String, Object?> p) {
+    final requestId = '${p['requestId']}';
+    final entry = _networkByRequestId[requestId];
+    if (entry == null) return;
+    entry.loadingFinishedAt = DateTime.now();
+    final encoded = (p['encodedDataLength'] as num?)?.toInt();
+    if (encoded != null) entry.encodedDataLength = encoded;
+    _artifacts.recordHarFinished(requestId, DateTime.now());
+    notifyListeners();
+  }
+
+  static Map<String, String> _flattenHeaders(Object? raw) {
+    if (raw is! Map) return const <String, String>{};
+    final out = <String, String>{};
+    for (final entry in raw.entries) {
+      out['${entry.key}'] = '${entry.value}';
+    }
+    return out;
+  }
+
+  static String? _formatRemoteAddress(Map response) {
+    final ip = response['remoteIPAddress'];
+    final port = response['remotePort'];
+    if (ip == null) return null;
+    if (port == null) return '$ip';
+    return '$ip:$port';
   }
 
   void _onConsoleApi(Map<String, Object?> p) {
@@ -352,6 +413,63 @@ class WebReverseSessionController extends ChangeNotifier {
     );
   }
 
+  /// 设置网络节流模式：normal / offline / slow3g / fast3g。
+  /// 失败/未启用时返回 false。
+  Future<bool> setNetworkThrottling(WebReverseThrottlePreset preset) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    final params = preset.cdpParams;
+    try {
+      await cdp.send(
+        'Network.emulateNetworkConditions',
+        params: params,
+        sessionId: _pageSessionId,
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'setNetworkThrottling',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
+  /// 拉取指定请求的 response body（CDP `Network.getResponseBody`）。
+  /// 自动缓存到 entry.cachedBody，重复点击不再发请求。
+  /// 文本类返回 (body, false)，二进制类返回 (base64, true)；失败返回 null。
+  Future<(String, bool)?> fetchResponseBody(String requestId) async {
+    final entry = _networkByRequestId[requestId];
+    if (entry == null) return null;
+    if (entry.cachedBody != null) {
+      return (entry.cachedBody!, entry.cachedBodyBase64);
+    }
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final result = await cdp.send(
+        'Network.getResponseBody',
+        params: <String, Object?>{'requestId': requestId},
+        sessionId: _pageSessionId,
+      );
+      final body = '${result['body'] ?? ''}';
+      final base64 = result['base64Encoded'] == true;
+      entry.cachedBody = body;
+      entry.cachedBodyBase64 = base64;
+      return (body, base64);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'fetchResponseBody $requestId',
+        error,
+        stack,
+      );
+      return null;
+    }
+  }
+
   /// 立即导出当前 HAR 草稿。返回写出路径或 null。
   /// 调用后 in-memory drafts 仍保留，stop() 时会再导一份；用户从 dashboard 手动触发用。
   Future<String?> exportHarNow() async {
@@ -361,6 +479,26 @@ class WebReverseSessionController extends ChangeNotifier {
       notifyListeners();
     }
     return path;
+  }
+
+  /// 把当前 HAR 写到用户选定路径（来自 file_selector）；返回写出路径或 null。
+  Future<String?> exportHarToPath(String destPath) async {
+    final src = await _artifacts.exportHar();
+    if (src == null) return null;
+    try {
+      await File(src).copy(destPath);
+      _lastHarPath = destPath;
+      notifyListeners();
+      return destPath;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'exportHarToPath copy',
+        error,
+        stack,
+      );
+      return null;
+    }
   }
 
   @override
@@ -380,7 +518,14 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 }
 
-/// 单条网络请求的精简快照，仅持有 dashboard 渲染必需的字段。
+/// 单条网络请求的精简快照，dashboard 用它渲染。
+///
+/// 字段量按 Chrome DevTools「请求详情」侧栏 5 个 tab 的需要补齐：
+/// - Headers: requestHeaders / responseHeaders / statusCode / remoteAddress
+/// - Preview / Response: 通过 controller.fetchResponseBody 异步拉取
+/// - Initiator: initiatorType / initiatorStack
+/// - Timing: requestSentAt / responseReceivedAt / loadingFinishedAt /
+///           encodedDataLength / decodedBodyLength
 class CdpNetworkEntry {
   CdpNetworkEntry({
     required this.requestId,
@@ -396,11 +541,38 @@ class CdpNetworkEntry {
   final DateTime timestamp;
   final String resourceType;
 
+  /// 请求侧。
+  Map<String, String> requestHeaders = const <String, String>{};
+  String? requestPostData;
+
+  /// 响应侧（来自 Network.responseReceived）。
   int? statusCode;
+  String? statusText;
   String? mimeType;
+  Map<String, String> responseHeaders = const <String, String>{};
+  String? remoteAddress;
+  String? protocol;
   bool fromCache = false;
+  int? encodedDataLength;
+  int? decodedBodyLength;
+
+  /// Initiator（脚本调用栈，CDP 提供）。
+  String? initiatorType; // parser / script / preflight / other
+  String? initiatorUrl;
+  int? initiatorLineNumber;
+  List<Map<String, Object?>> initiatorStack = const <Map<String, Object?>>[];
+
+  /// Timing 字段（绝对时刻；时长由 dashboard 计算差值）。
+  DateTime? responseReceivedAt;
+  DateTime? loadingFinishedAt;
+
   bool failed = false;
   String? errorText;
+
+  /// dashboard 拉过的 response body 缓存（一次取后保留，避免 CDP 多次访问）。
+  /// 仅在用户点 Preview / Response tab 时填。
+  String? cachedBody;
+  bool cachedBodyBase64 = false;
 
   bool get isError =>
       failed || (statusCode != null && statusCode! >= 400);
@@ -416,4 +588,57 @@ class CdpConsoleEntry {
   final String level;
   final String text;
   final DateTime timestamp;
+}
+
+/// CDP 网络节流预设，对标 DevTools 的 Throttling 下拉。
+enum WebReverseThrottlePreset {
+  none(
+    label: 'No throttling',
+    isOffline: false,
+    latencyMs: 0,
+    downloadKbps: -1,
+    uploadKbps: -1,
+  ),
+  offline(
+    label: 'Offline',
+    isOffline: true,
+    latencyMs: 0,
+    downloadKbps: 0,
+    uploadKbps: 0,
+  ),
+  slow3g(
+    label: 'Slow 3G',
+    isOffline: false,
+    latencyMs: 2000,
+    downloadKbps: 500,
+    uploadKbps: 500,
+  ),
+  fast3g(
+    label: 'Fast 3G',
+    isOffline: false,
+    latencyMs: 562,
+    downloadKbps: 1500,
+    uploadKbps: 750,
+  );
+
+  const WebReverseThrottlePreset({
+    required this.label,
+    required this.isOffline,
+    required this.latencyMs,
+    required this.downloadKbps,
+    required this.uploadKbps,
+  });
+
+  final String label;
+  final bool isOffline;
+  final int latencyMs;
+  final int downloadKbps;
+  final int uploadKbps;
+
+  Map<String, Object?> get cdpParams => <String, Object?>{
+        'offline': isOffline,
+        'latency': latencyMs,
+        'downloadThroughput': downloadKbps < 0 ? -1 : downloadKbps * 1024 / 8,
+        'uploadThroughput': uploadKbps < 0 ? -1 : uploadKbps * 1024 / 8,
+      };
 }
