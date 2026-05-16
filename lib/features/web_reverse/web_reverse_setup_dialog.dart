@@ -7,6 +7,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'web_reverse_browser_detector.dart';
 import 'web_reverse_install_guide_dialog.dart';
+import 'web_reverse_profile_cleaner.dart';
 import 'web_reverse_session_config.dart';
 
 /// 弹出 Web 逆向会话创建表单。返回 null 表示用户取消；返回 result 后
@@ -106,6 +107,14 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
 
   bool _isZh() =>
       Localizations.localeOf(context).languageCode.startsWith('zh');
+
+  /// 预览的 user-data-dir：与 [_submit] 中拼装一致，仅用于 UI 展示与
+  /// "清理冲突 profile"按钮。注意真实启动时 home page 还会再追加 sessionId
+  /// 后缀（防多会话锁占用），所以这里仅清理浏览器粒度的"模板锁"。
+  String get _previewUserDataDir {
+    final id = _selectedProbe.browser?.id ?? 'chrome';
+    return '${widget.userDataDirRoot}/profile_$id';
+  }
 
   bool get _canSubmit {
     final url = _urlCtrl.text.trim();
@@ -284,6 +293,11 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                         border: const OutlineInputBorder(),
                       ),
                     ),
+                    const SizedBox(height: 14),
+                    _ProfileDirRow(
+                      userDataDir: _previewUserDataDir,
+                      isZh: isZh,
+                    ),
                   ],
                 ),
               ),
@@ -389,6 +403,200 @@ class _LabelText extends StatelessWidget {
       style: theme.textTheme.labelLarge?.copyWith(
         fontWeight: FontWeight.w700,
         color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+/// 设置弹窗里展示的"Profile 目录"行：左侧带说明 + 右侧"清理冲突 profile"按钮。
+/// 点击按钮 → 探测目录是否存在 SingletonLock 等锁文件 → 询问确认 →
+/// 调用 [cleanWebReverseProfileLocks] 删除 → 用 SnackBar 反馈 (deleted, messages)。
+class _ProfileDirRow extends StatefulWidget {
+  const _ProfileDirRow({required this.userDataDir, required this.isZh});
+
+  final String userDataDir;
+  final bool isZh;
+
+  @override
+  State<_ProfileDirRow> createState() => _ProfileDirRowState();
+}
+
+class _ProfileDirRowState extends State<_ProfileDirRow> {
+  bool _busy = false;
+  bool? _hasLock;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshLockState();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProfileDirRow old) {
+    super.didUpdateWidget(old);
+    if (old.userDataDir != widget.userDataDir) {
+      _refreshLockState();
+    }
+  }
+
+  Future<void> _refreshLockState() async {
+    final has = await hasWebReverseProfileLocks(widget.userDataDir);
+    if (!mounted) return;
+    setState(() => _hasLock = has);
+  }
+
+  Future<void> _onCleanPressed() async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    // 先确认浏览器已关：清理时浏览器还在跑会造成更隐蔽的损坏。
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh ? '清理冲突 profile' : 'Clean conflicting profile'),
+        content: Text(
+          isZh
+              ? '此操作会删除 profile 目录里的 SingletonLock / lockfile 等残留锁文件，'
+                  '不会动 Cookies / Login Data 等真实数据。\n\n'
+                  '请先关闭所有 ${widget.userDataDir.split('/').last.replaceFirst('profile_', '')} 浏览器实例后再执行。'
+              : 'This will remove SingletonLock / lockfile residues inside the profile dir.'
+                  ' Cookies / Login Data are NOT affected.\n\n'
+                  'Close all related browser instances first.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(isZh ? '确认清理' : 'Clean now'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    final result = await cleanWebReverseProfileLocks(widget.userDataDir);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _hasLock = false; // 清理后即刻更新 UI；下次构建会再 refresh。
+    });
+    messenger.showSnackBar(SnackBar(
+      content: Text(
+        isZh
+            ? '已清理 ${result.deleted} 个锁文件'
+            : 'Removed ${result.deleted} lock file(s)',
+      ),
+      duration: const Duration(seconds: 3),
+      action: SnackBarAction(
+        label: isZh ? '查看' : 'View',
+        onPressed: () {
+          showDialog<void>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: Text(isZh ? '清理详情' : 'Clean details'),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    result.messages.join('\n'),
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(isZh ? '关闭' : 'Close'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ));
+    await _refreshLockState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    final hasLock = _hasLock == true;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: hasLock ? cs.errorContainer.withValues(alpha: 0.4) : cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: hasLock ? cs.error : cs.outlineVariant,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasLock ? Icons.lock_clock_rounded : Icons.folder_rounded,
+            size: 18,
+            color: hasLock ? cs.error : cs.onSurfaceVariant,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isZh ? 'Profile 目录' : 'User Data Dir',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.userDataDir,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: cs.onSurface,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (hasLock) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    isZh
+                        ? '检测到 SingletonLock / lockfile 残留，可能阻止浏览器再次启动。'
+                        : 'Stale SingletonLock / lockfile detected — may block next launch.',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.tonalIcon(
+            onPressed: _busy ? null : _onCleanPressed,
+            icon: Icon(
+              _busy ? Icons.hourglass_top_rounded : Icons.cleaning_services_rounded,
+              size: 16,
+            ),
+            label: Text(
+              _busy
+                  ? (isZh ? '清理中…' : 'Cleaning…')
+                  : (isZh ? '清理冲突 profile' : 'Clean profile locks'),
+            ),
+            style: FilledButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ],
       ),
     );
   }

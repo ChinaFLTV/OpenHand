@@ -2609,8 +2609,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   /// 把 [WebReverseLaunchException] 转成"标题 + 详情"两段式文案，
   /// 标题给 SnackBar 主行，详情通过「详情 / Details」按钮展开。
-  /// 详情区直接拼上 launcher 抓回来的 stderr 摘要 / 探测次数 / 进程退出码，
-  /// 用户/AI 据此可一键定位"profile 锁、企业策略、SUID sandbox"等真实根因。
+  /// 详情区由 [WebReverseLaunchDiagnosis] 把 launcher 抓回来的 stderr
+  /// 摘要 / 探测次数 / 进程退出码结构化为「现象 → 根因 → 建议」三段式，
+  /// 末尾保留原始报错供高级用户复制。
   String _formatWebReverseLaunchError(WebReverseLaunchException error) {
     final headline = switch (error.failure) {
       WebReverseLaunchFailure.noFreePort =>
@@ -2620,7 +2621,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       WebReverseLaunchFailure.cdpHandshakeFailed =>
         'CDP 握手超时',
     };
-    return '$headline\n\n${error.message}';
+    final diagnosis = WebReverseLaunchDiagnosis.parse(error.message);
+    final buf = StringBuffer()
+      ..writeln(headline)
+      ..writeln()
+      ..writeln('【现象】${diagnosis.phenomenon}')
+      ..writeln();
+    for (var i = 0; i < diagnosis.causes.length; i++) {
+      final c = diagnosis.causes[i];
+      buf
+        ..writeln('【可能根因 ${i + 1}】${c.title}')
+        ..writeln('【建议】${c.suggestion}')
+        ..writeln();
+    }
+    buf
+      ..writeln('— 原始报错 —')
+      ..writeln(diagnosis.fullText.trim());
+    return buf.toString();
   }
 
   /// 给定 sessionId 返回当前活跃的 Web 逆向 controller（无则 null）。
