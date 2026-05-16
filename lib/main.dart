@@ -26,8 +26,7 @@ import 'features/ai/service/web_fetch/web_fetch_cache_store.dart';
 import 'features/ai/service/web_search/web_search_cache_store.dart';
 import 'features/crons/cron_history_cleanup_worker.dart';
 import 'features/crons/crons_controller.dart';
-import 'features/hooks/hooks_controller.dart';
-import 'features/hooks/hooks_executor.dart';
+import 'features/hooks/index.dart';
 import 'features/instructions/instructions_controller.dart';
 import 'features/mcp/mcp_controller.dart';
 import 'features/mcp/service/mcp_tool_discovery_service.dart'

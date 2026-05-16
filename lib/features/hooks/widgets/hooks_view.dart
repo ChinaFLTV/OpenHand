@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../app/model/hook_config.dart';
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/appear_once.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import 'hooks_controller.dart';
+import '../../../app/model/hook_config.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../hooks_controller.dart';
 
 class HooksView extends StatelessWidget {
   const HooksView({super.key});

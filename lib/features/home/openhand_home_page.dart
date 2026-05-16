@@ -97,7 +97,7 @@ import '../hardness/model/hardness_phase.dart';
 import '../hardness/model/hardness_role_config.dart';
 import '../hardness/model/hardness_session_config.dart';
 import '../hardness/model/hardness_session_record.dart';
-import '../hooks/hooks_view.dart';
+import '../hooks/widgets/hooks_view.dart';
 import '../instructions/instructions_controller.dart';
 import '../instructions/instructions_view.dart';
 import '../instructions/model/user_instruction_entry.dart';

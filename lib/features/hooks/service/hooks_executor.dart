@@ -4,9 +4,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../app/model/hook_config.dart';
-import '../../app/support/openhand_paths.dart';
-import 'hooks_controller.dart';
+import '../../../app/model/hook_config.dart';
+import '../../../app/support/openhand_paths.dart';
+import '../hooks_controller.dart';
 
 /// Maximum characters to collect from hook script stdout / stderr.
 const int _maxHookOutputCharacters = 4000;

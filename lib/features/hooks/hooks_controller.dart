@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/model/hook_config.dart';
-import 'hooks_store.dart';
+import 'data/hooks_store.dart';
 
 /// Controller for managing hook configurations.
 ///

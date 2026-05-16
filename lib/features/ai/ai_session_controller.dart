@@ -13,7 +13,7 @@ import '../../app/model/hook_config.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
-import '../hooks/hooks_executor.dart';
+import '../hooks/service/hooks_executor.dart';
 import '../mcp/model/mcp_tool.dart';
 import '../mcp/service/mcp_lazy_loading_applier.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart';
