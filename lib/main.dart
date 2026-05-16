@@ -24,6 +24,7 @@ import 'features/mcp/index.dart';
 import 'features/memory/index.dart';
 import 'features/message_gateway/index.dart';
 import 'features/plugin_service/index.dart';
+import 'features/settings/service/throttle_auto_sync_service.dart';
 import 'features/skills/index.dart';
 import 'shared/db/database_service.dart';
 import 'shared/fps/openhand_fps_monitor.dart';
@@ -161,6 +162,9 @@ Future<void> _bootstrap() async {
   settingsController.addListener(() {
     SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
   });
+  // 2026-05-18 — 节流配置自动同步：开机后 1s 静默 pull，配置变更
+  // debounce 5s 自动 push；provider != custom 或 endpoint 空时是 noop。
+  ThrottleAutoSyncService(settingsController: settingsController).start();
   // 2026-05-04 — stdio MCP 镜像源模式（auto / forceOn / forceOff）。
   // 用一个简单 top-level 变量同步给 mcp_tool_discovery_service，
   // 避免给已稳定的 service 强行喂 SettingsController 依赖。
