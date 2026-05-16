@@ -7,16 +7,16 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
-import '../../l10n/app_localizations.dart';
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/animated_menu.dart';
-import '../../shared/ui/hover_lift.dart';
-import '../../shared/ui/image_editor_dialog.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import 'model/local_skill.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/image_editor_dialog.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../model/local_skill.dart';
+import '../skills_controller.dart';
 import 'skill_market_dialog.dart';
-import 'skills_controller.dart';
 
 enum _SkillCardAction { openDirectory, edit, delete }
 

@@ -34,7 +34,7 @@ import 'features/mcp/service/mcp_tool_discovery_service.dart'
 import 'features/memory/index.dart';
 import 'features/message_gateway/message_gateway_controller.dart';
 import 'features/plugin_service/index.dart';
-import 'features/skills/skills_controller.dart';
+import 'features/skills/index.dart';
 import 'shared/db/database_service.dart';
 
 Future<void> main() async {
@@ -191,10 +191,11 @@ Future<void> _bootstrap() async {
       settingsController.editorLspSettings,
     );
   });
-  final skillsController = SkillsController.uninitialized(
+  final skillsModuleFuture = SkillsModule.bootstrap(
     initialStoragePath: settingsController.skillsStoragePath,
   );
-  unawaited(skillsController.refresh());
+  final skills = await skillsModuleFuture;
+  unawaited(skills.controller.refresh());
   final mcpController = McpController.uninitialized(
     initialFilePath: settingsController.mcpServersFilePath,
     autoProbeConcurrency: settingsController.mcpAutoProbeConcurrency,
@@ -347,7 +348,7 @@ Future<void> _bootstrap() async {
   final messageGatewayController = MessageGatewayController.uninitialized(
     sessionController: aiSessionController,
     settingsController: settingsController,
-    skillsController: skillsController,
+    skillsController: skills.controller,
     mcpController: mcpController,
     memoryController: memory.controller,
     cronsController: cronsController,
@@ -381,7 +382,7 @@ Future<void> _bootstrap() async {
         ChangeNotifierProvider<SettingsController>.value(
           value: settingsController,
         ),
-        ChangeNotifierProvider<SkillsController>.value(value: skillsController),
+        ...SkillsModule.providers(skills),
         ChangeNotifierProvider<McpController>.value(value: mcpController),
         ...HooksModule.providers(hooks),
         ...MemoryModule.providers(memory),
