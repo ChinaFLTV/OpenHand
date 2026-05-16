@@ -147,7 +147,7 @@ Future<void> _bootstrap() async {
   // are not on the critical path for showing the UI.
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
-  final hooksControllerFuture = HooksController.create();
+  final hooksModuleFuture = HooksModule.bootstrap();
   // 2026-05-03: kick off system-proxy detection in parallel with the
   // controllers — internal HTTP clients (WebSearch / WebFetch) consult
   // SystemProxyResolver lazily, so this is purely best-effort.
@@ -155,7 +155,7 @@ Future<void> _bootstrap() async {
 
   developer.Timeline.startSync('openhand.boot.await_settings_hooks');
   final settingsController = await settingsControllerFuture;
-  final hooksController = await hooksControllerFuture;
+  final hooks = await hooksModuleFuture;
   developer.Timeline.finishSync();
   // 2026-05-03 — settings 加载完成后立刻把代理偏好同步给 resolver；
   // 后续设置变更通过 listener 同步，全程不需要重启。
@@ -176,7 +176,7 @@ Future<void> _bootstrap() async {
   MemoryController? memoryControllerHandle;
   final aiSessionControllerFuture = AiSessionController.create(
     hookService: AiClaudeHookService(),
-    userHooksExecutor: HooksExecutor(controller: hooksController),
+    userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
     memoryControllerProvider: () => memoryControllerHandle,
   );
@@ -378,7 +378,7 @@ Future<void> _bootstrap() async {
         ),
         ChangeNotifierProvider<SkillsController>.value(value: skillsController),
         ChangeNotifierProvider<McpController>.value(value: mcpController),
-        ChangeNotifierProvider<HooksController>.value(value: hooksController),
+        ...HooksModule.providers(hooks),
         ChangeNotifierProvider<MemoryController>.value(value: memoryController),
         ChangeNotifierProvider<CronsController>.value(value: cronsController),
         ChangeNotifierProvider<InstructionsController>.value(

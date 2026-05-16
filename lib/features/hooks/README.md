@@ -6,7 +6,9 @@
 ## 对外 API
 - `HooksController` — Provider 提供，含 `entries` 与增删改方法
 - `HooksExecutor` — 监听事件并执行匹配的 hook，含 `pruneStaleTempFiles` 静态方法
-- `HooksModule.bootstrap()` / `HooksModule.providers()` — 装配入口
+- `HookExecutionResult` / `HookEntryResult` — 执行结果 DTO
+- `HookEntry` / `HookEvent` — 领域模型（自 `app/model/hook_config.dart` 经 barrel 再导出）
+- `HooksModule.bootstrap()` / `HooksModule.providers(hooks)` — 装配入口
 - `HooksView` — 设置页中的 hooks 编辑 widget
 
 ## 依赖

@@ -6,24 +6,27 @@ import 'service/hooks_executor.dart';
 
 /// Assembly point for the hooks feature.
 ///
-/// main.dart should call [HooksModule.bootstrap] once at startup to obtain
-/// the controller+executor pair, then mount [HooksModule.providers] in the
-/// global provider tree.
+/// Usage:
+///   final hooks = await HooksModule.bootstrap();
+///   // ... build provider tree ...
+///   ...HooksModule.providers(hooks),
 class HooksModule {
-  HooksModule._();
+  HooksModule._({required this.controller, required this.executor});
 
-  static Future<({HooksController controller, HooksExecutor executor})>
-  bootstrap() async {
+  final HooksController controller;
+  final HooksExecutor executor;
+
+  static Future<HooksModule> bootstrap() async {
     final controller = await HooksController.create();
     final executor = HooksExecutor(controller: controller);
-    return (controller: controller, executor: executor);
+    return HooksModule._(controller: controller, executor: executor);
   }
 
-  static List<SingleChildWidget> providers(
-    HooksController controller,
-    HooksExecutor executor,
-  ) => [
-    ChangeNotifierProvider<HooksController>.value(value: controller),
-    Provider<HooksExecutor>.value(value: executor),
+  static List<SingleChildWidget> providers(HooksModule hooks) => [
+    ChangeNotifierProvider<HooksController>.value(value: hooks.controller),
+    // HooksExecutor is stateless (subprocesses are scoped per executeEvent);
+    // no dispose hook needed. Stateful services should use
+    // `Provider<T>(create: ..., dispose: ...)` instead of `.value`.
+    Provider<HooksExecutor>.value(value: hooks.executor),
   ];
 }
