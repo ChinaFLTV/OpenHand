@@ -73,4 +73,28 @@ void main() {
     expect(WebReverseLoginMode.fromId(''), WebReverseLoginMode.none);
     expect(WebReverseLoginMode.fromId('?'), WebReverseLoginMode.none);
   });
+
+  test('copyWith 仅替换给定字段，其他字段保持不变', () {
+    const original = WebReverseSessionConfig(
+      targetUrl: 'https://example.com',
+      objective: '复现 sign',
+      cdpPort: 9222,
+      userDataDir: '/root/profile_chrome',
+      browserKind: WebReverseBrowserKind.chrome,
+      keywords: ['sign', 'token'],
+    );
+    final scoped = original.copyWith(
+      userDataDir: '/root/profiles/chrome_session-uuid-123',
+    );
+    expect(scoped.userDataDir, '/root/profiles/chrome_session-uuid-123');
+    expect(scoped.targetUrl, original.targetUrl);
+    expect(scoped.objective, original.objective);
+    expect(scoped.cdpPort, original.cdpPort);
+    expect(scoped.browserKind, original.browserKind);
+    expect(scoped.keywords, original.keywords);
+    // 序列化后能再 fromJson 回来。
+    final restored = WebReverseSessionConfig.fromJson(scoped.toJson());
+    expect(restored, isNotNull);
+    expect(restored!.userDataDir, scoped.userDataDir);
+  });
 }

@@ -29,6 +29,34 @@ class WebReverseSessionConfig {
   final List<String> keywords;
   final String? harPath;
 
+  /// 浅拷贝；用于在 session.id 就绪后给 [userDataDir] 拼上 sessionId 后缀，
+  /// 从源头规避"同一 user-data-dir 被多个会话复用导致 profile 锁占用"。
+  WebReverseSessionConfig copyWith({
+    String? targetUrl,
+    String? objective,
+    int? cdpPort,
+    String? userDataDir,
+    WebReverseBrowserKind? browserKind,
+    String? triggerActions,
+    WebReverseLoginMode? loginMode,
+    String? proxy,
+    List<String>? keywords,
+    String? harPath,
+  }) {
+    return WebReverseSessionConfig(
+      targetUrl: targetUrl ?? this.targetUrl,
+      objective: objective ?? this.objective,
+      cdpPort: cdpPort ?? this.cdpPort,
+      userDataDir: userDataDir ?? this.userDataDir,
+      browserKind: browserKind ?? this.browserKind,
+      triggerActions: triggerActions ?? this.triggerActions,
+      loginMode: loginMode ?? this.loginMode,
+      proxy: proxy ?? this.proxy,
+      keywords: keywords ?? this.keywords,
+      harPath: harPath ?? this.harPath,
+    );
+  }
+
   Map<String, Object?> toJson() => <String, Object?>{
     'target_url': targetUrl,
     'objective': objective,

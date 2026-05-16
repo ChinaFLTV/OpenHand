@@ -2529,17 +2529,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = context.read<AiSessionController>();
     final session = sessionController.currentSession;
     if (session == null) return created;
+    if (!mounted) return created;
+    // 把 user-data-dir 在 session.id 就绪后改写为 `<root>/profile_<browser>_<sid>`，
+    // 这样每个会话各占一个 profile 目录，从源头规避另一个 Chrome 实例
+    // 抓着同一 user-data-dir 时触发的 "Profile is in use" 锁导致 CDP 起不来。
+    final sessionScopedUserDataDir =
+        '$userDataDirRoot/profiles/${setup.config.browserKind.id}_${session.id}';
+    final scopedConfig = setup.config.copyWith(
+      userDataDir: sessionScopedUserDataDir,
+    );
     // 写入 metadata，便于 SessionDetailPage / 调试胶囊定位 controller。
     await sessionController.updateSessionMetadata(
       session.id,
       <String, Object?>{
-        'web_reverse_config': setup.config.toJson(),
+        'web_reverse_config': scopedConfig.toJson(),
       },
     );
     if (!mounted) return created;
     // 启动 controller。
     final controller = WebReverseSessionController(
-      config: setup.config,
+      config: scopedConfig,
       executablePath: setup.executablePath,
       artifactsRootDir: '$userDataDirRoot/sessions/${session.id}',
     );
@@ -2559,14 +2568,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
-          message: switch (error.failure) {
-            WebReverseLaunchFailure.noFreePort =>
-                '9222-9242 端口区间已被占用。请关闭已开的 Chrome / Edge 实例，或自行释放端口后重试。',
-            WebReverseLaunchFailure.spawnFailed =>
-                '浏览器进程启动失败：${error.message}',
-            WebReverseLaunchFailure.cdpHandshakeFailed =>
-                'CDP 握手超时。常见原因：用户已有 Chrome 实例占着调试端口；请退出全部 Chrome 后重试。',
-          },
+          message: _formatWebReverseLaunchError(error),
           fallback: 'Web 逆向会话启动失败',
         );
       }
@@ -2584,7 +2586,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // 启动失败则把 dead controller 摘除，避免胶囊点击拿到残骸。
       controller.removeListener(_onWebReverseControllerChanged);
       _webReverseControllers.remove(session.id);
-      unawaited(controller.stop());
+      // 必须先 await stop() 才能 dispose；旧顺序会触发
+      // dispose 后 notifyListeners 断言。
+      try {
+        await controller.stop();
+      } catch (e, st) {
+        silentLog('openhand_home_page', 'web reverse stop', e, st);
+      }
       controller.dispose();
     }
     if (!mounted) return created;
@@ -2597,6 +2605,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _onWebReverseControllerChanged() {
     if (!mounted) return;
     setState(() {});
+  }
+
+  /// 把 [WebReverseLaunchException] 转成"标题 + 详情"两段式文案，
+  /// 标题给 SnackBar 主行，详情通过「详情 / Details」按钮展开。
+  /// 详情区直接拼上 launcher 抓回来的 stderr 摘要 / 探测次数 / 进程退出码，
+  /// 用户/AI 据此可一键定位"profile 锁、企业策略、SUID sandbox"等真实根因。
+  String _formatWebReverseLaunchError(WebReverseLaunchException error) {
+    final headline = switch (error.failure) {
+      WebReverseLaunchFailure.noFreePort =>
+        '9222-9242 端口区间已被占用，无法分配 CDP 端口',
+      WebReverseLaunchFailure.spawnFailed =>
+        '浏览器进程启动失败',
+      WebReverseLaunchFailure.cdpHandshakeFailed =>
+        'CDP 握手超时',
+    };
+    return '$headline\n\n${error.message}';
   }
 
   /// 给定 sessionId 返回当前活跃的 Web 逆向 controller（无则 null）。
@@ -2642,8 +2666,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return restoreWebReverseSession(session);
     }
+    // 兼容旧 metadata：早期版本的 userDataDir 形如 `<root>/profile_<browser>`，
+    // 多个会话会共享同一目录而触发 Profile 锁。这里在 restore 时按 sessionId
+    // 改写，并把新值写回 metadata，从源头根除该 race；旧目录保留不动以避免
+    // 误删用户已登录态，老会话首次 restore 后即升级到独立 profile。
+    final userDataDirRoot =
+        '${OpenHandPaths.defaultRootDirectoryPath()}/web_reverse';
+    final desired =
+        '$userDataDirRoot/profiles/${config.browserKind.id}_${session.id}';
+    var effectiveConfig = config;
+    if (config.userDataDir != desired) {
+      effectiveConfig = config.copyWith(userDataDir: desired);
+      try {
+        await context.read<AiSessionController>().updateSessionMetadata(
+              session.id,
+              <String, Object?>{
+                'web_reverse_config': effectiveConfig.toJson(),
+              },
+            );
+      } catch (e, st) {
+        silentLog(
+          'openhand_home_page',
+          'rewrite user_data_dir for ${session.id}',
+          e,
+          st,
+        );
+      }
+    }
     final controller = WebReverseSessionController(
-      config: config,
+      config: effectiveConfig,
       executablePath: probe.executablePath!,
       artifactsRootDir:
           '${OpenHandPaths.defaultRootDirectoryPath()}/web_reverse/sessions/${session.id}',
@@ -2664,14 +2715,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
-          message: switch (error.failure) {
-            WebReverseLaunchFailure.noFreePort =>
-                '9222-9242 端口区间已被占用。请关闭已开的 Chrome / Edge 实例后重试。',
-            WebReverseLaunchFailure.spawnFailed =>
-                '浏览器进程启动失败：${error.message}',
-            WebReverseLaunchFailure.cdpHandshakeFailed =>
-                'CDP 握手超时。请退出全部 Chrome 实例后重试。',
-          },
+          message: _formatWebReverseLaunchError(error),
           fallback: '浏览器恢复启动失败',
         );
       }
