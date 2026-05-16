@@ -622,6 +622,50 @@ class WebReverseSessionController extends ChangeNotifier {
 (() => {
   if (window.__oh_recorder_installed) return;
   window.__oh_recorder_installed = true;
+  // 悬浮指示条：固定页面右上角，永远不接收手势（pointer-events:none），
+  // 仅视觉表示"OpenHand 正在录制"，并实时显示已记录步数。
+  const overlay = document.createElement('div');
+  overlay.id = '__oh_recorder_overlay';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.style.cssText = [
+    'position:fixed', 'top:12px', 'right:12px', 'z-index:2147483647',
+    'pointer-events:none', 'user-select:none',
+    'padding:6px 10px', 'border-radius:999px',
+    'background:rgba(244,67,54,0.92)', 'color:#fff',
+    'font:600 12px/1 -apple-system,Segoe UI,Roboto,sans-serif',
+    'box-shadow:0 2px 12px rgba(0,0,0,.25)',
+    'display:flex', 'align-items:center', 'gap:8px',
+  ].join(';');
+  const dot = document.createElement('span');
+  dot.style.cssText = [
+    'display:inline-block', 'width:8px', 'height:8px',
+    'border-radius:50%', 'background:#fff',
+    'box-shadow:0 0 0 0 rgba(255,255,255,.6)',
+    'animation:__oh_rec_pulse 1.2s ease-in-out infinite',
+  ].join(';');
+  const label = document.createElement('span');
+  label.textContent = 'REC · 0';
+  overlay.appendChild(dot);
+  overlay.appendChild(label);
+  // 关键帧动画注入到 documentElement 以躲开 page CSP（多数 CSP 不挡 inline style）。
+  const style = document.createElement('style');
+  style.textContent = '@keyframes __oh_rec_pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.65)}70%{box-shadow:0 0 0 12px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}';
+  document.documentElement.appendChild(style);
+  // 早期 Page.addScriptToEvaluateOnNewDocument 注入时 body 还没存在；用 MutationObserver 等。
+  const attach = () => {
+    if (document.body && !document.getElementById('__oh_recorder_overlay')) {
+      document.body.appendChild(overlay);
+    }
+  };
+  attach();
+  if (!document.body) {
+    new MutationObserver(attach).observe(document.documentElement, {childList:true, subtree:true});
+  }
+  let _stepCount = 0;
+  window.__oh_rec_inc = () => {
+    _stepCount++;
+    label.textContent = 'REC · ' + _stepCount;
+  };
   // 计算稳定 CSS 选择器：优先 #id，其次按 tag + nth-child 链向上回溯到 body。
   const buildSelector = (el) => {
     if (!el || el.nodeType !== 1) return null;
@@ -639,7 +683,10 @@ class WebReverseSessionController extends ChangeNotifier {
     return parts.length ? parts.join(' > ') : null;
   };
   const log = (step) => {
-    try { console.log('__OH_REC__', JSON.stringify(step)); } catch (_) {}
+    try {
+      console.log('__OH_REC__', JSON.stringify(step));
+      if (window.__oh_rec_inc) window.__oh_rec_inc();
+    } catch (_) {}
   };
   // 连击去抖：同一选择器在 350ms 内的重复点击合并为一条 step。
   // 既能压平用户双击 / 误连击，也保留真实"快速点两次"的语义（设置 doubleClick 标记）。
@@ -758,6 +805,19 @@ class WebReverseSessionController extends ChangeNotifier {
         );
       } catch (_) {}
       _recorderScriptIdentifier = null;
+    }
+    // 摘掉页面上的悬浮指示条；页面没卸载时 stop 后 overlay 仍可能挂着。
+    if (cdp != null && _pageSessionId != null) {
+      try {
+        await cdp.send(
+          'Runtime.evaluate',
+          params: const <String, Object?>{
+            'expression':
+                '(()=>{const el=document.getElementById("__oh_recorder_overlay");if(el)el.remove();window.__oh_recorder_installed=false;window.__oh_rec_inc=null;})()',
+          },
+          sessionId: _pageSessionId,
+        );
+      } catch (_) {}
     }
     notifyListeners();
   }
@@ -1610,8 +1670,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 启用后所有请求都需要 dashboard 显式放行；适合反爬调试与超时模拟，
   /// 不建议默认开。
   bool _fetchInterceptEnabled = false;
-  bool get isFetchInterceptEnabled => _fetchInterceptEnabled;
-  // 请求 ID -> 暂存的元信息（method / url），等用户决策。
+  bool get isFetchInterceptEnabled => _fetchInterceptEnabled;  // 请求 ID -> 暂存的元信息（method / url），等用户决策。
   final Map<String, Map<String, Object?>> _pendingFetchRequests =
       <String, Map<String, Object?>>{};
   List<({String requestId, String method, String url})>
@@ -1745,6 +1804,104 @@ class WebReverseSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 已被屏蔽的 URL pattern 集合（CDP `Network.setBlockedURLs`）。
+  /// 支持通配符 `*`；对应到右键菜单"Block this URL"。
+  final Set<String> _blockedUrls = <String>{};
+  Set<String> get blockedUrls => Set<String>.unmodifiable(_blockedUrls);
+
+  Future<void> blockUrl(String pattern) async {
+    if (pattern.isEmpty) return;
+    _blockedUrls.add(pattern);
+    await _flushBlockedUrls();
+  }
+
+  Future<void> unblockUrl(String pattern) async {
+    _blockedUrls.remove(pattern);
+    await _flushBlockedUrls();
+  }
+
+  Future<void> clearBlockedUrls() async {
+    _blockedUrls.clear();
+    await _flushBlockedUrls();
+  }
+
+  Future<void> _flushBlockedUrls() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) {
+      notifyListeners();
+      return;
+    }
+    try {
+      await cdp.send(
+        'Network.setBlockedURLs',
+        params: <String, Object?>{'urls': _blockedUrls.toList()},
+        sessionId: _pageSessionId,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'setBlockedURLs',
+        error,
+        stack,
+      );
+    }
+    notifyListeners();
+  }
+
+  /// 在浏览器里重发指定请求（按 entry 当前的 method/url/headers/postData）。
+  /// 走 `fetch()` 重发；返回 (status, bodyPreview)；失败返回 null。
+  Future<({int status, String body})?> replayRequest(
+    CdpNetworkEntry e,
+  ) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    final init = <String, Object?>{
+      'method': e.method,
+      if (e.requestHeaders.isNotEmpty)
+        'headers': e.requestHeaders.map((k, v) => MapEntry(k, v)),
+      if (e.requestPostData != null) 'body': e.requestPostData,
+      'credentials': 'include',
+    };
+    final js = '''
+(async () => {
+  try {
+    const r = await fetch(${jsonEncode(e.url)}, ${jsonEncode(init)});
+    const text = await r.text();
+    return JSON.stringify({ status: r.status, body: text.slice(0, 4096) });
+  } catch (err) {
+    return JSON.stringify({ status: -1, body: String(err) });
+  }
+})()
+''';
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression': js,
+          'awaitPromise': true,
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 30),
+      );
+      final raw = (r['result'] as Map?)?['value'];
+      if (raw is! String) return null;
+      final decoded = jsonDecode(raw) as Map<String, Object?>;
+      return (
+        status: (decoded['status'] as num?)?.toInt() ?? -1,
+        body: '${decoded['body'] ?? ''}',
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'replayRequest',
+        error,
+        stack,
+      );
+      return null;
+    }
+  }
+
   /// 是否在主 frame 导航时保留旧日志。关闭后下次导航自动清表。
   bool get preserveLog => _preserveLog;
   set preserveLog(bool v) {
@@ -1842,9 +1999,13 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// 反向加载：把外部 HAR 1.2 文档解析回 _networkRequests，便于离线复盘。
-  /// 加载会清空当前实时请求；不影响 artifacts 文件本身。
+  /// 默认替换当前实时请求；当 [merge]=true 时将解析结果按 startedDateTime 时序
+  /// 合并到现有列表中并保持总数 ≤ [_maxNetworkEntries]。不影响 artifacts 文件本身。
   /// 返回 (loaded, skipped)。
-  ({int loaded, int skipped}) loadHarBytes(List<int> bytes) {
+  ({int loaded, int skipped}) loadHarBytes(
+    List<int> bytes, {
+    bool merge = false,
+  }) {
     try {
       final raw = utf8.decode(bytes);
       final har = jsonDecode(raw);
@@ -1852,8 +2013,9 @@ class WebReverseSessionController extends ChangeNotifier {
       final log = har['log'] as Map?;
       final entries = log?['entries'] as List?;
       if (entries == null) return (loaded: 0, skipped: 0);
-      _networkRequests.clear();
-      _networkByRequestId.clear();
+      // 解析所有 entry 到候选列表；merge=false 时清空旧表后按解析顺序回填，
+      // merge=true 时与现有列表按时间归并并 dedup。
+      final candidates = <CdpNetworkEntry>[];
       var loaded = 0;
       var skipped = 0;
       for (var i = 0; i < entries.length; i++) {
@@ -1890,12 +2052,17 @@ class WebReverseSessionController extends ChangeNotifier {
               );
         }
         final timeMs = (raw['time'] as num?)?.toInt() ?? 0;
+        // requestId 在 merge 时必须避免与现有 / 同批次冲突；用 ts 后缀保证唯一。
+        final reqId = merge
+            ? 'har-${started.microsecondsSinceEpoch}-$i'
+            : 'har-$i';
         final entry = CdpNetworkEntry(
-          requestId: 'har-$i',
+          requestId: reqId,
           url: url,
           method: method,
           timestamp: started,
-          resourceType: _resourceTypeFromMime('${res?['content']?['mimeType'] ?? ''}'),
+          resourceType:
+              _resourceTypeFromMime('${res?['content']?['mimeType'] ?? ''}'),
         )
           ..requestHeaders = reqHeaders
           ..requestPostData = (req['postData'] as Map?)?['text'] as String?
@@ -1904,11 +2071,34 @@ class WebReverseSessionController extends ChangeNotifier {
           ..statusText = res?['statusText'] as String?
           ..mimeType = '${res?['content']?['mimeType'] ?? ''}'
           ..encodedDataLength = (res?['bodySize'] as num?)?.toInt()
-          ..responseReceivedAt = started.add(Duration(milliseconds: timeMs ~/ 2))
+          ..responseReceivedAt =
+              started.add(Duration(milliseconds: timeMs ~/ 2))
           ..loadingFinishedAt = started.add(Duration(milliseconds: timeMs));
-        _networkByRequestId[entry.requestId] = entry;
-        _networkRequests.add(entry);
+        candidates.add(entry);
         loaded++;
+      }
+      if (!merge) {
+        _networkRequests.clear();
+        _networkByRequestId.clear();
+        for (final e in candidates) {
+          _networkByRequestId[e.requestId] = e;
+          _networkRequests.add(e);
+        }
+      } else {
+        // 合并：按 timestamp 升序插入；超出容量时 FIFO 砍头。
+        final combined = <CdpNetworkEntry>[
+          ..._networkRequests,
+          ...candidates,
+        ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        if (combined.length > _maxNetworkEntries) {
+          combined.removeRange(0, combined.length - _maxNetworkEntries);
+        }
+        _networkRequests
+          ..clear()
+          ..addAll(combined);
+        _networkByRequestId
+          ..clear()
+          ..addEntries(combined.map((e) => MapEntry(e.requestId, e)));
       }
       notifyListeners();
       return (loaded: loaded, skipped: skipped);

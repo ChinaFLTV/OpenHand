@@ -626,6 +626,11 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   // 采样收尾后的 top-N 函数。
   ({int totalSize, List<({String label, int size, List<String> stack})> top})?
       _samplingResult;
+  // ── 阈值告警 ─────────────────────────────────────────────────────────
+  // 用户可通过 V8 卡片右侧滑块调整；触发后 60s 冷却防刷屏。
+  double _heapWarnThresholdMb = 100;
+  DateTime? _lastWarnAt;
+  bool _heapBreached = false;
 
   @override
   void initState() {
@@ -647,6 +652,8 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     if (!widget.controller.isRunning) return;
     final r = await widget.controller.readJsHeap();
     if (!mounted || r == null) return;
+    final usedMb = r.used / 1024 / 1024;
+    final breached = usedMb > _heapWarnThresholdMb;
     setState(() {
       _heapUsed.add(r.used);
       _heapTotal.add(r.total);
@@ -654,7 +661,33 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         _heapUsed.removeAt(0);
         _heapTotal.removeAt(0);
       }
+      _heapBreached = breached;
     });
+    // 触发告警：超过阈值且距上次告警 ≥ 60s 才再次提示。
+    if (breached) {
+      final now = DateTime.now();
+      if (_lastWarnAt == null ||
+          now.difference(_lastWarnAt!) > const Duration(seconds: 60)) {
+        _lastWarnAt = now;
+        if (mounted) {
+          final isZh = widget.isZh;
+          final cs = Theme.of(context).colorScheme;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            backgroundColor: cs.error,
+            content: Text(
+              isZh
+                  ? 'V8 堆已用 ${usedMb.toStringAsFixed(1)} MB，超过阈值 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB'
+                  : 'V8 heap ${usedMb.toStringAsFixed(1)} MB exceeds threshold ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
+              style: TextStyle(
+                color: cs.onError,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            duration: const Duration(seconds: 3),
+          ));
+        }
+      }
+    }
   }
 
   Future<void> _toggleSampling() async {
@@ -767,6 +800,9 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             used: _heapUsed,
             total: _heapTotal,
             isZh: isZh,
+            thresholdMb: _heapWarnThresholdMb,
+            breached: _heapBreached,
+            onThresholdChanged: (v) => setState(() => _heapWarnThresholdMb = v),
           ),
           const SizedBox(height: 12),
           // ── 采样 / 快照工具栏 ──────────────────────────────────────
@@ -866,16 +902,24 @@ class _MemoryPanelState extends State<_MemoryPanel> {
 }
 
 /// V8 堆 Used/Total 实时折线卡片。
+/// 支持告警阈值滑块；超过阈值时卡片描边变红、Used 数字加色，
+/// Sparkline 颜色顺势切到 error 色，让用户一眼看到内存压力。
 class _V8HeapLiveCard extends StatelessWidget {
   const _V8HeapLiveCard({
     required this.used,
     required this.total,
     required this.isZh,
+    required this.thresholdMb,
+    required this.breached,
+    required this.onThresholdChanged,
   });
 
   final List<double> used;
   final List<double> total;
   final bool isZh;
+  final double thresholdMb;
+  final bool breached;
+  final ValueChanged<double> onThresholdChanged;
 
   String _fmt(double v) {
     if (v < 1024) return '${v.toStringAsFixed(0)} B';
@@ -889,12 +933,16 @@ class _V8HeapLiveCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final lastUsed = used.isEmpty ? 0.0 : used.last;
     final lastTotal = total.isEmpty ? 0.0 : total.last;
+    final usedColor = breached ? cs.error : cs.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
+        border: Border.all(
+          color: breached ? cs.error : cs.outlineVariant,
+          width: breached ? 1.4 : 1,
+        ),
       ),
       child: Row(
         children: [
@@ -904,18 +952,27 @@ class _V8HeapLiveCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  isZh ? 'V8 堆（实时，1.5s 间隔）' : 'V8 Heap (live, 1.5s)',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      isZh ? 'V8 堆（实时，1.5s 间隔）' : 'V8 Heap (live, 1.5s)',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    if (breached) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.warning_amber_rounded,
+                          size: 14, color: cs.error),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${isZh ? "已用" : "Used"}: ${_fmt(lastUsed)}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: cs.primary,
+                    color: usedColor,
                   ),
                 ),
                 Text(
@@ -934,9 +991,58 @@ class _V8HeapLiveCard extends StatelessWidget {
                 painter: _DualLineSparkline(
                   primary: used,
                   secondary: total,
-                  primaryColor: cs.primary,
+                  primaryColor: usedColor,
                   secondaryColor: cs.tertiary,
                 ),
+              ),
+            ),
+          ),
+          // 阈值控件：左侧标题 + 滑块 + 当前值。宽度固定 220 防止挤压 sparkline。
+          SizedBox(
+            width: 220,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.tune_rounded,
+                          size: 13, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Text(
+                        isZh ? '阈值告警' : 'Threshold',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${thresholdMb.toStringAsFixed(0)} MB',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontFamily: 'monospace',
+                          color: breached ? cs.error : cs.onSurface,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: breached ? cs.error : cs.primary,
+                      thumbColor: breached ? cs.error : cs.primary,
+                    ),
+                    child: Slider(
+                      min: 32,
+                      max: 1024,
+                      divisions: 31,
+                      value: thresholdMb.clamp(32, 1024).toDouble(),
+                      onChanged: onThresholdChanged,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -132,6 +132,7 @@ class _NetworkBody extends StatelessWidget {
                         onSelect: (e) =>
                             state.rebuildFromExternal(() => state._selectedRequest = e),
                         onCopyUrl: (e) => _copyUrl(context, e, isZh),
+                        controller: controller,
                         reduceMotion: reduceMotion,
                         isZh: isZh,
                       ),
@@ -156,6 +157,7 @@ class _NetworkBody extends StatelessWidget {
                   onSelect: (e) =>
                       state.rebuildFromExternal(() => state._selectedRequest = e),
                   onCopyUrl: (e) => _copyUrl(context, e, isZh),
+                  controller: controller,
                   reduceMotion: reduceMotion,
                   isZh: isZh,
                 ),
@@ -272,6 +274,7 @@ class _NetworkList extends StatelessWidget {
     required this.selectedId,
     required this.onSelect,
     required this.onCopyUrl,
+    required this.controller,
     required this.reduceMotion,
     required this.isZh,
   });
@@ -281,6 +284,7 @@ class _NetworkList extends StatelessWidget {
   final String? selectedId;
   final ValueChanged<CdpNetworkEntry> onSelect;
   final ValueChanged<CdpNetworkEntry> onCopyUrl;
+  final WebReverseSessionController controller;
   final bool reduceMotion;
   final bool isZh;
 
@@ -331,6 +335,8 @@ class _NetworkList extends StatelessWidget {
               selected: e.requestId == selectedId,
               onTap: () => onSelect(e),
               onCopyUrl: () => onCopyUrl(e),
+              controller: controller,
+              isZh: isZh,
             ),
           ),
         );
@@ -391,6 +397,8 @@ class _NetworkRow extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.onCopyUrl,
+    required this.controller,
+    required this.isZh,
   });
 
   final CdpNetworkEntry entry;
@@ -399,6 +407,8 @@ class _NetworkRow extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onCopyUrl;
+  final WebReverseSessionController controller;
+  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -419,12 +429,14 @@ class _NetworkRow extends StatelessWidget {
                 ? cs.onTertiaryContainer
                 : cs.onSurface);
     final fileName = _extractFileName(entry.url);
+    final blocked = controller.blockedUrls.contains(entry.url);
     return Material(
       color: color,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
         onLongPress: onCopyUrl,
+        onSecondaryTapUp: (d) => _showRowMenu(context, d.globalPosition),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -484,6 +496,18 @@ class _NetworkRow extends StatelessWidget {
                   selected: selected,
                 ),
               ),
+              if (blocked)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Tooltip(
+                    message: isZh ? '已屏蔽' : 'Blocked',
+                    child: Icon(
+                      Icons.block_rounded,
+                      size: 14,
+                      color: cs.error,
+                    ),
+                  ),
+                ),
               if (entry.fromCache)
                 Padding(
                   padding: const EdgeInsets.only(left: 6),
@@ -496,6 +520,176 @@ class _NetworkRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _showRowMenu(BuildContext context, Offset position) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+    final blocked = controller.blockedUrls.contains(entry.url);
+    final messenger = ScaffoldMessenger.of(context);
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'copy_url',
+          child: Row(children: [
+            const Icon(Icons.link_rounded, size: 16),
+            const SizedBox(width: 8),
+            Text(isZh ? '复制 URL' : 'Copy URL'),
+          ]),
+        ),
+        PopupMenuItem(
+          value: 'copy_curl',
+          child: Row(children: [
+            const Icon(Icons.terminal_rounded, size: 16),
+            const SizedBox(width: 8),
+            Text(isZh ? '复制为 cURL' : 'Copy as cURL'),
+          ]),
+        ),
+        PopupMenuItem(
+          value: 'copy_fetch',
+          child: Row(children: [
+            const Icon(Icons.code_rounded, size: 16),
+            const SizedBox(width: 8),
+            Text(isZh ? '复制为 fetch' : 'Copy as fetch'),
+          ]),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'replay',
+          child: Row(children: [
+            const Icon(Icons.replay_rounded, size: 16),
+            const SizedBox(width: 8),
+            Text(isZh ? '重放此请求' : 'Replay XHR'),
+          ]),
+        ),
+        const PopupMenuDivider(),
+        if (blocked)
+          PopupMenuItem(
+            value: 'unblock',
+            child: Row(children: [
+              const Icon(Icons.lock_open_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '取消屏蔽该 URL' : 'Unblock URL'),
+            ]),
+          )
+        else
+          PopupMenuItem(
+            value: 'block',
+            child: Row(children: [
+              const Icon(Icons.block_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '屏蔽此 URL' : 'Block this URL'),
+            ]),
+          ),
+      ],
+    );
+    if (selected == null || !context.mounted) return;
+    switch (selected) {
+      case 'copy_url':
+        await Clipboard.setData(ClipboardData(text: entry.url));
+        messenger.showSnackBar(SnackBar(
+          content: Text(isZh ? '已复制 URL' : 'URL copied'),
+          duration: const Duration(seconds: 1),
+        ));
+      case 'copy_curl':
+        await Clipboard.setData(
+          ClipboardData(text: _asCurl(entry, windows: false)),
+        );
+        messenger.showSnackBar(SnackBar(
+          content: Text(isZh ? '已复制 cURL' : 'cURL copied'),
+          duration: const Duration(seconds: 1),
+        ));
+      case 'copy_fetch':
+        await Clipboard.setData(
+          ClipboardData(text: _asFetch(entry, node: false)),
+        );
+        messenger.showSnackBar(SnackBar(
+          content: Text(isZh ? '已复制 fetch' : 'fetch copied'),
+          duration: const Duration(seconds: 1),
+        ));
+      case 'block':
+        await controller.blockUrl(entry.url);
+        messenger.showSnackBar(SnackBar(
+          content: Text(isZh ? '已屏蔽该 URL' : 'URL blocked'),
+          duration: const Duration(seconds: 2),
+        ));
+      case 'unblock':
+        await controller.unblockUrl(entry.url);
+        messenger.showSnackBar(SnackBar(
+          content: Text(isZh ? '已取消屏蔽' : 'URL unblocked'),
+          duration: const Duration(seconds: 2),
+        ));
+      case 'replay':
+        if (!context.mounted) return;
+        await _replayAndShow(context);
+    }
+  }
+
+  Future<void> _replayAndShow(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    // 显示一个"重放中"占位 dialog，结束后用结果替换。
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: SizedBox(
+          height: 56,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+    final r = await controller.replayRequest(entry);
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    if (r == null) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(isZh ? '重放失败' : 'Replay failed'),
+        duration: const Duration(seconds: 2),
+      ));
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          isZh ? '重放结果（HTTP ${r.status}）' : 'Replay (HTTP ${r.status})',
+        ),
+        content: SizedBox(
+          width: 640,
+          height: 360,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              r.body.isEmpty
+                  ? (isZh ? '(响应体为空)' : '(empty body)')
+                  : r.body,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: r.body));
+              if (!dialogContext.mounted) return;
+              messenger.showSnackBar(SnackBar(
+                content: Text(isZh ? '响应体已复制' : 'Body copied'),
+                duration: const Duration(seconds: 1),
+              ));
+            },
+            child: Text(isZh ? '复制响应体' : 'Copy body'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(isZh ? '关闭' : 'Close'),
+          ),
+        ],
       ),
     );
   }

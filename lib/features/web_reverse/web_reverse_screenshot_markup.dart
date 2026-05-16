@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -7,10 +8,12 @@ import 'package:flutter/rendering.dart';
 
 import '../../shared/ui/animated_dialog.dart';
 
-/// 截图导出前的注释面板。支持三种笔刷：
+/// 截图导出前的注释面板。支持五种笔刷：
 ///   - draw：自由涂鸦
 ///   - rect：矩形框
-///   - text：文字标签（双击或点空白处插入）
+///   - arrow：箭头（直线 + 末端两条 30° 斜线）
+///   - blur：模糊遮挡（对原图局部区域做高斯模糊，用于隐私马赛克）
+///   - text：文字标签（点空白位置插入）
 /// 用户点"完成"后用 RepaintBoundary.toImage 导出 PNG 字节。
 /// 取消则返回原图字节。
 Future<Uint8List?> showScreenshotMarkupDialog(
@@ -24,7 +27,7 @@ Future<Uint8List?> showScreenshotMarkupDialog(
   );
 }
 
-enum _MarkupTool { draw, rect, text }
+enum _MarkupTool { draw, rect, arrow, blur, text }
 
 class _Stroke {
   _Stroke({required this.tool, required this.color, required this.thickness});
@@ -34,8 +37,17 @@ class _Stroke {
   final List<Offset> points = <Offset>[];
 }
 
+/// 兼具矩形 / 箭头 / 模糊三种语义：用 [tool] 区分。
+/// - [_MarkupTool.rect]：以 start-end 对角线绘制描边矩形。
+/// - [_MarkupTool.arrow]：从 start 画到 end 的箭头。
+/// - [_MarkupTool.blur]：对 start-end 包围矩形内的原图做高斯模糊。
 class _RectShape {
-  _RectShape({required this.color, required this.thickness});
+  _RectShape({
+    required this.tool,
+    required this.color,
+    required this.thickness,
+  });
+  final _MarkupTool tool;
   final Color color;
   final double thickness;
   Offset start = Offset.zero;
@@ -200,6 +212,8 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
           for (final t in const [
             (_MarkupTool.draw, Icons.edit_rounded),
             (_MarkupTool.rect, Icons.crop_square_rounded),
+            (_MarkupTool.arrow, Icons.north_east_rounded),
+            (_MarkupTool.blur, Icons.blur_on_rounded),
             (_MarkupTool.text, Icons.text_fields_rounded),
           ]) ...[
             _ToolButton(
@@ -298,8 +312,14 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
         thickness: _thickness,
       )..points.add(d.localPosition);
       setState(() => _activeStroke = s);
-    } else if (_tool == _MarkupTool.rect) {
-      final r = _RectShape(color: _color, thickness: _thickness)
+    } else if (_tool == _MarkupTool.rect ||
+        _tool == _MarkupTool.arrow ||
+        _tool == _MarkupTool.blur) {
+      final r = _RectShape(
+        tool: _tool,
+        color: _color,
+        thickness: _thickness,
+      )
         ..start = d.localPosition
         ..end = d.localPosition;
       setState(() => _activeRect = r);
@@ -440,6 +460,43 @@ class _MarkupPainter extends CustomPainter {
       image: baseImage,
       fit: BoxFit.fill,
     );
+
+    // ── 模糊层先画：对原图的指定矩形区域用 ImageFilter.blur 单独渲染。
+    // 这样后续的 stroke / rect / arrow / text 都能叠加在模糊层之上。
+    void paintBlur(_RectShape r) {
+      final rect = Rect.fromPoints(r.start, r.end).intersect(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+      );
+      if (rect.isEmpty) return;
+      // saveLayer + ImageFilter 让模糊只作用于该 rect 范围内重新绘制的图。
+      canvas.saveLayer(
+        rect,
+        Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+      );
+      // 在模糊层中再画一次原图，限定 rect 内可见。
+      canvas.clipRect(rect);
+      paintImage(
+        canvas: canvas,
+        rect: Rect.fromLTWH(0, 0, size.width, size.height),
+        image: baseImage,
+        fit: BoxFit.fill,
+      );
+      canvas.restore();
+      // 模糊区域加一个低对比的描边方便定位。
+      final stroke = Paint()
+        ..color = const Color(0x66FFFFFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+      canvas.drawRect(rect, stroke);
+    }
+
+    for (final r in rects) {
+      if (r.tool == _MarkupTool.blur) paintBlur(r);
+    }
+    if (activeRect != null && activeRect!.tool == _MarkupTool.blur) {
+      paintBlur(activeRect!);
+    }
+
     void paintStroke(_Stroke s) {
       if (s.points.length < 2) return;
       final p = Paint()
@@ -459,6 +516,7 @@ class _MarkupPainter extends CustomPainter {
       paintStroke(s);
     }
     if (activeStroke != null) paintStroke(activeStroke!);
+
     void paintRect(_RectShape r) {
       final p = Paint()
         ..color = r.color
@@ -467,10 +525,62 @@ class _MarkupPainter extends CustomPainter {
       canvas.drawRect(Rect.fromPoints(r.start, r.end), p);
     }
 
-    for (final r in rects) {
-      paintRect(r);
+    void paintArrow(_RectShape r) {
+      // 直线主体。
+      final p = Paint()
+        ..color = r.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r.thickness
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawLine(r.start, r.end, p);
+      // 末端两条 30° 斜线。线段长度按主线长度的 22% 适配，最低 14px、最高 36px。
+      final dx = r.end.dx - r.start.dx;
+      final dy = r.end.dy - r.start.dy;
+      final len = math.sqrt(dx * dx + dy * dy);
+      if (len < 4) return;
+      final headLen = math.max(14.0, math.min(36.0, len * 0.22));
+      final angle = math.atan2(dy, dx);
+      const spread = math.pi / 6; // 30°
+      final left = Offset(
+        r.end.dx - headLen * math.cos(angle - spread),
+        r.end.dy - headLen * math.sin(angle - spread),
+      );
+      final right = Offset(
+        r.end.dx - headLen * math.cos(angle + spread),
+        r.end.dy - headLen * math.sin(angle + spread),
+      );
+      canvas.drawLine(r.end, left, p);
+      canvas.drawLine(r.end, right, p);
     }
-    if (activeRect != null) paintRect(activeRect!);
+
+    for (final r in rects) {
+      switch (r.tool) {
+        case _MarkupTool.rect:
+          paintRect(r);
+        case _MarkupTool.arrow:
+          paintArrow(r);
+        case _MarkupTool.blur:
+          // already painted
+          break;
+        case _MarkupTool.draw:
+        case _MarkupTool.text:
+          break;
+      }
+    }
+    if (activeRect != null) {
+      switch (activeRect!.tool) {
+        case _MarkupTool.rect:
+          paintRect(activeRect!);
+        case _MarkupTool.arrow:
+          paintArrow(activeRect!);
+        case _MarkupTool.blur:
+        case _MarkupTool.draw:
+        case _MarkupTool.text:
+          break;
+      }
+    }
+
     for (final t in texts) {
       final tp = TextPainter(
         text: TextSpan(

@@ -343,15 +343,47 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       );
     }
     if (file == null) return;
+    // 当前缓冲非空时让用户选「替换」or「合并」；否则直接替换。
+    bool merge = false;
+    if (ctrl.networkRequests.isNotEmpty) {
+      if (!mounted) return;
+      final mode = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(isZh ? '加载 HAR' : 'Load HAR'),
+          content: Text(
+            isZh
+                ? '当前网络列表已有 ${ctrl.networkRequests.length} 条记录，选择加载方式：'
+                : 'Network list has ${ctrl.networkRequests.length} entries. Choose load mode:',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('cancel'),
+              child: Text(isZh ? '取消' : 'Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('merge'),
+              child: Text(isZh ? '合并' : 'Merge'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop('replace'),
+              child: Text(isZh ? '替换' : 'Replace'),
+            ),
+          ],
+        ),
+      );
+      if (mode == null || mode == 'cancel') return;
+      merge = mode == 'merge';
+    }
     try {
       final bytes = await file.readAsBytes();
-      final r = ctrl.loadHarBytes(bytes);
+      final r = ctrl.loadHarBytes(bytes, merge: merge);
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
         content: Text(
           isZh
-              ? '已加载 ${r.loaded} 条；跳过 ${r.skipped} 条无效条目'
-              : 'Loaded ${r.loaded}; skipped ${r.skipped}',
+              ? '${merge ? "合并" : "替换"}加载 ${r.loaded} 条；跳过 ${r.skipped} 条无效条目'
+              : '${merge ? "Merged" : "Replaced"}: ${r.loaded}; skipped ${r.skipped}',
         ),
         duration: const Duration(seconds: 3),
       ));
