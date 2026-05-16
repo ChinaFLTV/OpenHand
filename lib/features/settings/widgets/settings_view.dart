@@ -29,6 +29,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../app/theme/openhand_theme_preset.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/fps/openhand_fps_monitor.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/app_update_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
@@ -1446,17 +1447,27 @@ class _SettingsViewState extends State<SettingsView> {
                     Localizations.localeOf(
                       context,
                     ).languageCode.startsWith('zh')
-                    ? '按平台 / 设备性能自动选速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字符/秒、移动 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字符/秒；卡片统一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。开启后忽略下方手动配置。'
-                    : 'Auto-pick rates by platform: desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} chars/s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} chars/s; cards ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. Manual values below ignored when on.',
-                control: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Switch(
-                    value: settingsController.aiStreamThrottleAutoMode,
-                    onChanged: settingsController.aiStreamThrottleEnabled
-                        ? (v) =>
-                            settingsController.updateAiStreamThrottleAutoMode(v)
-                        : null,
-                  ),
+                    ? '按平台 / 设备性能自动选速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字符/秒、移动 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字符/秒；卡片统一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。最近 1s FPS<55 自动再降速 50%。开启后忽略下方手动配置。'
+                    : 'Auto-pick rates by platform: desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} chars/s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} chars/s; cards ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. When recent FPS<55, halves the rate. Manual values below ignored when on.',
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Switch(
+                        value: settingsController.aiStreamThrottleAutoMode,
+                        onChanged: settingsController.aiStreamThrottleEnabled
+                            ? (v) =>
+                                settingsController
+                                    .updateAiStreamThrottleAutoMode(v)
+                            : null,
+                      ),
+                    ),
+                    if (settingsController.aiStreamThrottleAutoMode) ...[
+                      const SizedBox(height: 8),
+                      const _AutoModeFpsIndicator(),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(height: 18),
@@ -1611,6 +1622,53 @@ class _SettingsViewState extends State<SettingsView> {
                     : 'Override stream throttle per thread template; falls back to global values when unset.',
                 control: const _StreamThrottleTemplateOverridesEditor(),
                 controlMaxWidth: 720,
+              ),
+              const SizedBox(height: 18),
+              // 2026-05-18 — 节流配置 export / import 入口；带云端同步预留
+              _ResponsiveSettingRow(
+                title:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '导入 / 导出节流配置'
+                    : 'Import / Export Throttle Config',
+                subtitle:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '把全局开关 / 自动模式 / 字符 / 卡片速率 / 模板覆盖打包为 JSON 文件，方便多设备同步。文档保留 cloud_sync 字段，用于后续接入远端同步。'
+                    : 'Bundle global switch / auto / chars / cards / template overrides as a JSON document for cross-device sync. The cloud_sync field is reserved for future remote sync.',
+                control: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: () =>
+                          _exportAiStreamThrottleConfig(context),
+                      icon: const Icon(Icons.upload_rounded, size: 18),
+                      label: Text(
+                        Localizations.localeOf(
+                          context,
+                        ).languageCode.startsWith('zh')
+                            ? '导出 JSON'
+                            : 'Export JSON',
+                      ),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: () =>
+                          _importAiStreamThrottleConfig(context),
+                      icon: const Icon(Icons.download_rounded, size: 18),
+                      label: Text(
+                        Localizations.localeOf(
+                          context,
+                        ).languageCode.startsWith('zh')
+                            ? '从 JSON 导入'
+                            : 'Import JSON',
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
@@ -3776,6 +3834,126 @@ class _SettingsViewState extends State<SettingsView> {
       context,
       isZh ? '每秒最大输出消息卡片数已保存。' : 'Max render cards / sec saved.',
     );
+  }
+
+  /// 2026-05-18 — 把当前节流配置序列化为 JSON 文件。
+  Future<void> _exportAiStreamThrottleConfig(BuildContext context) async {
+    final controller = context.read<SettingsController>();
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final ts =
+        DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+    const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: 'openhand-throttle-config-$ts.json',
+        acceptedTypeGroups: const <XTypeGroup>[typeGroup],
+      );
+    } catch (error, stack) {
+      silentLog(
+        'settings_view',
+        '_exportAiStreamThrottleConfig.getSaveLocation',
+        error,
+        stack,
+      );
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        isZh ? '打开保存对话框失败。' : 'Failed to open save dialog.',
+        kind: _SettingsSnackKind.error,
+      );
+      return;
+    }
+    if (location == null) return;
+    try {
+      final doc = controller.exportAiStreamThrottleConfig();
+      final bytes = utf8.encode(const JsonEncoder.withIndent('  ').convert(doc));
+      final file = XFile.fromData(
+        bytes,
+        mimeType: 'application/json',
+        name: 'openhand-throttle-config-$ts.json',
+      );
+      await file.saveTo(location.path);
+    } catch (error, stack) {
+      silentLog(
+        'settings_view',
+        '_exportAiStreamThrottleConfig.write',
+        error,
+        stack,
+      );
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        isZh ? '导出失败。' : 'Export failed.',
+        kind: _SettingsSnackKind.error,
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    _showSnackBar(
+      context,
+      isZh ? '已导出节流配置。' : 'Throttle config exported.',
+      kind: _SettingsSnackKind.success,
+    );
+  }
+
+  /// 2026-05-18 — 从 JSON 文件 import 节流配置；缺失字段保持现值。
+  Future<void> _importAiStreamThrottleConfig(BuildContext context) async {
+    final controller = context.read<SettingsController>();
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
+    XFile? file;
+    try {
+      file = await openFile(
+        acceptedTypeGroups: const <XTypeGroup>[typeGroup],
+      );
+    } catch (error, stack) {
+      silentLog(
+        'settings_view',
+        '_importAiStreamThrottleConfig.openFile',
+        error,
+        stack,
+      );
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        isZh ? '打开文件对话框失败。' : 'Failed to open file dialog.',
+        kind: _SettingsSnackKind.error,
+      );
+      return;
+    }
+    if (file == null) return;
+    try {
+      final raw = await file.readAsString();
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        throw const FormatException('Root must be a JSON object');
+      }
+      final changed = await controller.importAiStreamThrottleConfig(
+        Map<String, Object?>.from(decoded),
+      );
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        changed
+            ? (isZh ? '节流配置已导入并应用。' : 'Throttle config imported.')
+            : (isZh ? '配置无变化。' : 'No changes detected.'),
+        kind: _SettingsSnackKind.success,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'settings_view',
+        '_importAiStreamThrottleConfig.parse',
+        error,
+        stack,
+      );
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        isZh ? '导入失败：${error.toString()}' : 'Import failed: $error',
+        kind: _SettingsSnackKind.error,
+      );
+    }
   }
 
   Future<void> _saveCompressionThreshold(
@@ -5957,6 +6135,77 @@ class _TemplateOverrideRowState extends State<_TemplateOverrideRow> {
                   : 'Throttle disabled for this template: full-speed rendering.',
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+
+/// 自动模式开启时显示的"实时 FPS"小指示器。
+///
+/// 2026-05-18 — 直接读 [OpenHandFpsMonitor.recentFps]，1s 一次刷新。
+/// FPS < 55 时染红并附「已降速」提示，方便用户判断当前是否处于卡顿
+/// 自适应区间。
+class _AutoModeFpsIndicator extends StatefulWidget {
+  const _AutoModeFpsIndicator();
+
+  @override
+  State<_AutoModeFpsIndicator> createState() => _AutoModeFpsIndicatorState();
+}
+
+class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
+  Timer? _timer;
+  double _fps = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _fps = OpenHandFpsMonitor.instance.recentFps);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final low = _fps > 0 && _fps < 55;
+    final color = low ? scheme.error : scheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            low ? Icons.south_rounded : Icons.bolt_rounded,
+            size: 14,
+            color: color,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isZh
+                ? '实时 FPS：${_fps.toStringAsFixed(1)}${low ? ' · 已降速' : ''}'
+                : 'FPS: ${_fps.toStringAsFixed(1)}${low ? ' · slowed' : ''}',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );

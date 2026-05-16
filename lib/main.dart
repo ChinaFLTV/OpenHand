@@ -26,6 +26,7 @@ import 'features/message_gateway/index.dart';
 import 'features/plugin_service/index.dart';
 import 'features/skills/index.dart';
 import 'shared/db/database_service.dart';
+import 'shared/fps/openhand_fps_monitor.dart';
 
 Future<void> main() async {
   // Use a guarded zone so uncaught async errors (including stray
@@ -56,6 +57,9 @@ Future<void> main() async {
 
 Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 2026-05-18 — 在 binding 初始化之后立刻启动 FPS 监视器，节流自动
+  // 模式与 UI 卡顿降级会读它的 recentFps 数值。
+  OpenHandFpsMonitor.instance.start();
 
   final originalOnError = FlutterError.onError;
   FlutterError.onError = (FlutterErrorDetails details) {

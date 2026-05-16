@@ -15,6 +15,7 @@ import '../../features/ai/model/ai_stream_throttle_override.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
+import '../../shared/fps/openhand_fps_monitor.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
@@ -447,15 +448,28 @@ class SettingsController extends ChangeNotifier {
   }
 
   /// 自动模式按平台返回字符速率：桌面端较快，移动端 / Web 端略保守。
+  ///
+  /// 2026-05-18 — 接入 [OpenHandFpsMonitor]：当最近一秒平均 FPS 低于
+  /// 55 时再砍 50%，让卡顿设备自动降速，避免雪上加霜；FPS 60 附近
+  /// 维持平台预设，保留头部体验。
   int _autoStreamMaxCharsPerSecond() {
     final platform = defaultTargetPlatform;
     final isMobileOrWeb =
         platform == TargetPlatform.android ||
         platform == TargetPlatform.iOS ||
         kIsWeb;
-    return isMobileOrWeb
+    final base = isMobileOrWeb
         ? AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile
         : AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop;
+    final fps = OpenHandFpsMonitor.instance.recentFps;
+    if (fps > 0 && fps < 55) {
+      final scaled = (base / 2).round();
+      return scaled.clamp(
+        AppSettingsSnapshot.minAiStreamMaxCharsPerSecond + 1,
+        base,
+      );
+    }
+    return base;
   }
   bool get aiAutoTitleEnabled => _aiAutoTitleEnabled;
   String get aiDefaultSessionMode => _aiDefaultSessionMode;
@@ -1588,6 +1602,96 @@ class SettingsController extends ChangeNotifier {
       if (b[entry.key] != entry.value) return false;
     }
     return true;
+  }
+
+  /// 2026-05-18 — 节流配置 export：把全局/模板级所有节流参数序列化为
+  /// 一份 JSON 文档，方便用户在多设备之间手动同步。
+  ///
+  /// 文档结构（v1）：
+  /// ```json
+  /// {
+  ///   "version": 1,
+  ///   "exported_at": "2026-05-18T...",
+  ///   "throttle_enabled": true,
+  ///   "auto_mode": false,
+  ///   "max_chars_per_second": 5,
+  ///   "max_message_cards_per_second": 1,
+  ///   "template_overrides": { "<templateId>": { "chars_per_second": ... } },
+  ///   "cloud_sync": { "enabled": false, "endpoint": "" }
+  /// }
+  /// ```
+  Map<String, Object?> exportAiStreamThrottleConfig() {
+    return <String, Object?>{
+      'version': 1,
+      'exported_at': DateTime.now().toUtc().toIso8601String(),
+      'throttle_enabled': _aiStreamThrottleEnabled,
+      'auto_mode': _aiStreamThrottleAutoMode,
+      'max_chars_per_second': _aiStreamMaxCharsPerSecond,
+      'max_message_cards_per_second': _aiStreamMaxMessageCardsPerSecond,
+      'template_overrides': <String, Object?>{
+        for (final entry in _aiStreamThrottleTemplateOverrides.entries)
+          if (!entry.value.isEmpty) entry.key: entry.value.toJson(),
+      },
+      // 云端同步预留：当前版本不读不写远端，但留下字段方便后续扩展。
+      'cloud_sync': const <String, Object?>{
+        'enabled': false,
+        'endpoint': '',
+      },
+    };
+  }
+
+  /// 2026-05-18 — 节流配置 import：把外部 JSON 文档解析后写入控制器。
+  /// 缺失字段保持现值；不合法字段静默跳过；返回是否产生了变更。
+  Future<bool> importAiStreamThrottleConfig(Map<String, Object?> doc) async {
+    var anyChange = false;
+    final enabled = doc['throttle_enabled'];
+    if (enabled is bool) {
+      anyChange =
+          await updateAiStreamThrottleEnabled(enabled) || anyChange;
+    }
+    final auto = doc['auto_mode'];
+    if (auto is bool) {
+      anyChange =
+          await updateAiStreamThrottleAutoMode(auto) || anyChange;
+    }
+    final maxChars = doc['max_chars_per_second'];
+    if (maxChars is int) {
+      anyChange =
+          await updateAiStreamMaxCharsPerSecond(maxChars) || anyChange;
+    }
+    final maxCards = doc['max_message_cards_per_second'];
+    if (maxCards is int) {
+      anyChange =
+          await updateAiStreamMaxMessageCardsPerSecond(maxCards) ||
+          anyChange;
+    }
+    final overrides = doc['template_overrides'];
+    if (overrides is Map) {
+      // 先清空旧覆盖，再按导入项重建——避免 import 后还残留旧模板。
+      final keysToClear = _aiStreamThrottleTemplateOverrides.keys.toList(
+        growable: false,
+      );
+      for (final key in keysToClear) {
+        anyChange = await clearAiStreamThrottleOverride(key) || anyChange;
+      }
+      for (final entry in overrides.entries) {
+        final tid = '${entry.key}'.trim();
+        if (tid.isEmpty) continue;
+        final value = entry.value;
+        if (value is! Map) continue;
+        final c = value['chars_per_second'];
+        final m = value['cards_per_second'];
+        if (c is int) {
+          anyChange =
+              await updateAiStreamThrottleCharsOverride(tid, c) || anyChange;
+        }
+        if (m is int) {
+          anyChange =
+              await updateAiStreamThrottleCardsOverride(tid, m) || anyChange;
+        }
+      }
+    }
+    return anyChange;
   }
 
   Future<bool> updateAiAutoTitleEnabled(bool value) async {
