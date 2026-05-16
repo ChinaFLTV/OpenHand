@@ -13,9 +13,6 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../hooks/index.dart';
-import '../mcp/model/mcp_tool.dart';
-import '../mcp/service/mcp_lazy_loading_applier.dart';
-import '../mcp/service/mcp_tool_discovery_service.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
 import 'model/ai_creation_mode.dart';
@@ -46,6 +43,7 @@ import 'tools/ai_skill_manager_tool.dart';
 import 'tools/ai_tool_search_tool.dart';
 import 'tools/ai_web_fetch_tool.dart';
 import 'tools/ai_web_search_tool.dart';
+import '../mcp/index.dart';
 
 part '_ai_session_models.dart';
 part '_ai_session_utils.dart';

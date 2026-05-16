@@ -4,8 +4,8 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 
 import '../../app/support/openhand_paths.dart';
-import '../ai/model/ai_session.dart';
 
+import '../ai/index.dart';
 const int _resolvedMessagePathCacheLimit = 512;
 
 final Map<String, MessageResolvedPath?> _resolvedMessagePathCache =

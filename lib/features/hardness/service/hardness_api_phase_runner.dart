@@ -7,20 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
-import '../../ai/model/ai_deny_command_rule.dart';
-import '../../ai/model/ai_model_config.dart';
-import '../../ai/model/ai_session_runtime_context.dart';
-import '../../ai/service/ai_bash_tool_service.dart';
-import '../../ai/service/ai_chat_service.dart';
-import '../../ai/service/ai_prompt_template_repository.dart';
-import '../../ai/service/ai_protocol_adapter.dart';
-import '../../ai/service/ai_tool_runtime_service.dart';
 import '../../mcp/index.dart';
 import '../service/hardness_orchestrator.dart';
 import '../service/hardness_prompt_builder.dart';
 import '../model/hardness_phase.dart';
 
 /// Result of a single API-based Hardness phase execution.
+import '../../ai/index.dart';
 class HardnessApiPhaseResult {
   const HardnessApiPhaseResult({
     required this.success,

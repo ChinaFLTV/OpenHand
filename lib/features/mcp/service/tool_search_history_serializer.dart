@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import '../../ai/service/mcp_loaded_tools_tracker.dart';
 
 /// 把 [AiToolSearchLoadHistoryEntry] 序列化为 CSV / Markdown 的纯函数集合。
 ///
@@ -17,6 +16,7 @@ import '../../ai/service/mcp_loaded_tools_tracker.dart';
 ///   - timestamp 用反引号包裹便于阅读
 ///   - `+Added / Deferred` 列固定形如 `+3 / 7`
 ///   - 单元格内 `|` 转义为 `\|`、`\n` 折成空格，以避免破坏表格
+import '../../ai/index.dart';
 class ToolSearchHistorySerializer {
   const ToolSearchHistorySerializer._();
 

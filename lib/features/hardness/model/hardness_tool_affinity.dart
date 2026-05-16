@@ -4,10 +4,10 @@
 // enabling intelligent tool filtering to reduce token overhead while
 // maintaining functional completeness.
 
-import '../../ai/service/ai_tool_runtime_service.dart';
 import 'hardness_phase.dart';
 
 /// Tool category classification for affinity mapping.
+import '../../ai/index.dart';
 enum HardnessToolCategory {
   /// File system operations: Read, Glob, LS, DeleteFile
   filesystem,

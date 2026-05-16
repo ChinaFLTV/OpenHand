@@ -3,7 +3,6 @@ import 'package:provider/single_child_widget.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
-import '../ai/ai_session_controller.dart';
 import '../crons/index.dart';
 import '../instructions/index.dart';
 import '../mcp/index.dart';
@@ -21,6 +20,7 @@ import 'message_gateway_controller.dart';
 ///
 /// Pending: features/ai/* deep imports remain inside this controller until
 /// P1 ai 拆解 lands a proper ai barrel.
+import '../ai/index.dart';
 class MessageGatewayModule {
   MessageGatewayModule._({required this.controller});
 

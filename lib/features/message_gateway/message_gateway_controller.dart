@@ -4,16 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
-import '../ai/ai_session_controller.dart';
-import '../ai/model/ai_thread_template.dart';
-import '../ai/service/ai_bash_tool_service.dart'
-    show BashCommandApprovalDecision, BashCommandApprovalRequest;
-import '../crons/crons_controller.dart';
+import '../ai/index.dart';
+import '../crons/index.dart';
 import '../instructions/index.dart';
 import '../mcp/index.dart';
-import '../memory/memory_controller.dart';
-import '../plugin_service/plugin_service_controller.dart';
-import '../skills/skills_controller.dart';
+import '../memory/index.dart';
+import '../plugin_service/index.dart';
+import '../skills/index.dart';
 import 'data/message_gateway_store.dart';
 import 'model/web_message_platform_config.dart';
 import 'service/web_message_platform_service.dart';

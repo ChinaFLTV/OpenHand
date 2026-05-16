@@ -7,12 +7,11 @@
 // - Protocol-adaptive tool format (skip XML for API-native tools)
 // - Unified language policy (no repetition)
 
-import '../../ai/service/ai_protocol_adapter.dart';
-import '../../ai/service/ai_tool_runtime_service.dart';
 import '../model/hardness_phase.dart';
 import '../model/hardness_tool_affinity.dart';
 
 /// HE-specific prompt builder with optimizations.
+import '../../ai/index.dart';
 class HardnessPromptBuilder {
   const HardnessPromptBuilder();
 

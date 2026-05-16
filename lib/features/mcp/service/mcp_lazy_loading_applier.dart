@@ -1,10 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import '../../ai/model/ai_session_runtime_context.dart';
-import '../../ai/service/ai_protocol_adapter.dart';
-import '../../ai/service/ai_tool_runtime_service.dart';
-import '../../ai/tools/ai_tool_search_tool.dart';
 import '../model/mcp_lazy_loading_mode.dart';
 
 /// Applies the MCP tool lazy-loading policy to a resolved tool catalog.
@@ -17,6 +13,7 @@ import '../model/mcp_lazy_loading_mode.dart';
 /// Pure data transformation: returns a new catalog and mutates the
 /// (singleton) `AiToolSearchTool.deferredTool*` fields used by ToolSearch
 /// at execution time.
+import '../../ai/index.dart';
 class McpLazyLoadingApplier {
   const McpLazyLoadingApplier();
 

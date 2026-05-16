@@ -25,7 +25,6 @@ import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
-import '../../ai/model/ai_model_config.dart';
 import '../../home/message_path_linking.dart';
 import '../service/hardness_cli_catalog.dart';
 import '../service/hardness_orchestrator.dart';
@@ -38,6 +37,7 @@ import 'hardness_pending_replay_badge.dart';
 // progressively extracted into per-section part files. Each part shares the
 // same library scope, so all private types remain accessible without
 // changing call sites.
+import '../../ai/index.dart';
 part 'hardness_session_dashboard.header.part.dart';
 part 'hardness_session_dashboard.phase_card.part.dart';
 part 'hardness_session_dashboard.log_views.part.dart';

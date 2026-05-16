@@ -1,38 +1,119 @@
-// Controller / module
+// Auto-generated wide barrel for the ai feature. Exports every public file
+// so sibling features only need a single 'features/ai/index.dart' import.
+// Re-narrow with 'show' clauses on a per-symbol basis only if proven necessary.
+
 export 'ai_module.dart';
 export 'ai_session_controller.dart';
 
-// Domain models (sibling features use these by name)
+// data
+export 'data/ai_session_store.dart';
+
+// model
+export 'model/ai_allow_command_rule.dart';
 export 'model/ai_attachment.dart';
+export 'model/ai_builtin_tool_config.dart';
+export 'model/ai_cost_breakdown.dart';
 export 'model/ai_creation_mode.dart';
+export 'model/ai_deny_command_rule.dart';
+export 'model/ai_input_cache_runtime_config.dart';
+export 'model/ai_lsp_backend_catalog.dart';
+export 'model/ai_lsp_language_settings.dart';
 export 'model/ai_model_catalog.dart';
 export 'model/ai_model_config.dart';
-export 'model/ai_session.dart';
+export 'model/ai_sandbox_settings.dart';
 export 'model/ai_session_message.dart';
 export 'model/ai_session_runtime_context.dart';
+export 'model/ai_session.dart';
 export 'model/ai_thread_template.dart';
 export 'model/ai_token_usage.dart';
+export 'model/ai_web_fetch_settings.dart';
+export 'model/ai_web_search_settings.dart';
 
-// Services consumed by siblings (mcp / message_gateway / home / hardness)
-export 'service/ai_bash_tool_service.dart'
-    show BashCommandApprovalDecision, BashCommandApprovalRequest;
+// service (root + nested)
+export 'service/ai_attachment_service.dart';
+export 'service/ai_bash_tool_service.dart';
 export 'service/ai_chat_service.dart';
 export 'service/ai_claude_hook_service.dart';
+export 'service/ai_dsml_partial_stream_scanner.dart';
+export 'service/ai_dsml_tool_call_parser.dart';
+export 'service/ai_file_history_service.dart';
+export 'service/ai_file_mutation_ledger.dart';
+export 'service/ai_file_tracker_service.dart';
+export 'service/ai_git_snapshot_service.dart';
 export 'service/ai_image_generation_service.dart';
+export 'service/ai_image_summary_extractor.dart';
+export 'service/ai_lsp_managed_install_service.dart';
+export 'service/ai_model_scanner.dart';
+export 'service/ai_plan_approval_detector.dart';
+export 'service/ai_prompt_builder.dart';
+export 'service/ai_prompt_template_repository.dart';
 export 'service/ai_protocol_adapter.dart';
+export 'service/ai_sandbox_proxy_service.dart';
+export 'service/ai_sandbox_service.dart';
+export 'service/ai_session_jsonl_exporter.dart';
+export 'service/ai_token_usage_parser.dart';
 export 'service/ai_tool_execution_registry.dart';
 export 'service/ai_tool_runtime_service.dart';
 export 'service/ai_transport_diagnostic_messages.dart';
+export 'service/ai_workspace_instruction_service.dart';
 export 'service/lsp_client_service.dart';
+export 'service/machine_expert_prompts.dart';
 export 'service/mcp_loaded_tools_tracker.dart';
+export 'service/media_cache_service.dart';
+export 'service/programming_expert_prompts.dart';
 export 'service/self_learning_dispatcher.dart';
 export 'service/self_learning_runner.dart';
 export 'service/self_learning_scheduler.dart';
+export 'service/web_engine_base.dart';
+export 'service/web_engine_cache_store_base.dart';
+export 'service/web_engine_concurrency.dart';
+export 'service/web_engine_http_exception.dart';
+export 'service/web_engine_json_utils.dart';
+export 'service/web_engine_quality.dart';
+export 'service/web_engine_telemetry_store_base.dart';
 export 'service/web_fetch/web_fetch_cache_store.dart';
+export 'service/web_fetch/web_fetch_direct_engines.dart';
+export 'service/web_fetch/web_fetch_engine.dart';
+export 'service/web_fetch/web_fetch_orchestrator.dart';
+export 'service/web_fetch/web_fetch_scrape_engines.dart';
+export 'service/web_fetch/web_fetch_search_engines.dart';
+export 'service/web_fetch/web_fetch_telemetry_store.dart';
+export 'service/web_search/web_search_api_engines.dart';
 export 'service/web_search/web_search_cache_store.dart';
+export 'service/web_search/web_search_engine.dart';
+export 'service/web_search/web_search_html_engines.dart';
+export 'service/web_search/web_search_orchestrator.dart';
+export 'service/web_search/web_search_provider_engines.dart';
+export 'service/web_search/web_search_telemetry_store.dart';
 
-// Tool plumbing (some sibling features peek at registry types)
+// tools
+export 'tools/ai_apply_file_diffs_tool.dart';
+export 'tools/ai_ask_user_choice_tool.dart';
+export 'tools/ai_bash_background_tool.dart';
+export 'tools/ai_bash_tool.dart';
+export 'tools/ai_codebase_search_tool.dart';
+export 'tools/ai_delete_file_tool.dart';
+export 'tools/ai_edit_tool.dart';
+export 'tools/ai_exit_plan_mode_tool.dart';
+export 'tools/ai_file_read_renderer.dart';
+export 'tools/ai_git_tool.dart';
+export 'tools/ai_glob_tool.dart';
+export 'tools/ai_grep_tool.dart';
+export 'tools/ai_ls_tool.dart';
+export 'tools/ai_lsp_tool.dart';
+export 'tools/ai_memory_tool.dart';
+export 'tools/ai_multi_edit_tool.dart';
+export 'tools/ai_notebook_edit_tool.dart';
+export 'tools/ai_read_lints_tool.dart';
+export 'tools/ai_read_tool.dart';
+export 'tools/ai_skill_manager_tool.dart';
+export 'tools/ai_task_tool.dart';
+export 'tools/ai_todo_write_tool.dart';
+export 'tools/ai_tool_execution_context.dart';
+export 'tools/ai_tool_registry.dart';
+export 'tools/ai_tool_search_tool.dart';
+export 'tools/ai_tool_utils.dart';
 export 'tools/ai_tool.dart';
-
-// Data layer (controller persistence — exported for jsonl exporter access)
-export 'data/ai_session_store.dart';
+export 'tools/ai_web_fetch_tool.dart';
+export 'tools/ai_web_search_tool.dart';
+export 'tools/ai_write_tool.dart';

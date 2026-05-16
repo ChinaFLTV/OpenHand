@@ -12,8 +12,8 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/highlight_pulse.dart';
 import '../../shared/ui/model_search_selector.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../ai/model/ai_model_config.dart';
 
+import '../ai/index.dart';
 class MachineExpertDialog extends StatefulWidget {
   const MachineExpertDialog({
     super.key,

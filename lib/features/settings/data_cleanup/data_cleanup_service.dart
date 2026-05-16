@@ -15,6 +15,8 @@ library;
 
 import 'dart:io';
 
+import '../../ai/index.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
@@ -22,13 +24,6 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
-import '../../ai/ai_session_controller.dart';
-import '../../ai/service/ai_file_mutation_ledger.dart';
-import '../../ai/service/media_cache_service.dart';
-import '../../ai/service/web_fetch/web_fetch_cache_store.dart';
-import '../../ai/service/web_fetch/web_fetch_telemetry_store.dart';
-import '../../ai/service/web_search/web_search_cache_store.dart';
-import '../../ai/service/web_search/web_search_telemetry_store.dart';
 import '../../crons/crons_controller.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../memory/memory_controller.dart';
