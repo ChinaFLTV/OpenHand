@@ -75,6 +75,15 @@ class AiPromptTemplateRepository {
       internalVersion: '1.0.0',
       promptAssetDirectory: 'assets/prompts/hermes_talker',
     ),
+    AiThreadTemplate(
+      id: 'web_reverse_expert',
+      name: 'Web 逆向专家',
+      iconName: 'travel_explore_rounded',
+      description:
+          '通过外部 Google Chrome（或同核 Chromium）+ CDP 通道完成 Web 站点的接口逆向、参数还原、复现脚本产出。会话窗口附带可视化 CDP 调试胶囊与 F12 等价控制台。',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/web_reverse_expert',
+    ),
   ];
 
   List<AiThreadTemplate> get templates =>
@@ -133,6 +142,10 @@ class AiPromptTemplateRepository {
         systemFallback = _hermesTalkerSystemInstructions;
         developerFallback = _hermesTalkerDeveloperInstructions;
         compressionFallback = _hermesTalkerCompressionSummaryInstructions;
+      case 'web_reverse_expert':
+        systemFallback = _webReverseSystemInstructions;
+        developerFallback = _webReverseDeveloperInstructions;
+        compressionFallback = _webReverseCompressionSummaryInstructions;
       default:
         systemFallback = _defaultSystemInstructions;
         developerFallback = _defaultDeveloperInstructions;
@@ -324,3 +337,7 @@ const String _hardnessCompressionSummaryInstructions = _fallbackNotice;
 const String _hermesTalkerSystemInstructions = _fallbackNotice;
 const String _hermesTalkerDeveloperInstructions = _fallbackNotice;
 const String _hermesTalkerCompressionSummaryInstructions = _fallbackNotice;
+
+const String _webReverseSystemInstructions = _fallbackNotice;
+const String _webReverseDeveloperInstructions = _fallbackNotice;
+const String _webReverseCompressionSummaryInstructions = _fallbackNotice;

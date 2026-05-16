@@ -28,6 +28,7 @@ const List<({String id, String dir})> _templates = <({String id, String dir})>[
   (id: 'hardness_engineering', dir: 'assets/prompts/hardness_engineering'),
   (id: 'programming_expert', dir: 'assets/prompts/programming_expert'),
   (id: 'hermes_talker', dir: 'assets/prompts/hermes_talker'),
+  (id: 'web_reverse_expert', dir: 'assets/prompts/web_reverse_expert'),
 ];
 
 const String _memoryTonePolicySection = '''
