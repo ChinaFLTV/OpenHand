@@ -6,9 +6,9 @@
 // 内容保留旧值, 避免短暂网络抖动让用户 tab 整个清空。
 
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { TopBar } from '../components/TopBar';
-import { Appear } from '../components/Appear';
-import { ApiError } from '../api/client';
+import { TopBar } from '../../../components/TopBar';
+import { Appear } from '../../../components/Appear';
+import { ApiError } from '../../../api/client';
 import {
   CronEntrySummary,
   McpServerSummary,
@@ -18,8 +18,8 @@ import {
   listMcpServers,
   listMemories,
   listSkills,
-} from '../api/toolbox';
-import { t, tDateTime } from '../i18n';
+} from '../../../api/toolbox';
+import { t, tDateTime } from '../../../i18n';
 
 type TabKey = 'mcp' | 'skills' | 'memories' | 'crons';
 

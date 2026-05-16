@@ -9,7 +9,7 @@
 //   GET    /api/sessions/:id/export
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
+import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import {
   createSession,
   deleteSession,
@@ -20,20 +20,20 @@ import {
   type CreateSessionInput,
   type SessionListResponse,
   type SessionSummary,
-} from '../api/sessions';
-import { ApiError, UnauthorizedError } from '../api/client';
-import { t } from '../i18n';
-import { useAuth } from '../state/auth';
-import type { ApiMetaTemplate } from '../api/meta';
-import { TopBar } from '../components/TopBar';
-import { Appear } from '../components/Appear';
-import { PopMenu } from '../components/PopMenu';
-import { TemplateConfigDialog, TemplatePickerDialog } from '../components/TemplateDialogs';
-import { PullIndicator } from '../components/PullIndicator';
-import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { ConfirmDialog } from '../components/ConfirmDialog';
-import { showSnackbar } from '../components/Snackbar';
-import { BusyWaitDialog } from '../components/BusyWaitDialog';
+} from '../../../api/sessions';
+import { ApiError, UnauthorizedError } from '../../../api/client';
+import { t } from '../../../i18n';
+import { useAuth } from '../../../state/auth';
+import type { ApiMetaTemplate } from '../../../api/meta';
+import { TopBar } from '../../../components/TopBar';
+import { Appear } from '../../../components/Appear';
+import { PopMenu } from '../../../components/PopMenu';
+import { TemplateConfigDialog, TemplatePickerDialog } from '../../../components/TemplateDialogs';
+import { PullIndicator } from '../../../components/PullIndicator';
+import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import { showSnackbar } from '../../../components/Snackbar';
+import { BusyWaitDialog } from '../../../components/BusyWaitDialog';
 
 const DEFAULT_PAGE_SIZE = 10;
 

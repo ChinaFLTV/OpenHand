@@ -4,9 +4,9 @@
 // 5 秒轮询刷新状态，操作期间实时反馈进度。UI 风格与 ToolboxPage 保持一致。
 
 import { useEffect, useState } from 'preact/hooks';
-import { TopBar } from '../components/TopBar';
-import { Appear } from '../components/Appear';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { TopBar } from '../../../components/TopBar';
+import { Appear } from '../../../components/Appear';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import {
   PluginSummary,
   PluginStatus,
@@ -15,9 +15,9 @@ import {
   updatePlugin,
   uninstallPlugin,
   rescanPlugins,
-} from '../api/plugins';
-import { t } from '../i18n';
-import { showSnackbar } from '../components/Snackbar';
+} from '../../../api/plugins';
+import { t } from '../../../i18n';
+import { showSnackbar } from '../../../components/Snackbar';
 
 function statusBadge(status: PluginStatus): { color: string; bg: string; label: string } {
   switch (status) {

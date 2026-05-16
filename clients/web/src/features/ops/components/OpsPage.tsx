@@ -6,20 +6,20 @@
 // - 清理面板：target=all/logs/uploads + expired_only 复选框 + 历史列表
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
-import { ApiError } from '../api/client';
+import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
+import { ApiError } from '../../../api/client';
 import {
   CleanupHistoryEntry,
   OpsRuntimeSnapshot,
   getCleanupHistory,
   getOpsSnapshot,
   runCleanup,
-} from '../api/ops';
-import { t, tBytes, tDateTime, tDuration, tFmt, tPlural } from '../i18n';
-import { MenuSelect } from '../components/MenuSelect';
-import { ConfirmDialog } from '../components/ConfirmDialog';
-import { showSnackbar } from '../components/Snackbar';
-import { TopBar } from '../components/TopBar';
+} from '../../../api/ops';
+import { t, tBytes, tDateTime, tDuration, tFmt, tPlural } from '../../../i18n';
+import { MenuSelect } from '../../../components/MenuSelect';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import { showSnackbar } from '../../../components/Snackbar';
+import { TopBar } from '../../../components/TopBar';
 
 const REFRESH_INTERVAL_MS = 5_000;
 

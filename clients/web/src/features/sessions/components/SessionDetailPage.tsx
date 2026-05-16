@@ -39,44 +39,44 @@ import {
   type SessionDetailResponse,
   type SessionMessage,
   type SessionSummary,
-} from '../api/sessions';
-import { ApiError, UnauthorizedError, apiRequest } from '../api/client';
-import { subscribeSessionEvents, type PendingWriteApproval } from '../api/session_events';
-import { listSessions } from '../api/sessions';
-import { SessionGoneDialog } from '../components/SessionGoneDialog';
-import { t } from '../i18n';
-import { useAuth } from '../state/auth';
-import type { ApiMetaInstruction, ApiMetaModel, ApiMetaShortcutBinding } from '../api/meta';
-import { MessageCard } from '../components/MessageCard';
-import { PlanTimeline } from '../components/PlanTimeline';
-import { notifyIfHidden } from '../services/pwa';
+} from '../../../api/sessions';
+import { ApiError, UnauthorizedError, apiRequest } from '../../../api/client';
+import { subscribeSessionEvents, type PendingWriteApproval } from '../../../api/session_events';
+import { listSessions } from '../../../api/sessions';
+import { SessionGoneDialog } from '../../../components/SessionGoneDialog';
+import { t } from '../../../i18n';
+import { useAuth } from '../../../state/auth';
+import type { ApiMetaInstruction, ApiMetaModel, ApiMetaShortcutBinding } from '../../../api/meta';
+import { MessageCard } from '../../../components/MessageCard';
+import { PlanTimeline } from '../../../components/PlanTimeline';
+import { notifyIfHidden } from '../../../services/pwa';
 import {
   SessionTopBar,
   type SessionToolbarCapsule,
-} from '../components/SessionTopBar';
-import { ModelPickerDialog, pushRecentModel } from '../components/ModelPickerDialog';
-import { PullIndicator } from '../components/PullIndicator';
-import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { useReducedMotion } from '../hooks/useReducedMotion';
-import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
-import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
-import { useEventCallback } from '../hooks/useEventCallback';
-import { ConfirmDialog } from '../components/ConfirmDialog';
-import { showSnackbar } from '../components/Snackbar';
-import { OverlayPortal } from '../components/OverlayPortal';
-import { copyTextToClipboard } from '../utils/clipboard';
-import { buildSessionAssetUrl } from '../utils/session_asset';
-import { PopMenu } from '../components/PopMenu';
-import { listSkills, type SkillSummary } from '../api/toolbox';
+} from '../../../components/SessionTopBar';
+import { ModelPickerDialog, pushRecentModel } from '../../../components/ModelPickerDialog';
+import { PullIndicator } from '../../../components/PullIndicator';
+import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
+import { useReducedMotion } from '../../../hooks/useReducedMotion';
+import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
+import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
+import { getDialogExitDurationMs } from '../../../hooks/useDialogMotionSettings';
+import { useEventCallback } from '../../../hooks/useEventCallback';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import { showSnackbar } from '../../../components/Snackbar';
+import { OverlayPortal } from '../../../components/OverlayPortal';
+import { copyTextToClipboard } from '../../../utils/clipboard';
+import { buildSessionAssetUrl } from '../../../utils/session_asset';
+import { PopMenu } from '../../../components/PopMenu';
+import { listSkills, type SkillSummary } from '../../../api/toolbox';
 import {
   ImageEditorDialog,
   type ImageEditorInput,
   type ImageEditorResult,
-} from '../components/ImageEditorDialog';
-import { CreationOptionsDialog, type CreationOptions } from '../components/CreationOptionsDialog';
-import { TitleSummaryDialog } from '../components/TitleSummaryDialog';
-import { MediaGeneratingPlaceholder } from '../components/MediaGeneratingPlaceholder';
+} from '../../../components/ImageEditorDialog';
+import { CreationOptionsDialog, type CreationOptions } from '../../../components/CreationOptionsDialog';
+import { TitleSummaryDialog } from '../../../components/TitleSummaryDialog';
+import { MediaGeneratingPlaceholder } from '../../../components/MediaGeneratingPlaceholder';
 
 const PAGE_SIZE = 80;
 // 阶段㉔：首屏初始消息条数。从原 80 收紧到 20，让 60+ 条历史会话首次

@@ -8,13 +8,13 @@
 // - 「导出 JSON」直接下载
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
-import { ApiError } from '../api/client';
-import { LogEntry, exportLogsBundle, listLogs } from '../api/logs';
-import { t, tTime } from '../i18n';
-import { MenuSelect } from '../components/MenuSelect';
-import { showSnackbar } from '../components/Snackbar';
-import { TopBar } from '../components/TopBar';
+import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
+import { ApiError } from '../../../api/client';
+import { LogEntry, exportLogsBundle, listLogs } from '../../../api/logs';
+import { t, tTime } from '../../../i18n';
+import { MenuSelect } from '../../../components/MenuSelect';
+import { showSnackbar } from '../../../components/Snackbar';
+import { TopBar } from '../../../components/TopBar';
 
 const PAGE_SIZE = 200;
 const TAIL_INTERVAL_MS = 3_000;

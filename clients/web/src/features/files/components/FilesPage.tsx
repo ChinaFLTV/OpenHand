@@ -7,8 +7,8 @@
 // - 二进制 / 超大文件按 ApiError 文案优雅退化
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
-import { ApiError } from '../api/client';
+import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
+import { ApiError } from '../../../api/client';
 import {
   WorkspaceItem,
   WorkspaceListResponse,
@@ -17,14 +17,14 @@ import {
   listWorkspaceFiles,
   readWorkspaceFile,
   writeWorkspaceFile,
-} from '../api/workspace';
-import { t, tBytes, tDateTime } from '../i18n';
-import { MenuSelect } from '../components/MenuSelect';
-import { CodeEditor } from '../components/CodeEditor';
-import { ConfirmDialog } from '../components/ConfirmDialog';
-import { showSnackbar } from '../components/Snackbar';
-import { useReducedMotion } from '../hooks/useReducedMotion';
-import { TopBar } from '../components/TopBar';
+} from '../../../api/workspace';
+import { t, tBytes, tDateTime } from '../../../i18n';
+import { MenuSelect } from '../../../components/MenuSelect';
+import { CodeEditor } from '../../../components/CodeEditor';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import { showSnackbar } from '../../../components/Snackbar';
+import { useReducedMotion } from '../../../hooks/useReducedMotion';
+import { TopBar } from '../../../components/TopBar';
 
 function parentOf(path: string): string {
   const trimmed = path.replace(/\/+$/, '');

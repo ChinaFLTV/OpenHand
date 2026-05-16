@@ -9,17 +9,17 @@
 // 避免抖动清空界面。
 
 import { useEffect, useState } from 'preact/hooks';
-import { TopBar } from '../components/TopBar';
-import { Appear } from '../components/Appear';
-import { ApiError } from '../api/client';
+import { TopBar } from '../../../components/TopBar';
+import { Appear } from '../../../components/Appear';
+import { ApiError } from '../../../api/client';
 import {
   HardnessPhaseLogSnapshot,
   HardnessPhaseStatus,
   HardnessPhaseValue,
   HardnessSessionRecord,
   fetchHardnessSession,
-} from '../api/hardness';
-import { t, tDateTime } from '../i18n';
+} from '../../../api/hardness';
+import { t, tDateTime } from '../../../i18n';
 
 const PHASE_ORDER: HardnessPhaseValue[] = [
   'meta_collection',

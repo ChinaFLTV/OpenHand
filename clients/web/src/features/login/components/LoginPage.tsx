@@ -1,10 +1,10 @@
 import { useState } from 'preact/hooks';
-import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
-import { loginWithCredentials } from '../api/auth';
-import { ApiError, UnauthorizedError } from '../api/client';
-import { markLoggedIn, useAuth } from '../state/auth';
-import { t } from '../i18n';
-import { BusyWaitDialog } from '../components/BusyWaitDialog';
+import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
+import { loginWithCredentials } from '../../../api/auth';
+import { ApiError, UnauthorizedError } from '../../../api/client';
+import { markLoggedIn, useAuth } from '../../../state/auth';
+import { t } from '../../../i18n';
+import { BusyWaitDialog } from '../../../components/BusyWaitDialog';
 
 export function LoginPage() {
   const auth = useAuth();
