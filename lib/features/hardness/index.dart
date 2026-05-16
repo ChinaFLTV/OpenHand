@@ -10,10 +10,6 @@ export 'service/hardness_api_phase_runner.dart';
 export 'service/hardness_cli_catalog.dart';
 export 'service/hardness_orchestrator.dart';
 export 'service/hardness_prompt_builder.dart';
-export 'widgets/hardness_engineering_dialog.dart'
-    show HardnessEngineeringDialog, showHardnessEngineeringDialog;
+export 'widgets/hardness_engineering_dialog.dart' show HardnessEngineeringDialog;
 export 'widgets/hardness_session_dashboard.dart'
-    show
-        HardnessSessionDashboard,
-        HardnessSessionPane,
-        HardnessSessionPaneController;
+    show HardnessSessionPane, HardnessSessionPaneController;

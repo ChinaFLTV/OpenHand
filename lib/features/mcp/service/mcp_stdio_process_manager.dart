@@ -105,11 +105,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       // 解析实际的可执行文件和参数。对于 npx 命令，尝试直接定位已安装包的
       // 入口脚本用 node 执行，避免 npx 的启动开销和 stdin 转发问题。
       final launch = await _resolveDirectLaunch(server);
-      final process = await Process.start(
-        launch.executable,
-        launch.args,
-        environment: launch.environment,
-      );
+      final process = await Process.start(launch.executable, launch.args);
 
       final logs = <String>[];
       logs.add('[${_timestamp()}] 进程已启动 (PID: ${process.pid})');
@@ -814,13 +810,9 @@ class _ManagedProcess {
 }
 
 class _DirectLaunch {
-  const _DirectLaunch({
-    required this.executable,
-    required this.args,
-  });
+  const _DirectLaunch({required this.executable, required this.args});
   final String executable;
   final List<String> args;
-  final Map<String, String>? environment;
 }
 
 /// 解析 STDIO MCP 服务的直接启动参数。

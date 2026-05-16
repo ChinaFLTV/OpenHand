@@ -1564,14 +1564,16 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
 
         // 检查 MCP 控制器中是否注册了 Playwright MCP 服务
         bool mcpRegistered = false;
-        try {
-          final mcpController = context.read<McpController>();
-          mcpRegistered = mcpController.servers.any(
-            (s) =>
-                s.name == 'Playwright MCP' ||
-                s.command == 'npx' && s.args.contains('@playwright/mcp'),
-          );
-        } catch (_) {}
+        if (mounted) {
+          try {
+            final mcpController = context.read<McpController>();
+            mcpRegistered = mcpController.servers.any(
+              (s) =>
+                  s.name == 'Playwright MCP' ||
+                  s.command == 'npx' && s.args.contains('@playwright/mcp'),
+            );
+          } catch (_) {}
+        }
 
         _mcpInstalled = npmInstalled && mcpRegistered;
         _mcpVersion = npmVersion;

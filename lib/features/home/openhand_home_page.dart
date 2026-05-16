@@ -5065,7 +5065,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         model: model,
         maxTitleCharacters: settingsController.aiGeneratedTitleMaxCharacters,
       );
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      Navigator.of(context).pop();
       _showHomeSnackBar(
         context,
         SnackBar(
@@ -5075,7 +5076,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
       );
     } catch (error) {
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      Navigator.of(context).pop();
       _showHomeSnackBar(
         context,
         SnackBar(

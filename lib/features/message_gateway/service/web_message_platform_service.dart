@@ -4346,7 +4346,7 @@ class WebMessagePlatformService {
     return switch (mode) {
       WebGatewayConversationMode.image => AiCreationRequest(
         mode: AiCreationMode.image,
-        options: options.aspectRatio != null || options.count != null
+        options: options.aspectRatio != null || options.count > 1
             ? options
             : const AiCreationOptions(size: '1024x1024', aspectRatio: '1:1'),
       ),
