@@ -1,14 +1,13 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'web_reverse_browser_detector.dart';
 import 'web_reverse_install_guide_dialog.dart';
+import 'web_reverse_profile_actions.dart';
 import 'web_reverse_profile_cleaner.dart';
 import 'web_reverse_session_config.dart';
 
@@ -426,6 +425,10 @@ class _ProfileDirRow extends StatefulWidget {
 class _ProfileDirRowState extends State<_ProfileDirRow> {
   bool _busy = false;
   bool? _hasLock;
+  // 重置后 60s 冷却：避免误连击两次造成"刚建好的空 profile 又被删"。
+  Timer? _cooldownTimer;
+  int _cooldownLeftSec = 0;
+  bool get _onCooldown => _cooldownLeftSec > 0;
 
   @override
   void initState() {
@@ -441,152 +444,43 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
     }
   }
 
+  @override
+  void dispose() {
+    _cooldownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCooldown() {
+    _cooldownTimer?.cancel();
+    setState(() => _cooldownLeftSec = 60);
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _cooldownLeftSec--);
+      if (_cooldownLeftSec <= 0) {
+        t.cancel();
+      }
+    });
+  }
+
   Future<void> _refreshLockState() async {
     final has = await hasWebReverseProfileLocks(widget.userDataDir);
     if (!mounted) return;
     setState(() => _hasLock = has);
   }
 
-  Future<void> _onCleanPressed() async {
-    final isZh = widget.isZh;
-    final messenger = ScaffoldMessenger.of(context);
-    // 先确认浏览器已关：清理时浏览器还在跑会造成更隐蔽的损坏。
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(isZh ? '清理冲突 profile' : 'Clean conflicting profile'),
-        content: Text(
-          isZh
-              ? '此操作会删除 profile 目录里的 SingletonLock / lockfile 等残留锁文件，'
-                  '不会动 Cookies / Login Data 等真实数据。\n\n'
-                  '请先关闭所有 ${widget.userDataDir.split('/').last.replaceFirst('profile_', '')} 浏览器实例后再执行。'
-              : 'This will remove SingletonLock / lockfile residues inside the profile dir.'
-                  ' Cookies / Login Data are NOT affected.\n\n'
-                  'Close all related browser instances first.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(isZh ? '取消' : 'Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(isZh ? '确认清理' : 'Clean now'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
+  Future<void> _runProgressive() async {
     setState(() => _busy = true);
-    final result = await cleanWebReverseProfileLocks(widget.userDataDir);
+    final outcome = await runProgressiveProfileResolve(
+      context,
+      userDataDir: widget.userDataDir,
+      isZh: widget.isZh,
+    );
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _hasLock = false; // 清理后即刻更新 UI；下次构建会再 refresh。
-    });
-    messenger.showSnackBar(SnackBar(
-      content: Text(
-        isZh
-            ? '已清理 ${result.deleted} 个锁文件'
-            : 'Removed ${result.deleted} lock file(s)',
-      ),
-      duration: const Duration(seconds: 3),
-      action: SnackBarAction(
-        label: isZh ? '查看' : 'View',
-        onPressed: () {
-          showDialog<void>(
-            context: context,
-            builder: (dialogContext) => AlertDialog(
-              title: Text(isZh ? '清理详情' : 'Clean details'),
-              content: SizedBox(
-                width: 480,
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    result.messages.join('\n'),
-                    style:
-                        const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(isZh ? '关闭' : 'Close'),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    ));
-    await _refreshLockState();
-  }
-
-  Future<void> _onResetPressed() async {
-    final isZh = widget.isZh;
-    final dir = widget.userDataDir;
-    final messenger = ScaffoldMessenger.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(isZh ? '重置整个 profile' : 'Reset entire profile'),
-        content: Text(
-          isZh
-              ? '此操作会递归删除整个 user-data-dir：\n\n$dir\n\n'
-                  '会丢失该 profile 下的 Cookies / Login Data / 已安装扩展 / 浏览历史 等所有数据。'
-                  '下次创建会话会自动重建。\n\n确定继续吗？'
-              : 'This recursively removes the user-data-dir:\n\n$dir\n\n'
-                  'You will lose Cookies / Login Data / extensions / history. A fresh profile is rebuilt on next launch.\n\nContinue?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(isZh ? '取消' : 'Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(dialogContext).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(isZh ? '确认重置' : 'Reset'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    setState(() => _busy = true);
-    try {
-      // 安全策略：路径必须包含 web_reverse，避免误删用户其他目录。
-      if (!dir.contains('web_reverse') || dir.length < 16) {
-        throw const FileSystemException(
-          '安全策略拒绝：路径不在 OpenHand web_reverse 子目录中',
-        );
-      }
-      final d = Directory(dir);
-      if (await d.exists()) {
-        await d.delete(recursive: true);
-      }
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '已重置 profile：$dir' : 'Profile reset: $dir'),
-        duration: const Duration(seconds: 3),
-      ));
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_setup_dialog',
-        'reset profile',
-        error,
-        stack,
-      );
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '重置失败：$error' : 'Reset failed: $error'),
-        duration: const Duration(seconds: 3),
-      ));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-      await _refreshLockState();
+    setState(() => _busy = false);
+    if (outcome == ProgressiveProfileOutcome.reset) {
+      _startCooldown();
     }
+    await _refreshLockState();
   }
 
   @override
@@ -655,48 +549,35 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
             ],
           ),
           const SizedBox(height: 10),
-          // 双按钮：清理（轻）+ 重置（重）。
-          // - 清理：默认 tonal 蓝绿主调，安全。
-          // - 重置：红字 OutlinedButton，凸显其破坏性。
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            alignment: WrapAlignment.end,
-            children: [
-              FilledButton.tonalIcon(
-                onPressed: _busy ? null : _onCleanPressed,
-                icon: Icon(
-                  _busy
-                      ? Icons.hourglass_top_rounded
-                      : Icons.cleaning_services_rounded,
-                  size: 16,
-                ),
-                label: Text(
-                  _busy
-                      ? (isZh ? '清理中…' : 'Cleaning…')
-                      : (isZh ? '清理冲突 profile' : 'Clean profile locks'),
-                ),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
+          // 渐进式单按钮：先清理 → 仍有锁就引导用户重置；重置成功后 60s 冷却
+          // 防止误连击两次。
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonalIcon(
+              onPressed: (_busy || _onCooldown) ? null : _runProgressive,
+              icon: Icon(
+                _busy
+                    ? Icons.hourglass_top_rounded
+                    : (_onCooldown
+                        ? Icons.timer_rounded
+                        : Icons.auto_fix_high_rounded),
+                size: 16,
               ),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _onResetPressed,
-                icon: Icon(
-                  Icons.delete_forever_rounded,
-                  size: 16,
-                  color: cs.error,
-                ),
-                label: Text(
-                  isZh ? '重置整个 profile' : 'Reset entire profile',
-                  style: TextStyle(color: cs.error),
-                ),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  side: BorderSide(color: cs.error.withValues(alpha: 0.7)),
-                ),
+              label: Text(
+                _busy
+                    ? (isZh ? '处理中…' : 'Working…')
+                    : _onCooldown
+                        ? (isZh
+                            ? '冷却中（${_cooldownLeftSec}s）'
+                            : 'Cool-down ${_cooldownLeftSec}s')
+                        : (isZh
+                            ? '解决 Profile 冲突'
+                            : 'Resolve profile lock'),
               ),
-            ],
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
           ),
         ],
       ),

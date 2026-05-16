@@ -11,7 +11,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import 'web_reverse_launch_diagnosis.dart';
-import 'web_reverse_profile_cleaner.dart';
+import 'web_reverse_profile_actions.dart';
 import 'web_reverse_screenshot_markup.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -509,85 +509,49 @@ class _DiagnosisBanner extends StatefulWidget {
 class _DiagnosisBannerState extends State<_DiagnosisBanner> {
   bool _expanded = true;
   bool _busy = false;
+  // 重置后 60s 冷却：避免误连击两次造成"刚建好的空 profile 又被删"。
+  Timer? _cooldownTimer;
+  int _cooldownLeftSec = 0;
+  bool get _onCooldown => _cooldownLeftSec > 0;
 
-  Future<void> _cleanLocks() async {
-    final isZh = widget.isZh;
-    final messenger = ScaffoldMessenger.of(context);
+  @override
+  void dispose() {
+    _cooldownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCooldown() {
+    _cooldownTimer?.cancel();
+    setState(() => _cooldownLeftSec = 60);
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _cooldownLeftSec--);
+      if (_cooldownLeftSec <= 0) {
+        t.cancel();
+      }
+    });
+  }
+
+  Future<void> _runProgressive() async {
     setState(() => _busy = true);
-    final r = await cleanWebReverseProfileLocks(
-      widget.controller.config.userDataDir,
+    final outcome = await runProgressiveProfileResolve(
+      context,
+      userDataDir: widget.controller.config.userDataDir,
+      isZh: widget.isZh,
     );
     if (!mounted) return;
     setState(() => _busy = false);
-    messenger.showSnackBar(SnackBar(
-      content: Text(
-        isZh
-            ? '已清理 ${r.deleted} 个锁文件'
-            : 'Removed ${r.deleted} lock file(s)',
-      ),
-      duration: const Duration(seconds: 3),
-    ));
-  }
-
-  Future<void> _resetProfile() async {
-    final isZh = widget.isZh;
-    final dir = widget.controller.config.userDataDir;
-    final messenger = ScaffoldMessenger.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(isZh ? '重置整个 profile' : 'Reset entire profile'),
-        content: Text(
-          isZh
-              ? '此操作会递归删除整个 user-data-dir：\n\n$dir\n\n'
-                  '会丢失该 profile 下的 Cookies / Login Data / 已安装扩展 / 浏览历史 等所有数据。'
-                  '本会话下次启动会创建一个全新 profile。\n\n确定继续吗？'
-              : 'This recursively removes the user-data-dir:\n\n$dir\n\n'
-                  'You will lose Cookies / Login Data / extensions / history under this profile. '
-                  'A fresh profile will be created on next launch.\n\nContinue?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(isZh ? '取消' : 'Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(dialogContext).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(isZh ? '确认重置' : 'Reset'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    setState(() => _busy = true);
-    try {
-      // 安全防护：拒绝重置过短或可能误伤的路径（必须含 web_reverse 关键词）。
-      if (!dir.contains('web_reverse') || dir.length < 16) {
-        throw const FileSystemException('安全策略拒绝：路径不在 OpenHand web_reverse 子目录中');
-      }
-      final d = Directory(dir);
-      if (await d.exists()) {
-        await d.delete(recursive: true);
-      }
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '已重置 profile：$dir' : 'Profile reset: $dir'),
-        duration: const Duration(seconds: 3),
-      ));
-      // 重置后 errorMessage 通常已不再适用，自动收起 banner。
-      widget.controller.clearErrorMessage();
-    } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'reset profile', error, stack);
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '重置失败：$error' : 'Reset failed: $error'),
-        duration: const Duration(seconds: 3),
-      ));
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    switch (outcome) {
+      case ProgressiveProfileOutcome.reset:
+        widget.controller.clearErrorMessage();
+        _startCooldown();
+      case ProgressiveProfileOutcome.cleaned:
+        // 清理已生效，diagnosis 仍保留以便用户复盘；不进冷却。
+        break;
+      case ProgressiveProfileOutcome.nothingToDo:
+      case ProgressiveProfileOutcome.resetCancelled:
+      case ProgressiveProfileOutcome.failed:
+        break;
     }
   }
 
@@ -671,33 +635,28 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  // 渐进式按钮：先清理 → 仍有锁则引导重置。重置成功后自动 60s 冷却。
                   FilledButton.tonalIcon(
-                    onPressed: _busy ? null : _cleanLocks,
+                    onPressed: (_busy || _onCooldown) ? null : _runProgressive,
                     icon: Icon(
                       _busy
                           ? Icons.hourglass_top_rounded
-                          : Icons.cleaning_services_rounded,
+                          : (_onCooldown
+                              ? Icons.timer_rounded
+                              : Icons.auto_fix_high_rounded),
                       size: 16,
                     ),
                     label: Text(_busy
                         ? (isZh ? '处理中…' : 'Working…')
-                        : (isZh ? '清理冲突 profile' : 'Clean profile locks')),
+                        : _onCooldown
+                            ? (isZh
+                                ? '冷却中（${_cooldownLeftSec}s）'
+                                : 'Cool-down ${_cooldownLeftSec}s')
+                            : (isZh
+                                ? '解决 Profile 冲突'
+                                : 'Resolve profile lock')),
                     style: FilledButton.styleFrom(
                       visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                  // 重置整个 profile：红字次要按钮，明确危险操作。
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _resetProfile,
-                    icon: Icon(Icons.delete_forever_rounded,
-                        size: 16, color: cs.error),
-                    label: Text(
-                      isZh ? '重置整个 profile' : 'Reset entire profile',
-                      style: TextStyle(color: cs.error),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      side: BorderSide(color: cs.error.withValues(alpha: 0.7)),
                     ),
                   ),
                   OutlinedButton.icon(
