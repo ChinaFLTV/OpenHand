@@ -49,6 +49,7 @@ part 'state/_ai_session_models.dart';
 part 'state/_ai_session_utils.dart';
 part 'state/_ai_session_runtime_types.dart';
 part 'state/_ai_session_compression_helpers.dart';
+part 'state/_ai_session_manual_compaction.dart';
 
 typedef WriteCommandConfirmationCallback =
     Future<BashCommandApprovalDecision> Function(
@@ -5794,120 +5795,6 @@ class AiSessionController extends ChangeNotifier {
   bool _looksLikePlanApproval(String content) =>
       AiPlanApprovalDetector.looksLikePlanApproval(content);
 
-  /// 用户主动触发的会话历史压缩。
-  ///
-  /// 与发送消息时自动压缩复用同一条管线（[_compressIfNeeded]）：
-  ///   * 走 [_enqueueOperation] 串行化以确保不会与 sendMessage / refresh 并发；
-  ///   * 通过 [_lastManualCompactionAt] / [_manualCompactionDebounce]
-  ///     做去抖；通过 [_manualCompactionInflight] 做并发互斥；
-  ///   * 占用过低（[_manualCompactionRefusePercentLeftAbove]）直接拒绝；
-  ///   * 触发熔断（[_compressionFailureCountsBySession] 已超阈值）也拒绝。
-  ///
-  /// 调用方典型流程：
-  ///   1. 在 UI 中通过 [AiSessionRuntimeContextBuilder] 拼好 runtimeContext；
-  ///   2. await 本方法；
-  ///   3. 根据 [AiManualCompactionResult.status] 弹 toast / 日志。
-  Future<AiManualCompactionResult> requestManualCompaction({
-    required String sessionId,
-    required AiModelConfig model,
-    required AiSessionRuntimeContext runtimeContext,
-  }) async {
-    final normalizedId = sessionId.trim();
-    if (normalizedId.isEmpty) {
-      return const AiManualCompactionResult(
-        status: AiManualCompactionStatus.noSession,
-      );
-    }
-    final session = _sessionsById[normalizedId];
-    if (session == null) {
-      return const AiManualCompactionResult(
-        status: AiManualCompactionStatus.noSession,
-      );
-    }
-    if (sendPhaseForSession(normalizedId) != AiSendPhase.idle) {
-      return const AiManualCompactionResult(
-        status: AiManualCompactionStatus.sessionBusy,
-        message: 'session_busy',
-      );
-    }
-    if (_manualCompactionInflight.contains(normalizedId)) {
-      return const AiManualCompactionResult(
-        status: AiManualCompactionStatus.inflight,
-        message: 'inflight',
-      );
-    }
-    final lastAt = _lastManualCompactionAt[normalizedId];
-    if (lastAt != null) {
-      final elapsed = DateTime.now().difference(lastAt);
-      if (elapsed < _manualCompactionDebounce) {
-        return AiManualCompactionResult(
-          status: AiManualCompactionStatus.cooldown,
-          retryAfter: _manualCompactionDebounce - elapsed,
-        );
-      }
-    }
-    final consecutiveFailures =
-        _compressionFailureCountsBySession[normalizedId] ?? 0;
-    if (consecutiveFailures >= _maxConsecutiveCompressionFailures) {
-      return const AiManualCompactionResult(
-        status: AiManualCompactionStatus.circuitBreaker,
-        message: 'circuit_breaker',
-      );
-    }
-    final meta = session.lastPromptMetadata;
-    final percentLeftRaw = meta['context_budget_percent_left'];
-    final percentLeft = percentLeftRaw is num
-        ? percentLeftRaw.toDouble()
-        : null;
-    if (percentLeft != null &&
-        percentLeft > _manualCompactionRefusePercentLeftAbove) {
-      return const AiManualCompactionResult(
-        status: AiManualCompactionStatus.notNeeded,
-        message: 'usage_too_low',
-      );
-    }
-    _manualCompactionInflight.add(normalizedId);
-    try {
-      return await _enqueueOperation<AiManualCompactionResult>(() async {
-        // 串行化进入临界区后重新读取最新 session（可能在排队期间被修改）。
-        final freshSession = _sessionsById[normalizedId];
-        if (freshSession == null) {
-          return const AiManualCompactionResult(
-            status: AiManualCompactionStatus.noSession,
-          );
-        }
-        if (!_shouldCompressSessionHistory(
-          freshSession,
-          runtimeContext,
-          model,
-        )) {
-          return const AiManualCompactionResult(
-            status: AiManualCompactionStatus.notNeeded,
-            message: 'nothing_to_compress',
-          );
-        }
-        _captureLatestRuntimeContext(runtimeContext);
-        final updated = await _compressIfNeeded(
-          session: freshSession,
-          model: model,
-          runtimeContext: runtimeContext,
-        );
-        if (identical(updated, freshSession)) {
-          return const AiManualCompactionResult(
-            status: AiManualCompactionStatus.failed,
-            message: 'no_change',
-          );
-        }
-        _lastManualCompactionAt[normalizedId] = DateTime.now();
-        notifyListeners();
-        return const AiManualCompactionResult(
-          status: AiManualCompactionStatus.success,
-        );
-      });
-    } finally {
-      _manualCompactionInflight.remove(normalizedId);
-    }
-  }
 
   Future<AiSession> _compressIfNeeded({
     required AiSession session,
