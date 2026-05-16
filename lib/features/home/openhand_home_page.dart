@@ -2573,6 +2573,65 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return _webReverseControllers[sessionId];
   }
 
+  /// 按已存在的会话 metadata 重启 Web 逆向 controller（应用重启 / 切回旧会话用）。
+  ///
+  /// 若 metadata 缺失 / 浏览器探测失败 / 启动异常都会安全降级，错误以 SnackBar 通知。
+  Future<WebReverseSessionController?> restoreWebReverseSession(
+    AiSession session,
+  ) async {
+    final existing = _webReverseControllers[session.id];
+    if (existing != null) return existing;
+    final raw = session.metadata['web_reverse_config'];
+    final config = WebReverseSessionConfig.fromJson(raw);
+    if (config == null) {
+      if (mounted) {
+        _showHomeSnackBar(
+          context,
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: '该会话缺少 web_reverse_config，请新建会话。',
+                en: 'Session is missing web_reverse_config; create a new session.',
+              ),
+            ),
+          ),
+        );
+      }
+      return null;
+    }
+    // 重新探测一次，不强求是配置里的 browserKind——用户机器可能已变更。
+    final probe = await WebReverseBrowserDetector().detect();
+    if (!mounted) return null;
+    if (!probe.isInstalled) {
+      final decision = await showWebReverseInstallGuideDialog(context);
+      if (decision == null ||
+          decision == WebReverseInstallGuideDecision.cancelled) {
+        return null;
+      }
+      return restoreWebReverseSession(session);
+    }
+    final controller = WebReverseSessionController(
+      config: config,
+      executablePath: probe.executablePath!,
+    );
+    _webReverseControllers[session.id] = controller;
+    controller.addListener(_onWebReverseControllerChanged);
+    try {
+      await controller.start();
+    } catch (error, stack) {
+      silentLog('openhand_home_page', 'restore web reverse', error, stack);
+      if (mounted) {
+        showFriendlyErrorSnackBar(
+          context,
+          message: '$error',
+          fallback: '浏览器恢复启动失败',
+        );
+      }
+    }
+    return controller;
+  }
+
   HardnessSessionRecord _snapshotHardnessRecord(
     HardnessSessionRecord base,
     HardnessOrchestrator orchestrator,
@@ -5200,6 +5259,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       if (deleted) {
         _removeComposerDraftForSession(session.id);
+        // 释放该会话挂着的 Web 逆向 controller（停 dock / 关 CDP / 关浏览器进程）。
+        final wr = _webReverseControllers.remove(session.id);
+        if (wr != null) {
+          wr.removeListener(_onWebReverseControllerChanged);
+          unawaited(wr.stop());
+          wr.dispose();
+        }
       }
       return;
     }

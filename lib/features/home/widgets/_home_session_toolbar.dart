@@ -2337,6 +2337,7 @@ class _WebReverseDebugPill extends StatefulWidget {
 
 class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
   WebReverseSessionController? _controller;
+  bool _restoring = false;
 
   void _attachIfNeeded() {
     final state = context.findAncestorStateOfType<_OpenHandHomePageState>();
@@ -2349,6 +2350,34 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
 
   void _onChanged() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _onPillTap() async {
+    final state = context.findAncestorStateOfType<_OpenHandHomePageState>();
+    if (state == null) return;
+    final ctrl = state.webReverseControllerFor(widget.sessionId);
+    if (ctrl != null) {
+      await showWebReverseDashboardDialog(context, controller: ctrl);
+      return;
+    }
+    // 应用重启 / 切回旧会话：尝试根据 metadata 重启 controller。
+    final session = context
+        .read<AiSessionController>()
+        .sessions
+        .firstWhere(
+          (s) => s.id == widget.sessionId,
+          orElse: () =>
+              throw StateError('session ${widget.sessionId} not found'),
+        );
+    setState(() => _restoring = true);
+    try {
+      final restored = await state.restoreWebReverseSession(session);
+      if (restored != null && mounted) {
+        await showWebReverseDashboardDialog(context, controller: restored);
+      }
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
   }
 
   @override
@@ -2372,9 +2401,11 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
     final dotColor = !running
         ? cs.outline
         : (errs > 0 ? cs.error : cs.primary);
-    final label = running
-        ? '$reqs · ${isZh ? "$errs 错" : "$errs err"}'
-        : (isZh ? '未连接' : 'offline');
+    final label = _restoring
+        ? (isZh ? '启动中…' : 'starting…')
+        : running
+            ? '$reqs · ${isZh ? "$errs 错" : "$errs err"}'
+            : (isZh ? '点击连接' : 'click to connect');
 
     return Padding(
       padding: const EdgeInsets.only(left: 8),
@@ -2394,9 +2425,7 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(999),
-            onTap: ctrl == null
-                ? null
-                : () => showWebReverseDashboardDialog(context, controller: ctrl),
+            onTap: _restoring ? null : _onPillTap,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               child: Row(

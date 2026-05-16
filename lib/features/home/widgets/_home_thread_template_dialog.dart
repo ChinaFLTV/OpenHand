@@ -327,6 +327,75 @@ String _localizedText(
   return languageCode.startsWith('zh') ? zh : en;
 }
 
+Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  final sectionTitle = isZh ? 'Web 逆向配置' : 'Web Reverse Config';
+  final config = WebReverseSessionConfig.fromJson(
+    session.metadata['web_reverse_config'],
+  );
+  if (config == null) {
+    return _MetadataSection(
+      title: sectionTitle,
+      children: [
+        Text(
+          isZh
+              ? '配置数据尚未写入会话元数据。'
+              : 'Configuration data has not been stored in session metadata.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+  return _MetadataSection(
+    title: sectionTitle,
+    children: [
+      _MetadataEntryRow(
+        label: isZh ? '目标 URL' : 'Target URL',
+        value: config.targetUrl,
+      ),
+      _MetadataEntryRow(
+        label: isZh ? '逆向目标' : 'Objective',
+        value: config.objective,
+      ),
+      _MetadataEntryRow(
+        label: isZh ? '浏览器' : 'Browser',
+        value: config.browserKind.displayName,
+      ),
+      _MetadataEntryRow(
+        label: 'CDP Port',
+        value: '${config.cdpPort}',
+      ),
+      _MetadataEntryRow(
+        label: isZh ? '登录态' : 'Login Mode',
+        value: isZh ? config.loginMode.label : config.loginMode.id,
+      ),
+      if (config.proxy != null && config.proxy!.isNotEmpty)
+        _MetadataEntryRow(
+          label: isZh ? '代理' : 'Proxy',
+          value: config.proxy!,
+        ),
+      if (config.keywords.isNotEmpty)
+        _MetadataEntryRow(
+          label: isZh ? '关键关键字' : 'Keywords',
+          value: config.keywords.join(', '),
+        ),
+      if (config.triggerActions != null && config.triggerActions!.isNotEmpty)
+        _MetadataEntryRow(
+          label: isZh ? '触发动作' : 'Trigger Actions',
+          value: config.triggerActions!,
+        ),
+      _MetadataEntryRow(
+        label: isZh ? 'Profile 目录' : 'User Data Dir',
+        value: OpenHandPaths.shortenHomePath(config.userDataDir),
+      ),
+    ],
+  );
+}
+
 Future<String?> _showEditQueuedMessageDialog(
   BuildContext context,
   String currentText,

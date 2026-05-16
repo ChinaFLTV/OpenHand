@@ -217,6 +217,10 @@ class _SessionMetadataDialog extends StatelessWidget {
                         const SizedBox(height: 16),
                         _buildProgrammingExpertConfigSection(context, session),
                       ],
+                      if (session.templateId == 'web_reverse_expert') ...[
+                        const SizedBox(height: 16),
+                        _buildWebReverseConfigSection(context, session),
+                      ],
                       if (session.metadata.entries
                           .where(
                             (e) =>
@@ -224,7 +228,10 @@ class _SessionMetadataDialog extends StatelessWidget {
                                         'hardness_engineering' &&
                                     e.key == 'hardness_config') &&
                                 !(session.templateId == 'programming_expert' &&
-                                    e.key == 'programming_expert_config'),
+                                    e.key == 'programming_expert_config') &&
+                                !(session.templateId ==
+                                        'web_reverse_expert' &&
+                                    e.key == 'web_reverse_config'),
                           )
                           .isNotEmpty) ...[
                         const SizedBox(height: 16),
@@ -240,7 +247,10 @@ class _SessionMetadataDialog extends StatelessWidget {
                                         e.key == 'hardness_config') &&
                                     !(session.templateId ==
                                             'programming_expert' &&
-                                        e.key == 'programming_expert_config'),
+                                        e.key == 'programming_expert_config') &&
+                                    !(session.templateId ==
+                                            'web_reverse_expert' &&
+                                        e.key == 'web_reverse_config'),
                               )
                               .map((entry) {
                                 return _MetadataEntryRow(
