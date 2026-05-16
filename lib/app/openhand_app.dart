@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../features/home/openhand_home_page.dart';
-import '../features/message_gateway/message_gateway_controller.dart';
+import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';

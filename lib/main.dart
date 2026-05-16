@@ -29,7 +29,7 @@ import 'features/hooks/index.dart';
 import 'features/instructions/index.dart';
 import 'features/mcp/index.dart';
 import 'features/memory/index.dart';
-import 'features/message_gateway/message_gateway_controller.dart';
+import 'features/message_gateway/index.dart';
 import 'features/plugin_service/index.dart';
 import 'features/skills/index.dart';
 import 'shared/db/database_service.dart';
@@ -345,7 +345,7 @@ Future<void> _bootstrap() async {
     );
   }());
 
-  final messageGatewayController = MessageGatewayController.uninitialized(
+  final messageGateway = await MessageGatewayModule.bootstrap(
     sessionController: aiSessionController,
     settingsController: settingsController,
     skillsController: skills.controller,
@@ -355,11 +355,11 @@ Future<void> _bootstrap() async {
     instructionsController: instructions.controller,
     appInfo: appInfo,
   );
-  unawaited(messageGatewayController.initialize());
+  unawaited(messageGateway.controller.initialize());
 
   final pluginService = await pluginServiceModuleFuture;
   unawaited(pluginService.controller.initialize());
-  messageGatewayController.pluginServiceController = pluginService.controller;
+  messageGateway.controller.pluginServiceController = pluginService.controller;
 
   // 2026-04-25 — 冷启动后异步触发一次 cron 历史清理（single-flight，
   // 永不抛异常，超时兜底 30s），不干扰主路径与 UI 启动。
@@ -388,9 +388,7 @@ Future<void> _bootstrap() async {
         ...MemoryModule.providers(memory),
         ...CronsModule.providers(crons),
         ...InstructionsModule.providers(instructions),
-        ChangeNotifierProvider<MessageGatewayController>.value(
-          value: messageGatewayController,
-        ),
+        ...MessageGatewayModule.providers(messageGateway),
         ...PluginServiceModule.providers(pluginService),
         ChangeNotifierProvider<AiSessionController>.value(
           value: aiSessionController,

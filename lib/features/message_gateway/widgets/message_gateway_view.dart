@@ -8,20 +8,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../app/model/dialog_animation_settings.dart';
-import '../../app/state/settings_controller.dart';
-import '../../app/support/openhand_scroll_physics.dart';
-import '../../app/support/safe_subprocess.dart';
-import '../../app/support/silent_log.dart';
-import '../../l10n/app_localizations.dart';
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/animated_menu.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import 'message_gateway_controller.dart';
-import 'model/web_message_platform_config.dart';
-import 'service/web_message_platform_service.dart';
+import '../../../app/model/dialog_animation_settings.dart';
+import '../../../app/state/settings_controller.dart';
+import '../../../app/support/openhand_scroll_physics.dart';
+import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../message_gateway_controller.dart';
+import '../model/web_message_platform_config.dart';
+import '../service/web_message_platform_service.dart';
 
 void _showGatewaySnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.maybeOf(context);
