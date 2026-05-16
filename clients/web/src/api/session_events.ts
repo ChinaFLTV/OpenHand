@@ -36,6 +36,15 @@ export interface SessionEventSnapshot {
   last_error: string | null;
   can_stop: boolean;
   pending_write_approval?: PendingWriteApproval | null;
+  /// 2026-05-17 — 当前会话生效的字符 / 卡片节流速率。chars_per_second
+  /// 或 cards_per_second 为 0 表示对应方向的节流被关闭，前端会在 TopBar
+  /// 用灰色标记；has_session_override 为 true 时光标侧附加 "session"
+  /// 标识便于用户区分覆盖来源。
+  effective_stream_throttle?: {
+    chars_per_second: number;
+    cards_per_second: number;
+    has_session_override: boolean;
+  };
   served_at: string;
 }
 

@@ -1239,6 +1239,23 @@ class WebMessagePlatformService {
         (req, auth) => _respondWriteApproval(req, auth, sessionId, approvalId),
       ),
     );
+    // 2026-05-17 — 会话级临时节流覆盖（不持久化，仅本进程生效）。
+    // PUT 写覆盖（body: {chars_per_second?, cards_per_second?}），DELETE
+    // 清除全部覆盖。前端 TopBar 节流胶囊点开后用此路由设置 / 恢复速率。
+    router.put(
+      '/api/sessions/<sessionId>/throttle',
+      (shelf.Request r, String sessionId) => _withAuth(
+        r,
+        (req, auth) => _setSessionThrottle(req, auth, sessionId),
+      ),
+    );
+    router.delete(
+      '/api/sessions/<sessionId>/throttle',
+      (shelf.Request r, String sessionId) => _withAuth(
+        r,
+        (req, auth) => _clearSessionThrottle(req, auth, sessionId),
+      ),
+    );
     // 删除单条消息（对齐 APP 端 _home_message_bubble.dart 长按菜单 → 删除）。
     router.delete(
       '/api/sessions/<sessionId>/messages/<messageId>',
@@ -2955,6 +2972,64 @@ class WebMessagePlatformService {
     });
   }
 
+  /// 2026-05-17 — 设置或更新会话级临时节流覆盖。
+  ///
+  /// Body 形如 `{chars_per_second?: int, cards_per_second?: int}`，字段
+  /// 缺失或 null = 清除该字段；两字段都缺失则等价于 DELETE。
+  Future<shelf.Response> _setSessionThrottle(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final body = await _readJsonBody(request);
+    final hasChars = body.containsKey('chars_per_second');
+    final hasCards = body.containsKey('cards_per_second');
+    if (hasChars) {
+      final raw = body['chars_per_second'];
+      _sessionController.setSessionStreamCharsOverride(
+        session.id,
+        raw is int ? raw : (raw == null ? null : null),
+      );
+    }
+    if (hasCards) {
+      final raw = body['cards_per_second'];
+      _sessionController.setSessionStreamCardsOverride(
+        session.id,
+        raw is int ? raw : (raw == null ? null : null),
+      );
+    }
+    final override = _sessionController.sessionStreamThrottleOverride(
+      session.id,
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'chars_per_second': override?.charsPerSecond,
+      'cards_per_second': override?.cardsPerSecond,
+    });
+  }
+
+  /// 2026-05-17 — 清除会话级临时节流覆盖，恢复到模板/全局值。
+  Future<shelf.Response> _clearSessionThrottle(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    _sessionController.clearSessionStreamThrottleOverride(session.id);
+    return _json(HttpStatus.ok, <String, Object?>{'ok': true});
+  }
+
   /// 删除单条消息（对齐 APP 端长按消息 → 删除）。返回最新一页消息便于前端立即刷新。
   Future<shelf.Response> _deleteMessage(
     shelf.Request request,
@@ -3050,6 +3125,16 @@ class WebMessagePlatformService {
           .skip(offset)
           .map(_messageJson)
           .toList(growable: false);
+      // 2026-05-17 — 把当前会话生效的字符 / 卡片节流速率推给前端，让 Web
+      // 端的 TopBar 节流指示器可以无需额外接口直接展示绿/灰状态。
+      final throttleOverride = _sessionController
+          .sessionStreamThrottleOverride(live.id);
+      final effChars = throttleOverride?.charsPerSecond ??
+          _settingsController.effectiveStreamMaxCharsPerSecond(live.templateId);
+      final effCards = throttleOverride?.cardsPerSecond ??
+          _settingsController.effectiveStreamMaxMessageCardsPerSecond(
+            live.templateId,
+          );
       return <String, Object?>{
         'session': _sessionSummary(live),
         'messages': messages,
@@ -3064,6 +3149,11 @@ class WebMessagePlatformService {
         'last_error': _sessionController.lastErrorMessageForSession(sessionId),
         'can_stop': _sessionController.canStopResponding(sessionId),
         'pending_write_approval': _pendingWriteApprovalJson(sessionId),
+        'effective_stream_throttle': <String, Object?>{
+          'chars_per_second': effChars,
+          'cards_per_second': effCards,
+          'has_session_override': throttleOverride != null,
+        },
         'served_at': DateTime.now().toUtc().toIso8601String(),
       };
     }
@@ -3101,8 +3191,10 @@ class WebMessagePlatformService {
           }
           final snapshot = buildSnapshot(live);
           final sessionPayload = snapshot['session'] as Map<String, Object?>;
+          final throttlePayload =
+              snapshot['effective_stream_throttle'] as Map<String, Object?>?;
           final hash =
-              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|${(snapshot['messages'] as List).map((m) {
+              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}|${(snapshot['messages'] as List).map((m) {
                 final mm = m as Map<String, Object?>;
                 return '${mm['id']}:${(mm['content'] as String?)?.length ?? 0}';
               }).join(',')}';
@@ -3123,6 +3215,9 @@ class WebMessagePlatformService {
       throttleTimer?.cancel();
       keepaliveTimer?.cancel();
       _sessionController.removeListener(controllerListener);
+      _sessionController.streamThrottleOverrideSignal.removeListener(
+        controllerListener,
+      );
       if (!controller.isClosed) {
         controller.close();
       }
@@ -3130,6 +3225,9 @@ class WebMessagePlatformService {
     };
 
     _sessionController.addListener(controllerListener);
+    _sessionController.streamThrottleOverrideSignal.addListener(
+      controllerListener,
+    );
     keepaliveTimer = Timer.periodic(const Duration(seconds: 25), (_) {
       if (disposed || controller.isClosed) return;
       try {

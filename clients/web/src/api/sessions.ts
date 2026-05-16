@@ -405,6 +405,32 @@ export async function deleteMessageCascade(
   );
 }
 
+/// 2026-05-17 — 设置或更新会话级临时节流覆盖（仅本进程生效，重启后回退
+/// 到模板/全局值）。`charsPerSecond` / `cardsPerSecond` 为 null 表示不
+/// 修改对应方向；为 0 表示对应方向关闭节流。
+export async function setSessionThrottle(
+  sessionId: string,
+  patch: { charsPerSecond?: number | null; cardsPerSecond?: number | null },
+): Promise<{ ok: boolean; chars_per_second?: number | null; cards_per_second?: number | null }> {
+  const body: Record<string, unknown> = {};
+  if (patch.charsPerSecond !== undefined) body['chars_per_second'] = patch.charsPerSecond;
+  if (patch.cardsPerSecond !== undefined) body['cards_per_second'] = patch.cardsPerSecond;
+  return apiRequest<{ ok: boolean; chars_per_second?: number | null; cards_per_second?: number | null }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/throttle`,
+    { method: 'PUT', body },
+  );
+}
+
+/// 2026-05-17 — 清除指定会话的全部节流覆盖，恢复到模板/全局值。
+export async function clearSessionThrottle(
+  sessionId: string,
+): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/throttle`,
+    { method: 'DELETE' },
+  );
+}
+
 /// 触发会话 JSON 导出保存。在 service 端附带 Content-Disposition: attachment，
 /// 这里抓 blob 后优先打开系统保存面板；不绕过鉴权（带上 token）。
 export interface ExportDownloadResult {
