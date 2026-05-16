@@ -4,18 +4,18 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../app/support/silent_log.dart';
-import '../../l10n/app_localizations.dart';
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/export_config_dialog.dart';
-import '../../shared/ui/export_progress_dialog.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/hover_lift.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import '../ai/ai_session_controller.dart';
-import '../ai/model/ai_session.dart';
-import '../ai/service/ai_session_jsonl_exporter.dart';
+import '../../../app/support/silent_log.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/export_config_dialog.dart';
+import '../../../shared/ui/export_progress_dialog.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../ai/ai_session_controller.dart';
+import '../../ai/model/ai_session.dart';
+import '../../ai/service/ai_session_jsonl_exporter.dart';
 
 /// Shows the Thread Session Management dialog. Honors the global dialog
 /// animation settings (entrance/exit are picked from the nearest

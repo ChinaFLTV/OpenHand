@@ -103,7 +103,7 @@ import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../message_gateway/index.dart';
 import '../plugin_service/index.dart';
-import '../settings/settings_view.dart';
+import '../settings/index.dart';
 import '../skills/index.dart';
 import 'editor_indentation.dart';
 import 'machine_expert_dialog.dart';
