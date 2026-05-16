@@ -88,6 +88,17 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await _showServiceWorkersDialog(context, controller, isZh);
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.dns_rounded,
+        title: isZh ? '启动 HAR 重放服务器' : 'Start HAR replay server',
+        subtitle: isZh
+            ? '把当前 HAR 跑成本地 mock，复现脚本走 127.0.0.1:N'
+            : 'Mock current HAR on localhost; reproduce scripts can hit 127.0.0.1:N',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await _toggleHarReplayServer(context, controller, isZh);
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -665,4 +676,45 @@ Future<void> _showServiceWorkersDialog(
       ],
     ),
   );
+}
+
+
+Future<void> _toggleHarReplayServer(
+  BuildContext context,
+  WebReverseSessionController ctrl,
+  bool isZh,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final running = ctrl.harReplayServer;
+  if (running != null) {
+    await ctrl.stopHarReplayServer();
+    if (!context.mounted) return;
+    messenger.showSnackBar(SnackBar(
+      content: Text(isZh ? '已停止 HAR 重放服务器' : 'HAR replay server stopped'),
+      duration: const Duration(seconds: 2),
+    ));
+    return;
+  }
+  final r = await ctrl.startHarReplayServer();
+  if (!context.mounted) return;
+  if (r == null) {
+    messenger.showSnackBar(SnackBar(
+      content: Text(isZh ? '启动失败：HAR 不可用或端口被占' : 'Failed to start'),
+      duration: const Duration(seconds: 3),
+    ));
+    return;
+  }
+  messenger.showSnackBar(SnackBar(
+    content: Text(
+      isZh
+          ? 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条'
+          : 'Replay server up at http://127.0.0.1:${r.port}/  · ${r.entryCount} entries',
+    ),
+    duration: const Duration(seconds: 6),
+    action: SnackBarAction(
+      label: isZh ? '复制端口' : 'Copy port',
+      onPressed: () =>
+          Clipboard.setData(ClipboardData(text: '${r.port}')),
+    ),
+  ));
 }

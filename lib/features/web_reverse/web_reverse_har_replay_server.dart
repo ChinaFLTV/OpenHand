@@ -1,0 +1,172 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import '../../app/support/silent_log.dart';
+
+/// 把 HAR 1.2 文档作为只读 mock server 跑起来，监听 127.0.0.1:N，
+/// 收到 GET 请求时按 URL 全等匹配 HAR 条目并回放 status / headers / body。
+///
+/// 使用场景：复现脚本运行时不联网，直接打到本机 mock，得到与浏览器同样
+/// 的字节流，避免远端站点反爬 / 限流影响调试节奏。
+///
+/// 仅支持 GET（HAR 里 POST 的 body 不一定能完整恢复，先不冒险）。
+/// 查询参数会归一化排序后参与 key 计算，避免 a=1&b=2 与 b=2&a=1 误判。
+class WebReverseHarReplayServer {
+  WebReverseHarReplayServer._({
+    required this.port,
+    required HttpServer server,
+    required this.entryCount,
+  }) : _server = server;
+
+  final int port;
+  final int entryCount;
+  final HttpServer _server;
+
+  /// 从 HAR 字节启动一个本地 mock。失败返回 null。
+  /// [requestedPort] 为 0 时让 OS 随机分配。
+  static Future<WebReverseHarReplayServer?> start({
+    required List<int> harBytes,
+    int requestedPort = 0,
+  }) async {
+    Map<String, _HarHit> map;
+    try {
+      final raw = utf8.decode(harBytes);
+      final har = jsonDecode(raw) as Map;
+      final entries = (har['log'] as Map?)?['entries'] as List? ?? const [];
+      map = <String, _HarHit>{};
+      for (final e in entries.whereType<Map>()) {
+        final req = e['request'] as Map?;
+        final res = e['response'] as Map?;
+        if (req == null || res == null) continue;
+        final method = '${req['method'] ?? 'GET'}';
+        if (method.toUpperCase() != 'GET') continue;
+        final url = '${req['url'] ?? ''}';
+        if (url.isEmpty) continue;
+        final fullKey = _normalizeKey(url);
+        final pathKey = _pathKey(url);
+        final headers = <String, String>{};
+        for (final h in (res['headers'] as List? ?? const []).whereType<Map>()) {
+          headers['${h['name'] ?? ''}'] = '${h['value'] ?? ''}';
+        }
+        final content = res['content'] as Map? ?? const {};
+        final body = '${content['text'] ?? ''}';
+        final isB64 = '${content['encoding'] ?? ''}'.toLowerCase() == 'base64';
+        final hit = _HarHit(
+          status: (res['status'] as num?)?.toInt() ?? 200,
+          headers: headers,
+          body: body,
+          isBase64: isB64,
+          mime: '${content['mimeType'] ?? 'application/octet-stream'}',
+        );
+        // 同时按 full URL 与 path-only 两种 key 存：远端 origin 的 mock 走 full，
+        // 本地复现脚本走 127.0.0.1:N/<path> 走 path-only。
+        map[fullKey] = hit;
+        if (pathKey.isNotEmpty) map[pathKey] = hit;
+      }
+    } catch (error, stack) {
+      silentLog('web_reverse_har_replay_server', 'parse', error, stack);
+      return null;
+    }
+    HttpServer server;
+    try {
+      server = await HttpServer.bind(InternetAddress.loopbackIPv4, requestedPort);
+    } catch (error, stack) {
+      silentLog('web_reverse_har_replay_server', 'bind', error, stack);
+      return null;
+    }
+    final boundPort = server.port;
+    final instance = WebReverseHarReplayServer._(
+      port: boundPort,
+      server: server,
+      entryCount: map.length,
+    );
+    server.listen((req) async {
+      final key = _normalizeKey(req.requestedUri.toString());
+      final hit = map[key];
+      // 兜底：去掉 host 部分用 path+query 再查一次。
+      final fallbackKey = '${req.requestedUri.path}?${_sortedQuery(req.requestedUri.queryParameters)}';
+      final byPath = hit ?? map[fallbackKey];
+      if (byPath == null) {
+        req.response.statusCode = 404;
+        req.response.headers.contentType =
+            ContentType('application', 'json', charset: 'utf-8');
+        req.response.write(jsonEncode({
+          'error': 'no har entry',
+          'key': key,
+        }));
+        await req.response.close();
+        return;
+      }
+      req.response.statusCode = byPath.status;
+      byPath.headers.forEach((k, v) {
+        // 跳过 hop-by-hop headers。
+        final lk = k.toLowerCase();
+        if (lk == 'transfer-encoding' ||
+            lk == 'content-length' ||
+            lk == 'connection') {
+          return;
+        }
+        try {
+          req.response.headers.set(k, v);
+        } catch (_) {}
+      });
+      try {
+        if (byPath.isBase64) {
+          req.response.add(base64Decode(byPath.body));
+        } else {
+          req.response.write(byPath.body);
+        }
+      } catch (_) {}
+      await req.response.close();
+    });
+    return instance;
+  }
+
+  Future<void> close() async {
+    await _server.close(force: true);
+  }
+
+  static String _normalizeKey(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final qs = _sortedQuery(uri.queryParameters);
+      return uri.replace(query: qs).toString();
+    } catch (_) {
+      return url;
+    }
+  }
+
+  static String _pathKey(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final qs = _sortedQuery(uri.queryParameters);
+      return '${uri.path}?$qs';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static String _sortedQuery(Map<String, String> params) {
+    final keys = params.keys.toList()..sort();
+    return keys
+        .map((k) =>
+            '${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(params[k] ?? '')}')
+        .join('&');
+  }
+}
+
+class _HarHit {
+  _HarHit({
+    required this.status,
+    required this.headers,
+    required this.body,
+    required this.isBase64,
+    required this.mime,
+  });
+  final int status;
+  final Map<String, String> headers;
+  final String body;
+  final bool isBase64;
+  final String mime;
+}

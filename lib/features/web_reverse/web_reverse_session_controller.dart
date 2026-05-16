@@ -8,6 +8,7 @@ import '../../app/support/silent_log.dart';
 import 'web_reverse_browser_kind.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
+import 'web_reverse_har_replay_server.dart';
 import 'web_reverse_session_artifacts.dart';
 import 'web_reverse_session_config.dart';
 import 'web_reverse_window_dock.dart';
@@ -54,6 +55,8 @@ class WebReverseSessionController extends ChangeNotifier {
   WebReverseCdpClient? _pageCdp;
   StreamSubscription<CdpEvent>? _pageEventsSub;
   String? _pageSessionId;
+  WebReverseHarReplayServer? _harReplayServer;
+  WebReverseHarReplayServer? get harReplayServer => _harReplayServer;
 
   bool _started = false;
   bool _stopped = false;
@@ -1447,6 +1450,13 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<void> _safeStop() async {
     _dock?.stop();
     await _pageEventsSub?.cancel();
+    final har = _harReplayServer;
+    _harReplayServer = null;
+    if (har != null) {
+      try {
+        await har.close();
+      } catch (_) {}
+    }
     _pageEventsSub = null;
     try {
       await _pageCdp?.close();
@@ -2385,11 +2395,41 @@ class WebReverseSessionController extends ChangeNotifier {
     return hits.toList(growable: false);
   }
 
+  /// 启动一个本地 HAR 重放 mock server，把当前 artifacts 目录下的 HAR 1.2
+  /// 文档作为只读源；返回 (port, entryCount)；失败返回 null。
+  /// 调用方拿到 port 后用 `127.0.0.1:<port>/<原 path+query>` 即可命中 mock。
+  Future<({int port, int entryCount})?> startHarReplayServer() async {
+    if (_harReplayServer != null) {
+      return (port: _harReplayServer!.port, entryCount: _harReplayServer!.entryCount);
+    }
+    try {
+      // 优先用 in-flight artifacts；为空时生成一个临时 HAR。
+      String? path = _lastHarPath;
+      path ??= await _artifacts.exportHar();
+      if (path == null) return null;
+      final bytes = await File(path).readAsBytes();
+      final s = await WebReverseHarReplayServer.start(harBytes: bytes);
+      if (s == null) return null;
+      _harReplayServer = s;
+      _safeNotify();
+      return (port: s.port, entryCount: s.entryCount);
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'startHarReplayServer', error, stack);
+      return null;
+    }
+  }
+
+  Future<void> stopHarReplayServer() async {
+    final s = _harReplayServer;
+    if (s == null) return;
+    _harReplayServer = null;
+    _safeNotify();
+    await s.close();
+  }
+
   /// 一键打包"体检报告"：把 artifacts 目录下所有 jsonl/HAR/截图 +
   /// recorder steps + 当前 networkRequests 概要写到一个 .zip 临时文件，
   /// 返回输出路径。失败返回 null。
-  ///
-  /// 不引入新依赖：用 `archive` 包（pubspec 已有）做内存级打包。
   Future<String?> exportSessionBundle({String? destPath}) async {
     final src = Directory(artifactsRootDir);
     if (!await src.exists()) return null;

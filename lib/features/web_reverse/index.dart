@@ -4,6 +4,7 @@ export 'web_reverse_browser_kind.dart';
 export 'web_reverse_browser_launcher.dart';
 export 'web_reverse_cdp_client.dart';
 export 'web_reverse_dashboard_dialog.dart';
+export 'web_reverse_har_replay_server.dart';
 export 'web_reverse_install_guide_dialog.dart';
 export 'web_reverse_launch_diagnosis.dart';
 export 'web_reverse_profile_actions.dart';
