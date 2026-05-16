@@ -31,7 +31,7 @@ import 'features/instructions/index.dart';
 import 'features/mcp/mcp_controller.dart';
 import 'features/mcp/service/mcp_tool_discovery_service.dart'
     show mcpStdioMirrorModeOverride;
-import 'features/memory/memory_controller.dart';
+import 'features/memory/index.dart';
 import 'features/message_gateway/message_gateway_controller.dart';
 import 'features/plugin_service/plugin_service_controller.dart';
 import 'features/skills/skills_controller.dart';
@@ -149,6 +149,7 @@ Future<void> _bootstrap() async {
   final appInfoFuture = _loadAppInfo();
   final hooksModuleFuture = HooksModule.bootstrap();
   final instructionsModuleFuture = InstructionsModule.bootstrap();
+  final memoryModuleFuture = MemoryModule.bootstrap();
   // 2026-05-03: kick off system-proxy detection in parallel with the
   // controllers — internal HTTP clients (WebSearch / WebFetch) consult
   // SystemProxyResolver lazily, so this is purely best-effort.
@@ -203,8 +204,8 @@ Future<void> _bootstrap() async {
   // tools), never at first paint of the home shell. Construct it
   // synchronously and refresh in the background so its sqlite load no
   // longer sits on the boot critical path.
-  final memoryController = MemoryController.uninitialized();
-  unawaited(memoryController.refresh());
+  final memory = await memoryModuleFuture;
+  unawaited(memory.controller.refresh());
   // 2026-04-25 boot perf — CronsController only matters once the user opens
   // the Crons view OR a scheduled tick fires. Construct it synchronously so
   // we can register the Hermes Talker agent handler before runApp, then run
@@ -221,7 +222,7 @@ Future<void> _bootstrap() async {
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo);
   developer.Timeline.startSync('openhand.boot.await_remaining_controllers');
-  memoryControllerHandle = memoryController;
+  memoryControllerHandle = memory.controller;
   final aiSessionController = await aiSessionControllerFuture;
   developer.Timeline.finishSync();
   // Make sure system-proxy detection has resolved before the user can
@@ -240,11 +241,11 @@ Future<void> _bootstrap() async {
   final selfLearningChatClient = AiChatService();
   final selfLearningRunner = SelfLearningRunner(
     sessionController: aiSessionController,
-    memoryController: memoryController,
+    memoryController: memory.controller,
     llmDispatcher: buildSelfLearningDispatcher(
       chatClient: selfLearningChatClient,
       settingsController: settingsController,
-      memoryController: memoryController,
+      memoryController: memory.controller,
     ),
   );
   final selfLearningScheduler = SelfLearningScheduler(
@@ -347,7 +348,7 @@ Future<void> _bootstrap() async {
     settingsController: settingsController,
     skillsController: skillsController,
     mcpController: mcpController,
-    memoryController: memoryController,
+    memoryController: memory.controller,
     cronsController: cronsController,
     instructionsController: instructions.controller,
     appInfo: appInfo,
@@ -382,7 +383,7 @@ Future<void> _bootstrap() async {
         ChangeNotifierProvider<SkillsController>.value(value: skillsController),
         ChangeNotifierProvider<McpController>.value(value: mcpController),
         ...HooksModule.providers(hooks),
-        ChangeNotifierProvider<MemoryController>.value(value: memoryController),
+        ...MemoryModule.providers(memory),
         ChangeNotifierProvider<CronsController>.value(value: cronsController),
         ...InstructionsModule.providers(instructions),
         ChangeNotifierProvider<MessageGatewayController>.value(

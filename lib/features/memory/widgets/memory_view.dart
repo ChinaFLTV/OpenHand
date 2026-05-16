@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../app/state/settings_controller.dart';
-import '../../app/support/openhand_paths.dart';
-import '../../l10n/app_localizations.dart';
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/animated_menu.dart';
-import '../../shared/ui/appear_once.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/hover_lift.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import 'data/memory_store.dart';
-import 'memory_controller.dart';
-import 'model/user_memory_entry.dart';
+import '../../../app/state/settings_controller.dart';
+import '../../../app/support/openhand_paths.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../data/memory_store.dart';
+import '../memory_controller.dart';
+import '../model/user_memory_entry.dart';
 
 enum _MemoryCardAction { edit, delete }
 
