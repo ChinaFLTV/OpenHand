@@ -36,7 +36,7 @@ import 'features/memory/memory_controller.dart';
 import 'features/message_gateway/message_gateway_controller.dart';
 import 'features/plugin_service/plugin_service_controller.dart';
 import 'features/skills/skills_controller.dart';
-import 'shared/data/database_service.dart';
+import 'shared/db/database_service.dart';
 
 Future<void> main() async {
   // Use a guarded zone so uncaught async errors (including stray

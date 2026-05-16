@@ -11,13 +11,13 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
-import '../../shared/widgets/animated_dialog.dart';
-import '../../shared/widgets/animated_menu.dart';
-import '../../shared/widgets/appear_once.dart';
-import '../../shared/widgets/highlight_pulse.dart';
-import '../../shared/widgets/hover_lift.dart';
-import '../../shared/widgets/openhand_dialog_action_button.dart';
-import '../../shared/widgets/openhand_snack_bar.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/animated_menu.dart';
+import '../../shared/ui/appear_once.dart';
+import '../../shared/ui/highlight_pulse.dart';
+import '../../shared/ui/hover_lift.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import 'instructions_controller.dart';
 import 'model/user_instruction_entry.dart';
 

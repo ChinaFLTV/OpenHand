@@ -6,11 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/state/settings_controller.dart';
-import '../../shared/widgets/animated_dialog.dart';
-import '../../shared/widgets/highlight_pulse.dart';
-import '../../shared/widgets/model_search_selector.dart';
-import '../../shared/widgets/openhand_dialog_action_button.dart';
-import '../../shared/widgets/openhand_snack_bar.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/highlight_pulse.dart';
+import '../../shared/ui/model_search_selector.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../ai/model/ai_model_config.dart';
 import 'hardness_cli_catalog.dart';
 import 'hardness_cli_install_dialog.dart';

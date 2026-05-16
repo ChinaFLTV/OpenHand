@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/oh_pill.dart';
+import '../../../shared/ui/oh_pill.dart';
 
 /// Hardness header 内的 ToolSearch 重放反悔 chip：监听
 /// `ToolSearchReplayDispatcher.pendingDeadlineListenable`，window 内每秒

@@ -6,8 +6,8 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
-import '../../../shared/data/atomic_file_operations.dart';
-import '../../../shared/data/database_service.dart';
+import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/db/database_service.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
 import '../model/ai_token_usage.dart';

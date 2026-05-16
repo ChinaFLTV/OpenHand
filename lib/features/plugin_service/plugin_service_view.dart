@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../shared/widgets/animated_dialog.dart';
-import '../../shared/widgets/highlight_pulse.dart';
-import '../../shared/widgets/openhand_dialog_action_button.dart';
-import '../../shared/widgets/openhand_snack_bar.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/highlight_pulse.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/model/mcp_server.dart';
 import 'model/plugin_info.dart';

@@ -6,9 +6,9 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/model/hook_config.dart';
-import '../../shared/widgets/animated_dialog.dart';
-import '../../shared/widgets/appear_once.dart';
-import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/appear_once.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'hooks_controller.dart';
 
 class HooksView extends StatelessWidget {

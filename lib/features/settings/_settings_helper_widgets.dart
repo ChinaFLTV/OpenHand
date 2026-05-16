@@ -1134,4 +1134,4 @@ class _SettingsSavePulse extends StatelessWidget {
 /// `_buildSlider` 闭包负责把 value 透传到内部 [Slider]，避免每个调用点都重写 Focus
 /// + onKeyEvent 样板。
 ///
-/// 真身已抽到 `lib/shared/widgets/key_tweakable_slider.dart`，这里仅保留注释作历史索引。
+/// 真身已抽到 `lib/shared/ui/key_tweakable_slider.dart`，这里仅保留注释作历史索引。

@@ -8,7 +8,7 @@ import 'package:yaml/yaml.dart';
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
-import '../../../shared/data/atomic_file_operations.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../model/local_skill.dart';
 
 class SkillsRepository {

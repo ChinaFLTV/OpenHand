@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
-import '../../../shared/data/atomic_file_operations.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 
 /// 文件编辑历史版本服务
 ///

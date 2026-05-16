@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../../shared/widgets/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import 'safe_subprocess.dart';
 
 enum OpenHandNotificationLevel { info, success, warning, error, critical }

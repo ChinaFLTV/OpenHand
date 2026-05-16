@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/support/silent_log.dart';
-import '../../../shared/data/database_service.dart';
+import '../../../shared/db/database_service.dart';
 import '../model/user_memory_entry.dart';
 
 enum MemoryPersistenceIssueKind {

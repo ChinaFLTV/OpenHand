@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/url_validation.dart';
-import '../../../shared/data/atomic_file_operations.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../model/mcp_server.dart';
 
 enum McpPersistenceIssueKind {

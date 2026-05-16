@@ -11,10 +11,10 @@ import '../../app/model/cron_config.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_notification_service.dart';
 import '../../app/support/silent_log.dart';
-import '../../shared/widgets/animated_dialog.dart';
-import '../../shared/widgets/ansi_text.dart';
-import '../../shared/widgets/appear_once.dart';
-import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/ansi_text.dart';
+import '../../shared/ui/appear_once.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'cron_parser.dart';
 import 'crons_controller.dart';
 

@@ -1,7 +1,7 @@
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/support/silent_log.dart';
-import '../../../shared/data/database_service.dart';
+import '../../../shared/db/database_service.dart';
 
 /// 轻量 KV：记忆 ToolSearch 历史导出对话框上次落地目录，下次自动开在那。
 ///

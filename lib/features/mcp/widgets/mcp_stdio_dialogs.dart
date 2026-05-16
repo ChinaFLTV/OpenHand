@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../shared/widgets/animated_dialog.dart';
+import '../../../shared/ui/animated_dialog.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';

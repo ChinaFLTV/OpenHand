@@ -21,7 +21,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
-import '../../../shared/data/database_service.dart';
+import '../../../shared/db/database_service.dart';
 import '../../ai/ai_session_controller.dart';
 import '../../ai/service/ai_file_mutation_ledger.dart';
 import '../../ai/service/media_cache_service.dart';

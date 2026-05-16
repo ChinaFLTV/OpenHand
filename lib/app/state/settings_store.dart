@@ -18,7 +18,7 @@ import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
-import '../../shared/data/database_service.dart';
+import '../../shared/db/database_service.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';

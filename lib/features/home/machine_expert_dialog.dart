@@ -9,9 +9,9 @@ import '../../app/state/settings_controller.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/widgets/highlight_pulse.dart';
-import '../../shared/widgets/model_search_selector.dart';
-import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/ui/highlight_pulse.dart';
+import '../../shared/ui/model_search_selector.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
 
 class MachineExpertDialog extends StatefulWidget {

@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
-import '../../../shared/widgets/animated_dialog.dart';
-import '../../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../mcp_controller.dart';
 import '../service/mcp_keyword_index.dart';
 

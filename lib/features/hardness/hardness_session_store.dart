@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite_common/sqlite_api.dart';
 
-import '../../shared/data/database_service.dart';
+import '../../shared/db/database_service.dart';
 import 'model/hardness_session_record.dart';
 
 /// Persists a single Hardness Engineering session record in the SQLite
