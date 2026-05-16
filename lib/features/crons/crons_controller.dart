@@ -9,7 +9,7 @@ import '../../app/model/cron_config.dart';
 import '../../app/support/openhand_notification_service.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
-import '../mcp/model/mcp_keyword_index_update_mode.dart';
+import '../mcp/index.dart';
 import 'data/crons_store.dart';
 import 'model/cron_parser.dart';
 import 'service/cron_executor.dart';

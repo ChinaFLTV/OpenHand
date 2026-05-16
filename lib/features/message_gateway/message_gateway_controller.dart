@@ -10,7 +10,7 @@ import '../ai/service/ai_bash_tool_service.dart'
     show BashCommandApprovalDecision, BashCommandApprovalRequest;
 import '../crons/crons_controller.dart';
 import '../instructions/index.dart';
-import '../mcp/mcp_controller.dart';
+import '../mcp/index.dart';
 import '../memory/memory_controller.dart';
 import '../plugin_service/plugin_service_controller.dart';
 import '../skills/skills_controller.dart';

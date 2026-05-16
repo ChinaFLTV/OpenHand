@@ -6,26 +6,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 
-import '../../app/state/settings_controller.dart';
-import '../../app/support/openhand_paths.dart';
-import '../../app/support/url_validation.dart';
-import '../../l10n/app_localizations.dart';
-import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/animated_menu.dart';
-import '../../shared/ui/appear_once.dart';
-import '../../shared/ui/highlight_pulse.dart';
-import '../../shared/ui/hover_lift.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import 'data/mcp_store.dart';
-import 'mcp_controller.dart';
-import 'model/mcp_server.dart';
-import 'model/mcp_server_health.dart';
-import 'model/mcp_tool.dart';
-import 'service/mcp_stdio_process_manager.dart';
-import 'service/mcp_tool_discovery_service.dart';
-import 'widgets/mcp_keyword_index_progress_dialog.dart';
-import 'widgets/mcp_stdio_dialogs.dart';
+import '../../../app/state/settings_controller.dart';
+import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/url_validation.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../data/mcp_store.dart';
+import '../mcp_controller.dart';
+import '../model/mcp_server.dart';
+import '../model/mcp_server_health.dart';
+import '../model/mcp_tool.dart';
+import '../service/mcp_stdio_process_manager.dart';
+import '../service/mcp_tool_discovery_service.dart';
+import 'mcp_keyword_index_progress_dialog.dart';
+import 'mcp_stdio_dialogs.dart';
 
 enum _McpCardAction { edit, delete, viewHistory, viewDetails }
 

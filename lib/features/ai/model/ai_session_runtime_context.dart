@@ -1,8 +1,6 @@
 import '../../../app/support/openhand_paths.dart';
 import '../../instructions/index.dart';
-import '../../mcp/model/mcp_lazy_loading_mode.dart';
-import '../../mcp/model/mcp_server.dart';
-import '../../mcp/model/mcp_tool.dart';
+import '../../mcp/index.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../../skills/model/local_skill.dart';
 import 'ai_allow_command_rule.dart';

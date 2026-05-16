@@ -27,9 +27,7 @@ import 'features/ai/service/web_search/web_search_cache_store.dart';
 import 'features/crons/index.dart';
 import 'features/hooks/index.dart';
 import 'features/instructions/index.dart';
-import 'features/mcp/mcp_controller.dart';
-import 'features/mcp/service/mcp_tool_discovery_service.dart'
-    show mcpStdioMirrorModeOverride;
+import 'features/mcp/index.dart';
 import 'features/memory/index.dart';
 import 'features/message_gateway/message_gateway_controller.dart';
 import 'features/plugin_service/index.dart';
@@ -194,13 +192,14 @@ Future<void> _bootstrap() async {
   final skillsModuleFuture = SkillsModule.bootstrap(
     initialStoragePath: settingsController.skillsStoragePath,
   );
-  final skills = await skillsModuleFuture;
-  unawaited(skills.controller.refresh());
-  final mcpController = McpController.uninitialized(
+  final mcpModuleFuture = McpModule.bootstrap(
     initialFilePath: settingsController.mcpServersFilePath,
     autoProbeConcurrency: settingsController.mcpAutoProbeConcurrency,
   );
-  unawaited(mcpController.refresh());
+  final skills = await skillsModuleFuture;
+  unawaited(skills.controller.refresh());
+  final mcp = await mcpModuleFuture;
+  unawaited(mcp.controller.refresh());
   // 2026-04-25 boot perf — MemoryController is only consumed inside
   // user-action code paths (`_buildRuntimeContext` + self-learning sub-agent
   // tools), never at first paint of the home shell. Construct it
@@ -289,8 +288,8 @@ Future<void> _bootstrap() async {
       // 2026-05-04 — MCP 关键词倒排索引定时重建。复用 McpController 单飞构建器，
       // 与 UI 入口共享同一份磁盘缓存。失败由调度器统一记录，不需在此抛错。
       try {
-        await mcpController.ensureKeywordIndexLoaded();
-        final result = await mcpController.buildKeywordIndex();
+        await mcp.controller.ensureKeywordIndexLoaded();
+        final result = await mcp.controller.buildKeywordIndex();
         return AgentHandlerResult(
           stdout:
               'ok: servers=${result.index.totalServers} '
@@ -308,7 +307,7 @@ Future<void> _bootstrap() async {
     );
   });
   settingsController.addListener(() {
-    mcpController.updateAutoProbeConcurrency(
+    mcp.controller.updateAutoProbeConcurrency(
       settingsController.mcpAutoProbeConcurrency,
     );
     selfLearningScheduler.updateConcurrency(
@@ -335,7 +334,7 @@ Future<void> _bootstrap() async {
   // 2026-05-04 — 串接：cron init 完成后立刻把当前设置项推一次到 MCP 关键词
   // 索引系统 cron 条目（listener 仅在 setter 触发，启动期需要主动同步一次）；
   // 同时启动期惰性加载磁盘缓存，避免首次手动构建命中 disk-empty。
-  unawaited(mcpController.ensureKeywordIndexLoaded());
+  unawaited(mcp.controller.ensureKeywordIndexLoaded());
   unawaited(() async {
     await cronsController.initialize();
     await cronsController.updateMcpKeywordIndexSchedule(
@@ -350,7 +349,7 @@ Future<void> _bootstrap() async {
     sessionController: aiSessionController,
     settingsController: settingsController,
     skillsController: skills.controller,
-    mcpController: mcpController,
+    mcpController: mcp.controller,
     memoryController: memory.controller,
     cronsController: cronsController,
     instructionsController: instructions.controller,
@@ -384,7 +383,7 @@ Future<void> _bootstrap() async {
           value: settingsController,
         ),
         ...SkillsModule.providers(skills),
-        ChangeNotifierProvider<McpController>.value(value: mcpController),
+        ...McpModule.providers(mcp),
         ...HooksModule.providers(hooks),
         ...MemoryModule.providers(memory),
         ...CronsModule.providers(crons),

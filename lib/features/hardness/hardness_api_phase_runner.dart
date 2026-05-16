@@ -15,7 +15,7 @@ import '../ai/service/ai_chat_service.dart';
 import '../ai/service/ai_prompt_template_repository.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_tool_runtime_service.dart';
-import '../mcp/service/mcp_lazy_loading_applier.dart';
+import '../mcp/index.dart';
 import 'hardness_orchestrator.dart';
 import 'hardness_prompt_builder.dart';
 import 'model/hardness_phase.dart';
