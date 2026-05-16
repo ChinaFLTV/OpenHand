@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -12,6 +14,7 @@ part 'web_reverse_dashboard_dialog.network.part.dart';
 part 'web_reverse_dashboard_dialog.console.part.dart';
 part 'web_reverse_dashboard_dialog.detail.part.dart';
 part 'web_reverse_dashboard_dialog.toolbar.part.dart';
+part 'web_reverse_dashboard_dialog.panels.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -244,15 +247,29 @@ class _WebReverseDashboardDialogState
           isZh: isZh,
           reduceMotion: reduceMotion,
         ),
-      _Tab.performance ||
-      _Tab.memory ||
-      _Tab.application ||
-      _Tab.security ||
-      _Tab.recorder =>
-        _NativePanelPlaceholder(
-          tab: _tab,
+      _Tab.performance => _PerformancePanel(
+          controller: ctrl,
           isZh: isZh,
-          onOpenDevTools: () => _openOfficialDevTools(ctrl),
+          reduceMotion: reduceMotion,
+        ),
+      _Tab.memory => _MemoryPanel(
+          controller: ctrl,
+          isZh: isZh,
+          reduceMotion: reduceMotion,
+        ),
+      _Tab.application => _ApplicationPanel(
+          controller: ctrl,
+          isZh: isZh,
+          reduceMotion: reduceMotion,
+        ),
+      _Tab.security => _SecurityPanel(
+          controller: ctrl,
+          isZh: isZh,
+        ),
+      _Tab.recorder => _RecorderPanel(
+          controller: ctrl,
+          isZh: isZh,
+          reduceMotion: reduceMotion,
         ),
     };
   }
@@ -337,105 +354,6 @@ class _OverviewBody extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _NativePanelPlaceholder extends StatelessWidget {
-  const _NativePanelPlaceholder({
-    required this.tab,
-    required this.isZh,
-    required this.onOpenDevTools,
-  });
-
-  final _Tab tab;
-  final bool isZh;
-  final VoidCallback onOpenDevTools;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final (title, hint) = switch (tab) {
-      _Tab.performance => (
-          isZh ? '性能（Performance）' : 'Performance',
-          isZh
-              ? '性能录制 / 火焰图 / 主线程长任务分析等功能由 Chrome 原生面板提供。'
-              : 'Performance profiling lives in the native DevTools panel.',
-        ),
-      _Tab.memory => (
-          isZh ? '内存（Memory）' : 'Memory',
-          isZh
-              ? '堆快照 / 分配采样 / 时间线由 Chrome 原生面板提供。'
-              : 'Heap snapshots / allocation timelines live in native DevTools.',
-        ),
-      _Tab.application => (
-          isZh ? '应用（Application）' : 'Application',
-          isZh
-              ? 'Storage / Cookies / IndexedDB / Service Workers / Cache 由 Chrome 原生面板提供。'
-              : 'Storage, Cookies, IndexedDB, Service Workers etc. live in native DevTools.',
-        ),
-      _Tab.security => (
-          isZh ? '安全（Security）' : 'Security',
-          isZh
-              ? '证书 / 混合内容 / 强 SSL 检查由 Chrome 原生面板提供。'
-              : 'Certificate / mixed-content / TLS info live in native DevTools.',
-        ),
-      _Tab.recorder => (
-          isZh ? '记录器（Recorder）' : 'Recorder',
-          isZh
-              ? '操作录制 / 重放 / 导出脚本由 Chrome 原生面板提供。'
-              : 'Action recording / replay / export lives in native DevTools.',
-        ),
-      _ => ('-', ''),
-    };
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  Icons.open_in_new_rounded,
-                  size: 28,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                hint,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.55,
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: onOpenDevTools,
-                icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                label: Text(isZh ? '在浏览器中打开 DevTools' : 'Open in DevTools'),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

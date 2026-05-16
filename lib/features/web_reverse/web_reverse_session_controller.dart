@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -191,7 +192,304 @@ class WebReverseSessionController extends ChangeNotifier {
         _onConsoleApi(ev.params);
       case 'Log.entryAdded':
         _onLogEntry(ev.params);
+      case 'Security.securityStateChanged':
+        _onSecurityStateChanged(ev.params);
     }
+  }
+
+  // ── Performance / Memory / Application / Security / Recorder API ─────
+
+  /// 拉取 `Performance.getMetrics`：返回每个指标 (name, value)。失败返回空。
+  Future<List<(String, double)>> performanceMetrics() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      await cdp.send('Performance.enable', sessionId: _pageSessionId);
+      final r = await cdp.send(
+        'Performance.getMetrics',
+        sessionId: _pageSessionId,
+      );
+      final metrics = r['metrics'] as List?;
+      if (metrics == null) return const [];
+      return metrics.whereType<Map>().map((m) {
+        final n = '${m['name'] ?? ''}';
+        final v = (m['value'] as num?)?.toDouble() ?? 0;
+        return (n, v);
+      }).toList(growable: false);
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'performanceMetrics', error, stack);
+      return const [];
+    }
+  }
+
+  /// `HeapProfiler.takeHeapSnapshot` 并通过 chunk 事件聚合返回。
+  /// 返回字段：(rawJson, totalBytes)；调用方写盘或解析 summary。
+  Future<({String json, int bytes})?> takeHeapSnapshot() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    final buffer = StringBuffer();
+    final completer = Completer<void>();
+    StreamSubscription<CdpEvent>? sub;
+    try {
+      await cdp.send('HeapProfiler.enable', sessionId: _pageSessionId);
+      sub = cdp.events.where((e) => e.sessionId == _pageSessionId).listen((e) {
+        if (e.method == 'HeapProfiler.addHeapSnapshotChunk') {
+          buffer.write('${e.params['chunk'] ?? ''}');
+        } else if (e.method == 'HeapProfiler.reportHeapSnapshotProgress') {
+          if (e.params['finished'] == true && !completer.isCompleted) {
+            completer.complete();
+          }
+        }
+      });
+      // CDP 在 takeHeapSnapshot 返回时已发完所有 chunk；后置完成兜底。
+      await cdp.send(
+        'HeapProfiler.takeHeapSnapshot',
+        params: const <String, Object?>{
+          'reportProgress': true,
+          'captureNumericValue': false,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 60),
+      );
+      // takeHeapSnapshot 同步返回时一般 chunk 已 flush 完，等一小段防边界。
+      await Future.any<void>([
+        completer.future,
+        Future<void>.delayed(const Duration(milliseconds: 250)),
+      ]);
+      final raw = buffer.toString();
+      return (json: raw, bytes: raw.length);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'takeHeapSnapshot',
+        error,
+        stack,
+      );
+      return null;
+    } finally {
+      await sub?.cancel();
+    }
+  }
+
+  /// 跑一次 `Performance.startTrace` / `stopTrace` 并返回 trace JSON 字符串。
+  /// CDP 把 trace 通过 dataCollected 事件分块推；本方法做完整收集。
+  Future<String?> recordTrace({
+    required Duration duration,
+    List<String> categories = const [
+      'devtools.timeline',
+      'v8.execute',
+      'disabled-by-default-devtools.timeline',
+    ],
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return null; // tracing 用 root session
+    final events = <Map<String, Object?>>[];
+    final completer = Completer<void>();
+    StreamSubscription<CdpEvent>? sub;
+    try {
+      sub = cdp.events.listen((e) {
+        if (e.method == 'Tracing.dataCollected') {
+          final list = e.params['value'] as List?;
+          if (list != null) {
+            for (final item in list.whereType<Map>()) {
+              events.add(Map<String, Object?>.from(item));
+            }
+          }
+        } else if (e.method == 'Tracing.tracingComplete') {
+          if (!completer.isCompleted) completer.complete();
+        }
+      });
+      await cdp.send('Tracing.start', params: <String, Object?>{
+        'categories': categories.join(','),
+        'transferMode': 'ReportEvents',
+      });
+      await Future<void>.delayed(duration);
+      await cdp.send('Tracing.end');
+      await completer.future
+          .timeout(const Duration(seconds: 30), onTimeout: () {});
+      return jsonEncode(<String, Object?>{
+        'traceEvents': events,
+        'metadata': <String, Object?>{
+          'source': 'OpenHand WebReverseExpert',
+          'duration_ms': duration.inMilliseconds,
+        },
+      });
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'recordTrace',
+        error,
+        stack,
+      );
+      return null;
+    } finally {
+      await sub?.cancel();
+    }
+  }
+
+  // ── Application: Cookies / Storage ───────────────────────────────────
+
+  Future<List<Map<String, Object?>>> listCookies() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      final r = await cdp.send('Network.getAllCookies', sessionId: _pageSessionId);
+      final list = r['cookies'] as List?;
+      return list?.whereType<Map>().map((m) => Map<String, Object?>.from(m)).toList() ??
+          const [];
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'listCookies', error, stack);
+      return const [];
+    }
+  }
+
+  Future<List<({String key, String value})>> listDomStorage({
+    required String origin,
+    required bool isLocalStorage,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      await cdp.send('DOMStorage.enable', sessionId: _pageSessionId);
+      final r = await cdp.send(
+        'DOMStorage.getDOMStorageItems',
+        params: <String, Object?>{
+          'storageId': <String, Object?>{
+            'securityOrigin': origin,
+            'isLocalStorage': isLocalStorage,
+          },
+        },
+        sessionId: _pageSessionId,
+      );
+      final entries = r['entries'] as List?;
+      if (entries == null) return const [];
+      return entries
+          .whereType<List>()
+          .where((p) => p.length >= 2)
+          .map((p) => (key: '${p[0]}', value: '${p[1]}'))
+          .toList(growable: false);
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'listDomStorage', error, stack);
+      return const [];
+    }
+  }
+
+  /// 读取 page 当前主 frame 的 origin（formed via Runtime.evaluate）。
+  Future<String?> currentOrigin() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{
+          'expression': 'window.location.origin',
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+      );
+      return (r['result'] as Map?)?['value'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Security ─────────────────────────────────────────────────────────
+
+  String? _securityState;
+  String? get securityState => _securityState;
+  String? _securityExplanationsJson;
+  String? get securityExplanationsJson => _securityExplanationsJson;
+
+  Future<void> enableSecurity() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send('Security.enable', sessionId: _pageSessionId);
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'enableSecurity', error, stack);
+    }
+  }
+
+  void _onSecurityStateChanged(Map<String, Object?> p) {
+    _securityState = '${p['securityState'] ?? ''}';
+    final explanations = p['explanations'];
+    if (explanations != null) {
+      _securityExplanationsJson = jsonEncode(explanations);
+    }
+    notifyListeners();
+  }
+
+  // ── Recorder（极简）──────────────────────────────────────────────────
+  // 通过 addScriptToEvaluateOnNewDocument 注入轻量监听器，把 click / input /
+  // navigate 等动作打到 console，再聚合为一份 step 列表。这是"够用版"，
+  // Chrome DevTools Recorder 的可视化重放与高级断言用 webview/CEF 才能做。
+
+  bool _recording = false;
+  String? _recorderScriptIdentifier;
+  final List<Map<String, Object?>> _recorderSteps = <Map<String, Object?>>[];
+  List<Map<String, Object?>> get recorderSteps =>
+      List<Map<String, Object?>>.unmodifiable(_recorderSteps);
+  bool get isRecording => _recording;
+
+  Future<void> startRecording() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    if (_recording) return;
+    const recorderJs = r'''
+(() => {
+  if (window.__oh_recorder_installed) return;
+  window.__oh_recorder_installed = true;
+  const log = (step) => {
+    try { console.log('__OH_REC__', JSON.stringify(step)); } catch (_) {}
+  };
+  document.addEventListener('click', (ev) => {
+    const t = ev.target;
+    log({ type: 'click', selector: t && t.outerHTML ? t.outerHTML.slice(0,80) : '?', ts: Date.now() });
+  }, true);
+  document.addEventListener('input', (ev) => {
+    const t = ev.target;
+    log({ type: 'input', value: t && 'value' in t ? String(t.value).slice(0,200) : '', ts: Date.now() });
+  }, true);
+  window.addEventListener('hashchange', () => log({ type: 'hashchange', url: location.href, ts: Date.now() }));
+  window.addEventListener('popstate', () => log({ type: 'popstate', url: location.href, ts: Date.now() }));
+})();
+''';
+    try {
+      final r = await cdp.send(
+        'Page.addScriptToEvaluateOnNewDocument',
+        params: <String, Object?>{'source': recorderJs},
+        sessionId: _pageSessionId,
+      );
+      _recorderScriptIdentifier = r['identifier'] as String?;
+      // 当前页面也立即注入一次。
+      await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{'expression': recorderJs},
+        sessionId: _pageSessionId,
+      );
+      _recorderSteps.clear();
+      _recording = true;
+      notifyListeners();
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'startRecording', error, stack);
+    }
+  }
+
+  Future<void> stopRecording() async {
+    final cdp = _browserCdp;
+    if (!_recording) return;
+    _recording = false;
+    if (cdp != null && _recorderScriptIdentifier != null) {
+      try {
+        await cdp.send(
+          'Page.removeScriptToEvaluateOnNewDocument',
+          params: <String, Object?>{'identifier': _recorderScriptIdentifier},
+          sessionId: _pageSessionId,
+        );
+      } catch (_) {}
+      _recorderScriptIdentifier = null;
+    }
+    notifyListeners();
   }
 
   void _onRequestWillBeSent(Map<String, Object?> p) {
@@ -415,6 +713,18 @@ class WebReverseSessionController extends ChangeNotifier {
       final v = a['value'];
       return v == null ? (a['description'] ?? '').toString() : v.toString();
     }).join(' ');
+    // 拦截 recorder 标记，转为 step 列表（不影响 console 列表本身）。
+    if (_recording && text.startsWith('__OH_REC__ ')) {
+      try {
+        final raw = text.substring('__OH_REC__ '.length).trim();
+        // 去掉首尾可能的引号，再 JSON.decode。
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          _recorderSteps.add(Map<String, Object?>.from(decoded));
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
     _appendConsole(type, text);
   }
 
