@@ -942,6 +942,11 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    // F4 预热：device id (磁盘) 与本机网卡枚举 (900ms timeout) 是新建会话
+    // 的关键路径输入。在 refresh 启动阶段先把这两个 future 触发出去，等到
+    // 用户首次"新建会话"时通常已经命中缓存，避免首次创建被网卡枚举堵 1s。
+    _deviceIdFuture ??= _readOrCreateDeviceId();
+    _networkSnapshotFuture ??= _localNetworkSnapshot();
     await _enqueueOperation(() async {
       _isLoading = true;
       _lastErrorMessage = null;

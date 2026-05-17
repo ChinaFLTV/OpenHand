@@ -2318,6 +2318,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       runtimeContext: resolvedRuntimeContext,
       mode: initialMode,
       fullAccessPermission: initialFullAccessPermission,
+      // F5 优化：UI 创建新会话不再等 session_start hook 跑完。hook 可能涉及
+      // shell 进程冷启动 (~数百 ms ~ 数秒)，会让 "+新会话" 按钮卡顿；通过
+      // unawaited 让 hook 异步执行，新会话立刻可见、可输入。
+      awaitStartHook: false,
     );
     if (!mounted) {
       return false;
