@@ -71,6 +71,10 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   bool _cropMode = false;
   Offset? _cropStart;
   Offset? _cropCurrent;
+  // macOS trackpad 两指平移会派发 PointerPanZoom 事件而不是 PointerScroll，
+  // 这里记录是否处于 pan-zoom 中，方便累计 delta。
+  bool _panZoomActive = false;
+  Offset _lastPanZoomPan = Offset.zero;
 
   // ── IME 桥（TextInputClient 手动接管） ────────────────────────────────
   // surface 拿到焦点时打开一条 TextInput connection，把 IME 候选词、回车 /
@@ -188,12 +192,24 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _resizeDebouncer?.cancel();
     _resizeDebouncer = Timer(const Duration(milliseconds: 220), () {
       if (!mounted) return;
+      // 三档优先级：① 设备模拟激活时强制按设备像素，避免画面被拉伸 / 模糊；
+      // ② 用户在分辨率下拉手动指定时按它；③ 最后才是面板尺寸自适应。
+      final device = _devicePreset;
       final autoW = (logical.width * dpr).round().clamp(160, 2560);
       final autoH = (logical.height * dpr).round().clamp(120, 1600);
-      // 用户手动指定了分辨率档位时优先用它；否则跟面板尺寸自适应。
       final override = _resolutionOverride;
-      final w = override?.w ?? autoW;
-      final h = override?.h ?? autoH;
+      final int w;
+      final int h;
+      if (device != null) {
+        w = (device.width * device.deviceScaleFactor).round();
+        h = (device.height * device.deviceScaleFactor).round();
+      } else if (override != null) {
+        w = override.w;
+        h = override.h;
+      } else {
+        w = autoW;
+        h = autoH;
+      }
       // 自适应帧率档位：viewport 大时降到 30fps + quality 65 节流，激活时
       // 升到 60fps + quality 80。临界值取 1600 像素长边，平衡 retina
       // 大屏 1440p / 4K 与常规 1280×720 dashboard 视窗。
@@ -345,15 +361,46 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     if (_cropMode) return;
     if (e is PointerScrollEvent) {
       final p = _toViewport(e.localPosition, renderSize);
+      // CDP Input.dispatchMouseEvent(mouseWheel) 约定：deltaY 为正 = 内容向上
+      // 滚动（即用户看到的页面往下走），与 Flutter PointerScrollEvent.scrollDelta
+      // 的方向语义已经一致，不需要再取反。早先取反导致页面往反方向走，体感
+      // 上"完全无响应"。
       widget.controller.dispatchMouseEvent(
         type: 'mouseWheel',
         x: p.dx,
         y: p.dy,
-        deltaX: -e.scrollDelta.dx,
-        deltaY: -e.scrollDelta.dy,
+        deltaX: e.scrollDelta.dx,
+        deltaY: e.scrollDelta.dy,
         modifiers: _modifiersFromKeys(),
       );
     }
+  }
+
+  /// macOS / Linux trackpad 两指平移：Flutter 派发 PanZoom 事件而不是
+  /// PointerScroll。这里把累计 pan delta 转成 mouseWheel 下发到 CDP，
+  /// 让浏览器同样能滚动。
+  void _handlePanZoomStart(PointerPanZoomStartEvent e, Size renderSize) {
+    if (_cropMode) return;
+    _panZoomActive = true;
+    _lastPanZoomPan = Offset.zero;
+  }
+
+  void _handlePanZoomUpdate(PointerPanZoomUpdateEvent e, Size renderSize) {
+    if (_cropMode || !_panZoomActive) return;
+    final delta = e.pan - _lastPanZoomPan;
+    _lastPanZoomPan = e.pan;
+    if (delta == Offset.zero) return;
+    final p = _toViewport(e.localPosition, renderSize);
+    widget.controller.dispatchMouseEvent(
+      type: 'mouseWheel',
+      x: p.dx,
+      y: p.dy,
+      // PanZoom 的 pan 正方向 = 手指右下；滚轮 deltaY 正 = 页面下移。两者
+      // 一致，不取反。
+      deltaX: -delta.dx,
+      deltaY: -delta.dy,
+      modifiers: _modifiersFromKeys(),
+    );
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
@@ -1032,6 +1079,11 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                                   _handlePointerUp(e, renderSize),
                               onPointerSignal: (e) =>
                                   _handlePointerSignal(e, renderSize),
+                              onPointerPanZoomStart: (e) =>
+                                  _handlePanZoomStart(e, renderSize),
+                              onPointerPanZoomUpdate: (e) =>
+                                  _handlePanZoomUpdate(e, renderSize),
+                              onPointerPanZoomEnd: (_) => _panZoomActive = false,
                               child: const MouseRegion(
                                 cursor: SystemMouseCursors.basic,
                                 child: SizedBox.expand(),
@@ -1205,16 +1257,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             enabled: alive,
             isZh: isZh,
             onChanged: (next) {
-              setState(() => _resolutionOverride = next);
-              // 触发一次重新下发；_scheduleViewportSync 内部对 size 没变会
-              // 早退，这里强制清掉缓存让其再算一次。
-              _lastConfiguredSize = null;
-              if (mounted) {
-                final box = context.findRenderObject() as RenderBox?;
-                final size = box?.size;
-                final dpr = MediaQuery.of(context).devicePixelRatio;
-                if (size != null) _scheduleViewportSync(size, dpr);
-              }
+              setState(() {
+                _resolutionOverride = next;
+                // 强制下一次 LayoutBuilder rebuild 走 _scheduleViewportSync
+                // 真实地按面板 logical size 算 maxWidth/maxHeight 再下发；
+                // 直接读 ancestor render box 拿到的尺寸是错的（包了 padding 和
+                // clip）。
+                _lastConfiguredSize = null;
+              });
             },
           ),
           const SizedBox(width: 6),
@@ -1223,8 +1273,22 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             enabled: alive,
             isZh: isZh,
             onChanged: (next) async {
-              setState(() => _devicePreset = next);
+              setState(() {
+                _devicePreset = next;
+                _lastConfiguredSize = null;
+              });
               await ctrl.setDeviceMetricsPreset(next);
+              // 设备模拟切档后立即按设备物理像素更新 screencast 上界，
+              // 否则 maxWidth/maxHeight 仍是面板尺寸 → 帧拉伸 / 模糊。
+              if (next != null) {
+                final w = (next.width * next.deviceScaleFactor).round();
+                final h = (next.height * next.deviceScaleFactor).round();
+                await ctrl.reconfigureScreencast(
+                  maxWidth: w,
+                  maxHeight: h,
+                  quality: 80,
+                );
+              }
             },
           ),
           const SizedBox(width: 6),

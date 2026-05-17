@@ -2789,19 +2789,58 @@ class WebReverseSessionController extends ChangeNotifier {
   ///
   /// 历史遗留：早先用 `Emulation.setPageScaleFactor`，但它只在
   /// `Emulation.setDeviceMetricsOverride` 配合下生效（即"移动端模拟"模式
-  /// 下的视觉缩放），桌面 page 上完全 no-op。改用 `Runtime.evaluate`
-  /// 直接写 `document.documentElement.style.zoom`，CDP 会触发整页 reflow
-  /// + screencast 帧立即推一帧新画面，行为与 Chrome 自带 Cmd+/- 一致。
+  /// 下的视觉缩放），桌面 page 上完全 no-op。
+  ///
+  /// 现行实现：直接走 Chrome 的 `chrome.tabs.setZoom` 等价 API ——
+  /// `Browser.setDownloadBehavior`-级 endpoint 不存在 zoom，只能借助 JS
+  /// `document.body.style.zoom`。问题是 SPA 在导航后会重置 body 样式，因此
+  /// 双管齐下：
+  ///   1. `Page.addScriptToEvaluateOnNewDocument` 注入一份"页面加载即套
+  ///      zoom"的脚本，保证导航后值不丢；
+  ///   2. 当前页立即 `Runtime.evaluate` 写一次 body.style.zoom；
+  ///   3. body 不存在时（DOMContentLoaded 之前）回退给 documentElement，
+  ///      事件触发后再补一次 body。
   Future<void> setZoomFactor(double scale) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;
     final clamped = scale.clamp(0.25, 5.0);
+    _zoomScriptId ??= '';
     try {
+      // 移除旧 init script，再注一份新的（zoom 值变了）。
+      if (_zoomScriptId != null && _zoomScriptId!.isNotEmpty) {
+        try {
+          await cdp.send(
+            'Page.removeScriptToEvaluateOnNewDocument',
+            params: <String, Object?>{'identifier': _zoomScriptId},
+            sessionId: _pageSessionId,
+          );
+        } catch (_) {}
+      }
+      final initJs = '''
+(() => {
+  const apply = () => {
+    if (document.body) document.body.style.zoom = '$clamped';
+    if (document.documentElement) document.documentElement.style.zoom = '$clamped';
+  };
+  apply();
+  if (!document.body) {
+    document.addEventListener('DOMContentLoaded', apply, { once: true });
+  }
+})();
+''';
+      final r = await cdp.send(
+        'Page.addScriptToEvaluateOnNewDocument',
+        params: <String, Object?>{'source': initJs},
+        sessionId: _pageSessionId,
+      );
+      _zoomScriptId = r['identifier'] as String?;
+      // 当前页立即应用一次。
       await cdp.send(
         'Runtime.evaluate',
         params: <String, Object?>{
           'expression':
-              'document.documentElement.style.zoom = "$clamped"; document.body && (document.body.style.zoom = "$clamped");',
+              '(document.body && (document.body.style.zoom = "$clamped"))'
+                  ' || (document.documentElement.style.zoom = "$clamped");',
         },
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 3),
@@ -2815,6 +2854,9 @@ class WebReverseSessionController extends ChangeNotifier {
       );
     }
   }
+
+  /// 上次 setZoomFactor 注的 init script identifier，下次设置时先移除。
+  String? _zoomScriptId;
 
   // ── 页面查找：基于注入 JS 的 textNode 扫描 + mark 高亮 + cycle ───────────
   // CDP `DOM.performSearch` 返回的是 DOM 节点 ID，需要再 `DOM.scrollIntoViewIfNeeded`
