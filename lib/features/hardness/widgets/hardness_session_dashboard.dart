@@ -1824,11 +1824,9 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
           // off-screen phase cards (each runs synchronous markdown / code
           // highlight passes) when the dashboard first opens; the smaller
           // cache still absorbs short scroll movements without re-layout.
-          // 2026-05-17 提升到 600：与 home transcript 对齐，避免慢速
-          // scroll 时 cacheExtent 边界的 phase card 反复 mount/unmount
-          // 触发 SliverList correctPixels 抽搐（详见 home transcript
-          // 同步备注）。
-          cacheExtent: 600,
+          // 2026-05-17 进一步提升到 1800：与 home transcript 同步收敛
+          // cacheExtent 边界抽搐问题；详见 _home_transcript.dart 同步备注。
+          cacheExtent: 1800,
           // +1 if awaiting approval (for the approval banner).
           itemCount:
               logs.length +

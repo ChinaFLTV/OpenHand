@@ -1326,15 +1326,24 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // 首屏严格只构建可见气泡，越界滚动时再 lazy 构建；牺牲
               // 一点 fling 期的 buffer 换取首屏帧预算。
               //
-              // 2026-05-17 回调到 600：120 px 太紧，message bubble 不使用
-              // AutomaticKeepAliveClientMixin，慢速滚动时 cacheExtent
-              // 边界恰好覆盖某条气泡时会反复 mount / unmount，每次重新
-              // mount 后 markdown 首次解析得到的高度与上一次缓存的几何
-              // 偏差几个像素，触发 SliverList correctPixels → 视窗"被
-              // 拽住"震动（trackpad 慢速滑动 px 抖 ±42 的诊断日志已确证）。
-              // 首屏 ANR 问题已被 `_MarkdownFrameScheduler` + drip 物化
-              // 充分缓解，可以安全恢复 600 px 缓冲。
-              cacheExtent: 600,
+              // 2026-05-17 进一步提升到 1800：600 px 仍偶尔有 bubble 进出
+              // cacheExtent 边界 → dispose/rebuild 后重新解析的 markdown
+              // 几何与原值偏差几像素，触发 SliverList correctPixels。
+              //
+              // 注意：不能走 AutomaticKeepAliveClientMixin 路径——该 mixin
+              // 会把离屏 bubble 放进 Offstage 容器，使其 render object 不被
+              // layout（hasSize=false），但 SelectableRegion 仍会枚举它们
+              // 的 Selectable 并读 paintBounds 排序，触发
+              // "RenderBox was not laid out" 断言崩溃（已实测）。
+              //
+              // 改用「大缓冲 cacheExtent」实现同样的几何稳定性：
+              // cacheExtent 内的 bubble 是 *完整 laid out* 的，几何一旦
+              // 稳定便不再变，SelectableRegion 排序访问 paintBounds 不会
+              // 出错。3 个 viewport（3×600≈1800）足以覆盖绝大多数会话的
+              // 全部气泡，边界穿越现象几乎不再发生；首屏 ANR 由
+              // _MarkdownFrameScheduler + drip 物化 + _SafeMarkdownBody
+              // 阈值联同缓解。
+              cacheExtent: 1800,
               physics: const OpenHandBouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
