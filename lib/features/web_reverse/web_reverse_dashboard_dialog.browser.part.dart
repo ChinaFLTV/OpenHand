@@ -46,11 +46,15 @@ class _BrowserBodyState extends State<_BrowserBody> {
   // 注意：浏览器侧 maxWidth / maxHeight 是上界，实际帧可能更小。
   int _frameW = 1280;
   int _frameH = 720;
+  // 上次记录的 alive 状态：浏览器死亡 / 拉起切换时整体 rebuild 一次，
+  // 让按钮、placeholder 立刻响应。
+  bool _wasAlive = false;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
+    _wasAlive = widget.controller.isBrowserAlive;
     // 首次进入时同步一次地址栏；CDP 已稳定时立即拉。
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final url = await widget.controller.currentUrl();
@@ -83,12 +87,14 @@ class _BrowserBodyState extends State<_BrowserBody> {
     if (!mounted) return;
     final w = widget.controller.screencastWidth;
     final h = widget.controller.screencastHeight;
-    // 只有 viewport 真实变化（页面 resize / 浏览器侧调整）才整体 rebuild；
-    // 单纯帧抵达不在这里 setState，由内部 [_ScreencastImage] 自行 repaint。
-    if (w == _frameW && h == _frameH) return;
+    final alive = widget.controller.isBrowserAlive;
+    final dirty = w != _frameW ||
+        h != _frameH ||
+        alive != _wasAlive;
     _frameW = w;
     _frameH = h;
-    setState(() {});
+    _wasAlive = alive;
+    if (dirty) setState(() {});
   }
 
   void _scheduleViewportSync(Size logical, double dpr) {
@@ -337,6 +343,7 @@ class _BrowserBodyState extends State<_BrowserBody> {
     bool isZh,
     WebReverseSessionController ctrl,
   ) {
+    final alive = ctrl.isBrowserAlive;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Row(
@@ -344,19 +351,19 @@ class _BrowserBodyState extends State<_BrowserBody> {
           _NavIconButton(
             tooltip: isZh ? '后退' : 'Back',
             icon: Icons.arrow_back_rounded,
-            onPressed: ctrl.goBack,
+            onPressed: alive ? () => ctrl.goBack() : null,
           ),
           const SizedBox(width: 6),
           _NavIconButton(
             tooltip: isZh ? '前进' : 'Forward',
             icon: Icons.arrow_forward_rounded,
-            onPressed: ctrl.goForward,
+            onPressed: alive ? () => ctrl.goForward() : null,
           ),
           const SizedBox(width: 6),
           _NavIconButton(
             tooltip: isZh ? '刷新' : 'Reload',
             icon: Icons.refresh_rounded,
-            onPressed: () => ctrl.reload(),
+            onPressed: alive ? () => ctrl.reload() : null,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -364,6 +371,7 @@ class _BrowserBodyState extends State<_BrowserBody> {
               height: 36,
               child: TextField(
                 controller: _addressCtrl,
+                enabled: alive,
                 textAlignVertical: TextAlignVertical.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontFamily: 'monospace',
@@ -409,7 +417,29 @@ class _BrowserBodyState extends State<_BrowserBody> {
           _NavIconButton(
             tooltip: isZh ? '聚焦面板' : 'Focus surface',
             icon: Icons.center_focus_strong_rounded,
-            onPressed: _surfaceFocus.requestFocus,
+            onPressed: alive ? _surfaceFocus.requestFocus : null,
+          ),
+          const SizedBox(width: 6),
+          _NavIconButton(
+            tooltip: alive
+                ? (isZh ? '重启浏览器' : 'Restart browser')
+                : (isZh ? '启动浏览器' : 'Start browser'),
+            icon: Icons.restart_alt_rounded,
+            onPressed: () async {
+              try {
+                await ctrl.restartBrowser();
+              } catch (_) {}
+            },
+          ),
+          const SizedBox(width: 6),
+          _NavIconButton(
+            tooltip: isZh ? '停止调试' : 'Stop browser',
+            icon: Icons.power_settings_new_rounded,
+            onPressed: alive
+                ? () async {
+                    await ctrl.stopBrowser();
+                  }
+                : null,
           ),
         ],
       ),
@@ -423,6 +453,55 @@ class _BrowserBodyState extends State<_BrowserBody> {
     WebReverseSessionController ctrl,
   ) {
     final running = ctrl.isRunning;
+    final alive = ctrl.isBrowserAlive;
+    if (!alive) {
+      // 浏览器进程已死（用户手动关 / 异常退出 / CDP 重连失败）：给一颗
+      // 重启按钮，让用户自救拉起，不要让画面静默卡死。
+      final err = (ctrl.errorMessage ?? '').trim();
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.power_off_rounded,
+                size: 36,
+                color: cs.error,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isZh ? '浏览器已断开' : 'Browser disconnected',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                err.isEmpty
+                    ? (isZh
+                        ? '会话仍在，但 CDP 已断。点击下方按钮重新拉起浏览器即可继续逆向。'
+                        : 'Session retained but CDP is down. Click below to relaunch the browser.')
+                    : err,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () async {
+                  try {
+                    await ctrl.restartBrowser();
+                  } catch (_) {}
+                },
+                icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                label: Text(isZh ? '重启浏览器' : 'Restart browser'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -460,12 +539,13 @@ class _NavIconButton extends StatelessWidget {
 
   final String tooltip;
   final IconData icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final enabled = onPressed != null;
     return Tooltip(
       message: tooltip,
       child: SizedBox(
@@ -475,13 +555,23 @@ class _NavIconButton extends StatelessWidget {
           color: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(_kToolbarRadius),
-            side: BorderSide(color: cs.outlineVariant),
+            side: BorderSide(
+              color: enabled
+                  ? cs.outlineVariant
+                  : cs.outlineVariant.withValues(alpha: 0.4),
+            ),
           ),
           child: InkWell(
             onTap: onPressed,
             borderRadius: BorderRadius.circular(_kToolbarRadius),
             child: Center(
-              child: Icon(icon, size: 18, color: theme.colorScheme.onSurface),
+              child: Icon(
+                icon,
+                size: 18,
+                color: enabled
+                    ? cs.onSurface
+                    : cs.onSurface.withValues(alpha: 0.35),
+              ),
             ),
           ),
         ),

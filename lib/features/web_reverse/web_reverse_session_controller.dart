@@ -78,6 +78,18 @@ class WebReverseSessionController extends ChangeNotifier {
 
   bool get isRunning => _started && !_stopped;
 
+  /// 真实判定外部浏览器进程是否还活着。CDP WebSocket 自身有重连，但当
+  /// `_closed=true` 时表示重连已彻底失败 → 浏览器多半被用户手动关掉了。
+  /// `isRunning && isBrowserAlive` 同时为真才是「画面应该有响应」。
+  bool get isBrowserAlive {
+    if (_stopped) return false;
+    final cdp = _browserCdp;
+    if (cdp == null) return false;
+    return !cdp.isClosed;
+  }
+
+  Timer? _aliveWatchdog;
+
   /// CDP 端口（已分配；可能与 config.cdpPort 不同——后者是 desired）。
   int? get cdpPort => _launchResult?.cdpPort;
   String? get browserVersion => _launchResult?.browserVersion;
@@ -169,6 +181,7 @@ class WebReverseSessionController extends ChangeNotifier {
         browserAppName: _browserAppNameFor(config.browserKind),
       );
       _dock!.start();
+      _startAliveWatchdog();
       _safeNotify();
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'start', error, stack);
@@ -227,6 +240,20 @@ class WebReverseSessionController extends ChangeNotifier {
         // CDP 抖动断开后自动重连成功 → 重新 enable 各 domain。
         // 不阻塞事件循环，全部 fire-and-forget。
         unawaited(_reattachAfterReconnect());
+        return;
+      case '__cdp_dead__':
+        // 重连彻底失败：浏览器可能已经被用户手动关掉。把 screencast 状态
+        // 复位、清掉缓存帧、通知 UI 切到"已断开 / 可重启"占位。
+        _screencastActive = false;
+        _latestScreencastFrame = null;
+        _screencastFrameSeq = 0;
+        if (!_disposed) {
+          // 帧序号 +1 而不是赋 0，让 ValueListenableBuilder 一定能 rebuild
+          // 拿到 null 帧切换到 placeholder。
+          screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
+        }
+        _errorMessage = '浏览器已断开（CDP 自动重连失败），可点击「重启浏览器」恢复。';
+        _safeNotify();
         return;
       case 'Network.requestWillBeSent':
         _onRequestWillBeSent(ev.params);
@@ -1397,6 +1424,53 @@ class WebReverseSessionController extends ChangeNotifier {
     _appendConsole(level, text);
   }
 
+  /// 4 秒一跳的浏览器存活探针：HTTP GET `/json/version`。任一探测失败立刻
+  /// 把 `_browserCdp` 标记为已关闭并触发 `__cdp_dead__` 事件，让 UI 走到
+  /// "重启浏览器" 占位。WebSocket 自身的 onDone 会更早触发，这里是兜底。
+  void _startAliveWatchdog() {
+    _stopAliveWatchdog();
+    _aliveWatchdog = Timer.periodic(const Duration(seconds: 4), (_) async {
+      if (_stopped || _disposed) return;
+      final port = _launchResult?.cdpPort;
+      if (port == null) return;
+      final cdp = _browserCdp;
+      if (cdp == null || cdp.isClosed) return;
+      final client = HttpClient();
+      client.findProxy = (_) => 'DIRECT';
+      client.connectionTimeout = const Duration(seconds: 1);
+      try {
+        final req = await client
+            .getUrl(Uri.parse('http://127.0.0.1:$port/json/version'))
+            .timeout(const Duration(seconds: 1));
+        final res = await req.close().timeout(const Duration(seconds: 1));
+        await res.drain<void>();
+      } catch (_) {
+        // 浏览器已死：主动关 CDP 触发 __cdp_dead__ 事件路径。
+        _stopAliveWatchdog();
+        try {
+          await _browserCdp?.close();
+        } catch (_) {}
+        if (_screencastActive) {
+          _screencastActive = false;
+          _latestScreencastFrame = null;
+          _screencastFrameSeq = 0;
+          if (!_disposed) {
+            screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
+          }
+        }
+        _errorMessage = '浏览器已断开（进程异常退出），可点击「重启浏览器」恢复。';
+        _safeNotify();
+      } finally {
+        client.close(force: true);
+      }
+    });
+  }
+
+  void _stopAliveWatchdog() {
+    _aliveWatchdog?.cancel();
+    _aliveWatchdog = null;
+  }
+
   /// CDP 重连成功后调用：把 Page / Network / Runtime / Log 等 domain 重新 enable，
   /// 同时再次 attach 到 page target，确保事件不丢。
   Future<void> _reattachAfterReconnect() async {
@@ -1558,8 +1632,93 @@ class WebReverseSessionController extends ChangeNotifier {
     _safeNotify();
   }
 
+  /// 用户主动停止调试：杀掉外部浏览器进程并保留会话本身。后续可调
+  /// [restartBrowser] 再起一个新的。会话工作目录 / artifacts / dashboard
+  /// 网络/控制台缓冲全部保留以便回看。
+  Future<void> stopBrowser() async {
+    if (_stopped) return;
+    silentLog(
+      'web_reverse_session_controller',
+      'stopBrowser',
+      'user requested',
+      StackTrace.current,
+    );
+    _stopAliveWatchdog();
+    // 关 screencast → 关 CDP → kill 进程；artifacts / dock 不动。
+    if (_screencastActive) {
+      try {
+        if (_browserCdp != null && _pageSessionId != null) {
+          await _browserCdp!
+              .send('Page.stopScreencast', sessionId: _pageSessionId)
+              .timeout(const Duration(milliseconds: 500));
+        }
+      } catch (_) {}
+      _screencastActive = false;
+      _screencastRefCount = 0;
+      _latestScreencastFrame = null;
+      _screencastFrameSeq = 0;
+      if (!_disposed) {
+        screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
+      }
+    }
+    await _pageEventsSub?.cancel();
+    _pageEventsSub = null;
+    _pageSessionId = null;
+    try {
+      await _pageCdp?.close();
+    } catch (_) {}
+    _pageCdp = null;
+    try {
+      await _browserCdp?.close();
+    } catch (_) {}
+    _browserCdp = null;
+    final p = _launchResult?.process;
+    if (p != null) {
+      try {
+        p.kill();
+      } catch (_) {}
+    }
+    _launchResult = null;
+    _dock?.stop();
+    _errorMessage = null;
+    _safeNotify();
+  }
+
+  /// 把外部浏览器拉起来：要么是用户主动点了「停止调试」想再连一次，
+  /// 要么是浏览器异常退出 / CDP 重连耗尽后用户点了「重启浏览器」。
+  /// 复用 [start] 的全部启动逻辑，只是重置 stopped 标记。
+  Future<void> restartBrowser() async {
+    if (_disposed) return;
+    silentLog(
+      'web_reverse_session_controller',
+      'restartBrowser',
+      'user requested',
+      StackTrace.current,
+    );
+    // 先确保旧资源完全释放。
+    await stopBrowser();
+    _stopped = false;
+    _started = false;
+    _errorMessage = null;
+    _safeNotify();
+    try {
+      await start();
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'restartBrowser → start',
+        error,
+        stack,
+      );
+      _errorMessage = '浏览器重启失败：$error';
+      _safeNotify();
+      rethrow;
+    }
+  }
+
   Future<void> _safeStop() async {
     _dock?.stop();
+    _stopAliveWatchdog();
     // 主动停 screencast：进程将被 kill，事件流也会断；提前 stop 防止
     // 浏览器侧 ack 队列卡住影响下次拉起。
     if (_screencastActive) {
@@ -1575,7 +1734,9 @@ class WebReverseSessionController extends ChangeNotifier {
       _screencastRefCount = 0;
       _latestScreencastFrame = null;
       _screencastFrameSeq = 0;
-      if (!_disposed) screencastFrameNotifier.value = 0;
+      if (!_disposed) {
+        screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
+      }
     }
     await _pageEventsSub?.cancel();
     await _mitmSub?.cancel();
@@ -1594,6 +1755,7 @@ class WebReverseSessionController extends ChangeNotifier {
       } catch (_) {}
     }
     _pageEventsSub = null;
+    _pageSessionId = null;
     try {
       await _pageCdp?.close();
     } catch (_) {}
@@ -1935,10 +2097,12 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       _screencastActive = true;
       _screencastQuality = clampedQuality;
-      // 屏幕已被 Flutter 端 screencast 接管渲染：暂停外部窗口吸附 + 把
-      // 真实浏览器窗口最小化，避免两套画面同时出现。
+      // 注意：不能最小化外部 Chrome 窗口。Chromium 在窗口最小化 / 完全
+      // 不可见时会暂停 compositor，`Page.startScreencast` 不再产生新帧，
+      // 用户在内嵌面板里点任何按钮都看不到反馈。这里仅暂停吸附线程，
+      // 让外部窗口保留在原位（用户可手动移走 / 拖小），由 screencast
+      // 帧实时把画面镜像到 dashboard 内即可。
       _dock?.stop();
-      unawaited(_dock?.hideBrowserWindow());
       _safeNotify();
       return true;
     } catch (error, stack) {
@@ -1977,9 +2141,10 @@ class WebReverseSessionController extends ChangeNotifier {
     _screencastActive = false;
     _latestScreencastFrame = null;
     _screencastFrameSeq = 0;
-    if (!_disposed) screencastFrameNotifier.value = 0;
-    // 还原外部浏览器窗口与吸附线程，让用户可以继续用真实浏览器。
-    unawaited(_dock?.showBrowserWindow());
+    if (!_disposed) {
+      screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
+    }
+    // 恢复吸附线程，让外部浏览器窗口继续跟随主窗口移动。
     _dock?.start();
     _safeNotify();
   }

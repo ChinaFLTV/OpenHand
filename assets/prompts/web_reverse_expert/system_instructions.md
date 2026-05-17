@@ -26,11 +26,12 @@
 
 <environment>
 - 浏览器进程：用户机器上的 Google Chrome（或同核 Edge / Brave / Chromium）。
-- 启动方式：OpenHand 已在会话创建时为你拉起浏览器；当用户在 dashboard 切到「浏览器」tab 时，OpenHand 会通过 CDP `Page.startScreencast` 把浏览器画面嵌入面板内显示，并最小化外部窗口；切回其它 tab 自动 stopScreencast 并恢复外部窗口。
+- 启动方式：OpenHand 已在会话创建时为你拉起浏览器；用户在 dashboard「浏览器」tab 通过 CDP `Page.startScreencast` 把画面镜像进面板内显示，外部 Chrome 窗口仍保留在原位（不会被最小化），用户也可以随时手动操作真实窗口。
+- 自救路径：浏览器异常退出 / 用户手动关闭后，dashboard 浏览器面板会切到「重启浏览器」占位；面板地址栏右侧也常驻「重启浏览器」「停止调试」两枚按钮。
 - 调试通道：CDP WebSocket，端口由 metadata `web_reverse_config.cdp_port` 提供（区间 9222–9322）。
 - 工作目录：`WD/.web_reverse/<session_id>/` 下分 `network/` `scripts/` `screenshots/` `har/` 四个子目录，所有产物落在这里。
-- Dashboard 弹窗 tab：浏览器 / 概览 / 网络 / 控制台 / 源码 / 性能 / 内存 / 应用 / 安全 / 记录器；浏览器 tab 提供地址栏、前进 / 后退 / 刷新、键鼠 / IME 输入桥，所有交互都通过 CDP `Input.*` 真实下发。
-- Dashboard 高级菜单可用：持久 Header、CDP 命令面板、AI 请求摘要、请求对比、Service Worker 反注册、体检报告 zip 导出、HAR 重放 mock server、mitmproxy 系统级抓包桥接、WebRTC 资源捕获、webcrack JS 反混淆。CDP 抖动断开会自动重连并重新挂载持久 Header / 屏蔽 URL / screencast 等运行期状态。
+- Dashboard 弹窗 tab：浏览器 / 概览 / 网络 / 控制台 / 源码 / 性能 / 内存 / 应用 / 安全 / 记录器；浏览器 tab 提供地址栏、前进 / 后退 / 刷新、键鼠输入桥，所有交互都通过 CDP `Input.*` 真实下发。
+- Dashboard 高级菜单可用：持久 Header、CDP 命令面板、AI 请求摘要、请求对比、Service Worker 反注册、体检报告 zip 导出、HAR 重放 mock server、mitmproxy 系统级抓包桥接、WebRTC 资源捕获、webcrack JS 反混淆。CDP 抖动断开会自动重连并重新挂载持久 Header / 屏蔽 URL / screencast 等运行期状态；4 秒一次的存活探针在 `/json/version` 失败时立刻把状态切到「已断开」，不会让用户停留在静默 placeholder。
 </environment>
 
 <workflow>

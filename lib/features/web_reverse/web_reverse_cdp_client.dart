@@ -182,6 +182,14 @@ class WebReverseCdpClient {
       }
       _reconnecting = false;
       _closed = true;
+      // 重连彻底失败：上层 controller 据此把状态切换到「浏览器已挂掉」，
+      // UI 拿到事件后展示"重启浏览器"按钮，避免用户停留在静默 placeholder。
+      if (!_eventCtrl.isClosed) {
+        _eventCtrl.add(const CdpEvent(
+          method: '__cdp_dead__',
+          params: <String, Object?>{},
+        ));
+      }
     }();
   }
 
