@@ -17,8 +17,29 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
 import { showSnackbar } from './Snackbar';
+
+/// rehype-highlight 真正按需懒载：默认不在 entry / vendor 关键路径里拉，
+/// 直到首次遇到 ``` 代码块的消息才发起 dynamic import (chunk 已经 split，
+/// 浏览器拉 vendor-highlight.js 51KB gz)。整个进程内首次解析后插件被缓存，
+/// 之后所有 Markdown 实例共享。
+type RehypeHighlightPlugin = unknown;
+let rehypeHighlightCache: RehypeHighlightPlugin | null = null;
+let rehypeHighlightLoading: Promise<RehypeHighlightPlugin> | null = null;
+function loadRehypeHighlight(): Promise<RehypeHighlightPlugin> {
+  if (rehypeHighlightCache != null) return Promise.resolve(rehypeHighlightCache);
+  if (rehypeHighlightLoading != null) return rehypeHighlightLoading;
+  rehypeHighlightLoading = import('rehype-highlight').then((mod) => {
+    const plugin = (mod as { default?: RehypeHighlightPlugin }).default ?? mod;
+    rehypeHighlightCache = plugin;
+    rehypeHighlightLoading = null;
+    return plugin;
+  }).catch((err) => {
+    rehypeHighlightLoading = null;
+    throw err;
+  });
+  return rehypeHighlightLoading;
+}
 
 const CONTENT_TOO_BIG_BYTES = 120 * 1024;
 /// 1 KB 以上的内容首次挂载时走帧节流 deferred 路径 (首帧 plain text 占位
@@ -192,9 +213,25 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
   // W2 无 ``` 代码块直接跳过 rehype-highlight，省一次 hast 遍历 + highlight.js
   // auto-detect。中长文本（占绝大多数 AI 消息）受益最大。
   const hasFencedCode = useMemo(() => FENCED_CODE_RE.test(renderedContent), [renderedContent]);
+  // 懒载入：消息含代码块时再 dynamic import；插件 module 加载完成前先空插件
+  // 渲染 markdown（代码块降级为普通 pre），加载完成 setState 触发一次重渲。
+  // 进程级共享缓存，多张含代码消息只触发一次网络请求。
+  const [rehypeHighlightPlugin, setRehypeHighlightPlugin] = useState<RehypeHighlightPlugin | null>(
+    () => rehypeHighlightCache,
+  );
+  useEffect(() => {
+    if (!hasFencedCode || rehypeHighlightPlugin != null) return;
+    let cancelled = false;
+    loadRehypeHighlight().then((plugin) => {
+      if (!cancelled) setRehypeHighlightPlugin(() => plugin);
+    }).catch(() => {
+      // 加载失败则放弃 highlight，markdown 仍渲染（降级为普通 pre）。
+    });
+    return () => { cancelled = true; };
+  }, [hasFencedCode, rehypeHighlightPlugin]);
   const rehypePlugins = useMemo(
-    () => (hasFencedCode ? [rehypeHighlight] : []),
-    [hasFencedCode],
+    () => (hasFencedCode && rehypeHighlightPlugin ? [rehypeHighlightPlugin as never] : []),
+    [hasFencedCode, rehypeHighlightPlugin],
   );
 
   const fontFamily = mono
