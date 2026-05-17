@@ -1631,7 +1631,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// "重启浏览器" 占位。WebSocket 自身的 onDone 会更早触发，这里是兜底。
   void _startAliveWatchdog() {
     _stopAliveWatchdog();
-    _aliveWatchdog = Timer.periodic(const Duration(seconds: 4), (_) async {
+    _aliveWatchdog = Timer.periodic(const Duration(seconds: 2), (_) async {
       if (_stopped || _disposed) return;
       final port = _launchResult?.cdpPort;
       if (port == null) return;
@@ -2577,17 +2577,26 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  /// 设置浏览器侧的缩放比例（CSS 像素）。`scale=1` 即 100%。
-  /// 走 `Emulation.setPageScaleFactor` 触发整页 reflow，对 retina 友好。
+  /// 设置浏览器侧的页面缩放比例。`scale=1` 即 100%。
+  ///
+  /// 历史遗留：早先用 `Emulation.setPageScaleFactor`，但它只在
+  /// `Emulation.setDeviceMetricsOverride` 配合下生效（即"移动端模拟"模式
+  /// 下的视觉缩放），桌面 page 上完全 no-op。改用 `Runtime.evaluate`
+  /// 直接写 `document.documentElement.style.zoom`，CDP 会触发整页 reflow
+  /// + screencast 帧立即推一帧新画面，行为与 Chrome 自带 Cmd+/- 一致。
   Future<void> setZoomFactor(double scale) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;
     final clamped = scale.clamp(0.25, 5.0);
     try {
       await cdp.send(
-        'Emulation.setPageScaleFactor',
-        params: <String, Object?>{'pageScaleFactor': clamped},
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression':
+              'document.documentElement.style.zoom = "$clamped"; document.body && (document.body.style.zoom = "$clamped");',
+        },
         sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
       );
     } catch (error, stack) {
       silentLog(

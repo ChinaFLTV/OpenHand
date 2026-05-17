@@ -58,6 +58,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 浏览器侧 setPageScaleFactor 的当前值；面板内独立维护，下次切到 dashboard
   // 重新 attach 时不会保留（Chromium 重启即丢）。
   double _zoom = 1;
+  // screencast 分辨率档位：null = 自动跟随面板尺寸；其它值表示固定上界。
+  // 用户在地址栏「分辨率」下拉里选，按 (maxWidth, maxHeight) 元组。
+  ({int w, int h})? _resolutionOverride;
   // 上次记录的 tab 列表标识：targets 数量 / currentId 任一变化即 rebuild。
   int _lastTargetsLen = 0;
   String? _lastCurrentTargetId;
@@ -161,7 +164,10 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _lastCurrentTargetId = cur;
     if (dirty) setState(() {});
     if (aliveJustFlipped) {
-      // 浏览器刚拉起 / 重启完毕：尝试用上一轮持久化的 tab URL 恢复多 tab 场景。
+      // 浏览器刚拉起 / 重启完毕：① 重新 acquire screencast（之前 release/safeStop
+      // 已把引用计数和 active 都清零，否则面板会一直停在"等待浏览器画面"
+      // 的占位上不动）；② 用上一轮持久化的 tab URL 恢复多 tab 场景。
+      unawaited(widget.controller.acquireScreencast());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final state = context
@@ -178,8 +184,12 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _resizeDebouncer?.cancel();
     _resizeDebouncer = Timer(const Duration(milliseconds: 220), () {
       if (!mounted) return;
-      final w = (logical.width * dpr).round().clamp(160, 2560);
-      final h = (logical.height * dpr).round().clamp(120, 1600);
+      final autoW = (logical.width * dpr).round().clamp(160, 2560);
+      final autoH = (logical.height * dpr).round().clamp(120, 1600);
+      // 用户手动指定了分辨率档位时优先用它；否则跟面板尺寸自适应。
+      final override = _resolutionOverride;
+      final w = override?.w ?? autoW;
+      final h = override?.h ?? autoH;
       // 自适应帧率档位：viewport 大时降到 30fps + quality 65 节流，激活时
       // 升到 60fps + quality 80。临界值取 1600 像素长边，平衡 retina
       // 大屏 1440p / 4K 与常规 1280×720 dashboard 视窗。
@@ -1181,6 +1191,24 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             },
           ),
           const SizedBox(width: 6),
+          _ResolutionMenu(
+            value: _resolutionOverride,
+            enabled: alive,
+            isZh: isZh,
+            onChanged: (next) {
+              setState(() => _resolutionOverride = next);
+              // 触发一次重新下发；_scheduleViewportSync 内部对 size 没变会
+              // 早退，这里强制清掉缓存让其再算一次。
+              _lastConfiguredSize = null;
+              if (mounted) {
+                final box = context.findRenderObject() as RenderBox?;
+                final size = box?.size;
+                final dpr = MediaQuery.of(context).devicePixelRatio;
+                if (size != null) _scheduleViewportSync(size, dpr);
+              }
+            },
+          ),
+          const SizedBox(width: 6),
           _NavIconButton(
             tooltip: isZh ? '保存当前帧' : 'Save current frame',
             icon: Icons.photo_camera_outlined,
@@ -1364,13 +1392,17 @@ class _ScreencastImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
       valueListenable: controller.screencastFrameNotifier,
-      builder: (_, seq, _) {
+      builder: (_, _, _) {
         final frame = controller.latestScreencastFrame;
         if (frame == null) return placeholderBuilder();
+        // 关键：不要在 [Image.memory] 上挂 ValueKey(seq)。挂上后每帧 seq
+        // 自增都会让 Flutter 销毁旧 Image element 重建新的，导致 gaplessPlayback
+        // 完全失效，鼠标稍微一动就出现"瞬间空白闪烁"。这里依赖
+        // [MemoryImage] 内置的 bytes 引用比较 + gaplessPlayback 把旧帧
+        // 挂在画面上直到新帧 decode 完毕，整个画面流就稳定不抖。
         return RepaintBoundary(
           child: Image.memory(
             frame,
-            key: ValueKey<int>(seq),
             fit: BoxFit.fill,
             gaplessPlayback: true,
             filterQuality: FilterQuality.low,
@@ -1758,5 +1790,98 @@ class _CropOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CropOverlayPainter old) {
     return old.start != start || old.current != current || old.color != color;
+  }
+}
+
+
+/// screencast 分辨率档位下拉：自动 / 720p / 1080p / 1440p / 2160p。
+/// 选中后立即覆盖 [_BrowserBodyState._resolutionOverride] 并触发一次重新
+/// 下发；选「自动」回到面板尺寸自适应路径。
+class _ResolutionMenu extends StatelessWidget {
+  const _ResolutionMenu({
+    required this.value,
+    required this.enabled,
+    required this.isZh,
+    required this.onChanged,
+  });
+
+  final ({int w, int h})? value;
+  final bool enabled;
+  final bool isZh;
+  final ValueChanged<({int w, int h})?> onChanged;
+
+  static const _presets = <({String label, int? w, int? h})>[
+    (label: 'Auto', w: null, h: null),
+    (label: '720p', w: 1280, h: 720),
+    (label: '1080p', w: 1920, h: 1080),
+    (label: '1440p', w: 2560, h: 1440),
+    (label: '2160p', w: 3840, h: 2160),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final cur = value;
+    final label = cur == null ? 'Auto' : '${cur.h}p';
+    return Tooltip(
+      message: isZh ? '画面分辨率' : 'Frame resolution',
+      child: SizedBox(
+        height: _kToolbarHeight,
+        child: PopupMenuButton<({int? w, int? h})>(
+          enabled: enabled,
+          tooltip: '',
+          onSelected: (p) {
+            if (p.w == null || p.h == null) {
+              onChanged(null);
+            } else {
+              onChanged((w: p.w!, h: p.h!));
+            }
+          },
+          itemBuilder: (_) => _presets
+              .map(
+                (p) => PopupMenuItem<({int? w, int? h})>(
+                  value: (w: p.w, h: p.h),
+                  child: Text(p.label),
+                ),
+              )
+              .toList(growable: false),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_kToolbarRadius),
+              border: Border.all(
+                color: enabled
+                    ? cs.outlineVariant
+                    : cs.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.high_quality_rounded,
+                  size: 14,
+                  color: enabled
+                      ? cs.onSurfaceVariant
+                      : cs.onSurface.withValues(alpha: 0.35),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    color: enabled
+                        ? cs.onSurface
+                        : cs.onSurface.withValues(alpha: 0.35),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
