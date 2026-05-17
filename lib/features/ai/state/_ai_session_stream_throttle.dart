@@ -38,10 +38,11 @@ part of '../ai_session_controller.dart';
 /// 的字段命名（task 3.2 会把整条调用链一起切到 grapheme 命名）。
 class _StreamCharThrottle {
   _StreamCharThrottle({
-    required this.maxCharsPerSecond,
+    required int maxCharsPerSecond,
     required void Function() onTick,
     Duration? throttleDuration,
-  }) : _onTick = onTick,
+  }) : _maxCharsPerSecond = maxCharsPerSecond,
+       _onTick = onTick,
        _budget = maxCharsPerSecond.toDouble(),
        _lastTickAt = DateTime.now(),
        _expireAt =
@@ -74,7 +75,15 @@ class _StreamCharThrottle {
   }
 
   /// 每秒允许被「展示」的 grapheme 数；<=0 视为关闭限速。
-  final int maxCharsPerSecond;
+  /// 2026-05-24 — 改为可变，供「会话级临时节流」弹窗 Apply 立即生效。
+  /// 写入新值时同步把 [_budget] 钳到新上限内，防止旧时钟下累积出超额令牌。
+  int _maxCharsPerSecond;
+  int get maxCharsPerSecond => _maxCharsPerSecond;
+  set maxCharsPerSecond(int next) {
+    if (next == _maxCharsPerSecond) return;
+    _maxCharsPerSecond = next;
+    if (_budget > next) _budget = next.toDouble();
+  }
 
   final void Function() _onTick;
   Timer? _drainTimer;
@@ -292,14 +301,22 @@ class _StreamCharThrottle {
 /// 排队回调按入队顺序顺序执行，不会乱序追加消息。
 class _StreamCardThrottle {
   _StreamCardThrottle({
-    required this.maxCardsPerSecond,
+    required int maxCardsPerSecond,
     required void Function() onCardEmitted,
-  }) : _onCardEmitted = onCardEmitted,
+  }) : _maxCardsPerSecond = maxCardsPerSecond,
+       _onCardEmitted = onCardEmitted,
        _budget = maxCardsPerSecond.toDouble(),
        _lastTickAt = DateTime.now();
 
   /// 每秒允许被「展示」的新卡片数；<=0 视为关闭限速。
-  final int maxCardsPerSecond;
+  /// 2026-05-24 — 改为可变，供「会话级临时节流」弹窗 Apply 立即生效。
+  int _maxCardsPerSecond;
+  int get maxCardsPerSecond => _maxCardsPerSecond;
+  set maxCardsPerSecond(int next) {
+    if (next == _maxCardsPerSecond) return;
+    _maxCardsPerSecond = next;
+    if (_budget > next) _budget = next.toDouble();
+  }
 
   final void Function() _onCardEmitted;
   final List<VoidCallback> _pending = <VoidCallback>[];

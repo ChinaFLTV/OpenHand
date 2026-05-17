@@ -1025,6 +1025,8 @@ export function SessionDetailPage() {
     cards: number;
     hasOverride: boolean;
     durationExpired: boolean;
+    /// 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒）。
+    throughputBuckets?: number[];
   } | null>(null);
   const [throttleDialogOpen, setThrottleDialogOpen] = useState(false);
   const [writeApprovalBusy, setWriteApprovalBusy] = useState(false);
@@ -2020,6 +2022,7 @@ export function SessionDetailPage() {
             cards: throttle.cards_per_second ?? 0,
             hasOverride: throttle.has_session_override === true,
             durationExpired: throttle.duration_expired === true,
+            throughputBuckets: throttle.throughput_buckets,
           });
         }
       },
@@ -5733,16 +5736,26 @@ function SessionAuditDialog({
 
 /// 2026-05-17 — 「会话级临时节流」弹窗。
 ///
-/// 仅本进程生效，不持久化；用户可分别为字符 / 卡片速率指定 0..上限内的整
-/// 数；留空 = 沿用模板/全局值；0 = 该方向关闭节流并展示禁用提示。"恢复
-/// 默认"清除全部覆盖。
+/// 仅本进程生效，重启即恢复模板/全局值；用户可分别为字符 / 卡片速率指定
+/// 0..上限内的整数；留空 = 沿用模板/全局值；0 = 该方向关闭节流并展示禁
+/// 用提示。"恢复默认"清除全部覆盖。
+///
+/// 2026-05-24 — UI 1:1 对齐 App 端：弹窗顶部贴 30s 字符吞吐柱状图（桶 0
+/// = 当前秒，超阈值红、当前秒高亮），底部三按钮居中。后端 SSE snapshot
+/// 已带 throughput_buckets，组件每次 props 变更直接拿 buckets 重绘。
 function SessionThrottleDialog({
   sessionId,
   current,
   onClose,
 }: {
   sessionId: string;
-  current: { chars: number; cards: number; hasOverride: boolean; durationExpired?: boolean } | null;
+  current: {
+    chars: number;
+    cards: number;
+    hasOverride: boolean;
+    durationExpired?: boolean;
+    throughputBuckets?: number[];
+  } | null;
   onClose: () => void;
 }) {
   const initialChars = current?.hasOverride ? String(current.chars) : '';
@@ -5806,6 +5819,11 @@ function SessionThrottleDialog({
     }
   };
 
+  const buckets = current?.throughputBuckets ?? [];
+  const cap = Math.max(current?.chars ?? 1, ...buckets, 1);
+  const peak = buckets.length === 0 ? 0 : Math.max(...buckets);
+  const nowVal = buckets.length === 0 ? 0 : buckets[0];
+
   const node = (
     <div
       class="oh-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -5820,14 +5838,46 @@ function SessionThrottleDialog({
         <h2 class="text-base font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
           {t('topbar.throttle.dialogTitle', '本会话流式节流（临时）')}
         </h2>
-        <p class="text-xs mb-4" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="text-xs mb-3" style={{ color: 'var(--m3-on-surface-variant)' }}>
           {t(
             'topbar.throttle.dialogHint',
             '仅在当前进程内生效，重启即恢复模板/全局值。留空 = 沿用，0 = 关闭节流。',
           )}
         </p>
+        <div
+          class="rounded-m3-sm p-3 mb-3"
+          style={{
+            background: 'var(--m3-surface-container-highest)',
+            border: '1px solid var(--m3-outline-variant)',
+          }}
+        >
+          <div class="flex items-center justify-between text-xs mb-2">
+            <div style={{ color: 'var(--m3-on-surface-variant)' }} class="font-semibold">
+              {t('topbar.throttle.gaugeTitle', '字符吞吐 (30s)')}
+            </div>
+            <div
+              style={{
+                color: 'var(--m3-on-surface)',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {t('topbar.throttle.gaugeStats', '当前 {now}/s · 峰 {peak}/s · 上限 {cap}/s')
+                .replace('{now}', String(nowVal))
+                .replace('{peak}', String(peak))
+                .replace('{cap}', String(current?.chars ?? 0))}
+            </div>
+          </div>
+          <ThroughputBars
+            samples={buckets}
+            cap={cap}
+            limitValue={current?.chars ?? 0}
+          />
+        </div>
         <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
-          {t('topbar.throttle.charsLabel', '字符 / 秒')}
+          {t('topbar.throttle.charsLabel', '字符 / 秒（当前生效：{cur}）').replace(
+            '{cur}',
+            String(current?.chars ?? 0),
+          )}
         </label>
         <input
           type="number"
@@ -5840,10 +5890,13 @@ function SessionThrottleDialog({
             border: '1px solid var(--m3-outline-variant)',
             color: 'var(--m3-on-surface)',
           }}
-          placeholder={current ? String(current.chars) : '3'}
+          placeholder={current ? String(current.chars) : '10'}
         />
         <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
-          {t('topbar.throttle.cardsLabel', '卡片 / 秒')}
+          {t('topbar.throttle.cardsLabel', '卡片 / 秒（当前生效：{cur}）').replace(
+            '{cur}',
+            String(current?.cards ?? 0),
+          )}
         </label>
         <input
           type="number"
@@ -5858,12 +5911,12 @@ function SessionThrottleDialog({
           }}
           placeholder={current ? String(current.cards) : '1'}
         />
-        <div class="flex justify-end gap-2">
+        <div class="flex justify-center gap-3">
           <button
             type="button"
             onClick={reset}
             disabled={busy}
-            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+            class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
             style={{
               border: '1px solid var(--m3-outline-variant)',
               color: 'var(--m3-on-surface)',
@@ -5875,7 +5928,7 @@ function SessionThrottleDialog({
             type="button"
             onClick={onClose}
             disabled={busy}
-            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+            class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
             style={{
               border: '1px solid var(--m3-outline-variant)',
               color: 'var(--m3-on-surface)',
@@ -5887,7 +5940,7 @@ function SessionThrottleDialog({
             type="button"
             onClick={apply}
             disabled={busy}
-            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+            class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
             style={{
               background: 'var(--m3-primary)',
               color: 'var(--m3-on-primary)',
@@ -5900,4 +5953,57 @@ function SessionThrottleDialog({
     </div>
   );
   return <OverlayPortal>{node}</OverlayPortal>;
+}
+
+/// 30 秒字符吞吐柱状图。bucket 0 = 当前秒（最右），越往左越旧。柱高
+/// = v / cap，超阈值（v > limitValue）红色高亮。空 / 全 0 时也渲染出
+/// 占位网格，不出现"什么都没有"的体验黑洞。
+function ThroughputBars({
+  samples,
+  cap,
+  limitValue,
+}: {
+  samples: number[];
+  cap: number;
+  limitValue: number;
+}) {
+  const n = samples.length === 0 ? 30 : samples.length;
+  const padded = samples.length === 0 ? new Array<number>(30).fill(0) : samples;
+  const safeCap = Math.max(cap, 1);
+  return (
+    <div class="relative" style={{ height: '56px' }}>
+      <div
+        class="absolute inset-0"
+        style={{
+          backgroundImage:
+            'linear-gradient(to top, var(--m3-outline-variant) 0, transparent 1px)',
+        }}
+      />
+      <div class="absolute inset-0 flex items-end gap-[1.5px]">
+        {Array.from({ length: n }).map((_, visualIdx) => {
+          const i = n - 1 - visualIdx;
+          const v = padded[i] ?? 0;
+          const h = Math.min(100, (v / safeCap) * 100);
+          const overLimit = limitValue > 0 && v > limitValue;
+          const isCurrent = i === 0;
+          const color = overLimit
+            ? 'var(--m3-error)'
+            : isCurrent
+              ? 'var(--m3-primary)'
+              : 'var(--m3-primary-container)';
+          return (
+            <div
+              key={visualIdx}
+              class="flex-1 rounded-[2px]"
+              style={{
+                height: `${Math.max(h, 1)}%`,
+                background: color,
+                opacity: isCurrent ? 1 : v === 0 ? 0.18 : 0.55,
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
 }

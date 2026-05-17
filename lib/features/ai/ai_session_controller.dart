@@ -588,6 +588,12 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, _StreamCharThrottle> _activeCharThrottles =
       <String, _StreamCharThrottle>{};
 
+  /// 2026-05-24 — 最近一次 charThrottle release 时 dump 的 30s 吞吐桶，
+  /// 用于「会话非流式时打开节流弹窗也能看见上一次的吞吐曲线」。
+  /// key=sessionId，value=immutable buckets（桶 0 = 当时的当前秒）。
+  final Map<String, List<int>> _lastCharThroughputSnapshot =
+      <String, List<int>>{};
+
   /// 手动压缩防抖 — 同一会话两次手动压缩之间的最小间隔。
   /// 值不可低于 [_manualCompactionMinIntervalMs]，与「Cooldown」错误一并消化。
   final Map<String, DateTime> _lastManualCompactionAt = <String, DateTime>{};
@@ -675,11 +681,18 @@ class AiSessionController extends ChangeNotifier {
   }
 
   /// 2026-05-18 — 当前会话最近 30s 字符吞吐曲线快照（每秒一个桶，桶 0
-  /// = 当前秒）。非流式或限速关闭返回空列表。
+  /// = 当前秒）。非流式时回退到最近一次释放时缓存的快照；从未流式过则
+  /// 返回长度为 30 的全零列表，让 UI 也能渲染出占位网格。
   List<int> sessionStreamCharThroughputSnapshot(String sessionId) {
     final throttle = _activeCharThrottles[sessionId];
-    if (throttle == null) return const <int>[];
-    return throttle.throughputSnapshot();
+    if (throttle != null) return throttle.throughputSnapshot();
+    final last = _lastCharThroughputSnapshot[sessionId];
+    if (last != null) return last;
+    return const <int>[
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ];
   }
 
   /// 2026-05-17 — 当前会话的字符节流"持续时长"是否已耗尽。
@@ -697,6 +710,10 @@ class AiSessionController extends ChangeNotifier {
 
   /// 设置或清除某个会话的字符节流覆盖。`value == null` 表示清除该字段；
   /// 当两个字段都被清除时，整个 entry 移除。
+  /// 2026-05-24 — 新增双重副作用：
+  ///   ① 把覆盖刷到当前活跃 _StreamCharThrottle，让 Apply 立即生效；
+  ///   ② 异步落到 session.metadata['stream_throttle_override']，下次
+  ///      打开会话或重启 App 都能复原。
   void setSessionStreamCharsOverride(String sessionId, int? value) {
     if (sessionId.isEmpty) return;
     final clamped = value?.clamp(
@@ -714,6 +731,12 @@ class AiSessionController extends ChangeNotifier {
       if (_sessionStreamThrottleOverrides[sessionId] == merged) return;
       _sessionStreamThrottleOverrides[sessionId] = merged;
     }
+    // 立即生效：把新 rate 推给当前活跃 throttle（流式中改值不影响积压）。
+    final activeChar = _activeCharThrottles[sessionId];
+    if (activeChar != null && clamped != null) {
+      activeChar.maxCharsPerSecond = clamped;
+    }
+    _persistThrottleOverride(sessionId);
     _sessionStreamThrottleSignal.value =
         _sessionStreamThrottleSignal.value + 1;
   }
@@ -737,6 +760,11 @@ class AiSessionController extends ChangeNotifier {
       if (_sessionStreamThrottleOverrides[sessionId] == merged) return;
       _sessionStreamThrottleOverrides[sessionId] = merged;
     }
+    final activeCard = _activeCardThrottles[sessionId];
+    if (activeCard != null && clamped != null) {
+      activeCard.maxCardsPerSecond = clamped;
+    }
+    _persistThrottleOverride(sessionId);
     _sessionStreamThrottleSignal.value =
         _sessionStreamThrottleSignal.value + 1;
   }
@@ -745,8 +773,45 @@ class AiSessionController extends ChangeNotifier {
   void clearSessionStreamThrottleOverride(String sessionId) {
     if (sessionId.isEmpty) return;
     if (_sessionStreamThrottleOverrides.remove(sessionId) == null) return;
+    _persistThrottleOverride(sessionId);
     _sessionStreamThrottleSignal.value =
         _sessionStreamThrottleSignal.value + 1;
+  }
+
+  /// 把 [_sessionStreamThrottleOverrides] 中 sessionId 对应的覆盖写入
+  /// session metadata `stream_throttle_override`；移除时写 null。
+  void _persistThrottleOverride(String sessionId) {
+    final override = _sessionStreamThrottleOverrides[sessionId];
+    final payload = <String, Object?>{
+      'stream_throttle_override': override?.toJson(),
+    };
+    // fire-and-forget：UI 不需要等持久化完成，updateSessionMetadata 内
+    // 部已做幂等保护。
+    unawaited(updateSessionMetadata(sessionId, payload));
+  }
+
+  /// 从已 hydrate 的 session.metadata 中读出 `stream_throttle_override`
+  /// 字段灌进内存表。每次 [refresh] 完整加载完成后调用一次。
+  void _rehydrateThrottleOverrides() {
+    var changed = false;
+    for (final session in _sessions) {
+      final raw = session.metadata['stream_throttle_override'];
+      final override = AiStreamThrottleOverride.fromJson(raw);
+      if (override == null) {
+        if (_sessionStreamThrottleOverrides.remove(session.id) != null) {
+          changed = true;
+        }
+      } else {
+        if (_sessionStreamThrottleOverrides[session.id] != override) {
+          _sessionStreamThrottleOverrides[session.id] = override;
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      _sessionStreamThrottleSignal.value =
+          _sessionStreamThrottleSignal.value + 1;
+    }
   }
 
   /// 解析有效字符限速：优先级 session > template > global。
@@ -900,6 +965,7 @@ class AiSessionController extends ChangeNotifier {
     _lastErrorMessagesBySession.remove(sessionId);
     _lastManualCompactionAt.remove(sessionId);
     _manualCompactionInflight.remove(sessionId);
+    _lastCharThroughputSnapshot.remove(sessionId);
     if (_sessionStreamThrottleOverrides.remove(sessionId) != null) {
       _sessionStreamThrottleSignal.value =
           _sessionStreamThrottleSignal.value + 1;
@@ -980,6 +1046,10 @@ class AiSessionController extends ChangeNotifier {
         );
         _pruneSessionScopedSendState();
         _persistenceIssues = loadResult.issues;
+        // 2026-05-24 — 把每个 session.metadata['stream_throttle_override'] 重新
+        // 灌进 _sessionStreamThrottleOverrides，让上次设过临时节流的会话
+        // 重启后立刻继续生效。
+        _rehydrateThrottleOverrides();
         final currentSessionId = _currentSessionId;
         if (currentSessionId == null ||
             !_sessionsById.containsKey(currentSessionId)) {
@@ -3736,6 +3806,8 @@ class AiSessionController extends ChangeNotifier {
         throttleExpiryTimer = null;
         // 释放限速器：先放开字符余量、再回放 pending 卡片，避免错误后
         // 还在后台尝试推进 UI。
+        _lastCharThroughputSnapshot[workingSession.id] =
+            charThrottle.throughputSnapshot();
         charThrottle.release();
         reasoningCharThrottle.release();
         cardThrottle.releaseAll();
@@ -3846,6 +3918,8 @@ class AiSessionController extends ChangeNotifier {
       }
       // 流正常结束：放开字符余量、回放 pending 卡片，确保即便 drain
       // 超时也能把残余字符一次性补到 UI（兜底）。
+      _lastCharThroughputSnapshot[workingSession.id] =
+          charThrottle.throughputSnapshot();
       charThrottle.release();
       reasoningCharThrottle.release();
       cardThrottle.releaseAll();

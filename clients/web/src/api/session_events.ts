@@ -46,6 +46,9 @@ export interface SessionEventSnapshot {
     cards_per_second: number;
     has_session_override: boolean;
     duration_expired?: boolean;
+    /// 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒），让 Web 端节流弹窗
+    /// 渲染和 App 端一致的柱状图。非流式时回填全 0。
+    throughput_buckets?: number[];
   };
   served_at: string;
 }

@@ -2765,8 +2765,8 @@ class _StreamThrottleSessionDialogState
               ),
               const SizedBox(height: 20),
               Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 8,
+                alignment: WrapAlignment.center,
+                spacing: 12,
                 runSpacing: 8,
                 children: [
                   OpenHandDialogActionButton.secondary(

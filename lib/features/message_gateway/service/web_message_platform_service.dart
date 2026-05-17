@@ -3155,6 +3155,10 @@ class WebMessagePlatformService {
           'has_session_override': throttleOverride != null,
           'duration_expired':
               _sessionController.sessionStreamThrottleDurationExpired(live.id),
+          // 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒），让 Web 端节流弹
+          // 窗渲染和 App 端一致的柱状图。非流式 / 从未流式时也会回填全 0。
+          'throughput_buckets':
+              _sessionController.sessionStreamCharThroughputSnapshot(live.id),
         },
         'served_at': DateTime.now().toUtc().toIso8601String(),
       };
@@ -3195,8 +3199,12 @@ class WebMessagePlatformService {
           final sessionPayload = snapshot['session'] as Map<String, Object?>;
           final throttlePayload =
               snapshot['effective_stream_throttle'] as Map<String, Object?>?;
+          final buckets = throttlePayload?['throughput_buckets'];
+          final bucketsSig = buckets is List<int>
+              ? '${buckets.isNotEmpty ? buckets.first : 0}/${buckets.fold<int>(0, (a, b) => b > a ? b : a)}'
+              : '0/0';
           final hash =
-              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}|${(snapshot['messages'] as List).map((m) {
+              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|${(snapshot['messages'] as List).map((m) {
                 final mm = m as Map<String, Object?>;
                 return '${mm['id']}:${(mm['content'] as String?)?.length ?? 0}';
               }).join(',')}';

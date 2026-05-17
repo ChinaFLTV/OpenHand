@@ -550,7 +550,7 @@ class AppSettingsSnapshot {
   /// 字符数（按 Unicode code point 计）。当 AI 侧短时间内回吐大量字符时，
   /// 通过该背压阀控制 UI 端追加速率，避免主线程被 markdown/widget 重建洪
   /// 水冲垮，从而保持 60fps 流畅滚动与稳定 UI。设置为 0 表示关闭节流。
-  static const int defaultAiStreamMaxCharsPerSecond = 5;
+  static const int defaultAiStreamMaxCharsPerSecond = 10;
   static const int minAiStreamMaxCharsPerSecond = 0;
   static const int maxAiStreamMaxCharsPerSecond = 100000;
 
