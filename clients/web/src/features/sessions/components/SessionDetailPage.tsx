@@ -5955,14 +5955,12 @@ function SessionThrottleDialog({
   return <OverlayPortal>{node}</OverlayPortal>;
 }
 
-/// 30 秒字符吞吐柱状图。bucket 0 = 当前秒（最右），越往左越旧。柱高
-/// = v / cap，超阈值（v > limitValue）红色高亮。空 / 全 0 时也渲染出
-/// 占位网格，不出现"什么都没有"的体验黑洞。
+/// 30 秒字符吞吐曲线图。bucket 0 = 当前秒（最右），越往左越旧。
 ///
-/// 2026-05-24 — 增加 RAF 平滑：SSE 每秒推一次新桶导致柱形"跳变"显得
-/// 生硬；这里维护 displayedRef 缓存上一帧每根柱的高度（0..1），用
-/// requestAnimationFrame 在 320ms 内按 easeOutCubic 把每根柱从旧值滑到
-/// 新值，新出现的当前秒柱透明度从 0 淡入 1，让整个曲线 Q 弹丝滑。
+/// 2026-05-24 — RAF 平滑（SSE 每秒推一次新桶，先把每根 sample 从旧值
+/// easeOutCubic 滑到新值）。2026-05-25 — 柱状改为 SVG 平滑曲线
+/// （Catmull-Rom → 三次贝塞尔），并新增双指捏合 / Ctrl+滚轮放缩时间区间
+/// （_zoom 1×–4×，区间始终 anchored on now）。
 function ThroughputBars({
   samples,
   cap,
@@ -5972,21 +5970,26 @@ function ThroughputBars({
   cap: number;
   limitValue: number;
 }) {
-  const n = samples.length === 0 ? 30 : samples.length;
+  const fullN = samples.length === 0 ? 30 : samples.length;
   const padded = samples.length === 0 ? new Array<number>(30).fill(0) : samples;
   const safeCap = Math.max(cap, 1);
-  const targets = padded.map((v) => Math.min(1, v / safeCap));
-  // 每根柱当前展示的归一化高度，长度恒为 n。
+
+  // 时间区间放缩：1× = 全部 fullN 桶，4× = 最近 fullN/4 桶。
+  const [zoom, setZoom] = useState(1);
+  const visibleN = Math.max(3, Math.round(fullN / zoom));
+  const windowed = padded.slice(0, Math.min(visibleN, padded.length));
+  const n = windowed.length;
+  const targets = windowed.map((v) => Math.min(1, v / safeCap));
+
+  // 每根 sample 当前展示的归一化高度（0..1），长度恒为 n。
   const displayedRef = useRef<number[]>([]);
   const fromRef = useRef<number[]>([]);
   const targetRef = useRef<number[]>([]);
   const startRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
-  // 强制渲染计数：每一帧 +1 触发 re-render；用 useState 避免 useReducer 引入。
   const [, forceTick] = useState(0);
 
   useEffect(() => {
-    // displayedRef 第一次填满时直接落到 target（不动画首屏）。
     if (displayedRef.current.length !== n) {
       displayedRef.current = [...targets];
       forceTick((c) => c + 1);
@@ -6002,7 +6005,6 @@ function ThroughputBars({
         typeof performance !== 'undefined' ? performance.now() : Date.now();
       const elapsed = now - startRef.current;
       const t = Math.min(1, elapsed / 320);
-      // easeOutCubic
       const e = 1 - Math.pow(1 - t, 3);
       const next = new Array<number>(n);
       for (let i = 0; i < n; i++) {
@@ -6020,16 +6022,65 @@ function ThroughputBars({
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-    // 仅在 samples 内容变化时重启动画。
+    // 仅在 samples 内容 / 窗口长度变化时重启动画。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [samples.join(','), n]);
+  }, [windowed.join(','), n]);
 
   const displayed = displayedRef.current.length === n
       ? displayedRef.current
       : targets;
 
+  // Catmull-Rom → 三次贝塞尔（张力 1/6）。viewBox 100×56，便于 svg path
+  // 坐标计算；transform: scale(横向铺满)由容器 width:100% 接管。
+  const W = 100;
+  const H = 56;
+  const stepX = n <= 1 ? W : W / (n - 1);
+  // 视觉 X：sample[0] = 当前 = 右；sample[n-1] = 最老 = 左。
+  const points = displayed.map((h, i) => ({
+    x: (n - 1 - i) * stepX,
+    y: H - h * H,
+  })).sort((a, b) => a.x - b.x);
+
+  let pathD = '';
+  let fillD = '';
+  if (points.length === 1) {
+    const p = points[0];
+    pathD = `M ${p.x.toFixed(2)} ${p.y.toFixed(2)}`;
+    fillD = '';
+  } else if (points.length > 1) {
+    pathD = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = i === 0 ? points[i] : points[i - 1];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = i + 2 < points.length ? points[i + 2] : points[i + 1];
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      pathD += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)} ${c2x.toFixed(2)} ${c2y.toFixed(2)} ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+    }
+    fillD = `${pathD} L ${points[points.length - 1].x.toFixed(2)} ${H} L ${points[0].x.toFixed(2)} ${H} Z`;
+  }
+
+  // 当前秒（右端）的 sample[0] 坐标，用于实心圆 + 光晕。
+  const lastP = points.length > 0 ? points[points.length - 1] : null;
+
+  // Wheel + Ctrl = trackpad pinch（浏览器约定）；普通滚轮不触发以免误伤。
+  const onWheel = (e: WheelEvent) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const delta = -e.deltaY / 200;
+    setZoom((z) => Math.max(1, Math.min(4, z * (1 + delta))));
+  };
+
   return (
-    <div class="relative" style={{ height: '56px' }}>
+    <div
+      class="relative"
+      style={{ height: '56px', touchAction: 'pan-x' }}
+      onWheel={onWheel as any}
+      title="Ctrl + 滚轮（或触控板双指捏合）放缩时间区间"
+    >
       <div
         class="absolute inset-0"
         style={{
@@ -6037,32 +6088,78 @@ function ThroughputBars({
             'linear-gradient(to top, var(--m3-outline-variant) 0, transparent 1px)',
         }}
       />
-      <div class="absolute inset-0 flex items-end gap-[1.5px]">
-        {Array.from({ length: n }).map((_, visualIdx) => {
-          const i = n - 1 - visualIdx;
-          const v = padded[i] ?? 0;
-          const h = (displayed[i] ?? 0) * 100;
-          const overLimit = limitValue > 0 && v > limitValue;
-          const isCurrent = i === 0;
-          const color = overLimit
-            ? 'var(--m3-error)'
-            : isCurrent
-              ? 'var(--m3-primary)'
-              : 'var(--m3-primary-container)';
-          return (
-            <div
-              key={visualIdx}
-              class="flex-1 rounded-[2px]"
-              style={{
-                height: `${Math.max(h, 1)}%`,
-                background: color,
-                opacity: isCurrent ? 1 : v === 0 ? 0.18 : 0.55,
-                transition: 'opacity 220ms ease-out',
-              }}
-            />
-          );
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        style={{ width: '100%', height: '100%', display: 'block' }}
+      >
+        {fillD && (
+          <path
+            d={fillD}
+            fill="var(--m3-primary)"
+            opacity={0.22}
+          />
+        )}
+        {pathD && (
+          <path
+            d={pathD}
+            fill="none"
+            stroke="var(--m3-primary)"
+            stroke-width="1.4"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+            vector-effect="non-scaling-stroke"
+          />
+        )}
+        {/* 超阈值点 */}
+        {points.map((p, sortedIdx) => {
+          // 反推原 index：sorted 后按 x 升序 → sample index = n - 1 - sortedIdx
+          const origIdx = n - 1 - sortedIdx;
+          const v = windowed[origIdx] ?? 0;
+          if (limitValue > 0 && v > limitValue) {
+            return (
+              <circle
+                key={`o${sortedIdx}`}
+                cx={p.x}
+                cy={p.y}
+                r={1.6}
+                fill="var(--m3-error)"
+              />
+            );
+          }
+          return null;
         })}
-      </div>
+        {/* 当前秒高亮 */}
+        {lastP && (
+          <>
+            <circle
+              cx={lastP.x}
+              cy={lastP.y}
+              r={3.4}
+              fill="var(--m3-primary)"
+              opacity={0.22}
+            />
+            <circle
+              cx={lastP.x}
+              cy={lastP.y}
+              r={2.0}
+              fill="var(--m3-primary)"
+            />
+          </>
+        )}
+      </svg>
+      {zoom > 1.05 && (
+        <div
+          class="absolute top-0 right-1 text-[10px] px-1.5 py-0.5 rounded"
+          style={{
+            background: 'var(--m3-surface-container-high)',
+            color: 'var(--m3-on-surface-variant)',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {n}s · {zoom.toFixed(1)}×
+        </div>
+      )}
     </div>
   );
 }

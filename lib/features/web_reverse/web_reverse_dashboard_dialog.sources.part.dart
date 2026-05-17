@@ -285,11 +285,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       setState(() => _lspEnabled = false);
       // 提示用户需要再次点击 LSP 启用以走新配置。
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(isZh
-              ? '已保存。点击 LSP 胶囊以新命令重启。'
-              : 'Saved. Tap LSP chip to restart.'),
-        ));
+        OpenHandSnackBar.showInfo(
+          context,
+          isZh ? '已保存。点击 LSP 胶囊以新命令重启。' : 'Saved. Tap LSP chip to restart.',
+        );
       }
     }
   }
@@ -945,10 +944,12 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     final messenger = ScaffoldMessenger.of(context);
                     await Clipboard.setData(ClipboardData(text: source));
                     if (!mounted) return;
-                    messenger.showSnackBar(SnackBar(
-                      content: Text(isZh ? '已复制' : 'Copied'),
+                    OpenHandSnackBar.showSuccessOn(
+                      context,
+                      messenger,
+                      isZh ? '已复制' : 'Copied',
                       duration: const Duration(seconds: 1),
-                    ));
+                    );
                   },
                   icon: const Icon(Icons.copy_rounded, size: 16),
                   label: Text(isZh ? '复制源码' : 'Copy'),

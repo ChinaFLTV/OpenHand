@@ -48,15 +48,15 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     Duration duration = const Duration(seconds: 3),
   }) {
     if (!context.mounted) return;
-    OpenHandSnackBar.show(
-      context,
-      messenger,
-      SnackBar(
-        backgroundColor: bg,
-        duration: duration,
-        content: Text(text),
-      ),
-    );
+    // 2026-05-25 — 旧版按 bg 区分语义；统一改走 OpenHandSnackBar 的
+    // info/success/error 变体，沿用全局图标+motion+关闭按钮的现代风格。
+    if (bg == cs.errorContainer) {
+      OpenHandSnackBar.showErrorOn(context, messenger, text, duration: duration);
+    } else if (bg == cs.secondaryContainer) {
+      OpenHandSnackBar.showSuccessOn(context, messenger, text, duration: duration);
+    } else {
+      OpenHandSnackBar.showInfoOn(context, messenger, text, duration: duration);
+    }
   }
 
   if (userDataDir.trim().isEmpty) {

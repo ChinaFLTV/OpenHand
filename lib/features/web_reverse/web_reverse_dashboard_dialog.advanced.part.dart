@@ -778,12 +778,11 @@ Future<void> _toggleHarReplayServer(
   OpenHandSnackBar.show(
     context,
     messenger,
-    SnackBar(
-      content: Text(
-        isZh
-            ? 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条'
-            : 'Replay server up at http://127.0.0.1:${r.port}/  · ${r.entryCount} entries',
-      ),
+    OpenHandSnackBar.info(
+      context,
+      isZh
+          ? 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条'
+          : 'Replay server up at http://127.0.0.1:${r.port}/  · ${r.entryCount} entries',
       duration: const Duration(seconds: 6),
       action: SnackBarAction(
         label: isZh ? '复制端口' : 'Copy port',
@@ -1168,10 +1167,12 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                               .convert(_events),
                         ));
                         if (!mounted) return;
-                        messenger.showSnackBar(SnackBar(
-                          content: Text(isZh ? '已复制' : 'Copied'),
+                        OpenHandSnackBar.showSuccessOn(
+                          context,
+                          messenger,
+                          isZh ? '已复制' : 'Copied',
                           duration: const Duration(seconds: 1),
-                        ));
+                        );
                       },
                       icon: const Icon(Icons.copy_all_rounded, size: 16),
                       label: Text(isZh ? '复制事件' : 'Copy events'),

@@ -23,13 +23,80 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   // history cursor: -1 表示当前没在历史里；0..len-1 指向某条历史。
   int _historyCursor = -1;
 
+  // 2026-05-25 — 退场动画：维护一份「显示用槽位」列表。当 controller
+  // 的 consoleMessages 移除某条（cap 截断 / 清空）时，对应槽位标记
+  // isExiting=true 并启动 240ms 计时器；到期后真正从 _slots 移除。
+  // build 中按身份 identical(slot.entry, e) 与最新列表对齐，过滤命中
+  // 当前 filter 才显示，但 _slots 持续保留以保证退场过程不丢失。
+  final List<_ConsoleSlot> _slots = <_ConsoleSlot>[];
+
+  static const Duration _kConsoleExitDuration = Duration(milliseconds: 240);
+
   List<String> get _history => widget.controller.replHistory;
 
   @override
   void dispose() {
+    for (final s in _slots) {
+      s.exitTimer?.cancel();
+    }
     _replCtrl.dispose();
     _replFocus.dispose();
     super.dispose();
+  }
+
+  /// 将 _slots 与 controller.consoleMessages 对齐：
+  ///   - 仍存在的条目：保留对应 slot；
+  ///   - 新增的条目：插入新 slot（位置按 controller 列表顺序）；
+  ///   - 已被移除的条目：标记 exiting + 启动计时器，下一帧仍渲染。
+  /// 注意：本方法可在 build 中同步调用（仅修改 _slots 内部字段，不在
+  /// build 中触发 setState），exitTimer 回调里才会 setState 真正抠掉。
+  void _syncSlots() {
+    final current = widget.controller.consoleMessages;
+
+    // 已存在的 slot 中，找出在新列表里不再出现且尚未在退场的 → 标记退场。
+    for (final s in _slots) {
+      if (s.isExiting) continue;
+      if (_findInList(current, s.entry) == null) {
+        s.isExiting = true;
+        s.exitTimer?.cancel();
+        s.exitTimer = Timer(_kConsoleExitDuration, () {
+          if (!mounted) return;
+          setState(() {
+            _slots.remove(s);
+          });
+        });
+      }
+    }
+
+    // 重建活跃部分顺序与 controller 一致；退场槽位维持原位置。
+    final newActiveOrder = <_ConsoleSlot>[];
+    for (final e in current) {
+      _ConsoleSlot? hit;
+      for (final s in _slots) {
+        if (!s.isExiting && identical(s.entry, e)) {
+          hit = s;
+          break;
+        }
+      }
+      hit ??= _ConsoleSlot(e);
+      newActiveOrder.add(hit);
+    }
+    // 提取仍在退场中的 slot（保持其在原 _slots 的相对位置）。
+    final exitingSlots = _slots.where((s) => s.isExiting).toList();
+    _slots
+      ..clear()
+      ..addAll(newActiveOrder)
+      ..addAll(exitingSlots);
+  }
+
+  CdpConsoleEntry? _findInList(
+    List<CdpConsoleEntry> list,
+    CdpConsoleEntry target,
+  ) {
+    for (final e in list) {
+      if (identical(e, target)) return e;
+    }
+    return null;
   }
 
   Future<void> _runExpr(String expr) async {
@@ -45,16 +112,11 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     final r = await widget.controller.runReplExpression(raw);
     if (!mounted) return;
     final isZh = widget.isZh;
-    final cs = Theme.of(context).colorScheme;
     if (r == null) {
-      OpenHandSnackBar.show(
+      OpenHandSnackBar.showError(
         context,
-        ScaffoldMessenger.of(context),
-        SnackBar(
-          backgroundColor: cs.errorContainer,
-          content: Text(isZh ? '执行失败' : 'Eval failed'),
-          duration: const Duration(seconds: 2),
-        ),
+        isZh ? '执行失败' : 'Eval failed',
+        duration: const Duration(seconds: 2),
       );
     }
   }
@@ -95,17 +157,23 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isZh = widget.isZh;
-    final all = widget.controller.consoleMessages;
-    final filter = widget.filter;
-    final filtered = filter.isEmpty
-        ? all
-        : all
-            .where((e) => e.text.toLowerCase().contains(filter.toLowerCase()))
+    _syncSlots();
+    final filter = widget.filter.toLowerCase();
+    // _slots 当前是 controller 顺序（旧 → 新）+ 已退场槽位；UI 想要新在
+    // 上、旧在下，因此 reverse 后再过滤 / 渲染。退场中的槽位无论是否
+    // 命中 filter 都要继续显示，否则它们会瞬间消失，吃掉退场动画。
+    final ordered = _slots.reversed.toList(growable: false);
+    final visible = filter.isEmpty
+        ? ordered
+        : ordered
+            .where((s) =>
+                s.isExiting || s.entry.text.toLowerCase().contains(filter))
             .toList(growable: false);
+    final hasContent = visible.any((s) => !s.isExiting);
     return Column(
       children: [
         Expanded(
-          child: filtered.isEmpty
+          child: !hasContent && visible.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(32),
@@ -119,9 +187,10 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: filtered.length,
+                  itemCount: visible.length,
                   itemBuilder: (_, idx) {
-                    final e = filtered[filtered.length - 1 - idx];
+                    final slot = visible[idx];
+                    final e = slot.entry;
                     final color = switch (e.level) {
                       'error' => cs.errorContainer,
                       'warning' => cs.tertiaryContainer,
@@ -136,47 +205,71 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                       'repl-result' => cs.onSecondaryContainer,
                       _ => cs.onSurface,
                     };
-                    return Padding(
+                    final card = Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 84,
+                            child: Text(
+                              e.level.toUpperCase(),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontFamily: 'monospace',
+                                color: onColor.withValues(alpha: 0.75),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: SelectableText(
+                              e.text,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                color: onColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                    final padded = Padding(
                       padding: const EdgeInsets.only(bottom: 6),
-                      child: _AnimatedAppearOnce(
-                        duration: widget.reduceMotion
-                            ? Duration.zero
-                            : _kSwitchDuration,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: color,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(
-                                width: 84,
-                                child: Text(
-                                  e.level.toUpperCase(),
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    fontFamily: 'monospace',
-                                    color:
-                                        onColor.withValues(alpha: 0.75),
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                      child: card,
+                    );
+                    // 退场：240ms 内 AnimatedSize 折叠 + AnimatedOpacity
+                    // 淡出 + 轻微缩放，与 _TabStrip 退场风格保持一致。
+                    if (widget.reduceMotion) {
+                      return slot.isExiting
+                          ? const SizedBox.shrink()
+                          : padded;
+                    }
+                    return AnimatedSize(
+                      key: ValueKey(identityHashCode(slot)),
+                      duration: _kConsoleExitDuration,
+                      curve: Curves.easeInCubic,
+                      alignment: Alignment.topCenter,
+                      child: AnimatedOpacity(
+                        duration: _kConsoleExitDuration,
+                        curve: Curves.easeOut,
+                        opacity: slot.isExiting ? 0.0 : 1.0,
+                        child: AnimatedScale(
+                          duration: _kConsoleExitDuration,
+                          curve: Curves.easeInCubic,
+                          scale: slot.isExiting ? 0.92 : 1.0,
+                          child: slot.isExiting
+                              ? padded
+                              : _AnimatedAppearOnce(
+                                  duration: _kSwitchDuration,
+                                  child: padded,
                                 ),
-                              ),
-                              Expanded(
-                                child: SelectableText(
-                                  e.text,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    fontFamily: 'monospace',
-                                    color: onColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     );
@@ -229,4 +322,15 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
       ],
     );
   }
+}
+
+/// 控制台单条消息的渲染槽位：包裹 entry + 退场状态 + 定时器，让
+/// `_ConsoleBodyState` 在条目被 controller 移除（cap 截断 / 清空）后
+/// 仍能保留 240ms 的折叠 + 淡出动画。
+class _ConsoleSlot {
+  _ConsoleSlot(this.entry);
+
+  final CdpConsoleEntry entry;
+  bool isExiting = false;
+  Timer? exitTimer;
 }

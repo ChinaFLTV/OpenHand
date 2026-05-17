@@ -1031,23 +1031,12 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         _lastWarnAt = now;
         if (mounted) {
           final isZh = widget.isZh;
-          final cs = Theme.of(context).colorScheme;
-          OpenHandSnackBar.show(
+          OpenHandSnackBar.showError(
             context,
-            ScaffoldMessenger.of(context),
-            SnackBar(
-              backgroundColor: cs.error,
-              content: Text(
-                isZh
-                    ? 'V8 堆已用 ${usedMb.toStringAsFixed(1)} MB，超过阈值 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB'
-                    : 'V8 heap ${usedMb.toStringAsFixed(1)} MB exceeds threshold ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
-                style: TextStyle(
-                  color: cs.onError,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              duration: const Duration(seconds: 3),
-            ),
+            isZh
+                ? 'V8 堆已用 ${usedMb.toStringAsFixed(1)} MB，超过阈值 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB'
+                : 'V8 heap ${usedMb.toStringAsFixed(1)} MB exceeds threshold ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
+            duration: const Duration(seconds: 3),
           );
         }
       }
