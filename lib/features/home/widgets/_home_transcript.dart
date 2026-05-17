@@ -1325,7 +1325,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // markdown 解析。把 cacheExtent 收缩到 120 px 让 ListView
               // 首屏严格只构建可见气泡，越界滚动时再 lazy 构建；牺牲
               // 一点 fling 期的 buffer 换取首屏帧预算。
-              cacheExtent: 120,
+              //
+              // 2026-05-17 回调到 600：120 px 太紧，message bubble 不使用
+              // AutomaticKeepAliveClientMixin，慢速滚动时 cacheExtent
+              // 边界恰好覆盖某条气泡时会反复 mount / unmount，每次重新
+              // mount 后 markdown 首次解析得到的高度与上一次缓存的几何
+              // 偏差几个像素，触发 SliverList correctPixels → 视窗"被
+              // 拽住"震动（trackpad 慢速滑动 px 抖 ±42 的诊断日志已确证）。
+              // 首屏 ANR 问题已被 `_MarkdownFrameScheduler` + drip 物化
+              // 充分缓解，可以安全恢复 600 px 缓冲。
+              cacheExtent: 600,
               physics: const OpenHandBouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
