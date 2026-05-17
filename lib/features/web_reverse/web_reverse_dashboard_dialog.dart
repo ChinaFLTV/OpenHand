@@ -105,6 +105,10 @@ class _WebReverseDashboardDialogState
   static const _kReplHistoryMetaKey = 'web_reverse_console_repl_history';
   static const _kBreakpointsMetaKey = 'web_reverse_sources_breakpoints';
   static const _kInterceptRulesMetaKey = 'web_reverse_intercept_rules';
+  static const _kLspCommandMetaKey = 'web_reverse_lsp_command';
+  static const _kLspArgsMetaKey = 'web_reverse_lsp_args';
+  static const _kHeapSnapAMetaKey = 'web_reverse_memory_snap_a';
+  static const _kHeapSnapBMetaKey = 'web_reverse_memory_snap_b';
   _Tab _tab = _Tab.network;
 
   // Network 面板状态
@@ -331,6 +335,88 @@ class _WebReverseDashboardDialogState
         _kInterceptRulesMetaKey: rules,
       }),
     );
+  }
+
+  /// 读取本会话曾保存过的 LSP 命令配置（命令名 + args 列表）。
+  ({String command, List<String> args})? readLspConfig() {
+    if (!mounted) return null;
+    final session = context.read<AiSessionController>().sessions.firstWhere(
+          (s) => s.id == widget.sessionId,
+          orElse: () => context.read<AiSessionController>().sessions.first,
+        );
+    final cmd = session.metadata[_kLspCommandMetaKey];
+    final args = session.metadata[_kLspArgsMetaKey];
+    if (cmd is! String || cmd.trim().isEmpty) return null;
+    final argList = args is List
+        ? args.whereType<String>().toList(growable: false)
+        : const <String>[];
+    return (command: cmd.trim(), args: argList);
+  }
+
+  /// 持久化 LSP 配置，立即落盘 session metadata。
+  void persistLspConfig({required String command, required List<String> args}) {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>();
+    unawaited(
+      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kLspCommandMetaKey: command.trim(),
+        _kLspArgsMetaKey: args,
+      }),
+    );
+  }
+
+  /// 持久化最近两个 heap snapshot：A/B 两个槽位，存的是 raw json + 对应
+  /// metadata（采集时间戳、字节数）。下次打开 Dashboard 时由 Memory 面板
+  /// 自行 readHeapSnapshots 读回。
+  void persistHeapSnapshots({
+    required ({String json, int bytes, DateTime ts})? snapA,
+    required ({String json, int bytes, DateTime ts})? snapB,
+  }) {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>();
+    Map<String, Object?>? toJson(({String json, int bytes, DateTime ts})? s) {
+      if (s == null) return null;
+      return <String, Object?>{
+        'json': s.json,
+        'bytes': s.bytes,
+        'ts_ms': s.ts.millisecondsSinceEpoch,
+      };
+    }
+    unawaited(
+      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kHeapSnapAMetaKey: toJson(snapA),
+        _kHeapSnapBMetaKey: toJson(snapB),
+      }),
+    );
+  }
+
+  /// 读回上次保存的 heap snapshots。任一槽位无效时返回 null。
+  ({
+    ({String json, int bytes, DateTime ts})? snapA,
+    ({String json, int bytes, DateTime ts})? snapB,
+  })? readHeapSnapshots() {
+    if (!mounted) return null;
+    final session = context.read<AiSessionController>().sessions.firstWhere(
+          (s) => s.id == widget.sessionId,
+          orElse: () => context.read<AiSessionController>().sessions.first,
+        );
+    ({String json, int bytes, DateTime ts})? parse(Object? raw) {
+      if (raw is! Map) return null;
+      final json = raw['json'];
+      final bytes = (raw['bytes'] as num?)?.toInt() ?? 0;
+      final tsMs = (raw['ts_ms'] as num?)?.toInt();
+      if (json is! String || json.isEmpty || tsMs == null) return null;
+      return (
+        json: json,
+        bytes: bytes,
+        ts: DateTime.fromMillisecondsSinceEpoch(tsMs),
+      );
+    }
+
+    final a = parse(session.metadata[_kHeapSnapAMetaKey]);
+    final b = parse(session.metadata[_kHeapSnapBMetaKey]);
+    if (a == null && b == null) return null;
+    return (snapA: a, snapB: b);
   }
 
   /// 浏览器从 dead 切回 alive 时调用：恢复持久化的断点（先 enableDebugger）。

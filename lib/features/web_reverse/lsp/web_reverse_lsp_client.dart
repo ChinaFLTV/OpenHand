@@ -64,7 +64,17 @@ class WebReverseLspClient {
     final c = cmd ?? command ?? 'typescript-language-server';
     final a = cmdArgs ?? args ?? const ['--stdio'];
     try {
-      _proc = await Process.start(c, a, runInShell: true);
+      _proc = await Process.start(
+        c,
+        a,
+        runInShell: true,
+        // 2026-05-24 — macOS GUI 启动的 Flutter 进程 PATH 默认是
+        // /usr/bin:/bin:/usr/sbin:/sbin，找不到 npm 全局 bin（Apple
+        // Silicon 在 /opt/homebrew/bin、Intel 在 /usr/local/bin、nvm 在
+        // ~/.nvm/versions/node/.../bin）。这里按常见路径拼一份扩展 PATH，
+        // 让 typescript-language-server / pyright 等命令能直接跑起来。
+        environment: _augmentedEnvironment(),
+      );
     } catch (e, st) {
       silentLog('web_reverse_lsp_client', 'spawn', e, st);
       status = WebReverseLspStatus.notInstalled;
@@ -136,6 +146,52 @@ class WebReverseLspClient {
       if (!c.isCompleted) c.complete(<String, Object?>{'error': 'stopped'});
     }
     _pending.clear();
+  }
+
+  /// 把当前进程 PATH 与常见的 LSP 安装目录拼起来，避免 GUI 启动的 Flutter
+  /// 子进程因为 PATH 不全导致 npm/brew 全局 bin 命令都找不到。仅在 macOS
+  /// 与 Linux 下生效，Windows 直接返回原样让 PowerShell 自己解析。
+  Map<String, String> _augmentedEnvironment() {
+    final base = Map<String, String>.from(Platform.environment);
+    if (Platform.isWindows) return base;
+    final home = base['HOME'] ?? '';
+    final extras = <String>[
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      '/opt/homebrew/sbin',
+      '/usr/local/sbin',
+      if (home.isNotEmpty) '$home/.local/bin',
+      if (home.isNotEmpty) '$home/bin',
+      if (home.isNotEmpty) '$home/.npm-global/bin',
+      if (home.isNotEmpty) '$home/.bun/bin',
+      if (home.isNotEmpty) '$home/.cargo/bin',
+      if (home.isNotEmpty) '$home/go/bin',
+    ];
+    // nvm 安装路径：~/.nvm/versions/node/<version>/bin。当前活跃 node 一
+    // 般已经导出在 PATH 里了；这里只补「最近一个版本」做兜底。
+    if (home.isNotEmpty) {
+      try {
+        final nvmRoot = Directory('$home/.nvm/versions/node');
+        if (nvmRoot.existsSync()) {
+          final versions = nvmRoot
+              .listSync()
+              .whereType<Directory>()
+              .map((d) => d.path)
+              .toList()
+            ..sort();
+          if (versions.isNotEmpty) extras.add('${versions.last}/bin');
+        }
+      } catch (_) {}
+    }
+    final origin = (base['PATH'] ?? '').split(':');
+    final seen = <String>{};
+    final merged = <String>[];
+    for (final p in [...extras, ...origin]) {
+      if (p.isEmpty) continue;
+      if (seen.add(p)) merged.add(p);
+    }
+    base['PATH'] = merged.join(':');
+    return base;
   }
 
   /// 第一次访问某文件 → didOpen；之后再访问同 uri 走 didChange (full)。

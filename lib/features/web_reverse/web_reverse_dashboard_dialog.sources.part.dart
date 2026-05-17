@@ -85,16 +85,34 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       return;
     }
     setState(() => _lspEnabled = true);
-    final ok = await _lsp.start();
+    // 优先使用本会话用户在「LSP 设置」里指定的命令；未配置则回退默认。
+    final cfg = context
+        .findAncestorStateOfType<_WebReverseDashboardDialogState>()
+        ?.readLspConfig();
+    final ok = await _lsp.start(
+      cmd: cfg?.command,
+      cmdArgs: cfg?.args.isEmpty ?? true ? null : cfg!.args,
+    );
     if (!mounted) return;
     if (!ok) {
       setState(() => _lspEnabled = false);
+      // exit 127 = "command not found"。识别到这个码就主动给一段安装提示，
+      // 让用户不用再回 README 找。
+      final raw = _lsp.lastError ?? '';
+      final isMissing = raw.contains('exit 127') ||
+          raw.contains('Cannot run program') ||
+          raw.toLowerCase().contains('not found') ||
+          raw.toLowerCase().contains('no such file');
+      final friendly = isMissing
+          ? (isZh
+              ? '未检测到 typescript-language-server。请先 `npm i -g typescript typescript-language-server`，或在「LSP 设置」里换成本机已装的 LSP（如 deno-lsp、pyright、vtsls）。'
+              : 'typescript-language-server not installed. Run `npm i -g typescript typescript-language-server`, or switch via LSP Settings.')
+          : (isZh ? 'LSP 启动失败：$raw' : 'LSP failed: $raw');
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh
-            ? 'LSP 启动失败：${_lsp.lastError ?? "请安装 typescript-language-server"}'
-            : 'LSP failed: ${_lsp.lastError ?? "install typescript-language-server"}',
+        friendly,
+        duration: const Duration(seconds: 6),
       );
       return;
     }
@@ -141,6 +159,156 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (l.endsWith('.jsx')) return 'javascriptreact';
     return 'javascript';
   }
+
+  /// LSP 设置弹窗：让用户切到本机已装的 LSP（默认 typescript-language-server
+  /// --stdio，可换 deno-lsp / pyright / vtsls 等）。保存后立刻把现有
+  /// session stop，按新命令重启；命令落进 session metadata 跨会话保留。
+  Future<void> _showLspSettings() async {
+    final isZh = widget.isZh;
+    final dashboardState = context
+        .findAncestorStateOfType<_WebReverseDashboardDialogState>();
+    final cur = dashboardState?.readLspConfig();
+    final cmdCtrl = TextEditingController(
+      text: cur?.command ?? 'typescript-language-server',
+    );
+    final argsCtrl = TextEditingController(
+      text: cur?.args.isEmpty ?? true ? '--stdio' : cur!.args.join(' '),
+    );
+    final preset = ValueNotifier<String?>(null);
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh ? 'LSP 设置' : 'LSP settings'),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isZh
+                    ? '选择 LSP 服务器命令；命令需在本机 PATH 中可执行。常见预设：'
+                    : 'Specify LSP server command (must be on PATH). Presets:',
+                style: Theme.of(dialogContext).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              ValueListenableBuilder<String?>(
+                valueListenable: preset,
+                builder: (_, sel, _) => Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final p in _lspPresets)
+                      ChoiceChip(
+                        label: Text(p.label),
+                        selected: sel == p.label,
+                        onSelected: (_) {
+                          preset.value = p.label;
+                          cmdCtrl.text = p.cmd;
+                          argsCtrl.text = p.args.join(' ');
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cmdCtrl,
+                decoration: InputDecoration(
+                  isDense: true,
+                  labelText: isZh ? '命令' : 'Command',
+                  border: const OutlineInputBorder(),
+                ),
+                style: const TextStyle(
+                    fontFamily: 'monospace', fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: argsCtrl,
+                decoration: InputDecoration(
+                  isDense: true,
+                  labelText: isZh ? '参数（空格分隔）' : 'Args (space separated)',
+                  border: const OutlineInputBorder(),
+                ),
+                style: const TextStyle(
+                    fontFamily: 'monospace', fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isZh
+                    ? '保存后会自动重启当前 LSP 会话。安装方法（按需）：\n'
+                        '• typescript-language-server：npm i -g typescript typescript-language-server\n'
+                        '• vtsls：npm i -g @vtsls/language-server\n'
+                        '• deno lsp：brew install deno  → 命令填 deno，参数 lsp\n'
+                        '• pyright：npm i -g pyright  → 命令填 pyright-langserver，参数 --stdio'
+                    : 'Restart applies on save. Install hints:\n'
+                        '• typescript-language-server: npm i -g typescript typescript-language-server\n'
+                        '• vtsls: npm i -g @vtsls/language-server\n'
+                        '• deno lsp: brew install deno → cmd=deno args=lsp\n'
+                        '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
+                style: Theme.of(dialogContext)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(fontSize: 10.5),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(isZh ? '保存' : 'Save'),
+          ),
+        ],
+      ),
+    );
+    cmdCtrl.dispose();
+    argsCtrl.dispose();
+    preset.dispose();
+    if (result != true || !mounted) return;
+    final cmd = cmdCtrl.text.trim();
+    final args = argsCtrl.text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((s) => s.isNotEmpty)
+        .toList(growable: false);
+    if (cmd.isEmpty) return;
+    dashboardState?.persistLspConfig(command: cmd, args: args);
+    // 重启：先 stop 旧 server（如果运行中），切回 disabled 状态等用户主动开。
+    if (_lspEnabled) {
+      await _lsp.stop();
+      setState(() => _lspEnabled = false);
+      // 提示用户需要再次点击 LSP 启用以走新配置。
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isZh
+              ? '已保存。点击 LSP 胶囊以新命令重启。'
+              : 'Saved. Tap LSP chip to restart.'),
+        ));
+      }
+    }
+  }
+
+  static const _lspPresets = <({String label, String cmd, List<String> args})>[
+    (
+      label: 'typescript-language-server',
+      cmd: 'typescript-language-server',
+      args: ['--stdio'],
+    ),
+    (label: 'vtsls', cmd: 'vtsls', args: ['--stdio']),
+    (label: 'deno lsp', cmd: 'deno', args: ['lsp']),
+    (
+      label: 'pyright',
+      cmd: 'pyright-langserver',
+      args: ['--stdio'],
+    ),
+    (label: 'rust-analyzer', cmd: 'rust-analyzer', args: <String>[]),
+    (label: 'gopls', cmd: 'gopls', args: <String>[]),
+  ];
 
   /// 鼠标在某一行上悬停时调度：300ms 内不触发新 hover，超过则发起 LSP
   /// 请求并把结果写到 _hoverMarkdown 让 _SourceHoverBubble 渲染贴在行尾。
@@ -502,38 +670,53 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        decoration: InputDecoration(
-                          isDense: true,
-                          hintText: isZh ? '搜索脚本 URL…' : 'Search script URL…',
-                          prefixIcon:
-                              const Icon(Icons.search_rounded, size: 16),
-                          border: const OutlineInputBorder(),
+                child: SizedBox(
+                  height: 38,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: isZh
+                                ? '搜索脚本 URL…'
+                                : 'Search script URL…',
+                            prefixIcon:
+                                const Icon(Icons.search_rounded, size: 16),
+                            border: const OutlineInputBorder(),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 10),
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                          ),
+                          onChanged: (v) =>
+                              setState(() => _filter = v.trim()),
                         ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
+                      ),
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        width: 38,
+                        height: 38,
+                        child: IconButton(
+                          tooltip: isZh
+                              ? '跨脚本搜索代码'
+                              : 'Search code across scripts',
+                          padding: EdgeInsets.zero,
+                          iconSize: 18,
+                          style: IconButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                              side: BorderSide(color: cs.outlineVariant),
+                            ),
+                          ),
+                          onPressed: _showGlobalCodeSearch,
+                          icon: const Icon(Icons.travel_explore_rounded),
                         ),
-                        onChanged: (v) => setState(() => _filter = v.trim()),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      tooltip: isZh ? '跨脚本搜索代码' : 'Search code across scripts',
-                      visualDensity: VisualDensity.compact,
-                      iconSize: 18,
-                      padding: const EdgeInsets.all(6),
-                      constraints: const BoxConstraints(
-                        minWidth: 30,
-                        minHeight: 30,
-                      ),
-                      onPressed: _showGlobalCodeSearch,
-                      icon: const Icon(Icons.travel_explore_rounded),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (_enabling)
@@ -677,39 +860,56 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 selected: _lspEnabled,
                 onSelected: (_) => _toggleLsp(),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: isZh ? '复制源码' : 'Copy source',
-                visualDensity: VisualDensity.compact,
-                iconSize: 18,
-                padding: const EdgeInsets.all(6),
-                constraints: const BoxConstraints(
-                  minWidth: 30,
-                  minHeight: 30,
-                ),
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: source));
-                  if (!mounted) return;
-                  OpenHandSnackBar.showSuccess(
-                    context,
-                    isZh ? '已复制' : 'Copied',
-                    duration: const Duration(seconds: 1),
-                  );
-                },
-                icon: const Icon(Icons.copy_rounded),
-              ),
               const SizedBox(width: 4),
-              IconButton(
-                tooltip: isZh ? '继续运行（Resume）' : 'Resume',
-                visualDensity: VisualDensity.compact,
-                iconSize: 18,
-                padding: const EdgeInsets.all(6),
-                constraints: const BoxConstraints(
-                  minWidth: 30,
-                  minHeight: 30,
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: IconButton(
+                  tooltip: isZh ? 'LSP 设置' : 'LSP settings',
+                  visualDensity: VisualDensity.compact,
+                  iconSize: 16,
+                  padding: EdgeInsets.zero,
+                  onPressed: () => _showLspSettings(),
+                  icon: const Icon(Icons.tune_rounded),
                 ),
-                onPressed: widget.controller.resumeDebugger,
-                icon: const Icon(Icons.play_arrow_rounded),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 32,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    await Clipboard.setData(ClipboardData(text: source));
+                    if (!mounted) return;
+                    messenger.showSnackBar(SnackBar(
+                      content: Text(isZh ? '已复制' : 'Copied'),
+                      duration: const Duration(seconds: 1),
+                    ));
+                  },
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  label: Text(isZh ? '复制源码' : 'Copy'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              SizedBox(
+                height: 32,
+                child: OutlinedButton.icon(
+                  onPressed: widget.controller.resumeDebugger,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                  label: Text(isZh ? '继续运行' : 'Resume'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
               ),
             ],
           ),

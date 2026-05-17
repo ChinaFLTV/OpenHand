@@ -213,9 +213,65 @@ class WebReverseSessionController extends ChangeNotifier {
   final List<CdpPageTargetSnapshot> _pageTargets = <CdpPageTargetSnapshot>[];
   String? _currentTargetId;
 
+  /// 2026-05-24 — 每个 page target 的 panel 缓冲快照：切走时保存，切回时
+  /// 恢复，避免"切走再切回 → 现场全没了"的体验断裂。Sources 缓存的源码
+  /// 体积可能 MB 级，所以最多保留 8 个最近活跃 target，LRU 淘汰旧的。
+  final Map<String, _PerTargetBuffer> _targetBuffers =
+      <String, _PerTargetBuffer>{};
+  static const int _kTargetBufferLruCap = 8;
+
   List<CdpPageTargetSnapshot> get pageTargets =>
       List<CdpPageTargetSnapshot>.unmodifiable(_pageTargets);
   String? get currentPageTargetId => _currentTargetId;
+
+  void _captureBufferForCurrentTarget() {
+    final id = _currentTargetId;
+    if (id == null || id.isEmpty) return;
+    _targetBuffers[id] = _PerTargetBuffer(
+      networkRequests: List<CdpNetworkEntry>.from(_networkRequests),
+      networkByRequestId: Map<String, CdpNetworkEntry>.from(_networkByRequestId),
+      consoleMessages: List<CdpConsoleEntry>.from(_consoleMessages),
+      parsedScripts:
+          Map<String, ({String url, bool isModule})>.from(_parsedScripts),
+      scriptSources: Map<String, String>.from(_scriptSources),
+      bpIdByKey: Map<String, String>.from(_bpIdByKey),
+      lastUsedAt: DateTime.now(),
+    );
+    _evictOldestTargetBuffers();
+  }
+
+  void _restoreBufferForTarget(String targetId) {
+    final saved = _targetBuffers.remove(targetId);
+    if (saved == null) return;
+    _networkRequests
+      ..clear()
+      ..addAll(saved.networkRequests);
+    _networkByRequestId
+      ..clear()
+      ..addAll(saved.networkByRequestId);
+    _consoleMessages
+      ..clear()
+      ..addAll(saved.consoleMessages);
+    _parsedScripts
+      ..clear()
+      ..addAll(saved.parsedScripts);
+    _scriptSources
+      ..clear()
+      ..addAll(saved.scriptSources);
+    _bpIdByKey
+      ..clear()
+      ..addAll(saved.bpIdByKey);
+  }
+
+  void _evictOldestTargetBuffers() {
+    if (_targetBuffers.length <= _kTargetBufferLruCap) return;
+    final entries = _targetBuffers.entries.toList()
+      ..sort((a, b) => a.value.lastUsedAt.compareTo(b.value.lastUsedAt));
+    while (_targetBuffers.length > _kTargetBufferLruCap && entries.isNotEmpty) {
+      final oldest = entries.removeAt(0);
+      _targetBuffers.remove(oldest.key);
+    }
+  }
 
   void _refreshTargetsFromInfos(List<dynamic> infos) {
     _pageTargets.clear();
@@ -244,9 +300,11 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     // 新 page 上 finder 还没注入；切完 target 第一次 findInPage 会按需注入。
     _finderInstalled = false;
-    // 切 tab 即清空所有 panel buffer（network / console / sources / 断点 ID 反查
-    // 等），让用户切到新 tab 后看到的就是这个 tab 的实时数据。Sources 端的
-    // _userBreakpoints 仍按 (url,line) 维度持久化在 metadata 里，不在这里动。
+    // 2026-05-24 — Per-tab buffer：切 tab 前先把当前 target 的 panel 缓冲
+    // 快照存到 _targetBuffers，切到目标 tab 后再 restore；新建 / 首次访问
+    // 的 target 没有快照就只清空。Sources 端的 _userBreakpoints 仍按
+    // (url,line) 维度持久化在 metadata 里，不在这里动。
+    _captureBufferForCurrentTarget();
     _networkRequests.clear();
     _networkByRequestId.clear();
     _consoleMessages.clear();
@@ -262,6 +320,10 @@ class WebReverseSessionController extends ChangeNotifier {
     );
     _pageSessionId = attachResult['sessionId'] as String?;
     _currentTargetId = targetId;
+    // 2026-05-24 — 还原该 target 上次切走时保存的 panel 缓冲。新 target /
+    // 第一次进入则跳过；网络 enable 之后再立刻补入，让 navigation 事件
+    // 流接着累计。
+    _restoreBufferForTarget(targetId);
     await cdp.send(
       'Network.enable',
       params: const <String, Object?>{
@@ -2862,6 +2924,46 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 设备模拟预设：移动 / 平板 / 桌面三档；底层走
   /// `Emulation.setDeviceMetricsOverride` + `Emulation.setUserAgentOverride`。
   /// 传 `null` 则 `Emulation.clearDeviceMetricsOverride`。
+  /// 2026-05-24 — 让分辨率档位真正影响页面渲染：传入 cssWidth/cssHeight/
+  /// deviceScaleFactor=0 表示清除 override（恢复浏览器原生窗口尺寸）；其
+  /// 它值则下发 Emulation.setDeviceMetricsOverride，让页面真正按该 CSS
+  /// 尺寸 reflow，而不是只 cap 帧尺寸。
+  Future<void> applyResolutionEmulation({
+    required int cssWidth,
+    required int cssHeight,
+    required double deviceScaleFactor,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      if (cssWidth <= 0 || cssHeight <= 0 || deviceScaleFactor <= 0) {
+        await cdp.send(
+          'Emulation.clearDeviceMetricsOverride',
+          sessionId: _pageSessionId,
+        );
+        return;
+      }
+      await cdp.send(
+        'Emulation.setDeviceMetricsOverride',
+        params: <String, Object?>{
+          'width': cssWidth,
+          'height': cssHeight,
+          'deviceScaleFactor': deviceScaleFactor,
+          'mobile': false,
+        },
+        sessionId: _pageSessionId,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'applyResolutionEmulation',
+        error,
+        stack,
+      );
+    }
+  }
+
+  /// 设备模拟预设：移动 / 平板 / 桌面三档；底层走
   Future<void> setDeviceMetricsPreset(WebReverseDevicePreset? preset) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;
@@ -4728,4 +4830,29 @@ class WebReverseDevicePreset {
     deviceScaleFactor: 2,
     mobile: false,
   );
+}
+
+
+/// 切 tab 时的 panel 缓冲快照。仅在 controller 内部使用，存进
+/// _targetBuffers map（LRU 8 槽）保留每个 page target 上次离开时的现场。
+/// 字段都按 tab 维度独立，不影响其它 tab；switchToPageTarget 切回时整体
+/// 灌回 controller 的活动缓冲。
+class _PerTargetBuffer {
+  _PerTargetBuffer({
+    required this.networkRequests,
+    required this.networkByRequestId,
+    required this.consoleMessages,
+    required this.parsedScripts,
+    required this.scriptSources,
+    required this.bpIdByKey,
+    required this.lastUsedAt,
+  });
+
+  final List<CdpNetworkEntry> networkRequests;
+  final Map<String, CdpNetworkEntry> networkByRequestId;
+  final List<CdpConsoleEntry> consoleMessages;
+  final Map<String, ({String url, bool isModule})> parsedScripts;
+  final Map<String, String> scriptSources;
+  final Map<String, String> bpIdByKey;
+  final DateTime lastUsedAt;
 }

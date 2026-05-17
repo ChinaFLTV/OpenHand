@@ -987,6 +987,19 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       (_) => _sampleHeap(),
     );
     unawaited(_sampleHeap());
+    // 2026-05-24 — 读回 session metadata 中保存的最近两次堆快照，让用户
+    // 关闭 Dashboard 再打开仍能直接「比较」，不必重新采集。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final snaps = context
+          .findAncestorStateOfType<_WebReverseDashboardDialogState>()
+          ?.readHeapSnapshots();
+      if (snaps == null) return;
+      setState(() {
+        _snapA = snaps.snapA;
+        _snapB = snaps.snapB;
+      });
+    });
   }
 
   @override
@@ -1088,6 +1101,13 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         _snapB = fresh;
       }
     });
+    if (r != null) {
+      // 持久化：单份快照可能数 MB（基本是文本 JSON），写一次 metadata
+      // 就够；下次打开 Dashboard 自动 readHeapSnapshots 复原 A/B。
+      context
+          .findAncestorStateOfType<_WebReverseDashboardDialogState>()
+          ?.persistHeapSnapshots(snapA: _snapA, snapB: _snapB);
+    }
     if (r == null) {
       OpenHandSnackBar.showErrorOn(
         context,
