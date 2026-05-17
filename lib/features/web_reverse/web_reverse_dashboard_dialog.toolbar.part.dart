@@ -448,9 +448,13 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     }
   }
 
-  /// HAR 对比：选两个本地 HAR 文件，按 method+url+status 三元组做集合 diff，
-  /// 列出 only-A / only-B / both 三栏。只解析 HAR 顶层 entries，逻辑足够轻
-  /// 不需要后台；解析失败 SnackBar 提示。
+  /// HAR 对比：选两个本地 HAR 文件做请求级差分，并升级为 body / status 二
+  /// 级 diff。集合分四桶：
+  ///   ① only-A / only-B —— 一边有另一边无；
+  ///   ② changed —— 两份都有同一 (method,url) 但 status / body 至少一项变了，
+  ///      其中 status 不同高亮成色块（蓝→红橙），body 大小或文本不同时
+  ///      给出 size delta + 内容预览片段；
+  ///   ③ same —— 完全一致，仅出计数。
   Future<void> _showHarDiff(BuildContext context, bool isZh) async {
     final messenger = ScaffoldMessenger.of(context);
     const typeGroup = XTypeGroup(
@@ -467,20 +471,42 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     if (aRaw == null || bRaw == null || !context.mounted) return;
     final a = aRaw;
     final b = bRaw;
-    Future<Set<String>?> parse(XFile f) async {
+
+    /// 把一份 HAR 解析成 method+url → _HarEntrySummary 的 map。同一 url
+    /// 多次出现只保留首条（用户面板上很少有同 url 重放需求）。
+    Future<Map<String, _HarEntrySummary>?> parse(XFile f) async {
       try {
         final raw = await f.readAsBytes();
         final decoded = jsonDecode(utf8.decode(raw));
         final entries = (decoded as Map?)?['log']?['entries'];
         if (entries is! List) return null;
-        return entries
-            .whereType<Map>()
-            .map((m) {
-              final req = m['request'] as Map?;
-              final res = m['response'] as Map?;
-              return '${req?['method'] ?? ''} ${req?['url'] ?? ''} → ${res?['status'] ?? ''}';
-            })
-            .toSet();
+        final map = <String, _HarEntrySummary>{};
+        for (final e in entries.whereType<Map>()) {
+          final req = e['request'] as Map?;
+          final res = e['response'] as Map?;
+          final method = '${req?['method'] ?? ''}';
+          final url = '${req?['url'] ?? ''}';
+          final status = (res?['status'] as num?)?.toInt() ?? 0;
+          final content = res?['content'] as Map?;
+          final size = (content?['size'] as num?)?.toInt() ?? 0;
+          final mime = '${content?['mimeType'] ?? ''}';
+          final text = content?['text'] is String
+              ? content!['text'] as String
+              : '';
+          final key = '$method $url';
+          map.putIfAbsent(
+            key,
+            () => _HarEntrySummary(
+              method: method,
+              url: url,
+              status: status,
+              bodySize: size,
+              mimeType: mime,
+              bodyText: text,
+            ),
+          );
+        }
+        return map;
       } catch (error, stack) {
         silentLog(
           'web_reverse_dashboard_dialog',
@@ -504,42 +530,76 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       );
       return;
     }
-    final onlyA = setA.difference(setB).toList(growable: false)..sort();
-    final onlyB = setB.difference(setA).toList(growable: false)..sort();
-    final both = setA.intersection(setB).length;
+    final onlyAKeys = setA.keys.toSet().difference(setB.keys.toSet()).toList()
+      ..sort();
+    final onlyBKeys = setB.keys.toSet().difference(setA.keys.toSet()).toList()
+      ..sort();
+    final shared =
+        setA.keys.toSet().intersection(setB.keys.toSet()).toList()..sort();
+    final changed = <_HarChange>[];
+    var sameCount = 0;
+    for (final k in shared) {
+      final ea = setA[k]!;
+      final eb = setB[k]!;
+      final statusChanged = ea.status != eb.status;
+      final sizeChanged = ea.bodySize != eb.bodySize;
+      final textChanged = ea.bodyText != eb.bodyText;
+      if (!statusChanged && !sizeChanged && !textChanged) {
+        sameCount++;
+      } else {
+        changed.add(_HarChange(
+          a: ea,
+          b: eb,
+          statusChanged: statusChanged,
+          sizeChanged: sizeChanged,
+          textChanged: textChanged,
+        ));
+      }
+    }
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isZh ? 'HAR 对比' : 'HAR diff'),
         content: SizedBox(
-          width: 720,
-          height: 460,
+          width: 880,
+          height: 540,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 isZh
-                    ? '共同请求 $both 条；A 独有 ${onlyA.length}；B 独有 ${onlyB.length}'
-                    : '$both shared, ${onlyA.length} only-A, ${onlyB.length} only-B',
+                    ? '一致 $sameCount 条 · 变化 ${changed.length} · A 独有 ${onlyAKeys.length} · B 独有 ${onlyBKeys.length}'
+                    : '$sameCount same · ${changed.length} changed · ${onlyAKeys.length} only-A · ${onlyBKeys.length} only-B',
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
+                    SizedBox(
+                      width: 220,
                       child: _HarDiffColumn(
                         title: isZh ? 'A 独有' : 'Only A',
-                        items: onlyA,
+                        items: onlyAKeys,
                         accent: Colors.red,
                       ),
                     ),
                     const VerticalDivider(width: 1),
-                    Expanded(
+                    SizedBox(
+                      width: 220,
                       child: _HarDiffColumn(
                         title: isZh ? 'B 独有' : 'Only B',
-                        items: onlyB,
+                        items: onlyBKeys,
                         accent: Colors.green,
+                      ),
+                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(
+                      child: _HarChangedColumn(
+                        title: isZh ? '同 URL 已变' : 'Changed',
+                        changes: changed,
+                        isZh: isZh,
                       ),
                     ),
                   ],
@@ -1249,6 +1309,292 @@ class _HarDiffColumn extends StatelessWidget {
                       ),
                     ),
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// HAR 单条请求摘要：HAR diff 的最小比较单元。bodyText 全文保留供二级
+/// diff 使用，超长内容会在 _HarChangedColumn 渲染时再做截断。
+class _HarEntrySummary {
+  const _HarEntrySummary({
+    required this.method,
+    required this.url,
+    required this.status,
+    required this.bodySize,
+    required this.mimeType,
+    required this.bodyText,
+  });
+  final String method;
+  final String url;
+  final int status;
+  final int bodySize;
+  final String mimeType;
+  final String bodyText;
+}
+
+/// 同 (method,url) 在两份 HAR 中的差异：status 不同 / body 大小不同 /
+/// body 文本不同 至少一项为真。三个标志位决定渲染高亮区域。
+class _HarChange {
+  const _HarChange({
+    required this.a,
+    required this.b,
+    required this.statusChanged,
+    required this.sizeChanged,
+    required this.textChanged,
+  });
+  final _HarEntrySummary a;
+  final _HarEntrySummary b;
+  final bool statusChanged;
+  final bool sizeChanged;
+  final bool textChanged;
+}
+
+/// 「同 URL 已变」列：每个 _HarChange 渲染一个 ExpansionTile，标题展示
+/// status A→B 色块、body size delta；展开后展示两份 body 的截断预览。
+class _HarChangedColumn extends StatelessWidget {
+  const _HarChangedColumn({
+    required this.title,
+    required this.changes,
+    required this.isZh,
+  });
+
+  final String title;
+  final List<_HarChange> changes;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('${changes.length}',
+                    style: theme.textTheme.labelSmall),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: changes.isEmpty
+                ? Center(
+                    child: Text(
+                      isZh ? '同 URL 全部一致' : 'All shared URLs are identical',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: changes.length,
+                    itemBuilder: (_, i) =>
+                        _HarChangeRow(change: changes[i], isZh: isZh),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HarChangeRow extends StatelessWidget {
+  const _HarChangeRow({required this.change, required this.isZh});
+
+  final _HarChange change;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final c = change;
+    final sizeDelta = c.b.bodySize - c.a.bodySize;
+    final headerChips = <Widget>[
+      _StatusChip(value: c.a.status, color: cs.primary),
+      const Icon(Icons.arrow_forward_rounded, size: 14),
+      _StatusChip(
+        value: c.b.status,
+        color: c.statusChanged ? cs.error : cs.primary,
+        emphasised: c.statusChanged,
+      ),
+      if (c.sizeChanged)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: (sizeDelta > 0 ? cs.error : Colors.green)
+                .withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            '${sizeDelta >= 0 ? '+' : ''}${_fmtSize(sizeDelta)}',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: sizeDelta > 0 ? cs.error : Colors.green,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+          childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+          title: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: headerChips,
+          ),
+          subtitle: SelectableText(
+            '${c.a.method} ${c.a.url}',
+            maxLines: 1,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+            ),
+          ),
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _BodyPreview(
+                    title: 'A · ${c.a.mimeType}',
+                    body: c.a.bodyText,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _BodyPreview(
+                    title: 'B · ${c.b.mimeType}',
+                    body: c.b.bodyText,
+                    accentChanged: c.textChanged,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _fmtSize(int v) {
+    final a = v.abs();
+    if (a < 1024) return '$a B';
+    if (a < 1024 * 1024) return '${(a / 1024).toStringAsFixed(1)} KB';
+    return '${(a / 1024 / 1024).toStringAsFixed(2)} MB';
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({
+    required this.value,
+    required this.color,
+    this.emphasised = false,
+  });
+
+  final int value;
+  final Color color;
+  final bool emphasised;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: emphasised ? 0.28 : 0.16),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: color.withValues(alpha: emphasised ? 0.7 : 0.35),
+          width: emphasised ? 1.4 : 1,
+        ),
+      ),
+      child: Text(
+        '$value',
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontFamily: 'monospace',
+          fontWeight: emphasised ? FontWeight.w900 : FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _BodyPreview extends StatelessWidget {
+  const _BodyPreview({
+    required this.title,
+    required this.body,
+    this.accentChanged = false,
+  });
+
+  final String title;
+  final String body;
+  final bool accentChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final preview = body.length > 800 ? '${body.substring(0, 800)}…' : body;
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: accentChanged ? cs.error : cs.outlineVariant,
+          width: accentChanged ? 1.2 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 220),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                preview.isEmpty ? '<empty>' : preview,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  height: 1.45,
+                ),
+              ),
+            ),
           ),
         ],
       ),

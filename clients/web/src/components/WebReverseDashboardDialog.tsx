@@ -215,7 +215,7 @@ function BrowserTab() {
         <li>
           {t(
             'webReverse.browser.bulletPersistence',
-            'Sources 断点 + Console REPL 历史 + 拦截规则 按会话持久化；Sources 支持跨脚本代码搜索；Network 单条请求支持「编辑后重放」改写 URL / Headers，工具栏「批量操作」按过滤结果 block / replay / 复制 curl，工具栏「HAR 对比」按 method+url+status 三元组对两份 .har 做请求级集合 diff；Performance 一键导出 FPS + Long task CSV，并把最近一次 trace 渲染为可缩放火焰图；Memory 比较快照升级为按 constructor 列出 Top 40 字节增长（isolate 解析）；高级菜单「WebRTC 实时面板」按 PC id 维护 60 点环形采样 + 每秒 getStats 折线（bytesSent / bytesReceived / packetsLost / RTT）；Sources 面板可选 LSP（默认 typescript-language-server，未装自动退化）—— 右键代码行触发 hover / 跳转定义 / 重命名预览；Shift+? 弹快捷键速查面板。',
+            'Sources 断点 + Console REPL 历史 + 拦截规则 按会话持久化；Sources 支持跨脚本代码搜索；Network 单条请求支持「编辑后重放」改写 URL / Headers，工具栏「批量操作」按过滤结果 block / replay / 复制 curl，工具栏「HAR 对比」升级为二级 diff（status 色块 + body size delta + 同 URL body 预览）；Performance 一键导出 FPS + Long task CSV，并把最近一次 trace 渲染为可缩放火焰图（横轴 5 等分时间标尺 + 点击事件框弹 args + 右侧 Top 30 dur 列表）；Memory 比较快照升级为按 constructor 列出 Top 40 字节增长（isolate 解析），点击任一行弹「保持者链」侧栏 BFS 5 跳；高级菜单「WebRTC 实时面板」按 PC id 维护 60 点环形采样 + 每秒 getStats 折线 + ICE 拓扑 / SDP Diff 两 tab + 一键导出 stats CSV；Sources 面板可选 LSP（默认 typescript-language-server，未装自动退化）—— 鼠标悬停 300ms 自动行尾浮窗 hover、跳转定义命中同文档时滚动并高亮 2s、右键代码行触发 hover / 跳转定义 / 重命名预览；Shift+? 弹快捷键速查面板。',
           )}
         </li>
       </ul>

@@ -1129,6 +1129,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         bytesA: a.bytes,
         bytesB: b.bytes,
         result: result,
+        bJson: b.json,
         isZh: isZh,
       ),
     );
@@ -3851,28 +3852,50 @@ class _DiffRow extends StatelessWidget {
 
 
 /// 把 Tracing.dataCollected JSON 转成简化火焰图的弹窗。
-/// 解析规则：只挑 ph == 'X'（完整事件）、有 ts + dur 的条目；按 tid 分行
-/// 堆叠，按时间轴横向布局；超过 3000 个事件自动抽样到 3000 个保性能。
-class _FlameGraphDialog extends StatelessWidget {
+///
+/// 2026-05-24 Stage D 增强：
+///   ① 横轴贴出时间标尺（5 等分时间刻度，单位 ms）；
+///   ② 点击任一矩形弹出该 event 的完整 args / cat / pid 详情；
+///   ③ 右侧侧栏列出按 dur 降序的 Top 30 事件，点击即在火焰图里把对应
+///      矩形闪烁高亮 1 秒。
+class _FlameGraphDialog extends StatefulWidget {
   const _FlameGraphDialog({required this.traceJson, required this.isZh});
 
   final String traceJson;
   final bool isZh;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    List<_FlameEvent> events;
-    int minTs;
-    int maxTs;
+  State<_FlameGraphDialog> createState() => _FlameGraphDialogState();
+}
+
+class _FlameGraphDialogState extends State<_FlameGraphDialog> {
+  late final List<_FlameEvent> _events;
+  late final int _minTs;
+  late final int _maxTs;
+  // 命中高亮：点击 top-list 后写入，painter 把对应索引画亮，1 秒后消逝。
+  int? _hitIndex;
+  Timer? _hitTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _parse();
+  }
+
+  @override
+  void dispose() {
+    _hitTimer?.cancel();
+    super.dispose();
+  }
+
+  void _parse() {
+    var minT = (1 << 62);
+    var maxT = -1;
+    final all = <_FlameEvent>[];
     try {
-      final decoded = jsonDecode(traceJson) as Map<String, Object?>;
+      final decoded = jsonDecode(widget.traceJson) as Map<String, Object?>;
       final raw = decoded['traceEvents'];
       final list = raw is List ? raw : const <Object?>[];
-      var minT = (1 << 62);
-      var maxT = -1;
-      final all = <_FlameEvent>[];
       for (final item in list.whereType<Map>()) {
         if (item['ph'] != 'X') continue;
         final ts = (item['ts'] as num?)?.toInt();
@@ -3883,29 +3906,78 @@ class _FlameGraphDialog extends StatelessWidget {
           name: '${item['name'] ?? ''}',
           ts: ts,
           dur: dur,
+          cat: '${item['cat'] ?? ''}',
+          pid: '${item['pid'] ?? ''}',
+          args: item['args'] is Map
+              ? Map<String, Object?>.from(item['args'] as Map)
+              : const <String, Object?>{},
         ));
         if (ts < minT) minT = ts;
         if (ts + dur > maxT) maxT = ts + dur;
       }
-      // 抽样：对超长 trace 取等距样本，火焰图依然能反映分布。
-      if (all.length > 3000) {
-        final step = (all.length / 3000).ceil();
-        events = [for (var i = 0; i < all.length; i += step) all[i]];
-      } else {
-        events = all;
-      }
-      minTs = minT;
-      maxTs = maxT;
-    } catch (_) {
-      events = const [];
-      minTs = 0;
-      maxTs = 0;
+    } catch (_) {/* fall through */}
+    if (all.length > 3000) {
+      final step = (all.length / 3000).ceil();
+      _events = [for (var i = 0; i < all.length; i += step) all[i]];
+    } else {
+      _events = all;
     }
+    _minTs = minT == (1 << 62) ? 0 : minT;
+    _maxTs = maxT < 0 ? 0 : maxT;
+  }
+
+  void _highlightFromTopList(int idx) {
+    _hitTimer?.cancel();
+    setState(() => _hitIndex = idx);
+    _hitTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (!mounted) return;
+      setState(() => _hitIndex = null);
+    });
+  }
+
+  void _showEventDetail(_FlameEvent e) {
+    final isZh = widget.isZh;
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isZh ? '事件详情' : 'Event detail'),
+        content: SizedBox(
+          width: 560,
+          child: SelectableText(
+            'name: ${e.name}\n'
+            'cat: ${e.cat}\n'
+            'pid: ${e.pid} · tid: ${e.tid}\n'
+            'ts: ${e.ts} (μs)\n'
+            'dur: ${e.dur} μs (${(e.dur / 1000).toStringAsFixed(2)} ms)\n'
+            '\nargs:\n${const JsonEncoder.withIndent('  ').convert(e.args)}',
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(isZh ? '关闭' : 'Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    // 计算 Top dur 30：按 dur 降序，给原索引一并保留（用于火焰图高亮）。
+    final indexed = <(int, _FlameEvent)>[
+      for (var i = 0; i < _events.length; i++) (i, _events[i])
+    ]..sort((a, b) => b.$2.dur.compareTo(a.$2.dur));
+    final top = indexed.take(30).toList();
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1080, maxHeight: 640),
+        constraints: const BoxConstraints(maxWidth: 1280, maxHeight: 720),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -3913,13 +3985,14 @@ class _FlameGraphDialog extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Icon(Icons.local_fire_department_rounded, color: cs.primary),
+                  Icon(Icons.local_fire_department_rounded,
+                      color: cs.primary),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       isZh
-                          ? '火焰图（${events.length} 事件 · ${(maxTs - minTs) / 1000} ms）'
-                          : 'Flame graph (${events.length} ev · ${(maxTs - minTs) / 1000} ms)',
+                          ? '火焰图（${_events.length} 事件 · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms）'
+                          : 'Flame graph (${_events.length} ev · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms)',
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
@@ -3933,7 +4006,7 @@ class _FlameGraphDialog extends StatelessWidget {
             ),
             const Divider(height: 1),
             Flexible(
-              child: events.isEmpty
+              child: _events.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
@@ -3944,29 +4017,145 @@ class _FlameGraphDialog extends StatelessWidget {
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
                     )
-                  : InteractiveViewer(
-                      maxScale: 8,
-                      minScale: 0.5,
-                      child: SizedBox(
-                        width: 1600,
-                        height: 480,
-                        child: CustomPaint(
-                          painter: _FlamePainter(
-                            events: events,
-                            minTs: minTs,
-                            maxTs: maxTs,
-                            primary: cs.primary,
-                            tertiary: cs.tertiary,
-                            onSurface: cs.onSurface,
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 火焰图主体 + 时间轴。
+                        Expanded(
+                          flex: 4,
+                          child: InteractiveViewer(
+                            maxScale: 8,
+                            minScale: 0.5,
+                            child: SizedBox(
+                              width: 1600,
+                              height: 540,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTapDown: (d) {
+                                  final hit = _hitTest(d.localPosition,
+                                      const Size(1600, 540));
+                                  if (hit != null) _showEventDetail(hit);
+                                },
+                                child: CustomPaint(
+                                  painter: _FlamePainter(
+                                    events: _events,
+                                    minTs: _minTs,
+                                    maxTs: _maxTs,
+                                    primary: cs.primary,
+                                    tertiary: cs.tertiary,
+                                    onSurface: cs.onSurface,
+                                    grid: cs.outlineVariant,
+                                    hitIndex: _hitIndex,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const VerticalDivider(width: 1),
+                        // 右侧 Top dur 列表。
+                        SizedBox(
+                          width: 280,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 12, 8, 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isZh
+                                      ? '按耗时排序 Top 30'
+                                      : 'Top 30 by duration',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 6),
+                                Expanded(
+                                  child: ListView.builder(
+                                    itemCount: top.length,
+                                    itemBuilder: (_, i) {
+                                      final (idx, e) = top[i];
+                                      final ms = e.dur / 1000;
+                                      return InkWell(
+                                        onTap: () =>
+                                            _highlightFromTopList(idx),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 4, vertical: 4),
+                                          child: Row(
+                                            children: [
+                                              SizedBox(
+                                                width: 60,
+                                                child: Text(
+                                                  '${ms.toStringAsFixed(2)}ms',
+                                                  style: theme
+                                                      .textTheme.labelSmall
+                                                      ?.copyWith(
+                                                    fontFamily: 'monospace',
+                                                    fontWeight:
+                                                        FontWeight.w700,
+                                                    color: ms > 50
+                                                        ? cs.error
+                                                        : cs.primary,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Text(
+                                                  e.name,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style:
+                                                      theme.textTheme.bodySmall
+                                                          ?.copyWith(
+                                                    fontFamily: 'monospace',
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// 火焰图点击命中：把 (localPosition, canvas size) 反推回事件索引。
+  /// painter 在 paint 时按 (e.ts - minTs)/span * w 算 x，按 tid 索引算 y。
+  _FlameEvent? _hitTest(Offset local, Size size) {
+    if (_events.isEmpty) return null;
+    final span = (_maxTs - _minTs).toDouble().clamp(1, double.infinity);
+    final tidIndex = <String, int>{};
+    for (final e in _events) {
+      tidIndex.putIfAbsent(e.tid, () => tidIndex.length);
+    }
+    final canvasH = size.height - _FlamePainter.kAxisH;
+    final rowH = canvasH / (tidIndex.length).clamp(1, 999);
+    for (final e in _events) {
+      final x = (e.ts - _minTs) / span * size.width;
+      final w = (e.dur / span * size.width).clamp(1, size.width).toDouble();
+      final y = (tidIndex[e.tid] ?? 0) * rowH;
+      final h = (rowH - 2).clamp(2.0, double.infinity);
+      if (local.dx >= x &&
+          local.dx <= x + w &&
+          local.dy >= y &&
+          local.dy <= y + h) {
+        return e;
+      }
+    }
+    return null;
   }
 }
 
@@ -3976,12 +4165,18 @@ class _FlameEvent {
     required this.name,
     required this.ts,
     required this.dur,
+    this.cat = '',
+    this.pid = '',
+    this.args = const <String, Object?>{},
   });
 
   final String tid;
   final String name;
   final int ts;
   final int dur;
+  final String cat;
+  final String pid;
+  final Map<String, Object?> args;
 }
 
 class _FlamePainter extends CustomPainter {
@@ -3992,7 +4187,13 @@ class _FlamePainter extends CustomPainter {
     required this.primary,
     required this.tertiary,
     required this.onSurface,
+    required this.grid,
+    this.hitIndex,
   });
+
+  /// 时间轴高度（底部留给刻度文字 + 网格线）。_FlameGraphDialogState
+  /// 在 hitTest 时减去这个高度，确保点到底部刻度区不会误命中事件。
+  static const double kAxisH = 22;
 
   final List<_FlameEvent> events;
   final int minTs;
@@ -4000,6 +4201,8 @@ class _FlamePainter extends CustomPainter {
   final Color primary;
   final Color tertiary;
   final Color onSurface;
+  final Color grid;
+  final int? hitIndex;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -4009,20 +4212,34 @@ class _FlamePainter extends CustomPainter {
     for (final e in events) {
       tidIndex.putIfAbsent(e.tid, () => tidIndex.length);
     }
-    final rowH = size.height / (tidIndex.length).clamp(1, 999);
-    for (final e in events) {
+    final canvasH = size.height - kAxisH;
+    final rowH = canvasH / (tidIndex.length).clamp(1, 999);
+    for (var i = 0; i < events.length; i++) {
+      final e = events[i];
       final x = (e.ts - minTs) / span * size.width;
       final w = (e.dur / span * size.width).clamp(1, size.width).toDouble();
       final y = (tidIndex[e.tid] ?? 0) * rowH;
       final h = (rowH - 2).clamp(2.0, double.infinity);
       // 颜色按 dur 长短分级：>50ms 用 tertiary（红橙），其它用 primary。
-      final color = e.dur > 50000
+      // hitIndex 命中时改用满色 + 描边高亮。
+      final isHit = hitIndex == i;
+      final baseColor = e.dur > 50000
           ? tertiary
           : primary.withValues(alpha: 0.55);
+      final color = isHit ? primary : baseColor;
       canvas.drawRect(
         Rect.fromLTWH(x, y, w, h),
         Paint()..color = color,
       );
+      if (isHit) {
+        canvas.drawRect(
+          Rect.fromLTWH(x, y, w, h),
+          Paint()
+            ..color = onSurface
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.4,
+        );
+      }
       if (w > 40) {
         final tp = TextPainter(
           text: TextSpan(
@@ -4040,11 +4257,40 @@ class _FlamePainter extends CustomPainter {
         tp.paint(canvas, Offset(x + 2, y + 1));
       }
     }
+    // ── 时间轴：顶上一条灰色基线 + 5 等分刻度，下方贴 ms 数值。
+    final axisY = canvasH;
+    final gridPaint = Paint()
+      ..color = grid
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(0, axisY), Offset(size.width, axisY), gridPaint);
+    for (var k = 0; k <= 5; k++) {
+      final x = size.width * k / 5;
+      canvas.drawLine(Offset(x, axisY), Offset(x, axisY + 4), gridPaint);
+      final ms = (span * k / 5) / 1000;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '${ms.toStringAsFixed(2)} ms',
+          style: TextStyle(
+            color: onSurface.withValues(alpha: 0.7),
+            fontSize: 9,
+            fontFamily: 'monospace',
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      var labelX = x - tp.width / 2;
+      if (labelX < 0) labelX = 0;
+      if (labelX + tp.width > size.width) labelX = size.width - tp.width;
+      tp.paint(canvas, Offset(labelX, axisY + 5));
+    }
   }
 
   @override
   bool shouldRepaint(covariant _FlamePainter old) =>
-      old.events != events || old.minTs != minTs || old.maxTs != maxTs;
+      old.events != events ||
+      old.minTs != minTs ||
+      old.maxTs != maxTs ||
+      old.hitIndex != hitIndex;
 }
 
 
@@ -4210,13 +4456,18 @@ _HeapAggResult _aggregateHeap(String src) {
 
 /// 快照对比弹窗：上方两行 raw bytes / 节点数 / 自有大小 delta，下方
 /// DataTable 列出 top growth constructor（默认按字节增长降序）。
-class _SnapshotDiffDialog extends StatelessWidget {
+///
+/// 2026-05-24 Stage E 增强：点击表格任一行 → 右侧弹出「保持者链」侧栏，
+/// 后台 isolate 解析 snapshot.edges 反向构造邻接表，从该 ctor 的代表实
+/// 例往上走最多 5 跳，把可达的 retainer 链路渲染成树形列表。
+class _SnapshotDiffDialog extends StatefulWidget {
   const _SnapshotDiffDialog({
     required this.whenA,
     required this.whenB,
     required this.bytesA,
     required this.bytesB,
     required this.result,
+    required this.bJson,
     required this.isZh,
   });
 
@@ -4225,20 +4476,65 @@ class _SnapshotDiffDialog extends StatelessWidget {
   final int bytesA;
   final int bytesB;
   final _HeapDiffResult result;
+  final String bJson;
   final bool isZh;
+
+  static String _fmtBytes(int v) {
+    if (v < 1024) return '$v B';
+    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
+    if (v < 1024 * 1024 * 1024) {
+      return '${(v / 1024 / 1024).toStringAsFixed(1)} MB';
+    }
+    return '${(v / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
+  }
+
+  static String _fmtSignedBytes(int v) {
+    final s = _fmtBytes(v.abs());
+    return v >= 0 ? '+$s' : '-$s';
+  }
+
+  static String _fmtSigned(int v) => v >= 0 ? '+$v' : '$v';
+
+  @override
+  State<_SnapshotDiffDialog> createState() => _SnapshotDiffDialogState();
+}
+
+class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
+  String? _selectedLabel;
+  bool _retainerLoading = false;
+  _RetainerChainResult? _retainerResult;
+
+  Future<void> _onRowTap(String label) async {
+    setState(() {
+      _selectedLabel = label;
+      _retainerLoading = true;
+      _retainerResult = null;
+    });
+    final r = await compute(_findRetainerChainsWorker, <String, String>{
+      'json': widget.bJson,
+      'label': label,
+    });
+    if (!mounted) return;
+    setState(() {
+      _retainerLoading = false;
+      _retainerResult = r;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final dBytes = bytesB - bytesA;
+    final isZh = widget.isZh;
+    final result = widget.result;
+    final dBytes = widget.bytesB - widget.bytesA;
     final dNodes = result.nodesB - result.nodesA;
     final dSelf = result.totalSelfB - result.totalSelfA;
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 640),
+        constraints: const BoxConstraints(maxWidth: 1280, maxHeight: 720),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -4268,17 +4564,17 @@ class _SnapshotDiffDialog extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'A: ${whenA.toLocal().toIso8601String().split(".").first}'
+                    'A: ${widget.whenA.toLocal().toIso8601String().split(".").first}'
                     '   →   '
-                    'B: ${whenB.toLocal().toIso8601String().split(".").first}',
+                    'B: ${widget.whenB.toLocal().toIso8601String().split(".").first}',
                     style: theme.textTheme.bodySmall
                         ?.copyWith(fontFamily: 'monospace'),
                   ),
                   const SizedBox(height: 10),
                   _DiffRow(
                     label: isZh ? '原始字节' : 'Raw bytes',
-                    a: _fmtBytes(bytesA),
-                    b: _fmtBytes(bytesB),
+                    a: _SnapshotDiffDialog._fmtBytes(widget.bytesA),
+                    b: _SnapshotDiffDialog._fmtBytes(widget.bytesB),
                     delta: dBytes,
                   ),
                   _DiffRow(
@@ -4289,8 +4585,8 @@ class _SnapshotDiffDialog extends StatelessWidget {
                   ),
                   _DiffRow(
                     label: isZh ? '自有大小' : 'Self size',
-                    a: _fmtBytes(result.totalSelfA),
-                    b: _fmtBytes(result.totalSelfB),
+                    a: _SnapshotDiffDialog._fmtBytes(result.totalSelfA),
+                    b: _SnapshotDiffDialog._fmtBytes(result.totalSelfB),
                     delta: dSelf,
                   ),
                 ],
@@ -4305,6 +4601,14 @@ class _SnapshotDiffDialog extends StatelessWidget {
                     isZh ? '构造器增长 Top 40' : 'Top 40 constructor growth',
                     style: theme.textTheme.titleSmall
                         ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    isZh
+                        ? '点击任一行 → 右侧显示保持者链'
+                        : 'Click row → retainer chain on the right',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const Spacer(),
                   if (result.error != null)
@@ -4328,83 +4632,116 @@ class _SnapshotDiffDialog extends StatelessWidget {
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
                     )
-                  : Scrollbar(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                        child: DataTable(
-                          headingRowHeight: 32,
-                          dataRowMinHeight: 28,
-                          dataRowMaxHeight: 32,
-                          columnSpacing: 24,
-                          columns: [
-                            DataColumn(
-                              label: Text(isZh ? '构造器' : 'Constructor'),
-                            ),
-                            DataColumn(
-                              label: Text(isZh ? '字节增量' : 'Δ bytes'),
-                              numeric: true,
-                            ),
-                            DataColumn(
-                              label: Text(isZh ? '节点增量' : 'Δ count'),
-                              numeric: true,
-                            ),
-                            DataColumn(
-                              label: Text(isZh ? 'A 字节' : 'A bytes'),
-                              numeric: true,
-                            ),
-                            DataColumn(
-                              label: Text(isZh ? 'B 字节' : 'B bytes'),
-                              numeric: true,
-                            ),
-                          ],
-                          rows: [
-                            for (final g in result.growth)
-                              DataRow(cells: [
-                                DataCell(SelectableText(
-                                  g.label,
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 12,
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Scrollbar(
+                            child: SingleChildScrollView(
+                              padding:
+                                  const EdgeInsets.fromLTRB(20, 0, 12, 16),
+                              child: DataTable(
+                                headingRowHeight: 32,
+                                dataRowMinHeight: 28,
+                                dataRowMaxHeight: 32,
+                                columnSpacing: 24,
+                                showCheckboxColumn: false,
+                                columns: [
+                                  DataColumn(
+                                      label:
+                                          Text(isZh ? '构造器' : 'Constructor')),
+                                  DataColumn(
+                                    label:
+                                        Text(isZh ? '字节增量' : 'Δ bytes'),
+                                    numeric: true,
                                   ),
-                                )),
-                                DataCell(Text(
-                                  _fmtSignedBytes(g.bytesDelta),
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 12,
-                                    color: g.bytesDelta > 0
-                                        ? cs.error
-                                        : (g.bytesDelta < 0
-                                            ? Colors.green
-                                            : cs.onSurfaceVariant),
-                                    fontWeight: FontWeight.w700,
+                                  DataColumn(
+                                    label:
+                                        Text(isZh ? '节点增量' : 'Δ count'),
+                                    numeric: true,
                                   ),
-                                )),
-                                DataCell(Text(
-                                  _fmtSigned(g.countDelta),
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 12,
+                                  DataColumn(
+                                    label: Text(isZh ? 'A 字节' : 'A bytes'),
+                                    numeric: true,
                                   ),
-                                )),
-                                DataCell(Text(
-                                  _fmtBytes(g.bytesA),
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 12,
+                                  DataColumn(
+                                    label: Text(isZh ? 'B 字节' : 'B bytes'),
+                                    numeric: true,
                                   ),
-                                )),
-                                DataCell(Text(
-                                  _fmtBytes(g.bytesB),
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 12,
-                                  ),
-                                )),
-                              ]),
-                          ],
+                                ],
+                                rows: [
+                                  for (final g in result.growth)
+                                    DataRow(
+                                      selected: g.label == _selectedLabel,
+                                      onSelectChanged: (_) =>
+                                          _onRowTap(g.label),
+                                      cells: [
+                                        DataCell(SelectableText(
+                                          g.label,
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                          ),
+                                        )),
+                                        DataCell(Text(
+                                          _SnapshotDiffDialog
+                                              ._fmtSignedBytes(g.bytesDelta),
+                                          style: TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                            color: g.bytesDelta > 0
+                                                ? cs.error
+                                                : (g.bytesDelta < 0
+                                                    ? Colors.green
+                                                    : cs.onSurfaceVariant),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        )),
+                                        DataCell(Text(
+                                          _SnapshotDiffDialog._fmtSigned(
+                                              g.countDelta),
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                          ),
+                                        )),
+                                        DataCell(Text(
+                                          _SnapshotDiffDialog._fmtBytes(
+                                              g.bytesA),
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                          ),
+                                        )),
+                                        DataCell(Text(
+                                          _SnapshotDiffDialog._fmtBytes(
+                                              g.bytesB),
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                          ),
+                                        )),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        if (_selectedLabel != null) ...[
+                          const VerticalDivider(width: 1),
+                          SizedBox(
+                            width: 360,
+                            child: _RetainerSidePanel(
+                              ctorLabel: _selectedLabel!,
+                              loading: _retainerLoading,
+                              result: _retainerResult,
+                              isZh: isZh,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
             ),
           ],
@@ -4412,20 +4749,327 @@ class _SnapshotDiffDialog extends StatelessWidget {
       ),
     );
   }
+}
 
-  static String _fmtBytes(int v) {
-    if (v < 1024) return '$v B';
-    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
-    if (v < 1024 * 1024 * 1024) {
-      return '${(v / 1024 / 1024).toStringAsFixed(1)} MB';
+
+/// 单条 retainer 链：path 是从 root 到目标实例的节点链（label，从外到内）。
+/// shortest 字段单独保存最短链长度，方便上层渲染时排序。
+class _RetainerChain {
+  const _RetainerChain({required this.path});
+  final List<String> path;
+  int get hops => path.length;
+}
+
+class _RetainerChainResult {
+  const _RetainerChainResult({
+    required this.label,
+    required this.found,
+    required this.totalInstances,
+    required this.chains,
+    required this.error,
+  });
+  final String label;
+  final bool found;
+  final int totalInstances;
+  final List<_RetainerChain> chains;
+  final String? error;
+}
+
+/// 在 isolate 里跑：解析 .heapsnapshot 的 nodes / edges 表，建立反向邻
+/// 接表，从该 ctor label 的代表实例出发往上反推 retainer chain（最多 5
+/// 跳；同一节点不重复扩展防回路）；展示时取最短的 6 条 chain。
+_RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
+  final src = input['json'] ?? '';
+  final wantLabel = input['label'] ?? '';
+  try {
+    final m = jsonDecode(src) as Map<String, Object?>;
+    final snapshot = m['snapshot'] as Map<String, Object?>? ?? const {};
+    final meta = snapshot['meta'] as Map<String, Object?>? ?? const {};
+    final nodeFields = (meta['node_fields'] as List?)?.cast<String>() ??
+        const ['type', 'name', 'id', 'self_size', 'edge_count'];
+    final edgeFields = (meta['edge_fields'] as List?)?.cast<String>() ??
+        const ['type', 'name_or_index', 'to_node'];
+    final nLen = nodeFields.length;
+    final eLen = edgeFields.length;
+    final iType = nodeFields.indexOf('type');
+    final iName = nodeFields.indexOf('name');
+    final iEdgeCount = nodeFields.indexOf('edge_count');
+    final iEdgeTo = edgeFields.indexOf('to_node');
+    final iEdgeName = edgeFields.indexOf('name_or_index');
+    final typesRaw = meta['node_types'] as List?;
+    final typeNames = (typesRaw != null && typesRaw.isNotEmpty)
+        ? (typesRaw.first as List).cast<String>()
+        : const <String>['object'];
+    final nodes = (m['nodes'] as List?) ?? const [];
+    final edges = (m['edges'] as List?) ?? const [];
+    final strings = (m['strings'] as List?)?.cast<String>() ??
+        const <String>[];
+
+    String labelOfNode(int nodeIdx) {
+      final base = nodeIdx;
+      final type = (nodes[base + iType] as num).toInt();
+      final nameIdx =
+          iName >= 0 ? (nodes[base + iName] as num).toInt() : 0;
+      final typeName =
+          (type >= 0 && type < typeNames.length) ? typeNames[type] : '?';
+      final name = (nameIdx >= 0 && nameIdx < strings.length)
+          ? strings[nameIdx]
+          : '';
+      if (typeName == 'object') return name.isEmpty ? '<object>' : name;
+      if (typeName == 'closure') {
+        return name.isEmpty ? '<closure>' : 'closure:$name';
+      }
+      return '<$typeName>';
     }
-    return '${(v / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
-  }
 
-  static String _fmtSignedBytes(int v) {
-    final s = _fmtBytes(v.abs());
-    return v >= 0 ? '+$s' : '-$s';
-  }
+    // 节点起始下标列表（每个 node 占 nLen 个 int）。i-th 节点在
+    // nodes[i*nLen .. i*nLen + nLen - 1]。
+    final nodeCount = nodes.length ~/ (nLen == 0 ? 1 : nLen);
+    // 第一遍：累计每个 node 的 edges 起始位置（在 edges 数组里的偏移）。
+    final edgeOffsets = List<int>.filled(nodeCount + 1, 0);
+    for (var i = 0; i < nodeCount; i++) {
+      final ec = iEdgeCount >= 0
+          ? (nodes[i * nLen + iEdgeCount] as num).toInt()
+          : 0;
+      edgeOffsets[i + 1] = edgeOffsets[i] + ec * eLen;
+    }
 
-  static String _fmtSigned(int v) => v >= 0 ? '+$v' : '$v';
+    // 找出该 ctor 的所有实例 nodeIndex；再挑 self_size 最大的代表。
+    final iSelf = nodeFields.indexOf('self_size');
+    final candidates = <int>[];
+    for (var i = 0; i < nodeCount; i++) {
+      if (labelOfNode(i * nLen) == wantLabel) candidates.add(i);
+    }
+    if (candidates.isEmpty) {
+      return _RetainerChainResult(
+        label: wantLabel,
+        found: false,
+        totalInstances: 0,
+        chains: const [],
+        error: null,
+      );
+    }
+    int leader = candidates.first;
+    if (iSelf >= 0) {
+      var bestSelf = -1;
+      for (final c in candidates) {
+        final s = (nodes[c * nLen + iSelf] as num).toInt();
+        if (s > bestSelf) {
+          bestSelf = s;
+          leader = c;
+        }
+      }
+    }
+
+    // 第二遍：构建反向邻接表 reverse[targetNode] = list of (source,
+    // edgeName). edges 里每条 edge 的 to_node 是「字节偏移」（按 V8
+    // heapsnapshot 规范），需要除以 nLen 还原成节点 index。
+    final reverse = List<List<int>>.generate(nodeCount, (_) => <int>[]);
+    final reverseEdgeName = List<List<String>>.generate(
+      nodeCount,
+      (_) => <String>[],
+    );
+    for (var src = 0; src < nodeCount; src++) {
+      final start = edgeOffsets[src];
+      final end = edgeOffsets[src + 1];
+      for (var e = start; e + eLen <= end; e += eLen) {
+        final to = (edges[e + iEdgeTo] as num).toInt();
+        final tIdx = to ~/ nLen;
+        if (tIdx < 0 || tIdx >= nodeCount) continue;
+        final nameIdx = iEdgeName >= 0
+            ? (edges[e + iEdgeName] as num).toInt()
+            : 0;
+        // edge 的 name_or_index 对 element 边是数字索引、对 property/internal
+        // 边是 strings[name] 的下标。这里只展示前者数字、后者字符串。
+        final n = (nameIdx >= 0 && nameIdx < strings.length)
+            ? strings[nameIdx]
+            : '$nameIdx';
+        reverse[tIdx].add(src);
+        reverseEdgeName[tIdx].add(n);
+      }
+    }
+
+    // BFS 从 leader 反向走，最多 5 跳。每条 chain 最长 6 个 label
+    // （目标 + 5 个 retainer）。同一节点不重复扩展防环。
+    final chains = <_RetainerChain>[];
+    final visited = <int>{};
+    final queue = <(int node, List<String> path)>[
+      (leader, [labelOfNode(leader * nLen)])
+    ];
+    while (queue.isNotEmpty && chains.length < 12) {
+      final entry = queue.removeAt(0);
+      final node = entry.$1;
+      final path = entry.$2;
+      visited.add(node);
+      final retainers = reverse[node];
+      if (retainers.isEmpty || path.length >= 6) {
+        chains.add(_RetainerChain(path: path));
+        continue;
+      }
+      // 取每个节点的至多 3 个 retainer 进队，避免邻接爆炸。
+      var emitted = 0;
+      for (var k = 0; k < retainers.length && emitted < 3; k++) {
+        final r = retainers[k];
+        if (visited.contains(r)) continue;
+        final retainerLabel =
+            '${labelOfNode(r * nLen)} . ${reverseEdgeName[node][k]}';
+        queue.add((r, [...path, retainerLabel]));
+        emitted++;
+      }
+    }
+    chains.sort((a, b) => a.hops.compareTo(b.hops));
+    return _RetainerChainResult(
+      label: wantLabel,
+      found: true,
+      totalInstances: candidates.length,
+      chains: chains.take(6).toList(growable: false),
+      error: null,
+    );
+  } catch (e) {
+    return _RetainerChainResult(
+      label: wantLabel,
+      found: false,
+      totalInstances: 0,
+      chains: const [],
+      error: '$e',
+    );
+  }
+}
+
+/// 保持者链侧栏：标题 + 实例数 + 链路列表。链路渲染成树状缩进，每跳一
+/// 个 ChevronRight 图标 + 反指 retainer label。
+class _RetainerSidePanel extends StatelessWidget {
+  const _RetainerSidePanel({
+    required this.ctorLabel,
+    required this.loading,
+    required this.result,
+    required this.isZh,
+  });
+
+  final String ctorLabel;
+  final bool loading;
+  final _RetainerChainResult? result;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isZh ? '保持者链' : 'Retainer chain',
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            ctorLabel,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (result == null)
+            Text(
+              isZh ? '尚未分析' : 'Not analyzed',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            )
+          else if (result!.error != null)
+            Text(
+              isZh
+                  ? '解析失败：${result!.error}'
+                  : 'Parse failed: ${result!.error}',
+              style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
+            )
+          else if (!result!.found)
+            Text(
+              isZh ? '快照中未找到该构造器实例' : 'Constructor not in snapshot',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            )
+          else ...[
+            Text(
+              isZh
+                  ? '找到 ${result!.totalInstances} 个实例 · 取自有大小最大的代表'
+                  : '${result!.totalInstances} instances · using largest leader',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: ListView.builder(
+                itemCount: result!.chains.length,
+                itemBuilder: (_, idx) {
+                  final chain = result!.chains[idx];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: cs.outlineVariant),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'chain · ${chain.hops} ${isZh ? "跳" : "hops"}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          for (var i = chain.path.length - 1; i >= 0; i--)
+                            Padding(
+                              padding: EdgeInsets.only(
+                                left: (chain.path.length - 1 - i) * 10.0,
+                                top: 1,
+                                bottom: 1,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.subdirectory_arrow_right_rounded,
+                                    size: 12,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: SelectableText(
+                                      chain.path[i],
+                                      maxLines: 1,
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

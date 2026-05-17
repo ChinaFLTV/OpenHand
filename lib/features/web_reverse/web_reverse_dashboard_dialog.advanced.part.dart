@@ -932,8 +932,12 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   static const int _maxEvents = 200;
   bool _disposed = false;
   int _selected = 0;
-  // 0 = 图表，1 = 事件流。
+  // 0 = 图表，1 = ICE 拓扑，2 = SDP Diff，3 = 事件流。
   int _tab = 0;
+  // 2026-05-24 Stage C 增强：ICE 候选项 + 连接状态历史，按 PC 维护。
+  final Map<int, List<_IceEntry>> _iceLog = <int, List<_IceEntry>>{};
+  // SDP 历史：每个 PC 维护 local / remote 各两份（最新 + 上一份），用于 diff。
+  final Map<int, _SdpPair> _sdps = <int, _SdpPair>{};
 
   @override
   void initState() {
@@ -971,6 +975,37 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             _selected = _series.keys.first;
           }
         } else {
+          // 2026-05-24 Stage C：把控制平面事件（pc.create / track /
+          // datachannel / icecandidate / connectionstatechange / SDP
+          // result）分类塞进 _iceLog 与 _sdps；原始 JSON 仍保留事件
+          // 流 tab 用。
+          final id = (e['id'] as num?)?.toInt() ?? 0;
+          if (id > 0) {
+            if (kind == 'icecandidate' ||
+                kind == 'pc.create' ||
+                kind == 'track' ||
+                kind == 'datachannel' ||
+                kind == 'connectionstatechange' ||
+                kind == 'iceconnectionstatechange') {
+              _iceLog.putIfAbsent(id, () => <_IceEntry>[]).add(_IceEntry(
+                    kind: kind,
+                    payload: e,
+                  ));
+            }
+            if (kind == 'setLocalDescription:result' ||
+                kind == 'setRemoteDescription:result') {
+              final sdp = e['sdp'] is String ? e['sdp'] as String : '';
+              final type = '${e['type'] ?? ''}';
+              final pair = _sdps.putIfAbsent(id, () => _SdpPair());
+              if (kind == 'setLocalDescription:result') {
+                pair.prevLocal = pair.local;
+                pair.local = _SdpVersion(type: type, sdp: sdp);
+              } else {
+                pair.prevRemote = pair.remote;
+                pair.remote = _SdpVersion(type: type, sdp: sdp);
+              }
+            }
+          }
           _events.add(e);
           if (_events.length > _maxEvents) {
             _events.removeRange(0, _events.length - _maxEvents);
@@ -978,6 +1013,66 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         }
       }
     });
+  }
+
+  /// 把当前 _series 的全部 PC 拼成 CSV 并交给 file_selector 落盘。
+  /// CSV schema：pc_id,bucket_seconds_ago,bytes_sent,bytes_received,
+  /// packets_lost,rtt_ms。每行一个 sample，buckets 0 = 当前秒。
+  Future<void> _exportSeriesCsv() async {
+    if (_series.isEmpty) return;
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    final buf = StringBuffer()
+      ..writeln('pc_id,bucket_seconds_ago,bytes_sent,bytes_received,'
+          'packets_lost,rtt_ms');
+    final ids = _series.keys.toList()..sort();
+    for (final id in ids) {
+      final samples = _series[id]!.samples;
+      // samples[i] 表示第 i 次采集（按 push 顺序，最后一次是最新）。
+      // bucket_seconds_ago = (n - 1 - i)，让最新一行 = 0。
+      for (var i = 0; i < samples.length; i++) {
+        final s = samples[i];
+        buf.writeln(
+          '$id,${samples.length - 1 - i},${s.bytesSent.toStringAsFixed(0)},'
+          '${s.bytesReceived.toStringAsFixed(0)},'
+          '${s.packetsLost.toStringAsFixed(0)},'
+          '${s.rttMs.toStringAsFixed(2)}',
+        );
+      }
+    }
+    const typeGroup = XTypeGroup(label: 'CSV', extensions: <String>['csv']);
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    FileSaveLocation? loc;
+    try {
+      loc = await getSaveLocation(
+        suggestedName: 'webrtc-stats-$ts.csv',
+        acceptedTypeGroups: const [typeGroup],
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard', 'rtc csv save', error, stack);
+    }
+    if (loc == null) return;
+    try {
+      await File(loc.path).writeAsString(buf.toString());
+      if (!mounted) return;
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? 'CSV 已保存' : 'CSV saved',
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard', 'rtc csv write', error, stack);
+      if (!mounted) return;
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '保存失败' : 'Save failed',
+        duration: const Duration(seconds: 2),
+      );
+    }
   }
 
   @override
@@ -1036,14 +1131,32 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     selected: _tab == 0,
                     onTap: () => setState(() => _tab = 0),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   _RtcTab(
-                    label: isZh ? '事件流' : 'Events',
+                    label: isZh ? 'ICE 拓扑' : 'ICE topology',
                     selected: _tab == 1,
                     onTap: () => setState(() => _tab = 1),
                   ),
+                  const SizedBox(width: 8),
+                  _RtcTab(
+                    label: isZh ? 'SDP Diff' : 'SDP diff',
+                    selected: _tab == 2,
+                    onTap: () => setState(() => _tab = 2),
+                  ),
+                  const SizedBox(width: 8),
+                  _RtcTab(
+                    label: isZh ? '事件流' : 'Events',
+                    selected: _tab == 3,
+                    onTap: () => setState(() => _tab = 3),
+                  ),
                   const Spacer(),
-                  if (_tab == 1 && _events.isNotEmpty)
+                  if (_tab == 0 && _series.isNotEmpty)
+                    OutlinedButton.icon(
+                      onPressed: _exportSeriesCsv,
+                      icon: const Icon(Icons.download_rounded, size: 16),
+                      label: Text(isZh ? '导出 CSV' : 'Export CSV'),
+                    ),
+                  if (_tab == 3 && _events.isNotEmpty)
                     OutlinedButton.icon(
                       onPressed: () async {
                         final messenger = ScaffoldMessenger.of(context);
@@ -1068,7 +1181,12 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             Flexible(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 220),
-                child: _tab == 0 ? _buildChartsTab(theme) : _buildEventsTab(theme),
+                child: switch (_tab) {
+                  0 => _buildChartsTab(theme),
+                  1 => _buildIceTab(theme),
+                  2 => _buildSdpDiffTab(theme),
+                  _ => _buildEventsTab(theme),
+                },
               ),
             ),
           ],
@@ -1159,6 +1277,201 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 onSurface: cs.onSurfaceVariant,
               ),
               size: Size.infinite,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ICE 拓扑 tab：把每个 PC 的 pc.create / track / datachannel /
+  /// icecandidate / connectionstatechange / iceconnectionstatechange 事件按
+  /// 时间序列垂直列出来；左侧是 ChoiceChip 切 PC，右侧滚动列。本地候选
+  /// （typ host）用 primary 色点；srflx / relay 用 tertiary；远端候选不
+  /// 区分单独标 secondary。datachannel / track 单列前缀图标。
+  Widget _buildIceTab(ThemeData theme) {
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    final ids = _iceLog.keys.toList()..sort();
+    if (ids.isEmpty) {
+      return Padding(
+        key: const ValueKey('empty-ice'),
+        padding: const EdgeInsets.all(36),
+        child: Center(
+          child: Text(
+            isZh ? '暂无 ICE 事件' : 'No ICE events',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+    final selectedId =
+        _iceLog.containsKey(_selected) ? _selected : ids.first;
+    final entries = _iceLog[selectedId] ?? const <_IceEntry>[];
+    return Padding(
+      key: const ValueKey('ice'),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final id in ids)
+                ChoiceChip(
+                  label: Text('PC #$id · ${_iceLog[id]!.length}'),
+                  selected: id == selectedId,
+                  onSelected: (_) => setState(() => _selected = id),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: ListView.builder(
+              itemCount: entries.length,
+              itemBuilder: (_, i) {
+                // 倒序展示：最新事件在顶部更易观察。
+                final entry = entries[entries.length - 1 - i];
+                final summary = _summarizeIce(entry, isZh);
+                final color = _iceTone(entry.kind, cs);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        margin: const EdgeInsets.only(top: 5, right: 8),
+                        decoration:
+                            BoxDecoration(color: color, shape: BoxShape.circle),
+                      ),
+                      Expanded(
+                        child: SelectableText(
+                          summary,
+                          style: const TextStyle(
+                              fontFamily: 'monospace', fontSize: 11.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _iceTone(String kind, ColorScheme cs) {
+    switch (kind) {
+      case 'icecandidate':
+        return cs.tertiary;
+      case 'track':
+      case 'datachannel':
+        return cs.primary;
+      case 'pc.create':
+        return cs.secondary;
+      case 'connectionstatechange':
+      case 'iceconnectionstatechange':
+        return cs.error;
+    }
+    return cs.onSurfaceVariant;
+  }
+
+  String _summarizeIce(_IceEntry entry, bool isZh) {
+    final p = entry.payload;
+    switch (entry.kind) {
+      case 'pc.create':
+        return 'pc.create · cfg=${jsonEncode(p['config'])}';
+      case 'track':
+        return 'track · ${p['kind']} state=${p['readyState']} '
+            'streams=${p['streamIds']}';
+      case 'datachannel':
+        return 'datachannel · label=${p['label']} ordered=${p['ordered']}';
+      case 'icecandidate':
+        final cand = '${p['candidate'] ?? ''}';
+        // candidate 字符串通常是 "candidate:foundation comp transport prio
+        //  ip port typ <type> ..."；提取 typ 后单字。
+        final m = RegExp(r'\btyp (\w+)').firstMatch(cand);
+        final typ = m?.group(1) ?? '?';
+        return 'icecandidate · typ=$typ · ${cand.length > 100 ? "${cand.substring(0, 100)}…" : cand}';
+      case 'connectionstatechange':
+        return 'connection → ${p['state']}';
+      case 'iceconnectionstatechange':
+        return 'ice → ${p['state']}';
+    }
+    return '${entry.kind} · ${jsonEncode(p)}';
+  }
+
+  /// SDP Diff tab：左右双列展示当前 PC 的 local SDP / remote SDP。每列
+  /// 头部还显示 type（offer/answer），下方按"上一份 vs 当前"做行级 diff
+  /// （绿 = 新增，红 = 删除，灰 = 不变）。第一次接到 SDP 时只渲染单列。
+  Widget _buildSdpDiffTab(ThemeData theme) {
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    final ids = _sdps.keys.toList()..sort();
+    if (ids.isEmpty) {
+      return Padding(
+        key: const ValueKey('empty-sdp'),
+        padding: const EdgeInsets.all(36),
+        child: Center(
+          child: Text(
+            isZh
+                ? '暂无 SDP。\n触发 setLocalDescription / setRemoteDescription 后会出现。'
+                : 'No SDP yet.',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final selectedId =
+        _sdps.containsKey(_selected) ? _selected : ids.first;
+    final pair = _sdps[selectedId]!;
+    return Padding(
+      key: const ValueKey('sdp'),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final id in ids)
+                ChoiceChip(
+                  label: Text('PC #$id'),
+                  selected: id == selectedId,
+                  onSelected: (_) => setState(() => _selected = id),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _SdpDiffColumn(
+                    title: isZh ? '本地 SDP' : 'Local SDP',
+                    current: pair.local,
+                    previous: pair.prevLocal,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _SdpDiffColumn(
+                    title: isZh ? '远端 SDP' : 'Remote SDP',
+                    current: pair.remote,
+                    previous: pair.prevRemote,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1914,4 +2227,160 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
       ],
     );
   }
+}
+
+
+/// 单条 ICE 控制平面事件。kind = pc.create / track / datachannel /
+/// icecandidate / (ice)connectionstatechange，payload 是原始 JSON 行。
+class _IceEntry {
+  const _IceEntry({required this.kind, required this.payload});
+  final String kind;
+  final Map<String, Object?> payload;
+}
+
+/// 一个 PeerConnection 的 local + remote SDP 当前 / 上一版本。Diff tab
+/// 拿来做行级对比。
+class _SdpPair {
+  _SdpVersion? local;
+  _SdpVersion? prevLocal;
+  _SdpVersion? remote;
+  _SdpVersion? prevRemote;
+}
+
+class _SdpVersion {
+  const _SdpVersion({required this.type, required this.sdp});
+  final String type;
+  final String sdp;
+}
+
+/// SDP Diff 单列：上方标题 + 类型徽标，下方按行 diff 展示。
+/// previous 为 null 时按全行"=="渲染，避免初次握手就一片绿洪水。
+class _SdpDiffColumn extends StatelessWidget {
+  const _SdpDiffColumn({
+    required this.title,
+    required this.current,
+    required this.previous,
+  });
+
+  final String title;
+  final _SdpVersion? current;
+  final _SdpVersion? previous;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    if (current == null) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        child: Text(
+          title,
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: cs.onSurfaceVariant),
+        ),
+      );
+    }
+    final cur = current!;
+    final prev = previous;
+    final curLines = cur.sdp.split('\n');
+    final prevLines = prev?.sdp.split('\n') ?? const <String>[];
+    // 简化 diff：行级集合差。复杂度 O(n+m)，对 SDP 这种 ~50 行内容够用。
+    final prevSet = prevLines.toSet();
+    final curSet = curLines.toSet();
+    final rows = <_SdpDiffRow>[];
+    for (final ln in curLines) {
+      rows.add(_SdpDiffRow(
+        line: ln,
+        kind: prevSet.contains(ln) ? _DiffKind.same : _DiffKind.added,
+      ));
+    }
+    if (prev != null) {
+      for (final ln in prevLines) {
+        if (!curSet.contains(ln)) {
+          rows.add(_SdpDiffRow(line: ln, kind: _DiffKind.removed));
+        }
+      }
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  cur.type,
+                  style: theme.textTheme.labelSmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              itemCount: rows.length,
+              itemBuilder: (_, i) {
+                final r = rows[i];
+                final color = switch (r.kind) {
+                  _DiffKind.added =>
+                    Colors.green.withValues(alpha: 0.18),
+                  _DiffKind.removed => cs.error.withValues(alpha: 0.18),
+                  _DiffKind.same => Colors.transparent,
+                };
+                final prefix = switch (r.kind) {
+                  _DiffKind.added => '+ ',
+                  _DiffKind.removed => '- ',
+                  _DiffKind.same => '  ',
+                };
+                return Container(
+                  color: color,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 4, vertical: 1),
+                  child: SelectableText(
+                    '$prefix${r.line}',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      height: 1.4,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _DiffKind { added, removed, same }
+
+class _SdpDiffRow {
+  const _SdpDiffRow({required this.line, required this.kind});
+  final String line;
+  final _DiffKind kind;
 }

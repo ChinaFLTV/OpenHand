@@ -36,6 +36,23 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   bool _lspEnabled = false;
   String? _lastSentUri;
 
+  // 2026-05-24 — Stage F 深化：自动 hover + 行尾浮窗 + 跳转定义滚动。
+  // _hoverDebounce 在用户停留 300ms 后才触发 LSP hover，避免每个鼠标
+  // 移动事件都打 server 一次。_hoverLine / _hoverColumn / _hoverMarkdown
+  // 联动 _SourceHoverBubble 在行尾贴一张浮窗显示 markdown。
+  Timer? _hoverDebounce;
+  int? _hoverLine;
+  String? _hoverMarkdown;
+  bool _hoverLoading = false;
+  // 高亮命中行：goto-definition / 全局搜索都会写入；2 秒后自动消逝。
+  int? _highlightedLine;
+  Timer? _highlightTimer;
+  // 滚到目标行需要 ScrollablePositionedList 暴露的精确 jumpTo；这里用
+  // 手动布局：每行高度由 _kSourceLineHeight 估算，控制 ScrollController
+  // 滚到 lineIndex * 行高即可。
+  static const double _kSourceLineHeight = 19.5;
+  final ScrollController _sourceScroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +61,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
 
   @override
   void dispose() {
+    _hoverDebounce?.cancel();
+    _highlightTimer?.cancel();
+    _sourceScroll.dispose();
     _lsp.stop();
     super.dispose();
   }
@@ -120,6 +140,64 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (l.endsWith('.ts') || l.endsWith('.tsx')) return 'typescript';
     if (l.endsWith('.jsx')) return 'javascriptreact';
     return 'javascript';
+  }
+
+  /// 鼠标在某一行上悬停时调度：300ms 内不触发新 hover，超过则发起 LSP
+  /// 请求并把结果写到 _hoverMarkdown 让 _SourceHoverBubble 渲染贴在行尾。
+  void _scheduleAutoHover(int line, int column, String text) {
+    if (!_lspEnabled || _lsp.status != WebReverseLspStatus.ready) return;
+    _hoverDebounce?.cancel();
+    _hoverDebounce = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted || !_lspEnabled) return;
+      if (_lastSentUri == null) await _pushCurrentToLsp();
+      final uri = _lastSentUri;
+      if (uri == null || !mounted) return;
+      setState(() {
+        _hoverLine = line;
+        _hoverLoading = true;
+        _hoverMarkdown = null;
+      });
+      final md = await _lsp.hover(uri, line, column);
+      if (!mounted) return;
+      // 如果光标已经移开（_hoverLine 不是当前 line），丢弃过期结果。
+      if (_hoverLine != line) return;
+      setState(() {
+        _hoverMarkdown = md;
+        _hoverLoading = false;
+      });
+    });
+  }
+
+  void _clearAutoHover() {
+    _hoverDebounce?.cancel();
+    if (_hoverLine != null || _hoverMarkdown != null || _hoverLoading) {
+      setState(() {
+        _hoverLine = null;
+        _hoverMarkdown = null;
+        _hoverLoading = false;
+      });
+    }
+  }
+
+  /// 跳转到目标行：ScrollController.animateTo(lineIndex * 行高)，并把
+  /// 高亮带写到 _highlightedLine 让对应行底色亮起 2s 后回收。
+  void _scrollToLine(int line) {
+    if (!_sourceScroll.hasClients) return;
+    final target = (line * _kSourceLineHeight - 80).clamp(
+      0.0,
+      _sourceScroll.position.maxScrollExtent,
+    );
+    _sourceScroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+    _highlightTimer?.cancel();
+    setState(() => _highlightedLine = line);
+    _highlightTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() => _highlightedLine = null);
+    });
   }
 
   /// 估算鼠标 X 坐标对应的列号：用 TextPainter 的 monospace 度量。
@@ -231,14 +309,21 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       );
       return;
     }
-    OpenHandSnackBar.showInfoOn(
-      context,
-      messenger,
-      isZh
-          ? '定义位置：${r.uri} 第 ${r.line + 1} 行'
-          : 'Defined at ${r.uri} L${r.line + 1}',
-      duration: const Duration(seconds: 4),
-    );
+    // 如果定义还在同一份文档（典型场景：当前脚本内的函数 / 变量），
+    // 直接 ScrollController.animateTo 滚到目标行 + 高亮 2 秒。否则
+    // SnackBar 提示位置（跨文件需要 user 自行打开外部 IDE）。
+    if (r.uri == uri) {
+      _scrollToLine(r.line);
+    } else {
+      OpenHandSnackBar.showInfoOn(
+        context,
+        messenger,
+        isZh
+            ? '定义位置：${r.uri} 第 ${r.line + 1} 行'
+            : 'Defined at ${r.uri} L${r.line + 1}',
+        duration: const Duration(seconds: 4),
+      );
+    }
   }
 
   Future<void> _renameAt(int line, int col) async {
@@ -385,10 +470,12 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     );
     if (result == null || !mounted) return;
     await _selectScript(result.scriptId);
-    // 滚到对应行：sources 当前用 ListView.builder 简单渲染，没暴露
-    // ScrollController；这里先 setState 让 highlight + 用户人工滚动定位。
-    // 体验后续再补 ScrollablePositionedList 做精确跳转。
-    setState(() {});
+    if (!mounted) return;
+    // 等列表 build 一帧后再 scroll，确保 ScrollController 已 attach。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollToLine(result.line);
+    });
   }
 
   @override
@@ -632,65 +719,108 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           child: Container(
             color: cs.surfaceContainerHigh,
             child: ListView.builder(
+              controller: _sourceScroll,
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: lines.length,
               itemBuilder: (_, idx) {
                 final hasBp = _bpAtLine.containsKey(idx);
-                return InkWell(
-                  onTap: () => _toggleBreakpoint(idx),
-                  onSecondaryTapDown: _lspEnabled
-                      ? (d) => _onLineSecondaryTap(d, idx, lines[idx])
+                final isHighlighted = _highlightedLine == idx;
+                final isHovered = _hoverLine == idx && _lspEnabled;
+                return MouseRegion(
+                  onHover: _lspEnabled
+                      ? (event) {
+                          // 用 TextPainter 估算列号，传给 LSP hover。
+                          final col = _estimateColumn(
+                            event.localPosition.dx,
+                            lines[idx],
+                          );
+                          _scheduleAutoHover(idx, col, lines[idx]);
+                        }
                       : null,
-                  onLongPress: _lspEnabled
-                      ? () => _onLineLongPress(idx, lines[idx])
-                      : null,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 1),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 36,
-                          child: Stack(
-                            alignment: Alignment.centerLeft,
-                            children: [
-                              Text(
-                                '${idx + 1}',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontFamily: 'monospace',
-                                  color: cs.onSurfaceVariant,
+                  onExit: _lspEnabled ? (_) => _clearAutoHover() : null,
+                  child: InkWell(
+                    onTap: () => _toggleBreakpoint(idx),
+                    onSecondaryTapDown: _lspEnabled
+                        ? (d) => _onLineSecondaryTap(d, idx, lines[idx])
+                        : null,
+                    onLongPress: _lspEnabled
+                        ? () => _onLineLongPress(idx, lines[idx])
+                        : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      color: isHighlighted
+                          ? cs.tertiaryContainer.withValues(alpha: 0.5)
+                          : Colors.transparent,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 1),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 36,
+                            child: Stack(
+                              alignment: Alignment.centerLeft,
+                              children: [
+                                Text(
+                                  '${idx + 1}',
+                                  style:
+                                      theme.textTheme.labelSmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                  textAlign: TextAlign.right,
                                 ),
-                                textAlign: TextAlign.right,
-                              ),
-                              if (hasBp)
-                                Positioned(
-                                  right: 4,
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: cs.error,
-                                      shape: BoxShape.circle,
+                                if (hasBp)
+                                  Positioned(
+                                    right: 4,
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: cs.error,
+                                        shape: BoxShape.circle,
+                                      ),
                                     ),
                                   ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: SelectableText(
-                            lines[idx].isEmpty ? ' ' : lines[idx],
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
-                              fontSize: 11.5,
-                              height: 1.5,
-                              color: cs.onSurface,
+                              ],
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                SelectableText(
+                                  lines[idx].isEmpty ? ' ' : lines[idx],
+                                  style:
+                                      theme.textTheme.bodySmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11.5,
+                                    height: 1.5,
+                                    color: cs.onSurface,
+                                  ),
+                                ),
+                                // 行尾自动 hover 浮窗：贴在当前行右侧；
+                                // 内容为 LSP 返回的 markdown，超过 240 字
+                                // 截断，点击鼠标移走自动消失。
+                                if (isHovered &&
+                                    (_hoverLoading ||
+                                        (_hoverMarkdown != null &&
+                                            _hoverMarkdown!.isNotEmpty)))
+                                  Positioned(
+                                    left: _estimateLineWidth(lines[idx]) + 12,
+                                    top: -2,
+                                    child: _SourceHoverBubble(
+                                      markdown: _hoverMarkdown,
+                                      loading: _hoverLoading,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -700,6 +830,19 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         ),
       ],
     );
+  }
+
+  /// 估算指定行渲染宽度，让 _SourceHoverBubble 紧贴行尾出现。
+  double _estimateLineWidth(String line) {
+    if (line.isEmpty) return 0;
+    final tp = TextPainter(
+      text: TextSpan(
+        text: line,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    return tp.width;
   }
 
   String _shortenUrl(String url) {
@@ -872,6 +1015,68 @@ class _SourcesGlobalSearchDialogState
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// LSP hover 浮窗：贴在当前悬停行的行尾。鼠标移开 → MouseRegion.onExit
+/// 触发 _clearAutoHover 让父组件 setState 把它销毁。Loading 状态下显示
+/// 微缩进度圈，避免冷启动时窗口"瞬时空白"。markdown 直接 SelectableText
+/// 渲染（不引入 markdown 渲染器以保持轻量）。
+class _SourceHoverBubble extends StatelessWidget {
+  const _SourceHoverBubble({required this.markdown, required this.loading});
+
+  final String? markdown;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final preview = markdown == null
+        ? null
+        : (markdown!.length > 360
+            ? '${markdown!.substring(0, 360)}…'
+            : markdown!);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 480),
+      child: Material(
+        elevation: 6,
+        borderRadius: BorderRadius.circular(10),
+        color: cs.surfaceContainerHigh,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+          child: loading
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.6,
+                        color: cs.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'LSP…',
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                )
+              : SelectableText(
+                  preview ?? '',
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    height: 1.45,
+                  ),
+                ),
         ),
       ),
     );
