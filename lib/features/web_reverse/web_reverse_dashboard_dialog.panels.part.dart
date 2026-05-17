@@ -116,6 +116,67 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     });
   }
 
+  /// 把当前记录的 FPS 历史 + Long task 列表合并成 CSV 落盘。两段数据放
+  /// 同一个文件，靠 section 标记区分，方便 Excel / 数据分析工具一次性吃。
+  Future<void> _exportCsv() async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    final buf = StringBuffer();
+    buf.writeln('# section,fps_history');
+    buf.writeln('seconds_ago,fps');
+    for (var i = 0; i < _fpsHistory.length; i++) {
+      final secAgo = _fpsHistory.length - 1 - i;
+      buf.writeln('$secAgo,${_fpsHistory[i].toStringAsFixed(2)}');
+    }
+    buf.writeln();
+    buf.writeln('# section,long_tasks');
+    buf.writeln('start_time_ms,duration_ms,name');
+    for (final task in _longTasks) {
+      final start = task['startTime'];
+      final dur = task['duration'];
+      final name = '${task['name'] ?? 'longtask'}'
+          .replaceAll(',', ' ')
+          .replaceAll('\n', ' ');
+      buf.writeln('${start ?? ''},${dur ?? 0},$name');
+    }
+    const typeGroup = XTypeGroup(label: 'CSV', extensions: <String>['csv']);
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: 'performance-$ts.csv',
+        acceptedTypeGroups: const [typeGroup],
+      );
+    } catch (_) {}
+    if (!mounted || location == null) return;
+    try {
+      await File(location.path).writeAsString(buf.toString());
+      if (!mounted) return;
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '已保存到 ${location.path}' : 'Saved',
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'export performance csv',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '保存失败' : 'Save failed',
+        duration: const Duration(seconds: 2),
+      );
+    }
+  }
+
   Future<void> _record() async {
     final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
@@ -233,6 +294,13 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 label: Text(_tracing
                     ? (isZh ? '录制中…' : 'Recording…')
                     : (isZh ? '录制 Trace' : 'Record Trace')),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed:
+                    (_fpsHistory.isEmpty && _longTasks.isEmpty) ? null : _exportCsv,
+                icon: const Icon(Icons.table_view_rounded, size: 18),
+                label: Text(isZh ? '导出 CSV' : 'Export CSV'),
               ),
             ],
           ),
