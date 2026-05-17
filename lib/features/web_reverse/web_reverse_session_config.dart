@@ -95,10 +95,16 @@ class WebReverseSessionConfig {
     );
   }
 
-  /// 拼出会话首条 prompt 的 `<request_template>` 块，模型据此进入工作流。
+  /// 拼出会话首条 prompt 的内容块，模型据此进入工作流。
+  ///
+  /// 2026-05-17 — 直接用结构化 markdown bullet 列表，删除外层
+  /// `<request_template>` XML 包裹：bullet 本身已经表达「这是一份请求模板」
+  /// 的语义；XML tag 只对模型增加噪声，对用户可读性更是负担（用户在
+  /// transcript 中能看到的「请求模板：…」就够了）。模板字段含义保持不变，
+  /// 顺序保持不变，下游 prompt 解析逻辑只需读 bullet 即可。
   String toRequestTemplate() {
     final buf = StringBuffer()
-      ..writeln('<request_template>')
+      ..writeln('请求模板：')
       ..writeln('- 目标 URL：【$targetUrl】')
       ..writeln('- 逆向目标：【$objective】');
     if (triggerActions != null && triggerActions!.trim().isNotEmpty) {
@@ -113,8 +119,7 @@ class WebReverseSessionConfig {
     if (keywords.isNotEmpty) {
       buf.writeln('- 关键关键字：【${keywords.join(', ')}】');
     }
-    buf.writeln('- 验收标准：【可在 curl / Dart / Python 中独立复现，无需浏览器】');
-    buf.write('</request_template>');
+    buf.write('- 验收标准：【可在 curl / Dart / Python 中独立复现，无需浏览器】');
     return buf.toString();
   }
 }
