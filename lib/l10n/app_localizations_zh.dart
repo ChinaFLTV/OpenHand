@@ -4938,6 +4938,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mcpToolSearchReplayLastCancelToastEmpty => '当前没有可重放的取消';
+
+  @override
+  String get aiThrottleSettingsLabel => '节流参数';
+
+  @override
+  String get aiThrottleSettingsBody => '统一控制流式输出节流：开关、自动模式、字符 / 卡片速率、持续时长。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -9874,6 +9880,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get mcpToolSearchReplayLastCancelToastEmpty => '当前没有可重放的取消';
+
+  @override
+  String get aiThrottleSettingsLabel => '节流参数';
+
+  @override
+  String get aiThrottleSettingsBody => '统一控制流式输出节流：开关、自动模式、字符 / 卡片速率、持续时长。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -14809,4 +14821,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpToolSearchReplayLastCancelToastEmpty => '目前沒有可重播的取消';
+
+  @override
+  String get aiThrottleSettingsLabel => '节流参数';
+
+  @override
+  String get aiThrottleSettingsBody => '统一控制流式输出节流：开关、自动模式、字符 / 卡片速率、持续时长。';
 }

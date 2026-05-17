@@ -5205,4 +5205,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mcpToolSearchReplayLastCancelToastEmpty => 'Nothing to replay';
+
+  @override
+  String get aiThrottleSettingsLabel => 'Throttle Settings';
+
+  @override
+  String get aiThrottleSettingsBody =>
+      'Unified streaming throttle: master switch, auto mode, char/card rates, duration.';
 }

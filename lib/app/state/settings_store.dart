@@ -15,7 +15,6 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
-import '../../features/ai/model/ai_stream_throttle_override.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -256,10 +255,9 @@ class SettingsStore {
           snapshot.aiStreamThrottleCloudSyncToken,
       'ai_stream_throttle_config_updated_at_ms':
           snapshot.aiStreamThrottleConfigUpdatedAtMs,
-      'ai_stream_throttle_template_overrides': <String, Object?>{
-        for (final entry in snapshot.aiStreamThrottleTemplateOverrides.entries)
-          if (!entry.value.isEmpty) entry.key: entry.value.toJson(),
-      },
+      // 2026-05-22 — v3 schema 起，按线程模板覆盖节流参数已下线，
+      // 持久化层不再写出 `ai_stream_throttle_template_overrides`；
+      // read 路径会静默丢弃任何老 doc 上的同名字段。
       'ai_auto_title_enabled': snapshot.aiAutoTitleEnabled,
       'ai_default_session_mode': snapshot.aiDefaultSessionMode,
       'ai_default_full_access_permission':
@@ -817,20 +815,11 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
           )
         : AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond;
-    final rawStreamThrottleOverrides =
-        json['ai_stream_throttle_template_overrides'];
-    final aiStreamThrottleTemplateOverrides =
-        <String, AiStreamThrottleOverride>{};
-    if (rawStreamThrottleOverrides is Map) {
-      for (final entry in rawStreamThrottleOverrides.entries) {
-        final key = '${entry.key}'.trim();
-        if (key.isEmpty) continue;
-        final override = AiStreamThrottleOverride.fromJson(entry.value);
-        if (override != null) {
-          aiStreamThrottleTemplateOverrides[key] = override;
-        }
-      }
-    }
+    // 2026-05-22 — v3 schema 起，按线程模板覆盖节流参数已下线。
+    // 老 settings.json 上仍可能携带 `ai_stream_throttle_template_overrides`
+    // 字段（v1/v2 残留），这里完全忽略：不再读、不再透传给 snapshot，
+    // write 路径也不会再写出。任何形状的旧 value（Map/null/异常类型）都
+    // 必须被静默丢弃，保证 `load()` 不抛。
     final aiStreamThrottleEnabled = json['ai_stream_throttle_enabled'] is bool
         ? json['ai_stream_throttle_enabled'] as bool
         : AppSettingsSnapshot.defaultAiStreamThrottleEnabled;
@@ -1266,7 +1255,8 @@ class SettingsStore {
       aiStreamThrottleCloudSyncEndpoint: aiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken: aiStreamThrottleCloudSyncToken,
       aiStreamThrottleConfigUpdatedAtMs: aiStreamThrottleConfigUpdatedAtMs,
-      aiStreamThrottleTemplateOverrides: aiStreamThrottleTemplateOverrides,
+      // 2026-05-22 — v3 schema 起，`aiStreamThrottleTemplateOverrides`
+      // 字段已从 AppSettingsSnapshot 上移除（task 4.1），此处不再透传。
       aiAutoTitleEnabled: aiAutoTitleEnabled,
       aiDefaultSessionMode: aiDefaultSessionMode,
       aiDefaultFullAccessPermission: aiDefaultFullAccessPermission,

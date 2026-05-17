@@ -11,7 +11,6 @@ import '../../features/ai/model/ai_lsp_backend_catalog.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
-import '../../features/ai/model/ai_stream_throttle_override.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -38,22 +37,31 @@ enum _MutationDisposition { apply, successNoChange, reject }
 ///   `template_overrides` / `cloud_sync` 等字段。
 /// * v2 (2026-05-17)：新增 `duration_seconds`（0 = 持续节流）。导入老版本
 ///   时由 [migrateAiStreamThrottleConfig] 自动补默认值，向后兼容。
-const int aiStreamThrottleConfigSchemaVersion = 2;
+/// * v3 (2026-05-22)：移除 `template_overrides` 字段（按线程模板覆盖节流
+///   参数下线）。v1/v2 → v3 的迁移路径会静默丢弃 `template_overrides`，
+///   保留全局节流字段不变。
+const int aiStreamThrottleConfigSchemaVersion = 3;
 
 /// 把任意旧版/新版节流配置文档归一化为当前 schema：
 ///
 ///   * 老 doc（v1）缺 `duration_seconds` → 注入默认 0（持续节流）；
+///   * 老 doc（v1/v2）若仍携带 `template_overrides` → 一律 drop（按线程
+///     模板覆盖节流参数自 v3 起下线）；
 ///   * `version` 字段统一改写为当前版本号，方便上层 hash / diff 一致；
 ///   * 不破坏未识别字段（forward-compatible，预留给未来 schema 扩展）。
 ///
 /// 同时被手动 import 路径与云端同步 push/pull 路径共用，确保跨版本
-/// JSON 在任意流向下都能落地为 v2 格式。
+/// JSON 在任意流向下都能落地为 v3 格式。
 Map<String, Object?> migrateAiStreamThrottleConfig(Map<String, Object?> doc) {
   final migrated = Map<String, Object?>.from(doc);
   if (!migrated.containsKey('duration_seconds')) {
     migrated['duration_seconds'] =
         AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds;
   }
+  // v3 (2026-05-22)：drop 老 doc 里的 `template_overrides`，无论 v1 / v2
+  // 来源都收敛到「不再带模板级覆盖」的口径。导入路径不直接操作原始
+  // map，所以这里 remove 不会污染调用方的对象。
+  migrated.remove('template_overrides');
   migrated['version'] = aiStreamThrottleConfigSchemaVersion;
   return migrated;
 }
@@ -167,9 +175,6 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiStreamThrottleCloudSyncToken,
        _aiStreamThrottleConfigUpdatedAtMs =
            snapshot.aiStreamThrottleConfigUpdatedAtMs,
-       _aiStreamThrottleTemplateOverrides = Map<String, AiStreamThrottleOverride>.unmodifiable(
-         snapshot.aiStreamThrottleTemplateOverrides,
-       ),
        _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled,
        _aiDefaultSessionMode = snapshot.aiDefaultSessionMode,
        _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission,
@@ -299,7 +304,6 @@ class SettingsController extends ChangeNotifier {
   String _aiStreamThrottleCloudSyncEndpoint;
   String _aiStreamThrottleCloudSyncToken;
   int _aiStreamThrottleConfigUpdatedAtMs;
-  Map<String, AiStreamThrottleOverride> _aiStreamThrottleTemplateOverrides;
   bool _aiAutoTitleEnabled;
   String _aiDefaultSessionMode;
   bool _aiDefaultFullAccessPermission;
@@ -475,30 +479,31 @@ class SettingsController extends ChangeNotifier {
   int get aiStreamThrottleConfigUpdatedAtMs =>
       _aiStreamThrottleConfigUpdatedAtMs;
 
-  /// 每个线程模板对流式节流参数的独立覆盖。返回不可变视图。
-  Map<String, AiStreamThrottleOverride>
-  get aiStreamThrottleTemplateOverrides => _aiStreamThrottleTemplateOverrides;
-
-  /// 返回指定模板生效的字符节流速率：
+  /// 返回生效的字符节流速率：
   ///   1) 全局节流总开关关闭 → 0（关闭节流）
   ///   2) 自动模式开启 → 平台预设
-  ///   3) 模板覆盖
-  ///   4) 全局值
-  int effectiveStreamMaxCharsPerSecond(String templateId) {
+  ///   3) 全局值
+  ///
+  /// 历史上 [templateId] 用于「按线程模板覆盖节流参数」，从 2026-05 起
+  /// 所有线程会话共用同一组节流参数，模板覆盖整条数据通路已删除。形参
+  /// 与方法签名保留是为了避免一次性把全部调用点炸开，入参不再被读取。
+  /// 详见 ai-throttle-and-ux-fixes/design.md (Bug 2)。
+  @Deprecated('templateId is no longer consulted; use the global rate.')
+  int effectiveStreamMaxCharsPerSecond(String? templateId) {
     if (!_aiStreamThrottleEnabled) return 0;
     if (_aiStreamThrottleAutoMode) return _autoStreamMaxCharsPerSecond();
-    final override = _aiStreamThrottleTemplateOverrides[templateId];
-    return override?.charsPerSecond ?? _aiStreamMaxCharsPerSecond;
+    return _aiStreamMaxCharsPerSecond;
   }
 
-  /// 返回指定模板生效的卡片节流速率：模板覆盖优先于全局值。
-  int effectiveStreamMaxMessageCardsPerSecond(String templateId) {
+  /// 返回生效的卡片节流速率：模板覆盖已下线，[templateId] 仅作签名兼容
+  /// 保留，方法直接返回全局值。语义同 [effectiveStreamMaxCharsPerSecond]。
+  @Deprecated('templateId is no longer consulted; use the global rate.')
+  int effectiveStreamMaxMessageCardsPerSecond(String? templateId) {
     if (!_aiStreamThrottleEnabled) return 0;
     if (_aiStreamThrottleAutoMode) {
       return AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto;
     }
-    final override = _aiStreamThrottleTemplateOverrides[templateId];
-    return override?.cardsPerSecond ?? _aiStreamMaxMessageCardsPerSecond;
+    return _aiStreamMaxMessageCardsPerSecond;
   }
 
   /// 自动模式按平台返回字符速率：桌面端较快，移动端 / Web 端略保守。
@@ -1615,120 +1620,30 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 设置某个线程模板的字符节流覆盖。`value == null` 时清除该模板对该
-  /// 字段的覆盖；当模板的两个覆盖字段都被清除时，整个 entry 一并删除。
-  Future<bool> updateAiStreamThrottleCharsOverride(
-    String templateId,
-    int? value,
-  ) async {
-    if (templateId.trim().isEmpty) return false;
-    final clamped = value?.clamp(
-      AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
-      AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
-    );
-    return _commitThrottleMutation(() {
-      final next = Map<String, AiStreamThrottleOverride>.from(
-        _aiStreamThrottleTemplateOverrides,
-      );
-      final current = next[templateId];
-      final merged =
-          (current ?? const AiStreamThrottleOverride()).copyWith(
-            charsPerSecond: clamped,
-          );
-      if (merged.isEmpty) {
-        next.remove(templateId);
-      } else {
-        next[templateId] = merged;
-      }
-      if (_mapEquals(_aiStreamThrottleTemplateOverrides, next)) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiStreamThrottleTemplateOverrides =
-          Map<String, AiStreamThrottleOverride>.unmodifiable(next);
-      return _MutationDisposition.apply;
-    });
-  }
-
-  /// 设置某个线程模板的卡片节流覆盖。语义同 [updateAiStreamThrottleCharsOverride]。
-  Future<bool> updateAiStreamThrottleCardsOverride(
-    String templateId,
-    int? value,
-  ) async {
-    if (templateId.trim().isEmpty) return false;
-    final clamped = value?.clamp(
-      AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
-      AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
-    );
-    return _commitThrottleMutation(() {
-      final next = Map<String, AiStreamThrottleOverride>.from(
-        _aiStreamThrottleTemplateOverrides,
-      );
-      final current = next[templateId];
-      final merged =
-          (current ?? const AiStreamThrottleOverride()).copyWith(
-            cardsPerSecond: clamped,
-          );
-      if (merged.isEmpty) {
-        next.remove(templateId);
-      } else {
-        next[templateId] = merged;
-      }
-      if (_mapEquals(_aiStreamThrottleTemplateOverrides, next)) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiStreamThrottleTemplateOverrides =
-          Map<String, AiStreamThrottleOverride>.unmodifiable(next);
-      return _MutationDisposition.apply;
-    });
-  }
-
-  /// 清除指定模板的全部覆盖。
-  Future<bool> clearAiStreamThrottleOverride(String templateId) async {
-    if (templateId.trim().isEmpty) return false;
-    return _commitThrottleMutation(() {
-      if (!_aiStreamThrottleTemplateOverrides.containsKey(templateId)) {
-        return _MutationDisposition.successNoChange;
-      }
-      final next = Map<String, AiStreamThrottleOverride>.from(
-        _aiStreamThrottleTemplateOverrides,
-      )..remove(templateId);
-      _aiStreamThrottleTemplateOverrides =
-          Map<String, AiStreamThrottleOverride>.unmodifiable(next);
-      return _MutationDisposition.apply;
-    });
-  }
-
-  bool _mapEquals(
-    Map<String, AiStreamThrottleOverride> a,
-    Map<String, AiStreamThrottleOverride> b,
-  ) {
-    if (a.length != b.length) return false;
-    for (final entry in a.entries) {
-      if (b[entry.key] != entry.value) return false;
-    }
-    return true;
-  }
-
-  /// 2026-05-18 — 节流配置 export：把全局/模板级所有节流参数序列化为
-  /// 一份 JSON 文档，方便用户在多设备之间手动同步。
+  /// 2026-05-18 — 节流配置 export：把全局节流参数序列化为一份 JSON
+  /// 文档，方便用户在多设备之间手动同步。
   ///
-  /// 文档结构（v1）：
+  /// 文档结构（v3）：
   /// ```json
   /// {
-  ///   "version": 1,
-  ///   "exported_at": "2026-05-18T...",
+  ///   "version": 3,
+  ///   "exported_at": "2026-05-22T...",
   ///   "throttle_enabled": true,
   ///   "auto_mode": false,
+  ///   "duration_seconds": 0,
   ///   "max_chars_per_second": 5,
   ///   "max_message_cards_per_second": 1,
-  ///   "template_overrides": { "<templateId>": { "chars_per_second": ... } },
   ///   "cloud_sync": { "enabled": false, "endpoint": "" }
   /// }
   /// ```
+  ///
+  /// 历史上 v1 还携带 `template_overrides` 字段；从 2026-05 起按线程模板
+  /// 覆盖节流参数已下线，导入时旧字段会被 [migrateAiStreamThrottleConfig]
+  /// 静默丢弃，导出不再写入。
   Map<String, Object?> exportAiStreamThrottleConfig() {
     return <String, Object?>{
-      // 2026-05-17 — v2 引入 duration_seconds 字段；老版本（v1）的 doc
-      // 可经 migrateAiStreamThrottleConfig() 平滑升级到 v2。
+      // 2026-05-22 — v3 移除 template_overrides 字段；v1/v2 → v3 的
+      // 迁移由 migrateAiStreamThrottleConfig 在导入侧统一处理。
       'version': aiStreamThrottleConfigSchemaVersion,
       'exported_at': DateTime.now().toUtc().toIso8601String(),
       // 2026-05-19 — 携带本地最近一次有效修改的 epoch ms。自动同步会
@@ -1739,10 +1654,6 @@ class SettingsController extends ChangeNotifier {
       'duration_seconds': _aiStreamThrottleDurationSeconds,
       'max_chars_per_second': _aiStreamMaxCharsPerSecond,
       'max_message_cards_per_second': _aiStreamMaxMessageCardsPerSecond,
-      'template_overrides': <String, Object?>{
-        for (final entry in _aiStreamThrottleTemplateOverrides.entries)
-          if (!entry.value.isEmpty) entry.key: entry.value.toJson(),
-      },
       // 云端同步预留：当前版本不读不写远端，但留下字段方便后续扩展。
       'cloud_sync': const <String, Object?>{
         'enabled': false,
@@ -1763,8 +1674,10 @@ class SettingsController extends ChangeNotifier {
     Map<String, Object?> doc, {
     int? overrideUpdatedAtMs,
   }) async {
-    // 跨版本兼容：老 doc 自动补默认 duration_seconds=0；导入路径不直接
-    // 操作原始 map，避免上层把 migrate 副作用带回到自己持有的对象。
+    // 跨版本兼容：v1 doc 自动补默认 duration_seconds=0；按线程模板
+    // 覆盖已下线，旧 doc 中的 `template_overrides` 字段会在这里被
+    // 静默丢弃。导入路径不直接操作原始 map，避免上层把 migrate 副作
+    // 用带回到自己持有的对象。
     final migrated = migrateAiStreamThrottleConfig(doc);
     var anyChange = false;
     final enabled = migrated['throttle_enabled'];
@@ -1793,32 +1706,6 @@ class SettingsController extends ChangeNotifier {
       anyChange =
           await updateAiStreamMaxMessageCardsPerSecond(maxCards) ||
           anyChange;
-    }
-    final overrides = migrated['template_overrides'];
-    if (overrides is Map) {
-      // 先清空旧覆盖，再按导入项重建——避免 import 后还残留旧模板。
-      final keysToClear = _aiStreamThrottleTemplateOverrides.keys.toList(
-        growable: false,
-      );
-      for (final key in keysToClear) {
-        anyChange = await clearAiStreamThrottleOverride(key) || anyChange;
-      }
-      for (final entry in overrides.entries) {
-        final tid = '${entry.key}'.trim();
-        if (tid.isEmpty) continue;
-        final value = entry.value;
-        if (value is! Map) continue;
-        final c = value['chars_per_second'];
-        final m = value['cards_per_second'];
-        if (c is int) {
-          anyChange =
-              await updateAiStreamThrottleCharsOverride(tid, c) || anyChange;
-        }
-        if (m is int) {
-          anyChange =
-              await updateAiStreamThrottleCardsOverride(tid, m) || anyChange;
-        }
-      }
     }
     if (anyChange && overrideUpdatedAtMs != null && overrideUpdatedAtMs > 0) {
       // 远端 timestamp 直接落盘：用 _commitMutation 走持久化通道。
@@ -2716,7 +2603,6 @@ class SettingsController extends ChangeNotifier {
       aiStreamThrottleCloudSyncEndpoint: _aiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken: _aiStreamThrottleCloudSyncToken,
       aiStreamThrottleConfigUpdatedAtMs: _aiStreamThrottleConfigUpdatedAtMs,
-      aiStreamThrottleTemplateOverrides: _aiStreamThrottleTemplateOverrides,
       aiAutoTitleEnabled: _aiAutoTitleEnabled,
       aiDefaultSessionMode: _aiDefaultSessionMode,
       aiDefaultFullAccessPermission: _aiDefaultFullAccessPermission,
@@ -2851,10 +2737,6 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiStreamThrottleCloudSyncToken;
     _aiStreamThrottleConfigUpdatedAtMs =
         snapshot.aiStreamThrottleConfigUpdatedAtMs;
-    _aiStreamThrottleTemplateOverrides =
-        Map<String, AiStreamThrottleOverride>.unmodifiable(
-          snapshot.aiStreamThrottleTemplateOverrides,
-        );
     _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled;
     _aiDefaultSessionMode = snapshot.aiDefaultSessionMode;
     _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission;

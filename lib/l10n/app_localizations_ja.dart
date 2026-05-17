@@ -5022,4 +5022,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mcpToolSearchReplayLastCancelToastEmpty => '再実行できる項目はありません';
+
+  @override
+  String get aiThrottleSettingsLabel => 'スロットル設定';
+
+  @override
+  String get aiThrottleSettingsBody =>
+      'ストリーミングスロットル一元管理：マスタースイッチ、自動モード、文字／カード速度、継続時間。';
 }

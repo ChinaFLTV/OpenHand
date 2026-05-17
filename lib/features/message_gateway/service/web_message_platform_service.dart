@@ -4336,8 +4336,6 @@ class WebMessagePlatformService {
       streamThrottleAutoMode: _settingsController.aiStreamThrottleAutoMode,
       streamThrottleDurationSeconds:
           _settingsController.aiStreamThrottleDurationSeconds,
-      streamThrottleTemplateOverrides:
-          _settingsController.aiStreamThrottleTemplateOverrides,
       skippedInstructionIds: skippedInstructionIds,
       userInstructions:
           webGatewayIsDenyAllSelection(_config.allowedInstructionIds)

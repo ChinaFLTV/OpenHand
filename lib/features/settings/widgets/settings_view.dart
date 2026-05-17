@@ -41,6 +41,7 @@ import '../../../shared/ui/key_tweakable_slider.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/rolling_text.dart';
 import '../../ai/index.dart';
@@ -1424,6 +1425,19 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
+              // 2026-12-12 — 节流参数总入口（统一全局，移除 per-template 覆盖）。
+              Text(
+                AppLocalizations.of(context)!.aiThrottleSettingsLabel,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                AppLocalizations.of(context)!.aiThrottleSettingsBody,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 18),
               // 2026-05-17 — 节流总开关 + 自动模式入口（位于具体速率
               // 配置项之前，让用户先决定"是否启用 / 是否自适应"再调
               // 具体数字）
@@ -1619,7 +1633,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              // 2026-05-17 — 节流持续时长入口（紧贴在「按线程模板覆盖」之前）。
+              // 2026-05-17 — 节流持续时长入口。
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title:
@@ -1686,24 +1700,6 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
                 controlMaxWidth: 360,
-              ),
-              // 2026-05-17 — 每个线程模板的节流参数独立覆盖入口
-              const SizedBox(height: 18),
-              _ResponsiveSettingRow(
-                title:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
-                    ? '按线程模板覆盖节流参数'
-                    : 'Per-Template Throttle Overrides',
-                subtitle:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
-                    ? '为单个线程模板单独设置节流速率，未配置时回退到上方全局值。'
-                    : 'Override stream throttle per thread template; falls back to global values when unset.',
-                control: const _StreamThrottleTemplateOverridesEditor(),
-                controlMaxWidth: 720,
               ),
               const SizedBox(height: 18),
               // 2026-05-18 — 节流配置 export / import 入口；带云端同步预留
@@ -2580,7 +2576,7 @@ class _SettingsViewState extends State<SettingsView> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 520),
         child: PrimaryScrollController.none(
-          child: Scrollbar(
+          child: OpenHandSafeScrollbar(
             controller: _shortcutListScrollController,
             thumbVisibility: true,
             child: ListView.separated(
@@ -4162,12 +4158,6 @@ class _SettingsViewState extends State<SettingsView> {
       current['max_message_cards_per_second'],
       next['max_message_cards_per_second'],
     );
-    final curOv = (current['template_overrides'] as Map?) ?? const {};
-    final nextOv = (next['template_overrides'] as Map?) ?? const {};
-    final keys = <String>{...curOv.keys.cast<String>(), ...nextOv.keys.cast<String>()};
-    for (final tid in keys) {
-      add('overrides[$tid]', curOv[tid], nextOv[tid]);
-    }
     return rows;
   }
 
@@ -6107,263 +6097,6 @@ class _ThrottleDisabledBadge extends StatelessWidget {
   }
 }
 
-/// 「每个线程模板独立覆盖节流参数」的内联编辑器。
-///
-/// 2026-05-17 — 列出全部线程模板，每行展示模板名 + 两枚 SegmentedButton
-/// 风格的可编辑数字字段，留空 = 沿用全局值，输入 0 = 该模板单独关闭节
-/// 流并展示禁用提示，>0 = 用户自定义速率。提交时调用
-/// [SettingsController.updateAiStreamThrottleCharsOverride] 等方法落盘。
-class _StreamThrottleTemplateOverridesEditor extends StatelessWidget {
-  const _StreamThrottleTemplateOverridesEditor();
-
-  @override
-  Widget build(BuildContext context) {
-    final settingsController = context.watch<SettingsController>();
-    final sessionController = context.watch<AiSessionController>();
-    final templates = sessionController.templates;
-    final overrides = settingsController.aiStreamThrottleTemplateOverrides;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final theme = Theme.of(context);
-    // 2026-05-17 — 限制最大高度 + 内置滚动条，避免后续新增模板时把整个
-    // 设置板块继续撑开占据屏幕。BouncingScrollPhysics 让上下滑动呈现 Q
-    // 弹回弹手感。
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 360),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      padding: const EdgeInsets.all(8),
-      child: Scrollbar(
-        thumbVisibility: true,
-        child: ListView.separated(
-          shrinkWrap: true,
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          itemCount: templates.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final template = templates[index];
-            return _TemplateOverrideRow(
-              template: template,
-              throttle: overrides[template.id],
-              isZh: isZh,
-              theme: theme,
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _TemplateOverrideRow extends StatefulWidget {
-  const _TemplateOverrideRow({
-    required this.template,
-    required this.throttle,
-    required this.isZh,
-    required this.theme,
-  });
-
-  final AiThreadTemplate template;
-  final AiStreamThrottleOverride? throttle;
-  final bool isZh;
-  final ThemeData theme;
-
-  @override
-  State<_TemplateOverrideRow> createState() => _TemplateOverrideRowState();
-}
-
-class _TemplateOverrideRowState extends State<_TemplateOverrideRow> {
-  late final TextEditingController _charsCtrl;
-  late final TextEditingController _cardsCtrl;
-  late final FocusNode _charsFocus;
-  late final FocusNode _cardsFocus;
-
-  @override
-  void initState() {
-    super.initState();
-    _charsCtrl = TextEditingController(
-      text: widget.throttle?.charsPerSecond?.toString() ?? '',
-    );
-    _cardsCtrl = TextEditingController(
-      text: widget.throttle?.cardsPerSecond?.toString() ?? '',
-    );
-    _charsFocus = FocusNode();
-    _cardsFocus = FocusNode();
-  }
-
-  @override
-  void didUpdateWidget(covariant _TemplateOverrideRow old) {
-    super.didUpdateWidget(old);
-    final newChars = widget.throttle?.charsPerSecond?.toString() ?? '';
-    if (!_charsFocus.hasFocus && _charsCtrl.text != newChars) {
-      _charsCtrl.text = newChars;
-    }
-    final newCards = widget.throttle?.cardsPerSecond?.toString() ?? '';
-    if (!_cardsFocus.hasFocus && _cardsCtrl.text != newCards) {
-      _cardsCtrl.text = newCards;
-    }
-  }
-
-  @override
-  void dispose() {
-    _charsCtrl.dispose();
-    _cardsCtrl.dispose();
-    _charsFocus.dispose();
-    _cardsFocus.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final controller = context.read<SettingsController>();
-    int? parse(String raw) {
-      final t = raw.trim();
-      if (t.isEmpty) return null;
-      final v = int.tryParse(t);
-      if (v == null) return null;
-      return v;
-    }
-
-    final ok1 = await controller.updateAiStreamThrottleCharsOverride(
-      widget.template.id,
-      parse(_charsCtrl.text),
-    );
-    final ok2 = await controller.updateAiStreamThrottleCardsOverride(
-      widget.template.id,
-      parse(_cardsCtrl.text),
-    );
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    OpenHandSnackBar.show(
-      context,
-      messenger,
-      SnackBar(
-        content: Text(
-          ok1 && ok2
-              ? (widget.isZh ? '已保存模板覆盖。' : 'Template override saved.')
-              : (widget.isZh ? '保存失败。' : 'Failed to save.'),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _clear() async {
-    final controller = context.read<SettingsController>();
-    final ok = await controller.clearAiStreamThrottleOverride(
-      widget.template.id,
-    );
-    if (!mounted) return;
-    if (ok) {
-      _charsCtrl.text = '';
-      _cardsCtrl.text = '';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = widget.theme.colorScheme;
-    final hasOverride = widget.throttle != null;
-    final isZh = widget.isZh;
-    const globalChars = AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond;
-    const globalCards =
-        AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: hasOverride
-              ? scheme.primary.withValues(alpha: 0.45)
-              : scheme.outlineVariant,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(widget.template.iconData, size: 18, color: scheme.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  widget.template.name,
-                  style: widget.theme.textTheme.titleSmall,
-                ),
-              ),
-              if (hasOverride)
-                TextButton.icon(
-                  onPressed: _clear,
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: Text(isZh ? '恢复全局' : 'Reset'),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              SizedBox(
-                width: 220,
-                child: TextField(
-                  controller: _charsCtrl,
-                  focusNode: _charsFocus,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  decoration: InputDecoration(
-                    labelText: isZh ? '字符 / 秒' : 'Chars / Sec',
-                    hintText: isZh
-                        ? '留空=全局($globalChars)'
-                        : 'Empty=global($globalChars)',
-                  ),
-                  onSubmitted: (_) => _save(),
-                ),
-              ),
-              SizedBox(
-                width: 220,
-                child: TextField(
-                  controller: _cardsCtrl,
-                  focusNode: _cardsFocus,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  decoration: InputDecoration(
-                    labelText: isZh ? '卡片 / 秒' : 'Cards / Sec',
-                    hintText: isZh
-                        ? '留空=全局($globalCards)'
-                        : 'Empty=global($globalCards)',
-                  ),
-                  onSubmitted: (_) => _save(),
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: _save,
-                icon: const Icon(Icons.save_outlined, size: 18),
-                label: Text(isZh ? '保存覆盖' : 'Save'),
-              ),
-            ],
-          ),
-          if (widget.throttle?.charsPerSecond == 0 ||
-              widget.throttle?.cardsPerSecond == 0) ...[
-            const SizedBox(height: 8),
-            _ThrottleDisabledBadge(
-              message: isZh
-                  ? '该模板的对应节流已被关闭：将按真实速率全速渲染。'
-                  : 'Throttle disabled for this template: full-speed rendering.',
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-
 /// 自动模式开启时显示的"实时 FPS"小指示器。
 ///
 /// 2026-05-18 — 直接读 [OpenHandFpsMonitor.recentFps]，1s 一次刷新。
@@ -6785,12 +6518,6 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       current['max_message_cards_per_second'],
       next['max_message_cards_per_second'],
     );
-    final curOv = (current['template_overrides'] as Map?) ?? const {};
-    final nextOv = (next['template_overrides'] as Map?) ?? const {};
-    final keys = <String>{...curOv.keys.cast<String>(), ...nextOv.keys.cast<String>()};
-    for (final tid in keys) {
-      add('overrides[$tid]', curOv[tid], nextOv[tid]);
-    }
     return rows;
   }
 

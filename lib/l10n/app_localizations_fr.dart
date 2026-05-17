@@ -5285,4 +5285,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get mcpToolSearchReplayLastCancelToastEmpty => 'Rien à rejouer';
+
+  @override
+  String get aiThrottleSettingsLabel => 'Paramètres de limitation';
+
+  @override
+  String get aiThrottleSettingsBody =>
+      'Limitation unifiée du streaming : interrupteur principal, mode auto, débit caractères / cartes, durée.';
 }

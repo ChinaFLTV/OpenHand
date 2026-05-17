@@ -55,6 +55,7 @@ import '../../shared/ui/image_editor_dialog.dart';
 import '../../shared/ui/micro_press_feedback.dart';
 import '../../shared/ui/model_search_selector.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/section_placeholder.dart';
 import '../ai/index.dart';
@@ -94,6 +95,7 @@ part 'widgets/_home_thread_template_dialog.dart';
 part 'widgets/_home_programming_expert_project_dialog.dart';
 part 'widgets/_home_programming_expert_file_explorer.dart';
 part 'widgets/_home_hardness_annotations.dart';
+part 'widgets/_home_motion_tokens.dart';
 part 'widgets/_openhand_home_page_helpers.dart';
 part 'widgets/_openhand_home_page_prelude.dart';
 
@@ -3253,8 +3255,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       streamThrottleAutoMode: settingsController.aiStreamThrottleAutoMode,
       streamThrottleDurationSeconds:
           settingsController.aiStreamThrottleDurationSeconds,
-      streamThrottleTemplateOverrides:
-          settingsController.aiStreamThrottleTemplateOverrides,
       streamMaxMessageCardsPerSecond:
           settingsController.aiStreamMaxMessageCardsPerSecond,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
@@ -3512,8 +3512,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       streamThrottleAutoMode: settingsController.aiStreamThrottleAutoMode,
       streamThrottleDurationSeconds:
           settingsController.aiStreamThrottleDurationSeconds,
-      streamThrottleTemplateOverrides:
-          settingsController.aiStreamThrottleTemplateOverrides,
       streamMaxMessageCardsPerSecond:
           settingsController.aiStreamMaxMessageCardsPerSecond,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,

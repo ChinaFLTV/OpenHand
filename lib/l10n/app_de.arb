@@ -2351,5 +2351,13 @@
   "mcpToolSearchReplayLastCancelToastEmpty": "Nichts zu wiederholen",
   "@mcpToolSearchReplayLastCancelToastEmpty": {
     "description": "Toast: dispatcher has nothing to replay."
+  },
+  "aiThrottleSettingsLabel": "Drosselparameter",
+  "@aiThrottleSettingsLabel": {
+    "description": "Settings → AI: section header for the unified streaming throttle controls (master switch, auto mode, char/card rate, duration)."
+  },
+  "aiThrottleSettingsBody": "Vereinheitlichte Streaming-Drosselung: Hauptschalter, Automatik, Zeichen-/Kartenrate, Dauer.",
+  "@aiThrottleSettingsBody": {
+    "description": "Settings → AI: subtitle that summarises what the unified streaming throttle controls cover."
   }
 }

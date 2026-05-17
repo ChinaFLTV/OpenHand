@@ -7,7 +7,6 @@ import 'ai_allow_command_rule.dart';
 import 'ai_builtin_tool_config.dart';
 import 'ai_deny_command_rule.dart';
 import 'ai_sandbox_settings.dart';
-import 'ai_stream_throttle_override.dart';
 
 class AiRepositorySnapshot {
   factory AiRepositorySnapshot.fromJson(Map<String, Object?> json) {
@@ -142,8 +141,6 @@ class AiSessionRuntimeContext {
     this.streamThrottleEnabled = true,
     this.streamThrottleAutoMode = false,
     this.streamThrottleDurationSeconds = 0,
-    this.streamThrottleTemplateOverrides =
-        const <String, AiStreamThrottleOverride>{},
     this.autoTitleEnabled = true,
     this.autoTitleMaxRetryCount = 5,
     this.telemetryDebugEnabled = false,
@@ -340,11 +337,6 @@ class AiSessionRuntimeContext {
   /// 0 表示关闭节流。
   final int streamMaxMessageCardsPerSecond;
 
-  /// 2026-05-17 — 每个线程模板对流式节流参数的独立覆盖；命中模板的字段
-  /// 优先于全局值，未命中时回退到 [streamMaxCharsPerSecond] /
-  /// [streamMaxMessageCardsPerSecond]。
-  final Map<String, AiStreamThrottleOverride> streamThrottleTemplateOverrides;
-
   /// 2026-05-17 — 全局节流总开关（false 时上述速率全部强制为 0）。
   final bool streamThrottleEnabled;
 
@@ -355,20 +347,26 @@ class AiSessionRuntimeContext {
   /// 响应直接按真实接收节奏追加。
   final int streamThrottleDurationSeconds;
 
-  /// 返回指定模板生效的字符节流速率：模板覆盖优先于全局。
-  int effectiveStreamMaxCharsPerSecond(String templateIdValue) {
+  /// 返回生效的字符节流速率。
+  ///
+  /// 历史上该速率支持「按线程模板覆盖」，[templateIdValue] 入参用于
+  /// 命中模板。从 2026-05 起所有线程会话共用同一组节流参数，模板覆盖
+  /// 已彻底下线，入参被忽略，方法直接返回 [streamMaxCharsPerSecond]。
+  /// 形参与方法签名保留是为了避免一次性把所有调用点炸开，实际值不再
+  /// 被读取——见 ai-throttle-and-ux-fixes/design.md (Bug 2)。
+  @Deprecated('templateId is no longer consulted; use the global rate.')
+  int effectiveStreamMaxCharsPerSecond(String? templateIdValue) {
     if (!streamThrottleEnabled) return 0;
-    if (streamThrottleAutoMode) return streamMaxCharsPerSecond;
-    final override = streamThrottleTemplateOverrides[templateIdValue];
-    return override?.charsPerSecond ?? streamMaxCharsPerSecond;
+    return streamMaxCharsPerSecond;
   }
 
-  /// 返回指定模板生效的卡片节流速率：模板覆盖优先于全局。
-  int effectiveStreamMaxMessageCardsPerSecond(String templateIdValue) {
+  /// 返回生效的卡片节流速率。语义同 [effectiveStreamMaxCharsPerSecond]：
+  /// 模板覆盖已下线，[templateIdValue] 仅作签名兼容保留，方法直接返回
+  /// [streamMaxMessageCardsPerSecond]。
+  @Deprecated('templateId is no longer consulted; use the global rate.')
+  int effectiveStreamMaxMessageCardsPerSecond(String? templateIdValue) {
     if (!streamThrottleEnabled) return 0;
-    if (streamThrottleAutoMode) return streamMaxMessageCardsPerSecond;
-    final override = streamThrottleTemplateOverrides[templateIdValue];
-    return override?.cardsPerSecond ?? streamMaxMessageCardsPerSecond;
+    return streamMaxMessageCardsPerSecond;
   }
 
   /// Whether to auto-generate session titles.

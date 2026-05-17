@@ -5259,4 +5259,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get mcpToolSearchReplayLastCancelToastEmpty => 'Nichts zu wiederholen';
+
+  @override
+  String get aiThrottleSettingsLabel => 'Drosselparameter';
+
+  @override
+  String get aiThrottleSettingsBody =>
+      'Vereinheitlichte Streaming-Drosselung: Hauptschalter, Automatik, Zeichen-/Kartenrate, Dauer.';
 }

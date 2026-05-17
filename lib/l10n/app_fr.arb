@@ -2351,5 +2351,13 @@
   "mcpToolSearchReplayLastCancelToastEmpty": "Rien à rejouer",
   "@mcpToolSearchReplayLastCancelToastEmpty": {
     "description": "Toast: dispatcher has nothing to replay."
+  },
+  "aiThrottleSettingsLabel": "Paramètres de limitation",
+  "@aiThrottleSettingsLabel": {
+    "description": "Settings → AI: section header for the unified streaming throttle controls (master switch, auto mode, char/card rate, duration)."
+  },
+  "aiThrottleSettingsBody": "Limitation unifiée du streaming : interrupteur principal, mode auto, débit caractères / cartes, durée.",
+  "@aiThrottleSettingsBody": {
+    "description": "Settings → AI: subtitle that summarises what the unified streaming throttle controls cover."
   }
 }

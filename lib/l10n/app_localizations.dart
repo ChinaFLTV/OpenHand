@@ -9197,6 +9197,18 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'当前没有可重放的取消'**
   String get mcpToolSearchReplayLastCancelToastEmpty;
+
+  /// Settings → AI: section header for the unified streaming throttle controls (master switch, auto mode, char/card rate, duration).
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'节流参数'**
+  String get aiThrottleSettingsLabel;
+
+  /// Settings → AI: subtitle that summarises what the unified streaming throttle controls cover.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'统一控制流式输出节流：开关、自动模式、字符 / 卡片速率、持续时长。'**
+  String get aiThrottleSettingsBody;
 }
 
 class _AppLocalizationsDelegate

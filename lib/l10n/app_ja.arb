@@ -2351,5 +2351,13 @@
   "mcpToolSearchReplayLastCancelToastEmpty": "再実行できる項目はありません",
   "@mcpToolSearchReplayLastCancelToastEmpty": {
     "description": "Toast: dispatcher has nothing to replay."
+  },
+  "aiThrottleSettingsLabel": "スロットル設定",
+  "@aiThrottleSettingsLabel": {
+    "description": "Settings → AI: section header for the unified streaming throttle controls (master switch, auto mode, char/card rate, duration)."
+  },
+  "aiThrottleSettingsBody": "ストリーミングスロットル一元管理：マスタースイッチ、自動モード、文字／カード速度、継続時間。",
+  "@aiThrottleSettingsBody": {
+    "description": "Settings → AI: subtitle that summarises what the unified streaming throttle controls cover."
   }
 }
