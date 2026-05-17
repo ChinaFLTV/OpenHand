@@ -172,6 +172,35 @@ function BrowserTab() {
           '内嵌浏览器面板基于 CDP screencast + Input 桥实时画面与键鼠 IME 输入，需要桌面应用直连本机 Chrome 进程。请在 OpenHand 桌面应用中打开本会话切到「浏览器」tab 操作。',
         )}
       </p>
+      <ul
+        class="mt-3 list-disc pl-5 space-y-1"
+        style={{ color: 'var(--m3-on-surface-variant)' }}
+      >
+        <li>
+          {t(
+            'webReverse.browser.bulletTabs',
+            '面板顶部 tab strip 支持多 page target 切换 / 关闭 / 新建。',
+          )}
+        </li>
+        <li>
+          {t(
+            'webReverse.browser.bulletControl',
+            '地址栏右侧常驻「重启浏览器 / 停止调试 / 缩放 / 保存当前帧」按钮。',
+          )}
+        </li>
+        <li>
+          {t(
+            'webReverse.browser.bulletRecover',
+            '浏览器进程异常退出会自动切到「重启浏览器」占位，4 秒一次的存活探针会主动兜底。',
+          )}
+        </li>
+        <li>
+          {t(
+            'webReverse.browser.bulletContextMenu',
+            '面板内右键弹出 Flutter 上下文菜单：复制 / 粘贴 / 全选 / 刷新 / 在外部浏览器打开 / 检查元素 (DevTools)。',
+          )}
+        </li>
+      </ul>
     </div>
   );
 }
