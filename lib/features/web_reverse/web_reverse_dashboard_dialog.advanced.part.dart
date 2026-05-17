@@ -1140,6 +1140,9 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
 
   void _save() {
     widget.controller.setInterceptRules(_rules);
+    context
+        .findAncestorStateOfType<_WebReverseDashboardDialogState>()
+        ?.persistInterceptRules();
     Navigator.of(context).pop();
   }
 

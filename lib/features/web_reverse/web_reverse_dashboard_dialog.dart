@@ -102,6 +102,7 @@ class _WebReverseDashboardDialogState
   static const _kBrowserTabUrlsMetaKey = 'web_reverse_browser_tab_urls';
   static const _kReplHistoryMetaKey = 'web_reverse_console_repl_history';
   static const _kBreakpointsMetaKey = 'web_reverse_sources_breakpoints';
+  static const _kInterceptRulesMetaKey = 'web_reverse_intercept_rules';
   _Tab _tab = _Tab.network;
 
   // Network 面板状态
@@ -170,6 +171,16 @@ class _WebReverseDashboardDialogState
       if (replRaw is List) {
         final hist = replRaw.whereType<String>().toList(growable: false);
         if (hist.isNotEmpty) widget.controller.replaceReplHistory(hist);
+      }
+      // 恢复网络拦截规则。
+      final rulesRaw = session.metadata[_kInterceptRulesMetaKey];
+      if (rulesRaw is List) {
+        final rules = rulesRaw
+            .whereType<Map>()
+            .map((m) =>
+                WebReverseInterceptRule.fromJson(Map<String, Object?>.from(m)))
+            .toList(growable: false);
+        if (rules.isNotEmpty) widget.controller.setInterceptRules(rules);
       }
     });
   }
@@ -302,6 +313,20 @@ class _WebReverseDashboardDialogState
     unawaited(
       session.updateSessionMetadata(widget.sessionId, <String, Object?>{
         _kBreakpointsMetaKey: bps,
+      }),
+    );
+  }
+
+  /// 持久化网络拦截规则。规则编辑 dialog 保存时调一次。
+  void persistInterceptRules() {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>();
+    final rules = widget.controller.interceptRules
+        .map((r) => r.toJson())
+        .toList(growable: false);
+    unawaited(
+      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kInterceptRulesMetaKey: rules,
       }),
     );
   }

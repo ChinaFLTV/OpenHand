@@ -152,6 +152,14 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       reduceMotion: reduceMotion,
                     ),
                     const SizedBox(width: 8),
+                    _ToolbarIconButton(
+                      tooltip: isZh
+                          ? '批量操作（按当前过滤结果）'
+                          : 'Batch (current filter)',
+                      icon: Icons.dynamic_form_rounded,
+                      onPressed: () => _showBatchActions(context, ctrl, isZh),
+                    ),
+                    const SizedBox(width: 8),
                     // 高级菜单：把"持久 Header / 体检报告 / 原生 CDP / 反向脚本"
                     // 等低频但威力强的功能合到一颗按钮，避免 Toolbar 二行膨胀。
                     _ToolbarIconButton(
@@ -432,6 +440,135 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         duration: const Duration(seconds: 2),
       );
     }
+  }
+
+  /// 网络面板批量操作：基于当前过滤结果一次性 block / 批量重放 / 批量复制
+  /// curl。固化当前过滤结果（避免点开后过滤变了对不上）。
+  void _showBatchActions(
+    BuildContext context,
+    WebReverseSessionController ctrl,
+    bool isZh,
+  ) {
+    final filtered = _filteredNetworkEntries(ctrl);
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh
+            ? '批量操作（${filtered.length} 条）'
+            : 'Batch (${filtered.length})'),
+        content: Text(
+          isZh
+              ? '基于当前网络面板的过滤结果进行批量操作：可批量屏蔽所有 URL（精确匹配）、批量重放（上限 20 条）或导出 curl 列表到剪贴板。'
+              : 'Operate on the currently filtered ${filtered.length} requests.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          TextButton.icon(
+            onPressed: filtered.isEmpty
+                ? null
+                : () async {
+                    Navigator.of(dialogContext).pop();
+                    final messenger = ScaffoldMessenger.of(context);
+                    for (final e in filtered) {
+                      await ctrl.blockUrl(e.url);
+                    }
+                    if (!context.mounted) return;
+                    OpenHandSnackBar.showInfoOn(
+                      context,
+                      messenger,
+                      isZh
+                          ? '已屏蔽 ${filtered.length} 个 URL'
+                          : 'Blocked ${filtered.length} URLs',
+                    );
+                  },
+            icon: const Icon(Icons.block_rounded, size: 16),
+            label: Text(isZh ? '批量屏蔽' : 'Block all'),
+          ),
+          TextButton.icon(
+            onPressed: filtered.isEmpty
+                ? null
+                : () async {
+                    Navigator.of(dialogContext).pop();
+                    final messenger = ScaffoldMessenger.of(context);
+                    var ok = 0;
+                    final cap = math.min(filtered.length, 20);
+                    for (final e in filtered.take(cap)) {
+                      final r = await ctrl.replayRequest(e);
+                      if (r != null) ok++;
+                    }
+                    if (!context.mounted) return;
+                    OpenHandSnackBar.showInfoOn(
+                      context,
+                      messenger,
+                      isZh
+                          ? '批量重放：成功 $ok / 共 $cap（上限 20）'
+                          : 'Replayed $ok of $cap (cap 20)',
+                    );
+                  },
+            icon: const Icon(Icons.replay_rounded, size: 16),
+            label: Text(isZh ? '批量重放（≤20）' : 'Replay (≤20)'),
+          ),
+          FilledButton.icon(
+            onPressed: filtered.isEmpty
+                ? null
+                : () async {
+                    Navigator.of(dialogContext).pop();
+                    final messenger = ScaffoldMessenger.of(context);
+                    final buf = StringBuffer();
+                    for (final e in filtered) {
+                      buf.writeln('# ${e.method} ${e.url}');
+                      buf.write('curl ');
+                      if (e.method != 'GET') buf.write('-X ${e.method} ');
+                      e.requestHeaders.forEach((k, v) {
+                        buf.write("-H '${k.replaceAll("'", r"\'")}: "
+                            "${v.replaceAll("'", r"\'")}' ");
+                      });
+                      if (e.requestPostData != null &&
+                          e.requestPostData!.isNotEmpty) {
+                        buf.write("--data-raw '"
+                            "${e.requestPostData!.replaceAll("'", r"\'")}' ");
+                      }
+                      buf.writeln("'${e.url}'");
+                      buf.writeln();
+                    }
+                    await Clipboard.setData(
+                      ClipboardData(text: buf.toString()),
+                    );
+                    if (!context.mounted) return;
+                    OpenHandSnackBar.showSuccessOn(
+                      context,
+                      messenger,
+                      isZh
+                          ? '已复制 ${filtered.length} 条 curl 到剪贴板'
+                          : 'Copied ${filtered.length} curl entries',
+                    );
+                  },
+            icon: const Icon(Icons.copy_all_rounded, size: 16),
+            label: Text(isZh ? '复制 curl 列表' : 'Copy curl'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<CdpNetworkEntry> _filteredNetworkEntries(
+    WebReverseSessionController ctrl,
+  ) {
+    final filter = _networkFilter.toLowerCase().trim();
+    final type = _resourceFilter;
+    return ctrl.networkRequests.where((e) {
+      if (filter.isNotEmpty &&
+          !e.url.toLowerCase().contains(filter) &&
+          !(e.responseHeaders.values
+              .any((v) => v.toLowerCase().contains(filter)))) {
+        return false;
+      }
+      if (!type.matches(e)) return false;
+      return true;
+    }).toList(growable: false);
   }
 
   /// 高级工具菜单：聚合体检报告 / 持久化 Header / CDP 命令面板 /
