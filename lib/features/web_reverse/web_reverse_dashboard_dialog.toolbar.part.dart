@@ -160,6 +160,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       onPressed: () => _showBatchActions(context, ctrl, isZh),
                     ),
                     const SizedBox(width: 8),
+                    _ToolbarIconButton(
+                      tooltip: isZh ? 'HAR 对比' : 'HAR diff',
+                      icon: Icons.difference_rounded,
+                      onPressed: () => _showHarDiff(context, isZh),
+                    ),
+                    const SizedBox(width: 8),
                     // 高级菜单：把"持久 Header / 体检报告 / 原生 CDP / 反向脚本"
                     // 等低频但威力强的功能合到一颗按钮，避免 Toolbar 二行膨胀。
                     _ToolbarIconButton(
@@ -440,6 +446,116 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         duration: const Duration(seconds: 2),
       );
     }
+  }
+
+  /// HAR 对比：选两个本地 HAR 文件，按 method+url+status 三元组做集合 diff，
+  /// 列出 only-A / only-B / both 三栏。只解析 HAR 顶层 entries，逻辑足够轻
+  /// 不需要后台；解析失败 SnackBar 提示。
+  Future<void> _showHarDiff(BuildContext context, bool isZh) async {
+    final messenger = ScaffoldMessenger.of(context);
+    const typeGroup = XTypeGroup(
+      label: 'HAR',
+      extensions: <String>['har', 'json'],
+    );
+    XFile? aRaw;
+    XFile? bRaw;
+    try {
+      aRaw = await openFile(acceptedTypeGroups: const [typeGroup]);
+      if (aRaw == null) return;
+      bRaw = await openFile(acceptedTypeGroups: const [typeGroup]);
+    } catch (_) {}
+    if (aRaw == null || bRaw == null || !context.mounted) return;
+    final a = aRaw;
+    final b = bRaw;
+    Future<Set<String>?> parse(XFile f) async {
+      try {
+        final raw = await f.readAsBytes();
+        final decoded = jsonDecode(utf8.decode(raw));
+        final entries = (decoded as Map?)?['log']?['entries'];
+        if (entries is! List) return null;
+        return entries
+            .whereType<Map>()
+            .map((m) {
+              final req = m['request'] as Map?;
+              final res = m['response'] as Map?;
+              return '${req?['method'] ?? ''} ${req?['url'] ?? ''} → ${res?['status'] ?? ''}';
+            })
+            .toSet();
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_dashboard_dialog',
+          'parse har diff',
+          error,
+          stack,
+        );
+        return null;
+      }
+    }
+
+    final setA = await parse(a);
+    final setB = await parse(b);
+    if (!context.mounted) return;
+    if (setA == null || setB == null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? 'HAR 解析失败' : 'HAR parse failed',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    final onlyA = setA.difference(setB).toList(growable: false)..sort();
+    final onlyB = setB.difference(setA).toList(growable: false)..sort();
+    final both = setA.intersection(setB).length;
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isZh ? 'HAR 对比' : 'HAR diff'),
+        content: SizedBox(
+          width: 720,
+          height: 460,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isZh
+                    ? '共同请求 $both 条；A 独有 ${onlyA.length}；B 独有 ${onlyB.length}'
+                    : '$both shared, ${onlyA.length} only-A, ${onlyB.length} only-B',
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _HarDiffColumn(
+                        title: isZh ? 'A 独有' : 'Only A',
+                        items: onlyA,
+                        accent: Colors.red,
+                      ),
+                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(
+                      child: _HarDiffColumn(
+                        title: isZh ? 'B 独有' : 'Only B',
+                        items: onlyB,
+                        accent: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(isZh ? '关闭' : 'Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 网络面板批量操作：基于当前过滤结果一次性 block / 批量重放 / 批量复制
@@ -1069,6 +1185,72 @@ class _ToolbarThrottleButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// HAR diff 弹窗里的"only A / only B"单列：标题 + 计数 + 滚动列表。
+class _HarDiffColumn extends StatelessWidget {
+  const _HarDiffColumn({
+    required this.title,
+    required this.items,
+    required this.accent,
+  });
+
+  final String title;
+  final List<String> items;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$title (${items.length})',
+                style: theme.textTheme.labelLarge
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: items.isEmpty
+                ? Text(
+                    '(empty)',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  )
+                : ListView.builder(
+                    itemCount: items.length,
+                    itemBuilder: (_, i) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: SelectableText(
+                        items[i],
+                        maxLines: 2,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }
