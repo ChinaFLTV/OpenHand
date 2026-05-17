@@ -4,26 +4,38 @@
 /// 片时，会触发 UI 端布局抖动 / 主线程卡顿 / 列表上下弹跳等糟糕体验。
 /// 本文件提供两个轻量的令牌桶限速器，用于在流式追加层做背压：
 ///
-///   * [_StreamCharThrottle] —— 限制每秒向当前流式卡片 *显示* 的字符数。
+///   * [_StreamCharThrottle] —— 限制每秒向当前流式卡片 *显示* 的
+///     grapheme cluster（用户感知字符）数。
 ///   * [_StreamCardThrottle] —— 限制每秒向当前会话新创建的消息卡片数。
 ///
 /// 两个限速器都支持「关闭」（rate <= 0）。设计目标：
 ///   - 单 Timer，复杂度 O(1)；
 ///   - 不阻塞 isolate；
 ///   - dispose 时不会泄漏待执行回调。
+///
+/// 2026-05-22 — Bug 1 修复（task 3.1 / 3.2）：[_StreamCharThrottle] 把
+/// 对外接口从 UTF-16 code unit 切换到 grapheme cluster（`package:characters`）。
+/// task 3.2 已经把仓库内全部生产调用点迁移到 [renderableGraphemeCount]；
+/// 旧 `renderableLength` 仅作为 `@Deprecated` 转发保留，等待 task 3.3 / 后续
+/// 兼容窗口结束后整体删除。
 part of '../ai_session_controller.dart';
 
-/// 显示侧字符级令牌桶限速器。
+/// 显示侧 grapheme 级令牌桶限速器。
 ///
-/// 调用方在拿到完整 sanitized 文本后通过 [renderableLength] 询问当前
-/// 时刻最多可对外渲染多少字符；剩余字符会随着时间推进自动放开。
-/// 限速器内部维护一个 ~33ms 节奏的周期 Timer，在余量未释放时持续触发
-/// 调用方的 [_onTick] 回调，驱动 UI 把后续字符滚动出来。
+/// 调用方在拿到完整 sanitized 文本后通过 [renderableGraphemeCount] 询问当前
+/// 时刻最多可对外渲染多少个 grapheme cluster；剩余 grapheme 会随着时间推
+/// 进自动放开。限速器内部维护一个 ~16ms 节奏的周期 Timer，在余量未释放
+/// 时持续触发调用方的 [_onTick] 回调，驱动 UI 把后续 grapheme 滚动出来。
 /// 流结束时调用 [release] 即可立刻放开全部预算。
 ///
 /// [throttleDuration] 启用「节流时长」：从 throttle 创建时刻起经过该时长后，
-/// renderableLength 会直接返回 totalSanitizedLength，相当于关闭节流；
-/// null = 持续节流，永不超时。
+/// [renderableGraphemeCount] 会直接返回 totalSanitizedGraphemeCount，相当
+/// 于关闭节流；null = 持续节流，永不超时。
+///
+/// 命名约定：所有 `*Chars` / `*chars` 计数（包括对外 [maxCharsPerSecond]
+/// 字段名以及内部 [_budget] / 节流桶）均按 grapheme 语义解释；
+/// 字段名保留 `Chars` 是为了避免破坏 SettingsController 等远端调用方
+/// 的字段命名（task 3.2 会把整条调用链一起切到 grapheme 命名）。
 class _StreamCharThrottle {
   _StreamCharThrottle({
     required this.maxCharsPerSecond,
@@ -32,19 +44,48 @@ class _StreamCharThrottle {
   }) : _onTick = onTick,
        _budget = maxCharsPerSecond.toDouble(),
        _lastTickAt = DateTime.now(),
-       _expireAt = (throttleDuration != null && throttleDuration.inMilliseconds > 0)
+       _expireAt =
+           (throttleDuration != null && throttleDuration.inMilliseconds > 0)
            ? DateTime.now().add(throttleDuration)
-           : null;
+           : null {
+    // 2026-05-22 — Bug 1 修复（task 3.3）：守住「正式响应卡片必走节流」的
+    // 不变量。
+    //
+    // 持续节流模式（[throttleDuration] == null 或非正）下：
+    //   * `_expireAt` 必须保持 null —— [_isExpired] 因此恒为 false，
+    //     [isEnabled] 仅在 [maxCharsPerSecond] <= 0 时关闭；
+    //   * `[_isExpired]` 既然不会被翻转，整个生命周期内 [renderableGraphemeCount]
+    //     的「!isEnabled 且 maxCharsPerSecond > 0」短路只可能因为
+    //     [release] 标记 [_disposed] 才发生。
+    //
+    // 写时检查：[_expireAt] 是 final，构造完成之后没有路径能再次赋值，
+    // 所以这里一次断言即可锁住整条不变量；不引入额外状态机。
+    assert(
+      !(maxCharsPerSecond > 0 && throttleDuration == null) || _expireAt == null,
+      'positive-rate continuous throttle (assistant_final path) MUST keep '
+      '_expireAt == null so _isExpired stays false for the whole stream — '
+      'rate=$maxCharsPerSecond throttleDuration=$throttleDuration.',
+    );
+    assert(
+      !(maxCharsPerSecond > 0 && throttleDuration == null) || !_isExpired,
+      'positive-rate continuous throttle MUST NOT be _isExpired at '
+      'construction time — rate=$maxCharsPerSecond.',
+    );
+  }
 
-  /// 每秒允许被「展示」的字符数；<=0 视为关闭限速。
+  /// 每秒允许被「展示」的 grapheme 数；<=0 视为关闭限速。
   final int maxCharsPerSecond;
 
   final void Function() _onTick;
   Timer? _drainTimer;
   bool _disposed = false;
   double _budget;
-  int _emittedChars = 0;
-  int _lastKnownTotal = 0;
+  // 已被允许显示的 grapheme 数。命名从 `_emittedChars` 切换为
+  // `_emittedGraphemes`，对外通过 [renderableGraphemeCount] 暴露。
+  int _emittedGraphemes = 0;
+  // 最近一次 [renderableGraphemeCount] 的总 grapheme 数；用于
+  // [hasPending] / [drainGracefully] 判定。
+  int _lastKnownTotalGraphemes = 0;
   DateTime _lastTickAt;
   final DateTime? _expireAt;
 
@@ -59,77 +100,108 @@ class _StreamCharThrottle {
   /// 把"剩余流式响应正以真实速率追加"的状态向用户透出。
   bool get isDurationExpired => _isExpired;
 
-  /// 推进时钟并补充令牌，返回当前允许「显示」的最大字符数。
-  int renderableLength(int totalSanitizedLength) {
-    _lastKnownTotal = totalSanitizedLength;
+  /// 推进时钟并补充令牌，返回当前允许「显示」的最大 grapheme 数。
+  ///
+  /// 调用方应当传入 `text.characters.length`（grapheme 总数）。返回值
+  /// 同样是 grapheme 数，调用方可用 `text.characters.take(visible)` 来
+  /// 取出可见前缀，保证切片永远落在 grapheme cluster 边界。
+  int renderableGraphemeCount(int totalSanitizedGraphemeCount) {
+    _lastKnownTotalGraphemes = totalSanitizedGraphemeCount;
     if (!isEnabled || _disposed) {
-      final granted = totalSanitizedLength - _emittedChars;
-      _emittedChars = totalSanitizedLength;
+      // 2026-05-22 — Bug 1 修复（task 3.3）：守住正式响应卡片的节流
+      // 不变量。当 maxCharsPerSecond > 0 时，进入 pass-through 短路
+      // 只允许两种合法原因：
+      //   ① [_disposed] == true   —— 调用方主动 release（错误/取消/
+      //                                  流末尾兜底）；
+      //   ② [_isExpired] == true  —— [throttleDuration] 模式下时长
+      //                                  耗尽，UI 切回真实节奏。
+      // 在持续节流（throttleDuration == null）+ 仍在流期（未 release）
+      // 的路径里命中本短路就是真 bug —— 字符会被一次性 dump。
+      assert(
+        !(maxCharsPerSecond > 0) || _disposed || _isExpired,
+        'positive-rate _StreamCharThrottle short-circuited to pass-through '
+        'while still active — this would dump the whole assistant_final '
+        'response in one frame. rate=$maxCharsPerSecond '
+        '_disposed=$_disposed _isExpired=$_isExpired.',
+      );
+      final granted = totalSanitizedGraphemeCount - _emittedGraphemes;
+      _emittedGraphemes = totalSanitizedGraphemeCount;
       if (granted > 0) _recordEmission(granted);
-      return totalSanitizedLength;
+      return totalSanitizedGraphemeCount;
     }
-    if (totalSanitizedLength <= _emittedChars) {
-      return _emittedChars;
+    if (totalSanitizedGraphemeCount <= _emittedGraphemes) {
+      return _emittedGraphemes;
     }
     _refill();
     final allowance = _budget.floor();
     if (allowance > 0) {
-      final pending = totalSanitizedLength - _emittedChars;
+      final pending = totalSanitizedGraphemeCount - _emittedGraphemes;
       final granted = allowance >= pending ? pending : allowance;
-      _emittedChars += granted;
+      _emittedGraphemes += granted;
       _budget -= granted;
       _recordEmission(granted);
     }
-    if (_emittedChars < totalSanitizedLength) {
+    if (_emittedGraphemes < totalSanitizedGraphemeCount) {
       _scheduleDrain();
     }
-    return _emittedChars;
+    return _emittedGraphemes;
   }
 
-  // ── 吞吐采样：保留最近 [_kThroughputBuckets] 秒的字符放出量，给
-  // TopBar 仪表盘画曲线。每秒一个桶，O(1) 更新。
+  /// 旧字符长度 API。task 3.1 阶段引入薄转发，task 3.2 已经把所有生产
+  /// 调用点切到 [renderableGraphemeCount]；本接口仅作为 `@Deprecated`
+  /// 兼容层保留，避免外部仓库 / 测试的旧调用一刀切失败。任何新调用都
+  /// 应直接传 grapheme 总数（`text.characters.length`）给
+  /// [renderableGraphemeCount]。
+  @Deprecated(
+    'Use renderableGraphemeCount; counts must be in graphemes (package:characters).',
+  )
+  int renderableLength(int totalSanitizedLength) =>
+      renderableGraphemeCount(totalSanitizedLength);
+
+  // ── 吞吐采样：保留最近 [_kThroughputBuckets] 秒的 grapheme 放出量，
+  // 给 TopBar 仪表盘画曲线。每秒一个桶，O(1) 更新。
   static const int _kThroughputBuckets = 30;
-  final List<int> _throughputBuckets = List<int>.filled(_kThroughputBuckets, 0);
+  final List<int> _graphemeThroughputBuckets =
+      List<int>.filled(_kThroughputBuckets, 0);
   int _throughputBucketSecond = 0;
 
-  void _recordEmission(int chars) {
-    if (chars <= 0) return;
-    final nowSec =
-        DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  void _recordEmission(int graphemes) {
+    if (graphemes <= 0) return;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     if (_throughputBucketSecond == 0) {
       _throughputBucketSecond = nowSec;
-      _throughputBuckets[0] = chars;
+      _graphemeThroughputBuckets[0] = graphemes;
       return;
     }
     final delta = nowSec - _throughputBucketSecond;
     if (delta <= 0) {
-      _throughputBuckets[0] += chars;
+      _graphemeThroughputBuckets[0] += graphemes;
       return;
     }
     if (delta >= _kThroughputBuckets) {
       for (var i = 0; i < _kThroughputBuckets; i++) {
-        _throughputBuckets[i] = 0;
+        _graphemeThroughputBuckets[i] = 0;
       }
     } else {
       // 把现有桶向后挪 delta 位，老的丢失，新桶清零。
       for (var i = _kThroughputBuckets - 1; i >= delta; i--) {
-        _throughputBuckets[i] = _throughputBuckets[i - delta];
+        _graphemeThroughputBuckets[i] = _graphemeThroughputBuckets[i - delta];
       }
       for (var i = 0; i < delta; i++) {
-        _throughputBuckets[i] = 0;
+        _graphemeThroughputBuckets[i] = 0;
       }
     }
     _throughputBucketSecond = nowSec;
-    _throughputBuckets[0] = chars;
+    _graphemeThroughputBuckets[0] = graphemes;
   }
 
-  /// 最近 [_kThroughputBuckets] 秒的每秒字符吞吐快照，桶 0 = 当前秒，
-  /// 越往后越旧。返回不可变副本，UI 可直接喂给 painter。
+  /// 最近 [_kThroughputBuckets] 秒的每秒 grapheme 吞吐快照，桶 0 =
+  /// 当前秒，越往后越旧。返回不可变副本，UI 可直接喂给 painter。
   List<int> throughputSnapshot() =>
-      List<int>.unmodifiable(_throughputBuckets);
+      List<int>.unmodifiable(_graphemeThroughputBuckets);
 
-  /// 当前秒（桶 0）累计已放出的字符数。
-  int get currentSecondEmitted => _throughputBuckets[0];
+  /// 当前秒（桶 0）累计已放出的 grapheme 数。
+  int get currentSecondEmitted => _graphemeThroughputBuckets[0];
 
   void _refill() {
     final now = DateTime.now();
@@ -137,6 +209,7 @@ class _StreamCharThrottle {
     if (elapsedMicros <= 0) {
       return;
     }
+    // 单位：graphemes/sec。换算 micros → graphemes：micros * rate / 1e6。
     _budget += elapsedMicros * maxCharsPerSecond / 1000000.0;
     if (_budget > maxCharsPerSecond) {
       _budget = maxCharsPerSecond.toDouble();
@@ -148,27 +221,29 @@ class _StreamCharThrottle {
     if (_drainTimer != null || _disposed) {
       return;
     }
-    // 60fps 节奏：16ms 一次 tick，让字符在低速率（默认 3 字符/秒）下也
-    // 能感受到稳定的"打字机"节奏，而不是间歇性蹦出整块。在高速率下也
-    // 不会因为 tick 太密把主线程拖累——onTick 回调本身只做轻量切片。
+    // 60fps 节奏：16ms 一次 tick，让 grapheme 在低速率（默认 3
+    // grapheme/秒）下也能感受到稳定的"打字机"节奏，而不是间歇性蹦出
+    // 整块。在高速率下也不会因为 tick 太密把主线程拖累——onTick 回调
+    // 本身只做轻量切片。
     _drainTimer = Timer(const Duration(milliseconds: 16), () {
       _drainTimer = null;
       if (_disposed) {
         return;
       }
-      // 由调用方通过 renderableLength + sanitized 文本切片驱动新一轮显示。
+      // 由调用方通过 renderableGraphemeCount + sanitized 文本切片驱动新一
+      // 轮显示。
       try {
         _onTick();
       } catch (_) {
         // ignore
       }
-      if (_emittedChars < _lastKnownTotal) {
+      if (_emittedGraphemes < _lastKnownTotalGraphemes) {
         _scheduleDrain();
       }
     });
   }
 
-  /// 当前距离释放下一个字符还差多少（[0, 1] 区间，1 = 即将释放）。
+  /// 当前距离释放下一个 grapheme 还差多少（[0, 1] 区间，1 = 即将释放）。
   /// 用于给 UI 渲染半透明的"待出场字符"，让低速率下的渲染拥有连续动画。
   double get partialCharProgress {
     if (!isEnabled) return 1;
@@ -181,16 +256,20 @@ class _StreamCharThrottle {
     _disposed = true;
     _drainTimer?.cancel();
     _drainTimer = null;
-    _emittedChars = 1 << 30;
+    _emittedGraphemes = 1 << 30;
     _budget = (1 << 30).toDouble();
   }
 
-  /// 当前是否还有 pending 字符未被释放给 UI（仅在 isEnabled=true 时有意义）。
-  bool get hasPending => isEnabled && !_disposed && _emittedChars < _lastKnownTotal;
+  /// 当前是否还有 pending grapheme 未被释放给 UI（仅在 isEnabled=true 时
+  /// 有意义）。
+  bool get hasPending =>
+      isEnabled &&
+      !_disposed &&
+      _emittedGraphemes < _lastKnownTotalGraphemes;
 
-  /// 软排空：异步等待直到 _emittedChars 追上 _lastKnownTotal 或超过
-  /// [maxWait]。流结束后调用，让残余字符仍按节流速率均匀放出，避免
-  /// 「最后一刻一次性 burst 出全部内容」的糟糕观感。
+  /// 软排空：异步等待直到 _emittedGraphemes 追上 _lastKnownTotalGraphemes
+  /// 或超过 [maxWait]。流结束后调用，让残余 grapheme 仍按节流速率均匀放
+  /// 出，避免「最后一刻一次性 burst 出全部内容」的糟糕观感。
   ///
   /// 返回 true 表示自然排空，false 表示因超时被外部强制 release。
   Future<bool> drainGracefully({Duration? maxWait}) async {

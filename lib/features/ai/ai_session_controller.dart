@@ -570,8 +570,9 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, int> _compressionFailureCountsBySession = <String, int>{};
 
   /// 2026-05-17 — 会话级临时节流覆盖，仅本进程生效（不持久化）；用户可
-  /// 在线程会话顶部胶囊里临时调整字符 / 卡片限速，下次重启即恢复到模板/
-  /// 全局值。优先级：session > template > global。
+  /// 在线程会话顶部胶囊里临时调整字符 / 卡片限速，下次重启即恢复到全局
+  /// 值。优先级：session > global（task 4 删除了模板覆盖层，runtime
+  /// context 的 `effectiveStreamMaxCharsPerSecond` 已退化为只读全局）。
   final Map<String, AiStreamThrottleOverride> _sessionStreamThrottleOverrides =
       <String, AiStreamThrottleOverride>{};
   final ValueNotifier<int> _sessionStreamThrottleSignal = ValueNotifier<int>(0);
@@ -3342,17 +3343,26 @@ class AiSessionController extends ChangeNotifier {
         final fullSanitized = _sanitizeVisibleModelContent(
           assistantRawBuffer.toString(),
         );
-        final visibleLen = charThrottle.renderableLength(fullSanitized.length);
-        final sanitizedContent = visibleLen >= fullSanitized.length
+        // 2026-05-22 — Bug 1 修复（task 3.2）：字符语义切到 grapheme
+        // cluster。以前传 `fullSanitized.length`（UTF-16 code units）会
+        // 让中文 / emoji 场景下节流速率失真，且 `substring(0, visibleLen)`
+        // 可能切在 surrogate / ZWJ 中间。改走 `package:characters`：
+        // 总数 / 切片均按 grapheme 边界进行。
+        final fullChars = fullSanitized.characters;
+        final visibleGraphemes = fullChars.length;
+        final visibleLen = charThrottle.renderableGraphemeCount(
+          visibleGraphemes,
+        );
+        final sanitizedContent = visibleLen >= visibleGraphemes
             ? fullSanitized
-            : fullSanitized.substring(0, visibleLen);
+            : fullChars.take(visibleLen).toString();
         if (sanitizedContent.isEmpty && assistantMessageId == null) {
           return;
         }
         // 2026-05-17 — 还有未释放的字符余量则标记 streaming=true，让 UI
         // 在尾部渲染打字机光标；停止时由 syncFinalAssistantMessage 把
         // streaming 置为 false，光标随之消失。
-        final isStillStreaming = visibleLen < fullSanitized.length;
+        final isStillStreaming = visibleLen < visibleGraphemes;
         final resolvedMessageId = assistantMessageId ?? _idGenerator();
         assistantMessageId = resolvedMessageId;
         streamedSession = _upsertMessage(
@@ -3385,12 +3395,17 @@ class AiSessionController extends ChangeNotifier {
         final fullSanitized = _sanitizeVisibleModelContent(
           reasoningRawBuffer.toString(),
         );
-        final visibleLen = reasoningCharThrottle.renderableLength(
-          fullSanitized.length,
+        // 2026-05-22 — Bug 1 修复（task 3.2）：reasoning 路径也切到
+        // grapheme 维度，与 assistant 路径口径一致；切片走
+        // `Characters.take(visible).toString()` 保证落在 cluster 边界。
+        final fullChars = fullSanitized.characters;
+        final visibleGraphemes = fullChars.length;
+        final visibleLen = reasoningCharThrottle.renderableGraphemeCount(
+          visibleGraphemes,
         );
-        final sanitizedContent = visibleLen >= fullSanitized.length
+        final sanitizedContent = visibleLen >= visibleGraphemes
             ? fullSanitized
-            : fullSanitized.substring(0, visibleLen);
+            : fullChars.take(visibleLen).toString();
         if (sanitizedContent.isEmpty && reasoningMessageId == null) {
           return;
         }
@@ -3406,7 +3421,7 @@ class AiSessionController extends ChangeNotifier {
         }
       }
 
-      // 优先级：session 临时覆盖 > 模板覆盖 > 全局值。
+      // 优先级：session 临时覆盖 > 全局值（task 4 已删除模板覆盖层）。
       final sessionThrottleOverride =
           _sessionStreamThrottleOverrides[workingSession.id];
       final effChars = sessionThrottleOverride?.charsPerSecond ??
@@ -3771,19 +3786,52 @@ class AiSessionController extends ChangeNotifier {
       // 时令牌桶里仍可能有几十/几百字符未释放。直接 release 会让 UI 一
       // 次性 burst 出剩余内容，破坏打字机体验。这里改为先等令牌按节奏
       // 把 pending 字符均匀放出（最长 wait = pending / rate * 1.2 +
-      // 缓冲；上限 8s 避免极端值卡住后续轮次）。如果用户主动 stop 或
-      // 出现错误，则跳过等待立即 release 把残余补齐。
+      // 缓冲）。如果用户主动 stop 或出现错误，则跳过等待立即 release 把
+      // 残余补齐。
+      //
+      // 2026-05-22 — Bug 1 修复（task 3.3）：守住「正式响应卡片必走节流」
+      // 的不变量。原实现给 [maxWaitMs] 加了 8s 硬顶，对持续节流（duration
+      // 为空）+ 大段中文/emoji 的场景，自然 drain 时长 ≈ N/rate 远超 8s
+      // —— 一旦超时 drainGracefully 提前返回，紧接着的 release() 会让
+      // syncFinalAssistantMessage 把残余字符一次性 dump 到 message
+      // content，这就是 Bug 1 的尾部短路路径。
+      //
+      // 修复策略：
+      //   * 持续节流（throttleDuration == null）路径取消 8s 上限，按自然
+      //     drain 时长等待，让 pending grapheme 通过 onTick 一帧一帧
+      //     释放；release() 仅在 stream 真正结束（drain 完成）后执行；
+      //   * 时长节流（throttleDuration != null）路径保留 8s 上限，因为
+      //     时长一到 throttle 自身就会 _isExpired，UI 已切到真实节奏；
+      //   * 极端情况下增加一个 90s 防呆上限，避免单轮被无限拉长（>90s
+      //     的内容用户也会主动 stop）。
       if (!didCancelStreamEarly) {
+        // 2026-05-22 — Bug 1 修复（task 3.2）：drainGracefully 的等待时
+        // 长估算改用 grapheme 长度。继续用 raw buffer 的 UTF-16 长度会
+        // 在中文 / emoji 场景下放大 maxWaitMs，让流末尾的 idle 等待变
+        // 得不必要地长。这里先把 raw buffer sanitize 一遍，再用
+        // `package:characters` 的 grapheme 长度估 pendingChars。
+        final assistantPendingGraphemes =
+            _sanitizeVisibleModelContent(assistantRawBuffer.toString())
+                .characters
+                .length;
+        final reasoningPendingGraphemes =
+            _sanitizeVisibleModelContent(reasoningRawBuffer.toString())
+                .characters
+                .length;
         final pendingChars = math.max(
-          assistantRawBuffer.length - 0,
-          reasoningRawBuffer.length - 0,
+          assistantPendingGraphemes,
+          reasoningPendingGraphemes,
         );
         final effectiveCharsPerSec = effChars;
+        // 持续节流：自然 drain 时长上限 = N/rate * 1.2 + 1s，最多 90s；
+        // 时长节流：沿用旧 8s 上限（throttle 自身在 duration 后会失效，
+        // UI 不会再被卡住）。
+        final ceilingMs = throttleDuration == null ? 90000 : 8000;
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
             : math.min(
-                8000,
-                ((pendingChars * 1200) / effectiveCharsPerSec).ceil(),
+                ceilingMs,
+                ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000,
               );
         if (maxWaitMs > 0) {
           await Future.wait(<Future<void>>[
