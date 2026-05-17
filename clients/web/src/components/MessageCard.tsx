@@ -501,6 +501,22 @@ function trackMessageAppeared(id: string): void {
   }
 }
 
+/// W3 优化：打开历史会话时一次性把已加载的全部 message id 标记为"已入场"。
+/// 历史消息没必要再跑 CSS 入场动画 + useLayoutEffect 高度量动画，避免长会话
+/// 首屏 N 张卡片并发 getBoundingClientRect / element.animate 撑爆主线程。
+/// 仅"新到达"的消息（流式 / SSE 推送）会继续走入场。
+export function markMessagesAsAppeared(ids: readonly string[]): void {
+  for (const id of ids) {
+    if (id) appearedMessageIds.add(id);
+  }
+  if (appearedMessageIds.size > 500) {
+    const entries = [...appearedMessageIds];
+    for (let i = 0; i < Math.min(250, entries.length - 250); i++) {
+      appearedMessageIds.delete(entries[i]!);
+    }
+  }
+}
+
 // 判定 reasoning 正文是否超过「5-6 行」：
 // - 硬换行 (\n) 数 ≥ 5（即内容占 6 行及以上） → 超长；
 // - 无硬换行时回退到字符数阈值（避免一大段未换行的文本被误判为短）。

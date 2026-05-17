@@ -49,7 +49,7 @@ import { SessionGoneDialog } from '../../../components/SessionGoneDialog';
 import { t } from '../../../i18n';
 import { useAuth } from '../../../state/auth';
 import type { ApiMetaInstruction, ApiMetaModel, ApiMetaShortcutBinding } from '../../../api/meta';
-import { MessageCard } from '../../../components/MessageCard';
+import { MessageCard, markMessagesAsAppeared } from '../../../components/MessageCard';
 import { PlanTimeline } from '../../../components/PlanTimeline';
 import { notifyIfHidden } from '../../../services/pwa';
 import {
@@ -1827,6 +1827,9 @@ export function SessionDetailPage() {
       .then(([d, m]) => {
         if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
         setDetail(m.session ? { ...d, session: mergeSessionSummary(d.session, m.session) } : d);
+        // W3：历史会话首批消息直接标记为已入场，绕过 CSS 入场 + 高度量动画的
+        // 并发开销；后续流式 / SSE 真正新增的消息仍会正常入场。
+        markMessagesAsAppeared(m.items.map(it => it.id));
         replaceMessageWindow([...m.items], m.offset);
         setTotalKnown(m.total);
         setSendPhase(m.send_phase || d.runtime.send_phase || 'idle');
@@ -1957,6 +1960,12 @@ export function SessionDetailPage() {
     const eventSessionId = sessionId;
     sseFailRef.current = 0;
     setSseLive(false);
+    // W4 SSE 指纹短路：服务端 80ms 一次推全窗口 snapshot，但很多 tick 期间
+    // 内容其实没变化（idle 心跳 / 与本地相同的回放）。先用一个轻量指纹
+    // (count + 末条 id + 末条 content.length + send_phase + last_error 长度)
+    // 比对，相等直接 return，省掉 applyServerMessageWindow + mergeSessionSummary
+    // 两个 O(N) 的合并。
+    let lastSnapshotFingerprint = '';
     const close = subscribeSessionEvents(eventSessionId, {
       onOpen: () => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
@@ -1965,6 +1974,13 @@ export function SessionDetailPage() {
       },
       onSnapshot: (snap) => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
+        const tail = snap.messages.length > 0 ? snap.messages[snap.messages.length - 1] : null;
+        const fingerprint =
+          `${snap.messages.length}|${tail?.id ?? ''}|${tail?.content?.length ?? 0}|` +
+          `${snap.send_phase}|${snap.last_error?.length ?? 0}|` +
+          `${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}`;
+        if (fingerprint === lastSnapshotFingerprint) return;
+        lastSnapshotFingerprint = fingerprint;
         // 增量合并：当 snapshot 与本地 messages 的尾巴 N-1 条 id+content.length 完全一致，
         // 仅末尾消息的 content 变长（流式 token），就只复用前缀对象 + 重建末尾对象，
         // 让 Preact 的 keyed reconciliation 跳过前缀，每帧仅 patch 一个气泡。
