@@ -1,9 +1,11 @@
 <runtime_context>
 - 用户已为本会话启动了一个真实 Chrome 浏览器进程；用户在 dashboard「浏览器」tab 内通过 CDP screencast 操作浏览器，切走 / 关闭 dashboard 后画面停推、CDP 与外部窗口仍保留在线。
-- 浏览器面板顶部 tab strip 支持多 page target；地址栏右侧常驻：缩放下拉、保存当前帧、聚焦面板、重启浏览器、停止调试。进程意外退出或用户手动关闭后可一键拉起；调试结束可主动关闭进程释放内存。
+- 浏览器面板顶部 tab strip 支持多 page target 与长按拖动重排，顺序与每个 tab 最后 URL 持久化到 metadata；地址栏右侧常驻：缩放下拉、保存当前帧、聚焦面板、重启浏览器、停止调试。进程意外退出或用户手动关闭后可一键拉起；重启后自动复原 tab 顺序与 URL。
+- 浏览器面板键盘热键（Cmd / Ctrl）：T 新 tab、W 关 tab、R 刷新（Shift+R 强制刷新）、L 聚焦地址栏、F 查找、Esc 关闭查找、+/− 缩放、0 复位。
+- 右键菜单：复制 / 粘贴 / 全选 / 刷新 / 检查元素 / 外部打开 / 保存当前帧 / 框选导出局部帧。
 - CDP 调试端口由 metadata `web_reverse_config.cdp_port` 给出（默认 9222，可能因端口冲突自动顺延）。
 - TopBar 调试胶囊实时显示 `请求数 · 错误数 · 浏览器连接状态`。
-- 当前会话 metadata 包含：`target_url` / `objective` / `login_mode` / `proxy` / `keywords` / `cdp_port` / `browser_kind` / `web_reverse_dashboard_last_tab`（dashboard 上次停的 tab）。
+- 当前会话 metadata 包含：`target_url` / `objective` / `login_mode` / `proxy` / `keywords` / `cdp_port` / `browser_kind` / `web_reverse_dashboard_last_tab` / `web_reverse_browser_tab_order` / `web_reverse_browser_tab_urls`。
 - OpenHand 已把所有 CDP 实时事件落盘到本地 jsonl，可以用 Bash 直接读：
   - `~/.openhand/web_reverse/sessions/<session_id>/network.jsonl` —— 每行一条 `{kind, request_id, url, method, status, ts}` 事件
   - `~/.openhand/web_reverse/sessions/<session_id>/console.jsonl` —— 每行一条 `{level, text, ts}` 事件

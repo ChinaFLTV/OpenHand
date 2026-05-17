@@ -179,25 +179,31 @@ function BrowserTab() {
         <li>
           {t(
             'webReverse.browser.bulletTabs',
-            '面板顶部 tab strip 支持多 page target 切换 / 关闭 / 新建。',
+            'Tab strip 支持多 page target 切换 / 长按拖动重排 / 关闭 / 新建，顺序与最后 URL 写入 session metadata 跨重启复原。',
           )}
         </li>
         <li>
           {t(
             'webReverse.browser.bulletControl',
-            '地址栏右侧常驻「重启浏览器 / 停止调试 / 缩放 / 保存当前帧」按钮。',
+            '地址栏右侧常驻「重启浏览器 / 停止调试 / 缩放 / 保存当前帧 / 聚焦面板」按钮；自适应帧率（30fps@大视窗 / 60fps@常规）。',
+          )}
+        </li>
+        <li>
+          {t(
+            'webReverse.browser.bulletShortcuts',
+            '键盘热键：Cmd/Ctrl + T/W/R/Shift+R/L/F/Esc/+/-/0 实现新建 / 关闭 / 刷新 / 强刷 / 聚焦地址栏 / 查找 / 关查找 / 缩放档位 / 复位。',
           )}
         </li>
         <li>
           {t(
             'webReverse.browser.bulletRecover',
-            '浏览器进程异常退出会自动切到「重启浏览器」占位，4 秒一次的存活探针会主动兜底。',
+            '浏览器进程异常退出会自动切到「重启浏览器」占位，4 秒一次的存活探针主动兜底。',
           )}
         </li>
         <li>
           {t(
             'webReverse.browser.bulletContextMenu',
-            '面板内右键弹出 Flutter 上下文菜单：复制 / 粘贴 / 全选 / 刷新 / 在外部浏览器打开 / 检查元素 (DevTools)。',
+            '右键菜单：复制 / 粘贴 / 全选 / 刷新 / 检查元素 / 外部打开 / 保存当前帧 / 框选导出局部帧。',
           )}
         </li>
       </ul>
