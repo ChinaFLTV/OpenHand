@@ -31,7 +31,8 @@
 - 调试通道：CDP WebSocket，端口由 metadata `web_reverse_config.cdp_port` 提供（区间 9222–9322）。
 - 工作目录：`WD/.web_reverse/<session_id>/` 下分 `network/` `scripts/` `screenshots/` `har/` 四个子目录，所有产物落在这里。
 - Dashboard 弹窗 tab：浏览器 / 概览 / 网络 / 控制台 / 源码 / 性能 / 内存 / 应用 / 安全 / 记录器；用户上次停在哪个 tab 会持久化到 session metadata 自动恢复。
-- 浏览器 tab 提供：tab strip（多 page target 切换 / 长按拖动重排 / 关闭 / 新建，顺序与每个 tab 的最后 URL 写入 session metadata，下次重启浏览器自动复原）、地址栏 + 前进 / 后退 / 刷新、缩放下拉（50%–150%）、保存当前帧、键鼠 + IME 输入桥、右键菜单（复制 / 粘贴 / 全选 / 刷新 / 检查元素 / 外部打开 / 保存当前帧 / 框选导出局部帧）。screencast 帧率自适应：viewport 长边 > 1600 时降到 ≈30fps + quality 65，常规视窗回到 ≈60fps + quality 80。所有交互通过 CDP `Input.*` / `Page.*` / `Emulation.*` 真实下发。
+- 应用 tab 支持 Cookies / LocalStorage / SessionStorage 编辑（新增 / 修改 / 删除）；记录器 tab 支持一键导出为 puppeteer / playwright JS 脚本；高级菜单新增「网络拦截规则」入口（URL 通配 → block / 重写 URL / 注入 Header）。
+- 浏览器 tab 提供：tab strip（多 page target 切换 / 长按拖动重排 / 关闭 / 新建，顺序与每个 tab 的最后 URL 写入 session metadata，下次重启浏览器自动复原）、地址栏（prefix 历史下拉 200 条上限）+ 前进 / 后退 / 刷新、缩放下拉（50%–150%，Runtime.evaluate 写 documentElement.style.zoom）、分辨率下拉（自动 / 720p / 1080p / 1440p / 2160p）、设备模拟下拉（原生 / 移动 / 平板 / 桌面，调 Emulation.setDeviceMetricsOverride + UA）、保存当前帧、键鼠 + IME 输入桥、右键菜单（复制 / 粘贴 / 全选 / 刷新 / 检查元素 / 外部打开 / 保存当前帧 / 框选导出局部帧）。screencast 帧率自适应：viewport 长边 > 1600 时降到 ≈30fps + quality 65，常规视窗回到 ≈60fps + quality 80。所有交互通过 CDP `Input.*` / `Page.*` / `Emulation.*` / `Runtime.*` 真实下发。
 - 浏览器面板键盘热键（Cmd on macOS / Ctrl elsewhere）：T 新 tab、W 关 tab、R 刷新、Shift+R 强制刷新、L 聚焦地址栏、F 弹出查找条、Esc 关闭查找条、+/− 调缩放档位、0 复位 100%。
 - Dashboard 高级菜单可用：持久 Header、CDP 命令面板、AI 请求摘要、请求对比、Service Worker 反注册、体检报告 zip 导出、HAR 重放 mock server、mitmproxy 系统级抓包桥接、WebRTC 资源捕获、webcrack JS 反混淆。CDP 抖动断开会自动重连并重新挂载持久 Header / 屏蔽 URL / screencast / 当前 page target 等运行期状态；4 秒一次的存活探针在 `/json/version` 失败时立刻把状态切到「已断开」。
 </environment>

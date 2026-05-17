@@ -185,7 +185,7 @@ function BrowserTab() {
         <li>
           {t(
             'webReverse.browser.bulletControl',
-            '地址栏右侧常驻「重启浏览器 / 停止调试 / 缩放 / 保存当前帧 / 聚焦面板」按钮；自适应帧率（30fps@大视窗 / 60fps@常规）。',
+            '地址栏：左侧 prefix 历史下拉（最近 30 条）；右侧常驻「缩放 / 分辨率 / 设备模拟 / 保存当前帧 / 聚焦 / 重启 / 停止」按钮。自适应帧率（30fps@大视窗 / 60fps@常规）。',
           )}
         </li>
         <li>
@@ -197,13 +197,19 @@ function BrowserTab() {
         <li>
           {t(
             'webReverse.browser.bulletRecover',
-            '浏览器进程异常退出会自动切到「重启浏览器」占位，4 秒一次的存活探针主动兜底。',
+            '浏览器进程异常退出会自动切到「重启浏览器」占位，2 秒一次的存活探针主动兜底；重启后自动复原 tab 与 URL。',
           )}
         </li>
         <li>
           {t(
             'webReverse.browser.bulletContextMenu',
             '右键菜单：复制 / 粘贴 / 全选 / 刷新 / 检查元素 / 外部打开 / 保存当前帧 / 框选导出局部帧。',
+          )}
+        </li>
+        <li>
+          {t(
+            'webReverse.browser.bulletExtra',
+            '应用 tab 可编辑 Cookies / LocalStorage / SessionStorage；记录器 tab 一键导出 puppeteer / playwright；高级菜单新增「网络拦截规则」（URL 通配 → block / 重写 / 注入 header）。',
           )}
         </li>
       </ul>
