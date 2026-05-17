@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common/sqlite_api.dart';
@@ -295,17 +296,25 @@ class AiSessionStore {
       where: includeArchived ? null : 'archived = 0',
       orderBy: _sessionsOrderBy,
     );
+    if (sessionRows.isEmpty) {
+      return AiSessionLoadResult(sessions: const <AiSession>[], issues: issues);
+    }
+
+    // 批量拉取所有 session 的 messages：原先 N+1 次小查询（60 个会话即 60 次
+    // round trip）改为按 _kMessageBatchSize 分批 IN (...) 拉取，常见情况一两个
+    // 批次拿完。结果按 session_id 分组后保持 sort_order ASC，与原行为等价。
+    final ids = <String>[
+      for (final row in sessionRows)
+        if (row['id'] is String) row['id'] as String,
+    ];
+    final messagesBySessionId = await _loadMessagesBySessionIds(ids);
 
     final sessions = <AiSession>[];
     for (final row in sessionRows) {
       try {
         final sessionId = row['id'] as String;
-        final messageRows = await _db.query(
-          'messages',
-          where: 'session_id = ?',
-          whereArgs: <Object?>[sessionId],
-          orderBy: 'sort_order ASC',
-        );
+        final messageRows = messagesBySessionId[sessionId] ??
+            const <Map<String, Object?>>[];
         sessions.add(
           await restoreCompressionCheckpointFromSidecar(
             _sessionFromRow(row, messageRows),
@@ -323,6 +332,34 @@ class AiSessionStore {
     }
 
     return AiSessionLoadResult(sessions: sessions, issues: issues);
+  }
+
+  /// SQLite 单条语句的参数上限默认 999，保守取 500 以兼顾各平台 ffi 配置。
+  static const int _kMessageBatchSize = 500;
+
+  /// 按 session id 列表批量拉取 messages，结果按 session_id 分桶；
+  /// 每个桶内保持 sort_order ASC 顺序。空列表入参 → 空 map。
+  Future<Map<String, List<Map<String, Object?>>>> _loadMessagesBySessionIds(
+    List<String> ids,
+  ) async {
+    final grouped = <String, List<Map<String, Object?>>>{};
+    if (ids.isEmpty) return grouped;
+    for (var start = 0; start < ids.length; start += _kMessageBatchSize) {
+      final end = math.min(start + _kMessageBatchSize, ids.length);
+      final batch = ids.sublist(start, end);
+      final placeholders = List<String>.filled(batch.length, '?').join(',');
+      final rows = await _db.rawQuery(
+        'SELECT * FROM messages WHERE session_id IN ($placeholders) '
+        'ORDER BY session_id, sort_order ASC',
+        batch,
+      );
+      for (final row in rows) {
+        final sessionId = row['session_id'];
+        if (sessionId is! String) continue;
+        (grouped[sessionId] ??= <Map<String, Object?>>[]).add(row);
+      }
+    }
+    return grouped;
   }
 
   /// Loads **only session metadata** (no messages).  Much faster for building
@@ -553,16 +590,19 @@ class AiSessionStore {
       whereArgs: <Object?>[templateId, minCreatedAt.toUtc().toIso8601String()],
       orderBy: _sessionsOrderBy,
     );
+    if (rows.isEmpty) return const <AiSession>[];
+    // 同 loadAll：批量 IN (...) 拉取所有 session 的 messages，避免 N+1。
+    final ids = <String>[
+      for (final row in rows)
+        if (row['id'] is String) row['id'] as String,
+    ];
+    final messagesBySessionId = await _loadMessagesBySessionIds(ids);
     final sessions = <AiSession>[];
     for (final row in rows) {
       try {
         final sessionId = row['id'] as String;
-        final messageRows = await _db.query(
-          'messages',
-          where: 'session_id = ?',
-          whereArgs: <Object?>[sessionId],
-          orderBy: 'sort_order ASC',
-        );
+        final messageRows = messagesBySessionId[sessionId] ??
+            const <Map<String, Object?>>[];
         sessions.add(
           await restoreCompressionCheckpointFromSidecar(
             _sessionFromRow(row, messageRows),
