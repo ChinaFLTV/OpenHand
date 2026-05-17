@@ -905,62 +905,540 @@ Future<void> _toggleWebRtcCapture(
     );
     return;
   }
-  // 拉一次现有日志展示。
-  final entries = await ctrl.readWebRtcLog();
-  if (!context.mounted) return;
   await showDialog<void>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(isZh ? 'WebRTC 捕获事件' : 'WebRTC events'),
-      content: SizedBox(
-        width: 720,
-        height: 460,
-        child: entries.isEmpty
-            ? Center(
-                child: Text(
-                  isZh
-                      ? '已注入 hook，但当前页面尚未触发 WebRTC。\n刷新或拨打音视频后再来此对话框查看。'
-                      : 'Hook installed but no WebRTC traffic yet. Trigger a call then reopen.',
-                  textAlign: TextAlign.center,
-                ),
-              )
-            : ListView.builder(
-                itemCount: entries.length,
-                itemBuilder: (_, idx) {
-                  final e = entries[idx];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: SelectableText(
-                      '[${e['kind']}] ${jsonEncode(e)}',
-                      style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 11),
-                    ),
-                  );
-                },
-              ),
-      ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () async {
-            await Clipboard.setData(
-              ClipboardData(text: const JsonEncoder.withIndent('  ').convert(entries)),
-            );
-            if (!dialogContext.mounted) return;
-            OpenHandSnackBar.showSuccess(
-              dialogContext,
-              isZh ? '已复制' : 'Copied',
-              duration: const Duration(seconds: 1),
-            );
-          },
-          label: isZh ? '复制 JSON' : 'Copy JSON',
-        ),
-        OpenHandDialogActionButton.primary(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          label: isZh ? '关闭' : 'Close',
-        ),
-      ],
-    ),
+    builder: (_) => _WebRtcLiveDialog(controller: ctrl, isZh: isZh),
   );
+}
+
+/// WebRTC 实时调试面板：每秒 poll readWebRtcLog 拉新增日志，分两个 tab：
+/// ① 实时图表：按 PeerConnection id 维护 _RtcSeries（最近 60 个采样的
+///    bytesSent / bytesReceived / packetsLost / rtt），用 _RtcChart 渲染
+///    四条折线 + 当前值 chip；② 事件流：完整 JSON 日志 SelectableText。
+class _WebRtcLiveDialog extends StatefulWidget {
+  const _WebRtcLiveDialog({required this.controller, required this.isZh});
+
+  final WebReverseSessionController controller;
+  final bool isZh;
+
+  @override
+  State<_WebRtcLiveDialog> createState() => _WebRtcLiveDialogState();
+}
+
+class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
+  Timer? _pollTimer;
+  final Map<int, _RtcSeries> _series = <int, _RtcSeries>{};
+  final List<Map<String, Object?>> _events = <Map<String, Object?>>[];
+  static const int _maxEvents = 200;
+  bool _disposed = false;
+  int _selected = 0;
+  // 0 = 图表，1 = 事件流。
+  int _tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) => _poll());
+    _poll();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _poll() async {
+    final entries = await widget.controller.readWebRtcLog();
+    if (_disposed || !mounted || entries.isEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
+    setState(() {
+      for (final e in entries) {
+        final kind = '${e['kind'] ?? ''}';
+        if (kind == 'stats') {
+          final id = (e['id'] as num?)?.toInt() ?? 0;
+          final s = _series.putIfAbsent(id, () => _RtcSeries());
+          s.push(
+            bytesSent: (e['bytesSent'] as num?)?.toDouble() ?? 0,
+            bytesReceived: (e['bytesReceived'] as num?)?.toDouble() ?? 0,
+            packetsLost: (e['packetsLost'] as num?)?.toDouble() ?? 0,
+            rttMs: ((e['rtt'] as num?)?.toDouble() ?? 0) * 1000.0,
+          );
+          if (_selected == 0 && _series.isNotEmpty) {
+            _selected = _series.keys.first;
+          }
+        } else {
+          _events.add(e);
+          if (_events.length > _maxEvents) {
+            _events.removeRange(0, _events.length - _maxEvents);
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 880, maxHeight: 620),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 14, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.video_camera_back_rounded, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Text(
+                    isZh ? 'WebRTC 实时面板' : 'WebRTC live panel',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      isZh
+                          ? '${_series.length} 连接 · 1s 采样'
+                          : '${_series.length} pc · 1s sample',
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                children: [
+                  _RtcTab(
+                    label: isZh ? '实时图表' : 'Live charts',
+                    selected: _tab == 0,
+                    onTap: () => setState(() => _tab = 0),
+                  ),
+                  const SizedBox(width: 10),
+                  _RtcTab(
+                    label: isZh ? '事件流' : 'Events',
+                    selected: _tab == 1,
+                    onTap: () => setState(() => _tab = 1),
+                  ),
+                  const Spacer(),
+                  if (_tab == 1 && _events.isNotEmpty)
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        await Clipboard.setData(ClipboardData(
+                          text: const JsonEncoder.withIndent('  ')
+                              .convert(_events),
+                        ));
+                        if (!mounted) return;
+                        messenger.showSnackBar(SnackBar(
+                          content: Text(isZh ? '已复制' : 'Copied'),
+                          duration: const Duration(seconds: 1),
+                        ));
+                      },
+                      icon: const Icon(Icons.copy_all_rounded, size: 16),
+                      label: Text(isZh ? '复制事件' : 'Copy events'),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            Flexible(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: _tab == 0 ? _buildChartsTab(theme) : _buildEventsTab(theme),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartsTab(ThemeData theme) {
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    if (_series.isEmpty) {
+      return Padding(
+        key: const ValueKey('empty-charts'),
+        padding: const EdgeInsets.all(36),
+        child: Center(
+          child: Text(
+            isZh
+                ? '当前页面尚未发起 WebRTC。\n触发音视频通话或 datachannel 后会自动出现采样曲线。'
+                : 'No WebRTC yet. Trigger a call/datachannel; samples will appear automatically.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+    final ids = _series.keys.toList()..sort();
+    final selectedId = _series.containsKey(_selected) ? _selected : ids.first;
+    final s = _series[selectedId]!;
+    final last = s.last;
+    return Padding(
+      key: const ValueKey('charts'),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final id in ids)
+                ChoiceChip(
+                  label: Text('PC #$id'),
+                  selected: id == selectedId,
+                  onSelected: (_) => setState(() => _selected = id),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              _RtcStatChip(
+                label: isZh ? '已发送' : 'Sent',
+                value: _formatBytes(last?.bytesSent ?? 0),
+                color: cs.primary,
+              ),
+              _RtcStatChip(
+                label: isZh ? '已接收' : 'Recv',
+                value: _formatBytes(last?.bytesReceived ?? 0),
+                color: cs.tertiary,
+              ),
+              _RtcStatChip(
+                label: isZh ? '丢包' : 'Lost',
+                value: '${(last?.packetsLost ?? 0).toInt()}',
+                color: cs.error,
+              ),
+              _RtcStatChip(
+                label: 'RTT',
+                value:
+                    '${(last?.rttMs ?? 0).toStringAsFixed(0)} ms',
+                color: cs.secondary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: CustomPaint(
+              painter: _RtcChartPainter(
+                series: s,
+                primary: cs.primary,
+                tertiary: cs.tertiary,
+                error: cs.error,
+                secondary: cs.secondary,
+                grid: cs.outlineVariant.withValues(alpha: 0.45),
+                onSurface: cs.onSurfaceVariant,
+              ),
+              size: Size.infinite,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventsTab(ThemeData theme) {
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    if (_events.isEmpty) {
+      return Padding(
+        key: const ValueKey('empty-events'),
+        padding: const EdgeInsets.all(36),
+        child: Center(
+          child: Text(
+            isZh ? '暂无事件' : 'No events',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      key: const ValueKey('events'),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      child: ListView.builder(
+        reverse: true,
+        itemCount: _events.length,
+        itemBuilder: (_, i) {
+          final e = _events[_events.length - 1 - i];
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: SelectableText(
+              '[${e['kind']}] ${jsonEncode(e)}',
+              style:
+                  const TextStyle(fontFamily: 'monospace', fontSize: 11),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  static String _formatBytes(double v) {
+    if (v < 1024) return '${v.toStringAsFixed(0)} B';
+    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
+    if (v < 1024 * 1024 * 1024) {
+      return '${(v / 1024 / 1024).toStringAsFixed(1)} MB';
+    }
+    return '${(v / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
+  }
+}
+
+class _RtcSeries {
+  static const int _capacity = 60;
+  final List<_RtcSample> samples = <_RtcSample>[];
+
+  _RtcSample? get last => samples.isEmpty ? null : samples.last;
+
+  void push({
+    required double bytesSent,
+    required double bytesReceived,
+    required double packetsLost,
+    required double rttMs,
+  }) {
+    samples.add(_RtcSample(
+      bytesSent: bytesSent,
+      bytesReceived: bytesReceived,
+      packetsLost: packetsLost,
+      rttMs: rttMs,
+    ));
+    if (samples.length > _capacity) {
+      samples.removeRange(0, samples.length - _capacity);
+    }
+  }
+}
+
+class _RtcSample {
+  const _RtcSample({
+    required this.bytesSent,
+    required this.bytesReceived,
+    required this.packetsLost,
+    required this.rttMs,
+  });
+
+  final double bytesSent;
+  final double bytesReceived;
+  final double packetsLost;
+  final double rttMs;
+}
+
+class _RtcTab extends StatelessWidget {
+  const _RtcTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primaryContainer.withValues(alpha: 0.6)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.4)
+                : cs.outlineVariant,
+          ),
+        ),
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 220),
+          style: TextStyle(
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? cs.primary : cs.onSurfaceVariant,
+            fontSize: 13,
+          ),
+          child: Text(label),
+        ),
+      ),
+    );
+  }
+}
+
+class _RtcStatChip extends StatelessWidget {
+  const _RtcStatChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration:
+                BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(label, style: theme.textTheme.labelSmall),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RtcChartPainter extends CustomPainter {
+  _RtcChartPainter({
+    required this.series,
+    required this.primary,
+    required this.tertiary,
+    required this.error,
+    required this.secondary,
+    required this.grid,
+    required this.onSurface,
+  });
+
+  final _RtcSeries series;
+  final Color primary;
+  final Color tertiary;
+  final Color error;
+  final Color secondary;
+  final Color grid;
+  final Color onSurface;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (series.samples.isEmpty) return;
+    // 留 28px 左侧给 y 轴标签，14px 底部给 x 轴。
+    const left = 28.0, bottom = 18.0;
+    final w = size.width - left, h = size.height - bottom;
+    const origin = Offset(left, 0);
+    // 网格。
+    final gp = Paint()
+      ..color = grid
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 4; i++) {
+      final y = h * i / 4;
+      canvas.drawLine(
+          Offset(origin.dx, y), Offset(origin.dx + w, y), gp);
+    }
+    // 计算两组 axis：bytes 和 rtt/packets。
+    var maxBytes = 1.0;
+    var maxRtt = 1.0;
+    var maxLost = 1.0;
+    for (final s in series.samples) {
+      if (s.bytesSent > maxBytes) maxBytes = s.bytesSent;
+      if (s.bytesReceived > maxBytes) maxBytes = s.bytesReceived;
+      if (s.rttMs > maxRtt) maxRtt = s.rttMs;
+      if (s.packetsLost > maxLost) maxLost = s.packetsLost;
+    }
+    final n = series.samples.length;
+    Offset xy(int i, double v, double maxV) {
+      final x = origin.dx + (n == 1 ? w / 2 : w * i / (n - 1));
+      final y = h - (v / maxV) * h;
+      return Offset(x, y);
+    }
+
+    void drawLine(List<Offset> pts, Color c, {double sw = 1.6}) {
+      if (pts.isEmpty) return;
+      final p = Paint()
+        ..color = c
+        ..strokeWidth = sw
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round;
+      final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+      for (var i = 1; i < pts.length; i++) {
+        path.lineTo(pts[i].dx, pts[i].dy);
+      }
+      canvas.drawPath(path, p);
+    }
+
+    drawLine([
+      for (var i = 0; i < n; i++)
+        xy(i, series.samples[i].bytesSent, maxBytes),
+    ], primary);
+    drawLine([
+      for (var i = 0; i < n; i++)
+        xy(i, series.samples[i].bytesReceived, maxBytes),
+    ], tertiary);
+    drawLine([
+      for (var i = 0; i < n; i++) xy(i, series.samples[i].rttMs, maxRtt),
+    ], secondary);
+    drawLine([
+      for (var i = 0; i < n; i++)
+        xy(i, series.samples[i].packetsLost, maxLost),
+    ], error, sw: 1.2);
+
+    // 左侧 y 轴最大值标签。
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '${(maxBytes / 1024).toStringAsFixed(1)} KB',
+        style: TextStyle(color: onSurface, fontSize: 9),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, const Offset(2, 0));
+  }
+
+  @override
+  bool shouldRepaint(covariant _RtcChartPainter old) =>
+      old.series != series;
 }
 
 Future<void> _showWebcrackDialog(

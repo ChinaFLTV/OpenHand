@@ -2350,15 +2350,18 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       const buf = window.__oh_rtc_log = window.__oh_rtc_log || [];
       buf.push({ kind, ts: Date.now(), ...payload });
-      if (buf.length > 500) buf.splice(0, buf.length - 500);
+      if (buf.length > 800) buf.splice(0, buf.length - 800);
     } catch (_) {}
   };
   const Orig = window.RTCPeerConnection || window.webkitRTCPeerConnection;
   if (!Orig) return;
   let nextId = 1;
+  // 活跃 PeerConnection 注册表，供周期性 getStats 轮询使用。
+  const reg = window.__oh_rtc_reg = window.__oh_rtc_reg || new Map();
   function patched(...args) {
     const pc = new Orig(...args);
     const id = nextId++;
+    reg.set(id, pc);
     log('pc.create', { id, config: args[0] || null });
     const wrap = (name) => {
       const m = pc[name];
@@ -2407,6 +2410,9 @@ class WebReverseSessionController extends ChangeNotifier {
     });
     pc.addEventListener('connectionstatechange', () => {
       log('connectionstatechange', { id, state: pc.connectionState });
+      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        reg.delete(id);
+      }
     });
     pc.addEventListener('iceconnectionstatechange', () => {
       log('iceconnectionstatechange', { id, state: pc.iceConnectionState });
@@ -2416,6 +2422,34 @@ class WebReverseSessionController extends ChangeNotifier {
   patched.prototype = Orig.prototype;
   window.RTCPeerConnection = patched;
   if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = patched;
+  // 每秒轮询所有活跃 PC 的 getStats，挑关键字段累计：
+  // outbound-rtp / inbound-rtp 的 bytesSent/bytesReceived/packetsLost,
+  // remote-candidate-pair 的 currentRoundTripTime。
+  if (!window.__oh_rtc_stats_timer) {
+    window.__oh_rtc_stats_timer = setInterval(async () => {
+      for (const [id, pc] of reg) {
+        try {
+          if (!pc || pc.connectionState === 'closed') { reg.delete(id); continue; }
+          const stats = await pc.getStats(null);
+          const sample = { id, bytesSent: 0, bytesReceived: 0, packetsLost: 0, packetsSent: 0, packetsReceived: 0, rtt: null, jitter: null };
+          stats.forEach((r) => {
+            if (r.type === 'outbound-rtp') {
+              sample.bytesSent += r.bytesSent || 0;
+              sample.packetsSent += r.packetsSent || 0;
+            } else if (r.type === 'inbound-rtp') {
+              sample.bytesReceived += r.bytesReceived || 0;
+              sample.packetsReceived += r.packetsReceived || 0;
+              sample.packetsLost += r.packetsLost || 0;
+              if (typeof r.jitter === 'number') sample.jitter = r.jitter;
+            } else if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated) {
+              if (typeof r.currentRoundTripTime === 'number') sample.rtt = r.currentRoundTripTime;
+            }
+          });
+          log('stats', sample);
+        } catch (_) {}
+      }
+    }, 1000);
+  }
 })();
 ''';
     try {
@@ -2459,6 +2493,33 @@ class WebReverseSessionController extends ChangeNotifier {
       return decoded
           .whereType<Map>()
           .map((m) => Map<String, Object?>.from(m))
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// 列出当前页活跃的 RTCPeerConnection id 列表。供调试面板挑选。
+  Future<List<int>> listWebRtcConnections() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{
+          'expression':
+              '(()=>{const m=window.__oh_rtc_reg;if(!m)return "[]";return JSON.stringify(Array.from(m.keys()));})()',
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+      );
+      final raw = (r['result'] as Map?)?['value'];
+      if (raw is! String || raw.isEmpty) return const [];
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<num>()
+          .map((n) => n.toInt())
           .toList(growable: false);
     } catch (_) {
       return const [];
