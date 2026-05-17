@@ -49,6 +49,9 @@ class _BrowserBodyState extends State<_BrowserBody> {
   // 上次记录的 alive 状态：浏览器死亡 / 拉起切换时整体 rebuild 一次，
   // 让按钮、placeholder 立刻响应。
   bool _wasAlive = false;
+  // 浏览器侧 setPageScaleFactor 的当前值；面板内独立维护，下次切到 dashboard
+  // 重新 attach 时不会保留（Chromium 重启即丢）。
+  double _zoom = 1;
 
   @override
   void initState() {
@@ -153,6 +156,14 @@ class _BrowserBodyState extends State<_BrowserBody> {
 
   void _handlePointerDown(PointerDownEvent e, Size renderSize) {
     _surfaceFocus.requestFocus();
+    // 右键改为弹出 Flutter 渲染的上下文菜单（screencast 模式下浏览器原生
+    // 右键菜单只会出现在外部 Chrome 窗口里，对内嵌面板的用户不可见）。
+    // 注意不更新 _buttons，避免随后到达的 PointerUp 把右键当成 mouse
+    // released 转发到浏览器。
+    if ((e.buttons & kSecondaryButton) != 0) {
+      _showContextMenu(e.position, renderSize, e.localPosition);
+      return;
+    }
     _buttons = e.buttons;
     final p = _toViewport(e.localPosition, renderSize);
     widget.controller.dispatchMouseEvent(
@@ -189,6 +200,9 @@ class _BrowserBodyState extends State<_BrowserBody> {
   }
 
   void _handlePointerUp(PointerUpEvent e, Size renderSize) {
+    // 右键的按下我们已经截胡为 Flutter 上下文菜单，原 mouseUp 不需要发；
+    // 否则会在浏览器侧产生一个孤立的 mouseReleased 事件。
+    if (_buttons == 0) return;
     final p = _toViewport(e.localPosition, renderSize);
     widget.controller.dispatchMouseEvent(
       type: 'mouseReleased',
@@ -264,6 +278,172 @@ class _BrowserBodyState extends State<_BrowserBody> {
     if (!url.contains('://')) url = 'https://$url';
     await widget.controller.navigate(url);
     _surfaceFocus.requestFocus();
+  }
+
+  /// 当前帧 PNG 落盘：优先用 CDP `Page.captureScreenshot` 拿一张实时全分辨
+  /// 率截图（screencast 自身是 JPEG 低质，不适合做证据图）；失败则降级
+  /// 用最近一帧 JPEG 字节直接落盘。
+  Future<void> _saveCurrentFrame() async {
+    final ctrl = widget.controller;
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    Uint8List? bytes;
+    String ext = 'png';
+    bytes = await ctrl.captureScreenshot();
+    if (bytes == null) {
+      bytes = ctrl.latestScreencastFrame;
+      ext = 'jpg';
+    }
+    if (!mounted) return;
+    if (bytes == null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '当前没有可用的画面帧' : 'No frame available',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    final typeGroup = XTypeGroup(
+      label: ext.toUpperCase(),
+      extensions: <String>[ext],
+    );
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: 'browser-frame-$ts.$ext',
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+      );
+    } catch (_) {}
+    if (!mounted || location == null) return;
+    try {
+      await File(location.path).writeAsBytes(bytes, flush: true);
+      if (!mounted) return;
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '已保存到 ${location.path}' : 'Saved to ${location.path}',
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'save current frame',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '保存失败' : 'Save failed',
+        duration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  /// Flutter 端渲染的上下文菜单：复制 / 粘贴 / 全选 / 刷新 / 在外部浏览器
+  /// 打开 / 检查元素。复制 / 粘贴 / 全选通过 CDP `Input.dispatchKeyEvent`
+  /// 模拟 Cmd / Ctrl + C/V/A，让浏览器原生剪贴板路径自然处理。
+  Future<void> _showContextMenu(
+    Offset globalPos,
+    Size renderSize,
+    Offset localPos,
+  ) async {
+    final isZh = widget.isZh;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromLTRB(
+      globalPos.dx,
+      globalPos.dy,
+      overlay.size.width - globalPos.dx,
+      overlay.size.height - globalPos.dy,
+    );
+    final selected = await showMenu<String>(
+      context: context,
+      position: position,
+      items: [
+        PopupMenuItem(
+          value: 'copy',
+          child: Text(isZh ? '复制' : 'Copy'),
+        ),
+        PopupMenuItem(
+          value: 'paste',
+          child: Text(isZh ? '粘贴' : 'Paste'),
+        ),
+        PopupMenuItem(
+          value: 'selectAll',
+          child: Text(isZh ? '全选' : 'Select all'),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'reload',
+          child: Text(isZh ? '刷新' : 'Reload'),
+        ),
+        PopupMenuItem(
+          value: 'inspect',
+          child: Text(isZh ? '检查元素 (DevTools)' : 'Inspect (DevTools)'),
+        ),
+        PopupMenuItem(
+          value: 'openExternal',
+          child: Text(isZh ? '在外部浏览器中打开' : 'Open in external browser'),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'saveFrame',
+          child: Text(isZh ? '保存当前帧 (PNG)' : 'Save current frame'),
+        ),
+      ],
+    );
+    if (!mounted || selected == null) return;
+    final ctrl = widget.controller;
+    final isMac = Platform.isMacOS;
+    Future<void> sendShortcut(String key) async {
+      final mod = isMac ? 4 : 2; // Cmd on macOS, Ctrl elsewhere
+      await ctrl.dispatchKeyEvent(
+        type: 'rawKeyDown',
+        key: key.toUpperCase(),
+        code: 'Key${key.toUpperCase()}',
+        modifiers: mod,
+      );
+      await ctrl.dispatchKeyEvent(
+        type: 'keyUp',
+        key: key.toUpperCase(),
+        code: 'Key${key.toUpperCase()}',
+        modifiers: mod,
+      );
+    }
+
+    switch (selected) {
+      case 'copy':
+        await sendShortcut('c');
+      case 'paste':
+        await sendShortcut('v');
+      case 'selectAll':
+        await sendShortcut('a');
+      case 'reload':
+        await ctrl.reload();
+      case 'inspect':
+        if (mounted) {
+          await _openOfficialDevToolsForController(context, ctrl, isZh);
+        }
+      case 'openExternal':
+        final url = await ctrl.currentUrl();
+        if (url == null || url.isEmpty) return;
+        try {
+          if (Platform.isMacOS) {
+            await Process.run('/usr/bin/open', [url]);
+          } else if (Platform.isWindows) {
+            await Process.run('cmd', ['/c', 'start', '', url]);
+          } else if (Platform.isLinux) {
+            await Process.run('xdg-open', [url]);
+          }
+        } catch (_) {}
+      case 'saveFrame':
+        await _saveCurrentFrame();
+    }
   }
 
   @override
@@ -418,6 +598,22 @@ class _BrowserBodyState extends State<_BrowserBody> {
             tooltip: isZh ? '聚焦面板' : 'Focus surface',
             icon: Icons.center_focus_strong_rounded,
             onPressed: alive ? _surfaceFocus.requestFocus : null,
+          ),
+          const SizedBox(width: 6),
+          _ZoomMenu(
+            value: _zoom,
+            enabled: alive,
+            isZh: isZh,
+            onChanged: (v) async {
+              setState(() => _zoom = v);
+              await ctrl.setZoomFactor(v);
+            },
+          ),
+          const SizedBox(width: 6),
+          _NavIconButton(
+            tooltip: isZh ? '保存当前帧' : 'Save current frame',
+            icon: Icons.photo_camera_outlined,
+            onPressed: alive ? _saveCurrentFrame : null,
           ),
           const SizedBox(width: 6),
           _NavIconButton(
@@ -610,6 +806,83 @@ class _ScreencastImage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+
+/// 缩放比例下拉胶囊：支持 50% / 75% / 100% / 125% / 150%。选中后立刻把
+/// 比例下发到浏览器侧 `Emulation.setPageScaleFactor`，让 page reflow 即时
+/// 反馈到 screencast 帧。
+class _ZoomMenu extends StatelessWidget {
+  const _ZoomMenu({
+    required this.value,
+    required this.enabled,
+    required this.isZh,
+    required this.onChanged,
+  });
+
+  final double value;
+  final bool enabled;
+  final bool isZh;
+  final ValueChanged<double> onChanged;
+
+  static const _presets = <double>[0.5, 0.75, 1.0, 1.25, 1.5];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Tooltip(
+      message: isZh ? '页面缩放' : 'Page zoom',
+      child: SizedBox(
+        height: _kToolbarHeight,
+        child: PopupMenuButton<double>(
+          enabled: enabled,
+          tooltip: '',
+          onSelected: onChanged,
+          itemBuilder: (_) => _presets
+              .map((p) => PopupMenuItem<double>(
+                    value: p,
+                    child: Text('${(p * 100).round()}%'),
+                  ))
+              .toList(growable: false),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_kToolbarRadius),
+              border: Border.all(
+                color: enabled
+                    ? cs.outlineVariant
+                    : cs.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.zoom_in_rounded,
+                  size: 14,
+                  color: enabled
+                      ? cs.onSurfaceVariant
+                      : cs.onSurface.withValues(alpha: 0.35),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${(value * 100).round()}%',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    color: enabled
+                        ? cs.onSurface
+                        : cs.onSurface.withValues(alpha: 0.35),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

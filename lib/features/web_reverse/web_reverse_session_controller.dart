@@ -5,16 +5,14 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../../app/support/silent_log.dart';
-import 'web_reverse_browser_kind.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_har_replay_server.dart';
 import 'web_reverse_mitmproxy_bridge.dart';
 import 'web_reverse_session_artifacts.dart';
 import 'web_reverse_session_config.dart';
-import 'web_reverse_window_dock.dart';
 
-/// 单个 Web 逆向会话的运行时编排：浏览器进程、CDP 通道、窗口吸附、
+/// 单个 Web 逆向会话的运行时编排：浏览器进程、CDP 通道、
 /// dashboard 实时数据缓冲。
 ///
 /// 生命周期：
@@ -33,10 +31,8 @@ class WebReverseSessionController extends ChangeNotifier {
     required this.executablePath,
     required this.artifactsRootDir,
     WebReverseBrowserLauncher? launcher,
-    WebReverseWindowDock? dock,
     WebReverseSessionArtifacts? artifacts,
   })  : _launcher = launcher ?? WebReverseBrowserLauncher(),
-        _dock = dock,
         _artifacts =
             artifacts ?? WebReverseSessionArtifacts(rootDir: artifactsRootDir);
 
@@ -48,7 +44,6 @@ class WebReverseSessionController extends ChangeNotifier {
   final String artifactsRootDir;
 
   final WebReverseBrowserLauncher _launcher;
-  WebReverseWindowDock? _dock;
   final WebReverseSessionArtifacts _artifacts;
 
   WebReverseLaunchResult? _launchResult;
@@ -176,11 +171,6 @@ class WebReverseSessionController extends ChangeNotifier {
       await _browserCdp!.connect();
       // attach 到目标 page target，订阅其网络 / 控制台事件。
       await _attachToFirstPage();
-      // 启动窗口吸附。
-      _dock ??= WebReverseWindowDock(
-        browserAppName: _browserAppNameFor(config.browserKind),
-      );
-      _dock!.start();
       _startAliveWatchdog();
       _safeNotify();
     } catch (error, stack) {
@@ -1679,7 +1669,6 @@ class WebReverseSessionController extends ChangeNotifier {
       } catch (_) {}
     }
     _launchResult = null;
-    _dock?.stop();
     _errorMessage = null;
     _safeNotify();
   }
@@ -1717,7 +1706,6 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> _safeStop() async {
-    _dock?.stop();
     _stopAliveWatchdog();
     // 主动停 screencast：进程将被 kill，事件流也会断；提前 stop 防止
     // 浏览器侧 ack 队列卡住影响下次拉起。
@@ -2099,10 +2087,9 @@ class WebReverseSessionController extends ChangeNotifier {
       _screencastQuality = clampedQuality;
       // 注意：不能最小化外部 Chrome 窗口。Chromium 在窗口最小化 / 完全
       // 不可见时会暂停 compositor，`Page.startScreencast` 不再产生新帧，
-      // 用户在内嵌面板里点任何按钮都看不到反馈。这里仅暂停吸附线程，
-      // 让外部窗口保留在原位（用户可手动移走 / 拖小），由 screencast
-      // 帧实时把画面镜像到 dashboard 内即可。
-      _dock?.stop();
+      // 用户在内嵌面板里点任何按钮都看不到反馈。这里只发 startScreencast，
+      // 外部 Chrome 窗口由系统默认位置打开，不主动调位以免和用户的其它
+      // 浏览器窗口抢空间。
       _safeNotify();
       return true;
     } catch (error, stack) {
@@ -2144,8 +2131,6 @@ class WebReverseSessionController extends ChangeNotifier {
     if (!_disposed) {
       screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
     }
-    // 恢复吸附线程，让外部浏览器窗口继续跟随主窗口移动。
-    _dock?.start();
     _safeNotify();
   }
 
@@ -2377,6 +2362,28 @@ class WebReverseSessionController extends ChangeNotifier {
       );
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'reload', error, stack);
+    }
+  }
+
+  /// 设置浏览器侧的缩放比例（CSS 像素）。`scale=1` 即 100%。
+  /// 走 `Emulation.setPageScaleFactor` 触发整页 reflow，对 retina 友好。
+  Future<void> setZoomFactor(double scale) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    final clamped = scale.clamp(0.25, 5.0);
+    try {
+      await cdp.send(
+        'Emulation.setPageScaleFactor',
+        params: <String, Object?>{'pageScaleFactor': clamped},
+        sessionId: _pageSessionId,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'setZoomFactor $clamped',
+        error,
+        stack,
+      );
     }
   }
 
@@ -3550,16 +3557,6 @@ class WebReverseSessionController extends ChangeNotifier {
   void _safeNotify() {
     if (_disposed) return;
     notifyListeners();
-  }
-
-  String _browserAppNameFor(WebReverseBrowserKind k) {
-    return switch (k) {
-      WebReverseBrowserKind.chrome => 'Google Chrome',
-      WebReverseBrowserKind.chromeBeta => 'Google Chrome Beta',
-      WebReverseBrowserKind.edge => 'Microsoft Edge',
-      WebReverseBrowserKind.brave => 'Brave Browser',
-      WebReverseBrowserKind.chromium => 'Chromium',
-    };
   }
 }
 

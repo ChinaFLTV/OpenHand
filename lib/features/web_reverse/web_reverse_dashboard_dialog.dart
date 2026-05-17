@@ -368,93 +368,90 @@ class _WebReverseDashboardDialogState
   Future<void> _openOfficialDevTools(
     WebReverseSessionController ctrl,
   ) async {
-    final port = ctrl.cdpPort;
-    if (port == null) return;
-    // 直接打开 http://127.0.0.1:<port>/ 只会拿到 CDP 的 JSON list 页（一片空白）。
-    // 真实的 DevTools 前端 URL 来自 `GET /json/list` 里每条 target 的
-    // devtoolsFrontendUrl 字段，类似：
-    //   /devtools/inspector.html?ws=127.0.0.1:9223/devtools/page/<id>
-    // 拿到这个相对 URL 后拼上 `http://127.0.0.1:<port>` 才是 F12 全功能面板。
-    final isZh = _isZh();
-    final messenger = ScaffoldMessenger.of(context);
-    String? frontendUrl;
+    await _openOfficialDevToolsForController(context, ctrl, _isZh());
+  }
+}
+
+/// 打开浏览器官方 DevTools 前端：先读 `/json/list` 拿 `devtoolsFrontendUrl`，
+/// 再用平台命令打开。失败时降级到 `/json/list` 列表页 + SnackBar 提示。
+/// 提取为顶层函数让 [_BrowserBody] 的右键菜单也能直接复用。
+Future<void> _openOfficialDevToolsForController(
+  BuildContext context,
+  WebReverseSessionController ctrl,
+  bool isZh,
+) async {
+  final port = ctrl.cdpPort;
+  if (port == null) return;
+  final messenger = ScaffoldMessenger.of(context);
+  String? frontendUrl;
+  try {
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 3);
     try {
-      final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 3);
-      try {
-        final req = await client.getUrl(
-          Uri.parse('http://127.0.0.1:$port/json/list'),
-        );
-        final res = await req.close().timeout(const Duration(seconds: 3));
-        final body = await res.transform(utf8.decoder).join();
-        final list = jsonDecode(body);
-        if (list is List) {
-          // 优先 type=page 且非 about:blank；否则取第一个 page；最后兜底任意 target。
-          Map<String, Object?>? best;
-          for (final item in list.whereType<Map>()) {
-            final m = Map<String, Object?>.from(item);
-            final type = '${m['type'] ?? ''}';
-            final url = '${m['url'] ?? ''}';
-            if (type == 'page' && !url.startsWith('about:')) {
-              best = m;
-              break;
-            }
-          }
-          best ??= list
-              .whereType<Map>()
-              .where((m) => m['type'] == 'page')
-              .map((m) => Map<String, Object?>.from(m))
-              .firstOrNull;
-          best ??= list
-              .whereType<Map>()
-              .map((m) => Map<String, Object?>.from(m))
-              .firstOrNull;
-          final fe = best?['devtoolsFrontendUrl'] as String?;
-          if (fe != null && fe.isNotEmpty) {
-            frontendUrl = fe.startsWith('http')
-                ? fe
-                : 'http://127.0.0.1:$port$fe';
+      final req = await client.getUrl(
+        Uri.parse('http://127.0.0.1:$port/json/list'),
+      );
+      final res = await req.close().timeout(const Duration(seconds: 3));
+      final body = await res.transform(utf8.decoder).join();
+      final list = jsonDecode(body);
+      if (list is List) {
+        Map<String, Object?>? best;
+        for (final item in list.whereType<Map>()) {
+          final m = Map<String, Object?>.from(item);
+          final type = '${m['type'] ?? ''}';
+          final url = '${m['url'] ?? ''}';
+          if (type == 'page' && !url.startsWith('about:')) {
+            best = m;
+            break;
           }
         }
-      } finally {
-        client.close(force: true);
+        best ??= list
+            .whereType<Map>()
+            .where((m) => m['type'] == 'page')
+            .map((m) => Map<String, Object?>.from(m))
+            .firstOrNull;
+        best ??= list
+            .whereType<Map>()
+            .map((m) => Map<String, Object?>.from(m))
+            .firstOrNull;
+        final fe = best?['devtoolsFrontendUrl'] as String?;
+        if (fe != null && fe.isNotEmpty) {
+          frontendUrl =
+              fe.startsWith('http') ? fe : 'http://127.0.0.1:$port$fe';
+        }
       }
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'fetch /json/list',
-        error,
-        stack,
-      );
+    } finally {
+      client.close(force: true);
     }
-    // 找不到合适的 frontend URL 时降级回根目录，至少不让用户面对空白。
-    final url = frontendUrl ?? 'http://127.0.0.1:$port/json/list';
-    try {
-      if (Platform.isMacOS) {
-        await Process.run('/usr/bin/open', [url]);
-      } else if (Platform.isWindows) {
-        await Process.run('cmd', ['/c', 'start', '', url]);
-      } else if (Platform.isLinux) {
-        await Process.run('xdg-open', [url]);
-      }
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'open devtools url',
-        error,
-        stack,
-      );
+  } catch (error, stack) {
+    silentLog('web_reverse_dashboard_dialog', 'fetch /json/list', error, stack);
+  }
+  final url = frontendUrl ?? 'http://127.0.0.1:$port/json/list';
+  try {
+    if (Platform.isMacOS) {
+      await Process.run('/usr/bin/open', [url]);
+    } else if (Platform.isWindows) {
+      await Process.run('cmd', ['/c', 'start', '', url]);
+    } else if (Platform.isLinux) {
+      await Process.run('xdg-open', [url]);
     }
-    if (!mounted) return;
-    if (frontendUrl == null) {
-      OpenHandSnackBar.showInfoOn(
-        context,
-        messenger,
-        isZh
-            ? '未找到可用的 DevTools 前端，已退到 /json/list 列表页'
-            : 'No DevTools frontend found; opened /json/list fallback',
-      );
-    }
+  } catch (error, stack) {
+    silentLog(
+      'web_reverse_dashboard_dialog',
+      'open devtools url',
+      error,
+      stack,
+    );
+  }
+  if (!context.mounted) return;
+  if (frontendUrl == null) {
+    OpenHandSnackBar.showInfoOn(
+      context,
+      messenger,
+      isZh
+          ? '未找到可用的 DevTools 前端，已退到 /json/list 列表页'
+          : 'No DevTools frontend found; opened /json/list fallback',
+    );
   }
 }
 
