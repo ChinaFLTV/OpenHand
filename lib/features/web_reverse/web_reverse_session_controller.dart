@@ -120,6 +120,10 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _screencastActive = false;
   Uint8List? _latestScreencastFrame;
   int _screencastFrameSeq = 0;
+  // 给浏览器面板专用的细粒度信号源：每收到一帧自增一次。widget 监听
+  // 这个 [Listenable] 局部 repaint，不会唤醒 controller 上的其它监听器
+  // （dashboard 头部 / network list 等），把 60fps 帧流的 fanout 降到最小。
+  final ValueNotifier<int> screencastFrameNotifier = ValueNotifier<int>(0);
   int _screencastWidth = _screencastDefaultMaxWidth;
   int _screencastHeight = _screencastDefaultMaxHeight;
   int _screencastQuality = _screencastDefaultQuality;
@@ -1308,9 +1312,18 @@ class WebReverseSessionController extends ChangeNotifier {
         final meta = p['metadata'] as Map?;
         final w = (meta?['deviceWidth'] as num?)?.round();
         final h = (meta?['deviceHeight'] as num?)?.round();
-        if (w != null && w > 0) _screencastWidth = w;
-        if (h != null && h > 0) _screencastHeight = h;
-        _safeNotify();
+        var viewportChanged = false;
+        if (w != null && w > 0 && w != _screencastWidth) {
+          _screencastWidth = w;
+          viewportChanged = true;
+        }
+        if (h != null && h > 0 && h != _screencastHeight) {
+          _screencastHeight = h;
+          viewportChanged = true;
+        }
+        // 帧自增推到细粒度 notifier；只有 viewport 变化才唤醒主 listener。
+        if (!_disposed) screencastFrameNotifier.value = _screencastFrameSeq;
+        if (viewportChanged) _safeNotify();
       } catch (error, stack) {
         silentLog(
           'web_reverse_session_controller',
@@ -1562,6 +1575,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _screencastRefCount = 0;
       _latestScreencastFrame = null;
       _screencastFrameSeq = 0;
+      if (!_disposed) screencastFrameNotifier.value = 0;
     }
     await _pageEventsSub?.cancel();
     await _mitmSub?.cancel();
@@ -1963,6 +1977,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _screencastActive = false;
     _latestScreencastFrame = null;
     _screencastFrameSeq = 0;
+    if (!_disposed) screencastFrameNotifier.value = 0;
     // 还原外部浏览器窗口与吸附线程，让用户可以继续用真实浏览器。
     unawaited(_dock?.showBrowserWindow());
     _dock?.start();
@@ -3360,6 +3375,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _disposed = true;
     // 不阻塞 dispose；safeStop 内部所有调用都已对 _disposed 做了短路。
     unawaited(_safeStop());
+    screencastFrameNotifier.dispose();
     super.dispose();
   }
 

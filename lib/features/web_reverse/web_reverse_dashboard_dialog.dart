@@ -98,6 +98,13 @@ class _WebReverseDashboardDialogState
 
   // dashboard 上次记录的请求计数；用于 AnimatedList 增量插入。
   int _lastNetworkSize = 0;
+  // 上次 rebuild 时记录的 dashboard 关键计数 / 状态；只有这些值变化才整体
+  // rebuild 头部 / toolbar，避免 60fps screencast 帧把 dashboard 拖进
+  // setState 旋涡。
+  int _lastConsoleSize = 0;
+  int _lastErrorCount = 0;
+  bool _lastIsRunning = false;
+  String _lastErrMsg = '';
   final GlobalKey<AnimatedListState> _networkListKey =
       GlobalKey<AnimatedListState>();
 
@@ -106,6 +113,10 @@ class _WebReverseDashboardDialogState
     super.initState();
     widget.controller.addListener(_onChanged);
     _lastNetworkSize = widget.controller.networkRequests.length;
+    _lastConsoleSize = widget.controller.consoleMessages.length;
+    _lastErrorCount = widget.controller.errorCount;
+    _lastIsRunning = widget.controller.isRunning;
+    _lastErrMsg = widget.controller.errorMessage ?? '';
   }
 
   @override
@@ -117,7 +128,19 @@ class _WebReverseDashboardDialogState
 
   void _onChanged() {
     if (!mounted) return;
-    final newSize = widget.controller.networkRequests.length;
+    final ctrl = widget.controller;
+    final newSize = ctrl.networkRequests.length;
+    final newConsole = ctrl.consoleMessages.length;
+    final newErr = ctrl.errorCount;
+    final newRunning = ctrl.isRunning;
+    final newErrMsg = ctrl.errorMessage ?? '';
+    // 关键：screencast 帧抵达不会改变这些计数，所以这里就早退。让浏览器
+    // 面板内的 [_ScreencastImage] 自行 AnimatedBuilder 局部 repaint。
+    final dashboardDirty = newSize != _lastNetworkSize ||
+        newConsole != _lastConsoleSize ||
+        newErr != _lastErrorCount ||
+        newRunning != _lastIsRunning ||
+        newErrMsg != _lastErrMsg;
     if (newSize > _lastNetworkSize) {
       // FIFO 淘汰时 networkRequests 头部会被砍掉，导致新条目实际索引小于 newSize-1；
       // 这里只对追加场景做 AnimatedList 的 insert，不去精细同步淘汰，依赖 ValueKey
@@ -129,11 +152,13 @@ class _WebReverseDashboardDialogState
           state.insertItem(_lastNetworkSize + i, duration: _kSwitchDuration);
         }
       }
-    } else if (newSize < _lastNetworkSize) {
-      // clearBuffers / FIFO：让 _NetworkBody 整体 rebuild 由 setState 处理。
     }
     _lastNetworkSize = newSize;
-    setState(() {});
+    _lastConsoleSize = newConsole;
+    _lastErrorCount = newErr;
+    _lastIsRunning = newRunning;
+    _lastErrMsg = newErrMsg;
+    if (dashboardDirty) setState(() {});
   }
 
   /// 让 part 文件能从外部触发 dashboard 重建（part 文件不能直接调 setState）。

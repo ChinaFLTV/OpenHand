@@ -87,8 +87,13 @@ class _BrowserBodyState extends State<_BrowserBody> {
 
   void _onControllerChanged() {
     if (!mounted) return;
-    _frameW = widget.controller.screencastWidth;
-    _frameH = widget.controller.screencastHeight;
+    final w = widget.controller.screencastWidth;
+    final h = widget.controller.screencastHeight;
+    // 只有 viewport 真实变化（页面 resize / 浏览器侧调整）才整体 rebuild；
+    // 单纯帧抵达不在这里 setState，由内部 [_ScreencastImage] 自行 repaint。
+    if (w == _frameW && h == _frameH) return;
+    _frameW = w;
+    _frameH = h;
     setState(() {});
   }
 
@@ -267,7 +272,6 @@ class _BrowserBodyState extends State<_BrowserBody> {
     final cs = theme.colorScheme;
     final isZh = widget.isZh;
     final ctrl = widget.controller;
-    final frame = ctrl.latestScreencastFrame;
     final dpr = MediaQuery.of(context).devicePixelRatio;
     return Column(
       children: [
@@ -292,17 +296,11 @@ class _BrowserBodyState extends State<_BrowserBody> {
                     child: Stack(
                       children: [
                         Positioned.fill(
-                          child: frame == null
-                              ? _buildPlaceholder(theme, cs, isZh, ctrl)
-                              : RepaintBoundary(
-                                  child: Image.memory(
-                                    frame,
-                                    key: ValueKey<int>(ctrl.screencastFrameSeq),
-                                    fit: BoxFit.fill,
-                                    gaplessPlayback: true,
-                                    filterQuality: FilterQuality.low,
-                                  ),
-                                ),
+                          child: _ScreencastImage(
+                            controller: ctrl,
+                            placeholderBuilder: () =>
+                                _buildPlaceholder(theme, cs, isZh, ctrl),
+                          ),
                         ),
                         Positioned.fill(
                           child: Focus(
@@ -515,6 +513,40 @@ class _NavIconButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 仅追踪 controller 的 [WebReverseSessionController.screencastFrameNotifier]
+/// 变化，把 [Image.memory] 与 RepaintBoundary 隔离在最小子树内 —— 60fps 帧
+/// 流不会触发外层 Padding / Stack / Column 重建，也不会触发 dashboard 头部 /
+/// network list 的 listener。
+class _ScreencastImage extends StatelessWidget {
+  const _ScreencastImage({
+    required this.controller,
+    required this.placeholderBuilder,
+  });
+
+  final WebReverseSessionController controller;
+  final Widget Function() placeholderBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: controller.screencastFrameNotifier,
+      builder: (_, seq, _) {
+        final frame = controller.latestScreencastFrame;
+        if (frame == null) return placeholderBuilder();
+        return RepaintBoundary(
+          child: Image.memory(
+            frame,
+            key: ValueKey<int>(seq),
+            fit: BoxFit.fill,
+            gaplessPlayback: true,
+            filterQuality: FilterQuality.low,
+          ),
+        );
+      },
     );
   }
 }
