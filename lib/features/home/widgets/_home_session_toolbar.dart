@@ -2520,20 +2520,27 @@ class _StreamThrottlePill extends StatelessWidget {
               templateId,
             );
         final disabled = effChars <= 0 || effCards <= 0;
+        // 2026-05-17 — 节流时长已耗尽：胶囊渲染为灰色并改文案，向用户
+        // 暗示「剩余流式响应正以 AI 真实速率追加」。
+        final durationExpired = sessionController
+            .sessionStreamThrottleDurationExpired(sessionId);
+        final showAsGray = disabled || durationExpired;
         final backlog = sessionController.sessionStreamCardBacklog(sessionId);
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
-        final pillColor = disabled
+        final pillColor = showAsGray
             ? scheme.surfaceContainerHighest
             : scheme.tertiaryContainer.withValues(alpha: 0.78);
-        final iconColor = disabled
+        final iconColor = showAsGray
             ? scheme.outline
             : scheme.onTertiaryContainer;
         final isZh =
             Localizations.localeOf(context).languageCode.startsWith('zh');
         final label = disabled
             ? (isZh ? '节流·关' : 'Throttle·off')
-            : (isZh ? '字$effChars·卡$effCards' : 'Ch$effChars·Cd$effCards');
+            : durationExpired
+                ? (isZh ? '节流·已耗尽' : 'Throttle·expired')
+                : (isZh ? '字$effChars·卡$effCards' : 'Ch$effChars·Cd$effCards');
         return MicroPressFeedback(
           child: Material(
             color: Colors.transparent,
@@ -2552,7 +2559,7 @@ class _StreamThrottlePill extends StatelessWidget {
                   color: pillColor,
                   borderRadius: _borderRadius999,
                   border: Border.all(
-                    color: disabled
+                    color: showAsGray
                         ? scheme.outlineVariant
                         : scheme.tertiary.withValues(alpha: 0.32),
                   ),
@@ -2561,7 +2568,7 @@ class _StreamThrottlePill extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      disabled
+                      showAsGray
                           ? Icons.flash_off_rounded
                           : Icons.bolt_rounded,
                       size: 14,

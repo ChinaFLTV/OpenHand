@@ -681,6 +681,15 @@ class AiSessionController extends ChangeNotifier {
     return throttle.throughputSnapshot();
   }
 
+  /// 2026-05-17 — 当前会话的字符节流"持续时长"是否已耗尽。
+  /// 仅在 streaming 中、且配置了正向 duration 时才会为 true；UI 据此
+  /// 把胶囊渲染成灰色以暗示「剩余响应正按真实速率追加」。
+  bool sessionStreamThrottleDurationExpired(String sessionId) {
+    final throttle = _activeCharThrottles[sessionId];
+    if (throttle == null) return false;
+    return throttle.isDurationExpired;
+  }
+
   /// 单调递增的信号；任意会话的节流覆盖被改写时 +1，UI 据此 setState。
   ValueListenable<int> get streamThrottleOverrideSignal =>
       _sessionStreamThrottleSignal;
@@ -3430,6 +3439,18 @@ class AiSessionController extends ChangeNotifier {
       );
       _activeCardThrottles[workingSession.id] = cardThrottle;
       _activeCharThrottles[workingSession.id] = charThrottle;
+      // 2026-05-17 — 节流时长一到，立刻向 UI 派发一次信号，让顶栏胶囊
+      // 把渲染态切换为「时长已耗尽 → 灰色」。流式结束时统一被 release，
+      // 此 timer 即便被回调命中也是无副作用。
+      Timer? throttleExpiryTimer;
+      if (throttleDuration != null) {
+        throttleExpiryTimer = Timer(throttleDuration, () {
+          if (_isDisposed) return;
+          _sessionStreamThrottleSignal.value =
+              _sessionStreamThrottleSignal.value + 1;
+          notifyListeners();
+        });
+      }
 
       final subscription = streamResponse.events.listen((event) {
         var sessionChanged = false;
@@ -3691,6 +3712,8 @@ class AiSessionController extends ChangeNotifier {
         // state has been torn down.
         previewTimer?.cancel();
         previewTimer = null;
+        throttleExpiryTimer?.cancel();
+        throttleExpiryTimer = null;
         // 释放限速器：先放开字符余量、再回放 pending 卡片，避免错误后
         // 还在后台尝试推进 UI。
         charThrottle.release();
@@ -3773,6 +3796,8 @@ class AiSessionController extends ChangeNotifier {
       charThrottle.release();
       reasoningCharThrottle.release();
       cardThrottle.releaseAll();
+      throttleExpiryTimer?.cancel();
+      throttleExpiryTimer = null;
       _activeCardThrottles.remove(workingSession.id);
       _activeCharThrottles.remove(workingSession.id);
       _sessionStreamThrottleSignal.value =

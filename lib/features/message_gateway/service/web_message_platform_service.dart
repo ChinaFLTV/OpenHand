@@ -3153,6 +3153,8 @@ class WebMessagePlatformService {
           'chars_per_second': effChars,
           'cards_per_second': effCards,
           'has_session_override': throttleOverride != null,
+          'duration_expired':
+              _sessionController.sessionStreamThrottleDurationExpired(live.id),
         },
         'served_at': DateTime.now().toUtc().toIso8601String(),
       };
@@ -3194,7 +3196,7 @@ class WebMessagePlatformService {
           final throttlePayload =
               snapshot['effective_stream_throttle'] as Map<String, Object?>?;
           final hash =
-              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}|${(snapshot['messages'] as List).map((m) {
+              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}|${(snapshot['messages'] as List).map((m) {
                 final mm = m as Map<String, Object?>;
                 return '${mm['id']}:${(mm['content'] as String?)?.length ?? 0}';
               }).join(',')}';

@@ -4143,6 +4143,11 @@ class _SettingsViewState extends State<SettingsView> {
     add('throttle_enabled', current['throttle_enabled'], next['throttle_enabled']);
     add('auto_mode', current['auto_mode'], next['auto_mode']);
     add(
+      'duration_seconds',
+      current['duration_seconds'],
+      next['duration_seconds'],
+    );
+    add(
       'max_chars_per_second',
       current['max_chars_per_second'],
       next['max_chars_per_second'],
@@ -6760,6 +6765,11 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
 
     add('throttle_enabled', current['throttle_enabled'], next['throttle_enabled']);
     add('auto_mode', current['auto_mode'], next['auto_mode']);
+    add(
+      'duration_seconds',
+      current['duration_seconds'],
+      next['duration_seconds'],
+    );
     add(
       'max_chars_per_second',
       current['max_chars_per_second'],

@@ -1024,6 +1024,7 @@ export function SessionDetailPage() {
     chars: number;
     cards: number;
     hasOverride: boolean;
+    durationExpired: boolean;
   } | null>(null);
   const [throttleDialogOpen, setThrottleDialogOpen] = useState(false);
   const [writeApprovalBusy, setWriteApprovalBusy] = useState(false);
@@ -2002,6 +2003,7 @@ export function SessionDetailPage() {
             chars: throttle.chars_per_second ?? 0,
             cards: throttle.cards_per_second ?? 0,
             hasOverride: throttle.has_session_override === true,
+            durationExpired: throttle.duration_expired === true,
           });
         }
       },
@@ -3077,15 +3079,20 @@ export function SessionDetailPage() {
       });
     }
     // 2026-05-17 — TopBar 节流指示胶囊：绿色 = 字符与卡片限速都开着；
-    // 灰色 = 任一被关闭或当前生效值为 0。点击打开会话级临时调整对话框。
+    // 灰色 = 任一被关闭或当前生效值为 0；duration_expired 时也变灰，
+    // 表示节流时长已耗尽、剩余响应正按 AI 真实速率追加。
     if (streamThrottle) {
       const disabled =
         (streamThrottle.chars ?? 0) <= 0 || (streamThrottle.cards ?? 0) <= 0;
+      const expired = streamThrottle.durationExpired === true;
+      const showAsGray = disabled || expired;
       const label = disabled
         ? t('topbar.throttle.off', '节流·关')
-        : t('topbar.throttle.value', '字{chars}·卡{cards}')
-            .replace('{chars}', String(streamThrottle.chars))
-            .replace('{cards}', String(streamThrottle.cards));
+        : expired
+          ? t('topbar.throttle.expired', '节流·已耗尽')
+          : t('topbar.throttle.value', '字{chars}·卡{cards}')
+              .replace('{chars}', String(streamThrottle.chars))
+              .replace('{cards}', String(streamThrottle.cards));
       capsules.push({
         key: 'stream-throttle',
         icon: 'throttle',
@@ -3095,8 +3102,13 @@ export function SessionDetailPage() {
               'topbar.throttle.off.title',
               '节流已关闭：AI 输出将以真实速率全速渲染。',
             )
-          : t('topbar.throttle.on.title', '点击调整本会话节流速率（仅本进程生效）'),
-        tone: disabled ? 'muted' : 'success',
+          : expired
+            ? t(
+                'topbar.throttle.expired.title',
+                '节流时长已耗尽：剩余流式响应将按 AI 真实速率追加渲染。',
+              )
+            : t('topbar.throttle.on.title', '点击调整本会话节流速率（仅本进程生效）'),
+        tone: showAsGray ? 'muted' : 'success',
         onClick: () => setThrottleDialogOpen(true),
       });
     }
@@ -5714,7 +5726,7 @@ function SessionThrottleDialog({
   onClose,
 }: {
   sessionId: string;
-  current: { chars: number; cards: number; hasOverride: boolean } | null;
+  current: { chars: number; cards: number; hasOverride: boolean; durationExpired?: boolean } | null;
   onClose: () => void;
 }) {
   const initialChars = current?.hasOverride ? String(current.chars) : '';

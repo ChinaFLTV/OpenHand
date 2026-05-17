@@ -55,6 +55,10 @@ class _StreamCharThrottle {
     return exp != null && !DateTime.now().isBefore(exp);
   }
 
+  /// 节流时长是否已耗尽。仅在传入 throttleDuration 时为 true；用于 UI
+  /// 把"剩余流式响应正以真实速率追加"的状态向用户透出。
+  bool get isDurationExpired => _isExpired;
+
   /// 推进时钟并补充令牌，返回当前允许「显示」的最大字符数。
   int renderableLength(int totalSanitizedLength) {
     _lastKnownTotal = totalSanitizedLength;
