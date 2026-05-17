@@ -34,8 +34,37 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('preact') || id.includes('@preact')) return 'vendor-preact';
-            if (id.includes('marked') || id.includes('markdown')) return 'vendor-markdown';
             if (id.includes('highlight')) return 'vendor-highlight';
+            // Markdown 生态完整桶到 vendor-markdown：react-markdown 自身、
+            // 以及它依赖的 remark / micromark / mdast / hast / unified / vfile /
+            // bail / is-plain-obj / trough / character-* / decode-named-* 等
+            // 一整套 transitive 依赖。之前只匹配 'marked' / 'markdown' 把
+            // unified / micromark 漏到了 vendor.js，让通用 vendor 关键路径无谓变胖。
+            if (
+              id.includes('marked')
+              || id.includes('markdown')
+              || id.includes('remark')
+              || id.includes('rehype')
+              || id.includes('micromark')
+              || id.includes('mdast')
+              || id.includes('hast')
+              || id.includes('unified')
+              || id.includes('vfile')
+              || id.includes('bail')
+              || id.includes('trough')
+              || id.includes('zwitch')
+              || id.includes('ccount')
+              || id.includes('character-entities')
+              || id.includes('decode-named-character')
+              || id.includes('property-information')
+              || id.includes('space-separated-tokens')
+              || id.includes('comma-separated-tokens')
+              || id.includes('is-plain-obj')
+              || id.includes('html-url-attributes')
+              || id.includes('longest-streak')
+              || id.includes('escape-string-regexp')
+              || id.includes('estree-util-is-identifier-name')
+            ) return 'vendor-markdown';
             return 'vendor';
           }
           if (id.includes('/features/sessions/')) return 'feature-sessions';
