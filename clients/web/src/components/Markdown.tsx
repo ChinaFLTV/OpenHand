@@ -83,9 +83,10 @@ class MarkdownFrameScheduler {
   }
 
   private scheduleDrain(): void {
-    // requestAnimationFrame 与 React 的 commit 节奏对齐 (browser 在每个
-    // VSync 触发, 16.6ms 一帧)。requestIdleCallback 在 Safari 下不被支持,
-    // 这里统一用 rAF 保证跨浏览器一致行为。
+    // 优先使用 requestIdleCallback：在浏览器主线程空闲时再 drain，给用户输入
+    // / 动画 / 滚动让位，长会话首屏批量解析不再与用户交互抢主线程。bound
+    // timeout 100ms 防止持续繁忙时彻底拖延 markdown 升级。Safari 不支持 rIC，
+    // 自动退化到 rAF；rAF 也没有时退到 setTimeout。
     const cb = () => {
       const batch = this.pending.splice(0, MARKDOWN_FRAME_BUDGET_PER_FRAME);
       for (const task of batch) {
@@ -101,7 +102,10 @@ class MarkdownFrameScheduler {
         this.draining = false;
       }
     };
-    if (typeof requestAnimationFrame === 'function') {
+    const ric = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => unknown }).requestIdleCallback;
+    if (typeof ric === 'function') {
+      ric(cb, { timeout: 100 });
+    } else if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(cb);
     } else {
       setTimeout(cb, 16);

@@ -583,13 +583,44 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
   const lastHeightRef = useRef<number | null>(null);
   const animationRef = useRef<Animation | null>(null);
   const overflowBeforeAnimationRef = useRef<string | null>(null);
+  // IntersectionObserver gate：长会话首屏 N 张卡片同时 mount 时，offscreen
+  // 卡片完全没必要跑 getBoundingClientRect（会强制 layout）也没必要起
+  // element.animate。等卡片第一次滚进视口（含 rootMargin 50px 提前），
+  // 再让 useLayoutEffect 体走完整路径并初始化 lastHeightRef。
+  const [everVisible, setEverVisible] = useState(false);
 
   useEffect(() => () => {
     animationRef.current?.cancel();
     animationRef.current = null;
   }, []);
 
+  useEffect(() => {
+    if (everVisible) return;
+    const element = ref.current;
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      // 不支持 IntersectionObserver（极少数老环境）则直接打开 gate，
+      // 退化到原行为。
+      setEverVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            setEverVisible(true);
+            io.disconnect();
+            return;
+          }
+        }
+      },
+      { rootMargin: '50px 0px 50px 0px' },
+    );
+    io.observe(element);
+    return () => io.disconnect();
+  }, [everVisible]);
+
   useLayoutEffect(() => {
+    if (!everVisible) return;
     const element = ref.current;
     if (!element) return;
 
@@ -648,7 +679,7 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
       overflowBeforeAnimationRef.current = null;
     };
     void animation.finished.then(restore, restore);
-  }, [enabled, signal]);
+  }, [enabled, signal, everVisible]);
 
   return ref;
 }
