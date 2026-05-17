@@ -244,6 +244,15 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     // 新 page 上 finder 还没注入；切完 target 第一次 findInPage 会按需注入。
     _finderInstalled = false;
+    // 切 tab 即清空所有 panel buffer（network / console / sources / 断点 ID 反查
+    // 等），让用户切到新 tab 后看到的就是这个 tab 的实时数据。Sources 端的
+    // _userBreakpoints 仍按 (url,line) 维度持久化在 metadata 里，不在这里动。
+    _networkRequests.clear();
+    _networkByRequestId.clear();
+    _consoleMessages.clear();
+    _parsedScripts.clear();
+    _scriptSources.clear();
+    _bpIdByKey.clear();
     final attachResult = await cdp.send(
       'Target.attachToTarget',
       params: <String, Object?>{

@@ -731,7 +731,33 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     var url = raw.trim();
     if (url.isEmpty) return;
     if (!url.contains('://')) url = 'https://$url';
-    await widget.controller.navigate(url);
+    final ctrl = widget.controller;
+    // 用户语义：每次回车都开一个新 tab。空白 about:blank 当前页可复用，
+    // 否则新建 page target 后 switchTo。这样既保留多页对照逆向的工作流，
+    // 又避免误覆盖当前已经登录 / 调试中的页面状态。
+    final cur = ctrl.currentPageTargetId;
+    final curUrl = cur == null
+        ? null
+        : ctrl.pageTargets
+            .firstWhere(
+              (t) => t.id == cur,
+              orElse: () => const CdpPageTargetSnapshot(
+                id: '',
+                url: '',
+                title: '',
+              ),
+            )
+            .url;
+    final isBlank = curUrl == null ||
+        curUrl.isEmpty ||
+        curUrl.startsWith('about:') ||
+        curUrl == 'chrome://newtab/';
+    if (isBlank) {
+      await ctrl.navigate(url);
+    } else {
+      final id = await ctrl.createPageTarget(url: url);
+      if (id != null) await ctrl.switchToPageTarget(id);
+    }
     _surfaceFocus.requestFocus();
   }
 
@@ -1637,62 +1663,89 @@ class _TabStrip extends StatelessWidget {
                     ),
                     child: ReorderableDelayedDragStartListener(
                       index: i,
-                      child: Material(
-                        color: active
-                            ? cs.primaryContainer
-                            : cs.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(999),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(999),
-                          onTap: enabled ? () => onSwitch(t.id) : null,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0.85, end: 1),
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeOutBack,
+                        builder: (_, v, child) => Opacity(
+                          opacity: v.clamp(0, 1),
+                          child: Transform.scale(scale: v, child: child),
+                        ),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          decoration: BoxDecoration(
+                            color: active
+                                ? cs.primaryContainer
+                                : cs.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: active
+                                  ? cs.primary.withValues(alpha: 0.4)
+                                  : Colors.transparent,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.public_rounded,
-                                  size: 12,
-                                  color: active
-                                      ? cs.onPrimaryContainer
-                                      : cs.onSurfaceVariant,
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(999),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(999),
+                              onTap: enabled ? () => onSwitch(t.id) : null,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
                                 ),
-                                const SizedBox(width: 6),
-                                ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 140),
-                                  child: Text(
-                                    label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style:
-                                        theme.textTheme.labelSmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: active
-                                          ? cs.onPrimaryContainer
-                                          : cs.onSurface,
-                                    ),
-                                  ),
-                                ),
-                                if (targets.length > 1) ...[
-                                  const SizedBox(width: 6),
-                                  InkResponse(
-                                    radius: 12,
-                                    onTap:
-                                        enabled ? () => onClose(t.id) : null,
-                                    child: Icon(
-                                      Icons.close_rounded,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.public_rounded,
                                       size: 12,
                                       color: active
                                           ? cs.onPrimaryContainer
                                           : cs.onSurfaceVariant,
                                     ),
-                                  ),
-                                ],
-                              ],
+                                    const SizedBox(width: 6),
+                                    AnimatedDefaultTextStyle(
+                                      duration:
+                                          const Duration(milliseconds: 220),
+                                      style:
+                                          theme.textTheme.labelSmall!.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: active
+                                            ? cs.onPrimaryContainer
+                                            : cs.onSurface,
+                                      ),
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                            maxWidth: 140),
+                                        child: Text(
+                                          label,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                    if (targets.length > 1) ...[
+                                      const SizedBox(width: 6),
+                                      InkResponse(
+                                        radius: 12,
+                                        onTap: enabled
+                                            ? () => onClose(t.id)
+                                            : null,
+                                        child: Icon(
+                                          Icons.close_rounded,
+                                          size: 12,
+                                          color: active
+                                              ? cs.onPrimaryContainer
+                                              : cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ),
