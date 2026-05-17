@@ -91,13 +91,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                           rebuildFromExternal(() => _throttle = preset);
                           final ok = await ctrl.setNetworkThrottling(preset);
                           if (!ok && mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(isZh
-                                    ? '节流设置失败'
-                                    : 'Failed to set throttling'),
-                                duration: const Duration(seconds: 2),
-                              ),
+                            OpenHandSnackBar.showError(
+                              context,
+                              isZh
+                                  ? '节流设置失败'
+                                  : 'Failed to set throttling',
+                              duration: const Duration(seconds: 2),
                             );
                           }
                         },
@@ -238,10 +237,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '打开保存对话框失败' : 'Failed to open save dialog'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '打开保存对话框失败' : 'Failed to open save dialog',
         duration: const Duration(seconds: 2),
-      ));
+      );
       return;
     }
     if (location == null) return; // 用户取消
@@ -259,12 +260,21 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       );
     }
     if (!mounted) return;
-    messenger.showSnackBar(SnackBar(
-      content: Text(written == null
-          ? (isZh ? 'HAR 保存失败或超时' : 'HAR save failed or timed out')
-          : (isZh ? 'HAR 已保存到 $written' : 'HAR saved to $written')),
-      duration: const Duration(seconds: 3),
-    ));
+    if (written == null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? 'HAR 保存失败或超时' : 'HAR save failed or timed out',
+        duration: const Duration(seconds: 3),
+      );
+    } else {
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? 'HAR 已保存到 $written' : 'HAR saved to $written',
+        duration: const Duration(seconds: 3),
+      );
+    }
   }
 
   Future<void> _saveScreenshot(
@@ -278,10 +288,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         : await ctrl.captureScreenshot();
     if (!mounted) return;
     if (bytes == null) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '截图失败' : 'Screenshot failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '截图失败' : 'Screenshot failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
       return;
     }
     // 让用户在导出前先标注（涂鸦 / 矩形 / 文字）。
@@ -306,22 +318,24 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '打开保存对话框失败' : 'Failed to open save dialog'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '打开保存对话框失败' : 'Failed to open save dialog',
         duration: const Duration(seconds: 2),
-      ));
+      );
       return;
     }
     if (location == null) return;
     try {
       await File(location.path).writeAsBytes(marked, flush: true);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(
-          isZh ? '已保存到 ${location.path}' : 'Saved to ${location.path}',
-        ),
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '已保存到 ${location.path}' : 'Saved to ${location.path}',
         duration: const Duration(seconds: 3),
-      ));
+      );
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
@@ -330,10 +344,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '截图保存失败' : 'Screenshot save failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '截图保存失败' : 'Screenshot save failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
     }
   }
 
@@ -391,14 +407,14 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       final bytes = await file.readAsBytes();
       final r = ctrl.loadHarBytes(bytes, merge: merge);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(
-          isZh
-              ? '${merge ? "合并" : "替换"}加载 ${r.loaded} 条；跳过 ${r.skipped} 条无效条目'
-              : '${merge ? "Merged" : "Replaced"}: ${r.loaded}; skipped ${r.skipped}',
-        ),
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh
+            ? '${merge ? "合并" : "替换"}加载 ${r.loaded} 条；跳过 ${r.skipped} 条无效条目'
+            : '${merge ? "Merged" : "Replaced"}: ${r.loaded}; skipped ${r.skipped}',
         duration: const Duration(seconds: 3),
-      ));
+      );
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
@@ -407,10 +423,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? 'HAR 解析失败' : 'HAR parse failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? 'HAR 解析失败' : 'HAR parse failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
     }
   }
 

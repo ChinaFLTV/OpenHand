@@ -129,10 +129,12 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     if (!mounted) return;
     setState(() => _tracing = false);
     if (json == null) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? 'Trace 录制失败' : 'Trace failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? 'Trace 录制失败' : 'Trace failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
       return;
     }
     const typeGroup = XTypeGroup(label: 'Trace', extensions: <String>['json']);
@@ -158,17 +160,21 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     try {
       await File(location.path).writeAsString(json);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? 'Trace 已保存到 ${location.path}' : 'Saved'),
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? 'Trace 已保存到 ${location.path}' : 'Saved',
         duration: const Duration(seconds: 2),
-      ));
+      );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write trace', error, stack);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? 'Trace 保存失败' : 'Save failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? 'Trace 保存失败' : 'Save failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
     }
   }
 
@@ -920,19 +926,23 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         if (mounted) {
           final isZh = widget.isZh;
           final cs = Theme.of(context).colorScheme;
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            backgroundColor: cs.error,
-            content: Text(
-              isZh
-                  ? 'V8 堆已用 ${usedMb.toStringAsFixed(1)} MB，超过阈值 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB'
-                  : 'V8 heap ${usedMb.toStringAsFixed(1)} MB exceeds threshold ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
-              style: TextStyle(
-                color: cs.onError,
-                fontWeight: FontWeight.w700,
+          OpenHandSnackBar.show(
+            context,
+            ScaffoldMessenger.of(context),
+            SnackBar(
+              backgroundColor: cs.error,
+              content: Text(
+                isZh
+                    ? 'V8 堆已用 ${usedMb.toStringAsFixed(1)} MB，超过阈值 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB'
+                    : 'V8 heap ${usedMb.toStringAsFixed(1)} MB exceeds threshold ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
+                style: TextStyle(
+                  color: cs.onError,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
+              duration: const Duration(seconds: 3),
             ),
-            duration: const Duration(seconds: 3),
-          ));
+          );
         }
       }
     }
@@ -946,19 +956,23 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       if (!mounted) return;
       setState(() => _samplingResult = r);
       if (r == null) {
-        messenger.showSnackBar(SnackBar(
-          content: Text(isZh ? '采样收尾失败' : 'Stop sampling failed'),
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          isZh ? '采样收尾失败' : 'Stop sampling failed',
           duration: const Duration(seconds: 2),
-        ));
+        );
       }
     } else {
       final ok = await widget.controller.startMemorySampling();
       if (!mounted) return;
       if (!ok) {
-        messenger.showSnackBar(SnackBar(
-          content: Text(isZh ? '采样启动失败' : 'Start sampling failed'),
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          isZh ? '采样启动失败' : 'Start sampling failed',
           duration: const Duration(seconds: 2),
-        ));
+        );
       } else {
         setState(() => _samplingResult = null);
       }
@@ -976,10 +990,12 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       _last = r;
     });
     if (r == null) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '快照采集失败' : 'Snapshot failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '快照采集失败' : 'Snapshot failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
     }
   }
 
@@ -1014,10 +1030,12 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     try {
       await File(location.path).writeAsString(r.json);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '已保存到 ${location.path}' : 'Saved'),
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '已保存到 ${location.path}' : 'Saved',
         duration: const Duration(seconds: 2),
-      ));
+      );
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
@@ -1026,10 +1044,12 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '保存失败' : 'Save failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '保存失败' : 'Save failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
     }
   }
 
@@ -1685,10 +1705,11 @@ class _SamplingTopList extends StatelessWidget {
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: row.stack.join('\n')));
                 Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(isZh ? '已复制' : 'Copied'),
+                OpenHandSnackBar.showSuccess(
+                  context,
+                  isZh ? '已复制' : 'Copied',
                   duration: const Duration(seconds: 1),
-                ));
+                );
               },
               label: isZh ? '复制' : 'Copy',
             ),
@@ -2672,10 +2693,12 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         const JsonEncoder.withIndent('  ').convert(steps),
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '已保存到 ${location.path}' : 'Saved'),
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '已保存到 ${location.path}' : 'Saved',
         duration: const Duration(seconds: 2),
-      ));
+      );
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
@@ -2684,10 +2707,12 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '保存失败' : 'Save failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '保存失败' : 'Save failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
     }
   }
 
@@ -2717,10 +2742,12 @@ class _RecorderPanelState extends State<_RecorderPanel> {
           .toList(growable: false);
       widget.controller.setRecorderSteps(steps);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '已导入 ${steps.length} 步' : 'Imported ${steps.length} steps'),
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '已导入 ${steps.length} 步' : 'Imported ${steps.length} steps',
         duration: const Duration(seconds: 2),
-      ));
+      );
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
@@ -2729,10 +2756,12 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         stack,
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '导入失败：JSON 格式不合法' : 'Import failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '导入失败：JSON 格式不合法' : 'Import failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
     }
   }
 
@@ -2743,12 +2772,14 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     final result = await widget.controller.replaySteps();
     if (!mounted) return;
     setState(() => _replaying = false);
-    messenger.showSnackBar(SnackBar(
-      content: Text(isZh
+    OpenHandSnackBar.showInfoOn(
+      context,
+      messenger,
+      isZh
           ? '重放完成：${result.executed} 步成功，${result.failed} 步失败'
-          : 'Replay done: ${result.executed} ok, ${result.failed} failed'),
+          : 'Replay done: ${result.executed} ok, ${result.failed} failed',
       duration: const Duration(seconds: 3),
-    ));
+    );
   }
 
   Future<void> _addAssertion(String kind) async {

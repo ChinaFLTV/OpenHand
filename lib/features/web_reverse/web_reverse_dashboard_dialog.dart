@@ -11,6 +11,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_launch_diagnosis.dart';
 import 'web_reverse_mitmproxy_bridge.dart';
 import 'web_reverse_profile_actions.dart';
@@ -219,12 +220,13 @@ class _WebReverseDashboardDialogState
     }
     if (!mounted) return;
     final isZh = _isZh();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(ctrl.isRecording
+    OpenHandSnackBar.showInfo(
+      context,
+      ctrl.isRecording
           ? (isZh ? '已开始录制（Cmd+Shift+R 再次按下停止）' : 'Recording started')
-          : (isZh ? '已停止录制' : 'Recording stopped')),
+          : (isZh ? '已停止录制' : 'Recording stopped'),
       duration: const Duration(seconds: 2),
-    ));
+    );
   }
 
   Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
@@ -412,14 +414,14 @@ class _WebReverseDashboardDialogState
     }
     if (!mounted) return;
     if (frontendUrl == null) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(
-          isZh
-              ? '未找到可用的 DevTools 前端，已退到 /json/list 列表页'
-              : 'No DevTools frontend found; opened /json/list fallback',
-        ),
+      OpenHandSnackBar.showInfoOn(
+        context,
+        messenger,
+        isZh
+            ? '未找到可用的 DevTools 前端，已退到 /json/list 列表页'
+            : 'No DevTools frontend found; opened /json/list fallback',
         duration: const Duration(seconds: 3),
-      ));
+      );
     }
   }
 }
@@ -624,10 +626,12 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
     final messenger = ScaffoldMessenger.of(context);
     await Clipboard.setData(ClipboardData(text: diagnosis.fullText));
     if (!mounted) return;
-    messenger.showSnackBar(SnackBar(
-      content: Text(widget.isZh ? '已复制原始报错' : 'Raw error copied'),
+    OpenHandSnackBar.showSuccessOn(
+      context,
+      messenger,
+      widget.isZh ? '已复制原始报错' : 'Raw error copied',
       duration: const Duration(seconds: 1),
-    ));
+    );
   }
 
   @override

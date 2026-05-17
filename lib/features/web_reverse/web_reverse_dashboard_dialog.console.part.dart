@@ -45,11 +45,15 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     final isZh = widget.isZh;
     final cs = Theme.of(context).colorScheme;
     if (r == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: cs.errorContainer,
-        content: Text(isZh ? '执行失败' : 'Eval failed'),
-        duration: const Duration(seconds: 2),
-      ));
+      OpenHandSnackBar.show(
+        context,
+        ScaffoldMessenger.of(context),
+        SnackBar(
+          backgroundColor: cs.errorContainer,
+          content: Text(isZh ? '执行失败' : 'Eval failed'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 

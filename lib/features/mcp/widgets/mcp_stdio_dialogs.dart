@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
@@ -167,14 +168,11 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                                     Clipboard.setData(
                                       ClipboardData(text: logs.join('\n')),
                                     );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          isZh
-                                              ? '已复制到剪贴板'
-                                              : 'Copied to clipboard',
-                                        ),
-                                      ),
+                                    OpenHandSnackBar.showSuccess(
+                                      context,
+                                      isZh
+                                          ? '已复制到剪贴板'
+                                          : 'Copied to clipboard',
                                     );
                                   },
                             icon: const Icon(Icons.copy_rounded, size: 18),

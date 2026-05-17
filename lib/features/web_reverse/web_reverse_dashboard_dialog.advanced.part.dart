@@ -24,14 +24,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           final messenger = ScaffoldMessenger.of(context);
           final path = await controller.exportSessionBundle();
           if (!context.mounted) return;
-          messenger.showSnackBar(SnackBar(
-            content: Text(
-              path == null
-                  ? (isZh ? '导出失败' : 'Export failed')
-                  : (isZh ? '已导出到 $path' : 'Exported to $path'),
-            ),
-            duration: const Duration(seconds: 3),
-          ));
+          if (path == null) {
+            OpenHandSnackBar.showErrorOn(
+              context,
+              messenger,
+              isZh ? '导出失败' : 'Export failed',
+              duration: const Duration(seconds: 3),
+            );
+          } else {
+            OpenHandSnackBar.showSuccessOn(
+              context,
+              messenger,
+              isZh ? '已导出到 $path' : 'Exported to $path',
+              duration: const Duration(seconds: 3),
+            );
+          }
         },
       ),      _AdvancedEntry(
         icon: Icons.add_link_rounded,
@@ -295,14 +302,21 @@ Future<void> _showExtraHeadersDialog(
   }
   final saved = await ctrl.setExtraHttpHeaders(headers);
   if (!context.mounted) return;
-  messenger.showSnackBar(SnackBar(
-    content: Text(
-      saved
-          ? (isZh ? '已注入 ${headers.length} 个 Header' : 'Injected ${headers.length} headers')
-          : (isZh ? '保存失败' : 'Save failed'),
-    ),
-    duration: const Duration(seconds: 2),
-  ));
+  if (saved) {
+    OpenHandSnackBar.showSuccessOn(
+      context,
+      messenger,
+      isZh ? '已注入 ${headers.length} 个 Header' : 'Injected ${headers.length} headers',
+      duration: const Duration(seconds: 2),
+    );
+  } else {
+    OpenHandSnackBar.showErrorOn(
+      context,
+      messenger,
+      isZh ? '保存失败' : 'Save failed',
+      duration: const Duration(seconds: 2),
+    );
+  }
 }
 
 Future<void> _showCdpPaletteDialog(
@@ -427,10 +441,12 @@ Future<void> _copyRecentRequestsForAi(
   final messenger = ScaffoldMessenger.of(context);
   final entries = ctrl.networkRequests.reversed.take(10).toList();
   if (entries.isEmpty) {
-    messenger.showSnackBar(SnackBar(
-      content: Text(isZh ? '当前无请求可分析' : 'No requests yet'),
+    OpenHandSnackBar.showInfoOn(
+      context,
+      messenger,
+      isZh ? '当前无请求可分析' : 'No requests yet',
       duration: const Duration(seconds: 2),
-    ));
+    );
     return;
   }
   final buf = StringBuffer()
@@ -465,12 +481,12 @@ Future<void> _copyRecentRequestsForAi(
   }
   await Clipboard.setData(ClipboardData(text: buf.toString()));
   if (!context.mounted) return;
-  messenger.showSnackBar(SnackBar(
-    content: Text(
-      isZh ? '请求摘要已复制，回到会话粘贴即可让 AI 分析' : 'Summary copied; paste in chat',
-    ),
+  OpenHandSnackBar.showSuccessOn(
+    context,
+    messenger,
+    isZh ? '请求摘要已复制，回到会话粘贴即可让 AI 分析' : 'Summary copied; paste in chat',
     duration: const Duration(seconds: 3),
-  ));
+  );
 }
 
 Future<void> _showDiffPicker(
@@ -480,10 +496,11 @@ Future<void> _showDiffPicker(
 ) async {
   final all = ctrl.networkRequests;
   if (all.length < 2) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(isZh ? '请求数不足，无法对比' : 'Need at least 2 requests'),
+    OpenHandSnackBar.showInfo(
+      context,
+      isZh ? '请求数不足，无法对比' : 'Need at least 2 requests',
       duration: const Duration(seconds: 2),
-    ));
+    );
     return;
   }
   CdpNetworkEntry? a;
@@ -696,14 +713,21 @@ Future<void> _showServiceWorkersDialog(
                 'navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))).then(rs => rs.length)',
               );
               if (!context.mounted) return;
-              messenger.showSnackBar(SnackBar(
-                content: Text(
-                  r == null
-                      ? (isZh ? '反注册失败' : 'Unregister failed')
-                      : (isZh ? '已反注册 $r 个 SW' : 'Unregistered $r SWs'),
-                ),
-                duration: const Duration(seconds: 2),
-              ));
+              if (r == null) {
+                OpenHandSnackBar.showErrorOn(
+                  context,
+                  messenger,
+                  isZh ? '反注册失败' : 'Unregister failed',
+                  duration: const Duration(seconds: 2),
+                );
+              } else {
+                OpenHandSnackBar.showSuccessOn(
+                  context,
+                  messenger,
+                  isZh ? '已反注册 $r 个 SW' : 'Unregistered $r SWs',
+                  duration: const Duration(seconds: 2),
+                );
+              }
             },
             label: isZh ? '全部反注册' : 'Unregister all',
           ),
@@ -723,34 +747,42 @@ Future<void> _toggleHarReplayServer(
   if (running != null) {
     await ctrl.stopHarReplayServer();
     if (!context.mounted) return;
-    messenger.showSnackBar(SnackBar(
-      content: Text(isZh ? '已停止 HAR 重放服务器' : 'HAR replay server stopped'),
+    OpenHandSnackBar.showInfoOn(
+      context,
+      messenger,
+      isZh ? '已停止 HAR 重放服务器' : 'HAR replay server stopped',
       duration: const Duration(seconds: 2),
-    ));
+    );
     return;
   }
   final r = await ctrl.startHarReplayServer();
   if (!context.mounted) return;
   if (r == null) {
-    messenger.showSnackBar(SnackBar(
-      content: Text(isZh ? '启动失败：HAR 不可用或端口被占' : 'Failed to start'),
+    OpenHandSnackBar.showErrorOn(
+      context,
+      messenger,
+      isZh ? '启动失败：HAR 不可用或端口被占' : 'Failed to start',
       duration: const Duration(seconds: 3),
-    ));
+    );
     return;
   }
-  messenger.showSnackBar(SnackBar(
-    content: Text(
-      isZh
-          ? 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条'
-          : 'Replay server up at http://127.0.0.1:${r.port}/  · ${r.entryCount} entries',
+  OpenHandSnackBar.show(
+    context,
+    messenger,
+    SnackBar(
+      content: Text(
+        isZh
+            ? 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条'
+            : 'Replay server up at http://127.0.0.1:${r.port}/  · ${r.entryCount} entries',
+      ),
+      duration: const Duration(seconds: 6),
+      action: SnackBarAction(
+        label: isZh ? '复制端口' : 'Copy port',
+        onPressed: () =>
+            Clipboard.setData(ClipboardData(text: '${r.port}')),
+      ),
     ),
-    duration: const Duration(seconds: 6),
-    action: SnackBarAction(
-      label: isZh ? '复制端口' : 'Copy port',
-      onPressed: () =>
-          Clipboard.setData(ClipboardData(text: '${r.port}')),
-    ),
-  ));
+  );
 }
 
 
@@ -763,10 +795,12 @@ Future<void> _toggleMitmproxyBridge(
   if (ctrl.mitmproxyBridge != null) {
     await ctrl.stopMitmproxyBridge();
     if (!context.mounted) return;
-    messenger.showSnackBar(SnackBar(
-      content: Text(isZh ? '已停止 mitmproxy 桥接' : 'mitmproxy bridge stopped'),
+    OpenHandSnackBar.showInfoOn(
+      context,
+      messenger,
+      isZh ? '已停止 mitmproxy 桥接' : 'mitmproxy bridge stopped',
       duration: const Duration(seconds: 2),
-    ));
+    );
     return;
   }
   // 先确认 mitmdump 在 PATH。
@@ -826,20 +860,22 @@ Future<void> _toggleMitmproxyBridge(
   final r = await ctrl.startMitmproxyBridge();
   if (!context.mounted) return;
   if (r == null) {
-    messenger.showSnackBar(SnackBar(
-      content: Text(isZh ? '启动失败（端口 8080 可能已被占）' : 'Failed (port 8080 in use?)'),
+    OpenHandSnackBar.showErrorOn(
+      context,
+      messenger,
+      isZh ? '启动失败（端口 8080 可能已被占）' : 'Failed (port 8080 in use?)',
       duration: const Duration(seconds: 3),
-    ));
+    );
     return;
   }
-  messenger.showSnackBar(SnackBar(
-    content: Text(
-      isZh
-          ? 'mitmproxy 桥接已启动：客户端代理 127.0.0.1:${r.mitmPort}（回调 :${r.callbackPort}）'
-          : 'mitmproxy up: proxy via 127.0.0.1:${r.mitmPort} (callback :${r.callbackPort})',
-    ),
+  OpenHandSnackBar.showSuccessOn(
+    context,
+    messenger,
+    isZh
+        ? 'mitmproxy 桥接已启动：客户端代理 127.0.0.1:${r.mitmPort}（回调 :${r.callbackPort}）'
+        : 'mitmproxy up: proxy via 127.0.0.1:${r.mitmPort} (callback :${r.callbackPort})',
     duration: const Duration(seconds: 6),
-  ));
+  );
 }
 
 
@@ -852,10 +888,12 @@ Future<void> _toggleWebRtcCapture(
   final ok = await ctrl.installWebRtcCapture();
   if (!context.mounted) return;
   if (!ok) {
-    messenger.showSnackBar(SnackBar(
-      content: Text(isZh ? '注入失败（page 可能尚未就绪）' : 'Install failed'),
+    OpenHandSnackBar.showErrorOn(
+      context,
+      messenger,
+      isZh ? '注入失败（page 可能尚未就绪）' : 'Install failed',
       duration: const Duration(seconds: 2),
-    ));
+    );
     return;
   }
   // 拉一次现有日志展示。
@@ -899,10 +937,11 @@ Future<void> _toggleWebRtcCapture(
               ClipboardData(text: const JsonEncoder.withIndent('  ').convert(entries)),
             );
             if (!dialogContext.mounted) return;
-            ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(
-              content: Text(isZh ? '已复制' : 'Copied'),
+            OpenHandSnackBar.showSuccess(
+              dialogContext,
+              isZh ? '已复制' : 'Copied',
               duration: const Duration(seconds: 1),
-            ));
+            );
           },
           label: isZh ? '复制 JSON' : 'Copy JSON',
         ),

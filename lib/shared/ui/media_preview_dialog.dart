@@ -1,26 +1,29 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'animated_dialog.dart';
+import 'openhand_snack_bar.dart';
 
 /// 通用图片 / 音频 / 视频预览弹窗。覆盖三种来源：
 ///   - `bytes`：内存 Uint8List（CDP 拉回的 base64 解码后的二进制）
 ///   - `network`：URL 直接交给 [Image.network] 或 webview 内嵌 `<audio>` / `<video>`
 ///   - `file`：本地文件路径
 ///
-/// 与 home page 的 `_ImagePreviewDialog` 视觉一致：圆角 16、四周 12px padding、
-/// 头部标题 + 关闭按钮 + 复制 URL 按钮、主体支持 [InteractiveViewer] 缩放拖动；
-/// 音视频走 webview_flutter 沙箱，避免引入新依赖。
-///
-/// 同样的弹窗也用于 web_reverse 调试面板，避免重复造轮子。
+/// 与 home page 的 `_ImagePreviewDialog` 视觉一致：
+///   - 弹窗外圈圆角 16，clipped Antialias
+///   - 头部标题 + 关闭按钮 + 复制 URL 按钮
+///   - 图片体积按真实宽高比动态贴合，四周 12px 统一留白；
+///     不再因 `BoxFit.contain` 在固定容器内产生不均匀的上下 / 左右白边
+///   - 音视频走 webview_flutter 沙箱，避免引入新依赖
 enum MediaPreviewKind { image, audio, video }
 
-class MediaPreviewDialog extends StatelessWidget {
+class MediaPreviewDialog extends StatefulWidget {
   const MediaPreviewDialog._({
     this.bytes,
     this.networkUrl,
@@ -84,118 +87,246 @@ class MediaPreviewDialog extends StatelessWidget {
   final VoidCallback? onCopyUrl;
 
   @override
+  State<MediaPreviewDialog> createState() => _MediaPreviewDialogState();
+}
+
+class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
+  /// 图片四周统一的内边距 (与会话气泡 `_ImagePreviewDialog` 12px 对齐)。
+  static const double _kImagePadding = 12.0;
+  static const double _kInsetPadding = 24.0;
+  static const double _kHeaderEstimate = 70.0;
+  static const double _kDividerH = 1.0;
+  static const double _kMinDialogW = 280.0;
+  static const double _kFallbackSide = 320.0;
+
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageStreamListener;
+  Size? _naturalSize;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.kind == MediaPreviewKind.image) {
+      _resolveImageDimensions();
+    }
+  }
+
+  @override
+  void dispose() {
+    final stream = _imageStream;
+    final listener = _imageStreamListener;
+    if (stream != null && listener != null) {
+      stream.removeListener(listener);
+    }
+    super.dispose();
+  }
+
+  /// 提前订阅 ImageProvider 流, 拿到图片自身的宽高用于尺寸计算。
+  void _resolveImageDimensions() {
+    ImageProvider? provider;
+    if (widget.bytes != null) {
+      provider = MemoryImage(widget.bytes!);
+    } else if (widget.filePath != null) {
+      provider = FileImage(File(widget.filePath!));
+    } else if (widget.networkUrl != null) {
+      provider = NetworkImage(widget.networkUrl!);
+    }
+    if (provider == null) return;
+    final stream = provider.resolve(const ImageConfiguration());
+    final listener = ImageStreamListener(
+      (ImageInfo info, bool synchronousCall) {
+        final w = info.image.width.toDouble();
+        final h = info.image.height.toDouble();
+        if (w <= 0 || h <= 0) return;
+        if (synchronousCall) {
+          _naturalSize = Size(w, h);
+          return;
+        }
+        if (!mounted) return;
+        final prev = _naturalSize;
+        if (prev != null && prev.width == w && prev.height == h) return;
+        setState(() {
+          _naturalSize = Size(w, h);
+        });
+      },
+      onError: (Object _, StackTrace? _) {
+        // 错误状态下保持 _naturalSize 为 null, 走占位尺寸分支。
+      },
+    );
+    stream.addListener(listener);
+    _imageStream = stream;
+    _imageStreamListener = listener;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final viewport = MediaQuery.sizeOf(context);
-    final maxW = viewport.width - 48;
-    final maxH = viewport.height - 48;
+    final disableAnim = MediaQuery.disableAnimationsOf(context);
     final isZh =
         Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    final maxDialogW = math.max(
+      _kMinDialogW,
+      viewport.width - _kInsetPadding * 2,
+    );
+    final maxDialogH = math.max(200.0, viewport.height - _kInsetPadding * 2);
+
+    final isImage = widget.kind == MediaPreviewKind.image;
+    final padding = isImage ? _kImagePadding : 12.0;
+    final maxBodyW = math.max(0.0, maxDialogW - padding * 2);
+    final maxBodyH = math.max(
+      0.0,
+      maxDialogH - _kHeaderEstimate - _kDividerH - padding * 2,
+    );
+
+    double bodyW;
+    double bodyH;
+    if (isImage) {
+      final natural = _naturalSize;
+      if (natural != null && natural.width > 0 && natural.height > 0) {
+        // 等比缩放至 maxBody 内接矩形, 与 BoxFit.contain 等价；尺寸直接落到外
+        // 层 SizedBox 上, 因此四周不会再出现 letterbox 白边。
+        final ratio = natural.width / natural.height;
+        bodyW = maxBodyW;
+        bodyH = bodyW / ratio;
+        if (bodyH > maxBodyH) {
+          bodyH = maxBodyH;
+          bodyW = bodyH * ratio;
+        }
+      } else {
+        final side = math.min(_kFallbackSide, math.min(maxBodyW, maxBodyH));
+        bodyW = math.max(0.0, side);
+        bodyH = math.max(0.0, side);
+      }
+    } else if (widget.kind == MediaPreviewKind.audio) {
+      bodyW = maxBodyW.clamp(320.0, 960.0);
+      bodyH = 120;
+    } else {
+      bodyW = maxBodyW.clamp(320.0, 960.0);
+      bodyH = maxBodyH.clamp(240.0, 640.0);
+    }
+
+    final dialogW = (bodyW + padding * 2).clamp(_kMinDialogW, maxDialogW);
+
     return Dialog(
       backgroundColor: cs.surface,
-      insetPadding: const EdgeInsets.all(24),
+      insetPadding: const EdgeInsets.all(_kInsetPadding),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
-              child: Row(
-                children: [
-                  Icon(
-                    switch (kind) {
-                      MediaPreviewKind.image => Icons.image_rounded,
-                      MediaPreviewKind.audio => Icons.audiotrack_rounded,
-                      MediaPreviewKind.video => Icons.movie_rounded,
-                    },
-                    size: 20,
-                    color: cs.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  if (onCopyUrl != null)
-                    IconButton(
-                      tooltip: isZh ? '复制源 URL' : 'Copy source URL',
-                      onPressed: () {
-                        onCopyUrl!();
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text(isZh ? '已复制' : 'Copied'),
-                          duration: const Duration(seconds: 1),
-                        ));
-                      },
-                      icon: const Icon(Icons.link_rounded),
-                    ),
-                  IconButton(
-                    tooltip: isZh ? '关闭' : 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: maxW - 24,
-                  maxHeight: maxH - 80,
-                ),
-                child: kind == MediaPreviewKind.image
-                    ? InteractiveViewer(
-                        maxScale: 6,
-                        child: _buildImage(context),
-                      )
-                    : SizedBox(
-                        width: (maxW - 24).clamp(320, 960),
-                        height: kind == MediaPreviewKind.audio
-                            ? 120
-                            : (maxH - 80).clamp(240, 640),
-                        child: _MediaPlayerSurface(
-                          bytes: bytes,
-                          networkUrl: networkUrl,
-                          filePath: filePath,
-                          mimeType: mimeType,
-                          kind: kind,
+      child: AnimatedSize(
+        duration: disableAnim
+            ? Duration.zero
+            : const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: maxDialogW,
+            maxHeight: maxDialogH,
+          ),
+          child: SizedBox(
+            width: dialogW,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        switch (widget.kind) {
+                          MediaPreviewKind.image => Icons.image_rounded,
+                          MediaPreviewKind.audio => Icons.audiotrack_rounded,
+                          MediaPreviewKind.video => Icons.movie_rounded,
+                        },
+                        size: 20,
+                        color: cs.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium,
                         ),
                       ),
-              ),
+                      if (widget.onCopyUrl != null)
+                        IconButton(
+                          tooltip: isZh ? '复制源 URL' : 'Copy source URL',
+                          onPressed: () {
+                            widget.onCopyUrl!();
+                            final messenger =
+                                ScaffoldMessenger.maybeOf(context);
+                            if (messenger != null) {
+                              OpenHandSnackBar.show(
+                                context,
+                                messenger,
+                                OpenHandSnackBar.success(
+                                  context,
+                                  isZh ? '已复制' : 'Copied',
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.link_rounded),
+                        ),
+                      IconButton(
+                        tooltip: isZh ? '关闭' : 'Close',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: EdgeInsets.all(padding),
+                  child: SizedBox(
+                    width: bodyW,
+                    height: bodyH,
+                    child: isImage
+                        ? InteractiveViewer(
+                            maxScale: 6,
+                            child: _buildImage(context),
+                          )
+                        : _MediaPlayerSurface(
+                            bytes: widget.bytes,
+                            networkUrl: widget.networkUrl,
+                            filePath: widget.filePath,
+                            mimeType: widget.mimeType,
+                            kind: widget.kind,
+                          ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildImage(BuildContext context) {
-    if (bytes != null) {
+    if (widget.bytes != null) {
       return Image.memory(
-        bytes!,
+        widget.bytes!,
         fit: BoxFit.contain,
         errorBuilder: (c, _, _) => _errorBox(c),
       );
     }
-    if (networkUrl != null) {
+    if (widget.networkUrl != null) {
       return Image.network(
-        networkUrl!,
+        widget.networkUrl!,
         fit: BoxFit.contain,
         errorBuilder: (c, _, _) => _errorBox(c),
       );
     }
-    if (filePath != null) {
-      return Image.network(
-        Uri.file(filePath!).toString(),
+    if (widget.filePath != null) {
+      return Image.file(
+        File(widget.filePath!),
         fit: BoxFit.contain,
         errorBuilder: (c, _, _) => _errorBox(c),
       );
@@ -205,9 +336,7 @@ class MediaPreviewDialog extends StatelessWidget {
 
   Widget _errorBox(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: 320,
-      height: 200,
+    return SizedBox.expand(
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: cs.errorContainer.withValues(alpha: 0.3),

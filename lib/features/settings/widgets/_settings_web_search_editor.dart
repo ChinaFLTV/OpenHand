@@ -184,28 +184,21 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       final body = asCsv ? _callsToCsv(calls) : _callsToJson(calls);
       await File(location.path).writeAsString(body, flush: true);
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          duration: const Duration(milliseconds: 1800),
-          content: Text(
-            _localizedText(
-              context,
-              zh: '已导出 ${calls.length} 条记录到 ${location.path}',
-              en: 'Exported ${calls.length} entries to ${location.path}',
-            ),
-          ),
+      OpenHandSnackBar.showSuccess(
+        context,
+        _localizedText(
+          context,
+          zh: '已导出 ${calls.length} 条记录到 ${location.path}',
+          en: 'Exported ${calls.length} entries to ${location.path}',
         ),
+        duration: const Duration(milliseconds: 1800),
       );
     } catch (e, st) {
       silentLog('settings.websearch', '_exportTelemetry', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          backgroundColor: Theme.of(context).colorScheme.errorContainer,
-          content: Text(
-            _localizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
-          ),
-        ),
+      OpenHandSnackBar.showError(
+        context,
+        _localizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
       );
     } finally {
       if (mounted) setState(() => _exportingTelemetry = false);
@@ -388,18 +381,18 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     await _refreshCacheBytesOnDisk();
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(
-      SnackBar(
-        duration: const Duration(milliseconds: 1800),
-        content: Text(
-          _localizedText(
-            context,
-            zh: 'WebSearch 本地缓存已清空',
-            en: 'WebSearch local cache cleared',
-          ),
+    if (messenger != null) {
+      OpenHandSnackBar.showInfoOn(
+        context,
+        messenger,
+        _localizedText(
+          context,
+          zh: 'WebSearch 本地缓存已清空',
+          en: 'WebSearch local cache cleared',
         ),
-      ),
-    );
+        duration: const Duration(milliseconds: 1800),
+      );
+    }
   }
 
   void _emit(AiWebSearchSettings next) => widget.onChanged(next);

@@ -178,10 +178,11 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
       _ => widget.entry.url,
     };
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(isZh ? '已复制为 $kind' : 'Copied as $kind'),
+    OpenHandSnackBar.showSuccess(
+      context,
+      isZh ? '已复制为 $kind' : 'Copied as $kind',
       duration: const Duration(seconds: 1),
-    ));
+    );
   }
 
   Widget _buildTabBar(ThemeData theme, ColorScheme cs, bool isZh) {

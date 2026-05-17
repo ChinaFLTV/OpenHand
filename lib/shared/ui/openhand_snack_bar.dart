@@ -134,6 +134,79 @@ class OpenHandSnackBar {
     );
   }
 
+  /// One-shot helper: build + show an info snackbar with the unified
+  /// motion / close-affordance treatment. Used as the single replacement
+  /// for legacy `messenger.showSnackBar(SnackBar(content: Text(...)))`
+  /// call sites so every snackbar in the app travels through the same
+  /// presentation pipeline.
+  static void showInfo(
+    BuildContext context,
+    String message, {
+    Duration duration = const Duration(seconds: 3),
+    SnackBarAction? action,
+  }) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    show(context, messenger, info(context, message, duration: duration, action: action));
+  }
+
+  /// Same as [showInfo] but reuses an already-resolved [ScaffoldMessengerState].
+  /// Prefer this overload when the call site has cached the messenger before
+  /// awaiting an async gap.
+  static void showInfoOn(
+    BuildContext context,
+    ScaffoldMessengerState messenger,
+    String message, {
+    Duration duration = const Duration(seconds: 3),
+    SnackBarAction? action,
+  }) {
+    show(context, messenger, info(context, message, duration: duration, action: action));
+  }
+
+  /// One-shot helper: success snackbar.
+  static void showSuccess(
+    BuildContext context,
+    String message, {
+    Duration duration = const Duration(seconds: 2),
+    SnackBarAction? action,
+  }) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    show(context, messenger, success(context, message, duration: duration, action: action));
+  }
+
+  static void showSuccessOn(
+    BuildContext context,
+    ScaffoldMessengerState messenger,
+    String message, {
+    Duration duration = const Duration(seconds: 2),
+    SnackBarAction? action,
+  }) {
+    show(context, messenger, success(context, message, duration: duration, action: action));
+  }
+
+  /// One-shot helper: error snackbar.
+  static void showError(
+    BuildContext context,
+    String message, {
+    Duration duration = const Duration(seconds: 4),
+    SnackBarAction? action,
+  }) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    show(context, messenger, error(context, message, duration: duration, action: action));
+  }
+
+  static void showErrorOn(
+    BuildContext context,
+    ScaffoldMessengerState messenger,
+    String message, {
+    Duration duration = const Duration(seconds: 4),
+    SnackBarAction? action,
+  }) {
+    show(context, messenger, error(context, message, duration: duration, action: action));
+  }
+
   static SnackBar notification(
     BuildContext context, {
     required String message,

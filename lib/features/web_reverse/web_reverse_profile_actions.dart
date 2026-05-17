@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_profile_cleaner.dart';
 
 /// 渐进式解决 profile 冲突的结果，供 UI 决定是否进入冷却期。
@@ -47,11 +48,15 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     Duration duration = const Duration(seconds: 3),
   }) {
     if (!context.mounted) return;
-    messenger.showSnackBar(SnackBar(
-      backgroundColor: bg,
-      duration: duration,
-      content: Text(text),
-    ));
+    OpenHandSnackBar.show(
+      context,
+      messenger,
+      SnackBar(
+        backgroundColor: bg,
+        duration: duration,
+        content: Text(text),
+      ),
+    );
   }
 
   if (userDataDir.trim().isEmpty) {

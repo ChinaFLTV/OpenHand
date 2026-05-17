@@ -66,10 +66,12 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       if (ok) {
         setState(() => _bpAtLine.remove(lineIdx));
       } else {
-        messenger.showSnackBar(SnackBar(
-          content: Text(widget.isZh ? '取消断点失败' : 'Remove failed'),
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          widget.isZh ? '取消断点失败' : 'Remove failed',
           duration: const Duration(seconds: 2),
-        ));
+        );
       }
     } else {
       final bp = await widget.controller.setBreakpointByUrl(
@@ -79,15 +81,19 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       if (!mounted) return;
       if (bp != null) {
         setState(() => _bpAtLine[lineIdx] = bp);
-        messenger.showSnackBar(SnackBar(
-          content: Text(widget.isZh ? '已下断点' : 'Breakpoint set'),
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          messenger,
+          widget.isZh ? '已下断点' : 'Breakpoint set',
           duration: const Duration(seconds: 1),
-        ));
+        );
       } else {
-        messenger.showSnackBar(SnackBar(
-          content: Text(widget.isZh ? '下断点失败（可能 url 不可达）' : 'Set failed'),
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          widget.isZh ? '下断点失败（可能 url 不可达）' : 'Set failed',
           duration: const Duration(seconds: 2),
-        ));
+        );
       }
     }
   }
@@ -258,10 +264,11 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 onPressed: () async {
                   await Clipboard.setData(ClipboardData(text: source));
                   if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(isZh ? '已复制' : 'Copied'),
+                  OpenHandSnackBar.showSuccess(
+                    context,
+                    isZh ? '已复制' : 'Copied',
                     duration: const Duration(seconds: 1),
-                  ));
+                  );
                 },
                 icon: const Icon(Icons.copy_rounded, size: 18),
               ),

@@ -201,10 +201,11 @@ class _NetworkBody extends StatelessWidget {
 
   void _copyUrl(BuildContext context, CdpNetworkEntry e, bool isZh) {
     Clipboard.setData(ClipboardData(text: e.url));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(isZh ? '已复制 URL' : 'URL copied'),
+    OpenHandSnackBar.showSuccess(
+      context,
+      isZh ? '已复制 URL' : 'URL copied',
       duration: const Duration(seconds: 1),
-    ));
+    );
   }
 }
 
@@ -621,38 +622,53 @@ class _NetworkRow extends StatelessWidget {
     switch (selected) {
       case 'copy_url':
         await Clipboard.setData(ClipboardData(text: entry.url));
-        messenger.showSnackBar(SnackBar(
-          content: Text(isZh ? '已复制 URL' : 'URL copied'),
+        if (!context.mounted) return;
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          messenger,
+          isZh ? '已复制 URL' : 'URL copied',
           duration: const Duration(seconds: 1),
-        ));
+        );
       case 'copy_curl':
         await Clipboard.setData(
           ClipboardData(text: _asCurl(entry, windows: false)),
         );
-        messenger.showSnackBar(SnackBar(
-          content: Text(isZh ? '已复制 cURL' : 'cURL copied'),
+        if (!context.mounted) return;
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          messenger,
+          isZh ? '已复制 cURL' : 'cURL copied',
           duration: const Duration(seconds: 1),
-        ));
+        );
       case 'copy_fetch':
         await Clipboard.setData(
           ClipboardData(text: _asFetch(entry, node: false)),
         );
-        messenger.showSnackBar(SnackBar(
-          content: Text(isZh ? '已复制 fetch' : 'fetch copied'),
+        if (!context.mounted) return;
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          messenger,
+          isZh ? '已复制 fetch' : 'fetch copied',
           duration: const Duration(seconds: 1),
-        ));
+        );
       case 'block':
         await controller.blockUrl(entry.url);
-        messenger.showSnackBar(SnackBar(
-          content: Text(isZh ? '已屏蔽该 URL' : 'URL blocked'),
+        if (!context.mounted) return;
+        OpenHandSnackBar.showInfoOn(
+          context,
+          messenger,
+          isZh ? '已屏蔽该 URL' : 'URL blocked',
           duration: const Duration(seconds: 2),
-        ));
+        );
       case 'unblock':
         await controller.unblockUrl(entry.url);
-        messenger.showSnackBar(SnackBar(
-          content: Text(isZh ? '已取消屏蔽' : 'URL unblocked'),
+        if (!context.mounted) return;
+        OpenHandSnackBar.showInfoOn(
+          context,
+          messenger,
+          isZh ? '已取消屏蔽' : 'URL unblocked',
           duration: const Duration(seconds: 2),
-        ));
+        );
       case 'replay':
         if (!context.mounted) return;
         await _replayAndShow(context);
@@ -676,10 +692,12 @@ class _NetworkRow extends StatelessWidget {
     if (!context.mounted) return;
     Navigator.of(context, rootNavigator: true).pop();
     if (r == null) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(isZh ? '重放失败' : 'Replay failed'),
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '重放失败' : 'Replay failed',
         duration: const Duration(seconds: 2),
-      ));
+      );
       return;
     }
     await showDialog<void>(
@@ -705,10 +723,12 @@ class _NetworkRow extends StatelessWidget {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: r.body));
               if (!dialogContext.mounted) return;
-              messenger.showSnackBar(SnackBar(
-                content: Text(isZh ? '响应体已复制' : 'Body copied'),
+              OpenHandSnackBar.showSuccessOn(
+                dialogContext,
+                messenger,
+                isZh ? '响应体已复制' : 'Body copied',
                 duration: const Duration(seconds: 1),
-              ));
+              );
             },
             label: isZh ? '复制响应体' : 'Copy body',
           ),
