@@ -61,6 +61,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // screencast 分辨率档位：null = 自动跟随面板尺寸；其它值表示固定上界。
   // 用户在地址栏「分辨率」下拉里选，按 (maxWidth, maxHeight) 元组。
   ({int w, int h})? _resolutionOverride;
+  // 设备模拟预设：null = 桌面默认；其它对应 Mobile / Tablet / Desktop。
+  WebReverseDevicePreset? _devicePreset;
   // 上次记录的 tab 列表标识：targets 数量 / currentId 任一变化即 rebuild。
   int _lastTargetsLen = 0;
   String? _lastCurrentTargetId;
@@ -1151,10 +1153,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                   filled: true,
                   fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.85),
                   hintText: isZh ? '输入 URL 后回车' : 'Type URL and press Enter',
-                  prefixIcon: Icon(
-                    Icons.link_rounded,
-                    size: 18,
-                    color: cs.onSurfaceVariant,
+                  prefixIcon: _HistoryDropdownIcon(
+                    enabled: alive,
+                    history: ctrl.navigationHistory,
+                    isZh: isZh,
+                    onPick: (url) async {
+                      _addressCtrl.text = url;
+                      await ctrl.navigate(url);
+                      _surfaceFocus.requestFocus();
+                    },
                   ),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1206,6 +1213,16 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                 final dpr = MediaQuery.of(context).devicePixelRatio;
                 if (size != null) _scheduleViewportSync(size, dpr);
               }
+            },
+          ),
+          const SizedBox(width: 6),
+          _DevicePresetMenu(
+            value: _devicePreset,
+            enabled: alive,
+            isZh: isZh,
+            onChanged: (next) async {
+              setState(() => _devicePreset = next);
+              await ctrl.setDeviceMetricsPreset(next);
             },
           ),
           const SizedBox(width: 6),
@@ -1880,6 +1897,172 @@ class _ResolutionMenu extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// 设备模拟预设下拉：桌面 / 平板 / 移动；选中后调
+/// `Emulation.setDeviceMetricsOverride` + `setUserAgentOverride`。
+class _DevicePresetMenu extends StatelessWidget {
+  const _DevicePresetMenu({
+    required this.value,
+    required this.enabled,
+    required this.isZh,
+    required this.onChanged,
+  });
+
+  final WebReverseDevicePreset? value;
+  final bool enabled;
+  final bool isZh;
+  final ValueChanged<WebReverseDevicePreset?> onChanged;
+
+  static const _presets = <WebReverseDevicePreset?>[
+    null,
+    WebReverseDevicePreset.mobile375,
+    WebReverseDevicePreset.tablet768,
+    WebReverseDevicePreset.desktop1440,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    String label() {
+      switch (value?.id) {
+        case 'mobile':
+          return isZh ? '移动' : 'Mobile';
+        case 'tablet':
+          return isZh ? '平板' : 'Tablet';
+        case 'desktop':
+          return isZh ? '桌面' : 'Desktop';
+        default:
+          return isZh ? '原生' : 'Native';
+      }
+    }
+
+    IconData icon() {
+      switch (value?.id) {
+        case 'mobile':
+          return Icons.smartphone_rounded;
+        case 'tablet':
+          return Icons.tablet_mac_rounded;
+        case 'desktop':
+          return Icons.desktop_windows_rounded;
+        default:
+          return Icons.devices_other_rounded;
+      }
+    }
+
+    return Tooltip(
+      message: isZh ? '设备模拟' : 'Device emulation',
+      child: SizedBox(
+        height: _kToolbarHeight,
+        child: PopupMenuButton<WebReverseDevicePreset?>(
+          enabled: enabled,
+          tooltip: '',
+          onSelected: onChanged,
+          itemBuilder: (_) => _presets
+              .map(
+                (p) => PopupMenuItem<WebReverseDevicePreset?>(
+                  value: p,
+                  child: Text(p == null
+                      ? (isZh ? '原生（清除模拟）' : 'Native (clear)')
+                      : p.label),
+                ),
+              )
+              .toList(growable: false),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_kToolbarRadius),
+              border: Border.all(
+                color: enabled
+                    ? cs.outlineVariant
+                    : cs.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon(),
+                  size: 14,
+                  color: enabled
+                      ? cs.onSurfaceVariant
+                      : cs.onSurface.withValues(alpha: 0.35),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  label(),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: enabled
+                        ? cs.onSurface
+                        : cs.onSurface.withValues(alpha: 0.35),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// 地址栏前置图标兼"历史下拉"按钮：点击弹本会话访问过的 URL 列表，
+/// 按时间倒序，最多显示最近 30 条。选中即直接 navigate 过去。
+class _HistoryDropdownIcon extends StatelessWidget {
+  const _HistoryDropdownIcon({
+    required this.enabled,
+    required this.history,
+    required this.isZh,
+    required this.onPick,
+  });
+
+  final bool enabled;
+  final List<String> history;
+  final bool isZh;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final visible = history.reversed.take(30).toList(growable: false);
+    return PopupMenuButton<String>(
+      enabled: enabled && visible.isNotEmpty,
+      tooltip: isZh ? '导航历史' : 'Navigation history',
+      onSelected: onPick,
+      itemBuilder: (_) => visible
+          .map(
+            (u) => PopupMenuItem<String>(
+              value: u,
+              height: 32,
+              child: Text(
+                u,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(growable: false),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 12, right: 4),
+        child: Icon(
+          Icons.history_rounded,
+          size: 18,
+          color: enabled
+              ? cs.onSurfaceVariant
+              : cs.onSurface.withValues(alpha: 0.35),
         ),
       ),
     );

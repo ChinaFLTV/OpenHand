@@ -1613,12 +1613,28 @@ class WebReverseSessionController extends ChangeNotifier {
     final frame = p['frame'] as Map?;
     if (frame == null) return;
     if (frame['parentId'] != null) return;
+    final url = '${frame['url'] ?? ''}';
+    if (url.isNotEmpty && !url.startsWith('chrome-error://')) {
+      // 维护本会话访问历史：去掉相邻重复，最多保留最近 200 条。
+      if (_navigationHistory.isEmpty || _navigationHistory.last != url) {
+        _navigationHistory.add(url);
+        while (_navigationHistory.length > 200) {
+          _navigationHistory.removeAt(0);
+        }
+      }
+    }
     if (!_preserveLog) {
       _networkRequests.clear();
       _networkByRequestId.clear();
       _safeNotify();
     }
   }
+
+  /// 本会话内主 frame 访问过的 URL 序列（按时间顺序，相邻去重）。
+  /// dashboard 浏览器面板地址栏的历史下拉就读这个。
+  final List<String> _navigationHistory = <String>[];
+  List<String> get navigationHistory =>
+      List<String>.unmodifiable(_navigationHistory);
 
   void _onTargetUpserted(Map<String, Object?> p) {
     final t = p['targetInfo'] as Map?;
@@ -2696,6 +2712,52 @@ class WebReverseSessionController extends ChangeNotifier {
       );
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'reload', error, stack);
+    }
+  }
+
+  /// 设备模拟预设：移动 / 平板 / 桌面三档；底层走
+  /// `Emulation.setDeviceMetricsOverride` + `Emulation.setUserAgentOverride`。
+  /// 传 `null` 则 `Emulation.clearDeviceMetricsOverride`。
+  Future<void> setDeviceMetricsPreset(WebReverseDevicePreset? preset) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      if (preset == null) {
+        await cdp.send(
+          'Emulation.clearDeviceMetricsOverride',
+          sessionId: _pageSessionId,
+        );
+        await cdp.send(
+          'Emulation.setUserAgentOverride',
+          params: const <String, Object?>{'userAgent': ''},
+          sessionId: _pageSessionId,
+        );
+        return;
+      }
+      await cdp.send(
+        'Emulation.setDeviceMetricsOverride',
+        params: <String, Object?>{
+          'width': preset.width,
+          'height': preset.height,
+          'deviceScaleFactor': preset.deviceScaleFactor,
+          'mobile': preset.mobile,
+        },
+        sessionId: _pageSessionId,
+      );
+      if (preset.userAgent != null) {
+        await cdp.send(
+          'Emulation.setUserAgentOverride',
+          params: <String, Object?>{'userAgent': preset.userAgent},
+          sessionId: _pageSessionId,
+        );
+      }
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'setDeviceMetricsPreset',
+        error,
+        stack,
+      );
     }
   }
 
@@ -4357,4 +4419,57 @@ class WebReverseInterceptRule {
         if (replaceUrl != null) 'replaceUrl': replaceUrl,
         'headerOverrides': headerOverrides,
       };
+}
+
+
+/// 一档设备模拟预设：尺寸 + DPR + UA + mobile flag。
+class WebReverseDevicePreset {
+  const WebReverseDevicePreset({
+    required this.id,
+    required this.label,
+    required this.width,
+    required this.height,
+    required this.deviceScaleFactor,
+    required this.mobile,
+    this.userAgent,
+  });
+
+  final String id;
+  final String label;
+  final int width;
+  final int height;
+  final double deviceScaleFactor;
+  final bool mobile;
+  final String? userAgent;
+
+  static const mobile375 = WebReverseDevicePreset(
+    id: 'mobile',
+    label: 'Mobile (iPhone 13 mini)',
+    width: 375,
+    height: 812,
+    deviceScaleFactor: 3,
+    mobile: true,
+    userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  );
+
+  static const tablet768 = WebReverseDevicePreset(
+    id: 'tablet',
+    label: 'Tablet (iPad)',
+    width: 768,
+    height: 1024,
+    deviceScaleFactor: 2,
+    mobile: true,
+    userAgent:
+        'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  );
+
+  static const desktop1440 = WebReverseDevicePreset(
+    id: 'desktop',
+    label: 'Desktop (1440)',
+    width: 1440,
+    height: 900,
+    deviceScaleFactor: 2,
+    mobile: false,
+  );
 }
