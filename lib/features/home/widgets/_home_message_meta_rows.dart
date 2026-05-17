@@ -119,8 +119,11 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
         const SizedBox(width: 6),
         AnimatedRotation(
           turns: widget.expanded ? 0.5 : 0,
-          duration: _reasoningBodyAnimDuration(context, minMs: 180, maxMs: 320),
-          curve: Curves.easeOutCubic,
+          duration: cardMotionDurationFor(
+            context,
+            expanding: widget.expanded,
+          ),
+          curve: kCardMotionCurve,
           child: Icon(
             Icons.keyboard_arrow_down_rounded,
             color: widget.color.withValues(alpha: 0.78),

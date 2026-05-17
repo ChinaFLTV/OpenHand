@@ -329,18 +329,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
             // app's motion design. Duration/curve 跟随全局弹窗动画设置
             // （与 reasoning / tool_call 折叠胶囊同一节奏），避免内外层
             // 动画相互竞争引发的「抽搐鬼畜」。
-            // 2026-05-17 — 曲线改用 Q 弹的 cubic-bezier(0.22,1.22,0.36,1)，
-            // 与 WEB 端 useMessageSizeMotion 的 growing 曲线一致，让
-            // 流式追加文本带来的体积增长感受到自然回弹。
+            // 2026-05-17 (Bug 5) — 时长 / 曲线全部走
+            // `_home_motion_tokens.dart` 的 motion token，跨卡片节奏
+            // 统一；不再在调用点写裸 milliseconds。
             child: ClipRect(
               child: AnimatedSize(
-                duration: _reasoningBodyAnimDuration(
+                duration: cardMotionDurationFor(
                   context,
-                  minMs: 220,
-                  // ignore: avoid_redundant_argument_values
-                  maxMs: 360,
+                  expanding: reasoningExpanded,
                 ),
-                curve: const Cubic(0.22, 1.22, 0.36, 1),
+                curve: kCardMotionCurve,
                 alignment: Alignment.topLeft,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -439,10 +437,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       // dispatcher streams in tokens (and metadata grows), the
                       // bubble height eases out with a Q-bouncy curve instead
                       // of jumping. Mirrors the reasoning bubble behaviour.
+                      // 2026-05-17 (Bug 5)：时长 / 曲线统一走 motion token。
                       ClipRect(
                         child: AnimatedSize(
-                          duration: const Duration(milliseconds: 240),
-                          curve: Curves.easeOutCubic,
+                          duration: cardMotionDurationFor(
+                            context,
+                            expanding: true,
+                          ),
+                          curve: kCardMotionCurve,
                           alignment: Alignment.topLeft,
                           child: _SelfLearningCard(message: message),
                         ),

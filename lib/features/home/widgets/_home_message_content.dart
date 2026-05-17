@@ -77,10 +77,11 @@ class _CompressionCheckpointBody extends StatelessWidget {
                   ),
                   AnimatedRotation(
                     turns: expanded ? 0.5 : 0,
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
+                    duration: cardMotionDurationFor(
+                      context,
+                      expanding: expanded,
+                    ),
+                    curve: kCardMotionCurve,
                     child: Icon(
                       Icons.keyboard_arrow_down_rounded,
                       color: textColor.withValues(alpha: 0.82),
@@ -92,10 +93,11 @@ class _CompressionCheckpointBody extends StatelessWidget {
               const SizedBox(height: 8),
               ClipRect(
                 child: AnimatedSize(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 220),
-                  curve: Curves.easeInOutCubic,
+                  duration: cardMotionDurationFor(
+                    context,
+                    expanding: expanded,
+                  ),
+                  curve: kCardMotionCurve,
                   alignment: Alignment.topLeft,
                   child: expanded
                       ? KeyedSubtree(
@@ -278,25 +280,10 @@ class _StreamingReasoningBody extends StatelessWidget {
 /// 和 WEB 端 REASONING_PREVIEW_MAX_HEIGHT_PX 对齐。
 const double _reasoningPreviewMaxHeight = 142;
 
-/// 统一读取 SettingsController.dialogAnimationSettings 的时长并 clamp 到
-/// reasoning/tool_call 卡片折叠动画合理区间；若用户开启了「减少动画」/
-/// MediaQuery disableAnimations，则直接返回 Duration.zero。
-Duration _reasoningBodyAnimDuration(
-  BuildContext context, {
-  int minMs = 160,
-  int maxMs = 360,
-}) {
-  if (MediaQuery.disableAnimationsOf(context)) {
-    return Duration.zero;
-  }
-  try {
-    final settings = context.read<SettingsController>().dialogAnimationSettings;
-    final clamped = settings.durationMs.clamp(minMs, maxMs).toInt();
-    return Duration(milliseconds: clamped);
-  } catch (_) {
-    return const Duration(milliseconds: 220);
-  }
-}
+/// 2026-05-17 (Bug 5)：transcript 内消息卡片已统一切换到 motion token
+/// （见 `_home_motion_tokens.dart` 的 `cardMotionDurationFor`），原本读取
+/// `SettingsController.dialogAnimationSettings` 的 `_reasoningBodyAnimDuration`
+/// helper 不再被引用，已随本次修复清理。所有调用点请直接使用 motion token。
 
 class _CollapsibleMessageMarkdownBody extends StatefulWidget {
   const _CollapsibleMessageMarkdownBody({
@@ -432,10 +419,11 @@ class _CollapsibleMessageMarkdownBodyState
         const SizedBox(height: 8),
         ClipRect(
           child: AnimatedSize(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
+            duration: cardMotionDurationFor(
+              context,
+              expanding: !_collapsed,
+            ),
+            curve: kCardMotionCurve,
             alignment: Alignment.topLeft,
             clipBehavior: Clip.none,
             child: _collapsed
