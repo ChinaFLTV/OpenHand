@@ -20,9 +20,10 @@ class _ConsoleBody extends StatefulWidget {
 class _ConsoleBodyState extends State<_ConsoleBody> {
   final _replCtrl = TextEditingController();
   final _replFocus = FocusNode();
-  // 表达式历史；上下方向键回放最近 50 条。
-  final List<String> _history = <String>[];
+  // history cursor: -1 表示当前没在历史里；0..len-1 指向某条历史。
   int _historyCursor = -1;
+
+  List<String> get _history => widget.controller.replHistory;
 
   @override
   void dispose() {
@@ -34,12 +35,13 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   Future<void> _runExpr(String expr) async {
     final raw = expr.trim();
     if (raw.isEmpty) return;
-    _history.add(raw);
-    while (_history.length > 50) {
-      _history.removeAt(0);
-    }
-    _historyCursor = _history.length;
+    widget.controller.pushReplHistory(raw);
+    _historyCursor = -1;
     _replCtrl.clear();
+    // 通知 dashboard 异步把最新历史持久化到 session metadata。
+    final dashState =
+        context.findAncestorStateOfType<_WebReverseDashboardDialogState>();
+    dashState?.persistConsoleReplHistory();
     final r = await widget.controller.runReplExpression(raw);
     if (!mounted) return;
     final isZh = widget.isZh;
@@ -59,21 +61,28 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
 
   KeyEventResult _onReplKey(KeyEvent ev) {
     if (ev is! KeyDownEvent) return KeyEventResult.ignored;
-    if (ev.logicalKey == LogicalKeyboardKey.arrowUp && _history.isNotEmpty) {
-      _historyCursor = (_historyCursor - 1).clamp(0, _history.length - 1);
-      _replCtrl.text = _history[_historyCursor];
+    final hist = _history;
+    if (ev.logicalKey == LogicalKeyboardKey.arrowUp && hist.isNotEmpty) {
+      // 上箭头：往更早走。从底往上滚。
+      if (_historyCursor < 0) {
+        _historyCursor = hist.length - 1;
+      } else if (_historyCursor > 0) {
+        _historyCursor--;
+      }
+      _replCtrl.text = hist[_historyCursor];
       _replCtrl.selection =
           TextSelection.collapsed(offset: _replCtrl.text.length);
       return KeyEventResult.handled;
     }
     if (ev.logicalKey == LogicalKeyboardKey.arrowDown) {
-      if (_historyCursor < _history.length - 1) {
+      if (_historyCursor < 0) return KeyEventResult.ignored;
+      if (_historyCursor < hist.length - 1) {
         _historyCursor++;
-        _replCtrl.text = _history[_historyCursor];
+        _replCtrl.text = hist[_historyCursor];
         _replCtrl.selection =
             TextSelection.collapsed(offset: _replCtrl.text.length);
       } else {
-        _historyCursor = _history.length;
+        _historyCursor = -1;
         _replCtrl.clear();
       }
       return KeyEventResult.handled;

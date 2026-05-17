@@ -65,6 +65,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       if (!mounted) return;
       if (ok) {
         setState(() => _bpAtLine.remove(lineIdx));
+        context
+            .findAncestorStateOfType<_WebReverseDashboardDialogState>()
+            ?.persistBreakpoints();
       } else {
         OpenHandSnackBar.showErrorOn(
           context,
@@ -81,6 +84,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       if (!mounted) return;
       if (bp != null) {
         setState(() => _bpAtLine[lineIdx] = bp);
+        context
+            .findAncestorStateOfType<_WebReverseDashboardDialogState>()
+            ?.persistBreakpoints();
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,

@@ -168,13 +168,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     if (aliveJustFlipped) {
       // 浏览器刚拉起 / 重启完毕：① 重新 acquire screencast（之前 release/safeStop
       // 已把引用计数和 active 都清零，否则面板会一直停在"等待浏览器画面"
-      // 的占位上不动）；② 用上一轮持久化的 tab URL 恢复多 tab 场景。
+      // 的占位上不动）；② 用上一轮持久化的 tab URL 恢复多 tab 场景；
+      // ③ 恢复持久化的 Sources 断点。
       unawaited(widget.controller.acquireScreencast());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final state = context
             .findAncestorStateOfType<_WebReverseDashboardDialogState>();
         state?.restoreBrowserTabs();
+        state?.restoreBreakpoints();
       });
     }
   }

@@ -1875,6 +1875,30 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// Console REPL：把表达式喂给 page 的 Runtime.evaluate，
+  /// REPL 命令历史，按时间顺序追加；UI 上下箭头浏览历史。
+  /// 重启 dashboard / 切会话不丢，由 dashboard 侧把它持久化到 session metadata。
+  final List<String> _replHistory = <String>[];
+  static const int _kReplHistoryMax = 200;
+  List<String> get replHistory => List<String>.unmodifiable(_replHistory);
+
+  void pushReplHistory(String expr) {
+    final t = expr.trim();
+    if (t.isEmpty) return;
+    if (_replHistory.isNotEmpty && _replHistory.last == t) return;
+    _replHistory.add(t);
+    while (_replHistory.length > _kReplHistoryMax) {
+      _replHistory.removeAt(0);
+    }
+    _safeNotify();
+  }
+
+  void replaceReplHistory(List<String> items) {
+    _replHistory
+      ..clear()
+      ..addAll(items.where((e) => e.trim().isNotEmpty));
+    _safeNotify();
+  }
+
   /// 输入和结果都以 [_appendConsole] 写回 console buffer，
   /// 渲染端按 'repl-input' / 'repl-result' / 'error' level 区分配色。
   Future<String?> runReplExpression(String expression) async {
@@ -3561,6 +3585,17 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  /// 用户在 Sources tab 设过的断点集合：dashboard 关掉再打开 / 浏览器
+  /// 重启时由上层把这份持久化数据再次下发。
+  final Set<({String url, int line})> _userBreakpoints =
+      <({String url, int line})>{};
+  // breakpointId 反查表：用户取消断点时按 (url,line) 找到原 breakpointId 调
+  // remove。
+  final Map<String, String> _bpIdByKey = <String, String>{};
+
+  Set<({String url, int line})> get userBreakpoints =>
+      Set<({String url, int line})>.unmodifiable(_userBreakpoints);
+
   /// 按 URL+lineNumber 下断点。返回 breakpointId 用于后续 remove。
   Future<String?> setBreakpointByUrl({
     required String url,
@@ -3579,10 +3614,23 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      return r['breakpointId'] as String?;
+      final bp = r['breakpointId'] as String?;
+      if (bp != null) {
+        _userBreakpoints.add((url: url, line: lineNumber));
+        _bpIdByKey['$url#$lineNumber'] = bp;
+        _safeNotify();
+      }
+      return bp;
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'setBreakpointByUrl', error, stack);
       return null;
+    }
+  }
+
+  /// 持久化数据下发：恢复之前持久化的断点（dashboard 启动 / 浏览器重启用）。
+  Future<void> restoreBreakpoints(Iterable<({String url, int line})> bps) async {
+    for (final b in bps) {
+      await setBreakpointByUrl(url: b.url, lineNumber: b.line);
     }
   }
 
@@ -3595,6 +3643,11 @@ class WebReverseSessionController extends ChangeNotifier {
         params: <String, Object?>{'breakpointId': breakpointId},
         sessionId: _pageSessionId,
       );
+      _bpIdByKey.removeWhere((_, v) => v == breakpointId);
+      _userBreakpoints.removeWhere(
+        (b) => !_bpIdByKey.containsKey('${b.url}#${b.line}'),
+      );
+      _safeNotify();
       return true;
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'removeBreakpoint', error, stack);

@@ -100,6 +100,8 @@ class _WebReverseDashboardDialogState
   static const _kLastTabMetaKey = 'web_reverse_dashboard_last_tab';
   static const _kBrowserTabOrderMetaKey = 'web_reverse_browser_tab_order';
   static const _kBrowserTabUrlsMetaKey = 'web_reverse_browser_tab_urls';
+  static const _kReplHistoryMetaKey = 'web_reverse_console_repl_history';
+  static const _kBreakpointsMetaKey = 'web_reverse_sources_breakpoints';
   _Tab _tab = _Tab.network;
 
   // Network 面板状态
@@ -162,6 +164,12 @@ class _WebReverseDashboardDialogState
       if (orderRaw is List) {
         final order = orderRaw.whereType<String>().toList(growable: false);
         if (order.isNotEmpty) widget.controller.applyPageTargetOrder(order);
+      }
+      // 恢复 REPL 命令历史。
+      final replRaw = session.metadata[_kReplHistoryMetaKey];
+      if (replRaw is List) {
+        final hist = replRaw.whereType<String>().toList(growable: false);
+        if (hist.isNotEmpty) widget.controller.replaceReplHistory(hist);
       }
     });
   }
@@ -269,6 +277,55 @@ class _WebReverseDashboardDialogState
             .createPageTarget(url: wantUrls[i])
             .timeout(const Duration(seconds: 6));
       } catch (_) {}
+    }
+  }
+
+  /// 持久化 console REPL 历史到 session metadata，控制台面板每次执行命令
+  /// 都会调用一次。fire-and-forget 不阻塞 UI。
+  void persistConsoleReplHistory() {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>();
+    unawaited(
+      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kReplHistoryMetaKey: widget.controller.replHistory,
+      }),
+    );
+  }
+
+  /// 持久化 Sources tab 用户设过的断点。Sources 面板每次 set/remove 后调一次。
+  void persistBreakpoints() {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>();
+    final bps = widget.controller.userBreakpoints
+        .map((b) => <String, Object?>{'url': b.url, 'line': b.line})
+        .toList(growable: false);
+    unawaited(
+      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kBreakpointsMetaKey: bps,
+      }),
+    );
+  }
+
+  /// 浏览器从 dead 切回 alive 时调用：恢复持久化的断点（先 enableDebugger）。
+  Future<void> restoreBreakpoints() async {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>().sessions.firstWhere(
+          (s) => s.id == widget.sessionId,
+          orElse: () => context.read<AiSessionController>().sessions.first,
+        );
+    final raw = session.metadata[_kBreakpointsMetaKey];
+    if (raw is! List || raw.isEmpty) return;
+    await widget.controller.enableDebugger();
+    final list = <({String url, int line})>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final url = '${item['url'] ?? ''}';
+      final line = (item['line'] as num?)?.toInt() ?? -1;
+      if (url.isEmpty || line < 0) continue;
+      list.add((url: url, line: line));
+    }
+    if (list.isNotEmpty) {
+      await widget.controller.restoreBreakpoints(list);
     }
   }
 
