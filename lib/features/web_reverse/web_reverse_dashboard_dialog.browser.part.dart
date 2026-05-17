@@ -52,6 +52,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 浏览器侧 setPageScaleFactor 的当前值；面板内独立维护，下次切到 dashboard
   // 重新 attach 时不会保留（Chromium 重启即丢）。
   double _zoom = 1;
+  // 上次记录的 tab 列表标识：targets 数量 / currentId 任一变化即 rebuild。
+  int _lastTargetsLen = 0;
+  String? _lastCurrentTargetId;
 
   // ── IME 桥（TextInputClient 手动接管） ────────────────────────────────
   // surface 拿到焦点时打开一条 TextInput connection，把 IME 候选词、回车 /
@@ -103,12 +106,18 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final w = widget.controller.screencastWidth;
     final h = widget.controller.screencastHeight;
     final alive = widget.controller.isBrowserAlive;
+    final len = widget.controller.pageTargets.length;
+    final cur = widget.controller.currentPageTargetId;
     final dirty = w != _frameW ||
         h != _frameH ||
-        alive != _wasAlive;
+        alive != _wasAlive ||
+        len != _lastTargetsLen ||
+        cur != _lastCurrentTargetId;
     _frameW = w;
     _frameH = h;
     _wasAlive = alive;
+    _lastTargetsLen = len;
+    _lastCurrentTargetId = cur;
     if (dirty) setState(() {});
   }
 
@@ -599,6 +608,22 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final dpr = MediaQuery.of(context).devicePixelRatio;
     return Column(
       children: [
+        _TabStrip(
+          targets: ctrl.pageTargets,
+          currentId: ctrl.currentPageTargetId,
+          enabled: ctrl.isBrowserAlive,
+          isZh: isZh,
+          onSwitch: (id) async {
+            await ctrl.switchToPageTarget(id);
+          },
+          onClose: (id) async {
+            await ctrl.closePageTarget(id);
+          },
+          onNew: () async {
+            final id = await ctrl.createPageTarget();
+            if (id != null) await ctrl.switchToPageTarget(id);
+          },
+        ),
         _buildAddressBar(theme, cs, isZh, ctrl),
         const SizedBox(height: 8),
         Expanded(
@@ -1025,6 +1050,142 @@ class _ZoomMenu extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// 浏览器面板顶部 tab strip：每个 page target 一个胶囊，激活态高亮。
+/// 「+」按钮新建 about:blank tab；激活胶囊上挂×按钮关闭。
+class _TabStrip extends StatelessWidget {
+  const _TabStrip({
+    required this.targets,
+    required this.currentId,
+    required this.enabled,
+    required this.isZh,
+    required this.onSwitch,
+    required this.onClose,
+    required this.onNew,
+  });
+
+  final List<CdpPageTargetSnapshot> targets;
+  final String? currentId;
+  final bool enabled;
+  final bool isZh;
+  final ValueChanged<String> onSwitch;
+  final ValueChanged<String> onClose;
+  final VoidCallback onNew;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    if (targets.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: SizedBox(
+        height: 30,
+        child: Row(
+          children: [
+            Expanded(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: targets.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (_, i) {
+                  final t = targets[i];
+                  final active = t.id == currentId;
+                  final label = t.title.isNotEmpty
+                      ? t.title
+                      : (t.url.isEmpty
+                          ? (isZh ? '新标签页' : 'New tab')
+                          : Uri.tryParse(t.url)?.host ?? t.url);
+                  return Material(
+                    color: active
+                        ? cs.primaryContainer
+                        : cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: enabled ? () => onSwitch(t.id) : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.public_rounded,
+                              size: 12,
+                              color: active
+                                  ? cs.onPrimaryContainer
+                                  : cs.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 140),
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: active
+                                      ? cs.onPrimaryContainer
+                                      : cs.onSurface,
+                                ),
+                              ),
+                            ),
+                            if (targets.length > 1) ...[
+                              const SizedBox(width: 6),
+                              InkResponse(
+                                radius: 12,
+                                onTap: enabled ? () => onClose(t.id) : null,
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 12,
+                                  color: active
+                                      ? cs.onPrimaryContainer
+                                      : cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 6),
+            Tooltip(
+              message: isZh ? '新建标签页' : 'New tab',
+              child: SizedBox(
+                width: 26,
+                height: 26,
+                child: Material(
+                  color: cs.surfaceContainerHighest,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: enabled ? onNew : null,
+                    child: Icon(
+                      Icons.add_rounded,
+                      size: 16,
+                      color: enabled
+                          ? cs.onSurfaceVariant
+                          : cs.onSurface.withValues(alpha: 0.35),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

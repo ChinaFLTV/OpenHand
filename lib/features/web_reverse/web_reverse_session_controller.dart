@@ -198,6 +198,50 @@ class WebReverseSessionController extends ChangeNotifier {
       throw const CdpException(code: -1, message: '未发现 page target；浏览器可能没有打开任何标签页');
     }
     final targetId = chosen['targetId'] as String;
+    // 订阅 page target 的创建 / 销毁 / 信息变化，让 dashboard 实时更新 tab strip。
+    await cdp.send(
+      'Target.setDiscoverTargets',
+      params: const <String, Object?>{'discover': true},
+    );
+    await _attachToTargetInternal(targetId);
+    // 首次拉满当前所有 page target。
+    _refreshTargetsFromInfos(infos);
+  }
+
+  /// 多标签页：dashboard 浏览器面板的 tab strip 数据源。每条 entry 反映一个
+  /// CDP page target，包含 id / url / title / favicon。
+  final List<CdpPageTargetSnapshot> _pageTargets = <CdpPageTargetSnapshot>[];
+  String? _currentTargetId;
+
+  List<CdpPageTargetSnapshot> get pageTargets =>
+      List<CdpPageTargetSnapshot>.unmodifiable(_pageTargets);
+  String? get currentPageTargetId => _currentTargetId;
+
+  void _refreshTargetsFromInfos(List<dynamic> infos) {
+    _pageTargets.clear();
+    for (final t in infos.whereType<Map>()) {
+      if (t['type'] != 'page') continue;
+      _pageTargets.add(CdpPageTargetSnapshot(
+        id: '${t['targetId'] ?? ''}',
+        url: '${t['url'] ?? ''}',
+        title: '${t['title'] ?? ''}',
+      ));
+    }
+    _safeNotify();
+  }
+
+  Future<void> _attachToTargetInternal(String targetId) async {
+    final cdp = _browserCdp!;
+    // 切换前主动 detach 旧 session（如果有），避免事件流叠加。
+    if (_pageSessionId != null) {
+      try {
+        await cdp.send(
+          'Target.detachFromTarget',
+          params: <String, Object?>{'sessionId': _pageSessionId},
+        );
+      } catch (_) {}
+      _pageSessionId = null;
+    }
     final attachResult = await cdp.send(
       'Target.attachToTarget',
       params: <String, Object?>{
@@ -206,7 +250,7 @@ class WebReverseSessionController extends ChangeNotifier {
       },
     );
     _pageSessionId = attachResult['sessionId'] as String?;
-    // 启用相关 domain。给 Network 加大 buffer 让 getResponseBody 能拿到大文本。
+    _currentTargetId = targetId;
     await cdp.send(
       'Network.enable',
       params: const <String, Object?>{
@@ -218,10 +262,100 @@ class WebReverseSessionController extends ChangeNotifier {
     await cdp.send('Page.enable', sessionId: _pageSessionId);
     await cdp.send('Runtime.enable', sessionId: _pageSessionId);
     await cdp.send('Log.enable', sessionId: _pageSessionId);
-    // 把 browser CDP 的事件流接到 dashboard 缓冲。
+    await _pageEventsSub?.cancel();
     _pageEventsSub = cdp.events
         .where((ev) => ev.sessionId == null || ev.sessionId == _pageSessionId)
         .listen(_onCdpEvent);
+    _safeNotify();
+  }
+
+  /// 切换当前活跃的 page target。会重启 screencast（若已激活）。
+  Future<void> switchToPageTarget(String targetId) async {
+    if (_currentTargetId == targetId) return;
+    final cdp = _browserCdp;
+    if (cdp == null) return;
+    final wasActive = _screencastActive;
+    if (wasActive) {
+      try {
+        await cdp.send('Page.stopScreencast', sessionId: _pageSessionId);
+      } catch (_) {}
+      _screencastActive = false;
+    }
+    try {
+      await _attachToTargetInternal(targetId);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'switchToPageTarget $targetId',
+        error,
+        stack,
+      );
+      return;
+    }
+    if (wasActive) {
+      try {
+        await cdp.send(
+          'Page.startScreencast',
+          params: <String, Object?>{
+            'format': 'jpeg',
+            'quality': _screencastQuality,
+            'maxWidth': _screencastWidth,
+            'maxHeight': _screencastHeight,
+            'everyNthFrame': 1,
+          },
+          sessionId: _pageSessionId,
+        );
+        _screencastActive = true;
+      } catch (_) {}
+    }
+  }
+
+  /// 新建一个 page target（默认 about:blank）；上层切到它即可在新 tab 操作。
+  Future<String?> createPageTarget({String url = 'about:blank'}) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return null;
+    try {
+      final r = await cdp.send(
+        'Target.createTarget',
+        params: <String, Object?>{'url': url},
+      );
+      return r['targetId'] as String?;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'createPageTarget',
+        error,
+        stack,
+      );
+      return null;
+    }
+  }
+
+  /// 关闭指定 page target。若正在被使用，先切到下一个再关。
+  Future<void> closePageTarget(String targetId) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return;
+    if (_currentTargetId == targetId && _pageTargets.length > 1) {
+      // 选下一个不同 id 的 target 切过去。
+      final next = _pageTargets.firstWhere(
+        (t) => t.id != targetId,
+        orElse: () => const CdpPageTargetSnapshot(id: '', url: '', title: ''),
+      );
+      if (next.id.isNotEmpty) await switchToPageTarget(next.id);
+    }
+    try {
+      await cdp.send(
+        'Target.closeTarget',
+        params: <String, Object?>{'targetId': targetId},
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'closePageTarget $targetId',
+        error,
+        stack,
+      );
+    }
   }
 
   void _onCdpEvent(CdpEvent ev) {
@@ -265,6 +399,11 @@ class WebReverseSessionController extends ChangeNotifier {
         _onFrameNavigated(ev.params);
       case 'Page.screencastFrame':
         _onScreencastFrame(ev.params);
+      case 'Target.targetCreated':
+      case 'Target.targetInfoChanged':
+        _onTargetUpserted(ev.params);
+      case 'Target.targetDestroyed':
+        _onTargetDestroyed(ev.params);
       case 'Runtime.consoleAPICalled':
         _onConsoleApi(ev.params);
       case 'Log.entryAdded':
@@ -1312,6 +1451,36 @@ class WebReverseSessionController extends ChangeNotifier {
     if (!_preserveLog) {
       _networkRequests.clear();
       _networkByRequestId.clear();
+      _safeNotify();
+    }
+  }
+
+  void _onTargetUpserted(Map<String, Object?> p) {
+    final t = p['targetInfo'] as Map?;
+    if (t == null) return;
+    if ('${t['type'] ?? ''}' != 'page') return;
+    final id = '${t['targetId'] ?? ''}';
+    if (id.isEmpty) return;
+    final url = '${t['url'] ?? ''}';
+    final title = '${t['title'] ?? ''}';
+    final idx = _pageTargets.indexWhere((e) => e.id == id);
+    if (idx < 0) {
+      _pageTargets.add(CdpPageTargetSnapshot(id: id, url: url, title: title));
+    } else {
+      _pageTargets[idx] = CdpPageTargetSnapshot(id: id, url: url, title: title);
+    }
+    _safeNotify();
+  }
+
+  void _onTargetDestroyed(Map<String, Object?> p) {
+    final id = '${p['targetId'] ?? ''}';
+    if (id.isEmpty) return;
+    final before = _pageTargets.length;
+    _pageTargets.removeWhere((e) => e.id == id);
+    if (_pageTargets.length != before) {
+      if (id == _currentTargetId && _pageTargets.isNotEmpty) {
+        unawaited(switchToPageTarget(_pageTargets.first.id));
+      }
       _safeNotify();
     }
   }
@@ -3712,4 +3881,18 @@ enum WebReverseThrottlePreset {
         'downloadThroughput': downloadKbps < 0 ? -1 : downloadKbps * 1024 / 8,
         'uploadThroughput': uploadKbps < 0 ? -1 : uploadKbps * 1024 / 8,
       };
+}
+
+
+/// CDP page target 的精简快照，给 dashboard 浏览器面板的 tab strip 渲染用。
+class CdpPageTargetSnapshot {
+  const CdpPageTargetSnapshot({
+    required this.id,
+    required this.url,
+    required this.title,
+  });
+
+  final String id;
+  final String url;
+  final String title;
 }

@@ -105,6 +105,10 @@ class _WebReverseDashboardDialogState
   int _lastErrorCount = 0;
   bool _lastIsRunning = false;
   String _lastErrMsg = '';
+  // 上次记录的浏览器面板 tab 列表标识：targets 数量 / currentId 任一变化
+  // 即让 _BrowserBody 整体 rebuild 拿到新 tab strip。
+  int _lastTabsLen = 0;
+  String? _lastCurTabId;
   final GlobalKey<AnimatedListState> _networkListKey =
       GlobalKey<AnimatedListState>();
 
@@ -117,6 +121,8 @@ class _WebReverseDashboardDialogState
     _lastErrorCount = widget.controller.errorCount;
     _lastIsRunning = widget.controller.isRunning;
     _lastErrMsg = widget.controller.errorMessage ?? '';
+    _lastTabsLen = widget.controller.pageTargets.length;
+    _lastCurTabId = widget.controller.currentPageTargetId;
   }
 
   @override
@@ -134,13 +140,17 @@ class _WebReverseDashboardDialogState
     final newErr = ctrl.errorCount;
     final newRunning = ctrl.isRunning;
     final newErrMsg = ctrl.errorMessage ?? '';
+    final newTabsLen = ctrl.pageTargets.length;
+    final newCurTab = ctrl.currentPageTargetId;
     // 关键：screencast 帧抵达不会改变这些计数，所以这里就早退。让浏览器
     // 面板内的 [_ScreencastImage] 自行 AnimatedBuilder 局部 repaint。
     final dashboardDirty = newSize != _lastNetworkSize ||
         newConsole != _lastConsoleSize ||
         newErr != _lastErrorCount ||
         newRunning != _lastIsRunning ||
-        newErrMsg != _lastErrMsg;
+        newErrMsg != _lastErrMsg ||
+        newTabsLen != _lastTabsLen ||
+        newCurTab != _lastCurTabId;
     if (newSize > _lastNetworkSize) {
       // FIFO 淘汰时 networkRequests 头部会被砍掉，导致新条目实际索引小于 newSize-1；
       // 这里只对追加场景做 AnimatedList 的 insert，不去精细同步淘汰，依赖 ValueKey
@@ -158,6 +168,8 @@ class _WebReverseDashboardDialogState
     _lastErrorCount = newErr;
     _lastIsRunning = newRunning;
     _lastErrMsg = newErrMsg;
+    _lastTabsLen = newTabsLen;
+    _lastCurTabId = newCurTab;
     if (dashboardDirty) setState(() {});
   }
 
