@@ -420,7 +420,6 @@ class _WebReverseDashboardDialogState
         isZh
             ? '未找到可用的 DevTools 前端，已退到 /json/list 列表页'
             : 'No DevTools frontend found; opened /json/list fallback',
-        duration: const Duration(seconds: 3),
       );
     }
   }

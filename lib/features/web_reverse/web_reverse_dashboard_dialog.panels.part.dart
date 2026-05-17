@@ -164,7 +164,6 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         context,
         messenger,
         isZh ? 'Trace 已保存到 ${location.path}' : 'Saved',
-        duration: const Duration(seconds: 2),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write trace', error, stack);
@@ -1034,7 +1033,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         context,
         messenger,
         isZh ? '已保存到 ${location.path}' : 'Saved',
-        duration: const Duration(seconds: 2),
       );
     } catch (error, stack) {
       silentLog(
@@ -2697,7 +2695,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         context,
         messenger,
         isZh ? '已保存到 ${location.path}' : 'Saved',
-        duration: const Duration(seconds: 2),
       );
     } catch (error, stack) {
       silentLog(
@@ -2746,7 +2743,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         context,
         messenger,
         isZh ? '已导入 ${steps.length} 步' : 'Imported ${steps.length} steps',
-        duration: const Duration(seconds: 2),
       );
     } catch (error, stack) {
       silentLog(
@@ -2778,7 +2774,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       isZh
           ? '重放完成：${result.executed} 步成功，${result.failed} 步失败'
           : 'Replay done: ${result.executed} ok, ${result.failed} failed',
-      duration: const Duration(seconds: 3),
     );
   }
 

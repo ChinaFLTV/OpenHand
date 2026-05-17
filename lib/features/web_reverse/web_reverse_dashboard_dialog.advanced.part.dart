@@ -307,7 +307,6 @@ Future<void> _showExtraHeadersDialog(
       context,
       messenger,
       isZh ? '已注入 ${headers.length} 个 Header' : 'Injected ${headers.length} headers',
-      duration: const Duration(seconds: 2),
     );
   } else {
     OpenHandSnackBar.showErrorOn(
@@ -725,7 +724,6 @@ Future<void> _showServiceWorkersDialog(
                   context,
                   messenger,
                   isZh ? '已反注册 $r 个 SW' : 'Unregistered $r SWs',
-                  duration: const Duration(seconds: 2),
                 );
               }
             },
