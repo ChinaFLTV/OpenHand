@@ -368,6 +368,10 @@ class _WebReverseDashboardDialogState
             meta: true, shift: true): () => _toggleRecorder(ctrl),
         const SingleActivator(LogicalKeyboardKey.keyR,
             control: true, shift: true): () => _toggleRecorder(ctrl),
+        // Shift + ? 打开快捷键速查面板。`?` 在大多数键盘上需要 shift+/，
+        // SingleActivator 的 includeRepeats 默认 true 不影响这里。
+        const SingleActivator(LogicalKeyboardKey.slash, shift: true): () =>
+            _showShortcutsHelp(),
       },
       child: Focus(
         autofocus: true,
@@ -447,6 +451,16 @@ class _WebReverseDashboardDialogState
           ),
         ),
       ),
+    );
+  }
+
+  /// Shift + ? 打开快捷键速查面板：分类列出 dashboard / 浏览器面板 /
+  /// recorder / network 等所有键盘快捷键。
+  void _showShortcutsHelp() {
+    final isZh = _isZh();
+    showDialog<void>(
+      context: context,
+      builder: (_) => _ShortcutsHelpDialog(isZh: isZh),
     );
   }
 
@@ -1060,6 +1074,157 @@ class _CauseEntry extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// dashboard 全局快捷键速查面板：按 Shift+? 打开，分类列出所有热键。
+/// macOS 上 Cmd 用 ⌘ 渲染；其它平台用 Ctrl。
+class _ShortcutsHelpDialog extends StatelessWidget {
+  const _ShortcutsHelpDialog({required this.isZh});
+
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final cmd = Platform.isMacOS ? '⌘' : 'Ctrl';
+    final groups = <({String title, List<({String keys, String desc})> rows})>[
+      (
+        title: isZh ? 'Dashboard' : 'Dashboard',
+        rows: [
+          (
+            keys: 'Shift + ?',
+            desc: isZh ? '打开本面板' : 'Open this panel',
+          ),
+          (
+            keys: '$cmd + Shift + R',
+            desc: isZh ? '启停 Recorder' : 'Toggle Recorder',
+          ),
+        ],
+      ),
+      (
+        title: isZh ? '浏览器面板' : 'Browser surface',
+        rows: [
+          (keys: '$cmd + T', desc: isZh ? '新标签页' : 'New tab'),
+          (keys: '$cmd + W', desc: isZh ? '关闭当前标签页' : 'Close tab'),
+          (keys: '$cmd + R', desc: isZh ? '刷新' : 'Reload'),
+          (keys: '$cmd + Shift + R', desc: isZh ? '强制刷新' : 'Hard reload'),
+          (keys: '$cmd + L', desc: isZh ? '聚焦地址栏' : 'Focus address bar'),
+          (keys: '$cmd + F', desc: isZh ? '页面查找' : 'Find in page'),
+          (keys: 'Esc', desc: isZh ? '关闭查找条' : 'Close find bar'),
+          (keys: '$cmd + +', desc: isZh ? '放大' : 'Zoom in'),
+          (keys: '$cmd + -', desc: isZh ? '缩小' : 'Zoom out'),
+          (keys: '$cmd + 0', desc: isZh ? '复位 100%' : 'Zoom 100%'),
+        ],
+      ),
+      (
+        title: isZh ? '控制台' : 'Console',
+        rows: [
+          (keys: '↑ / ↓', desc: isZh ? '浏览历史命令' : 'Browse history'),
+          (keys: 'Enter', desc: isZh ? '执行' : 'Run'),
+        ],
+      ),
+      (
+        title: isZh ? '通用' : 'General',
+        rows: [
+          (
+            keys: isZh ? '右键' : 'Right-click',
+            desc: isZh
+                ? '浏览器面板上下文菜单（复制 / 粘贴 / 检查 / 框选导出 …）'
+                : 'Browser surface context menu',
+          ),
+        ],
+      ),
+    ];
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 600),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Icon(Icons.keyboard_rounded, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isZh ? '快捷键速查' : 'Keyboard shortcuts',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+                children: [
+                  for (final g in groups) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 12, 0, 6),
+                      child: Text(
+                        g.title,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
+                    for (final r in g.rows)
+                      Padding(
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Container(
+                              constraints: const BoxConstraints(minWidth: 110),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: cs.outlineVariant),
+                              ),
+                              child: Text(
+                                r.keys,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                r.desc,
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
