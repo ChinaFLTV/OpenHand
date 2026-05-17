@@ -303,6 +303,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
   bool _initialBuildDone = false;
+  // F2 memoize: visibleMessages 的 id→index 映射在 build 路径上每帧重建一次，
+  // 长会话下不便宜。displayMessages 是 AiSession 内部缓存（identity 稳定），
+  // 因此可以用 (引用, windowStart, length) 作为缓存键。父级 watch 在流式
+  // token 触发的 rebuild 中，若 displayMessages 引用未变（典型为非当前会话
+  // 的旁路 rebuild），可直接复用上次映射。
+  List<AiSessionMessage>? _cachedIndexMapSource;
+  int _cachedIndexMapWindowStart = -1;
+  Map<String, int>? _cachedVisibleIndexMap;
   // 阶段⑱：transcript 内 messageId → BuildContext 反查映射，替代
   // GlobalObjectKey 防御 OverlayPortal/Tooltip 在 LayoutBuilder layout
   // 阶段被 retake 时跨子树 mutation RenderTheater 触发的断言失败。
@@ -1174,10 +1182,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         session: session,
       );
     }
-    final visibleMessageIndexById = <String, int>{
-      for (var index = 0; index < visibleMessages.length; index++)
-        visibleMessages[index].id: index,
-    };
+    // F2 memoize: 同一 displayMessages 引用 + 同一 windowStart 复用上次结果，
+    // 避免长会话每帧 O(N) 重建。
+    Map<String, int> visibleMessageIndexById;
+    if (identical(_cachedIndexMapSource, displayMessages) &&
+        _cachedIndexMapWindowStart == clampedWindowStartIndex &&
+        _cachedVisibleIndexMap != null &&
+        _cachedVisibleIndexMap!.length == visibleMessages.length) {
+      visibleMessageIndexById = _cachedVisibleIndexMap!;
+    } else {
+      visibleMessageIndexById = <String, int>{
+        for (var index = 0; index < visibleMessages.length; index++)
+          visibleMessages[index].id: index,
+      };
+      _cachedIndexMapSource = displayMessages;
+      _cachedIndexMapWindowStart = clampedWindowStartIndex;
+      _cachedVisibleIndexMap = visibleMessageIndexById;
+    }
     final userVisibleError = _resolveUserVisibleError(session);
     if (_renderEntries.isEmpty &&
         visibleMessages.isEmpty &&
