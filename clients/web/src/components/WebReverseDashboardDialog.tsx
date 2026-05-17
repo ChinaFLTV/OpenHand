@@ -209,13 +209,13 @@ function BrowserTab() {
         <li>
           {t(
             'webReverse.browser.bulletExtra',
-            '应用 tab 可编辑 Cookies / LocalStorage / SessionStorage；记录器 tab 一键导出 puppeteer / playwright；高级菜单新增「网络拦截规则」（URL 通配 → block / 重写 / 注入 header）。',
+            '应用 tab 可编辑 Cookies / LocalStorage / SessionStorage 与 Service Worker 注册 / 更新 / 卸载；记录器 tab 一键导出 puppeteer / playwright；高级菜单「网络拦截规则」（URL 通配 → block / 重写 / 注入 header，持久化）。',
           )}
         </li>
         <li>
           {t(
             'webReverse.browser.bulletPersistence',
-            'Sources 断点 + Console REPL 历史按会话持久化；Network 单条请求支持「编辑后重放」改写 URL / Headers 后再 replay；Performance 面板一键导出 FPS + Long task CSV；Shift+? 弹快捷键速查面板。',
+            'Sources 断点 + Console REPL 历史 + 拦截规则 按会话持久化；Sources 支持跨脚本代码搜索；Network 单条请求支持「编辑后重放」改写 URL / Headers，工具栏「批量操作」按过滤结果 block / replay / 复制 curl；Performance 一键导出 FPS + Long task CSV；Memory 一键比较两个 heap snapshot；Shift+? 弹快捷键速查面板。',
           )}
         </li>
       </ul>
