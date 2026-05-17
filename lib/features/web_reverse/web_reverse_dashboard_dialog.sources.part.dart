@@ -29,6 +29,12 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   String _filter = '';
   // breakpointId 索引：sourceLine → breakpointId，便于二次点击同行取消。
   final Map<int, String> _bpAtLine = <int, String>{};
+  // ── LSP（可选）：用户在「LSP」chip 里手动启用。typescript-language-server
+  // 默认按当前选中脚本的 URL 作为 documentUri 喂给 server；hover/goto def
+  // 直接复用面板内文本坐标。
+  final WebReverseLspClient _lsp = WebReverseLspClient();
+  bool _lspEnabled = false;
+  String? _lastSentUri;
 
   @override
   void initState() {
@@ -36,10 +42,273 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     _bootstrap();
   }
 
+  @override
+  void dispose() {
+    _lsp.stop();
+    super.dispose();
+  }
+
   Future<void> _bootstrap() async {
     await widget.controller.enableDebugger();
     if (!mounted) return;
     setState(() => _enabling = false);
+  }
+
+  /// 用户在 chip 上点击启用 LSP：拉起子进程，握手成功后把当前选中脚本
+  /// 推给 server。失败时 chip 自动回到禁用状态并 SnackBar 提示。
+  Future<void> _toggleLsp() async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    if (_lspEnabled) {
+      await _lsp.stop();
+      setState(() => _lspEnabled = false);
+      return;
+    }
+    setState(() => _lspEnabled = true);
+    final ok = await _lsp.start();
+    if (!mounted) return;
+    if (!ok) {
+      setState(() => _lspEnabled = false);
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh
+            ? 'LSP 启动失败：${_lsp.lastError ?? "请安装 typescript-language-server"}'
+            : 'LSP failed: ${_lsp.lastError ?? "install typescript-language-server"}',
+      );
+      return;
+    }
+    OpenHandSnackBar.showSuccessOn(
+      context,
+      messenger,
+      isZh ? 'LSP 已就绪' : 'LSP ready',
+      duration: const Duration(seconds: 1),
+    );
+    await _pushCurrentToLsp();
+  }
+
+  Future<void> _pushCurrentToLsp() async {
+    if (!_lspEnabled || _lsp.status != WebReverseLspStatus.ready) return;
+    final src = _source;
+    final id = _selectedId;
+    if (src == null || id == null) return;
+    final url = widget.controller.parsedScripts[id]?.url ?? '';
+    final uri = _toLspUri(url);
+    final content =
+        _prettify ? WebReverseSessionController.prettifyJs(src) : src;
+    await _lsp.openOrChange(
+      uri: uri,
+      languageId: _languageIdFor(url),
+      text: content,
+    );
+    _lastSentUri = uri;
+  }
+
+  String _toLspUri(String url) {
+    if (url.startsWith('file://')) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      // 把远端 URL 映射成虚拟 untitled scheme，供 ts-server 把所有内容当
+      // 单文件分析。其实 ts-server 接受 file:// 之外的 scheme，但有些 server
+      // 依赖 file:// 才做诊断 —— 这里走 untitled 兜底足够支撑 hover/goto。
+      return 'untitled:${Uri.encodeComponent(url)}';
+    }
+    return 'untitled:${Uri.encodeComponent(url.isEmpty ? 'inline' : url)}';
+  }
+
+  String _languageIdFor(String url) {
+    final l = url.toLowerCase();
+    if (l.endsWith('.ts') || l.endsWith('.tsx')) return 'typescript';
+    if (l.endsWith('.jsx')) return 'javascriptreact';
+    return 'javascript';
+  }
+
+  /// 估算鼠标 X 坐标对应的列号：用 TextPainter 的 monospace 度量。
+  /// 行内文本起点（行号 + 间距）= 36 + 6 + 12 = 54 px。
+  int _estimateColumn(double localX, String line) {
+    final span = TextSpan(
+      text: line,
+      style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
+    );
+    final tp = TextPainter(
+      text: span,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    if (tp.width <= 0 || line.isEmpty) return 0;
+    // 行内偏移 = localX - 行号宽 (54 px 左 padding 含)。负值 clamp 到 0。
+    final offset = (localX - 54).clamp(0.0, tp.width);
+    final pos = tp.getPositionForOffset(Offset(offset, 5));
+    return pos.offset.clamp(0, line.length);
+  }
+
+  Future<void> _onLineSecondaryTap(
+    TapDownDetails details,
+    int line,
+    String text,
+  ) async {
+    final col = _estimateColumn(details.localPosition.dx, text);
+    final pos = details.globalPosition;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx + 1, pos.dy + 1),
+      items: [
+        PopupMenuItem(
+          value: 'hover',
+          child: Text(widget.isZh ? '查看 hover' : 'Hover'),
+        ),
+        PopupMenuItem(
+          value: 'def',
+          child: Text(widget.isZh ? '跳转定义' : 'Go to definition'),
+        ),
+        PopupMenuItem(
+          value: 'rename',
+          child: Text(widget.isZh ? '重命名…' : 'Rename…'),
+        ),
+      ],
+    );
+    if (!mounted || selected == null) return;
+    if (selected == 'hover') await _showHover(line, col);
+    if (selected == 'def') await _gotoDefinition(line, col);
+    if (selected == 'rename') await _renameAt(line, col);
+  }
+
+  Future<void> _onLineLongPress(int line, String text) async {
+    // 长按默认中点位置查询 hover。
+    await _showHover(line, (text.length / 2).floor());
+  }
+
+  Future<void> _showHover(int line, int col) async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    if (_lastSentUri == null) await _pushCurrentToLsp();
+    final uri = _lastSentUri;
+    if (uri == null) return;
+    final md = await _lsp.hover(uri, line, col);
+    if (!mounted) return;
+    if (md == null || md.isEmpty) {
+      OpenHandSnackBar.showInfoOn(
+        context,
+        messenger,
+        isZh ? '该位置无 hover 信息' : 'No hover info',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isZh ? 'LSP Hover' : 'LSP Hover'),
+        content: SizedBox(
+          width: 560,
+          child: SelectableText(
+            md,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(isZh ? '关闭' : 'Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _gotoDefinition(int line, int col) async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    if (_lastSentUri == null) await _pushCurrentToLsp();
+    final uri = _lastSentUri;
+    if (uri == null) return;
+    final r = await _lsp.definition(uri, line, col);
+    if (!mounted) return;
+    if (r == null) {
+      OpenHandSnackBar.showInfoOn(
+        context,
+        messenger,
+        isZh ? '未找到定义' : 'No definition found',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    OpenHandSnackBar.showInfoOn(
+      context,
+      messenger,
+      isZh
+          ? '定义位置：${r.uri} 第 ${r.line + 1} 行'
+          : 'Defined at ${r.uri} L${r.line + 1}',
+      duration: const Duration(seconds: 4),
+    );
+  }
+
+  Future<void> _renameAt(int line, int col) async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    if (_lastSentUri == null) await _pushCurrentToLsp();
+    final uri = _lastSentUri;
+    if (uri == null) return;
+    if (!mounted) return;
+    final ctrl = TextEditingController();
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isZh ? '重命名为' : 'Rename to'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(ctrl.text.trim()),
+            child: Text(isZh ? '确定' : 'OK'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || newName == null || newName.isEmpty) return;
+    final edit = await _lsp.rename(uri, line, col, newName);
+    if (!mounted) return;
+    if (edit == null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '重命名失败（LSP 未返回 edit）' : 'Rename failed',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    final changes = edit['changes'];
+    final docChanges = edit['documentChanges'];
+    final summary = changes is Map
+        ? '${changes.length} files'
+        : (docChanges is List ? '${docChanges.length} changes' : 'edit');
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isZh ? '重命名结果（仅查看）' : 'Rename result (read-only)'),
+        content: SizedBox(
+          width: 600,
+          child: SelectableText(
+            isZh
+                ? '收到 LSP edit：$summary\n\n（当前面板只展示分析结果，未自动改源码；'
+                    '如需落盘请走外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}'
+                : 'LSP returned edit: $summary\n\n(Read-only preview.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(isZh ? '关闭' : 'Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _selectScript(String id) async {
@@ -51,6 +320,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final src = await widget.controller.getScriptSource(id);
     if (!mounted) return;
     setState(() => _source = src);
+    await _pushCurrentToLsp();
   }
 
   Future<void> _toggleBreakpoint(int lineIdx) async {
@@ -298,7 +568,27 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     ? (isZh ? '已美化' : 'Pretty')
                     : (isZh ? '原样' : 'Raw')),
                 selected: _prettify,
-                onSelected: (v) => setState(() => _prettify = v),
+                onSelected: (v) {
+                  setState(() => _prettify = v);
+                  _pushCurrentToLsp();
+                },
+              ),
+              const SizedBox(width: 6),
+              FilterChip(
+                avatar: Icon(
+                  _lsp.status == WebReverseLspStatus.ready
+                      ? Icons.bolt_rounded
+                      : Icons.bolt_outlined,
+                  size: 16,
+                  color: _lsp.status == WebReverseLspStatus.ready
+                      ? cs.primary
+                      : cs.onSurfaceVariant,
+                ),
+                label: Text(_lspEnabled
+                    ? (isZh ? 'LSP 已开' : 'LSP on')
+                    : (isZh ? 'LSP' : 'LSP')),
+                selected: _lspEnabled,
+                onSelected: (_) => _toggleLsp(),
               ),
               const SizedBox(width: 8),
               IconButton(
@@ -348,6 +638,12 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 final hasBp = _bpAtLine.containsKey(idx);
                 return InkWell(
                   onTap: () => _toggleBreakpoint(idx),
+                  onSecondaryTapDown: _lspEnabled
+                      ? (d) => _onLineSecondaryTap(d, idx, lines[idx])
+                      : null,
+                  onLongPress: _lspEnabled
+                      ? () => _onLineLongPress(idx, lines[idx])
+                      : null,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 1),

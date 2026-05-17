@@ -179,7 +179,7 @@ function BrowserTab() {
         <li>
           {t(
             'webReverse.browser.bulletTabs',
-            'Tab strip 支持多 page target 切换 / 长按拖动重排 / 关闭 / 新建，顺序与最后 URL 写入 session metadata 跨重启复原。',
+            'Tab strip 支持多 page target 切换 / 长按拖动重排 / 关闭 / 新建，胶囊带 Q 弹入场 + 颜色 / 文字过渡；切到不同 tab 时 network / console / sources 等面板 buffer 自动清空，确保概览 / 网络 / 控制台 / 源码 板块展示的就是当前 tab 实时数据；地址栏回车开新 tab（about:blank 复用），顺序与最后 URL 写入 session metadata 跨重启复原。',
           )}
         </li>
         <li>
@@ -215,7 +215,7 @@ function BrowserTab() {
         <li>
           {t(
             'webReverse.browser.bulletPersistence',
-            'Sources 断点 + Console REPL 历史 + 拦截规则 按会话持久化；Sources 支持跨脚本代码搜索；Network 单条请求支持「编辑后重放」改写 URL / Headers，工具栏「批量操作」按过滤结果 block / replay / 复制 curl；Performance 一键导出 FPS + Long task CSV；Memory 一键比较两个 heap snapshot；Shift+? 弹快捷键速查面板。',
+            'Sources 断点 + Console REPL 历史 + 拦截规则 按会话持久化；Sources 支持跨脚本代码搜索；Network 单条请求支持「编辑后重放」改写 URL / Headers，工具栏「批量操作」按过滤结果 block / replay / 复制 curl，工具栏「HAR 对比」按 method+url+status 三元组对两份 .har 做请求级集合 diff；Performance 一键导出 FPS + Long task CSV，并把最近一次 trace 渲染为可缩放火焰图；Memory 比较快照升级为按 constructor 列出 Top 40 字节增长（isolate 解析）；高级菜单「WebRTC 实时面板」按 PC id 维护 60 点环形采样 + 每秒 getStats 折线（bytesSent / bytesReceived / packetsLost / RTT）；Sources 面板可选 LSP（默认 typescript-language-server，未装自动退化）—— 右键代码行触发 hover / 跳转定义 / 重命名预览；Shift+? 弹快捷键速查面板。',
           )}
         </li>
       </ul>

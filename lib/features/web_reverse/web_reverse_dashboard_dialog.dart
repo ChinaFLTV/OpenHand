@@ -18,6 +18,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../ai/index.dart';
+import 'lsp/web_reverse_lsp_client.dart';
 import 'web_reverse_launch_diagnosis.dart';
 import 'web_reverse_mitmproxy_bridge.dart';
 import 'web_reverse_profile_actions.dart';
