@@ -244,7 +244,11 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           preview: false,
           isZh: isZh,
         ),
-      _DetailTab.initiator => _InitiatorTab(entry: widget.entry, isZh: isZh),
+      _DetailTab.initiator => _InitiatorTab(
+          controller: widget.controller,
+          entry: widget.entry,
+          isZh: isZh,
+        ),
       _DetailTab.timing => _TimingTab(entry: widget.entry, isZh: isZh),
       _DetailTab.messages => _MessagesTab(entry: widget.entry, isZh: isZh),
     };
@@ -577,9 +581,23 @@ class _BodyTab extends StatelessWidget {
 }
 
 class _InitiatorTab extends StatelessWidget {
-  const _InitiatorTab({required this.entry, required this.isZh});
+  const _InitiatorTab({
+    required this.controller,
+    required this.entry,
+    required this.isZh,
+  });
+  final WebReverseSessionController controller;
   final CdpNetworkEntry entry;
   final bool isZh;
+
+  void _jumpToSource(String url, [int? line, int? col]) {
+    if (url.isEmpty) return;
+    controller.requestSourceJump(
+      url: url,
+      line: line ?? 0,
+      col: col ?? 0,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -587,6 +605,10 @@ class _InitiatorTab extends StatelessWidget {
     final cs = theme.colorScheme;
     final type = entry.initiatorType ?? '-';
     final stack = entry.initiatorStack;
+    final chain = entry.redirectChain;
+    final initUrl = entry.initiatorUrl ?? '';
+    final initLine = entry.initiatorLineNumber;
+    final initCol = entry.initiatorColumnNumber;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -599,10 +621,17 @@ class _InitiatorTab extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         _MetaRow(label: 'Type', value: type),
-        if (entry.initiatorUrl != null && entry.initiatorUrl!.isNotEmpty)
-          _MetaRow(label: 'URL', value: entry.initiatorUrl!),
-        if (entry.initiatorLineNumber != null)
-          _MetaRow(label: 'Line', value: '${entry.initiatorLineNumber}'),
+        if (initUrl.isNotEmpty)
+          _ClickableSourceRow(
+            label: 'URL',
+            url: initUrl,
+            line: initLine,
+            col: initCol,
+            onTap: () => _jumpToSource(initUrl, initLine, initCol),
+            isZh: isZh,
+          ),
+        if (initLine != null && initUrl.isEmpty)
+          _MetaRow(label: 'Line', value: '${initLine + 1}'),
         const SizedBox(height: 14),
         Text(
           isZh ? '调用栈' : 'Call Stack',
@@ -620,8 +649,222 @@ class _InitiatorTab extends StatelessWidget {
             ),
           )
         else
-          for (final frame in stack) _StackFrame(frame: frame),
+          for (final frame in stack)
+            _StackFrame(
+              frame: frame,
+              onJump: _jumpToSource,
+              isZh: isZh,
+            ),
+        const SizedBox(height: 16),
+        // Request Initiator Chain：重定向链按时间顺序展示，与 Chrome
+        // DevTools 同名区段对齐。每一跳显示状态码 + URL + 跳转时间。
+        Text(
+          isZh ? '请求发起链 (重定向)' : 'Request Initiator Chain',
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: cs.primary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (chain.isEmpty)
+          Text(
+            isZh
+                ? '(此请求未发生重定向)'
+                : '(no redirect — request reached origin directly)',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          )
+        else ...[
+          for (var i = 0; i < chain.length; i++)
+            _RedirectStepRow(
+              index: i + 1,
+              step: chain[i],
+              isFinal: false,
+              isZh: isZh,
+            ),
+          _RedirectStepRow(
+            index: chain.length + 1,
+            // 最后一跳就是当前请求自己；用 entry 当前 url / status 复用同
+            // 一渲染卡片，状态码取 entry.statusCode 让用户清楚最终结果。
+            step: CdpRedirectStep(
+              url: entry.url,
+              status: entry.statusCode,
+              statusText: entry.statusText,
+              responseHeaders: entry.responseHeaders,
+              at: entry.responseReceivedAt ?? entry.timestamp,
+            ),
+            isFinal: true,
+            isZh: isZh,
+          ),
+        ],
       ],
+    );
+  }
+}
+
+/// 重定向链中的一跳。状态码彩色徽章 + URL 单击复制。
+class _RedirectStepRow extends StatelessWidget {
+  const _RedirectStepRow({
+    required this.index,
+    required this.step,
+    required this.isFinal,
+    required this.isZh,
+  });
+
+  final int index;
+  final CdpRedirectStep step;
+  final bool isFinal;
+  final bool isZh;
+
+  Color _statusColor(ColorScheme cs) {
+    final s = step.status ?? 0;
+    if (s >= 500) return cs.error;
+    if (s >= 400) return cs.error.withValues(alpha: 0.8);
+    if (s >= 300) return cs.tertiary;
+    if (s >= 200) return cs.primary;
+    return cs.onSurfaceVariant;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final statusColor = _statusColor(cs);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 28,
+            child: Text(
+              '#$index',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 8, top: 1),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: statusColor.withValues(alpha: 0.45),
+                width: 0.8,
+              ),
+            ),
+            child: Text(
+              step.status?.toString() ?? '-',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: statusColor,
+                fontWeight: FontWeight.w800,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(
+                  step.url,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: isFinal ? cs.primary : cs.onSurface,
+                    fontWeight:
+                        isFinal ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  isFinal
+                      ? (isZh ? '当前请求 (最终目标)' : 'final destination')
+                      : '${step.statusText ?? ''}  ·  ${_timeOnly(step.at)}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _timeOnly(DateTime t) {
+    final s = t.toIso8601String().split('T').last.split('.').first;
+    return s;
+  }
+}
+
+/// 可点击跳转源码的元信息行。点击 URL 整体或行号箭头都会触发 onTap。
+class _ClickableSourceRow extends StatelessWidget {
+  const _ClickableSourceRow({
+    required this.label,
+    required this.url,
+    required this.line,
+    required this.col,
+    required this.onTap,
+    required this.isZh,
+  });
+
+  final String label;
+  final String url;
+  final int? line;
+  final int? col;
+  final VoidCallback onTap;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final lineText = line == null ? '' : ':${line! + 1}';
+    final colText = (col == null || col == 0) ? '' : ':${col! + 1}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Tooltip(
+              message:
+                  isZh ? '在 Sources 中打开' : 'Open in Sources',
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 1, horizontal: 2),
+                  child: Text(
+                    '$url$lineText$colText',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                      color: cs.primary,
+                      decoration: TextDecoration.underline,
+                      decorationColor: cs.primary.withValues(alpha: 0.45),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -665,8 +908,14 @@ class _MetaRow extends StatelessWidget {
 }
 
 class _StackFrame extends StatelessWidget {
-  const _StackFrame({required this.frame});
+  const _StackFrame({
+    required this.frame,
+    required this.onJump,
+    required this.isZh,
+  });
   final Map<String, Object?> frame;
+  final void Function(String url, [int? line, int? col]) onJump;
+  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -674,31 +923,59 @@ class _StackFrame extends StatelessWidget {
     final cs = theme.colorScheme;
     final fn = '${frame['functionName'] ?? '(anonymous)'}';
     final url = '${frame['url'] ?? ''}';
-    final line = frame['lineNumber'];
-    final col = frame['columnNumber'];
-    final loc = url.isEmpty ? '' : '$url:$line:$col';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    final line = (frame['lineNumber'] as num?)?.toInt();
+    final col = (frame['columnNumber'] as num?)?.toInt();
+    final hasJump = url.isNotEmpty;
+    final lineDisp = line == null ? '' : ':${line + 1}';
+    final colDisp = (col == null || col == 0) ? '' : ':${col + 1}';
+    final body = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            fn.isEmpty ? '(anonymous)' : fn,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              color: cs.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              if (hasJump)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Icon(
+                    Icons.arrow_outward_rounded,
+                    size: 11,
+                    color: cs.primary.withValues(alpha: 0.7),
+                  ),
+                ),
+              Flexible(
+                child: Text(
+                  fn.isEmpty ? '(anonymous)' : fn,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: hasJump ? cs.primary : cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
-          if (loc.isNotEmpty)
+          if (hasJump)
             Text(
-              loc,
+              '$url$lineDisp$colDisp',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontFamily: 'monospace',
+                decoration: TextDecoration.underline,
+                decorationColor: cs.outlineVariant,
               ),
             ),
         ],
+      ),
+    );
+    if (!hasJump) return body;
+    return Tooltip(
+      message: isZh ? '在 Sources 中打开' : 'Open in Sources',
+      child: InkWell(
+        onTap: () => onJump(url, line, col),
+        borderRadius: BorderRadius.circular(6),
+        child: body,
       ),
     );
   }
@@ -718,11 +995,32 @@ class _TimingTab extends StatelessWidget {
     final finishedAt = entry.loadingFinishedAt;
     final ttfb = responseAt?.difference(start).inMilliseconds;
     final total = finishedAt?.difference(start).inMilliseconds;
+    final phases = _computePhases(entry, isZh);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          'Timing',
+          isZh ? '阶段瀑布 (Resource Timing)' : 'Phase Waterfall',
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: cs.primary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (phases == null)
+          Text(
+            isZh
+                ? '(浏览器尚未上报 ResourceTiming — 多见于 service worker / from-cache / data: URL)'
+                : '(no ResourceTiming reported — typical for service-worker / cached / data: URLs)',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          )
+        else
+          _TimingWaterfall(phases: phases),
+        const SizedBox(height: 18),
+        Text(
+          isZh ? '汇总' : 'Summary',
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: cs.primary,
@@ -752,12 +1050,254 @@ class _TimingTab extends StatelessWidget {
             label: isZh ? '编码后大小' : 'Encoded',
             value: '${entry.encodedDataLength} bytes',
           ),
+        if (entry.protocol != null && entry.protocol!.isNotEmpty)
+          _MetaRow(label: 'Protocol', value: entry.protocol!),
+        if (entry.remoteAddress != null && entry.remoteAddress!.isNotEmpty)
+          _MetaRow(label: 'Remote', value: entry.remoteAddress!),
       ],
     );
   }
 
   String _fmt(DateTime t) =>
       '${t.toIso8601String().split('T').last.split('.').first} (${t.toIso8601String().split('T').first})';
+
+  /// 解析 CDP `Network.ResourceTiming` 为 Chrome 风格阶段列表。所有时间
+  /// 字段除 requestTime（单调时钟秒）外都是相对 requestTime 的毫秒偏移；
+  /// -1 / null 表示该阶段不存在（如纯 HTTP 时 sslStart/End 为 -1）。
+  ///
+  /// Chrome DevTools 的 9 个标准阶段：
+  ///   Queueing / Stalled / Proxy / DNS Lookup / Initial Connection /
+  ///   SSL / Request Sent / Waiting (TTFB) / Content Download
+  static List<_TimingPhase>? _computePhases(
+      CdpNetworkEntry entry, bool isZh) {
+    final t = entry.resourceTiming;
+    if (t == null || t.isEmpty) return null;
+    double? f(String k) {
+      final v = t[k];
+      if (v == null) return null;
+      final d = v.toDouble();
+      // CDP 用 -1 表示「该阶段未发生」。
+      if (d < 0) return null;
+      return d;
+    }
+
+    final phases = <_TimingPhase>[];
+    void add(String name, String nameEn, double? from, double? to,
+        Color Function(ColorScheme cs) color) {
+      if (from == null || to == null) return;
+      final dur = to - from;
+      if (dur < 0) return;
+      phases.add(_TimingPhase(
+        nameZh: name,
+        nameEn: nameEn,
+        startMs: from,
+        endMs: to,
+        color: color,
+      ));
+    }
+
+    // requestTime 是单调时钟秒，所有其余字段都相对它（毫秒）。
+    // 我们直接在「相对毫秒」域里画图，不需要 wall clock。
+    final proxyStart = f('proxyStart');
+    final proxyEnd = f('proxyEnd');
+    final dnsStart = f('dnsStart');
+    final dnsEnd = f('dnsEnd');
+    final connectStart = f('connectStart');
+    final connectEnd = f('connectEnd');
+    final sslStart = f('sslStart');
+    final sslEnd = f('sslEnd');
+    final sendStart = f('sendStart');
+    final sendEnd = f('sendEnd');
+    final receiveHeadersStart = f('receiveHeadersStart');
+    final receiveHeadersEnd = f('receiveHeadersEnd');
+
+    add('代理协商', 'Proxy', proxyStart, proxyEnd,
+        (cs) => cs.tertiary.withValues(alpha: 0.75));
+    add('DNS 解析', 'DNS Lookup', dnsStart, dnsEnd,
+        (cs) => Colors.indigo.shade400);
+    add('初始连接', 'Initial Connection', connectStart, connectEnd,
+        (cs) => Colors.orange.shade400);
+    add('SSL 握手', 'SSL', sslStart, sslEnd, (cs) => Colors.purple.shade400);
+    add('请求发送', 'Request Sent', sendStart, sendEnd,
+        (cs) => Colors.teal.shade400);
+    // Waiting / TTFB：从 sendEnd 到 receiveHeadersEnd（如有 start 用之）。
+    add(
+      '等待响应 (TTFB)',
+      'Waiting (TTFB)',
+      sendEnd,
+      receiveHeadersStart ?? receiveHeadersEnd,
+      (cs) => Colors.green.shade400,
+    );
+    // 内容下载：headersEnd 到 loadingFinished 的相对偏移
+    if (receiveHeadersEnd != null && entry.loadingFinishedAt != null) {
+      final reqStartMs = entry.timestamp.millisecondsSinceEpoch.toDouble();
+      final endMs =
+          entry.loadingFinishedAt!.millisecondsSinceEpoch.toDouble();
+      final downloadMs = endMs - reqStartMs - 0; // 近似：start = requestWillBeSent
+      if (downloadMs > receiveHeadersEnd) {
+        add('内容下载', 'Content Download', receiveHeadersEnd, downloadMs,
+            (cs) => Colors.blue.shade400);
+      }
+    }
+    if (phases.isEmpty) return null;
+    return phases;
+  }
+}
+
+class _TimingPhase {
+  const _TimingPhase({
+    required this.nameZh,
+    required this.nameEn,
+    required this.startMs,
+    required this.endMs,
+    required this.color,
+  });
+  final String nameZh;
+  final String nameEn;
+  final double startMs;
+  final double endMs;
+  final Color Function(ColorScheme cs) color;
+  double get durationMs => endMs - startMs;
+}
+
+/// Chrome 风格阶段瀑布图：每行 = 一个阶段，水平条按相对时间偏移定位，
+/// 右侧列显示阶段耗时；末尾的 Total 行给出总跨度。
+class _TimingWaterfall extends StatelessWidget {
+  const _TimingWaterfall({required this.phases});
+  final List<_TimingPhase> phases;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final total = phases
+        .map((p) => p.endMs)
+        .reduce((a, b) => a > b ? a : b);
+    final firstStart =
+        phases.map((p) => p.startMs).reduce((a, b) => a < b ? a : b);
+    final span = (total - firstStart).abs();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        // 左 label 列 130px，右 duration 列 80px，中间瀑布占剩余宽度。
+        const labelW = 130.0;
+        const durW = 80.0;
+        final barTrackW =
+            (constraints.maxWidth - labelW - durW - 16).clamp(40.0, 700.0);
+        Widget row(_TimingPhase p) {
+          final relStart = (p.startMs - firstStart);
+          final ratioStart = span <= 0 ? 0.0 : (relStart / span);
+          final ratioEnd =
+              span <= 0 ? 1.0 : ((p.endMs - firstStart) / span);
+          final left = (ratioStart * barTrackW).clamp(0.0, barTrackW);
+          final width =
+              ((ratioEnd - ratioStart) * barTrackW).clamp(2.0, barTrackW);
+          final color = p.color(cs);
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2.5),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: labelW,
+                  child: Text(
+                    p.nameZh,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                  ),
+                ),
+                SizedBox(
+                  width: barTrackW,
+                  height: 12,
+                  child: Stack(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color:
+                              cs.surfaceContainerHigh.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Positioned(
+                        left: left,
+                        top: 0,
+                        bottom: 0,
+                        width: width,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: durW,
+                  child: Text(
+                    '${p.durationMs.toStringAsFixed(1)} ms',
+                    textAlign: TextAlign.right,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final p in phases) row(p),
+            const SizedBox(height: 6),
+            Divider(height: 1, color: cs.outlineVariant),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const SizedBox(width: 130),
+                SizedBox(
+                  width: barTrackW,
+                  child: Text(
+                    '0 ms',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    '${span.toStringAsFixed(1)} ms',
+                    textAlign: TextAlign.right,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      }),
+    );
+  }
 }
 
 class _CodeBlock extends StatefulWidget {

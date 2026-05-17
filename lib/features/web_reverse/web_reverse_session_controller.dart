@@ -131,6 +131,24 @@ class WebReverseSessionController extends ChangeNotifier {
   // 这个 [Listenable] 局部 repaint，不会唤醒 controller 上的其它监听器
   // （dashboard 头部 / network list 等），把 60fps 帧流的 fanout 降到最小。
   final ValueNotifier<int> screencastFrameNotifier = ValueNotifier<int>(0);
+
+  /// Initiator → Sources 跳转请求总线：dashboard 监听这个 notifier 切到
+  /// Sources tab 并定位到 (url, line, col)。点击栈帧或重定向条目时
+  /// `requestSourceJump` 更新 value，dashboard 处理完置回 null。
+  final ValueNotifier<({String url, int line, int col})?> sourceJumpRequest =
+      ValueNotifier<({String url, int line, int col})?>(null);
+
+  /// 触发 Initiator 跳转到 Sources。`line` / `col` 都使用 CDP 的 0-based
+  /// 行列号；UI 渲染时再 +1。
+  void requestSourceJump({required String url, int line = 0, int col = 0}) {
+    if (url.isEmpty) return;
+    sourceJumpRequest.value = (url: url, line: line, col: col);
+  }
+
+  /// dashboard 完成跳转后调用以避免重复响应。
+  void clearSourceJumpRequest() {
+    sourceJumpRequest.value = null;
+  }
   int _screencastWidth = _screencastDefaultMaxWidth;
   int _screencastHeight = _screencastDefaultMaxHeight;
   int _screencastQuality = _screencastDefaultQuality;
@@ -1551,20 +1569,45 @@ class WebReverseSessionController extends ChangeNotifier {
     final url = '${request['url'] ?? ''}';
     final method = '${request['method'] ?? 'GET'}';
     final headers = _flattenHeaders(request['headers']);
-    final entry = CdpNetworkEntry(
-      requestId: requestId,
-      url: url,
-      method: method,
-      timestamp: DateTime.now(),
-      resourceType: '${p['type'] ?? 'Other'}',
-    )
-      ..requestHeaders = headers
-      ..requestPostData = request['postData'] as String?;
+    // 同一个 requestId 出现重定向时，CDP 会再次发 requestWillBeSent 并带上
+    // `redirectResponse`（前一次响应的状态/URL/headers）。把它累加到 chain
+    // 里给前端的 Initiator → Request Initiator Chain 区段展示，对齐 Chrome
+    // DevTools。重定向链按时间顺序：[第1跳响应, 第2跳响应, …, 当前请求前
+    // 一跳]，再加上"当前请求"自己。
+    final existing = _networkByRequestId[requestId];
+    final redirect = p['redirectResponse'] as Map?;
+    CdpNetworkEntry entry;
+    if (existing != null && redirect != null) {
+      entry = existing
+        ..url = url
+        ..method = method
+        ..requestHeaders = headers
+        ..requestPostData = request['postData'] as String?;
+      entry.redirectChain.add(CdpRedirectStep(
+        url: '${redirect['url'] ?? ''}',
+        status: (redirect['status'] as num?)?.toInt(),
+        statusText: redirect['statusText'] as String?,
+        responseHeaders: _flattenHeaders(redirect['headers']),
+        at: DateTime.now(),
+      ));
+    } else {
+      entry = CdpNetworkEntry(
+        requestId: requestId,
+        url: url,
+        method: method,
+        timestamp: DateTime.now(),
+        resourceType: '${p['type'] ?? 'Other'}',
+      )
+        ..requestHeaders = headers
+        ..requestPostData = request['postData'] as String?;
+    }
     final initiator = p['initiator'] as Map?;
     if (initiator != null) {
       entry.initiatorType = initiator['type'] as String?;
       entry.initiatorUrl = initiator['url'] as String?;
       entry.initiatorLineNumber = (initiator['lineNumber'] as num?)?.toInt();
+      entry.initiatorColumnNumber =
+          (initiator['columnNumber'] as num?)?.toInt();
       final stack = initiator['stack'] as Map?;
       final frames = stack?['callFrames'] as List?;
       if (frames != null) {
@@ -1574,11 +1617,13 @@ class WebReverseSessionController extends ChangeNotifier {
             .toList(growable: false);
       }
     }
-    _networkByRequestId[requestId] = entry;
-    _networkRequests.add(entry);
-    while (_networkRequests.length > _maxNetworkEntries) {
-      final old = _networkRequests.removeAt(0);
-      _networkByRequestId.remove(old.requestId);
+    if (existing == null) {
+      _networkByRequestId[requestId] = entry;
+      _networkRequests.add(entry);
+      while (_networkRequests.length > _maxNetworkEntries) {
+        final old = _networkRequests.removeAt(0);
+        _networkByRequestId.remove(old.requestId);
+      }
     }
     _artifacts
       ..appendNetwork(<String, Object?>{
@@ -1620,6 +1665,18 @@ class WebReverseSessionController extends ChangeNotifier {
           response['fromMemoryCache'] == true ||
           response['fromServiceWorker'] == true
       ..responseReceivedAt = DateTime.now();
+    // CDP `Network.ResourceTiming` 提供 Chrome 风格的阶段瀑布数据：
+    // requestTime / proxyStart-End / dnsStart-End / connectStart-End /
+    // sslStart-End / sendStart-End / receiveHeadersEnd 等。除 requestTime
+    // 单位是单调时钟秒外，其余字段都是相对 requestTime 的毫秒偏移。
+    final timing = response['timing'];
+    if (timing is Map) {
+      final snapshot = <String, num>{};
+      timing.forEach((k, v) {
+        if (v is num) snapshot['$k'] = v;
+      });
+      if (snapshot.isNotEmpty) entry.resourceTiming = snapshot;
+    }
     _artifacts
       ..appendNetwork(<String, Object?>{
         'kind': 'response',
@@ -4564,8 +4621,11 @@ class CdpNetworkEntry {
   });
 
   final String requestId;
-  final String url;
-  final String method;
+  // url / method 在重定向链中会被更新为最新的目标地址（CDP 对同一
+  // requestId 会再次推 `Network.requestWillBeSent` 并带 `redirectResponse`，
+  // 这时 request.url 已是下一跳）。`timestamp` / `resourceType` 仍是首跳。
+  String url;
+  String method;
   final DateTime timestamp;
   final String resourceType;
 
@@ -4588,7 +4648,18 @@ class CdpNetworkEntry {
   String? initiatorType; // parser / script / preflight / other
   String? initiatorUrl;
   int? initiatorLineNumber;
+  int? initiatorColumnNumber;
   List<Map<String, Object?>> initiatorStack = const <Map<String, Object?>>[];
+
+  /// 重定向链：每一次 3xx 跳转都会被 CDP 用 `redirectResponse` 推给同一
+  /// requestId，按时间顺序记录历史响应（URL / status / headers）。Chrome
+  /// DevTools 的 "Request Initiator Chain" 区段就是渲染这个数据。
+  final List<CdpRedirectStep> redirectChain = <CdpRedirectStep>[];
+
+  /// CDP `Network.ResourceTiming` 原始快照（response.timing）。各字段为
+  /// 相对 `requestTime`（秒）的毫秒偏移，requestTime 自身是单调时钟秒。
+  /// 用于 Timing tab 还原 Chrome 风格的阶段瀑布图。
+  Map<String, num>? resourceTiming;
 
   /// Timing 字段（绝对时刻；时长由 dashboard 计算差值）。
   DateTime? responseReceivedAt;
@@ -4634,6 +4705,25 @@ class CdpWebSocketFrame {
 }
 
 enum CdpWebSocketDirection { sent, received, error }
+
+/// 单条重定向响应（CDP `redirectResponse`）。在请求被 3xx 跳转时，CDP 会
+/// 把每一跳的旧响应作为下一次 `requestWillBeSent` 的 `redirectResponse`
+/// 字段推过来，我们顺序累加到 [CdpNetworkEntry.redirectChain] 给 UI 渲染
+/// "Request Initiator Chain"。
+class CdpRedirectStep {
+  CdpRedirectStep({
+    required this.url,
+    required this.status,
+    required this.statusText,
+    required this.responseHeaders,
+    required this.at,
+  });
+  final String url;
+  final int? status;
+  final String? statusText;
+  final Map<String, String> responseHeaders;
+  final DateTime at;
+}
 
 /// 单条控制台消息的精简快照。
 class CdpConsoleEntry {

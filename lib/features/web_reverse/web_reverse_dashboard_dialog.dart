@@ -134,11 +134,18 @@ class _WebReverseDashboardDialogState
   String? _lastCurTabId;
   final GlobalKey<AnimatedListState> _networkListKey =
       GlobalKey<AnimatedListState>();
+  // Sources 面板 GlobalKey：Initiator 中点击栈帧 / 重定向链时，
+  // controller.sourceJumpRequest 触发，dashboard 切到 Sources tab
+  // 后再通过这个 key 调 `_SourcesPanelState.requestJumpTo(url,line,col)`
+  // 完成「选择脚本 → 滚动到目标行 → 高亮」。
+  final GlobalKey<_SourcesPanelState> _sourcesPanelKey =
+      GlobalKey<_SourcesPanelState>();
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onChanged);
+    widget.controller.sourceJumpRequest.addListener(_onSourceJumpRequested);
     _lastNetworkSize = widget.controller.networkRequests.length;
     _lastConsoleSize = widget.controller.consoleMessages.length;
     _lastErrorCount = widget.controller.errorCount;
@@ -194,8 +201,25 @@ class _WebReverseDashboardDialogState
   @override
   void dispose() {
     widget.controller.removeListener(_onChanged);
+    widget.controller.sourceJumpRequest
+        .removeListener(_onSourceJumpRequested);
     _filterCtrl.dispose();
     super.dispose();
+  }
+
+  /// 当 Initiator 区段点击栈帧 / 重定向链时被调用：先把当前 tab 切到
+  /// Sources，post-frame 后再 dispatch 到 `_SourcesPanelState`，最后
+  /// 清空 controller 上的 sourceJumpRequest 防止下次重入误触发。
+  void _onSourceJumpRequested() {
+    final req = widget.controller.sourceJumpRequest.value;
+    if (req == null || !mounted) return;
+    if (_tab != _Tab.sources) setState(() => _tab = _Tab.sources);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _sourcesPanelKey.currentState
+          ?.requestJumpTo(url: req.url, line: req.line, col: req.col);
+      widget.controller.clearSourceJumpRequest();
+    });
   }
 
   void _onChanged() {
@@ -486,9 +510,12 @@ class _WebReverseDashboardDialogState
         const SingleActivator(LogicalKeyboardKey.slash, shift: true): () =>
             _showShortcutsHelp(),
       },
-      child: Focus(
-        autofocus: true,
-        child: Dialog(
+      // 注意：不要在这里包 `Focus(autofocus: true)` —— 它会抢走对话框内
+      // TextField 的初始焦点，且会让 macOS IMK 上下文持续失效，导致此后
+      // 任何 TextField 都无法输入 / 复制 / 粘贴。Dialog 由 showAnimatedDialog
+      // 套上 `_EscapeDismissDialogScope` 提供 ESC 关闭，ModalRoute 自身的
+      // 焦点 scope 已足以让 CallbackShortcuts 接收到键盘事件。
+      child: Dialog(
           backgroundColor: cs.surfaceContainer,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -571,7 +598,6 @@ class _WebReverseDashboardDialogState
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -678,6 +704,7 @@ class _WebReverseDashboardDialogState
           reduceMotion: reduceMotion,
         ),
       _Tab.sources => _SourcesPanel(
+          key: _sourcesPanelKey,
           controller: ctrl,
           isZh: isZh,
           reduceMotion: reduceMotion,

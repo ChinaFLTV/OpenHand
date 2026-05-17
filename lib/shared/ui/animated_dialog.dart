@@ -146,17 +146,13 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
 }
 
 /// Adds Escape-to-dismiss to a dialog without stealing focus from descendant
-/// inputs. Uses a [FocusScope] with `autofocus: true` to guarantee the dialog
-/// subtree owns focus on open — this ensures ESC events route through the
-/// [CallbackShortcuts] even when no interactive child (button / TextField)
-/// has explicitly requested focus. The FocusScope does NOT steal focus from
-/// descendant inputs that call `requestFocus()` after the first frame, because
-/// FocusScope only auto-focuses its *first* focusable descendant on attach;
-/// subsequent explicit requests from children override it normally.
-///
-/// Earlier revision used `Focus(autofocus: true)` which stole TextField focus
-/// and broke IME / clipboard shortcuts on macOS / Web. [CallbackShortcuts]
-/// only registers key bindings for its subtree without claiming focus itself.
+/// inputs. Uses ONLY [CallbackShortcuts] — `Focus(autofocus: true)` and
+/// `FocusScope(autofocus: true)` both regress macOS IMK and leave every
+/// `TextField` (in this dialog and globally afterwards) unable to receive
+/// input / copy / paste. The dialog's `ModalRoute` already installs a focus
+/// scope that traps key events to the dialog subtree, so ESC keystrokes will
+/// bubble up through this [CallbackShortcuts] whether a `TextField` /
+/// `Button` has focus or the modal route's own focus node owns it.
 class _EscapeDismissDialogScope extends StatelessWidget {
   const _EscapeDismissDialogScope({required this.child});
 
@@ -164,16 +160,13 @@ class _EscapeDismissDialogScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FocusScope(
-      autofocus: true,
-      child: CallbackShortcuts(
-        bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.escape): () {
-            unawaited(Navigator.of(context).maybePop());
-          },
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          unawaited(Navigator.of(context).maybePop());
         },
-        child: child,
-      ),
+      },
+      child: child,
     );
   }
 }

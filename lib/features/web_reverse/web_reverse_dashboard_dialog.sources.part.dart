@@ -8,6 +8,7 @@ part of 'web_reverse_dashboard_dialog.dart';
 /// 用户可点"打开官方 DevTools"按钮走 Chrome 自带 inspector。
 class _SourcesPanel extends StatefulWidget {
   const _SourcesPanel({
+    super.key,
     required this.controller,
     required this.isZh,
     required this.reduceMotion,
@@ -574,6 +575,55 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (!mounted) return;
     setState(() => _source = src);
     await _pushCurrentToLsp();
+  }
+
+  /// 由 dashboard 调用：根据 (url, line, col) 选中匹配的脚本并滚到目标行。
+  /// 匹配策略：优先精确 URL 相等，否则尝试后缀匹配（处理 hash / query 不
+  /// 一致的情况），最后退化为 source-map 不可用时仅切到 Sources tab 但
+  /// 不强行选择脚本，留给用户手动定位。
+  Future<void> requestJumpTo({
+    required String url,
+    int line = 0,
+    int col = 0,
+  }) async {
+    final scripts = widget.controller.parsedScripts;
+    String? matchId;
+    for (final e in scripts.entries) {
+      if (e.value.url == url) {
+        matchId = e.key;
+        break;
+      }
+    }
+    matchId ??= () {
+      for (final e in scripts.entries) {
+        final u = e.value.url;
+        if (u.isNotEmpty && (url.endsWith(u) || u.endsWith(url))) {
+          return e.key;
+        }
+      }
+      return null;
+    }();
+    if (matchId == null) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.showInfoOn(
+        context,
+        messenger,
+        widget.isZh
+            ? '未找到对应脚本：$url'
+            : 'No parsed script matches: $url',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    if (_selectedId != matchId) {
+      await _selectScript(matchId);
+    }
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollToLine(line);
+    });
   }
 
   Future<void> _toggleBreakpoint(int lineIdx) async {

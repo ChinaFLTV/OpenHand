@@ -2764,39 +2764,45 @@ class _StreamThrottleSessionDialogState
                 ),
               ),
               const SizedBox(height: 20),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () {
-                      session.clearSessionStreamThrottleOverride(
-                        widget.sessionId,
-                      );
-                      Navigator.of(context).pop();
-                    },
-                    label: isZh ? '恢复默认' : 'Reset',
-                  ),
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label: isZh ? '取消' : 'Cancel',
-                  ),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: () {
-                      session.setSessionStreamCharsOverride(
-                        widget.sessionId,
-                        _parse(_charsCtrl.text),
-                      );
-                      session.setSessionStreamCardsOverride(
-                        widget.sessionId,
-                        _parse(_cardsCtrl.text),
-                      );
-                      Navigator.of(context).pop();
-                    },
-                    label: isZh ? '应用' : 'Apply',
-                  ),
-                ],
+              // 三枚操作按钮整体居中聚集：Wrap 在 Column(crossAxisAlignment:
+              // start) 里只会缩到子项总宽，alignment.center 在自身宽内是
+              // 空操作；外层套 Align(center) 才能把整组按钮推到对话框水平
+              // 中线。
+              Align(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: () {
+                        session.clearSessionStreamThrottleOverride(
+                          widget.sessionId,
+                        );
+                        Navigator.of(context).pop();
+                      },
+                      label: isZh ? '恢复默认' : 'Reset',
+                    ),
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: () => Navigator.of(context).pop(),
+                      label: isZh ? '取消' : 'Cancel',
+                    ),
+                    OpenHandDialogActionButton.primary(
+                      onPressed: () {
+                        session.setSessionStreamCharsOverride(
+                          widget.sessionId,
+                          _parse(_charsCtrl.text),
+                        );
+                        session.setSessionStreamCardsOverride(
+                          widget.sessionId,
+                          _parse(_cardsCtrl.text),
+                        );
+                        Navigator.of(context).pop();
+                      },
+                      label: isZh ? '应用' : 'Apply',
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
