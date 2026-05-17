@@ -2763,13 +2763,13 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
         title: Text(title),
         content: Text(message),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            label: '取消',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('确认清理'),
+            label: '确认清理',
           ),
         ],
       ),

@@ -2698,7 +2698,7 @@ class _StreamThrottleSessionDialogState
     );
     return Dialog(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
+        constraints: const BoxConstraints(maxWidth: 600),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -2756,25 +2756,25 @@ class _StreamThrottleSessionDialogState
                 ),
               ),
               const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  TextButton(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: () {
                       session.clearSessionStreamThrottleOverride(
                         widget.sessionId,
                       );
                       Navigator.of(context).pop();
                     },
-                    child: Text(isZh ? '恢复默认' : 'Reset'),
+                    label: isZh ? '恢复默认' : 'Reset',
                   ),
-                  const SizedBox(width: 8),
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
                     label: isZh ? '取消' : 'Cancel',
                   ),
-                  const SizedBox(width: 8),
-                  FilledButton(
+                  OpenHandDialogActionButton.primary(
                     onPressed: () {
                       session.setSessionStreamCharsOverride(
                         widget.sessionId,
@@ -2786,7 +2786,7 @@ class _StreamThrottleSessionDialogState
                       );
                       Navigator.of(context).pop();
                     },
-                    child: Text(isZh ? '应用' : 'Apply'),
+                    label: isZh ? '应用' : 'Apply',
                   ),
                 ],
               ),
