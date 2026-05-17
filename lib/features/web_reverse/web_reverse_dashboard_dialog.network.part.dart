@@ -597,6 +597,14 @@ class _NetworkRow extends StatelessWidget {
             Text(isZh ? '重放此请求' : 'Replay XHR'),
           ]),
         ),
+        PopupMenuItem(
+          value: 'replayEdit',
+          child: Row(children: [
+            const Icon(Icons.edit_note_rounded, size: 16),
+            const SizedBox(width: 8),
+            Text(isZh ? '编辑后重放（改 URL / Header）' : 'Edit & replay'),
+          ]),
+        ),
         const PopupMenuDivider(),
         if (blocked)
           PopupMenuItem(
@@ -672,7 +680,72 @@ class _NetworkRow extends StatelessWidget {
       case 'replay':
         if (!context.mounted) return;
         await _replayAndShow(context);
+      case 'replayEdit':
+        if (!context.mounted) return;
+        await _replayWithOverridesAndShow(context);
     }
+  }
+
+  Future<void> _replayWithOverridesAndShow(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final overrides = await showDialog<({String url, Map<String, String> headers})>(
+      context: context,
+      builder: (_) => _ReplayOverrideEditor(entry: entry, isZh: isZh),
+    );
+    if (overrides == null || !context.mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: SizedBox(
+          height: 56,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+    final r = await controller.replayRequest(
+      entry,
+      overrideUrl: overrides.url,
+      overrideHeaders: overrides.headers,
+    );
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    if (r == null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '重放失败' : 'Replay failed',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          isZh ? '重放结果（HTTP ${r.status}）' : 'Replay (HTTP ${r.status})',
+        ),
+        content: SizedBox(
+          width: 640,
+          height: 360,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              r.body.isEmpty
+                  ? (isZh ? '(响应体为空)' : '(empty body)')
+                  : r.body,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          OpenHandDialogActionButton.primary(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            label: isZh ? '关闭' : 'Close',
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _replayAndShow(BuildContext context) async {
@@ -1056,6 +1129,101 @@ class _PendingFetchBanner extends StatelessWidget {
           methodCtrl.text.trim().isEmpty ? null : methodCtrl.text.trim(),
       headers: headers,
       postDataBase64: bodyB64,
+    );
+  }
+}
+
+
+/// 编辑后重放对话框：直接复刻 _InterceptRuleEditor 的字段设计（URL +
+/// header overrides），让用户先 rewrite 再 replay 一次单条请求；与拦截规则
+/// editor 行为一致，区别在 block 路径不暴露（重放只关心 url / headers）。
+class _ReplayOverrideEditor extends StatefulWidget {
+  const _ReplayOverrideEditor({required this.entry, required this.isZh});
+
+  final CdpNetworkEntry entry;
+  final bool isZh;
+
+  @override
+  State<_ReplayOverrideEditor> createState() => _ReplayOverrideEditorState();
+}
+
+class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
+  late final TextEditingController _urlCtrl;
+  late final TextEditingController _headersCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlCtrl = TextEditingController(text: widget.entry.url);
+    _headersCtrl = TextEditingController(
+      text: widget.entry.requestHeaders.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join('\n'),
+    );
+  }
+
+  @override
+  void dispose() {
+    _urlCtrl.dispose();
+    _headersCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isZh = widget.isZh;
+    return AlertDialog(
+      title: Text(isZh ? '编辑后重放' : 'Edit & replay'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _urlCtrl,
+                decoration: InputDecoration(
+                  labelText: isZh ? '重放 URL' : 'URL',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _headersCtrl,
+                maxLines: 8,
+                minLines: 4,
+                decoration: InputDecoration(
+                  labelText: isZh
+                      ? 'Request Headers（每行 Key: Value，留空保留原值）'
+                      : 'Request headers (Key: Value per line)',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(isZh ? '取消' : 'Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final headers = <String, String>{};
+            for (final line in _headersCtrl.text.split('\n')) {
+              final trimmed = line.trim();
+              if (trimmed.isEmpty) continue;
+              final idx = trimmed.indexOf(':');
+              if (idx <= 0) continue;
+              headers[trimmed.substring(0, idx).trim()] =
+                  trimmed.substring(idx + 1).trim();
+            }
+            Navigator.of(context).pop(
+              (url: _urlCtrl.text.trim(), headers: headers),
+            );
+          },
+          child: Text(isZh ? '重放' : 'Replay'),
+        ),
+      ],
     );
   }
 }

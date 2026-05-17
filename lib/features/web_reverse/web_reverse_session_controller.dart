@@ -3449,22 +3449,31 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 在浏览器里重发指定请求（按 entry 当前的 method/url/headers/postData）。
   /// 走 `fetch()` 重发；返回 (status, bodyPreview)；失败返回 null。
+  /// 可选 [overrideUrl] / [overrideHeaders] 让上层"先 rewrite 再 replay"，与
+  /// intercept rule editor 共用同一套字段语义（headers null = 用原值；空 Map
+  /// = 清空；非空 Map = 替换）。
   Future<({int status, String body})?> replayRequest(
-    CdpNetworkEntry e,
-  ) async {
+    CdpNetworkEntry e, {
+    String? overrideUrl,
+    Map<String, String>? overrideHeaders,
+  }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return null;
+    final url = overrideUrl != null && overrideUrl.isNotEmpty
+        ? overrideUrl
+        : e.url;
     final init = <String, Object?>{
       'method': e.method,
-      if (e.requestHeaders.isNotEmpty)
-        'headers': e.requestHeaders.map((k, v) => MapEntry(k, v)),
+      if ((overrideHeaders ?? e.requestHeaders).isNotEmpty)
+        'headers':
+            (overrideHeaders ?? e.requestHeaders).map((k, v) => MapEntry(k, v)),
       if (e.requestPostData != null) 'body': e.requestPostData,
       'credentials': 'include',
     };
     final js = '''
 (async () => {
   try {
-    const r = await fetch(${jsonEncode(e.url)}, ${jsonEncode(init)});
+    const r = await fetch(${jsonEncode(url)}, ${jsonEncode(init)});
     const text = await r.text();
     return JSON.stringify({ status: r.status, body: text.slice(0, 4096) });
   } catch (err) {
