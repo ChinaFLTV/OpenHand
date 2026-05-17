@@ -2359,7 +2359,11 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
     if (state == null) return;
     final ctrl = state.webReverseControllerFor(widget.sessionId);
     if (ctrl != null) {
-      await showWebReverseDashboardDialog(context, controller: ctrl);
+      await showWebReverseDashboardDialog(
+        context,
+        controller: ctrl,
+        sessionId: widget.sessionId,
+      );
       return;
     }
     // 应用重启 / 切回旧会话：尝试根据 metadata 重启 controller。
@@ -2375,7 +2379,11 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
     try {
       final restored = await state.restoreWebReverseSession(session);
       if (restored != null && mounted) {
-        await showWebReverseDashboardDialog(context, controller: restored);
+        await showWebReverseDashboardDialog(
+          context,
+          controller: restored,
+          sessionId: widget.sessionId,
+        );
       }
     } finally {
       if (mounted) setState(() => _restoring = false);

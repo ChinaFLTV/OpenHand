@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -14,6 +15,7 @@ import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../ai/index.dart';
 import 'web_reverse_launch_diagnosis.dart';
 import 'web_reverse_mitmproxy_bridge.dart';
 import 'web_reverse_profile_actions.dart';
@@ -55,16 +57,24 @@ const Curve _kSwitchOutCurve = Curves.easeInCubic;
 Future<void> showWebReverseDashboardDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
+  required String sessionId,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _WebReverseDashboardDialog(controller: controller),
+    builder: (_) => _WebReverseDashboardDialog(
+      controller: controller,
+      sessionId: sessionId,
+    ),
   );
 }
 
 class _WebReverseDashboardDialog extends StatefulWidget {
-  const _WebReverseDashboardDialog({required this.controller});
+  const _WebReverseDashboardDialog({
+    required this.controller,
+    required this.sessionId,
+  });
   final WebReverseSessionController controller;
+  final String sessionId;
 
   @override
   State<_WebReverseDashboardDialog> createState() =>
@@ -86,6 +96,7 @@ enum _Tab {
 
 class _WebReverseDashboardDialogState
     extends State<_WebReverseDashboardDialog> {
+  static const _kLastTabMetaKey = 'web_reverse_dashboard_last_tab';
   _Tab _tab = _Tab.network;
 
   // Network 面板状态
@@ -123,6 +134,27 @@ class _WebReverseDashboardDialogState
     _lastErrMsg = widget.controller.errorMessage ?? '';
     _lastTabsLen = widget.controller.pageTargets.length;
     _lastCurTabId = widget.controller.currentPageTargetId;
+    // 读取上次离开 dashboard 时停在的 tab。会话维度持久化到 metadata，
+    // 用 enum.name 序列化；解析失败 / 没记录时保持 _Tab.network 默认。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final session = context
+          .read<AiSessionController>()
+          .sessions
+          .firstWhere(
+            (s) => s.id == widget.sessionId,
+            orElse: () => context.read<AiSessionController>().sessions.first,
+          );
+      final raw = session.metadata[_kLastTabMetaKey];
+      if (raw is String && raw.isNotEmpty) {
+        for (final t in _Tab.values) {
+          if (t.name == raw) {
+            setState(() => _tab = t);
+            break;
+          }
+        }
+      }
+    });
   }
 
   @override
@@ -176,6 +208,17 @@ class _WebReverseDashboardDialogState
   /// 让 part 文件能从外部触发 dashboard 重建（part 文件不能直接调 setState）。
   void rebuildFromExternal(VoidCallback mutate) {
     setState(mutate);
+  }
+
+  /// 切换 tab 并把选择持久化到 session metadata，下次打开 dashboard 自动恢复。
+  void _setTab(_Tab next) {
+    if (next == _tab) return;
+    setState(() => _tab = next);
+    // 异步写回 metadata，失败不阻塞 UI；merge 写入避免覆盖其它键。
+    final ctrl = context.read<AiSessionController>();
+    unawaited(ctrl.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _kLastTabMetaKey: next.name,
+    }));
   }
 
   bool _isZh() =>

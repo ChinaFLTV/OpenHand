@@ -34,8 +34,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       icon: _tabIcon(tabs[i]),
                       count: _tabBadgeCount(tabs[i]),
                       active: _tab == tabs[i],
-                      onTap: () =>
-                          rebuildFromExternal(() => _tab = tabs[i]),
+                      onTap: () => _setTab(tabs[i]),
                       reduceMotion: reduceMotion,
                     ),
                     if (i != tabs.length - 1) const SizedBox(width: 6),
