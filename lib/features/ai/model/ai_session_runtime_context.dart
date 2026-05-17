@@ -141,6 +141,7 @@ class AiSessionRuntimeContext {
     this.streamMaxMessageCardsPerSecond = 1,
     this.streamThrottleEnabled = true,
     this.streamThrottleAutoMode = false,
+    this.streamThrottleDurationSeconds = 0,
     this.streamThrottleTemplateOverrides =
         const <String, AiStreamThrottleOverride>{},
     this.autoTitleEnabled = true,
@@ -349,6 +350,10 @@ class AiSessionRuntimeContext {
 
   /// 2026-05-17 — 自动模式（true 时按平台预设，覆盖手动配置）。
   final bool streamThrottleAutoMode;
+
+  /// 2026-05-17 — 节流持续时长（秒）。0 = 持续节流；>0 时该时长后剩余流式
+  /// 响应直接按真实接收节奏追加。
+  final int streamThrottleDurationSeconds;
 
   /// 返回指定模板生效的字符节流速率：模板覆盖优先于全局。
   int effectiveStreamMaxCharsPerSecond(String templateIdValue) {

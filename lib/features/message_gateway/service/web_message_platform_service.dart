@@ -4332,6 +4332,8 @@ class WebMessagePlatformService {
           _settingsController.aiStreamMaxMessageCardsPerSecond,
       streamThrottleEnabled: _settingsController.aiStreamThrottleEnabled,
       streamThrottleAutoMode: _settingsController.aiStreamThrottleAutoMode,
+      streamThrottleDurationSeconds:
+          _settingsController.aiStreamThrottleDurationSeconds,
       streamThrottleTemplateOverrides:
           _settingsController.aiStreamThrottleTemplateOverrides,
       skippedInstructionIds: skippedInstructionIds,

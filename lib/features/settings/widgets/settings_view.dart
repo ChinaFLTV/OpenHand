@@ -163,6 +163,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _streamMaxCharsPerSecondFocusNode;
   late final TextEditingController _streamMaxMessageCardsPerSecondController;
   late final FocusNode _streamMaxMessageCardsPerSecondFocusNode;
+  late final TextEditingController _streamThrottleDurationController;
+  late final FocusNode _streamThrottleDurationFocusNode;
   late final TextEditingController _mcpLazyLoadingThresholdController;
   late final FocusNode _mcpLazyLoadingThresholdFocusNode;
   late final TextEditingController _mcpAutoProbeConcurrencyController;
@@ -219,6 +221,8 @@ class _SettingsViewState extends State<SettingsView> {
     _streamMaxCharsPerSecondFocusNode = FocusNode();
     _streamMaxMessageCardsPerSecondController = TextEditingController();
     _streamMaxMessageCardsPerSecondFocusNode = FocusNode();
+    _streamThrottleDurationController = TextEditingController();
+    _streamThrottleDurationFocusNode = FocusNode();
     _mcpLazyLoadingThresholdController = TextEditingController();
     _mcpLazyLoadingThresholdFocusNode = FocusNode();
     _mcpAutoProbeConcurrencyController = TextEditingController();
@@ -274,6 +278,8 @@ class _SettingsViewState extends State<SettingsView> {
     _streamMaxCharsPerSecondFocusNode.dispose();
     _streamMaxMessageCardsPerSecondController.dispose();
     _streamMaxMessageCardsPerSecondFocusNode.dispose();
+    _streamThrottleDurationController.dispose();
+    _streamThrottleDurationFocusNode.dispose();
     _mcpLazyLoadingThresholdController.dispose();
     _mcpLazyLoadingThresholdFocusNode.dispose();
     _mcpAutoProbeConcurrencyController.dispose();
@@ -432,6 +438,12 @@ class _SettingsViewState extends State<SettingsView> {
             streamMaxMessageCardsPerSecondText) {
       _streamMaxMessageCardsPerSecondController.text =
           streamMaxMessageCardsPerSecondText;
+    }
+    final streamThrottleDurationText =
+        '${settingsController.aiStreamThrottleDurationSeconds}';
+    if (!_streamThrottleDurationFocusNode.hasFocus &&
+        _streamThrottleDurationController.text != streamThrottleDurationText) {
+      _streamThrottleDurationController.text = streamThrottleDurationText;
     }
     final mcpLazyLoadingThresholdText =
         '${settingsController.mcpLazyLoadingThresholdTokens}';
@@ -1595,6 +1607,74 @@ class _SettingsViewState extends State<SettingsView> {
                         onPressed: () => _saveStreamMaxMessageCardsPerSecond(
                           context,
                           _streamMaxMessageCardsPerSecondController.text,
+                        ),
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(
+                          AppLocalizations.of(context)!.settingsSaveTimeout,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
+              ),
+              // 2026-05-17 — 节流持续时长入口（紧贴在「按线程模板覆盖」之前）。
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '节流持续时长（秒）'
+                    : 'Throttle Duration (s)',
+                subtitle:
+                    Localizations.localeOf(
+                      context,
+                    ).languageCode.startsWith('zh')
+                    ? '在该时长内按字符 / 卡片速率均匀放出；时长耗尽后剩余流式响应直接按 AI 实际接收节奏追加。0 = 持续节流（默认）。'
+                    : 'Throttle char/card output for this duration; afterwards the remainder streams at the AI actual arrival rate. 0 = continuous throttle (default).',
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _streamThrottleDurationController,
+                      focusNode: _streamThrottleDurationFocusNode,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: InputDecoration(
+                        labelText:
+                            Localizations.localeOf(
+                              context,
+                            ).languageCode.startsWith('zh')
+                            ? '节流持续时长（秒）'
+                            : 'Throttle Duration (s)',
+                        hintText:
+                            '${AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds}',
+                      ),
+                      onSubmitted: (value) =>
+                          _saveStreamThrottleDurationSeconds(context, value),
+                    ),
+                    if (settingsController.aiStreamThrottleDurationSeconds <=
+                        0) ...[
+                      const SizedBox(height: 8),
+                      _ThrottleDisabledBadge(
+                        message:
+                            Localizations.localeOf(
+                              context,
+                            ).languageCode.startsWith('zh')
+                            ? '当前为持续节流：整个流式响应都按节流速率均匀放出。'
+                            : 'Continuous throttle: the entire stream is paced.',
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () => _saveStreamThrottleDurationSeconds(
+                          context,
+                          _streamThrottleDurationController.text,
                         ),
                         icon: const Icon(Icons.save_outlined),
                         label: Text(
@@ -3853,6 +3933,39 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       isZh ? '每秒最大输出消息卡片数已保存。' : 'Max render cards / sec saved.',
+    );
+  }
+
+  /// 2026-05-17 — 保存节流持续时长（秒）。0 = 持续节流。
+  Future<void> _saveStreamThrottleDurationSeconds(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsedValue = int.tryParse(rawValue.trim());
+    const min = AppSettingsSnapshot.minAiStreamThrottleDurationSeconds;
+    const max = AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds;
+    if (parsedValue == null || parsedValue < min || parsedValue > max) {
+      _showSnackBar(context, l10n.settingsEnterAValueBetweenMinAnd(min, max));
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiStreamThrottleDurationSeconds(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _streamThrottleDurationController.text =
+          '${context.read<SettingsController>().aiStreamThrottleDurationSeconds}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _streamThrottleDurationController.text = '$parsedValue';
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    _showSnackBar(
+      context,
+      isZh ? '节流持续时长已保存。' : 'Throttle duration saved.',
     );
   }
 

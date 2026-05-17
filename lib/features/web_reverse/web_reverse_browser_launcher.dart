@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart' as http_io;
 
 import '../../app/support/silent_log.dart';
 import 'web_reverse_browser_kind.dart';
@@ -43,6 +44,17 @@ class WebReverseBrowserLauncher {
 
   final http.Client Function()? httpClientFactory;
 
+  /// 创建一个**强制绕过任何系统/用户级代理**的 HTTP 客户端。
+  /// CDP 探测目标是 127.0.0.1，如果走 HTTP/SOCKS 代理会被路由到外网拒绝
+  /// 或卡死，所以这里用空 findProxy 直连。同样设置短连接超时避免悬挂。
+  static http.Client _newDirectClient() {
+    final inner = HttpClient();
+    inner.findProxy = (_) => 'DIRECT';
+    inner.connectionTimeout = const Duration(seconds: 2);
+    inner.idleTimeout = const Duration(seconds: 2);
+    return http_io.IOClient(inner);
+  }
+
   /// 在 [9222, 9322) 区间挑一个空闲端口（百端口区间，支持上百个并发会话）。
   /// 之前用 9222-9242（20 个）容易在多会话场景碰撞。
   ///
@@ -52,7 +64,7 @@ class WebReverseBrowserLauncher {
   /// 2. 再 ServerSocket.bind 一次确认本进程能 listen，避免操作系统级保留。
   /// 这两步组合能避开"用户已开 Chrome 占 9222"的常见冲突。
   Future<int?> pickFreePort({int start = 9222, int end = 9322}) async {
-    final probeClient = httpClientFactory?.call() ?? http.Client();
+    final probeClient = httpClientFactory?.call() ?? _newDirectClient();
     final ownsClient = httpClientFactory == null;
     try {
       for (var port = start; port < end; port++) {
@@ -107,16 +119,33 @@ class WebReverseBrowserLauncher {
     }
     await Directory(userDataDir).create(recursive: true);
     final args = <String>[
+      // 2026-05-17 — CDP 关键参数务必排在最前，确保 Chrome 解析到这些
+      // 参数前不会因为别的初始化阶段卡住（部分 Chrome 版本对参数顺序
+      // 敏感）。`--remote-debugging-pipe` 不用，因为我们要用 HTTP 探测。
       '--remote-debugging-port=$port',
       '--remote-debugging-address=127.0.0.1',
       '--remote-allow-origins=*',
       '--user-data-dir=$userDataDir',
       '--no-first-run',
       '--no-default-browser-check',
-      '--disable-features=Translate,InfinitePrefetchHoldback',
+      '--no-service-autorun',
+      // Translate / 后台预取会导致 CDP 启动期被推迟；同时关掉 PromoUI、
+      // FedCM 等首次启动 onboarding 流程，加速握手。
+      '--disable-features=Translate,InfinitePrefetchHoldback,'
+          'OptimizationGuideModelDownloading,GlobalMediaControls,'
+          'FedCm,SegmentationPlatform,PrivacySandboxSettings4',
       '--disable-translate',
       '--disable-popup-blocking',
-      '--start-maximized',
+      // --no-default-browser-check 已涵盖；--password-store=basic 防 keychain
+      // 弹窗阻塞主线程。
+      '--password-store=basic',
+      '--use-mock-keychain',
+      // 防止 Chrome 因 metrics 上报卡握手期；--disable-component-update 让
+      // 组件检查不抢占启动资源。
+      '--disable-background-networking',
+      '--disable-component-update',
+      '--metrics-recording-only',
+      '--no-pings',
       // proxy=direct:// 让 CDP 探测请求绕开系统代理；用户配置的 proxy
       // 只作用于浏览器自身的页面流量，不影响本进程对 127.0.0.1 的探测。
       if (proxy != null && proxy.trim().isNotEmpty)
@@ -176,7 +205,7 @@ class WebReverseBrowserLauncher {
     // 轮询 /json/version 拿 webSocketDebuggerUrl。
     // 退避策略：前 2s 用 150ms 间隔（macOS 上 chrome 通常 800ms 就能起 CDP），
     // 之后切到 400ms 间隔，减少对系统的压力但仍能在 30s 内多次命中。
-    final client = httpClientFactory?.call() ?? http.Client();
+    final client = httpClientFactory?.call() ?? _newDirectClient();
     final start = DateTime.now();
     final deadline = start.add(handshakeTimeout);
     String? wsUrl;

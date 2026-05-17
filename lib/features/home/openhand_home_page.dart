@@ -3242,6 +3242,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
       streamThrottleEnabled: settingsController.aiStreamThrottleEnabled,
       streamThrottleAutoMode: settingsController.aiStreamThrottleAutoMode,
+      streamThrottleDurationSeconds:
+          settingsController.aiStreamThrottleDurationSeconds,
       streamThrottleTemplateOverrides:
           settingsController.aiStreamThrottleTemplateOverrides,
       streamMaxMessageCardsPerSecond:
@@ -3499,6 +3501,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
       streamThrottleEnabled: settingsController.aiStreamThrottleEnabled,
       streamThrottleAutoMode: settingsController.aiStreamThrottleAutoMode,
+      streamThrottleDurationSeconds:
+          settingsController.aiStreamThrottleDurationSeconds,
       streamThrottleTemplateOverrides:
           settingsController.aiStreamThrottleTemplateOverrides,
       streamMaxMessageCardsPerSecond:

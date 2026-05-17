@@ -20,13 +20,21 @@ part of '../ai_session_controller.dart';
 /// 限速器内部维护一个 ~33ms 节奏的周期 Timer，在余量未释放时持续触发
 /// 调用方的 [_onTick] 回调，驱动 UI 把后续字符滚动出来。
 /// 流结束时调用 [release] 即可立刻放开全部预算。
+///
+/// [throttleDuration] 启用「节流时长」：从 throttle 创建时刻起经过该时长后，
+/// renderableLength 会直接返回 totalSanitizedLength，相当于关闭节流；
+/// null = 持续节流，永不超时。
 class _StreamCharThrottle {
   _StreamCharThrottle({
     required this.maxCharsPerSecond,
     required void Function() onTick,
+    Duration? throttleDuration,
   }) : _onTick = onTick,
        _budget = maxCharsPerSecond.toDouble(),
-       _lastTickAt = DateTime.now();
+       _lastTickAt = DateTime.now(),
+       _expireAt = (throttleDuration != null && throttleDuration.inMilliseconds > 0)
+           ? DateTime.now().add(throttleDuration)
+           : null;
 
   /// 每秒允许被「展示」的字符数；<=0 视为关闭限速。
   final int maxCharsPerSecond;
@@ -38,8 +46,14 @@ class _StreamCharThrottle {
   int _emittedChars = 0;
   int _lastKnownTotal = 0;
   DateTime _lastTickAt;
+  final DateTime? _expireAt;
 
-  bool get isEnabled => maxCharsPerSecond > 0;
+  bool get isEnabled => maxCharsPerSecond > 0 && !_isExpired;
+
+  bool get _isExpired {
+    final exp = _expireAt;
+    return exp != null && !DateTime.now().isBefore(exp);
+  }
 
   /// 推进时钟并补充令牌，返回当前允许「显示」的最大字符数。
   int renderableLength(int totalSanitizedLength) {

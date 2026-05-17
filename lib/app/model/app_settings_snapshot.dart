@@ -110,6 +110,8 @@ class AppSettingsSnapshot {
           defaultAiStreamMaxMessageCardsPerSecond,
       aiStreamThrottleEnabled: defaultAiStreamThrottleEnabled,
       aiStreamThrottleAutoMode: defaultAiStreamThrottleAutoMode,
+      aiStreamThrottleDurationSeconds:
+          defaultAiStreamThrottleDurationSeconds,
       aiStreamThrottleCloudSyncProvider:
           defaultAiStreamThrottleCloudSyncProvider,
       aiStreamThrottleCloudSyncEndpoint:
@@ -240,6 +242,7 @@ class AppSettingsSnapshot {
     required this.aiStreamMaxMessageCardsPerSecond,
     required this.aiStreamThrottleEnabled,
     required this.aiStreamThrottleAutoMode,
+    required this.aiStreamThrottleDurationSeconds,
     required this.aiStreamThrottleCloudSyncProvider,
     required this.aiStreamThrottleCloudSyncEndpoint,
     required this.aiStreamThrottleCloudSyncToken,
@@ -573,6 +576,13 @@ class AppSettingsSnapshot {
   static const int autoStreamMaxCharsPerSecondMobile = 6;
   static const int autoStreamMaxMessageCardsPerSecondAuto = 2;
 
+  /// 2026-05-17 — 节流时长（秒）。在该时长内按节流速率均匀放出字符 /
+  /// 卡片；时长耗尽后剩余流式响应直接按 AI 端真实接收节奏追加渲染，
+  /// 兼顾"前段优雅打字机"与"后段不再卡读者节奏"。0 = 持续节流（不限时）。
+  static const int defaultAiStreamThrottleDurationSeconds = 0;
+  static const int minAiStreamThrottleDurationSeconds = 0;
+  static const int maxAiStreamThrottleDurationSeconds = 600;
+
   /// 2026-05-18 — 节流配置云端同步默认值；当前 provider/endpoint/token
   /// 均空表示功能关闭。
   static const String defaultAiStreamThrottleCloudSyncProvider = 'custom';
@@ -777,6 +787,11 @@ class AppSettingsSnapshot {
   /// 选择速率。
   final bool aiStreamThrottleAutoMode;
 
+  /// 2026-05-17 — 节流持续时长（秒）。在该时长内按节流速率渲染；时长
+  /// 耗尽后剩余流式响应直接按真实接收节奏追加，避免长文末尾被节流"卡住"
+  /// 用户阅读节奏。0 = 持续节流（不限时）。
+  final int aiStreamThrottleDurationSeconds;
+
   /// 2026-05-18 — 节流配置云端同步 provider 标识 (custom / icloud /
   /// oauth)；当前仅 custom 走真实网络 IO，其余作为占位入口。
   final String aiStreamThrottleCloudSyncProvider;
@@ -952,6 +967,7 @@ class AppSettingsSnapshot {
     int? aiStreamMaxMessageCardsPerSecond,
     bool? aiStreamThrottleEnabled,
     bool? aiStreamThrottleAutoMode,
+    int? aiStreamThrottleDurationSeconds,
     String? aiStreamThrottleCloudSyncProvider,
     String? aiStreamThrottleCloudSyncEndpoint,
     String? aiStreamThrottleCloudSyncToken,
@@ -1124,6 +1140,8 @@ class AppSettingsSnapshot {
           aiStreamThrottleEnabled ?? this.aiStreamThrottleEnabled,
       aiStreamThrottleAutoMode:
           aiStreamThrottleAutoMode ?? this.aiStreamThrottleAutoMode,
+      aiStreamThrottleDurationSeconds: aiStreamThrottleDurationSeconds ??
+          this.aiStreamThrottleDurationSeconds,
       aiStreamThrottleCloudSyncProvider:
           aiStreamThrottleCloudSyncProvider ??
           this.aiStreamThrottleCloudSyncProvider,

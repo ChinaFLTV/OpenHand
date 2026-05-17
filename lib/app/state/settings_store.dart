@@ -246,6 +246,8 @@ class SettingsStore {
           snapshot.aiStreamMaxMessageCardsPerSecond,
       'ai_stream_throttle_enabled': snapshot.aiStreamThrottleEnabled,
       'ai_stream_throttle_auto_mode': snapshot.aiStreamThrottleAutoMode,
+      'ai_stream_throttle_duration_seconds':
+          snapshot.aiStreamThrottleDurationSeconds,
       'ai_stream_throttle_cloud_sync_provider':
           snapshot.aiStreamThrottleCloudSyncProvider,
       'ai_stream_throttle_cloud_sync_endpoint':
@@ -835,6 +837,13 @@ class SettingsStore {
     final aiStreamThrottleAutoMode = json['ai_stream_throttle_auto_mode'] is bool
         ? json['ai_stream_throttle_auto_mode'] as bool
         : AppSettingsSnapshot.defaultAiStreamThrottleAutoMode;
+    final aiStreamThrottleDurationSeconds =
+        json['ai_stream_throttle_duration_seconds'] is int
+            ? (json['ai_stream_throttle_duration_seconds'] as int).clamp(
+                AppSettingsSnapshot.minAiStreamThrottleDurationSeconds,
+                AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
+              )
+            : AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds;
     final aiStreamThrottleCloudSyncProvider =
         '${json['ai_stream_throttle_cloud_sync_provider'] ?? AppSettingsSnapshot.defaultAiStreamThrottleCloudSyncProvider}'
             .trim();
@@ -1252,6 +1261,7 @@ class SettingsStore {
       aiStreamMaxMessageCardsPerSecond: aiStreamMaxMessageCardsPerSecond,
       aiStreamThrottleEnabled: aiStreamThrottleEnabled,
       aiStreamThrottleAutoMode: aiStreamThrottleAutoMode,
+      aiStreamThrottleDurationSeconds: aiStreamThrottleDurationSeconds,
       aiStreamThrottleCloudSyncProvider: aiStreamThrottleCloudSyncProvider,
       aiStreamThrottleCloudSyncEndpoint: aiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken: aiStreamThrottleCloudSyncToken,

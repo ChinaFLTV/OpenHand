@@ -3306,8 +3306,23 @@ class AiSessionController extends ChangeNotifier {
       late final _StreamCharThrottle reasoningCharThrottle;
       late final _StreamCardThrottle cardThrottle;
 
+      // 2026-05-17 — 思考-响应顺序保护：当模型同时返回思考与正式响应时，
+      // 先把思考节流式渲染完，再放出 assistant 卡片的字符，保证视觉上
+      // 「先看到思考铺开，再看到回答」的自然节奏；正式响应若提前到达
+      // 则进入 assistantRawBuffer 等待思考排空后再 render。
+      bool reasoningDrained() {
+        if (reasoningRawBuffer.isEmpty) return true;
+        if (!reasoningCharThrottle.isEnabled) return true;
+        return !reasoningCharThrottle.hasPending;
+      }
+
       void renderAssistantBuffered() {
         if (assistantRawBuffer.isEmpty && assistantMessageId == null) {
+          return;
+        }
+        if (!reasoningDrained()) {
+          // 思考侧仍有字符未释放完毕：assistant 入队等待。下一次思考
+          // 渲染节奏 / drain 完成时会回调本函数把缓冲清空。
           return;
         }
         final fullSanitized = _sanitizeVisibleModelContent(
@@ -3369,6 +3384,12 @@ class AiSessionController extends ChangeNotifier {
         reasoningMessageId ??= _idGenerator();
         hasPendingReasoningPreview = true;
         schedulePreview('reasoningDelta');
+        // 2026-05-17 — 思考刚完成排空，立刻看看是否有 assistant 字符
+        // 在等队，有则启动它的均匀放出节奏。
+        if (reasoningDrained() &&
+            (assistantRawBuffer.isNotEmpty || assistantMessageId != null)) {
+          renderAssistantBuffered();
+        }
       }
 
       // 优先级：session 临时覆盖 > 模板覆盖 > 全局值。
@@ -3382,13 +3403,21 @@ class AiSessionController extends ChangeNotifier {
           runtimeContext.effectiveStreamMaxMessageCardsPerSecond(
             workingSession.templateId,
           );
+      // 节流时长：>0 表示限定时长后剩余响应直接按真实节奏追加；
+      // 0 表示持续节流（默认）。
+      final throttleDurationSec = runtimeContext.streamThrottleDurationSeconds;
+      final throttleDuration = throttleDurationSec > 0
+          ? Duration(seconds: throttleDurationSec)
+          : null;
       charThrottle = _StreamCharThrottle(
         maxCharsPerSecond: effChars,
         onTick: renderAssistantBuffered,
+        throttleDuration: throttleDuration,
       );
       reasoningCharThrottle = _StreamCharThrottle(
         maxCharsPerSecond: effChars,
         onTick: renderReasoningBuffered,
+        throttleDuration: throttleDuration,
       );
       cardThrottle = _StreamCardThrottle(
         maxCardsPerSecond: effCards,
@@ -3412,6 +3441,11 @@ class AiSessionController extends ChangeNotifier {
               return;
             }
             assistantRawBuffer.write(delta);
+            // 2026-05-17 — 顺序保护：思考还没排空时不创建 assistant 卡片，
+            // raw 缓冲已记下来；reasoning 完成后会回放 renderAssistantBuffered。
+            if (!reasoningDrained()) {
+              return;
+            }
             // 若这是第一张 assistant 卡片且需要排队（卡片限速生效），
             // 等令牌可用后再追加；否则直接走限速过的渲染逻辑。
             final firstCardPending =

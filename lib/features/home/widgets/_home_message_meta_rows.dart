@@ -2,6 +2,7 @@ part of '../openhand_home_page.dart';
 
 class _MessageMetaRow extends StatelessWidget {
   const _MessageMetaRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.color,
@@ -32,6 +33,7 @@ class _MessageMetaRow extends StatelessWidget {
 
 class _ReasoningMetaRow extends StatefulWidget {
   const _ReasoningMetaRow({
+    super.key,
     required this.message,
     required this.color,
     required this.showSweep,
@@ -159,7 +161,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
 }
 
 class _ToolCallMetaRow extends StatelessWidget {
-  const _ToolCallMetaRow({required this.data, required this.color});
+  const _ToolCallMetaRow({super.key, required this.data, required this.color});
 
   final _ToolCallStatusViewData data;
   final Color color;

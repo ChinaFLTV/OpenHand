@@ -130,6 +130,8 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiStreamMaxMessageCardsPerSecond,
        _aiStreamThrottleEnabled = snapshot.aiStreamThrottleEnabled,
        _aiStreamThrottleAutoMode = snapshot.aiStreamThrottleAutoMode,
+       _aiStreamThrottleDurationSeconds =
+           snapshot.aiStreamThrottleDurationSeconds,
        _aiStreamThrottleCloudSyncProvider =
            snapshot.aiStreamThrottleCloudSyncProvider,
        _aiStreamThrottleCloudSyncEndpoint =
@@ -265,6 +267,7 @@ class SettingsController extends ChangeNotifier {
   int _aiStreamMaxMessageCardsPerSecond;
   bool _aiStreamThrottleEnabled;
   bool _aiStreamThrottleAutoMode;
+  int _aiStreamThrottleDurationSeconds;
   String _aiStreamThrottleCloudSyncProvider;
   String _aiStreamThrottleCloudSyncEndpoint;
   String _aiStreamThrottleCloudSyncToken;
@@ -432,6 +435,7 @@ class SettingsController extends ChangeNotifier {
   int get aiStreamMaxMessageCardsPerSecond => _aiStreamMaxMessageCardsPerSecond;
   bool get aiStreamThrottleEnabled => _aiStreamThrottleEnabled;
   bool get aiStreamThrottleAutoMode => _aiStreamThrottleAutoMode;
+  int get aiStreamThrottleDurationSeconds => _aiStreamThrottleDurationSeconds;
   String get aiStreamThrottleCloudSyncProvider =>
       _aiStreamThrottleCloudSyncProvider;
   String get aiStreamThrottleCloudSyncEndpoint =>
@@ -1533,6 +1537,22 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  /// 节流持续时长（秒）。0 表示持续节流；>0 时超时后剩余流式响应直接
+  /// 按真实接收节奏追加。
+  Future<bool> updateAiStreamThrottleDurationSeconds(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiStreamThrottleDurationSeconds,
+      AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
+    );
+    return _commitThrottleMutation(() {
+      if (_aiStreamThrottleDurationSeconds == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiStreamThrottleDurationSeconds = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
   /// 2026-05-18 — 节流配置云端同步 provider 标识。
   Future<bool> updateAiStreamThrottleCloudSyncProvider(String value) async {
     final normalized = value.trim();
@@ -1687,6 +1707,7 @@ class SettingsController extends ChangeNotifier {
       'updated_at_ms': _aiStreamThrottleConfigUpdatedAtMs,
       'throttle_enabled': _aiStreamThrottleEnabled,
       'auto_mode': _aiStreamThrottleAutoMode,
+      'duration_seconds': _aiStreamThrottleDurationSeconds,
       'max_chars_per_second': _aiStreamMaxCharsPerSecond,
       'max_message_cards_per_second': _aiStreamMaxMessageCardsPerSecond,
       'template_overrides': <String, Object?>{
@@ -1723,6 +1744,12 @@ class SettingsController extends ChangeNotifier {
     if (auto is bool) {
       anyChange =
           await updateAiStreamThrottleAutoMode(auto) || anyChange;
+    }
+    final durationSec = doc['duration_seconds'];
+    if (durationSec is int) {
+      anyChange =
+          await updateAiStreamThrottleDurationSeconds(durationSec) ||
+          anyChange;
     }
     final maxChars = doc['max_chars_per_second'];
     if (maxChars is int) {
@@ -2652,6 +2679,7 @@ class SettingsController extends ChangeNotifier {
       aiStreamMaxMessageCardsPerSecond: _aiStreamMaxMessageCardsPerSecond,
       aiStreamThrottleEnabled: _aiStreamThrottleEnabled,
       aiStreamThrottleAutoMode: _aiStreamThrottleAutoMode,
+      aiStreamThrottleDurationSeconds: _aiStreamThrottleDurationSeconds,
       aiStreamThrottleCloudSyncProvider: _aiStreamThrottleCloudSyncProvider,
       aiStreamThrottleCloudSyncEndpoint: _aiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken: _aiStreamThrottleCloudSyncToken,
@@ -2782,6 +2810,7 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiStreamMaxMessageCardsPerSecond;
     _aiStreamThrottleEnabled = snapshot.aiStreamThrottleEnabled;
     _aiStreamThrottleAutoMode = snapshot.aiStreamThrottleAutoMode;
+    _aiStreamThrottleDurationSeconds = snapshot.aiStreamThrottleDurationSeconds;
     _aiStreamThrottleCloudSyncProvider =
         snapshot.aiStreamThrottleCloudSyncProvider;
     _aiStreamThrottleCloudSyncEndpoint =

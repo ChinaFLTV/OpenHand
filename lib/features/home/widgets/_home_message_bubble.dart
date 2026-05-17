@@ -51,6 +51,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 且位移<8逻辑像素，视为一次选中点击。
   Offset? _pointerDownPosition;
   DateTime? _pointerDownAt;
+  // 2026-05-17: 左上方胶囊（思考 / 工具调用 / 工具结果）有自己的
+  // 折叠/展开语义。指针落在胶囊内部时不应触发外层 Listener 的"选中
+  // 卡片"，否则会同时切换胶囊折叠和功能按钮。
+  final GlobalKey _metaCapsuleKey = GlobalKey();
 
   // Cached expensive objects to avoid re-allocation on every build.
   List<md.InlineSyntax>? _cachedInlineSyntaxes;
@@ -85,6 +89,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
     _lastCacheThemeBrightness = null;
     _lastCacheIsSelected = null;
     _lastCacheDarkCodeSurface = null;
+  }
+
+  /// 判断全局坐标是否落在左上方折叠胶囊的范围内。
+  /// 命中时点击仅用于切换胶囊本身的折叠态，不再驱动卡片选中。
+  bool _isPointerInsideMetaCapsule(Offset globalPosition) {
+    final box = _metaCapsuleKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached) return false;
+    final topLeft = box.localToGlobal(Offset.zero);
+    final rect = topLeft & box.size;
+    return rect.contains(globalPosition);
   }
 
   @override
@@ -315,20 +329,25 @@ class _MessageBubbleState extends State<_MessageBubble> {
             // app's motion design. Duration/curve 跟随全局弹窗动画设置
             // （与 reasoning / tool_call 折叠胶囊同一节奏），避免内外层
             // 动画相互竞争引发的「抽搐鬼畜」。
+            // 2026-05-17 — 曲线改用 Q 弹的 cubic-bezier(0.22,1.22,0.36,1)，
+            // 与 WEB 端 useMessageSizeMotion 的 growing 曲线一致，让
+            // 流式追加文本带来的体积增长感受到自然回弹。
             child: ClipRect(
               child: AnimatedSize(
                 duration: _reasoningBodyAnimDuration(
                   context,
-                  minMs: 180,
-                  maxMs: 320,
+                  minMs: 220,
+                  // ignore: avoid_redundant_argument_values
+                  maxMs: 360,
                 ),
-                curve: Curves.easeOutCubic,
+                curve: const Cubic(0.22, 1.22, 0.36, 1),
                 alignment: Alignment.topLeft,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (isCompressionPoint)
                       _MessageMetaRow(
+                        key: _metaCapsuleKey,
                         icon: Icons.summarize_rounded,
                         label: AppLocalizations.of(
                           context,
@@ -337,6 +356,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       )
                     else if (isReasoning)
                       _ReasoningMetaRow(
+                        key: _metaCapsuleKey,
                         message: message,
                         color: textColor,
                         showSweep: widget.showReasoningSweep,
@@ -350,11 +370,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       )
                     else if (isToolCall)
                       _ToolCallMetaRow(
+                        key: _metaCapsuleKey,
                         data: _ToolCallStatusViewData.from(context, message),
                         color: textColor,
                       )
                     else if (isToolResult)
                       _MessageMetaRow(
+                        key: _metaCapsuleKey,
                         icon: Icons.inventory_2_outlined,
                         label: _localizedText(
                           context,
@@ -578,6 +600,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
         _pointerDownPosition = null;
         _pointerDownAt = null;
         if (downPos == null || downAt == null) {
+          return;
+        }
+        // 2026-05-17: 左上方"思考 / 工具调用 / 工具结果"胶囊有自己的
+        // 折叠/展开手势，不应顺带触发整张消息卡的"选中"。这里取胶囊
+        // 全局矩形与抬起点比较，命中即直接 swallow 不切换 selection。
+        if (_isPointerInsideMetaCapsule(event.position)) {
           return;
         }
         final movement = (event.position - downPos).distance;
