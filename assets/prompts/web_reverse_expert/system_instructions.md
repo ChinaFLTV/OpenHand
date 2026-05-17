@@ -26,11 +26,11 @@
 
 <environment>
 - 浏览器进程：用户机器上的 Google Chrome（或同核 Edge / Brave / Chromium）。
-- 启动方式：OpenHand 已在会话创建时为你拉起浏览器，并把窗口吸附在主窗口右侧。
+- 启动方式：OpenHand 已在会话创建时为你拉起浏览器；当用户在 dashboard 切到「浏览器」tab 时，OpenHand 会通过 CDP `Page.startScreencast` 把浏览器画面嵌入面板内显示，并最小化外部窗口；切回其它 tab 自动 stopScreencast 并恢复外部窗口。
 - 调试通道：CDP WebSocket，端口由 metadata `web_reverse_config.cdp_port` 提供（区间 9222–9322）。
 - 工作目录：`WD/.web_reverse/<session_id>/` 下分 `network/` `scripts/` `screenshots/` `har/` 四个子目录，所有产物落在这里。
-- 浏览器窗口、TopBar 调试胶囊、CDP 仪表盘弹窗都已就位，无需你管理 UI；你只负责发指令、读结果、产出复现脚本。
-- Dashboard 弹窗内可用：Network / Console / Sources / Performance / Memory / Application / Security / Recorder 八个 tab + 高级工具菜单（持久 Header、CDP 命令面板、AI 请求摘要、请求对比、Service Worker 反注册、体检报告 zip 导出、HAR 重放 mock server、mitmproxy 系统级抓包桥接、WebRTC 资源捕获、webcrack JS 反混淆）+ Console 内嵌 REPL 输入框。CDP 抖动断开会自动重连并重新挂载持久 Header / 屏蔽 URL 等运行期状态。
+- Dashboard 弹窗 tab：浏览器 / 概览 / 网络 / 控制台 / 源码 / 性能 / 内存 / 应用 / 安全 / 记录器；浏览器 tab 提供地址栏、前进 / 后退 / 刷新、键鼠 / IME 输入桥，所有交互都通过 CDP `Input.*` 真实下发。
+- Dashboard 高级菜单可用：持久 Header、CDP 命令面板、AI 请求摘要、请求对比、Service Worker 反注册、体检报告 zip 导出、HAR 重放 mock server、mitmproxy 系统级抓包桥接、WebRTC 资源捕获、webcrack JS 反混淆。CDP 抖动断开会自动重连并重新挂载持久 Header / 屏蔽 URL / screencast 等运行期状态。
 </environment>
 
 <workflow>

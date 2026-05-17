@@ -1,13 +1,15 @@
 /** @jsxImportSource preact */
 // Web 端 Web 逆向调试面板（精简版）。
 //
-// 与桌面端的不同：浏览器外部进程由桌面 App 管理；Web 客户端只能看到
-// session metadata 中存储的配置摘要，不能控制浏览器或 CDP。本对话框
-// 给 Web 用户提供：
-//   - 当前会话的 web_reverse_config 摘要
+// 与桌面端的不同：浏览器进程、CDP 通道、screencast 输入桥都跑在桌面 App 上；
+// Web 客户端无法复用同一条 CDP（需要本地端口转发 / 鉴权，超出本端能力）。
+// 本对话框给 Web 用户提供：
+//   - 顶部胶囊行：浏览器（提示需桌面端）/ 概览（配置摘要）
+//   - 默认展示概览；点击「浏览器」胶囊提示需到桌面端使用
 //   - 与官方 DevTools 协同操作的指引
-// 提示模型/真实 CDP 数据流仍由桌面 App 端的 dashboard 持有。
+// 提示模型 / 真实 CDP 数据流仍由桌面 App 端的 dashboard 持有。
 
+import { useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { OverlayPortal } from './OverlayPortal';
 import { t } from '../i18n';
@@ -30,6 +32,8 @@ interface WebReverseConfig {
   keywords?: string[];
 }
 
+type WebReverseTab = 'browser' | 'overview';
+
 function asConfig(raw: unknown): WebReverseConfig | null {
   if (!raw || typeof raw !== 'object') return null;
   return raw as WebReverseConfig;
@@ -41,6 +45,7 @@ export function WebReverseDashboardDialog({
 }: WebReverseDashboardDialogProps) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const config = asConfig((session.metadata ?? {})['web_reverse_config']);
+  const [tab, setTab] = useState<WebReverseTab>('overview');
 
   const node = (
     <div
@@ -87,40 +92,27 @@ export function WebReverseDashboardDialog({
           </button>
         </header>
 
-        <div class="px-6 py-5 space-y-4 max-h-[70vh] overflow-auto">
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
-            {t(
-              'webReverse.dashboard.webOnlyHint',
-              'Web 端只展示会话配置摘要。完整 CDP 实时数据 / 网络面板 / 控制台请在桌面应用中打开。',
-            )}
-          </p>
+        <div
+          class="px-6 pt-4 flex gap-2 border-b"
+          style={{ borderColor: 'var(--m3-outline-variant)' }}
+        >
+          <TabPill
+            label={t('webReverse.tab.browser', '浏览器')}
+            active={tab === 'browser'}
+            onClick={() => setTab('browser')}
+          />
+          <TabPill
+            label={t('webReverse.tab.overview', '概览')}
+            active={tab === 'overview'}
+            onClick={() => setTab('overview')}
+          />
+        </div>
 
-          {config ? (
-            <div class="space-y-2 text-sm" style={{ color: 'var(--m3-on-surface)' }}>
-              <Row label={t('webReverse.config.targetUrl', '目标 URL')} value={config.target_url ?? '-'} mono />
-              <Row label={t('webReverse.config.objective', '逆向目标')} value={config.objective ?? '-'} />
-              <Row label={t('webReverse.config.browser', '浏览器')} value={config.browser_kind ?? '-'} />
-              <Row label={t('webReverse.config.cdpPort', 'CDP 端口')} value={String(config.cdp_port ?? '-')} mono />
-              <Row label={t('webReverse.config.loginMode', '登录态')} value={config.login_mode ?? '-'} />
-              {config.proxy ? <Row label={t('webReverse.config.proxy', '代理')} value={config.proxy} mono /> : null}
-              {config.keywords && config.keywords.length > 0
-                ? <Row label={t('webReverse.config.keywords', '关键关键字')} value={config.keywords.join(', ')} />
-                : null}
-              {config.trigger_actions
-                ? <Row label={t('webReverse.config.triggerActions', '触发动作')} value={config.trigger_actions} />
-                : null}
-            </div>
+        <div class="px-6 py-5 space-y-4 max-h-[70vh] overflow-auto">
+          {tab === 'browser' ? (
+            <BrowserTab />
           ) : (
-            <div
-              class="rounded-m3-sm border px-4 py-3 text-sm"
-              style={{
-                borderColor: 'var(--m3-outline-variant)',
-                background: 'var(--m3-surface-container-high)',
-                color: 'var(--m3-on-surface-variant)',
-              }}
-            >
-              {t('webReverse.dashboard.noConfig', '该会话尚未写入 web_reverse_config。')}
-            </div>
+            <OverviewTab config={config} />
           )}
         </div>
       </section>
@@ -128,6 +120,100 @@ export function WebReverseDashboardDialog({
   );
 
   return <OverlayPortal>{node}</OverlayPortal>;
+}
+
+function TabPill({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      class="px-3 py-1.5 rounded-full text-sm font-semibold transition-colors"
+      onClick={onClick}
+      style={{
+        background: active
+          ? 'var(--m3-primary-container)'
+          : 'transparent',
+        color: active
+          ? 'var(--m3-on-primary-container)'
+          : 'var(--m3-on-surface-variant)',
+        border: active
+          ? '1px solid var(--m3-primary)'
+          : '1px solid var(--m3-outline-variant)',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function BrowserTab() {
+  return (
+    <div
+      class="rounded-m3-sm border px-4 py-5 text-sm leading-relaxed"
+      style={{
+        borderColor: 'var(--m3-outline-variant)',
+        background: 'var(--m3-surface-container-high)',
+        color: 'var(--m3-on-surface)',
+      }}
+    >
+      <div class="font-semibold mb-2">
+        {t('webReverse.browser.heading', '内嵌浏览器需在桌面端使用')}
+      </div>
+      <p style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {t(
+          'webReverse.browser.body',
+          '内嵌浏览器面板基于 CDP screencast + Input 桥实时画面与键鼠 IME 输入，需要桌面应用直连本机 Chrome 进程。请在 OpenHand 桌面应用中打开本会话切到「浏览器」tab 操作。',
+        )}
+      </p>
+    </div>
+  );
+}
+
+function OverviewTab({ config }: { config: WebReverseConfig | null }) {
+  return (
+    <>
+      <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {t(
+          'webReverse.dashboard.webOnlyHint',
+          'Web 端只展示会话配置摘要。完整 CDP 实时数据 / 网络面板 / 控制台请在桌面应用中打开。',
+        )}
+      </p>
+      {config ? (
+        <div class="space-y-2 text-sm" style={{ color: 'var(--m3-on-surface)' }}>
+          <Row label={t('webReverse.config.targetUrl', '目标 URL')} value={config.target_url ?? '-'} mono />
+          <Row label={t('webReverse.config.objective', '逆向目标')} value={config.objective ?? '-'} />
+          <Row label={t('webReverse.config.browser', '浏览器')} value={config.browser_kind ?? '-'} />
+          <Row label={t('webReverse.config.cdpPort', 'CDP 端口')} value={String(config.cdp_port ?? '-')} mono />
+          <Row label={t('webReverse.config.loginMode', '登录态')} value={config.login_mode ?? '-'} />
+          {config.proxy ? <Row label={t('webReverse.config.proxy', '代理')} value={config.proxy} mono /> : null}
+          {config.keywords && config.keywords.length > 0
+            ? <Row label={t('webReverse.config.keywords', '关键关键字')} value={config.keywords.join(', ')} />
+            : null}
+          {config.trigger_actions
+            ? <Row label={t('webReverse.config.triggerActions', '触发动作')} value={config.trigger_actions} />
+            : null}
+        </div>
+      ) : (
+        <div
+          class="rounded-m3-sm border px-4 py-3 text-sm"
+          style={{
+            borderColor: 'var(--m3-outline-variant)',
+            background: 'var(--m3-surface-container-high)',
+            color: 'var(--m3-on-surface-variant)',
+          }}
+        >
+          {t('webReverse.dashboard.noConfig', '该会话尚未写入 web_reverse_config。')}
+        </div>
+      )}
+    </>
+  );
 }
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {

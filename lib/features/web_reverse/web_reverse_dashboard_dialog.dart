@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -26,6 +27,7 @@ part 'web_reverse_dashboard_dialog.toolbar.part.dart';
 part 'web_reverse_dashboard_dialog.panels.part.dart';
 part 'web_reverse_dashboard_dialog.advanced.part.dart';
 part 'web_reverse_dashboard_dialog.sources.part.dart';
+part 'web_reverse_dashboard_dialog.browser.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -70,6 +72,7 @@ class _WebReverseDashboardDialog extends StatefulWidget {
 }
 
 enum _Tab {
+  browser,
   overview,
   network,
   console,
@@ -288,6 +291,11 @@ class _WebReverseDashboardDialogState
     bool reduceMotion,
   ) {
     return switch (_tab) {
+      _Tab.browser => _BrowserBody(
+          controller: ctrl,
+          isZh: isZh,
+          reduceMotion: reduceMotion,
+        ),
       _Tab.overview => _OverviewBody(controller: ctrl, isZh: isZh),
       _Tab.network => _NetworkBody(
           state: this,

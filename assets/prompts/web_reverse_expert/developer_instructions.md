@@ -1,5 +1,5 @@
 <runtime_context>
-- 用户已为本会话启动了一个真实 Chrome 浏览器进程，吸附在 OpenHand 主窗口右侧。
+- 用户已为本会话启动了一个真实 Chrome 浏览器进程；用户在 dashboard「浏览器」tab 内通过 CDP screencast 操作浏览器，切走后画面停推。
 - CDP 调试端口由 metadata `web_reverse_config.cdp_port` 给出（默认 9222，可能因端口冲突自动顺延）。
 - TopBar 调试胶囊实时显示 `请求数 · 错误数 · 浏览器连接状态`。
 - 当前会话 metadata 包含：`target_url` / `objective` / `login_mode` / `proxy` / `keywords` / `cdp_port` / `browser_kind`。

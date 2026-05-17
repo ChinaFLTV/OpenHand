@@ -177,6 +177,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   }
 
   String _tabLabel(_Tab t, bool isZh) => switch (t) {
+        _Tab.browser => isZh ? '浏览器' : 'Browser',
         _Tab.overview => isZh ? '概览' : 'Overview',
         _Tab.network => isZh ? '网络' : 'Network',
         _Tab.console => isZh ? '控制台' : 'Console',
@@ -189,6 +190,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       };
 
   IconData _tabIcon(_Tab t) => switch (t) {
+        _Tab.browser => Icons.public_rounded,
         _Tab.overview => Icons.dashboard_rounded,
         _Tab.network => Icons.swap_horiz_rounded,
         _Tab.console => Icons.terminal_rounded,
@@ -203,6 +205,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   int? _tabBadgeCount(_Tab t) {
     final c = widget.controller;
     return switch (t) {
+      _Tab.browser => null,
       _Tab.overview => null,
       _Tab.network => c.networkRequests.length,
       _Tab.console => c.consoleMessages.length,

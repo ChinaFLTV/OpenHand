@@ -104,6 +104,42 @@ class WebReverseSessionController extends ChangeNotifier {
       _networkRequests.where((e) => e.isError).length +
       _consoleMessages.where((e) => e.level == 'error').length;
 
+  // ── 内嵌浏览器 screencast 状态 ───────────────────────────────────────
+  // dashboard 切到「浏览器」tab 时打开 startScreencast，把 page 的实时画面
+  // 以 JPEG 帧推过来；切走 / 关闭 dashboard 时立刻 stopScreencast。资源
+  // 控制三道闸：
+  //   1. 引用计数 _screencastRefCount：多个 widget 同时订阅时只发一次 start。
+  //   2. _latestScreencastFrame 仅保留最近一帧（Uint8List），避免堆内存爬高。
+  //   3. ack-back 模型：CDP 每帧带 sessionId，需立即 Page.screencastFrameAck，
+  //      否则浏览器会停推；这里同步 ack 保证每帧不积压。
+  static const int _screencastDefaultMaxWidth = 1280;
+  static const int _screencastDefaultMaxHeight = 720;
+  static const int _screencastDefaultQuality = 70;
+
+  int _screencastRefCount = 0;
+  bool _screencastActive = false;
+  Uint8List? _latestScreencastFrame;
+  int _screencastFrameSeq = 0;
+  int _screencastWidth = _screencastDefaultMaxWidth;
+  int _screencastHeight = _screencastDefaultMaxHeight;
+  int _screencastQuality = _screencastDefaultQuality;
+  DateTime? _lastScreencastFrameAt;
+
+  /// 当前最新一帧（JPEG 字节）；切到浏览器 tab 后 widget 用 [Image.memory] 渲染。
+  Uint8List? get latestScreencastFrame => _latestScreencastFrame;
+
+  /// 帧序号（自增），widget 用作 key 触发 [Image.memory] 重绘。
+  int get screencastFrameSeq => _screencastFrameSeq;
+
+  /// 当前帧的浏览器视口尺寸（CSS 像素）。
+  int get screencastWidth => _screencastWidth;
+  int get screencastHeight => _screencastHeight;
+
+  bool get isScreencastActive => _screencastActive;
+
+  /// 上次帧到达时间，UI 用来判断"是否长时间无帧"以提示用户。
+  DateTime? get lastScreencastFrameAt => _lastScreencastFrameAt;
+
   // ── 生命周期 ─────────────────────────────────────────────────────────
 
   Future<void> start() async {
@@ -206,6 +242,8 @@ class WebReverseSessionController extends ChangeNotifier {
         _onWebSocketFrame(ev.params, CdpWebSocketDirection.error);
       case 'Page.frameNavigated':
         _onFrameNavigated(ev.params);
+      case 'Page.screencastFrame':
+        _onScreencastFrame(ev.params);
       case 'Runtime.consoleAPICalled':
         _onConsoleApi(ev.params);
       case 'Log.entryAdded':
@@ -1257,6 +1295,48 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  /// CDP `Page.screencastFrame` 事件回调。每帧到达后必须立刻 ack，
+  /// 否则浏览器会停止推帧；同时只保留最新一帧 + 自增帧号让 widget 重绘。
+  void _onScreencastFrame(Map<String, Object?> p) {
+    final data = p['data'] as String?;
+    final sessionId = p['sessionId'];
+    if (data != null && data.isNotEmpty) {
+      try {
+        _latestScreencastFrame = base64Decode(data);
+        _screencastFrameSeq++;
+        _lastScreencastFrameAt = DateTime.now();
+        final meta = p['metadata'] as Map?;
+        final w = (meta?['deviceWidth'] as num?)?.round();
+        final h = (meta?['deviceHeight'] as num?)?.round();
+        if (w != null && w > 0) _screencastWidth = w;
+        if (h != null && h > 0) _screencastHeight = h;
+        _safeNotify();
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'decode screencast frame',
+          error,
+          stack,
+        );
+      }
+    }
+    // ack 必须发送，且要带回原 sessionId。即便帧解码失败也要 ack，否则
+    // 浏览器会卡住整个 screencast 流。
+    final cdp = _browserCdp;
+    if (cdp != null && _pageSessionId != null && sessionId is num) {
+      unawaited(
+        cdp
+            .send(
+              'Page.screencastFrameAck',
+              params: <String, Object?>{'sessionId': sessionId.toInt()},
+              sessionId: _pageSessionId,
+              timeout: const Duration(seconds: 3),
+            )
+            .catchError((_) => <String, Object?>{}),
+      );
+    }
+  }
+
   static Map<String, String> _flattenHeaders(Object? raw) {
     if (raw is! Map) return const <String, String>{};
     final out = <String, String>{};
@@ -1326,6 +1406,23 @@ class WebReverseSessionController extends ChangeNotifier {
           params: <String, Object?>{'urls': _blockedUrls.toList()},
           sessionId: _pageSessionId,
         );
+      }
+      // 内嵌浏览器 widget 仍处于激活状态时，要把 screencast 拉起来续上画面。
+      if (_screencastActive || _screencastRefCount > 0) {
+        try {
+          await cdp.send(
+            'Page.startScreencast',
+            params: <String, Object?>{
+              'format': 'jpeg',
+              'quality': _screencastQuality,
+              'maxWidth': _screencastWidth,
+              'maxHeight': _screencastHeight,
+              'everyNthFrame': 1,
+            },
+            sessionId: _pageSessionId,
+          );
+          _screencastActive = true;
+        } catch (_) {}
       }
       _appendConsole('info', '[OpenHand] CDP 已自动重连，已恢复网络 / 控制台监听');
     } catch (error, stack) {
@@ -1450,6 +1547,22 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<void> _safeStop() async {
     _dock?.stop();
+    // 主动停 screencast：进程将被 kill，事件流也会断；提前 stop 防止
+    // 浏览器侧 ack 队列卡住影响下次拉起。
+    if (_screencastActive) {
+      final cdp = _browserCdp;
+      try {
+        if (cdp != null && _pageSessionId != null) {
+          await cdp
+              .send('Page.stopScreencast', sessionId: _pageSessionId)
+              .timeout(const Duration(milliseconds: 500));
+        }
+      } catch (_) {}
+      _screencastActive = false;
+      _screencastRefCount = 0;
+      _latestScreencastFrame = null;
+      _screencastFrameSeq = 0;
+    }
     await _pageEventsSub?.cancel();
     await _mitmSub?.cancel();
     final br = _mitmBridge;
@@ -1770,6 +1883,338 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final v = (r['result'] as Map?)?['value'];
       return v is num ? v.toDouble() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── 内嵌浏览器：screencast 控制 / 输入桥 / 导航 API ──────────────────
+
+  /// dashboard "浏览器" tab 激活时调用。引用计数 +1，第一个订阅者真正发送
+  /// `Page.startScreencast`；后续重复调用只是引用计数累加，避免重复发命令
+  /// 触发浏览器侧不必要的开销。返回 true 表示当前已处于 active 状态。
+  Future<bool> acquireScreencast({
+    int maxWidth = _screencastDefaultMaxWidth,
+    int maxHeight = _screencastDefaultMaxHeight,
+    int quality = _screencastDefaultQuality,
+    int everyNthFrame = 1,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    _screencastRefCount++;
+    if (_screencastActive) return true;
+    try {
+      final clampedQuality = quality.clamp(20, 95);
+      final clampedW = maxWidth.clamp(160, 4096);
+      final clampedH = maxHeight.clamp(120, 4096);
+      final clampedNth = everyNthFrame.clamp(1, 8);
+      await cdp.send(
+        'Page.startScreencast',
+        params: <String, Object?>{
+          'format': 'jpeg',
+          'quality': clampedQuality,
+          'maxWidth': clampedW,
+          'maxHeight': clampedH,
+          'everyNthFrame': clampedNth,
+        },
+        sessionId: _pageSessionId,
+      );
+      _screencastActive = true;
+      _screencastQuality = clampedQuality;
+      // 屏幕已被 Flutter 端 screencast 接管渲染：暂停外部窗口吸附 + 把
+      // 真实浏览器窗口最小化，避免两套画面同时出现。
+      _dock?.stop();
+      unawaited(_dock?.hideBrowserWindow());
+      _safeNotify();
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'acquireScreencast',
+        error,
+        stack,
+      );
+      _screencastRefCount = (_screencastRefCount - 1).clamp(0, 1 << 30);
+      return false;
+    }
+  }
+
+  /// dashboard "浏览器" tab 切走 / 关闭时调用。引用计数归零后才真正
+  /// `Page.stopScreencast` + 清空缓存帧，避免 widget 重新挂载时拿到陈旧画面。
+  Future<void> releaseScreencast() async {
+    if (_screencastRefCount > 0) _screencastRefCount--;
+    if (_screencastRefCount > 0) return;
+    if (!_screencastActive) return;
+    final cdp = _browserCdp;
+    try {
+      if (cdp != null && _pageSessionId != null) {
+        await cdp
+            .send('Page.stopScreencast', sessionId: _pageSessionId)
+            .timeout(const Duration(seconds: 3));
+      }
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'releaseScreencast',
+        error,
+        stack,
+      );
+    }
+    _screencastActive = false;
+    _latestScreencastFrame = null;
+    _screencastFrameSeq = 0;
+    // 还原外部浏览器窗口与吸附线程，让用户可以继续用真实浏览器。
+    unawaited(_dock?.showBrowserWindow());
+    _dock?.start();
+    _safeNotify();
+  }
+
+  /// 调整 screencast 输出尺寸 / 质量。widget 矩形变化或用户手动切档位时调用。
+  /// 内部对底层重新调一次 startScreencast 做参数热替换，仅在 active 时生效。
+  Future<void> reconfigureScreencast({
+    required int maxWidth,
+    required int maxHeight,
+    int? quality,
+    int everyNthFrame = 1,
+  }) async {
+    if (!_screencastActive) return;
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    final clampedW = maxWidth.clamp(160, 4096);
+    final clampedH = maxHeight.clamp(120, 4096);
+    final clampedQ = (quality ?? _screencastQuality).clamp(20, 95);
+    final clampedNth = everyNthFrame.clamp(1, 8);
+    try {
+      await cdp.send(
+        'Page.startScreencast',
+        params: <String, Object?>{
+          'format': 'jpeg',
+          'quality': clampedQ,
+          'maxWidth': clampedW,
+          'maxHeight': clampedH,
+          'everyNthFrame': clampedNth,
+        },
+        sessionId: _pageSessionId,
+      );
+      _screencastQuality = clampedQ;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'reconfigureScreencast',
+        error,
+        stack,
+      );
+    }
+  }
+
+  /// `Input.dispatchMouseEvent`。坐标系：CSS 像素，相对于浏览器 viewport 左上角。
+  /// 由内嵌浏览器 widget 把本地命中点折算成 viewport 坐标后调用。
+  Future<void> dispatchMouseEvent({
+    required String type,
+    required double x,
+    required double y,
+    String button = 'none',
+    int buttons = 0,
+    int clickCount = 0,
+    double deltaX = 0,
+    double deltaY = 0,
+    int modifiers = 0,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send(
+        'Input.dispatchMouseEvent',
+        params: <String, Object?>{
+          'type': type,
+          'x': x,
+          'y': y,
+          'button': button,
+          'buttons': buttons,
+          'clickCount': clickCount,
+          'deltaX': deltaX,
+          'deltaY': deltaY,
+          'modifiers': modifiers,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'dispatchMouseEvent $type',
+        error,
+        stack,
+      );
+    }
+  }
+
+  /// `Input.dispatchKeyEvent`。`type` ∈ keyDown / keyUp / rawKeyDown / char。
+  Future<void> dispatchKeyEvent({
+    required String type,
+    String? key,
+    String? code,
+    String? text,
+    int? windowsVirtualKeyCode,
+    int? nativeVirtualKeyCode,
+    int modifiers = 0,
+    bool autoRepeat = false,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send(
+        'Input.dispatchKeyEvent',
+        params: <String, Object?>{
+          'type': type,
+          if (key != null) 'key': key,
+          if (code != null) 'code': code,
+          if (text != null) 'text': text,
+          if (windowsVirtualKeyCode != null)
+            'windowsVirtualKeyCode': windowsVirtualKeyCode,
+          if (nativeVirtualKeyCode != null)
+            'nativeVirtualKeyCode': nativeVirtualKeyCode,
+          'modifiers': modifiers,
+          'autoRepeat': autoRepeat,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'dispatchKeyEvent $type',
+        error,
+        stack,
+      );
+    }
+  }
+
+  /// `Input.insertText`：IME 提交 / 多字符粘贴的快捷方式。
+  Future<void> insertText(String text) async {
+    if (text.isEmpty) return;
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send(
+        'Input.insertText',
+        params: <String, Object?>{'text': text},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'insertText',
+        error,
+        stack,
+      );
+    }
+  }
+
+  /// 把页面导航到 [url]。内嵌浏览器地址栏回车 / 下拉历史均走这里。
+  Future<void> navigate(String url) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send(
+        'Page.navigate',
+        params: <String, Object?>{'url': url},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 10),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'navigate $url',
+        error,
+        stack,
+      );
+    }
+  }
+
+  /// 后退一帧（若有历史）。
+  Future<void> goBack() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      final r = await cdp.send(
+        'Page.getNavigationHistory',
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
+      );
+      final entries = (r['entries'] as List?) ?? const [];
+      final current = (r['currentIndex'] as num?)?.toInt() ?? -1;
+      if (current <= 0 || entries.isEmpty) return;
+      final id =
+          (entries[current - 1] as Map?)?['id'];
+      if (id == null) return;
+      await cdp.send(
+        'Page.navigateToHistoryEntry',
+        params: <String, Object?>{'entryId': id},
+        sessionId: _pageSessionId,
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'goBack', error, stack);
+    }
+  }
+
+  /// 前进一帧（若有历史）。
+  Future<void> goForward() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      final r = await cdp.send(
+        'Page.getNavigationHistory',
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
+      );
+      final entries = (r['entries'] as List?) ?? const [];
+      final current = (r['currentIndex'] as num?)?.toInt() ?? -1;
+      if (current < 0 || current + 1 >= entries.length) return;
+      final id =
+          (entries[current + 1] as Map?)?['id'];
+      if (id == null) return;
+      await cdp.send(
+        'Page.navigateToHistoryEntry',
+        params: <String, Object?>{'entryId': id},
+        sessionId: _pageSessionId,
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'goForward', error, stack);
+    }
+  }
+
+  /// 重新加载当前页（不清缓存）。
+  Future<void> reload({bool ignoreCache = false}) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send(
+        'Page.reload',
+        params: <String, Object?>{'ignoreCache': ignoreCache},
+        sessionId: _pageSessionId,
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'reload', error, stack);
+    }
+  }
+
+  /// 读取主 frame 的当前 URL。地址栏初始化 / 导航后同步用。
+  Future<String?> currentUrl() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{
+          'expression': 'location.href',
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
+      );
+      return (r['result'] as Map?)?['value'] as String?;
     } catch (_) {
       return null;
     }
