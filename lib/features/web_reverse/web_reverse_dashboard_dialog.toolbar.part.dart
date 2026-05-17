@@ -1477,25 +1477,36 @@ class _HarChangeRow extends StatelessWidget {
             ),
           ),
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _BodyPreview(
-                    title: 'A · ${c.a.mimeType}',
-                    body: c.a.bodyText,
+            // 2026-05-24 — body 文本不同时走行级 unified diff（LCS-based），
+            // 两份都为空 / 同时只有一边有内容 → 退化到双列截断预览。
+            if (c.textChanged && c.a.bodyText.isNotEmpty && c.b.bodyText.isNotEmpty)
+              _UnifiedBodyDiff(
+                titleA: 'A · ${c.a.mimeType}',
+                titleB: 'B · ${c.b.mimeType}',
+                bodyA: c.a.bodyText,
+                bodyB: c.b.bodyText,
+                isZh: isZh,
+              )
+            else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _BodyPreview(
+                      title: 'A · ${c.a.mimeType}',
+                      body: c.a.bodyText,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _BodyPreview(
-                    title: 'B · ${c.b.mimeType}',
-                    body: c.b.bodyText,
-                    accentChanged: c.textChanged,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _BodyPreview(
+                      title: 'B · ${c.b.mimeType}',
+                      body: c.b.bodyText,
+                      accentChanged: c.textChanged,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ],
         ),
       ),
@@ -1597,6 +1608,258 @@ class _BodyPreview extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// HAR Diff 第三级：两份 body 行级 unified diff。基于 LCS 还原编辑序列，
+/// 渲染时按 git unified-diff 风格 ` `（context）、`+`（B 新增）、`-`（A 删
+/// 除）三色行；context 行折叠超过 ±3 行的连续相同段成 `… N lines …`，
+/// 避免长 JSON 全展开撑爆面板。每边 body 截断 4000 字符上限以护性能。
+class _UnifiedBodyDiff extends StatelessWidget {
+  const _UnifiedBodyDiff({
+    required this.titleA,
+    required this.titleB,
+    required this.bodyA,
+    required this.bodyB,
+    required this.isZh,
+  });
+
+  final String titleA;
+  final String titleB;
+  final String bodyA;
+  final String bodyB;
+  final bool isZh;
+
+  static const int _kMaxBodyChars = 4000;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final aTrim = bodyA.length > _kMaxBodyChars
+        ? '${bodyA.substring(0, _kMaxBodyChars)}…'
+        : bodyA;
+    final bTrim = bodyB.length > _kMaxBodyChars
+        ? '${bodyB.substring(0, _kMaxBodyChars)}…'
+        : bodyB;
+    final aLines = aTrim.split('\n');
+    final bLines = bTrim.split('\n');
+    final ops = _diffLines(aLines, bLines);
+    final folded = _foldContext(ops);
+    final stats = (
+      added: ops.where((o) => o.kind == _HarUnifiedKind.added).length,
+      removed: ops.where((o) => o.kind == _HarUnifiedKind.removed).length,
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '$titleA → $titleB',
+                style: theme.textTheme.labelSmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 8),
+              _HarUnifiedStat(
+                label: '+${stats.added}',
+                color: Colors.green,
+              ),
+              const SizedBox(width: 4),
+              _HarUnifiedStat(
+                label: '-${stats.removed}',
+                color: cs.error,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final row in folded) _renderRow(row, cs),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _renderRow(_HarUnifiedRow row, ColorScheme cs) {
+    if (row.kind == _HarUnifiedKind.fold) {
+      return Container(
+        color: cs.surfaceContainerHighest,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        child: Text(
+          isZh ? '… 折叠 ${row.foldedCount} 行 …' : '… ${row.foldedCount} hidden …',
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 10.5,
+            color: cs.onSurfaceVariant,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      );
+    }
+    final color = switch (row.kind) {
+      _HarUnifiedKind.added => Colors.green.withValues(alpha: 0.16),
+      _HarUnifiedKind.removed => cs.error.withValues(alpha: 0.16),
+      _ => Colors.transparent,
+    };
+    final prefix = switch (row.kind) {
+      _HarUnifiedKind.added => '+ ',
+      _HarUnifiedKind.removed => '- ',
+      _ => '  ',
+    };
+    return Container(
+      color: color,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      child: SelectableText(
+        '$prefix${row.line}',
+        style: const TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 11,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+
+  /// LCS-based 行级 diff。返回的 `_HarUnifiedRow` 顺序与 unified diff 一致：
+  /// context 出现在两边都有的位置；A 独有 → removed；B 独有 → added。
+  /// 复杂度 O(N×M)，对默认 ≤4000 字符上限的 body 完全够用。
+  static List<_HarUnifiedRow> _diffLines(List<String> a, List<String> b) {
+    final n = a.length;
+    final m = b.length;
+    // dp[i][j] = 前 i 行 a 与前 j 行 b 的 LCS 长度。
+    final dp = List<List<int>>.generate(n + 1, (_) => List<int>.filled(m + 1, 0));
+    for (var i = 1; i <= n; i++) {
+      for (var j = 1; j <= m; j++) {
+        if (a[i - 1] == b[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = dp[i - 1][j] >= dp[i][j - 1]
+              ? dp[i - 1][j]
+              : dp[i][j - 1];
+        }
+      }
+    }
+    final out = <_HarUnifiedRow>[];
+    var i = n, j = m;
+    while (i > 0 && j > 0) {
+      if (a[i - 1] == b[j - 1]) {
+        out.add(_HarUnifiedRow(line: a[i - 1], kind: _HarUnifiedKind.same));
+        i--;
+        j--;
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+        out.add(_HarUnifiedRow(line: a[i - 1], kind: _HarUnifiedKind.removed));
+        i--;
+      } else {
+        out.add(_HarUnifiedRow(line: b[j - 1], kind: _HarUnifiedKind.added));
+        j--;
+      }
+    }
+    while (i > 0) {
+      out.add(_HarUnifiedRow(line: a[i - 1], kind: _HarUnifiedKind.removed));
+      i--;
+    }
+    while (j > 0) {
+      out.add(_HarUnifiedRow(line: b[j - 1], kind: _HarUnifiedKind.added));
+      j--;
+    }
+    return out.reversed.toList(growable: false);
+  }
+
+  /// 把超过 ±3 行的连续 context 段折叠成单行 fold 标识。差异行附近 3
+  /// 行保留以便给 reader 当上下文锚点。
+  static List<_HarUnifiedRow> _foldContext(List<_HarUnifiedRow> ops) {
+    const ctx = 3;
+    final result = <_HarUnifiedRow>[];
+    final n = ops.length;
+    final keep = List<bool>.filled(n, false);
+    for (var i = 0; i < n; i++) {
+      if (ops[i].kind == _HarUnifiedKind.same) continue;
+      final lo = (i - ctx).clamp(0, n - 1);
+      final hi = (i + ctx).clamp(0, n - 1);
+      for (var k = lo; k <= hi; k++) {
+        keep[k] = true;
+      }
+    }
+    var foldStart = -1;
+    for (var i = 0; i < n; i++) {
+      if (ops[i].kind == _HarUnifiedKind.same && !keep[i]) {
+        if (foldStart < 0) foldStart = i;
+        continue;
+      }
+      if (foldStart >= 0) {
+        result.add(_HarUnifiedRow(
+          line: '',
+          kind: _HarUnifiedKind.fold,
+          foldedCount: i - foldStart,
+        ));
+        foldStart = -1;
+      }
+      result.add(ops[i]);
+    }
+    if (foldStart >= 0) {
+      result.add(_HarUnifiedRow(
+        line: '',
+        kind: _HarUnifiedKind.fold,
+        foldedCount: n - foldStart,
+      ));
+    }
+    return result;
+  }
+}
+
+enum _HarUnifiedKind { same, added, removed, fold }
+
+class _HarUnifiedRow {
+  const _HarUnifiedRow({
+    required this.line,
+    required this.kind,
+    this.foldedCount = 0,
+  });
+  final String line;
+  final _HarUnifiedKind kind;
+  final int foldedCount;
+}
+
+class _HarUnifiedStat extends StatelessWidget {
+  const _HarUnifiedStat({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontFamily: 'monospace',
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

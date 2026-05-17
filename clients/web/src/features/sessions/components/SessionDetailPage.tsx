@@ -5958,6 +5958,11 @@ function SessionThrottleDialog({
 /// 30 秒字符吞吐柱状图。bucket 0 = 当前秒（最右），越往左越旧。柱高
 /// = v / cap，超阈值（v > limitValue）红色高亮。空 / 全 0 时也渲染出
 /// 占位网格，不出现"什么都没有"的体验黑洞。
+///
+/// 2026-05-24 — 增加 RAF 平滑：SSE 每秒推一次新桶导致柱形"跳变"显得
+/// 生硬；这里维护 displayedRef 缓存上一帧每根柱的高度（0..1），用
+/// requestAnimationFrame 在 320ms 内按 easeOutCubic 把每根柱从旧值滑到
+/// 新值，新出现的当前秒柱透明度从 0 淡入 1，让整个曲线 Q 弹丝滑。
 function ThroughputBars({
   samples,
   cap,
@@ -5970,6 +5975,59 @@ function ThroughputBars({
   const n = samples.length === 0 ? 30 : samples.length;
   const padded = samples.length === 0 ? new Array<number>(30).fill(0) : samples;
   const safeCap = Math.max(cap, 1);
+  const targets = padded.map((v) => Math.min(1, v / safeCap));
+  // 每根柱当前展示的归一化高度，长度恒为 n。
+  const displayedRef = useRef<number[]>([]);
+  const fromRef = useRef<number[]>([]);
+  const targetRef = useRef<number[]>([]);
+  const startRef = useRef<number>(0);
+  const rafRef = useRef<number | null>(null);
+  // 强制渲染计数：每一帧 +1 触发 re-render；用 useState 避免 useReducer 引入。
+  const [, forceTick] = useState(0);
+
+  useEffect(() => {
+    // displayedRef 第一次填满时直接落到 target（不动画首屏）。
+    if (displayedRef.current.length !== n) {
+      displayedRef.current = [...targets];
+      forceTick((c) => c + 1);
+      return;
+    }
+    fromRef.current = [...displayedRef.current];
+    targetRef.current = [...targets];
+    startRef.current =
+      typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    const tick = () => {
+      const now =
+        typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const elapsed = now - startRef.current;
+      const t = Math.min(1, elapsed / 320);
+      // easeOutCubic
+      const e = 1 - Math.pow(1 - t, 3);
+      const next = new Array<number>(n);
+      for (let i = 0; i < n; i++) {
+        const a = fromRef.current[i] ?? 0;
+        const b = targetRef.current[i] ?? 0;
+        next[i] = a + (b - a) * e;
+      }
+      displayedRef.current = next;
+      forceTick((c) => c + 1);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+      else rafRef.current = null;
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
+    // 仅在 samples 内容变化时重启动画。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [samples.join(','), n]);
+
+  const displayed = displayedRef.current.length === n
+      ? displayedRef.current
+      : targets;
+
   return (
     <div class="relative" style={{ height: '56px' }}>
       <div
@@ -5983,7 +6041,7 @@ function ThroughputBars({
         {Array.from({ length: n }).map((_, visualIdx) => {
           const i = n - 1 - visualIdx;
           const v = padded[i] ?? 0;
-          const h = Math.min(100, (v / safeCap) * 100);
+          const h = (displayed[i] ?? 0) * 100;
           const overLimit = limitValue > 0 && v > limitValue;
           const isCurrent = i === 0;
           const color = overLimit
@@ -5999,6 +6057,7 @@ function ThroughputBars({
                 height: `${Math.max(h, 1)}%`,
                 background: color,
                 opacity: isCurrent ? 1 : v === 0 ? 0.18 : 0.55,
+                transition: 'opacity 220ms ease-out',
               }}
             />
           );

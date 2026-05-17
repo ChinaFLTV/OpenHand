@@ -938,6 +938,9 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   final Map<int, List<_IceEntry>> _iceLog = <int, List<_IceEntry>>{};
   // SDP 历史：每个 PC 维护 local / remote 各两份（最新 + 上一份），用于 diff。
   final Map<int, _SdpPair> _sdps = <int, _SdpPair>{};
+  // 2026-05-24 — ICE tab 的「时序 / 图」视图切换。默认时序列表，用户切到
+  // 图模式后用 _IceTopologyGraph 渲染当前 PC 的有向拓扑。
+  bool _iceGraphMode = false;
 
   @override
   void initState() {
@@ -1289,6 +1292,11 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   /// 时间序列垂直列出来；左侧是 ChoiceChip 切 PC，右侧滚动列。本地候选
   /// （typ host）用 primary 色点；srflx / relay 用 tertiary；远端候选不
   /// 区分单独标 secondary。datachannel / track 单列前缀图标。
+  ///
+  /// 2026-05-24 — 顶部加「时序 / 图」切换：图模式用 CustomPainter 把
+  /// candidate / track / datachannel 节点按 typ 分组围着 PC 节点展开成有
+  /// 向图，箭头由 candidate 指向 PC、track 由 PC 指向 stream，让用户一眼
+  /// 看清拓扑。
   Widget _buildIceTab(ThemeData theme) {
     final cs = theme.colorScheme;
     final isZh = widget.isZh;
@@ -1315,51 +1323,90 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
+          Row(
             children: [
-              for (final id in ids)
-                ChoiceChip(
-                  label: Text('PC #$id · ${_iceLog[id]!.length}'),
-                  selected: id == selectedId,
-                  onSelected: (_) => setState(() => _selected = id),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final id in ids)
+                    ChoiceChip(
+                      label: Text('PC #$id · ${_iceLog[id]!.length}'),
+                      selected: id == selectedId,
+                      onSelected: (_) => setState(() => _selected = id),
+                    ),
+                ],
+              ),
+              const Spacer(),
+              SegmentedButton<bool>(
+                segments: <ButtonSegment<bool>>[
+                  ButtonSegment(
+                    value: false,
+                    icon: const Icon(Icons.list_rounded, size: 14),
+                    label: Text(isZh ? '时序' : 'List'),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    icon: const Icon(Icons.hub_rounded, size: 14),
+                    label: Text(isZh ? '图' : 'Graph'),
+                  ),
+                ],
+                selected: {_iceGraphMode},
+                onSelectionChanged: (s) =>
+                    setState(() => _iceGraphMode = s.first),
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
                 ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: ListView.builder(
-              itemCount: entries.length,
-              itemBuilder: (_, i) {
-                // 倒序展示：最新事件在顶部更易观察。
-                final entry = entries[entries.length - 1 - i];
-                final summary = _summarizeIce(entry, isZh);
-                final color = _iceTone(entry.kind, cs);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        margin: const EdgeInsets.only(top: 5, right: 8),
-                        decoration:
-                            BoxDecoration(color: color, shape: BoxShape.circle),
-                      ),
-                      Expanded(
-                        child: SelectableText(
-                          summary,
-                          style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 11.5),
+            child: _iceGraphMode
+                ? _IceTopologyGraph(
+                    pcId: selectedId,
+                    entries: entries,
+                    primary: cs.primary,
+                    tertiary: cs.tertiary,
+                    secondary: cs.secondary,
+                    error: cs.error,
+                    onSurface: cs.onSurface,
+                    surfaceContainer: cs.surfaceContainerHigh,
+                    isZh: isZh,
+                  )
+                : ListView.builder(
+                    itemCount: entries.length,
+                    itemBuilder: (_, i) {
+                      // 倒序展示：最新事件在顶部更易观察。
+                      final entry = entries[entries.length - 1 - i];
+                      final summary = _summarizeIce(entry, isZh);
+                      final color = _iceTone(entry.kind, cs);
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              margin: const EdgeInsets.only(top: 5, right: 8),
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            Expanded(
+                              child: SelectableText(
+                                summary,
+                                style: const TextStyle(
+                                    fontFamily: 'monospace', fontSize: 11.5),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -2383,4 +2430,337 @@ class _SdpDiffRow {
   const _SdpDiffRow({required this.line, required this.kind});
   final String line;
   final _DiffKind kind;
+}
+
+
+/// ICE 拓扑有向图：把当前 PC 收到的 candidate / track / datachannel 节
+/// 点围着 PC 中心节点摆成放射状，根据来源画箭头。candidate 按 typ
+/// 分组（host / srflx / relay / 其它）；track 按 media kind（audio /
+/// video）；datachannel 单独一组。
+/// 性能上限：candidate 取最近 12 条；track / datachannel 全量但通常不
+/// 多，可放心整体绘制。InteractiveViewer 包外面，鼠标可缩放拖动查看。
+class _IceTopologyGraph extends StatelessWidget {
+  const _IceTopologyGraph({
+    required this.pcId,
+    required this.entries,
+    required this.primary,
+    required this.tertiary,
+    required this.secondary,
+    required this.error,
+    required this.onSurface,
+    required this.surfaceContainer,
+    required this.isZh,
+  });
+
+  final int pcId;
+  final List<_IceEntry> entries;
+  final Color primary;
+  final Color tertiary;
+  final Color secondary;
+  final Color error;
+  final Color onSurface;
+  final Color surfaceContainer;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final nodes = _layoutNodes();
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: onSurface.withValues(alpha: 0.08)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: InteractiveViewer(
+          maxScale: 4,
+          minScale: 0.5,
+          child: SizedBox(
+            width: 720,
+            height: 420,
+            child: CustomPaint(
+              painter: _IceTopologyPainter(
+                pcId: pcId,
+                nodes: nodes,
+                primary: primary,
+                tertiary: tertiary,
+                secondary: secondary,
+                error: error,
+                onSurface: onSurface,
+                surfaceContainer: surfaceContainer,
+                isZh: isZh,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 把 entries 折叠成 _IceGraphNode 列表，附上分组信息让 painter 决定
+  /// 角度 / 半径。candidate 取最近 12 条避免拥挤；同类型按时序排列。
+  List<_IceGraphNode> _layoutNodes() {
+    final out = <_IceGraphNode>[];
+    final candidates = <_IceGraphNode>[];
+    final tracks = <_IceGraphNode>[];
+    final datachannels = <_IceGraphNode>[];
+    String? lastConnState;
+    for (final e in entries) {
+      final p = e.payload;
+      switch (e.kind) {
+        case 'icecandidate':
+          final cand = '${p['candidate'] ?? ''}';
+          final m = RegExp(r'\btyp (\w+)').firstMatch(cand);
+          final typ = m?.group(1) ?? '?';
+          final m2 = RegExp(r'\b(udp|tcp)\s+\d+\s+(\S+)\s+(\d+)',
+              caseSensitive: false).firstMatch(cand);
+          final ip = m2?.group(2) ?? '?';
+          final port = m2?.group(3) ?? '';
+          candidates.add(_IceGraphNode(
+            kind: _IceNodeKind.candidate,
+            label: '$typ\n$ip:$port',
+            typ: typ,
+          ));
+          break;
+        case 'track':
+          tracks.add(_IceGraphNode(
+            kind: _IceNodeKind.track,
+            label: 'track\n${p['kind'] ?? '?'}',
+            typ: '${p['kind'] ?? ''}',
+          ));
+          break;
+        case 'datachannel':
+          datachannels.add(_IceGraphNode(
+            kind: _IceNodeKind.datachannel,
+            label: 'dc\n${p['label'] ?? ''}',
+            typ: '',
+          ));
+          break;
+        case 'connectionstatechange':
+        case 'iceconnectionstatechange':
+          lastConnState = '${p['state'] ?? ''}';
+          break;
+      }
+    }
+    // 取最近 12 条 candidate 防图爆炸。
+    final tail = candidates.length > 12
+        ? candidates.sublist(candidates.length - 12)
+        : candidates;
+    out.addAll(tail);
+    out.addAll(tracks);
+    out.addAll(datachannels);
+    return [
+      _IceGraphNode(
+        kind: _IceNodeKind.pc,
+        label: 'PC #$pcId\n${lastConnState ?? "?"}',
+        typ: lastConnState ?? '',
+      ),
+      ...out,
+    ];
+  }
+}
+
+enum _IceNodeKind { pc, candidate, track, datachannel }
+
+class _IceGraphNode {
+  const _IceGraphNode({
+    required this.kind,
+    required this.label,
+    required this.typ,
+  });
+  final _IceNodeKind kind;
+  final String label;
+  final String typ;
+}
+
+class _IceTopologyPainter extends CustomPainter {
+  _IceTopologyPainter({
+    required this.pcId,
+    required this.nodes,
+    required this.primary,
+    required this.tertiary,
+    required this.secondary,
+    required this.error,
+    required this.onSurface,
+    required this.surfaceContainer,
+    required this.isZh,
+  });
+
+  final int pcId;
+  final List<_IceGraphNode> nodes;
+  final Color primary;
+  final Color tertiary;
+  final Color secondary;
+  final Color error;
+  final Color onSurface;
+  final Color surfaceContainer;
+  final bool isZh;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (nodes.isEmpty) return;
+    final pc = nodes.first;
+    final others = nodes.skip(1).toList();
+    final center = Offset(size.width / 2, size.height / 2);
+    // 分组排布：candidate / track / datachannel 各自一段角度区间。
+    final candidates =
+        others.where((n) => n.kind == _IceNodeKind.candidate).toList();
+    final tracks =
+        others.where((n) => n.kind == _IceNodeKind.track).toList();
+    final datachannels =
+        others.where((n) => n.kind == _IceNodeKind.datachannel).toList();
+    final positions = <_IceGraphNode, Offset>{};
+    final radius = math.min(size.width, size.height) * 0.4;
+    void place(List<_IceGraphNode> g, double startAngle, double endAngle) {
+      if (g.isEmpty) return;
+      if (g.length == 1) {
+        final ang = (startAngle + endAngle) / 2;
+        positions[g.first] = center +
+            Offset(math.cos(ang) * radius, math.sin(ang) * radius);
+        return;
+      }
+      final span = endAngle - startAngle;
+      for (var i = 0; i < g.length; i++) {
+        final ang = startAngle + span * i / (g.length - 1);
+        positions[g[i]] = center +
+            Offset(math.cos(ang) * radius, math.sin(ang) * radius);
+      }
+    }
+
+    place(candidates, math.pi * 0.6, math.pi * 1.4);
+    place(tracks, -math.pi * 0.45, math.pi * 0.45);
+    place(datachannels, math.pi * 0.45, math.pi * 0.55);
+
+    // 1) 先画连线：candidate → PC（蓝），PC → track / datachannel（橙 / 紫）。
+    for (final entry in positions.entries) {
+      final node = entry.key;
+      final pos = entry.value;
+      final color = switch (node.kind) {
+        _IceNodeKind.candidate => primary.withValues(alpha: 0.7),
+        _IceNodeKind.track => tertiary.withValues(alpha: 0.85),
+        _IceNodeKind.datachannel => secondary.withValues(alpha: 0.85),
+        _ => onSurface,
+      };
+      final from = node.kind == _IceNodeKind.candidate ? pos : center;
+      final to = node.kind == _IceNodeKind.candidate ? center : pos;
+      _drawArrow(canvas, from, to, color);
+    }
+    // 2) 画 PC 中心节点（圆形）。
+    _drawPcNode(canvas, center, pc);
+    // 3) 画外围节点。
+    for (final entry in positions.entries) {
+      final node = entry.key;
+      final pos = entry.value;
+      _drawNode(canvas, pos, node);
+    }
+  }
+
+  void _drawArrow(Canvas canvas, Offset from, Offset to, Color color) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final dir = to - from;
+    final dist = dir.distance;
+    if (dist <= 1) return;
+    // 箭头从节点边缘起，避免被节点 box 盖住。两端各留 26px。
+    final unit = dir / dist;
+    final start = from + unit * 26;
+    final end = to - unit * 26;
+    canvas.drawLine(start, end, paint);
+    // 箭头三角。
+    final ang = math.atan2(unit.dy, unit.dx);
+    const arrowLen = 8.0;
+    const arrowAng = 0.5;
+    final p1 = end -
+        Offset(math.cos(ang - arrowAng), math.sin(ang - arrowAng)) * arrowLen;
+    final p2 = end -
+        Offset(math.cos(ang + arrowAng), math.sin(ang + arrowAng)) * arrowLen;
+    final tri = Path()
+      ..moveTo(end.dx, end.dy)
+      ..lineTo(p1.dx, p1.dy)
+      ..lineTo(p2.dx, p2.dy)
+      ..close();
+    canvas.drawPath(tri, Paint()..color = color);
+  }
+
+  void _drawPcNode(Canvas canvas, Offset center, _IceGraphNode node) {
+    const r = 38.0;
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()..color = primary.withValues(alpha: 0.18),
+    );
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()
+        ..color = primary
+        ..strokeWidth = 1.8
+        ..style = PaintingStyle.stroke,
+    );
+    final tp = TextPainter(
+      text: TextSpan(
+        text: node.label,
+        style: TextStyle(
+          color: onSurface,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          fontFamily: 'monospace',
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: r * 2 - 6);
+    tp.paint(canvas, center + Offset(-tp.width / 2, -tp.height / 2));
+  }
+
+  void _drawNode(Canvas canvas, Offset pos, _IceGraphNode node) {
+    final color = switch (node.kind) {
+      _IceNodeKind.candidate => switch (node.typ) {
+          'host' => primary,
+          'srflx' => tertiary,
+          'relay' => error,
+          _ => secondary,
+        },
+      _IceNodeKind.track => tertiary,
+      _IceNodeKind.datachannel => secondary,
+      _ => onSurface,
+    };
+    final box = Rect.fromCenter(center: pos, width: 110, height: 36);
+    final rrect = RRect.fromRectAndRadius(box, const Radius.circular(8));
+    canvas.drawRRect(
+      rrect,
+      Paint()..color = color.withValues(alpha: 0.22),
+    );
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..color = color
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke,
+    );
+    final tp = TextPainter(
+      text: TextSpan(
+        text: node.label,
+        style: TextStyle(
+          color: onSurface,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'monospace',
+        ),
+      ),
+      textAlign: TextAlign.center,
+      maxLines: 2,
+      ellipsis: '…',
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 100);
+    tp.paint(canvas, pos + Offset(-tp.width / 2, -tp.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant _IceTopologyPainter old) =>
+      old.nodes != nodes || old.pcId != pcId;
 }
