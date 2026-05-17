@@ -90,7 +90,31 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       if (!mounted || _addressEditing) return;
       final url = await widget.controller.currentUrl();
       if (!mounted || url == null) return;
-      if (_addressCtrl.text != url) _addressCtrl.text = url;
+      final addrChanged = _addressCtrl.text != url;
+      if (addrChanged) _addressCtrl.text = url;
+      // 同时让 controller 的 page target 列表 url 字段保持同步——targetInfoChanged
+      // 在某些场景下不会立刻到达，这里兜底把当前 target 的 url 字段也改了。
+      final cur = widget.controller.currentPageTargetId;
+      if (cur != null) {
+        final updated = <CdpPageTargetSnapshot>[];
+        var dirty = false;
+        for (final t in widget.controller.pageTargets) {
+          if (t.id == cur && t.url != url) {
+            updated.add(CdpPageTargetSnapshot(
+              id: t.id,
+              url: url,
+              title: t.title,
+            ));
+            dirty = true;
+          } else {
+            updated.add(t);
+          }
+        }
+        if (dirty) {
+          widget.controller.replacePageTargets(updated);
+          _persistTabsAndUrls();
+        }
+      }
     });
   }
 
@@ -101,6 +125,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _resizeDebouncer?.cancel();
     _urlPoller?.cancel();
     _findDebouncer?.cancel();
+    _metaPersistDebouncer?.cancel();
     widget.controller.releaseScreencast();
     _detachImeConnection();
     _addressCtrl.dispose();
@@ -123,12 +148,22 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         alive != _wasAlive ||
         len != _lastTargetsLen ||
         cur != _lastCurrentTargetId;
+    final aliveJustFlipped = alive && !_wasAlive;
     _frameW = w;
     _frameH = h;
     _wasAlive = alive;
     _lastTargetsLen = len;
     _lastCurrentTargetId = cur;
     if (dirty) setState(() {});
+    if (aliveJustFlipped) {
+      // 浏览器刚拉起 / 重启完毕：尝试用上一轮持久化的 tab URL 恢复多 tab 场景。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final state = context
+            .findAncestorStateOfType<_WebReverseDashboardDialogState>();
+        state?.restoreBrowserTabs();
+      });
+    }
   }
 
   void _scheduleViewportSync(Size logical, double dpr) {
@@ -399,6 +434,22 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   Future<void> _shortcutZoomReset() async {
     setState(() => _zoom = 1);
     await widget.controller.setZoomFactor(1);
+  }
+
+  // ── 持久化 tab 顺序 + 每个 target 的最后 URL ─────────────────────────
+  // 顺序与 URL 都写到当前会话的 metadata，下次开 dashboard / 重启浏览器
+  // 时由 controller 复用。fire-and-forget，不阻塞 UI。
+  Timer? _metaPersistDebouncer;
+
+  void _persistTabsAndUrls() {
+    _metaPersistDebouncer?.cancel();
+    _metaPersistDebouncer = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      final state =
+          context.findAncestorStateOfType<_WebReverseDashboardDialogState>();
+      if (state == null) return;
+      state.persistBrowserPanelState();
+    });
   }
 
   // ── 页面查找 ──────────────────────────────────────────────────────────
@@ -766,6 +817,10 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           onNew: () async {
             final id = await ctrl.createPageTarget();
             if (id != null) await ctrl.switchToPageTarget(id);
+          },
+          onReorder: (oldI, newI) {
+            ctrl.reorderPageTarget(oldI, newI);
+            _persistTabsAndUrls();
           },
         ),
         _buildAddressBar(theme, cs, isZh, ctrl),
@@ -1218,7 +1273,7 @@ class _ZoomMenu extends StatelessWidget {
 
 
 /// 浏览器面板顶部 tab strip：每个 page target 一个胶囊，激活态高亮。
-/// 「+」按钮新建 about:blank tab；激活胶囊上挂×按钮关闭。
+/// 「+」按钮新建 about:blank tab；激活胶囊上挂×按钮关闭。长按拖动重排。
 class _TabStrip extends StatelessWidget {
   const _TabStrip({
     required this.targets,
@@ -1228,6 +1283,7 @@ class _TabStrip extends StatelessWidget {
     required this.onSwitch,
     required this.onClose,
     required this.onNew,
+    required this.onReorder,
   });
 
   final List<CdpPageTargetSnapshot> targets;
@@ -1237,6 +1293,7 @@ class _TabStrip extends StatelessWidget {
   final ValueChanged<String> onSwitch;
   final ValueChanged<String> onClose;
   final VoidCallback onNew;
+  final void Function(int oldIndex, int newIndex) onReorder;
 
   @override
   Widget build(BuildContext context) {
@@ -1246,14 +1303,23 @@ class _TabStrip extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: SizedBox(
-        height: 30,
+        height: 32,
         child: Row(
           children: [
             Expanded(
-              child: ListView.separated(
+              child: ReorderableListView.builder(
                 scrollDirection: Axis.horizontal,
+                buildDefaultDragHandles: false,
+                onReorder: enabled ? onReorder : (_, _) {},
+                proxyDecorator: (child, _, anim) {
+                  return Material(
+                    elevation: 4 * anim.value,
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
+                    child: child,
+                  );
+                },
                 itemCount: targets.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 6),
                 itemBuilder: (_, i) {
                   final t = targets[i];
                   final active = t.id == currentId;
@@ -1262,59 +1328,71 @@ class _TabStrip extends StatelessWidget {
                       : (t.url.isEmpty
                           ? (isZh ? '新标签页' : 'New tab')
                           : Uri.tryParse(t.url)?.host ?? t.url);
-                  return Material(
-                    color: active
-                        ? cs.primaryContainer
-                        : cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(999),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: enabled ? () => onSwitch(t.id) : null,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.public_rounded,
-                              size: 12,
-                              color: active
-                                  ? cs.onPrimaryContainer
-                                  : cs.onSurfaceVariant,
+                  return Padding(
+                    key: ValueKey<String>(t.id),
+                    padding: EdgeInsets.only(
+                      right: i == targets.length - 1 ? 0 : 6,
+                    ),
+                    child: ReorderableDelayedDragStartListener(
+                      index: i,
+                      child: Material(
+                        color: active
+                            ? cs.primaryContainer
+                            : cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(999),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: enabled ? () => onSwitch(t.id) : null,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
                             ),
-                            const SizedBox(width: 6),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 140),
-                              child: Text(
-                                label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: active
-                                      ? cs.onPrimaryContainer
-                                      : cs.onSurface,
-                                ),
-                              ),
-                            ),
-                            if (targets.length > 1) ...[
-                              const SizedBox(width: 6),
-                              InkResponse(
-                                radius: 12,
-                                onTap: enabled ? () => onClose(t.id) : null,
-                                child: Icon(
-                                  Icons.close_rounded,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.public_rounded,
                                   size: 12,
                                   color: active
                                       ? cs.onPrimaryContainer
                                       : cs.onSurfaceVariant,
                                 ),
-                              ),
-                            ],
-                          ],
+                                const SizedBox(width: 6),
+                                ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 140),
+                                  child: Text(
+                                    label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        theme.textTheme.labelSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: active
+                                          ? cs.onPrimaryContainer
+                                          : cs.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                if (targets.length > 1) ...[
+                                  const SizedBox(width: 6),
+                                  InkResponse(
+                                    radius: 12,
+                                    onTap:
+                                        enabled ? () => onClose(t.id) : null,
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      size: 12,
+                                      color: active
+                                          ? cs.onPrimaryContainer
+                                          : cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),

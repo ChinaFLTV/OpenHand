@@ -313,6 +313,47 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// 新建一个 page target（默认 about:blank）；上层切到它即可在新 tab 操作。
+  /// 重排 page target 顺序：只动本地 `_pageTargets` 数组，并把当前顺序
+  /// 同步给上层（持久化到 session metadata 由调用方负责）。
+  void reorderPageTarget(int oldIndex, int newIndex) {
+    if (oldIndex < 0 ||
+        oldIndex >= _pageTargets.length ||
+        newIndex < 0 ||
+        newIndex > _pageTargets.length) {
+      return;
+    }
+    final adjustedNewIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    final item = _pageTargets.removeAt(oldIndex);
+    _pageTargets.insert(adjustedNewIndex, item);
+    _safeNotify();
+  }
+
+  /// 当前 page target 顺序的 ID 列表，调用方持久化用。
+  List<String> get pageTargetOrder =>
+      _pageTargets.map((e) => e.id).toList(growable: false);
+
+  /// 用持久化过的顺序重排现有 `_pageTargets`：未在列表中的保留原序追加在末尾。
+  void applyPageTargetOrder(List<String> order) {
+    if (order.isEmpty || _pageTargets.isEmpty) return;
+    final indexById = <String, int>{
+      for (var i = 0; i < order.length; i++) order[i]: i,
+    };
+    _pageTargets.sort((a, b) {
+      final ai = indexById[a.id] ?? (1 << 30);
+      final bi = indexById[b.id] ?? (1 << 30);
+      return ai.compareTo(bi);
+    });
+    _safeNotify();
+  }
+
+  /// 用新快照整体替换 [_pageTargets]，调用方保证元素对齐。
+  void replacePageTargets(List<CdpPageTargetSnapshot> next) {
+    _pageTargets
+      ..clear()
+      ..addAll(next);
+    _safeNotify();
+  }
+
   Future<String?> createPageTarget({String url = 'about:blank'}) async {
     final cdp = _browserCdp;
     if (cdp == null) return null;

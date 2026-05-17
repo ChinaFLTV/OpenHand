@@ -97,6 +97,8 @@ enum _Tab {
 class _WebReverseDashboardDialogState
     extends State<_WebReverseDashboardDialog> {
   static const _kLastTabMetaKey = 'web_reverse_dashboard_last_tab';
+  static const _kBrowserTabOrderMetaKey = 'web_reverse_browser_tab_order';
+  static const _kBrowserTabUrlsMetaKey = 'web_reverse_browser_tab_urls';
   _Tab _tab = _Tab.network;
 
   // Network 面板状态
@@ -153,6 +155,12 @@ class _WebReverseDashboardDialogState
             break;
           }
         }
+      }
+      // 应用上次记录的 tab 顺序。
+      final orderRaw = session.metadata[_kBrowserTabOrderMetaKey];
+      if (orderRaw is List) {
+        final order = orderRaw.whereType<String>().toList(growable: false);
+        if (order.isNotEmpty) widget.controller.applyPageTargetOrder(order);
       }
     });
   }
@@ -219,6 +227,70 @@ class _WebReverseDashboardDialogState
     unawaited(ctrl.updateSessionMetadata(widget.sessionId, <String, Object?>{
       _kLastTabMetaKey: next.name,
     }));
+  }
+
+  /// 浏览器刚拉起时由 _BrowserBody 调用：把上次持久化的 URL 列表逐条
+  /// `Page.navigate` / `createTarget` 恢复到当前浏览器实例。已有的第一个
+  /// target 复用 navigate；其余全部 createTarget。单 target 超时 6s 兜底，
+  /// 整体不阻塞 UI。
+  Future<void> restoreBrowserTabs() async {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>().sessions.firstWhere(
+          (s) => s.id == widget.sessionId,
+          orElse: () => context.read<AiSessionController>().sessions.first,
+        );
+    final urlsRaw = session.metadata[_kBrowserTabUrlsMetaKey];
+    final orderRaw = session.metadata[_kBrowserTabOrderMetaKey];
+    if (urlsRaw is! Map || urlsRaw.isEmpty) return;
+    final order = orderRaw is List
+        ? orderRaw.whereType<String>().toList(growable: false)
+        : <String>[];
+    final urls = <String, String>{
+      for (final entry in urlsRaw.entries)
+        '${entry.key}': '${entry.value}',
+    };
+    final wantUrls = order
+        .map((id) => urls[id])
+        .where((u) => u != null && u.isNotEmpty && !u.startsWith('about:'))
+        .cast<String>()
+        .toList(growable: false);
+    if (wantUrls.isEmpty) return;
+    final ctrl = widget.controller;
+    final hasFirst = ctrl.pageTargets.isNotEmpty;
+    if (hasFirst) {
+      try {
+        await ctrl.navigate(wantUrls.first).timeout(const Duration(seconds: 6));
+      } catch (_) {}
+    }
+    for (var i = hasFirst ? 1 : 0; i < wantUrls.length; i++) {
+      try {
+        await ctrl
+            .createPageTarget(url: wantUrls[i])
+            .timeout(const Duration(seconds: 6));
+      } catch (_) {}
+    }
+  }
+
+  /// 持久化浏览器面板状态：当前 tab 顺序 + 每个 target 的最后 URL。下次
+  /// 重启浏览器（会话 / Chrome 进程级）时上层用这个数据恢复用户操作场景。
+  /// 给 [_BrowserBodyState] 通过 ancestor lookup 调用。
+  Future<void> persistBrowserPanelState() async {
+    if (!mounted) return;
+    final ctrl = widget.controller;
+    final order = ctrl.pageTargetOrder;
+    // 尝试拉每个 target 的真实 URL；失败则用 snapshot 里的。控制总耗时
+    // ≤ 500ms，超时即用 snapshot。
+    final urls = <String, String>{};
+    for (final t in ctrl.pageTargets) {
+      urls[t.id] = t.url;
+    }
+    final session = context.read<AiSessionController>();
+    unawaited(
+      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kBrowserTabOrderMetaKey: order,
+        _kBrowserTabUrlsMetaKey: urls,
+      }),
+    );
   }
 
   bool _isZh() =>
