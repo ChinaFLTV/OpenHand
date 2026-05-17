@@ -3120,6 +3120,164 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     );
   }
 
+  /// 把 recorder steps 翻译成 puppeteer / playwright 的 JS 脚本并落盘。
+  /// 翻译规则：navigate → page.goto；click → page.click；input → page.type；
+  /// change → page.select / page.click 取决于 value 类型；assertText → 等价
+  /// 选择器读 textContent 后断言；assertVisible → 等待选择器可见。
+  Future<void> _exportAsCode(String kind) async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    final steps = widget.controller.recorderSteps;
+    if (steps.isEmpty) return;
+    final code = kind == 'puppeteer'
+        ? _renderPuppeteerScript(steps)
+        : _renderPlaywrightScript(steps);
+    const typeGroup = XTypeGroup(label: 'JS', extensions: <String>['js']);
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: 'recorder-$kind-$ts.js',
+        acceptedTypeGroups: const [typeGroup],
+      );
+    } catch (_) {}
+    if (!mounted || location == null) return;
+    try {
+      await File(location.path).writeAsString(code);
+      if (!mounted) return;
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '已保存到 ${location.path}' : 'Saved',
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'export $kind code',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '保存失败' : 'Save failed',
+        duration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  String _renderPuppeteerScript(List<Map<String, Object?>> steps) {
+    final buf = StringBuffer()
+      ..writeln(
+          '// 由 OpenHand Web 逆向 Recorder 自动导出（${DateTime.now().toIso8601String()}）')
+      ..writeln("const puppeteer = require('puppeteer');")
+      ..writeln('(async () => {')
+      ..writeln('  const browser = await puppeteer.launch({headless: false});')
+      ..writeln('  const page = await browser.newPage();');
+    for (final s in steps) {
+      _emitStep(buf, s, framework: 'puppeteer');
+    }
+    buf
+      ..writeln('  await browser.close();')
+      ..writeln('})();');
+    return buf.toString();
+  }
+
+  String _renderPlaywrightScript(List<Map<String, Object?>> steps) {
+    final buf = StringBuffer()
+      ..writeln(
+          '// 由 OpenHand Web 逆向 Recorder 自动导出（${DateTime.now().toIso8601String()}）')
+      ..writeln("const {chromium} = require('playwright');")
+      ..writeln('(async () => {')
+      ..writeln('  const browser = await chromium.launch({headless: false});')
+      ..writeln('  const context = await browser.newContext();')
+      ..writeln('  const page = await context.newPage();');
+    for (final s in steps) {
+      _emitStep(buf, s, framework: 'playwright');
+    }
+    buf
+      ..writeln('  await browser.close();')
+      ..writeln('})();');
+    return buf.toString();
+  }
+
+  void _emitStep(
+    StringBuffer buf,
+    Map<String, Object?> s, {
+    required String framework,
+  }) {
+    final type = '${s['type'] ?? ''}';
+    final selector = s['selector'] is String ? s['selector'] as String : '';
+    final value = s['value'];
+    final url = '${s['url'] ?? ''}';
+    final expected = '${s['expected'] ?? ''}';
+    String esc(String t) => t.replaceAll('\\', r'\\').replaceAll("'", r"\'");
+    switch (type) {
+      case 'navigate':
+        if (url.isNotEmpty) {
+          buf.writeln("  await page.goto('${esc(url)}');");
+        }
+      case 'click':
+        if (selector.isNotEmpty) {
+          if (s['doubleClick'] == true) {
+            buf.writeln(
+                "  await page.click('${esc(selector)}', {clickCount: 2});");
+          } else {
+            buf.writeln("  await page.click('${esc(selector)}');");
+          }
+        }
+      case 'input':
+        if (selector.isNotEmpty && value is String) {
+          if (framework == 'puppeteer') {
+            buf
+              ..writeln("  await page.click('${esc(selector)}', {clickCount: 3});")
+              ..writeln("  await page.type('${esc(selector)}', '${esc(value)}');");
+          } else {
+            buf.writeln("  await page.fill('${esc(selector)}', '${esc(value)}');");
+          }
+        }
+      case 'change':
+        if (selector.isEmpty) break;
+        if (value is String) {
+          if (framework == 'puppeteer') {
+            buf.writeln(
+                "  await page.select('${esc(selector)}', '${esc(value)}');");
+          } else {
+            buf.writeln(
+                "  await page.selectOption('${esc(selector)}', '${esc(value)}');");
+          }
+        } else if (value is bool) {
+          if (value) {
+            buf.writeln("  await page.click('${esc(selector)}');");
+          }
+        }
+      case 'assertText':
+        if (selector.isNotEmpty) {
+          if (framework == 'puppeteer') {
+            buf.writeln(
+                "  await page.waitForFunction((sel, expected) => document.querySelector(sel) && document.querySelector(sel).textContent.includes(expected), {}, '${esc(selector)}', '${esc(expected)}');");
+          } else {
+            buf.writeln(
+                "  await expect(page.locator('${esc(selector)}')).toContainText('${esc(expected)}');");
+          }
+        }
+      case 'assertVisible':
+        if (selector.isNotEmpty) {
+          if (framework == 'puppeteer') {
+            buf.writeln(
+                "  await page.waitForSelector('${esc(selector)}', {visible: true});");
+          } else {
+            buf.writeln(
+                "  await expect(page.locator('${esc(selector)}')).toBeVisible();");
+          }
+        }
+    }
+  }
+
   Future<void> _addAssertion(String kind) async {
     final isZh = widget.isZh;
     final selectorCtrl = TextEditingController();
@@ -3229,6 +3387,28 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 onPressed: steps.isEmpty ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
                 label: Text(isZh ? '导出 JSON' : 'Export'),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                tooltip: isZh ? '导出为代码' : 'Export as code',
+                onSelected: (k) => _exportAsCode(k),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'puppeteer',
+                    enabled: steps.isNotEmpty,
+                    child: const Text('Puppeteer (.js)'),
+                  ),
+                  PopupMenuItem(
+                    value: 'playwright',
+                    enabled: steps.isNotEmpty,
+                    child: const Text('Playwright (.js)'),
+                  ),
+                ],
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.code_rounded, size: 18),
+                  label: Text(isZh ? '导出为代码' : 'Export code'),
+                ),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
