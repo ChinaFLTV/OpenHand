@@ -1380,22 +1380,42 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       pendingPlaceholderCount + failureCardCount) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 14),
-                      child: _CreationFailureCard(
-                        request: failedCreationRequest!,
-                        error: userVisibleError!,
-                        onDismiss: () async {
-                          _dismissedErrorIds.add(userVisibleError.id);
-                          setState(() {
-                            if (_visibleErrorId == userVisibleError.id) {
-                              _visibleErrorId = null;
-                            }
-                            if (_pendingPresentedErrorId ==
-                                userVisibleError.id) {
-                              _pendingPresentedErrorId = null;
-                            }
-                          });
-                          await widget.onDismissError(userVisibleError);
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0, end: 1),
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 360),
+                        curve: Curves.easeOutBack,
+                        builder: (_, t, child) {
+                          final clamped = t.clamp(0.0, 1.0);
+                          return Opacity(
+                            opacity: clamped,
+                            child: Transform.translate(
+                              offset: Offset(0, (1 - clamped) * -8),
+                              child: Transform.scale(
+                                scale: 0.94 + 0.06 * clamped,
+                                child: child,
+                              ),
+                            ),
+                          );
                         },
+                        child: _CreationFailureCard(
+                          request: failedCreationRequest!,
+                          error: userVisibleError!,
+                          onDismiss: () async {
+                            _dismissedErrorIds.add(userVisibleError.id);
+                            setState(() {
+                              if (_visibleErrorId == userVisibleError.id) {
+                                _visibleErrorId = null;
+                              }
+                              if (_pendingPresentedErrorId ==
+                                  userVisibleError.id) {
+                                _pendingPresentedErrorId = null;
+                              }
+                            });
+                            await widget.onDismissError(userVisibleError);
+                          },
+                        ),
                       ),
                     );
                   }

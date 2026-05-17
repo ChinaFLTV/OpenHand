@@ -331,12 +331,36 @@ class _WebReverseDashboardDialogState
               children: [
                 _buildHeader(theme, cs, isZh),
                 Divider(height: 1, color: cs.outlineVariant),
-                if ((ctrl.errorMessage ?? '').trim().isNotEmpty)
-                  _DiagnosisBanner(
-                    controller: ctrl,
-                    isZh: isZh,
-                    reduceMotion: reduceMotion,
+                AnimatedSize(
+                  duration:
+                      reduceMotion ? Duration.zero : _kSwitchDuration,
+                  curve: _kSwitchInCurve,
+                  alignment: Alignment.topCenter,
+                  child: AnimatedSwitcher(
+                    duration:
+                        reduceMotion ? Duration.zero : _kSwitchDuration,
+                    switchInCurve: _kSwitchInCurve,
+                    switchOutCurve: _kSwitchOutCurve,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SizeTransition(
+                        sizeFactor: animation,
+                        axisAlignment: -1,
+                        child: child,
+                      ),
+                    ),
+                    child: (ctrl.errorMessage ?? '').trim().isNotEmpty
+                        ? _DiagnosisBanner(
+                            key: const ValueKey('diagnosis-banner'),
+                            controller: ctrl,
+                            isZh: isZh,
+                            reduceMotion: reduceMotion,
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey('diagnosis-banner-empty'),
+                          ),
                   ),
+                ),
                 _buildToolbar(theme, cs, isZh, ctrl, reduceMotion),
                 Divider(height: 1, color: cs.outlineVariant),
                 Expanded(
@@ -717,6 +741,7 @@ class _OverviewBody extends StatelessWidget {
 ///   · 关闭 banner（清掉 errorMessage）
 class _DiagnosisBanner extends StatefulWidget {
   const _DiagnosisBanner({
+    super.key,
     required this.controller,
     required this.isZh,
     required this.reduceMotion,
@@ -836,16 +861,29 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                       ? (isZh ? '收起' : 'Collapse')
                       : (isZh ? '展开' : 'Expand'),
                   visualDensity: VisualDensity.compact,
+                  iconSize: 18,
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(
+                    minWidth: 30,
+                    minHeight: 30,
+                  ),
                   onPressed: () => setState(() => _expanded = !_expanded),
                   icon: Icon(_expanded
                       ? Icons.expand_less_rounded
                       : Icons.expand_more_rounded),
                 ),
+                const SizedBox(width: 4),
                 IconButton(
                   tooltip: isZh ? '关闭诊断' : 'Dismiss',
                   visualDensity: VisualDensity.compact,
+                  iconSize: 18,
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(
+                    minWidth: 30,
+                    minHeight: 30,
+                  ),
                   onPressed: widget.controller.clearErrorMessage,
-                  icon: const Icon(Icons.close_rounded, size: 18),
+                  icon: const Icon(Icons.close_rounded),
                 ),
               ],
             ),
