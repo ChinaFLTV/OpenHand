@@ -632,8 +632,130 @@ class WebReverseSessionController extends ChangeNotifier {
           .map((p) => (key: '${p[0]}', value: '${p[1]}'))
           .toList(growable: false);
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'listDomStorage', error, stack);
+      silentLog(
+          'web_reverse_session_controller', 'listDomStorage', error, stack);
       return const [];
+    }
+  }
+
+  /// `Network.deleteCookies` 删一条 cookie。失败返回 false。
+  Future<bool> deleteCookie({
+    required String name,
+    String? domain,
+    String? path,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send(
+        'Network.deleteCookies',
+        params: <String, Object?>{
+          'name': name,
+          if (domain != null) 'domain': domain,
+          if (path != null) 'path': path,
+        },
+        sessionId: _pageSessionId,
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog(
+          'web_reverse_session_controller', 'deleteCookie $name', error, stack);
+      return false;
+    }
+  }
+
+  /// `Network.setCookie` 写 / 改一条 cookie。
+  Future<bool> setCookie({
+    required String name,
+    required String value,
+    String? domain,
+    String? path,
+    bool? secure,
+    bool? httpOnly,
+    String? sameSite,
+    int? expires,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send(
+        'Network.setCookie',
+        params: <String, Object?>{
+          'name': name,
+          'value': value,
+          if (domain != null) 'domain': domain,
+          if (path != null) 'path': path,
+          if (secure != null) 'secure': secure,
+          if (httpOnly != null) 'httpOnly': httpOnly,
+          if (sameSite != null) 'sameSite': sameSite,
+          if (expires != null) 'expires': expires,
+        },
+        sessionId: _pageSessionId,
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog(
+          'web_reverse_session_controller', 'setCookie $name', error, stack);
+      return false;
+    }
+  }
+
+  /// `DOMStorage.setDOMStorageItem` —— 写 / 改一条 storage 项。
+  Future<bool> setDomStorageItem({
+    required String origin,
+    required bool isLocalStorage,
+    required String key,
+    required String value,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send('DOMStorage.enable', sessionId: _pageSessionId);
+      await cdp.send(
+        'DOMStorage.setDOMStorageItem',
+        params: <String, Object?>{
+          'storageId': <String, Object?>{
+            'securityOrigin': origin,
+            'isLocalStorage': isLocalStorage,
+          },
+          'key': key,
+          'value': value,
+        },
+        sessionId: _pageSessionId,
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog(
+          'web_reverse_session_controller', 'setDomStorageItem', error, stack);
+      return false;
+    }
+  }
+
+  Future<bool> removeDomStorageItem({
+    required String origin,
+    required bool isLocalStorage,
+    required String key,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send('DOMStorage.enable', sessionId: _pageSessionId);
+      await cdp.send(
+        'DOMStorage.removeDOMStorageItem',
+        params: <String, Object?>{
+          'storageId': <String, Object?>{
+            'securityOrigin': origin,
+            'isLocalStorage': isLocalStorage,
+          },
+          'key': key,
+        },
+        sessionId: _pageSessionId,
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog(
+          'web_reverse_session_controller', 'removeDomStorageItem', error, stack);
+      return false;
     }
   }
 

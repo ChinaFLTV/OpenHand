@@ -1865,10 +1865,22 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
           const SizedBox(height: 8),
           Expanded(
             child: switch (_tab) {
-              _AppTab.cookies => _CookiesTable(cookies: _cookies),
+              _AppTab.cookies => _CookiesTable(
+                  cookies: _cookies,
+                  controller: widget.controller,
+                  isZh: isZh,
+                  onChanged: _refresh,
+                ),
               _AppTab.localStorage ||
               _AppTab.sessionStorage =>
-                _StorageTable(rows: _storage),
+                _StorageTable(
+                  rows: _storage,
+                  controller: widget.controller,
+                  origin: _origin,
+                  isLocalStorage: _tab == _AppTab.localStorage,
+                  isZh: isZh,
+                  onChanged: _refresh,
+                ),
               _AppTab.indexedDb => _IndexedDbTable(
                   controller: widget.controller,
                   names: _idbNames,
@@ -1939,8 +1951,16 @@ class _AppTabPill extends StatelessWidget {
 }
 
 class _CookiesTable extends StatefulWidget {
-  const _CookiesTable({required this.cookies});
+  const _CookiesTable({
+    required this.cookies,
+    required this.controller,
+    required this.isZh,
+    required this.onChanged,
+  });
   final List<Map<String, Object?>> cookies;
+  final WebReverseSessionController controller;
+  final bool isZh;
+  final Future<void> Function() onChanged;
 
   @override
   State<_CookiesTable> createState() => _CookiesTableState();
@@ -1955,54 +1975,148 @@ class _CookiesTableState extends State<_CookiesTable> {
     super.dispose();
   }
 
+  Future<void> _addCookie() async {
+    final saved = await _showCookieEditor(
+      context,
+      initial: const <String, Object?>{},
+      isZh: widget.isZh,
+    );
+    if (saved == null || !mounted) return;
+    final ok = await widget.controller.setCookie(
+      name: '${saved['name'] ?? ''}',
+      value: '${saved['value'] ?? ''}',
+      domain: '${saved['domain'] ?? ''}'.trim().isEmpty
+          ? null
+          : '${saved['domain']}',
+      path: '${saved['path'] ?? ''}'.trim().isEmpty ? null : '${saved['path']}',
+    );
+    if (ok && mounted) await widget.onChanged();
+  }
+
+  Future<void> _editCookie(Map<String, Object?> c) async {
+    final saved = await _showCookieEditor(
+      context,
+      initial: c,
+      isZh: widget.isZh,
+    );
+    if (saved == null || !mounted) return;
+    final ok = await widget.controller.setCookie(
+      name: '${saved['name'] ?? ''}',
+      value: '${saved['value'] ?? ''}',
+      domain: '${saved['domain'] ?? ''}'.trim().isEmpty
+          ? null
+          : '${saved['domain']}',
+      path: '${saved['path'] ?? ''}'.trim().isEmpty ? null : '${saved['path']}',
+    );
+    if (ok && mounted) await widget.onChanged();
+  }
+
+  Future<void> _deleteCookie(Map<String, Object?> c) async {
+    await widget.controller.deleteCookie(
+      name: '${c['name'] ?? ''}',
+      domain: '${c['domain'] ?? ''}'.trim().isEmpty
+          ? null
+          : '${c['domain']}',
+      path: '${c['path'] ?? ''}'.trim().isEmpty ? null : '${c['path']}',
+    );
+    if (mounted) await widget.onChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final cookies = widget.cookies;
-    if (cookies.isEmpty) {
-      return Center(
-        child: Text('(empty)',
-            style:
-                theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-      );
-    }
-    return OpenHandSafeScrollbar(
-      controller: _hCtrl,
-      child: SingleChildScrollView(
-        controller: _hCtrl,
-        scrollDirection: Axis.horizontal,
-        child: SingleChildScrollView(
-          child: DataTable(
-            headingRowHeight: 30,
-            dataRowMinHeight: 24,
-            dataRowMaxHeight: 36,
-            columns: const [
-              DataColumn(label: Text('Name')),
-              DataColumn(label: Text('Value')),
-              DataColumn(label: Text('Domain')),
-              DataColumn(label: Text('Path')),
-              DataColumn(label: Text('Expires')),
-              DataColumn(label: Text('HttpOnly')),
-              DataColumn(label: Text('Secure')),
-              DataColumn(label: Text('SameSite')),
-            ],
-            rows: [
-              for (final c in cookies)
-                DataRow(cells: [
-                  DataCell(_mono('${c['name'] ?? ''}')),
-                  DataCell(_mono(_truncate('${c['value'] ?? ''}', 80))),
-                  DataCell(_mono('${c['domain'] ?? ''}')),
-                  DataCell(_mono('${c['path'] ?? ''}')),
-                  DataCell(_mono(_formatExpires(c['expires']))),
-                  DataCell(Text(c['httpOnly'] == true ? '✓' : '')),
-                  DataCell(Text(c['secure'] == true ? '✓' : '')),
-                  DataCell(_mono('${c['sameSite'] ?? ''}')),
-                ]),
-            ],
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _addCookie,
+            icon: const Icon(Icons.add_rounded, size: 16),
+            label: Text(widget.isZh ? '新增 cookie' : 'Add cookie'),
           ),
         ),
-      ),
+        Expanded(
+          child: cookies.isEmpty
+              ? Center(
+                  child: Text(
+                    '(empty)',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                )
+              : OpenHandSafeScrollbar(
+                  controller: _hCtrl,
+                  child: SingleChildScrollView(
+                    controller: _hCtrl,
+                    scrollDirection: Axis.horizontal,
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                        headingRowHeight: 30,
+                        dataRowMinHeight: 24,
+                        dataRowMaxHeight: 36,
+                        columns: const [
+                          DataColumn(label: Text('Name')),
+                          DataColumn(label: Text('Value')),
+                          DataColumn(label: Text('Domain')),
+                          DataColumn(label: Text('Path')),
+                          DataColumn(label: Text('Expires')),
+                          DataColumn(label: Text('HttpOnly')),
+                          DataColumn(label: Text('Secure')),
+                          DataColumn(label: Text('SameSite')),
+                          DataColumn(label: Text('')),
+                        ],
+                        rows: [
+                          for (final c in cookies)
+                            DataRow(
+                              cells: [
+                                DataCell(_mono('${c['name'] ?? ''}')),
+                                DataCell(
+                                    _mono(_truncate('${c['value'] ?? ''}', 80))),
+                                DataCell(_mono('${c['domain'] ?? ''}')),
+                                DataCell(_mono('${c['path'] ?? ''}')),
+                                DataCell(_mono(_formatExpires(c['expires']))),
+                                DataCell(
+                                    Text(c['httpOnly'] == true ? '✓' : '')),
+                                DataCell(Text(c['secure'] == true ? '✓' : '')),
+                                DataCell(_mono('${c['sameSite'] ?? ''}')),
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        tooltip: widget.isZh ? '编辑' : 'Edit',
+                                        iconSize: 16,
+                                        padding: const EdgeInsets.all(4),
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => _editCookie(c),
+                                        icon: const Icon(Icons.edit_rounded),
+                                      ),
+                                      IconButton(
+                                        tooltip:
+                                            widget.isZh ? '删除' : 'Delete',
+                                        iconSize: 16,
+                                        padding: const EdgeInsets.all(4),
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => _deleteCookie(c),
+                                        icon: Icon(
+                                          Icons.delete_outline_rounded,
+                                          color: cs.error,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -2023,58 +2137,287 @@ class _CookiesTableState extends State<_CookiesTable> {
   }
 }
 
-class _StorageTable extends StatelessWidget {
-  const _StorageTable({required this.rows});
+/// Cookie 编辑对话框（新增 / 编辑共用）。
+Future<Map<String, Object?>?> _showCookieEditor(
+  BuildContext context, {
+  required Map<String, Object?> initial,
+  required bool isZh,
+}) async {
+  final name = TextEditingController(text: '${initial['name'] ?? ''}');
+  final value = TextEditingController(text: '${initial['value'] ?? ''}');
+  final domain = TextEditingController(text: '${initial['domain'] ?? ''}');
+  final path = TextEditingController(text: '${initial['path'] ?? '/'}');
+  final result = await showDialog<Map<String, Object?>>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title:
+          Text(isZh ? (initial.isEmpty ? '新增 cookie' : '编辑 cookie') : 'Cookie'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            TextField(
+              controller: value,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Value'),
+            ),
+            TextField(
+              controller: domain,
+              decoration: const InputDecoration(labelText: 'Domain'),
+            ),
+            TextField(
+              controller: path,
+              decoration: const InputDecoration(labelText: 'Path'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(isZh ? '取消' : 'Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(<String, Object?>{
+            'name': name.text.trim(),
+            'value': value.text,
+            'domain': domain.text.trim(),
+            'path': path.text.trim(),
+          }),
+          child: Text(isZh ? '保存' : 'Save'),
+        ),
+      ],
+    ),
+  );
+  name.dispose();
+  value.dispose();
+  domain.dispose();
+  path.dispose();
+  return result;
+}
+
+class _StorageTable extends StatefulWidget {
+  const _StorageTable({
+    required this.rows,
+    required this.controller,
+    required this.origin,
+    required this.isLocalStorage,
+    required this.isZh,
+    required this.onChanged,
+  });
+
   final List<({String key, String value})> rows;
+  final WebReverseSessionController controller;
+  final String? origin;
+  final bool isLocalStorage;
+  final bool isZh;
+  final Future<void> Function() onChanged;
+
+  @override
+  State<_StorageTable> createState() => _StorageTableState();
+}
+
+class _StorageTableState extends State<_StorageTable> {
+  Future<void> _add() async {
+    final origin = widget.origin;
+    if (origin == null || origin.isEmpty) return;
+    final saved = await _showStorageEditor(
+      context,
+      initialKey: '',
+      initialValue: '',
+      isZh: widget.isZh,
+    );
+    if (saved == null || !mounted) return;
+    await widget.controller.setDomStorageItem(
+      origin: origin,
+      isLocalStorage: widget.isLocalStorage,
+      key: saved.key,
+      value: saved.value,
+    );
+    if (mounted) await widget.onChanged();
+  }
+
+  Future<void> _edit(({String key, String value}) r) async {
+    final origin = widget.origin;
+    if (origin == null || origin.isEmpty) return;
+    final saved = await _showStorageEditor(
+      context,
+      initialKey: r.key,
+      initialValue: r.value,
+      isZh: widget.isZh,
+    );
+    if (saved == null || !mounted) return;
+    if (saved.key != r.key) {
+      // key 改了，先删旧再写新。
+      await widget.controller.removeDomStorageItem(
+        origin: origin,
+        isLocalStorage: widget.isLocalStorage,
+        key: r.key,
+      );
+    }
+    await widget.controller.setDomStorageItem(
+      origin: origin,
+      isLocalStorage: widget.isLocalStorage,
+      key: saved.key,
+      value: saved.value,
+    );
+    if (mounted) await widget.onChanged();
+  }
+
+  Future<void> _delete(({String key, String value}) r) async {
+    final origin = widget.origin;
+    if (origin == null || origin.isEmpty) return;
+    await widget.controller.removeDomStorageItem(
+      origin: origin,
+      isLocalStorage: widget.isLocalStorage,
+      key: r.key,
+    );
+    if (mounted) await widget.onChanged();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    if (rows.isEmpty) {
-      return Center(
-        child: Text('(empty)',
-            style:
-                theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-      );
-    }
-    return ListView.separated(
-      itemCount: rows.length,
-      separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
-      itemBuilder: (_, i) {
-        final r = rows[i];
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 200,
-                child: SelectableText(
-                  r.key,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: SelectableText(
-                  r.value,
-                  maxLines: 4,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
+    final rows = widget.rows;
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: widget.origin == null || widget.origin!.isEmpty
+                ? null
+                : _add,
+            icon: const Icon(Icons.add_rounded, size: 16),
+            label: Text(widget.isZh ? '新增条目' : 'Add entry'),
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: rows.isEmpty
+              ? Center(
+                  child: Text(
+                    '(empty)',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: rows.length,
+                  separatorBuilder: (_, _) =>
+                      Divider(height: 1, color: cs.outlineVariant),
+                  itemBuilder: (_, i) {
+                    final r = rows[i];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 200,
+                            child: SelectableText(
+                              r.key,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: SelectableText(
+                              r.value,
+                              maxLines: 4,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: widget.isZh ? '编辑' : 'Edit',
+                            iconSize: 16,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _edit(r),
+                            icon: const Icon(Icons.edit_rounded),
+                          ),
+                          IconButton(
+                            tooltip: widget.isZh ? '删除' : 'Delete',
+                            iconSize: 16,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _delete(r),
+                            icon: Icon(
+                              Icons.delete_outline_rounded,
+                              color: cs.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
+}
+
+Future<({String key, String value})?> _showStorageEditor(
+  BuildContext context, {
+  required String initialKey,
+  required String initialValue,
+  required bool isZh,
+}) async {
+  final keyCtrl = TextEditingController(text: initialKey);
+  final valueCtrl = TextEditingController(text: initialValue);
+  final result = await showDialog<({String key, String value})>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text(isZh ? '存储条目' : 'Storage entry'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: keyCtrl,
+              decoration: const InputDecoration(labelText: 'Key'),
+            ),
+            TextField(
+              controller: valueCtrl,
+              maxLines: 6,
+              minLines: 2,
+              decoration: const InputDecoration(labelText: 'Value'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(isZh ? '取消' : 'Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(
+            (key: keyCtrl.text.trim(), value: valueCtrl.text),
+          ),
+          child: Text(isZh ? '保存' : 'Save'),
+        ),
+      ],
+    ),
+  );
+  keyCtrl.dispose();
+  valueCtrl.dispose();
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
