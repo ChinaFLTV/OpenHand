@@ -10,6 +10,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../ai/index.dart';
 import '../service/tool_search_history_export_prefs.dart';
@@ -585,7 +586,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   ),
                 )
               : PrimaryScrollController.none(
-                  child: Scrollbar(
+                  child: OpenHandSafeScrollbar(
                     controller: _groupsScrollController,
                     child: ListView.builder(
                       controller: _groupsScrollController,
@@ -758,7 +759,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   ),
                 )
               : PrimaryScrollController.none(
-                  child: Scrollbar(
+                  child: OpenHandSafeScrollbar(
                     controller: _historyScrollController,
                     child: ListView.separated(
                       controller: _historyScrollController,

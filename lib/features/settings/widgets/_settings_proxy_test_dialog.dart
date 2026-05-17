@@ -837,7 +837,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       // 0 帧叠加时容易导致 SliverList 'child.hasSize' 断言。
       // 整片包一次同样支持选中复制，且尺寸链路最稳。
       child: SelectionArea(
-        child: Scrollbar(
+        child: OpenHandSafeScrollbar(
           controller: _scrollController,
           thumbVisibility: true,
           child: NotificationListener<ScrollNotification>(

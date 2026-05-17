@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'animated_dialog.dart';
+import 'openhand_safe_scrollbar.dart';
 import 'openhand_snack_bar.dart';
 
 /// 把可能很长的「现象 / 原因 / 建议」三段式错误文案以**对用户友好**的方式
@@ -133,7 +134,7 @@ class _ErrorDetailsScrollBodyState extends State<_ErrorDetailsScrollBody> {
   @override
   Widget build(BuildContext context) {
     return PrimaryScrollController.none(
-      child: Scrollbar(
+      child: OpenHandSafeScrollbar(
         controller: _scrollController,
         child: SingleChildScrollView(
           controller: _scrollController,

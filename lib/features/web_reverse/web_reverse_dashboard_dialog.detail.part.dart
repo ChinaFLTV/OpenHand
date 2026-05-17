@@ -793,12 +793,12 @@ class _CodeBlockState extends State<_CodeBlock> {
         border: Border.all(color: cs.outlineVariant),
       ),
       padding: const EdgeInsets.all(12),
-      child: Scrollbar(
+      child: OpenHandSafeScrollbar(
         controller: _vCtrl,
         thumbVisibility: true,
         child: SingleChildScrollView(
           controller: _vCtrl,
-          child: Scrollbar(
+          child: OpenHandSafeScrollbar(
             controller: _hCtrl,
             notificationPredicate: (n) => n.depth == 1,
             child: SingleChildScrollView(

@@ -120,7 +120,7 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
                 const SizedBox(height: 16),
                 Text(widget.template.name, style: theme.textTheme.titleMedium),
                 Expanded(
-                  child: Scrollbar(
+                  child: OpenHandSafeScrollbar(
                     controller: _scrollController,
                     thumbVisibility: true,
                     child: SingleChildScrollView(

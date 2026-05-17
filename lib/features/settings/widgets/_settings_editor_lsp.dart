@@ -220,7 +220,7 @@ extension on _SettingsViewState {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 420),
             child: PrimaryScrollController.none(
-              child: Scrollbar(
+              child: OpenHandSafeScrollbar(
                 controller: _editorLspListScrollController,
                 thumbVisibility: supportedLanguages.length > 6,
                 child: ListView.separated(
@@ -263,7 +263,7 @@ extension on _SettingsViewState {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 520),
         child: PrimaryScrollController.none(
-          child: Scrollbar(
+          child: OpenHandSafeScrollbar(
             controller: _editorShortcutListScrollController,
             thumbVisibility: true,
             child: ListView.separated(

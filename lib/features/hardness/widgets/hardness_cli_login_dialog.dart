@@ -9,6 +9,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../service/hardness_cli_catalog.dart';
 
 class HardnessCliLoginDialog extends StatefulWidget {
@@ -414,7 +415,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                         ),
                       ),
                     ),
-                    child: Scrollbar(
+                    child: OpenHandSafeScrollbar(
                       controller: _scrollController,
                       thumbVisibility: true,
                       child: NotificationListener<ScrollNotification>(

@@ -24,6 +24,7 @@ import '../../../shared/ui/error_snackbar.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../ai/index.dart';
 import '../../home/index.dart';
@@ -1768,7 +1769,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
 
     return NotificationListener<ScrollNotification>(
       onNotification: _handleFeedScrollNotification,
-      child: Scrollbar(
+      child: OpenHandSafeScrollbar(
         controller: _feedController,
         child: ListView.builder(
           controller: _feedController,

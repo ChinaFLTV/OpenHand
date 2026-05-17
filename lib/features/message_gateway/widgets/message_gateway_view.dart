@@ -19,6 +19,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
@@ -1963,7 +1964,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                   color: const Color(0xFF101218),
                   child: NotificationListener<ScrollNotification>(
                     onNotification: _scrollGuard.handleNotification,
-                    child: Scrollbar(
+                    child: OpenHandSafeScrollbar(
                       controller: _scrollController,
                       thumbVisibility: true,
                       child: AnimatedList(
@@ -2279,7 +2280,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
               ),
               const Divider(height: 1),
               Expanded(
-                child: Scrollbar(
+                child: OpenHandSafeScrollbar(
                   controller: _scrollController,
                   child: SingleChildScrollView(
                     controller: _scrollController,

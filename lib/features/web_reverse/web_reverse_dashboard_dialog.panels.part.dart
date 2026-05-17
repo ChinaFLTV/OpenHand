@@ -1967,7 +1967,7 @@ class _CookiesTableState extends State<_CookiesTable> {
                 theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
       );
     }
-    return Scrollbar(
+    return OpenHandSafeScrollbar(
       controller: _hCtrl,
       child: SingleChildScrollView(
         controller: _hCtrl,

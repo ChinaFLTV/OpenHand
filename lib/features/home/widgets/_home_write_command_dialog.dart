@@ -124,7 +124,7 @@ class _WriteCommandConfirmationDialogState
                 ),
                 const SizedBox(height: 16),
                 Expanded(
-                  child: Scrollbar(
+                  child: OpenHandSafeScrollbar(
                     controller: _bodyScrollController,
                     thumbVisibility: true,
                     child: SingleChildScrollView(

@@ -552,7 +552,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     // jitter against each other.
                                     child: NotificationListener<OverscrollNotification>(
                                       onNotification: (_) => true,
-                                      child: Scrollbar(
+                                      child: OpenHandSafeScrollbar(
                                         controller: _chipScrollController,
                                         thumbVisibility:
                                             _visibleModelIds.length > 30,

@@ -1278,7 +1278,7 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: PrimaryScrollController.none(
-              child: Scrollbar(
+              child: OpenHandSafeScrollbar(
                 controller: _scrollController,
                 child: SingleChildScrollView(
                   controller: _scrollController,
