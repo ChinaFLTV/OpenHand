@@ -132,6 +132,13 @@ class _WebReverseDashboardDialogState
   // 即让 _BrowserBody 整体 rebuild 拿到新 tab strip。
   int _lastTabsLen = 0;
   String? _lastCurTabId;
+  // tab 页面上的调整“顺序”与“标题”不改变 length / current，请务必用
+  // 指纹重新触发 dashboard rebuild，否则 `_TabStrip` 不会拿到新 list
+  // → `ReorderableListView` 拖放后会视觉弹回（主要 BUG）；Page 标题
+  // 变动同理。hash 采用 Object.hashAll(id串)，静态手拆避免
+  // 创建临时 list。
+  int _lastTabsOrderHash = 0;
+  int _lastTabsTitleHash = 0;
   final GlobalKey<AnimatedListState> _networkListKey =
       GlobalKey<AnimatedListState>();
   // Sources 面板 GlobalKey：Initiator 中点击栈帧 / 重定向链时，
@@ -153,6 +160,8 @@ class _WebReverseDashboardDialogState
     _lastErrMsg = widget.controller.errorMessage ?? '';
     _lastTabsLen = widget.controller.pageTargets.length;
     _lastCurTabId = widget.controller.currentPageTargetId;
+    _lastTabsOrderHash = _computeTabsOrderHash(widget.controller.pageTargets);
+    _lastTabsTitleHash = _computeTabsTitleHash(widget.controller.pageTargets);
     // 读取上次离开 dashboard 时停在的 tab。会话维度持久化到 metadata，
     // 用 enum.name 序列化；解析失败 / 没记录时保持 _Tab.network 默认。
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -232,6 +241,8 @@ class _WebReverseDashboardDialogState
     final newErrMsg = ctrl.errorMessage ?? '';
     final newTabsLen = ctrl.pageTargets.length;
     final newCurTab = ctrl.currentPageTargetId;
+    final newTabsOrderHash = _computeTabsOrderHash(ctrl.pageTargets);
+    final newTabsTitleHash = _computeTabsTitleHash(ctrl.pageTargets);
     // 关键：screencast 帧抵达不会改变这些计数，所以这里就早退。让浏览器
     // 面板内的 [_ScreencastImage] 自行 AnimatedBuilder 局部 repaint。
     final dashboardDirty = newSize != _lastNetworkSize ||
@@ -240,7 +251,9 @@ class _WebReverseDashboardDialogState
         newRunning != _lastIsRunning ||
         newErrMsg != _lastErrMsg ||
         newTabsLen != _lastTabsLen ||
-        newCurTab != _lastCurTabId;
+        newCurTab != _lastCurTabId ||
+        newTabsOrderHash != _lastTabsOrderHash ||
+        newTabsTitleHash != _lastTabsTitleHash;
     if (newSize > _lastNetworkSize) {
       // FIFO 淘汰时 networkRequests 头部会被砍掉，导致新条目实际索引小于 newSize-1；
       // 这里只对追加场景做 AnimatedList 的 insert，不去精细同步淘汰，依赖 ValueKey
@@ -260,7 +273,27 @@ class _WebReverseDashboardDialogState
     _lastErrMsg = newErrMsg;
     _lastTabsLen = newTabsLen;
     _lastCurTabId = newCurTab;
+    _lastTabsOrderHash = newTabsOrderHash;
+    _lastTabsTitleHash = newTabsTitleHash;
     if (dashboardDirty) setState(() {});
+  }
+
+  // tab id 顺序 / title 指纹计算：Object.hashAll 避免创建临时 list，
+  // 60fps screencast 频率下也昔点 GC。
+  static int _computeTabsOrderHash(List<CdpPageTargetSnapshot> targets) {
+    var h = 0;
+    for (final t in targets) {
+      h = (h * 31 + t.id.hashCode) & 0x3fffffff;
+    }
+    return h;
+  }
+
+  static int _computeTabsTitleHash(List<CdpPageTargetSnapshot> targets) {
+    var h = 0;
+    for (final t in targets) {
+      h = (h * 31 + t.title.hashCode) & 0x3fffffff;
+    }
+    return h;
   }
 
   /// 让 part 文件能从外部触发 dashboard 重建（part 文件不能直接调 setState）。
@@ -981,10 +1014,43 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
   Timer? _cooldownTimer;
   int _cooldownLeftSec = 0;
   bool get _onCooldown => _cooldownLeftSec > 0;
+  // 自动关闭定时器：诊断 banner 在 12 秒后自动隐藏，避免长期占顶。
+  // didUpdateWidget 检测 errorMessage 变化后重新起表；手动点击「关闭」
+  // 或任意代理按钮会立刻提前结束（通过 clearErrorMessage 触发）。
+  Timer? _autoDismissTimer;
+  static const Duration _kAutoDismissAfter = Duration(seconds: 12);
+  String? _lastSeenError;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleAutoDismiss();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DiagnosisBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final cur = widget.controller.errorMessage ?? '';
+    if (cur != _lastSeenError) {
+      _scheduleAutoDismiss();
+    }
+  }
+
+  void _scheduleAutoDismiss() {
+    _autoDismissTimer?.cancel();
+    final msg = widget.controller.errorMessage ?? '';
+    _lastSeenError = msg;
+    if (msg.trim().isEmpty) return;
+    _autoDismissTimer = Timer(_kAutoDismissAfter, () {
+      if (!mounted) return;
+      widget.controller.clearErrorMessage();
+    });
+  }
 
   @override
   void dispose() {
     _cooldownTimer?.cancel();
+    _autoDismissTimer?.cancel();
     super.dispose();
   }
 

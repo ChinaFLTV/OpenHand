@@ -66,6 +66,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 上次记录的 tab 列表标识：targets 数量 / currentId 任一变化即 rebuild。
   int _lastTargetsLen = 0;
   String? _lastCurrentTargetId;
+  // 顺序 / 标题指纹：拖拽 reorder 或 Page 标题刷新时长度不变，需要单独感知。
+  int _lastTargetsOrderHash = 0;
+  int _lastTargetsTitleHash = 0;
   // 框选导出模式：进入后吞掉所有指针事件，完成时把当前 viewport 矩形按
   // 浏览器侧 CSS 像素裁切成 PNG。
   bool _cropMode = false;
@@ -75,6 +78,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 这里记录是否处于 pan-zoom 中，方便累计 delta。
   bool _panZoomActive = false;
   Offset _lastPanZoomPan = Offset.zero;
+  // 两指捂合 → 页面缩放：记录上次派发缩放事件的“scale”快照。
+  // 只有增量 > 4% 才应用一次，避免频繁设置 zoomFactor。
+  double _lastPanZoomScale = 1;
   // 2026-05-24 — 自然停止动效：手势结束后用指数衰减把残余速度继续派发，
   // 直到接近 0 或用户再次开始滑动手势。让滚动有 macOS / iOS 般的惯性。
   Timer? _scrollInertiaTimer;
@@ -173,17 +179,23 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final alive = widget.controller.isBrowserAlive;
     final len = widget.controller.pageTargets.length;
     final cur = widget.controller.currentPageTargetId;
+    final orderHash = _hashTargetsOrder(widget.controller.pageTargets);
+    final titleHash = _hashTargetsTitle(widget.controller.pageTargets);
     final dirty = w != _frameW ||
         h != _frameH ||
         alive != _wasAlive ||
         len != _lastTargetsLen ||
-        cur != _lastCurrentTargetId;
+        cur != _lastCurrentTargetId ||
+        orderHash != _lastTargetsOrderHash ||
+        titleHash != _lastTargetsTitleHash;
     final aliveJustFlipped = alive && !_wasAlive;
     _frameW = w;
     _frameH = h;
     _wasAlive = alive;
     _lastTargetsLen = len;
     _lastCurrentTargetId = cur;
+    _lastTargetsOrderHash = orderHash;
+    _lastTargetsTitleHash = titleHash;
     if (dirty) setState(() {});
     if (aliveJustFlipped) {
       // 浏览器刚拉起 / 重启完毕：① 重新 acquire screencast（之前 release/safeStop
@@ -199,6 +211,25 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         state?.restoreBreakpoints();
       });
     }
+  }
+
+  // tab id 顺序 / 标题指纹：Object.hashAll 会构造临时 list，这里手拆 31 hash
+  // 节省 60fps 帧率下的 GC。任一变化即 rebuild，让 `_TabStrip` 立刻拿到
+  // 新顺序 / 新标题。
+  static int _hashTargetsOrder(List<CdpPageTargetSnapshot> targets) {
+    var h = 0;
+    for (final t in targets) {
+      h = (h * 31 + t.id.hashCode) & 0x3fffffff;
+    }
+    return h;
+  }
+
+  static int _hashTargetsTitle(List<CdpPageTargetSnapshot> targets) {
+    var h = 0;
+    for (final t in targets) {
+      h = (h * 31 + t.title.hashCode) & 0x3fffffff;
+    }
+    return h;
   }
 
   void _scheduleViewportSync(Size logical, double dpr) {
@@ -449,6 +480,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     if (_cropMode) return;
     _panZoomActive = true;
     _lastPanZoomPan = Offset.zero;
+    _lastPanZoomScale = 1;
     _scrollInertiaTimer?.cancel();
     _scrollInertiaVelocity = Offset.zero;
     _scrollInertiaAt = DateTime.now();
@@ -456,6 +488,19 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   void _handlePanZoomUpdate(PointerPanZoomUpdateEvent e, Size renderSize) {
     if (_cropMode || !_panZoomActive) return;
+    // ¹ 两指捂合缩放：e.scale 是相对手势起始的累计倍率。每当累计
+    // 增量超过 4%，调一次 setZoomFactor，以下次应用的 scale 为基点重新
+    // 起计。避免频繁下发 zoom 设置。
+    final scaleRatio = e.scale / _lastPanZoomScale;
+    if (scaleRatio < 0.96 || scaleRatio > 1.04) {
+      final next = (_zoom * scaleRatio).clamp(0.25, 3.0);
+      _lastPanZoomScale = e.scale;
+      if ((next - _zoom).abs() > 0.005) {
+        setState(() => _zoom = next);
+        unawaited(widget.controller.setZoomFactor(next));
+      }
+      return;
+    }
     final delta = e.pan - _lastPanZoomPan;
     _lastPanZoomPan = e.pan;
     if (delta == Offset.zero) return;
@@ -738,7 +783,13 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       ),
     );
     _imeConnection = c;
-    _lastImeValue = TextEditingValue.empty;
+    // 哨兵空格：IME 端始终保持一个可删的字符，这样物理 Backspace
+    // 在默认空串的状态下也能产生 cur.length < old.length 增量，避免
+    // 路由到 IME 的 Backspace 被默默吞掉。检测到哨兵被删后重置。
+    _lastImeValue = const TextEditingValue(
+      text: ' ',
+      selection: TextSelection.collapsed(offset: 1),
+    );
     c.setEditingState(_lastImeValue);
     c.show();
   }
@@ -760,29 +811,39 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
     final old = _lastImeValue.text;
     final cur = value.text;
-    if (cur.length > old.length) {
-      // 追加文本：取增量发送。多数 IME 一次提交 1-N 个字符。
-      final delta = cur.substring(old.length);
-      if (delta.isNotEmpty) widget.controller.insertText(delta);
-    } else if (cur.length < old.length) {
-      // 收缩：把删除量按 Backspace 序列发出，让浏览器侧 input/contenteditable
-      // 真正退格。
-      final n = old.length - cur.length;
-      for (var i = 0; i < n; i++) {
-        widget.controller.dispatchKeyEvent(
-          type: 'rawKeyDown',
-          key: 'Backspace',
-          code: 'Backspace',
-        );
-        widget.controller.dispatchKeyEvent(
-          type: 'keyUp',
-          key: 'Backspace',
-          code: 'Backspace',
-        );
-      }
+    // 通用 diff：找出公共前缀，old 剩余部分按 Backspace 删除，cur 剩余部分
+    // 作为 insertText。这样无论 IME 是「追加 / 删尾 / 整体替换」哪种行为都能
+    // 正确转换。包含哨兵空格被删的场景：old=' ', cur='' → 删一个；
+    // 哨兵 + 追加字符：old=' ', cur=' a' → 删 0 个 + insert 'a'；
+    // 整体替换：old=' ', cur='a' → 删 1 个 + insert 'a'。
+    var prefix = 0;
+    final maxPrefix = old.length < cur.length ? old.length : cur.length;
+    while (prefix < maxPrefix && old.codeUnitAt(prefix) == cur.codeUnitAt(prefix)) {
+      prefix++;
     }
-    // 重置 IME 端的"虚拟编辑器"为空，避免文本无限增长。
-    _lastImeValue = TextEditingValue.empty;
+    final toDelete = old.length - prefix;
+    final toInsert = cur.substring(prefix);
+    for (var i = 0; i < toDelete; i++) {
+      widget.controller.dispatchKeyEvent(
+        type: 'rawKeyDown',
+        key: 'Backspace',
+        code: 'Backspace',
+      );
+      widget.controller.dispatchKeyEvent(
+        type: 'keyUp',
+        key: 'Backspace',
+        code: 'Backspace',
+      );
+    }
+    if (toInsert.isNotEmpty) {
+      widget.controller.insertText(toInsert);
+    }
+    // 重置 IME 端为「哨兵空格」，让下一次物理 Backspace 仍能产生 delta，
+    // 不会被 IME 默默吞掉；同时也避免文本无限增长。
+    _lastImeValue = const TextEditingValue(
+      text: ' ',
+      selection: TextSelection.collapsed(offset: 1),
+    );
     _imeConnection?.setEditingState(_lastImeValue);
   }
 
@@ -1887,10 +1948,57 @@ class _TabStrip extends StatelessWidget {
                                         child: ConstrainedBox(
                                           constraints: const BoxConstraints(
                                               maxWidth: 140),
-                                          child: Text(
-                                            label,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                          child: AnimatedSwitcher(
+                                            duration: const Duration(
+                                                milliseconds: 280),
+                                            switchInCurve:
+                                                Curves.easeOutBack,
+                                            switchOutCurve:
+                                                Curves.easeInCubic,
+                                            transitionBuilder:
+                                                (child, animation) {
+                                              // Q 弹文本切换：fade + 轻微上推 + 缩放，
+                                              // 标题刷新（CDP `Page.frameNavigated` 后
+                                              // `_refreshPageTitle` 写回）时让胶囊文字
+                                              // 顺滑替换，不闪烁。
+                                              final slide = Tween<Offset>(
+                                                begin:
+                                                    const Offset(0, 0.25),
+                                                end: Offset.zero,
+                                              ).animate(animation);
+                                              return FadeTransition(
+                                                opacity: animation,
+                                                child: SlideTransition(
+                                                  position: slide,
+                                                  child: ScaleTransition(
+                                                    scale: Tween<double>(
+                                                            begin: 0.92,
+                                                            end: 1)
+                                                        .animate(animation),
+                                                    child: child,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            layoutBuilder:
+                                                (current, previous) {
+                                              return Stack(
+                                                alignment:
+                                                    Alignment.centerLeft,
+                                                children: [
+                                                  ...previous,
+                                                  if (current != null)
+                                                    current,
+                                                ],
+                                              );
+                                            },
+                                            child: Text(
+                                              label,
+                                              key: ValueKey<String>(label),
+                                              maxLines: 1,
+                                              overflow:
+                                                  TextOverflow.ellipsis,
+                                            ),
                                           ),
                                         ),
                                       ),

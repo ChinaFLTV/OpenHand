@@ -1806,6 +1806,49 @@ class WebReverseSessionController extends ChangeNotifier {
       _networkByRequestId.clear();
       _safeNotify();
     }
+    // 顶层 frame 导航完成后，主动拉一次 document.title 更新对应 page target，
+    // 因为 CDP `Target.targetInfoChanged` 在 SPA / pushState 场景往往不会带新
+    // title 抵达。这里延迟一帧调度，等页面 onload 把 <title> 渲染上去。
+    final targetId = _currentTargetId;
+    if (targetId != null && targetId.isNotEmpty) {
+      unawaited(_refreshPageTitle(targetId));
+    }
+  }
+
+  /// 通过 page session 的 `Runtime.evaluate('document.title')` 拉取最新标题，
+  /// 并写回 `_pageTargets` 对应 entry；失败静默。重复调用安全（无 title
+  /// 变化时不 notify）。
+  Future<void> _refreshPageTitle(String targetId) async {
+    final cdp = _browserCdp;
+    final sid = _pageSessionId;
+    if (cdp == null || sid == null) return;
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: {
+          'expression': 'document.title',
+          'returnByValue': true,
+        },
+        sessionId: sid,
+      );
+      final result = r['result'] as Map?;
+      final value = result?['value'];
+      if (value is! String) return;
+      final title = value.trim();
+      if (title.isEmpty) return;
+      final idx = _pageTargets.indexWhere((e) => e.id == targetId);
+      if (idx < 0) return;
+      if (_pageTargets[idx].title == title) return;
+      final prev = _pageTargets[idx];
+      _pageTargets[idx] = CdpPageTargetSnapshot(
+        id: prev.id,
+        url: prev.url,
+        title: title,
+      );
+      _safeNotify();
+    } catch (e, st) {
+      silentLog('web_reverse', '_refreshPageTitle', e, st);
+    }
   }
 
   /// 本会话内主 frame 访问过的 URL 序列（按时间顺序，相邻去重）。

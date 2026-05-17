@@ -402,16 +402,22 @@ class _AnimatedAppearOnceState extends State<_AnimatedAppearOnce>
   @override
   Widget build(BuildContext context) {
     if (widget.duration == Duration.zero) return widget.child;
+    // Q 弹入场：Fade + Slide(easeOutBack 微回弹) + Scale(0.96 → 1)。
+    // 既覆盖 Network / Console 等条目卡片的「出现」动效，又把过去的纯
+    // easeOutCubic 升级为带轻微弹簧的曲线，让条目堆叠时更生动。
+    final fade = CurvedAnimation(parent: _ac, curve: Curves.easeOutCubic);
+    final pop = CurvedAnimation(parent: _ac, curve: Curves.easeOutBack);
     return FadeTransition(
-      opacity: CurvedAnimation(parent: _ac, curve: Curves.easeOutCubic),
+      opacity: fade,
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0, 0.05),
+          begin: const Offset(0, 0.08),
           end: Offset.zero,
-        ).animate(
-          CurvedAnimation(parent: _ac, curve: Curves.easeOutCubic),
+        ).animate(pop),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1).animate(pop),
+          child: widget.child,
         ),
-        child: widget.child,
       ),
     );
   }

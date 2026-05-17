@@ -176,7 +176,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       text: cur?.args.isEmpty ?? true ? '--stdio' : cur!.args.join(' '),
     );
     final preset = ValueNotifier<String?>(null);
-    final result = await showDialog<bool>(
+    final result = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(isZh ? 'LSP 设置' : 'LSP settings'),
@@ -256,13 +256,13 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
+            label: isZh ? '取消' : 'Cancel',
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(isZh ? '取消' : 'Cancel'),
           ),
-          FilledButton(
+          OpenHandDialogActionButton.primary(
+            label: isZh ? '保存' : 'Save',
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(isZh ? '保存' : 'Save'),
           ),
         ],
       ),
@@ -756,8 +756,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                           padding: EdgeInsets.zero,
                           iconSize: 18,
                           style: IconButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
+                            // 圆形按钮：与右侧脚本列表拉开明显语义，避免与脚本项圈起混淆。
+                            shape: CircleBorder(
                               side: BorderSide(color: cs.outlineVariant),
                             ),
                           ),
@@ -883,32 +883,46 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 ),
               ),
               const SizedBox(width: 8),
-              FilterChip(
-                label: Text(_prettify
-                    ? (isZh ? '已美化' : 'Pretty')
-                    : (isZh ? '原样' : 'Raw')),
-                selected: _prettify,
-                onSelected: (v) {
-                  setState(() => _prettify = v);
-                  _pushCurrentToLsp();
-                },
+              // “原样” / “LSP” 胶囊外明确限定高 32，与右侧复制源码 /
+              // 继续运行等动作胶囊保持同高，避免主侊变得徽高徽矮。
+              SizedBox(
+                height: 32,
+                child: FilterChip(
+                  label: Text(_prettify
+                      ? (isZh ? '已美化' : 'Pretty')
+                      : (isZh ? '原样' : 'Raw')),
+                  selected: _prettify,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize:
+                      MaterialTapTargetSize.shrinkWrap,
+                  onSelected: (v) {
+                    setState(() => _prettify = v);
+                    _pushCurrentToLsp();
+                  },
+                ),
               ),
               const SizedBox(width: 6),
-              FilterChip(
-                avatar: Icon(
-                  _lsp.status == WebReverseLspStatus.ready
-                      ? Icons.bolt_rounded
-                      : Icons.bolt_outlined,
-                  size: 16,
-                  color: _lsp.status == WebReverseLspStatus.ready
-                      ? cs.primary
-                      : cs.onSurfaceVariant,
+              SizedBox(
+                height: 32,
+                child: FilterChip(
+                  avatar: Icon(
+                    _lsp.status == WebReverseLspStatus.ready
+                        ? Icons.bolt_rounded
+                        : Icons.bolt_outlined,
+                    size: 16,
+                    color: _lsp.status == WebReverseLspStatus.ready
+                        ? cs.primary
+                        : cs.onSurfaceVariant,
+                  ),
+                  label: Text(_lspEnabled
+                      ? (isZh ? 'LSP 已开' : 'LSP on')
+                      : (isZh ? 'LSP' : 'LSP')),
+                  selected: _lspEnabled,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize:
+                      MaterialTapTargetSize.shrinkWrap,
+                  onSelected: (_) => _toggleLsp(),
                 ),
-                label: Text(_lspEnabled
-                    ? (isZh ? 'LSP 已开' : 'LSP on')
-                    : (isZh ? 'LSP' : 'LSP')),
-                selected: _lspEnabled,
-                onSelected: (_) => _toggleLsp(),
               ),
               const SizedBox(width: 4),
               SizedBox(
