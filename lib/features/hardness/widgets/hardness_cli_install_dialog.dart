@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../service/hardness_cli_catalog.dart';
@@ -34,6 +35,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
   bool _elevatedRetryAttempted = false;
   Process? _process;
   final ScrollController _scrollController = ScrollController();
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
 
   /// Pulses the green top-edge confirmation flash on successful install.
   final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
@@ -94,13 +96,12 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
     }
     setState(() => _logLines.add(line));
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
-        );
-      }
+      _scrollGuard.followToBottom(
+        _scrollController,
+        animated: true,
+        animationDuration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -552,13 +553,16 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
                     child: Scrollbar(
                       controller: _scrollController,
                       thumbVisibility: true,
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _logLines.length,
-                        itemBuilder: (context, index) {
-                          return _LogLine(line: _logLines[index]);
-                        },
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: _scrollGuard.handleNotification,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: _logLines.length,
+                          itemBuilder: (context, index) {
+                            return _LogLine(line: _logLines[index]);
+                          },
+                        ),
                       ),
                     ),
                   ),

@@ -16,6 +16,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -1795,6 +1796,7 @@ class _WebGatewayLogDialog extends StatefulWidget {
 
 class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   final ScrollController _scrollController = ScrollController();
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final Set<WebGatewayLogLevel> _hidden = <WebGatewayLogLevel>{};
   final List<WebGatewayLogEntry> _rendered = <WebGatewayLogEntry>[];
@@ -1959,19 +1961,22 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
               Expanded(
                 child: Container(
                   color: const Color(0xFF101218),
-                  child: Scrollbar(
-                    controller: _scrollController,
-                    thumbVisibility: true,
-                    child: AnimatedList(
-                      key: _listKey,
-                      initialItemCount: _rendered.length,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _scrollGuard.handleNotification,
+                    child: Scrollbar(
                       controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
-                      itemBuilder: (context, index, animation) =>
-                          _AnimatedLogLine(
-                            entry: _rendered[index],
-                            animation: animation,
-                          ),
+                      thumbVisibility: true,
+                      child: AnimatedList(
+                        key: _listKey,
+                        initialItemCount: _rendered.length,
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+                        itemBuilder: (context, index, animation) =>
+                            _AnimatedLogLine(
+                              entry: _rendered[index],
+                              animation: animation,
+                            ),
+                      ),
                     ),
                   ),
                 ),
@@ -2110,11 +2115,10 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
 
   void _scrollToBottomSoon() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: _motionDuration(context, 220),
-        curve: Curves.easeOutCubic,
+      _scrollGuard.followToBottom(
+        _scrollController,
+        animated: true,
+        animationDuration: _motionDuration(context, 220),
       );
     });
   }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
@@ -33,6 +34,7 @@ class _StdioLogDialog extends StatefulWidget {
 
 class _StdioLogDialogState extends State<_StdioLogDialog> {
   final ScrollController _scrollController = ScrollController();
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   bool _autoScroll = true;
   int _lastLogCount = 0;
 
@@ -42,8 +44,8 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     McpStdioProcessManager.instance.addListener(_onUpdate);
     // 弹窗打开时自动滚动到底部显示最新日志
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      if (!mounted) return;
+      _scrollGuard.followToBottom(_scrollController);
     });
   }
 
@@ -61,11 +63,11 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     if (_autoScroll && info.logs.length > _lastLogCount) {
       _lastLogCount = info.logs.length;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_scrollController.hasClients) return;
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
+        if (!mounted) return;
+        _scrollGuard.followToBottom(
+          _scrollController,
+          animated: true,
+          animationDuration: const Duration(milliseconds: 220),
         );
       });
     }
@@ -233,32 +235,35 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                           ),
                         ),
                       )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
-                        itemCount: logs.length,
-                        itemBuilder: (context, index) {
-                          final line = logs[index];
-                          final style = _resolveLogLineStyle(line);
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              top: style.topPadding,
-                              bottom: 0.5,
-                            ),
-                            child: Text(
-                              line,
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: style.fontSize,
-                                height: 1.5,
-                                color: style.color,
-                                fontWeight: style.bold
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: _scrollGuard.handleNotification,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: logs.length,
+                          itemBuilder: (context, index) {
+                            final line = logs[index];
+                            final style = _resolveLogLineStyle(line);
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                top: style.topPadding,
+                                bottom: 0.5,
                               ),
-                            ),
-                          );
-                        },
+                              child: Text(
+                                line,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: style.fontSize,
+                                  height: 1.5,
+                                  color: style.color,
+                                  fontWeight: style.bold
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
               ),
             ),
@@ -744,6 +749,7 @@ class _StdioDepsDialog extends StatefulWidget {
 
 class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   final ScrollController _logScroll = ScrollController();
+  final AutoFollowScrollGuard _logGuard = AutoFollowScrollGuard();
   final List<String> _logs = [];
   bool _operating = false;
   bool _checking = true;
@@ -807,13 +813,11 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     if (mounted) {
       setState(() {});
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_logScroll.hasClients) {
-          _logScroll.animateTo(
-            _logScroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-          );
-        }
+        _logGuard.followToBottom(
+          _logScroll,
+          animated: true,
+          animationDuration: const Duration(milliseconds: 150),
+        );
       });
     }
   }
@@ -1183,22 +1187,25 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         )
-                      : ListView.builder(
-                          controller: _logScroll,
-                          padding: const EdgeInsets.all(10),
-                          itemCount: _logs.length,
-                          itemBuilder: (context, index) {
-                            final line = _logs[index];
-                            return Text(
-                              line,
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 11,
-                                height: 1.5,
-                                color: _depsLogColor(line),
-                              ),
-                            );
-                          },
+                      : NotificationListener<ScrollNotification>(
+                          onNotification: _logGuard.handleNotification,
+                          child: ListView.builder(
+                            controller: _logScroll,
+                            padding: const EdgeInsets.all(10),
+                            itemCount: _logs.length,
+                            itemBuilder: (context, index) {
+                              final line = _logs[index];
+                              return Text(
+                                line,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  height: 1.5,
+                                  color: _depsLogColor(line),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                 ),
               ),

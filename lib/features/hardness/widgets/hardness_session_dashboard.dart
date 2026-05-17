@@ -1220,6 +1220,9 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
       // 导致滚动位置跳动。在下一帧测量高度差并反向补偿，保持可视内容稳定。
       WidgetsBinding.instance.endOfFrame.then((_) {
         if (!mounted || !_feedController.hasClients) return;
+        // 用户正在拖动 feed 时跳过补偿，避免与触摸 / 滚轮事件抢占
+        // ScrollPosition.pixels（同样的"鬼畜"问题）。
+        if (_userFeedScrollInProgress) return;
         // 如果用户在底部（auto-follow），确保仍然贴底
         if (_autoFollowEnabled && _shouldAutoFollowFeed) {
           final pos = _feedController.position;

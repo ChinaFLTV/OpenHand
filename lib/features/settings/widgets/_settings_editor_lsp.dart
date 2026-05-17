@@ -1893,6 +1893,7 @@ class _EditorLspInstallRunnerDialogState
     extends State<_EditorLspInstallRunnerDialog> {
   final List<String> _logLines = <String>[];
   final ScrollController _scrollController = ScrollController();
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   Process? _process;
   bool _running = true;
   bool _success = false;
@@ -1927,13 +1928,11 @@ class _EditorLspInstallRunnerDialogState
       _logLines.add(value);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOutCubic,
-        );
-      }
+      _scrollGuard.followToBottom(
+        _scrollController,
+        animated: true,
+        animationDuration: const Duration(milliseconds: 120),
+      );
     });
   }
 
@@ -2104,24 +2103,27 @@ class _EditorLspInstallRunnerDialogState
                       color: terminalBorder,
                     ),
                     Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _logLines.length,
-                        itemBuilder: (context, index) {
-                          final line = _logLines[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: SelectableText(
-                              line.isEmpty ? ' ' : line,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'SF Mono, Menlo, monospace',
-                                color: _terminalLineColor(line),
-                                height: 1.45,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: _scrollGuard.handleNotification,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: _logLines.length,
+                          itemBuilder: (context, index) {
+                            final line = _logLines[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: SelectableText(
+                                line.isEmpty ? ' ' : line,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontFamily: 'SF Mono, Menlo, monospace',
+                                  color: _terminalLineColor(line),
+                                  height: 1.45,
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],

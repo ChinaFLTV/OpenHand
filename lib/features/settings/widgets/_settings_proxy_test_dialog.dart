@@ -51,6 +51,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     with SingleTickerProviderStateMixin {
   final List<_ProxyTestLogEntry> _entries = <_ProxyTestLogEntry>[];
   final ScrollController _scrollController = ScrollController();
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   final Stopwatch _totalStopwatch = Stopwatch();
   late final AnimationController _cursorBlinkController;
 
@@ -123,11 +124,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       );
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
+      _scrollGuard.followToBottom(
+        _scrollController,
+        animated: true,
       );
     });
   }
@@ -841,15 +840,18 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         child: Scrollbar(
           controller: _scrollController,
           thumbVisibility: true,
-          child: ListView.builder(
-            controller: _scrollController,
-            itemCount: visible.length + (_running ? 1 : 0),
-            itemBuilder: (ctx, i) {
-              if (i == visible.length) {
-                return _buildBlinkingCursor();
-              }
-              return _buildEntryRow(visible[i]);
-            },
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _scrollGuard.handleNotification,
+            child: ListView.builder(
+              controller: _scrollController,
+              itemCount: visible.length + (_running ? 1 : 0),
+              itemBuilder: (ctx, i) {
+                if (i == visible.length) {
+                  return _buildBlinkingCursor();
+                }
+                return _buildEntryRow(visible[i]);
+              },
+            ),
           ),
         ),
       ),

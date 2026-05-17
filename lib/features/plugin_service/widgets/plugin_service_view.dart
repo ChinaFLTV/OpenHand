@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -715,6 +716,7 @@ class _PluginOperationProgressDialogState
     extends State<_PluginOperationProgressDialog>
     with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   late final AnimationController _pulseController;
   int _lastLogCount = 0;
 
@@ -735,13 +737,11 @@ class _PluginOperationProgressDialogState
     if (logs.length > _lastLogCount) {
       _lastLogCount = logs.length;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-          );
-        }
+        _scrollGuard.followToBottom(
+          _scrollController,
+          animated: true,
+          animationDuration: const Duration(milliseconds: 200),
+        );
       });
     }
   }
@@ -874,30 +874,33 @@ class _PluginOperationProgressDialogState
                           ),
                         ),
                       )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
-                        itemCount: logs.length,
-                        itemBuilder: (context, index) {
-                          final line = logs[index];
-                          final isError =
-                              line.startsWith('✗') ||
-                              line.toLowerCase().startsWith('error');
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 2),
-                            child: Text(
-                              line,
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 11,
-                                height: 1.5,
-                                color: isError
-                                    ? const Color(0xFFFF6B6B)
-                                    : const Color(0xFFD4D4D4),
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: _scrollGuard.handleNotification,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: logs.length,
+                          itemBuilder: (context, index) {
+                            final line = logs[index];
+                            final isError =
+                                line.startsWith('✗') ||
+                                line.toLowerCase().startsWith('error');
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text(
+                                line,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  height: 1.5,
+                                  color: isError
+                                      ? const Color(0xFFFF6B6B)
+                                      : const Color(0xFFD4D4D4),
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
               ),
             ),
@@ -1506,6 +1509,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
   String? _error;
   final List<String> _logs = [];
   final ScrollController _logScroll = ScrollController();
+  final AutoFollowScrollGuard _logGuard = AutoFollowScrollGuard();
 
   @override
   void initState() {
@@ -1524,13 +1528,11 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     if (mounted) {
       setState(() {});
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_logScroll.hasClients) {
-          _logScroll.animateTo(
-            _logScroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-          );
-        }
+        _logGuard.followToBottom(
+          _logScroll,
+          animated: true,
+          animationDuration: const Duration(milliseconds: 200),
+        );
       });
     }
   }
@@ -1820,31 +1822,34 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         )
-                      : ListView.builder(
-                          controller: _logScroll,
-                          padding: const EdgeInsets.all(10),
-                          itemCount: _logs.length,
-                          itemBuilder: (context, index) {
-                            final line = _logs[index];
-                            final isErr =
-                                line.startsWith('✗') ||
-                                line.toLowerCase().startsWith('error');
-                            final isSuccess = line.startsWith('✓');
-                            final isFail = line.startsWith('✗');
-                            return Text(
-                              line,
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 11,
-                                height: 1.5,
-                                color: isErr || isFail
-                                    ? const Color(0xFFFF6B6B)
-                                    : isSuccess
-                                    ? const Color(0xFF4ADE80)
-                                    : const Color(0xFFD4D4D4),
-                              ),
-                            );
-                          },
+                      : NotificationListener<ScrollNotification>(
+                          onNotification: _logGuard.handleNotification,
+                          child: ListView.builder(
+                            controller: _logScroll,
+                            padding: const EdgeInsets.all(10),
+                            itemCount: _logs.length,
+                            itemBuilder: (context, index) {
+                              final line = _logs[index];
+                              final isErr =
+                                  line.startsWith('✗') ||
+                                  line.toLowerCase().startsWith('error');
+                              final isSuccess = line.startsWith('✓');
+                              final isFail = line.startsWith('✗');
+                              return Text(
+                                line,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  height: 1.5,
+                                  color: isErr || isFail
+                                      ? const Color(0xFFFF6B6B)
+                                      : isSuccess
+                                      ? const Color(0xFF4ADE80)
+                                      : const Color(0xFFD4D4D4),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                 ),
               ),

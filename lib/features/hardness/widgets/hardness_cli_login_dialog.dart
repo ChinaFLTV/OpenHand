@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../service/hardness_cli_catalog.dart';
@@ -23,6 +24,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
   static const int _maxBufferedChars = 120000;
 
   final ScrollController _scrollController = ScrollController();
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   final TextEditingController _inputController = TextEditingController();
 
   Process? _process;
@@ -200,10 +202,8 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) {
-        return;
-      }
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      if (!mounted) return;
+      _scrollGuard.followToBottom(_scrollController);
     });
   }
 
@@ -417,23 +417,26 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                     child: Scrollbar(
                       controller: _scrollController,
                       thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(14),
-                        child: SelectableText(
-                          _errorMessage ??
-                              (_output.isEmpty
-                                  ? (isZh
-                                        ? '等待 CLI 输出...'
-                                        : 'Waiting for CLI output...')
-                                  : _output),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
-                            fontSize: 12.5,
-                            height: 1.55,
-                            color: _errorMessage != null
-                                ? const Color(0xFFFCA5A5)
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: _scrollGuard.handleNotification,
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(14),
+                          child: SelectableText(
+                            _errorMessage ??
+                                (_output.isEmpty
+                                    ? (isZh
+                                          ? '等待 CLI 输出...'
+                                          : 'Waiting for CLI output...')
+                                    : _output),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              fontSize: 12.5,
+                              height: 1.55,
+                              color: _errorMessage != null
+                                  ? const Color(0xFFFCA5A5)
                                 : const Color(0xFFE2E8F0),
+                            ),
                           ),
                         ),
                       ),

@@ -33,6 +33,7 @@ import '../../../shared/fps/openhand_fps_monitor.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/app_update_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/error_snackbar.dart';
 import '../../../shared/ui/first_frame_pulse_box.dart';
 import '../../../shared/ui/highlight_pulse.dart';
