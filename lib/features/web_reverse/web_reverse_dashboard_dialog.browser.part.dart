@@ -1,23 +1,23 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────
-// 内嵌浏览器面板：CDP screencast 帧渲染 + 输入桥（鼠标 / 滚轮 / 键盘 / IME）
+// 内嵌浏览器面板：CDP screencast 帧渲染 + 输入桥（鼠标 / 滚轮 / 键盘）
 //
 // 设计要点：
 //   1. 资源控制 —— 进入面板时调一次 `acquireScreencast`，离开 / dispose 时
 //      `releaseScreencast`；controller 内部用引用计数避免重复 start/stop。
 //      切到其它 tab 立即 release，浏览器立刻停推帧；切回再 acquire。这避免
 //      "用户切走后帧仍在后台跑、堆积内存"。
-//   2. 帧渲染 —— 只保留最近一帧 `Uint8List`，每帧到达时帧序号自增，widget
-//      用 [Image.memory] + ValueKey 触发 RepaintBoundary 内重绘，列表 / 工具
-//      栏完全不会被脏区拖累。
-//   3. 输入桥 —— Listener 捕获 PointerDown/Move/Up/Wheel；KeyboardListener
-//      捕获 LogicalKey；TextField (IME 通道) 用零宽透明输入框接 insertText。
-//      所有事件都会先把本地坐标除以 devicePixelRatio 再折算到浏览器
+//   2. 帧渲染 —— controller 暴露 [screencastFrameNotifier]，[_ScreencastImage]
+//      用 [ValueListenableBuilder] 订阅它做局部 repaint，外层 Padding / Stack /
+//      Column 完全不参与 60fps 帧流。每帧到达时帧序号 +1，[Image.memory] 用
+//      ValueKey 触发 RepaintBoundary 内重绘。
+//   3. 输入桥 —— Listener 捕获 PointerDown/Move/Up/Wheel；Focus.onKeyEvent
+//      捕获物理键盘并通过 CDP `Input.dispatchMouseEvent` / `dispatchKeyEvent`
+//      实时下发，所有事件先把本地坐标除以 devicePixelRatio 折算到浏览器
 //      viewport（CSS 像素），保证 retina 一致。
-//   4. 视口同步 —— widget 矩形在用户拖大 / 拖小窗口时变化，触发去抖 200ms 后
-//      调 `reconfigureScreencast`，让浏览器侧 maxWidth/maxHeight 跟手；同时
-//      同步 setDeviceMetricsOverride，让 page 的 layout 也按面板尺寸渲染。
+//   4. 视口同步 —— widget 矩形在用户拖大 / 拖小窗口时变化，触发去抖 220ms
+//      调 `reconfigureScreencast`，让浏览器侧 maxWidth/maxHeight 跟手。
 // ─────────────────────────────────────────────────────────────────────────
 
 class _BrowserBody extends StatefulWidget {
@@ -38,8 +38,6 @@ class _BrowserBody extends StatefulWidget {
 class _BrowserBodyState extends State<_BrowserBody> {
   final TextEditingController _addressCtrl = TextEditingController();
   final FocusNode _surfaceFocus = FocusNode(debugLabel: 'browser-surface');
-  final FocusNode _imeFocus = FocusNode(debugLabel: 'browser-ime');
-  final TextEditingController _imeCtrl = TextEditingController();
   Timer? _resizeDebouncer;
   Timer? _urlPoller;
   bool _addressEditing = false;
@@ -80,8 +78,6 @@ class _BrowserBodyState extends State<_BrowserBody> {
     widget.controller.releaseScreencast();
     _addressCtrl.dispose();
     _surfaceFocus.dispose();
-    _imeFocus.dispose();
-    _imeCtrl.dispose();
     super.dispose();
   }
 
@@ -322,27 +318,6 @@ class _BrowserBodyState extends State<_BrowserBody> {
                                 cursor: SystemMouseCursors.basic,
                                 child: SizedBox.expand(),
                               ),
-                            ),
-                          ),
-                        ),
-                        // 零宽透明 IME 输入桥：仅当用户聚焦面板时挂着，专门
-                        // 接 macOS / Windows / Linux IME 提交（如中文 / 日文输入法）。
-                        Positioned(
-                          left: 0,
-                          top: 0,
-                          width: 1,
-                          height: 1,
-                          child: Opacity(
-                            opacity: 0,
-                            child: TextField(
-                              focusNode: _imeFocus,
-                              controller: _imeCtrl,
-                              onChanged: (s) {
-                                if (s.isNotEmpty) {
-                                  widget.controller.insertText(s);
-                                  _imeCtrl.clear();
-                                }
-                              },
                             ),
                           ),
                         ),
