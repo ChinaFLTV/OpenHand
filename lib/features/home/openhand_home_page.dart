@@ -1525,7 +1525,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   bool _shouldDeferAutoFollowScheduling() {
-    return !_isAppLifecycleActive() || _resumeAutoFollowSuppressionFrames > 0;
+    return !_isAppLifecycleActive() ||
+        _resumeAutoFollowSuppressionFrames > 0 ||
+        // 2026-05-17：用户正在拖动 transcript 时，禁止任何 layout-change /
+        // composer 折叠 / 流式 token 触发的 auto-follow 调度，避免那道
+        // "把视口往下拽" 的力与用户上滑手势产生拉锯，造成抽搐 / 鬼畜。
+        _userScrollInProgress;
   }
 
   void _scheduleResumeAutoFollowSync() {
@@ -4766,6 +4771,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _measureComposerHeightAndCompensate() {
     // 折叠/展开期间稳住消息：用 composer panel size delta 反向补偿 transcript
     // scrollOffset，让用户「未在底部」时上方消息不被挤上去 / 压下来。
+    //
+    // 2026-05-17：用户正在拖动 transcript 时，必须放弃这次补偿，否则
+    // jumpTo 会和触摸 / 鼠标滚轮事件同帧争夺 ScrollPosition.pixels，
+    // 表现为视口被强行拉回到一个"未补偿"位置，体感是"鬼畜"和"被拽住"。
+    if (_userScrollInProgress) {
+      return;
+    }
     final composerCtx = _composerPanelKey.currentContext;
     final renderObject = composerCtx?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) {
