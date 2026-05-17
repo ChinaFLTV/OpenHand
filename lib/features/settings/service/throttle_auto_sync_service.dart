@@ -12,6 +12,15 @@ import 'throttle_cloud_sync_service.dart';
 ///   * provider 不是 custom（iCloud / OAuth 占位）或 endpoint 为空时
 ///     直接关闭，不执行任何网络 IO。
 ///
+/// 2026-05-19 — 强化为「双向冲突解决」：
+///   * 远端 payload 携带 `updated_at_ms`（epoch ms）；
+///   * 本地 [SettingsController.aiStreamThrottleConfigUpdatedAtMs] 由
+///     `_commitThrottleMutation` 自动 bump；
+///   * pull 后若 remote_ms <= local_ms，则跳过 apply 并触发 push 把
+///     本地新版本同步到云端，避免老覆新；
+///   * native 端外部变更通知（`cloudConfigChanged`）会主动触发一次
+///     pull，做到多设备实时联动。
+///
 /// 设计目标：
 ///   * 单 service，接管所有"自动"路径，UI 端不感知；
 ///   * 失败仅记入 silentLog，不打扰用户；
@@ -21,15 +30,23 @@ class ThrottleAutoSyncService {
     required SettingsController settingsController,
     ThrottleCloudSyncService? cloudSyncService,
   })  : _settingsController = settingsController,
-        _cloudSyncService = cloudSyncService ?? ThrottleCloudSyncService();
+        _cloudSyncService = cloudSyncService ?? ThrottleCloudSyncService(),
+        _ownsService = cloudSyncService == null;
 
   final SettingsController _settingsController;
   final ThrottleCloudSyncService _cloudSyncService;
+  final bool _ownsService;
 
   Timer? _debounceTimer;
+  StreamSubscription<void>? _cloudChangesSub;
   String? _lastConfigSignature;
   bool _started = false;
   bool _disposed = false;
+
+  /// 内部锁：apply 远端配置时设置为 true，避免 listener 把这次 import
+  /// 当作本地变更再 push 回去（虽然 timestamp 比对会兜底，但能省一次
+  /// push 网络 IO）。
+  bool _applyingRemote = false;
 
   static const Duration _bootPullDelay = Duration(seconds: 1);
   static const Duration _pushDebounce = Duration(seconds: 5);
@@ -44,6 +61,15 @@ class ThrottleAutoSyncService {
     _lastConfigSignature = _signatureFor(
       _settingsController.exportAiStreamThrottleConfig(),
     );
+    // 监听 native 推送的远端变更通知；订阅自身节流防止短时间内多次 pull。
+    Timer? pullDebounce;
+    _cloudChangesSub = _cloudSyncService.cloudChanges.listen((_) {
+      pullDebounce?.cancel();
+      pullDebounce = Timer(const Duration(milliseconds: 600), () {
+        if (_disposed) return;
+        unawaited(_pullSilently());
+      });
+    });
     Future<void>.delayed(_bootPullDelay, () {
       if (_disposed) return;
       unawaited(_pullSilently());
@@ -55,13 +81,18 @@ class ThrottleAutoSyncService {
     _disposed = true;
     _debounceTimer?.cancel();
     _debounceTimer = null;
+    await _cloudChangesSub?.cancel();
+    _cloudChangesSub = null;
     if (_started) {
       _settingsController.removeListener(_onSettingsChanged);
+    }
+    if (_ownsService) {
+      await _cloudSyncService.dispose();
     }
   }
 
   void _onSettingsChanged() {
-    if (_disposed) return;
+    if (_disposed || _applyingRemote) return;
     final config = _settingsController.exportAiStreamThrottleConfig();
     final signature = _signatureFor(config);
     if (signature == _lastConfigSignature) return;
@@ -80,12 +111,7 @@ class ThrottleAutoSyncService {
     );
     final endpoint = _settingsController.aiStreamThrottleCloudSyncEndpoint;
     final token = _settingsController.aiStreamThrottleCloudSyncToken;
-    // 2026-05-18 — custom 必须配 endpoint；iCloud 走 native 桥不依赖
-    // endpoint，直接放行。
-    final isCustomReady =
-        provider == ThrottleCloudSyncProvider.custom && endpoint.isNotEmpty;
-    final isIcloud = provider == ThrottleCloudSyncProvider.iCloud;
-    if (!isCustomReady && !isIcloud) {
+    if (!_isProviderReady(provider, endpoint, token)) {
       return;
     }
     try {
@@ -93,6 +119,11 @@ class ThrottleAutoSyncService {
         provider: provider,
         endpoint: endpoint,
         token: token,
+        // gistGitHub provider 复用 endpoint 字段保存 gist id（避免再加
+        // 一个独立字段）；其它 provider 这个值传了也无害。
+        gistId: provider == ThrottleCloudSyncProvider.gistGitHub
+            ? endpoint.trim()
+            : '',
       );
       if (!result.ok || result.config == null) return;
       final remoteSig = _signatureFor(result.config!);
@@ -100,7 +131,24 @@ class ThrottleAutoSyncService {
         _settingsController.exportAiStreamThrottleConfig(),
       );
       if (remoteSig == localSig) return;
-      await _settingsController.importAiStreamThrottleConfig(result.config!);
+      // 冲突解决：远端 timestamp 必须严格大于本地，才允许覆盖；
+      // 远端无 timestamp（旧文档 / 0）时也允许覆盖（首次同步 / 兼容）。
+      final localMs = _settingsController.aiStreamThrottleConfigUpdatedAtMs;
+      final remoteMs = result.updatedAtMs;
+      if (remoteMs > 0 && localMs > 0 && remoteMs <= localMs) {
+        // 本地更新 → 反过来把本地推上去，让远端追上来。
+        unawaited(_pushSilently());
+        return;
+      }
+      _applyingRemote = true;
+      try {
+        await _settingsController.importAiStreamThrottleConfig(
+          result.config!,
+          overrideUpdatedAtMs: remoteMs > 0 ? remoteMs : null,
+        );
+      } finally {
+        _applyingRemote = false;
+      }
       _lastConfigSignature = remoteSig;
     } catch (error, stack) {
       silentLog('throttle_auto_sync', 'pullSilently', error, stack);
@@ -113,10 +161,7 @@ class ThrottleAutoSyncService {
     );
     final endpoint = _settingsController.aiStreamThrottleCloudSyncEndpoint;
     final token = _settingsController.aiStreamThrottleCloudSyncToken;
-    final isCustomReady =
-        provider == ThrottleCloudSyncProvider.custom && endpoint.isNotEmpty;
-    final isIcloud = provider == ThrottleCloudSyncProvider.iCloud;
-    if (!isCustomReady && !isIcloud) {
+    if (!_isProviderReady(provider, endpoint, token)) {
       return;
     }
     try {
@@ -126,6 +171,10 @@ class ThrottleAutoSyncService {
         endpoint: endpoint,
         token: token,
         config: config,
+        updatedAtMs: _settingsController.aiStreamThrottleConfigUpdatedAtMs,
+        gistId: provider == ThrottleCloudSyncProvider.gistGitHub
+            ? endpoint.trim()
+            : '',
       );
       if (!result.ok) {
         silentLog(
@@ -140,14 +189,34 @@ class ThrottleAutoSyncService {
     }
   }
 
+  bool _isProviderReady(
+    ThrottleCloudSyncProvider provider,
+    String endpoint,
+    String token,
+  ) {
+    switch (provider) {
+      case ThrottleCloudSyncProvider.custom:
+        return endpoint.isNotEmpty;
+      case ThrottleCloudSyncProvider.iCloud:
+        return true;
+      case ThrottleCloudSyncProvider.gistGitHub:
+        // endpoint 复用为 gist id；token 是 PAT。
+        return endpoint.trim().isNotEmpty && token.trim().isNotEmpty;
+      case ThrottleCloudSyncProvider.oauth:
+        return false;
+    }
+  }
+
   /// 把 config 拍平成稳定签名字符串：内部排序后用 ; 拼接 key=val。
   /// 仅用于"是否有变化"的等值判断，不需要严格 JSON 序列化。
   String _signatureFor(Map<String, Object?> config) {
     final keys = config.keys.toList()..sort();
     final buffer = StringBuffer();
     for (final k in keys) {
-      // exported_at 是时间戳，每次 export 都会变，跳过避免假阳性变更。
-      if (k == 'exported_at') continue;
+      // exported_at / updated_at_ms 都是时间戳类辅助字段，跳过避免
+      // 假阳性变更（updated_at_ms 在每次 commit 都会 bump，但配置内
+      // 容若没动我们也不该判定为"变更"）。
+      if (k == 'exported_at' || k == 'updated_at_ms') continue;
       final v = config[k];
       buffer
         ..write(k)

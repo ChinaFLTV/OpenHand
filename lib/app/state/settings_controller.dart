@@ -136,6 +136,8 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiStreamThrottleCloudSyncEndpoint,
        _aiStreamThrottleCloudSyncToken =
            snapshot.aiStreamThrottleCloudSyncToken,
+       _aiStreamThrottleConfigUpdatedAtMs =
+           snapshot.aiStreamThrottleConfigUpdatedAtMs,
        _aiStreamThrottleTemplateOverrides = Map<String, AiStreamThrottleOverride>.unmodifiable(
          snapshot.aiStreamThrottleTemplateOverrides,
        ),
@@ -266,6 +268,7 @@ class SettingsController extends ChangeNotifier {
   String _aiStreamThrottleCloudSyncProvider;
   String _aiStreamThrottleCloudSyncEndpoint;
   String _aiStreamThrottleCloudSyncToken;
+  int _aiStreamThrottleConfigUpdatedAtMs;
   Map<String, AiStreamThrottleOverride> _aiStreamThrottleTemplateOverrides;
   bool _aiAutoTitleEnabled;
   String _aiDefaultSessionMode;
@@ -435,6 +438,11 @@ class SettingsController extends ChangeNotifier {
       _aiStreamThrottleCloudSyncEndpoint;
   String get aiStreamThrottleCloudSyncToken =>
       _aiStreamThrottleCloudSyncToken;
+
+  /// 2026-05-19 — 节流配置最近一次本地修改时间戳（epoch ms）。0 表示
+  /// 尚未修改过；自动同步用它和远端 updated_at 比对决定胜负。
+  int get aiStreamThrottleConfigUpdatedAtMs =>
+      _aiStreamThrottleConfigUpdatedAtMs;
 
   /// 每个线程模板对流式节流参数的独立覆盖。返回不可变视图。
   Map<String, AiStreamThrottleOverride>
@@ -1477,7 +1485,7 @@ class SettingsController extends ChangeNotifier {
             AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
             AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
           );
-    return _commitMutation(() {
+    return _commitThrottleMutation(() {
       if (_aiStreamMaxCharsPerSecond == normalizedValue) {
         return _MutationDisposition.successNoChange;
       }
@@ -1494,7 +1502,7 @@ class SettingsController extends ChangeNotifier {
             AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
             AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
           );
-    return _commitMutation(() {
+    return _commitThrottleMutation(() {
       if (_aiStreamMaxMessageCardsPerSecond == normalizedValue) {
         return _MutationDisposition.successNoChange;
       }
@@ -1505,7 +1513,7 @@ class SettingsController extends ChangeNotifier {
 
   /// 全局节流总开关。
   Future<bool> updateAiStreamThrottleEnabled(bool value) async {
-    return _commitMutation(() {
+    return _commitThrottleMutation(() {
       if (_aiStreamThrottleEnabled == value) {
         return _MutationDisposition.successNoChange;
       }
@@ -1516,7 +1524,7 @@ class SettingsController extends ChangeNotifier {
 
   /// 自动模式总开关。
   Future<bool> updateAiStreamThrottleAutoMode(bool value) async {
-    return _commitMutation(() {
+    return _commitThrottleMutation(() {
       if (_aiStreamThrottleAutoMode == value) {
         return _MutationDisposition.successNoChange;
       }
@@ -1571,7 +1579,7 @@ class SettingsController extends ChangeNotifier {
       AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
       AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
     );
-    return _commitMutation(() {
+    return _commitThrottleMutation(() {
       final next = Map<String, AiStreamThrottleOverride>.from(
         _aiStreamThrottleTemplateOverrides,
       );
@@ -1604,7 +1612,7 @@ class SettingsController extends ChangeNotifier {
       AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
       AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
     );
-    return _commitMutation(() {
+    return _commitThrottleMutation(() {
       final next = Map<String, AiStreamThrottleOverride>.from(
         _aiStreamThrottleTemplateOverrides,
       );
@@ -1630,7 +1638,7 @@ class SettingsController extends ChangeNotifier {
   /// 清除指定模板的全部覆盖。
   Future<bool> clearAiStreamThrottleOverride(String templateId) async {
     if (templateId.trim().isEmpty) return false;
-    return _commitMutation(() {
+    return _commitThrottleMutation(() {
       if (!_aiStreamThrottleTemplateOverrides.containsKey(templateId)) {
         return _MutationDisposition.successNoChange;
       }
@@ -1674,6 +1682,9 @@ class SettingsController extends ChangeNotifier {
     return <String, Object?>{
       'version': 1,
       'exported_at': DateTime.now().toUtc().toIso8601String(),
+      // 2026-05-19 — 携带本地最近一次有效修改的 epoch ms。自动同步会
+      // 用 max(remote, local) 决定哪一方覆盖另一方，避免老覆新。
+      'updated_at_ms': _aiStreamThrottleConfigUpdatedAtMs,
       'throttle_enabled': _aiStreamThrottleEnabled,
       'auto_mode': _aiStreamThrottleAutoMode,
       'max_chars_per_second': _aiStreamMaxCharsPerSecond,
@@ -1692,7 +1703,16 @@ class SettingsController extends ChangeNotifier {
 
   /// 2026-05-18 — 节流配置 import：把外部 JSON 文档解析后写入控制器。
   /// 缺失字段保持现值；不合法字段静默跳过；返回是否产生了变更。
-  Future<bool> importAiStreamThrottleConfig(Map<String, Object?> doc) async {
+  ///
+  /// [overrideUpdatedAtMs] 用于自动同步场景：远端文档已经携带自己的
+  /// `updated_at_ms`，调用方判定其更新后，把该值传进来直接覆盖本地
+  /// 时间戳，避免「import 完又把 timestamp bump 成本地 now」造成的
+  /// 反复 push。手动 import / UI 触发时不传，沿用 throttle mutation
+  /// 的自动 bump 逻辑。
+  Future<bool> importAiStreamThrottleConfig(
+    Map<String, Object?> doc, {
+    int? overrideUpdatedAtMs,
+  }) async {
     var anyChange = false;
     final enabled = doc['throttle_enabled'];
     if (enabled is bool) {
@@ -1740,6 +1760,16 @@ class SettingsController extends ChangeNotifier {
               await updateAiStreamThrottleCardsOverride(tid, m) || anyChange;
         }
       }
+    }
+    if (anyChange && overrideUpdatedAtMs != null && overrideUpdatedAtMs > 0) {
+      // 远端 timestamp 直接落盘：用 _commitMutation 走持久化通道。
+      await _commitMutation(() {
+        if (_aiStreamThrottleConfigUpdatedAtMs == overrideUpdatedAtMs) {
+          return _MutationDisposition.successNoChange;
+        }
+        _aiStreamThrottleConfigUpdatedAtMs = overrideUpdatedAtMs;
+        return _MutationDisposition.apply;
+      });
     }
     return anyChange;
   }
@@ -2625,6 +2655,7 @@ class SettingsController extends ChangeNotifier {
       aiStreamThrottleCloudSyncProvider: _aiStreamThrottleCloudSyncProvider,
       aiStreamThrottleCloudSyncEndpoint: _aiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken: _aiStreamThrottleCloudSyncToken,
+      aiStreamThrottleConfigUpdatedAtMs: _aiStreamThrottleConfigUpdatedAtMs,
       aiStreamThrottleTemplateOverrides: _aiStreamThrottleTemplateOverrides,
       aiAutoTitleEnabled: _aiAutoTitleEnabled,
       aiDefaultSessionMode: _aiDefaultSessionMode,
@@ -2757,6 +2788,8 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiStreamThrottleCloudSyncEndpoint;
     _aiStreamThrottleCloudSyncToken =
         snapshot.aiStreamThrottleCloudSyncToken;
+    _aiStreamThrottleConfigUpdatedAtMs =
+        snapshot.aiStreamThrottleConfigUpdatedAtMs;
     _aiStreamThrottleTemplateOverrides =
         Map<String, AiStreamThrottleOverride>.unmodifiable(
           snapshot.aiStreamThrottleTemplateOverrides,
@@ -2800,6 +2833,23 @@ class SettingsController extends ChangeNotifier {
     _subprocessGracefulShutdownMs = snapshot.subprocessGracefulShutdownMs;
     _bashOutputMaxBytes = snapshot.bashOutputMaxBytes;
     _maxConcurrentTools = snapshot.maxConcurrentTools;
+  }
+
+  /// 节流配置专用的 mutation 包装：在 [mutation] 返回 apply 时同步更新
+  /// `_aiStreamThrottleConfigUpdatedAtMs`（epoch ms），让自动同步可以
+  /// 用「远端 updated_at_ms > 本地」判定是否覆盖；rollback 走
+  /// [_applySnapshot] 路径，timestamp 也会一并恢复，无需特殊处理。
+  Future<bool> _commitThrottleMutation(
+    _MutationDisposition Function() mutation,
+  ) async {
+    return _commitMutation(() {
+      final disposition = mutation();
+      if (disposition == _MutationDisposition.apply) {
+        _aiStreamThrottleConfigUpdatedAtMs =
+            DateTime.now().toUtc().millisecondsSinceEpoch;
+      }
+      return disposition;
+    });
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {

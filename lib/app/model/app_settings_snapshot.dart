@@ -115,6 +115,8 @@ class AppSettingsSnapshot {
       aiStreamThrottleCloudSyncEndpoint:
           defaultAiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken: defaultAiStreamThrottleCloudSyncToken,
+      aiStreamThrottleConfigUpdatedAtMs:
+          defaultAiStreamThrottleConfigUpdatedAtMs,
       aiStreamThrottleTemplateOverrides:
           const <String, AiStreamThrottleOverride>{},
       aiAutoTitleEnabled: true,
@@ -241,6 +243,7 @@ class AppSettingsSnapshot {
     required this.aiStreamThrottleCloudSyncProvider,
     required this.aiStreamThrottleCloudSyncEndpoint,
     required this.aiStreamThrottleCloudSyncToken,
+    required this.aiStreamThrottleConfigUpdatedAtMs,
     required this.aiStreamThrottleTemplateOverrides,
     required this.aiAutoTitleEnabled,
     required this.aiDefaultSessionMode,
@@ -576,6 +579,10 @@ class AppSettingsSnapshot {
   static const String defaultAiStreamThrottleCloudSyncEndpoint = '';
   static const String defaultAiStreamThrottleCloudSyncToken = '';
 
+  /// 2026-05-19 — 节流配置最近一次本地修改的 epoch millis；自动同步比对
+  /// 远端 updated_at 决定 push / apply 顺序，避免老覆新。
+  static const int defaultAiStreamThrottleConfigUpdatedAtMs = 0;
+
   /// 子进程 graceful shutdown 等待窗口（毫秒）。在 SIGTERM 之后等待
   /// 该时长，若进程仍未退出则升级到 SIGKILL。值越大越仁慈，但 UI
   /// 取消反馈延迟也越大。
@@ -782,6 +789,11 @@ class AppSettingsSnapshot {
   /// Authorization header。
   final String aiStreamThrottleCloudSyncToken;
 
+  /// 2026-05-19 — 节流配置最近一次本地修改的 epoch millis（UTC）；
+  /// 自动同步比对远端 updated_at 决定 push / apply 顺序。0 表示尚未
+  /// 修改过。
+  final int aiStreamThrottleConfigUpdatedAtMs;
+
   /// 2026-05-17 — 每个线程模板对流式节流参数的独立覆盖（按 templateId
   /// 索引）。覆盖中的字段为 null 表示沿用全局值；isEmpty 的 entry 会被
   /// 持久化层剔除避免存储 noise。
@@ -943,6 +955,7 @@ class AppSettingsSnapshot {
     String? aiStreamThrottleCloudSyncProvider,
     String? aiStreamThrottleCloudSyncEndpoint,
     String? aiStreamThrottleCloudSyncToken,
+    int? aiStreamThrottleConfigUpdatedAtMs,
     Map<String, AiStreamThrottleOverride>? aiStreamThrottleTemplateOverrides,
     bool? aiAutoTitleEnabled,
     String? aiDefaultSessionMode,
@@ -1119,6 +1132,9 @@ class AppSettingsSnapshot {
           this.aiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken:
           aiStreamThrottleCloudSyncToken ?? this.aiStreamThrottleCloudSyncToken,
+      aiStreamThrottleConfigUpdatedAtMs:
+          aiStreamThrottleConfigUpdatedAtMs ??
+          this.aiStreamThrottleConfigUpdatedAtMs,
       aiStreamThrottleTemplateOverrides:
           aiStreamThrottleTemplateOverrides ??
           this.aiStreamThrottleTemplateOverrides,

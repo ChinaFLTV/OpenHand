@@ -252,6 +252,8 @@ class SettingsStore {
           snapshot.aiStreamThrottleCloudSyncEndpoint,
       'ai_stream_throttle_cloud_sync_token':
           snapshot.aiStreamThrottleCloudSyncToken,
+      'ai_stream_throttle_config_updated_at_ms':
+          snapshot.aiStreamThrottleConfigUpdatedAtMs,
       'ai_stream_throttle_template_overrides': <String, Object?>{
         for (final entry in snapshot.aiStreamThrottleTemplateOverrides.entries)
           if (!entry.value.isEmpty) entry.key: entry.value.toJson(),
@@ -842,6 +844,10 @@ class SettingsStore {
     final aiStreamThrottleCloudSyncToken =
         '${json['ai_stream_throttle_cloud_sync_token'] ?? AppSettingsSnapshot.defaultAiStreamThrottleCloudSyncToken}'
             .trim();
+    final rawConfigUpdatedAt = json['ai_stream_throttle_config_updated_at_ms'];
+    final aiStreamThrottleConfigUpdatedAtMs = rawConfigUpdatedAt is int
+        ? rawConfigUpdatedAt
+        : AppSettingsSnapshot.defaultAiStreamThrottleConfigUpdatedAtMs;
     final aiAutoTitleEnabled = json['ai_auto_title_enabled'] is bool
         ? json['ai_auto_title_enabled'] as bool
         : true;
@@ -1249,6 +1255,7 @@ class SettingsStore {
       aiStreamThrottleCloudSyncProvider: aiStreamThrottleCloudSyncProvider,
       aiStreamThrottleCloudSyncEndpoint: aiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken: aiStreamThrottleCloudSyncToken,
+      aiStreamThrottleConfigUpdatedAtMs: aiStreamThrottleConfigUpdatedAtMs,
       aiStreamThrottleTemplateOverrides: aiStreamThrottleTemplateOverrides,
       aiAutoTitleEnabled: aiAutoTitleEnabled,
       aiDefaultSessionMode: aiDefaultSessionMode,

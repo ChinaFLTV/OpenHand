@@ -1,27 +1,27 @@
-import Cocoa
-import FlutterMacOS
+import Flutter
 import Foundation
+import UIKit
 
-/// 节流配置 iCloud Drive 同步桥接（macOS 端）。
+/// 节流配置 iCloud Drive 同步桥接（iOS 端）。
 ///
-/// 2026-05-18 — Flutter 端调 `openhand/cloud_sync` channel 的
-/// `pushIcloud` / `pullIcloud` 方法，service 把 JSON 字符串读写到
-/// `NSUbiquitousKeyValueStore`（key-value 容量 1MB，足够装节流配置）。
+/// 2026-05-19 — 与 macOS 端保持一致：
+///   * `pushIcloud` / `pullIcloud` → NSUbiquitousKeyValueStore；
+///   * 监听 `didChangeExternallyNotification`，远端有新版本时反向调用
+///     Dart 端 `cloudConfigChanged`，让自动同步触发拉取；
+///   * 同时监听 `UIApplication.willEnterForegroundNotification`，
+///     从后台恢复时主动 synchronize 一次，加速跨设备同步可见性。
 ///
-/// 2026-05-19 — 新增「外部变更」通知：当 KV-Store 收到来自其它设备
-/// 的 push 时（NSUbiquitousKeyValueStoreDidChangeExternallyNotification），
-/// 立刻反向调用 Dart 端 `cloudConfigChanged` 让自动同步服务触发拉取。
-///
-/// NSUbiquitousKeyValueStore 自动跨 macOS / iOS / iPadOS 同步，无需
-/// OAuth / 文件路径，部署最简单；用户已登录 iCloud 即可。
+/// 部署条件：Xcode 中需为 Target 启用 iCloud capability →
+/// Key-Value storage，并配相同 entitlement，否则 store.synchronize()
+/// 始终返回 false。
 class CloudSyncBridge {
   static let channelName = "openhand/cloud_sync"
-  /// 与 iOS 端使用相同 key 以便跨平台读写同一份配置。
+  /// 与 macOS 端使用相同 key 以便跨平台读写同一份配置。
   static let throttleConfigKey = "openhand.throttle_config.v1"
 
-  // 强引用持有，避免 channel / observer 被 ARC 提前回收。
   private static var channel: FlutterMethodChannel?
-  private static var observer: NSObjectProtocol?
+  private static var externalObserver: NSObjectProtocol?
+  private static var foregroundObserver: NSObjectProtocol?
 
   static func register(with messenger: FlutterBinaryMessenger) {
     let ch = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
@@ -39,17 +39,23 @@ class CloudSyncBridge {
     }
     self.channel = ch
 
-    // 启动 KV-Store 同步并订阅外部变更通知。第一次 synchronize() 触发
-    // iCloud 把当前账号下的最新值拉到本地；后续设备远程改动会通过
-    // DidChangeExternallyNotification 通知。
     NSUbiquitousKeyValueStore.default.synchronize()
-    if self.observer == nil {
-      self.observer = NotificationCenter.default.addObserver(
+    if self.externalObserver == nil {
+      self.externalObserver = NotificationCenter.default.addObserver(
         forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
         object: NSUbiquitousKeyValueStore.default,
         queue: .main
       ) { note in
         Self.handleExternalChange(note: note)
+      }
+    }
+    if self.foregroundObserver == nil {
+      self.foregroundObserver = NotificationCenter.default.addObserver(
+        forName: UIApplication.willEnterForegroundNotification,
+        object: nil,
+        queue: .main
+      ) { _ in
+        NSUbiquitousKeyValueStore.default.synchronize()
       }
     }
   }
@@ -82,7 +88,6 @@ class CloudSyncBridge {
 
   private static func handlePull(call: FlutterMethodCall, result: @escaping FlutterResult) {
     let store = NSUbiquitousKeyValueStore.default
-    // 主动同步一次让远端最新值落入本地；忽略返回 bool（不为 false 致命）。
     _ = store.synchronize()
     let json = store.string(forKey: throttleConfigKey)
     result([
@@ -92,8 +97,7 @@ class CloudSyncBridge {
   }
 
   /// 仅当变更涉及 throttleConfigKey 时才推送，避免无关 key 触发 Dart 端
-  /// pull。reason 字段（initial / server / accountChange / quotaViolation）
-  /// 透传给上层做日志追踪。
+  /// 不必要的 pull。
   private static func handleExternalChange(note: Notification) {
     let userInfo = note.userInfo ?? [:]
     let changedKeys = userInfo[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String] ?? []

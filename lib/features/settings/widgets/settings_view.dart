@@ -6526,6 +6526,10 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       endpoint: c.aiStreamThrottleCloudSyncEndpoint,
       token: c.aiStreamThrottleCloudSyncToken,
       config: c.exportAiStreamThrottleConfig(),
+      updatedAtMs: c.aiStreamThrottleConfigUpdatedAtMs,
+      gistId: provider == ThrottleCloudSyncProvider.gistGitHub
+          ? c.aiStreamThrottleCloudSyncEndpoint.trim()
+          : '',
     );
     if (!mounted) return;
     setState(() {
@@ -6553,6 +6557,9 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       provider: provider,
       endpoint: c.aiStreamThrottleCloudSyncEndpoint,
       token: c.aiStreamThrottleCloudSyncToken,
+      gistId: provider == ThrottleCloudSyncProvider.gistGitHub
+          ? c.aiStreamThrottleCloudSyncEndpoint.trim()
+          : '',
     );
     if (!mounted) return;
     if (!result.ok || result.config == null) {
@@ -6580,7 +6587,10 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     );
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
-    final changed = await c.importAiStreamThrottleConfig(result.config!);
+    final changed = await c.importAiStreamThrottleConfig(
+      result.config!,
+      overrideUpdatedAtMs: result.updatedAtMs > 0 ? result.updatedAtMs : null,
+    );
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -6603,12 +6613,16 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               : 'iCloud sync is wired via NSUbiquitousKeyValueStore (1MB cap). Throttle config is mirrored across same-account Apple devices.';
         }
         return isZh
-            ? 'iCloud 同步仅支持 macOS / iOS；当前平台请使用「自定义 HTTP」。'
-            : 'iCloud sync is macOS / iOS only; use Custom HTTP on this platform.';
+            ? 'iCloud 同步仅支持 macOS / iOS；当前平台请使用「自定义 HTTP」或 GitHub Gist。'
+            : 'iCloud sync is macOS / iOS only; use Custom HTTP or GitHub Gist on this platform.';
       case ThrottleCloudSyncProvider.oauth:
         return isZh
-            ? 'OAuth 同步入口已预留；当前版本暂未接入 native SDK，请先使用其他 provider。'
-            : 'OAuth sync placeholder; native SDK not wired up yet — pick another provider for now.';
+            ? 'OAuth 同步入口已预留；当前版本暂未接入 native SDK，请改用 GitHub Gist。'
+            : 'OAuth sync placeholder; native SDK not wired up yet — use GitHub Gist instead.';
+      case ThrottleCloudSyncProvider.gistGitHub:
+        return isZh
+            ? 'GitHub Gist 同步：在「Gist ID」处填入已有 secret gist 的 ID（首次推送可留空，会新建一个 secret gist 并把 ID 显示在状态栏，请手动回填），「PAT」需带 gist scope。'
+            : 'GitHub Gist sync: fill in the existing secret gist ID (leave empty on first push to create a new one — copy the ID from the status bar), PAT must have gist scope.';
       case ThrottleCloudSyncProvider.custom:
         return '';
     }
@@ -6684,6 +6698,11 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                 label: Text('iCloud'),
               ),
               const ButtonSegment(
+                value: ThrottleCloudSyncProvider.gistGitHub,
+                icon: Icon(Icons.code_rounded, size: 16),
+                label: Text('Gist'),
+              ),
+              const ButtonSegment(
                 value: ThrottleCloudSyncProvider.oauth,
                 icon: Icon(Icons.lock_outline_rounded, size: 16),
                 label: Text('OAuth'),
@@ -6696,7 +6715,8 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
             },
           ),
           const SizedBox(height: 12),
-          if (providerEnum != ThrottleCloudSyncProvider.custom)
+          if (providerEnum != ThrottleCloudSyncProvider.custom &&
+              providerEnum != ThrottleCloudSyncProvider.gistGitHub)
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: 12,
@@ -6713,6 +6733,43 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                 ),
               ),
             ),
+          if (providerEnum == ThrottleCloudSyncProvider.gistGitHub) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: scheme.tertiaryContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                _providerHintMessage(providerEnum, isZh),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onTertiaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _endpointCtrl,
+              focusNode: _endpointFocus,
+              decoration: InputDecoration(
+                labelText: isZh ? 'Gist ID（首次推送可留空）' : 'Gist ID (leave empty for first push)',
+                hintText: '83a1b9b0...',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _tokenCtrl,
+              focusNode: _tokenFocus,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: isZh ? 'GitHub PAT (需 gist scope)' : 'GitHub PAT (gist scope)',
+                hintText: 'github_pat_••••••••',
+              ),
+            ),
+          ],
           if (providerEnum == ThrottleCloudSyncProvider.custom) ...[
             TextField(
               controller: _endpointCtrl,
