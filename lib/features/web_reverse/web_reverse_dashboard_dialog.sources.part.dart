@@ -104,6 +104,23 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     }
   }
 
+  Future<void> _showGlobalCodeSearch() async {
+    final isZh = widget.isZh;
+    final result = await showDialog<({String scriptId, int line})>(
+      context: context,
+      builder: (_) => _SourcesGlobalSearchDialog(
+        controller: widget.controller,
+        isZh: isZh,
+      ),
+    );
+    if (result == null || !mounted) return;
+    await _selectScript(result.scriptId);
+    // 滚到对应行：sources 当前用 ListView.builder 简单渲染，没暴露
+    // ScrollController；这里先 setState 让 highlight + 用户人工滚动定位。
+    // 体验后续再补 ScrollablePositionedList 做精确跳转。
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -128,19 +145,38 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
-                child: TextField(
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: isZh ? '搜索脚本 URL…' : 'Search script URL…',
-                    prefixIcon:
-                        const Icon(Icons.search_rounded, size: 16),
-                    border: const OutlineInputBorder(),
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  ),
-                  onChanged: (v) => setState(() => _filter = v.trim()),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: isZh ? '搜索脚本 URL…' : 'Search script URL…',
+                          prefixIcon:
+                              const Icon(Icons.search_rounded, size: 16),
+                          border: const OutlineInputBorder(),
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                        onChanged: (v) => setState(() => _filter = v.trim()),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      tooltip: isZh ? '跨脚本搜索代码' : 'Search code across scripts',
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 18,
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 30,
+                        minHeight: 30,
+                      ),
+                      onPressed: _showGlobalCodeSearch,
+                      icon: const Icon(Icons.travel_explore_rounded),
+                    ),
+                  ],
                 ),
               ),
               if (_enabling)
@@ -375,5 +411,173 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (url.length <= maxLen) return url;
     final tail = url.length - maxLen + 3;
     return '...${url.substring(tail)}';
+  }
+}
+
+
+/// 跨脚本代码搜索对话框：输入关键字 → controller.searchScriptsGlobal
+/// 拉取所有 parsedScripts 的源码逐行 grep；命中点列表点击即关闭对话框
+/// 把 (scriptId, line) 返回给 _SourcesPanelState 跳转 + 高亮。
+class _SourcesGlobalSearchDialog extends StatefulWidget {
+  const _SourcesGlobalSearchDialog({
+    required this.controller,
+    required this.isZh,
+  });
+
+  final WebReverseSessionController controller;
+  final bool isZh;
+
+  @override
+  State<_SourcesGlobalSearchDialog> createState() =>
+      _SourcesGlobalSearchDialogState();
+}
+
+class _SourcesGlobalSearchDialogState
+    extends State<_SourcesGlobalSearchDialog> {
+  final TextEditingController _qCtrl = TextEditingController();
+  bool _searching = false;
+  List<({String scriptId, String url, int line, String preview})> _hits =
+      const [];
+
+  @override
+  void dispose() {
+    _qCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _run() async {
+    final q = _qCtrl.text.trim();
+    if (q.isEmpty) return;
+    setState(() => _searching = true);
+    final hits = await widget.controller.searchScriptsGlobal(q);
+    if (!mounted) return;
+    setState(() {
+      _searching = false;
+      _hits = hits;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 600),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.travel_explore_rounded, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _qCtrl,
+                      autofocus: true,
+                      onSubmitted: (_) => _run(),
+                      decoration: InputDecoration(
+                        hintText: isZh
+                            ? '在所有已加载脚本里搜索…'
+                            : 'Search across loaded scripts…',
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _searching ? null : _run,
+                    icon: Icon(
+                      _searching
+                          ? Icons.hourglass_top_rounded
+                          : Icons.search_rounded,
+                      size: 16,
+                    ),
+                    label: Text(
+                      _searching
+                          ? (isZh ? '搜索中…' : 'Searching…')
+                          : (isZh ? '搜索' : 'Search'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: _hits.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        _searching
+                            ? (isZh ? '搜索中…' : 'Searching…')
+                            : (isZh
+                                ? '输入关键字后按回车或点击搜索；命中按行展示，点击即跳转。'
+                                : 'Type a query and press Enter; click a hit to jump.'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _hits.length,
+                      separatorBuilder: (_, _) =>
+                          Divider(height: 1, color: cs.outlineVariant),
+                      itemBuilder: (_, i) {
+                        final h = _hits[i];
+                        return ListTile(
+                          dense: true,
+                          title: Text(
+                            h.url,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontFamily: 'monospace'),
+                          ),
+                          subtitle: Text(
+                            'L${h.line + 1}: ${h.preview}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          onTap: () => Navigator.of(context).pop(
+                            (scriptId: h.scriptId, line: h.line),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isZh
+                        ? '命中 ${_hits.length} 条（上限 200）'
+                        : '${_hits.length} hits (cap 200)',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(isZh ? '关闭' : 'Close'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

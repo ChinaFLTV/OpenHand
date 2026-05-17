@@ -939,6 +939,9 @@ class _MemoryPanel extends StatefulWidget {
 class _MemoryPanelState extends State<_MemoryPanel> {
   bool _capturing = false;
   ({String json, int bytes})? _last;
+  // 最近两次快照（轮转），供「比较」入口算 delta。第三次采集时丢掉最旧。
+  ({String json, int bytes, DateTime ts})? _snapA;
+  ({String json, int bytes, DateTime ts})? _snapB;
   // V8 实时折线：每 1.5s 拉一次 JSHeapUsedSize / JSHeapTotalSize。
   Timer? _heapTimer;
   final List<double> _heapUsed = <double>[];
@@ -1055,6 +1058,12 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     setState(() {
       _capturing = false;
       _last = r;
+      // 滚动两个槽位：B 永远是最新，A 是上一份。
+      if (r != null) {
+        final fresh = (json: r.json, bytes: r.bytes, ts: DateTime.now());
+        _snapA = _snapB;
+        _snapB = fresh;
+      }
     });
     if (r == null) {
       OpenHandSnackBar.showErrorOn(
@@ -1064,6 +1073,72 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         duration: const Duration(seconds: 2),
       );
     }
+  }
+
+  /// 比较 _snapA 与 _snapB：从 .heapsnapshot 头部读 nodes / strings 计数和
+  /// total_size，输出节点数 / 字节数差。两份缺一即提示。
+  void _compareSnapshots() {
+    final isZh = widget.isZh;
+    final a = _snapA;
+    final b = _snapB;
+    if (a == null || b == null) {
+      OpenHandSnackBar.showInfo(
+        context,
+        isZh ? '需要至少两次快照才能比较' : 'Need at least two snapshots',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    int countNodes(String src) {
+      try {
+        final m = jsonDecode(src) as Map<String, Object?>;
+        final snap = m['snapshot'] as Map?;
+        return (snap?['node_count'] as num?)?.toInt() ?? 0;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    final nodesA = countNodes(a.json);
+    final nodesB = countNodes(b.json);
+    final dBytes = b.bytes - a.bytes;
+    final dNodes = nodesB - nodesA;
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isZh ? '快照比较' : 'Snapshot diff'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('A: ${a.ts.toLocal().toIso8601String().split(".").first}'),
+              Text('B: ${b.ts.toLocal().toIso8601String().split(".").first}'),
+              const SizedBox(height: 12),
+              _DiffRow(
+                label: isZh ? '原始字节' : 'Raw bytes',
+                a: '${a.bytes}',
+                b: '${b.bytes}',
+                delta: dBytes,
+              ),
+              _DiffRow(
+                label: isZh ? '节点数' : 'Nodes',
+                a: '$nodesA',
+                b: '$nodesB',
+                delta: dNodes,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(isZh ? '关闭' : 'Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -1160,6 +1235,14 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                 label: Text(_capturing
                     ? (isZh ? '采集中…' : 'Capturing…')
                     : (isZh ? '采集快照' : 'Capture Snapshot')),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: (_snapA != null && _snapB != null)
+                    ? _compareSnapshots
+                    : null,
+                icon: const Icon(Icons.compare_arrows_rounded, size: 18),
+                label: Text(isZh ? '比较快照' : 'Diff snapshots'),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
@@ -1957,7 +2040,12 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
               _AppTab.cacheStorage =>
                 _NameListPanel(names: _cacheNames, isZh: isZh),
               _AppTab.serviceWorkers =>
-                _ServiceWorkersTable(versions: _swVersions),
+                _ServiceWorkersTable(
+                  versions: _swVersions,
+                  controller: widget.controller,
+                  isZh: isZh,
+                  onChanged: _refresh,
+                ),
             },
           ),
         ],
@@ -2902,79 +2990,179 @@ class _NameListPanel extends StatelessWidget {
 }
 
 class _ServiceWorkersTable extends StatelessWidget {
-  const _ServiceWorkersTable({required this.versions});
+  const _ServiceWorkersTable({
+    required this.versions,
+    required this.controller,
+    required this.isZh,
+    required this.onChanged,
+  });
   final List<Map<String, Object?>> versions;
+  final WebReverseSessionController controller;
+  final bool isZh;
+  final Future<void> Function() onChanged;
+
+  Future<void> _registerNew(BuildContext context) async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isZh ? '注册 Service Worker' : 'Register SW'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'scopeURL'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(ctrl.text.trim()),
+            child: Text(isZh ? '注册' : 'Register'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (ok == null || ok.isEmpty) return;
+    await controller.registerServiceWorker(ok);
+    await onChanged();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    if (versions.isEmpty) {
-      return Center(
-        child: Text('(empty)',
-            style:
-                theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-      );
-    }
-    return ListView.separated(
-      itemCount: versions.length,
-      separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
-      itemBuilder: (_, i) {
-        final v = versions[i];
-        final status = '${v['runningStatus'] ?? v['status'] ?? ''}';
-        final url = '${v['scriptURL'] ?? ''}';
-        final scope = '${v['scopeURL'] ?? ''}';
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: status == 'running' || status == 'activated'
-                          ? cs.primaryContainer
-                          : cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      status.isEmpty ? '?' : status,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: SelectableText(
-                      url,
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (scope.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'scope: $scope',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
-            ],
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => _registerNew(context),
+            icon: const Icon(Icons.add_rounded, size: 16),
+            label: Text(isZh ? '注册新 SW' : 'Register new SW'),
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: versions.isEmpty
+              ? Center(
+                  child: Text(
+                    '(empty)',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: versions.length,
+                  separatorBuilder: (_, _) =>
+                      Divider(height: 1, color: cs.outlineVariant),
+                  itemBuilder: (_, i) {
+                    final v = versions[i];
+                    final status =
+                        '${v['runningStatus'] ?? v['status'] ?? ''}';
+                    final url = '${v['scriptURL'] ?? ''}';
+                    final scope = '${v['scopeURL'] ?? ''}';
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: status == 'running' ||
+                                          status == 'activated'
+                                      ? cs.primaryContainer
+                                      : cs.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  status.isEmpty ? '?' : status,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SelectableText(
+                                  url,
+                                  maxLines: 1,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: isZh ? '更新' : 'Update',
+                                visualDensity: VisualDensity.compact,
+                                iconSize: 16,
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                onPressed: scope.isEmpty
+                                    ? null
+                                    : () async {
+                                        await controller
+                                            .updateServiceWorker(scope);
+                                        await onChanged();
+                                      },
+                                icon: const Icon(Icons.refresh_rounded),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                tooltip: isZh ? '卸载' : 'Unregister',
+                                visualDensity: VisualDensity.compact,
+                                iconSize: 16,
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                onPressed: scope.isEmpty
+                                    ? null
+                                    : () async {
+                                        await controller
+                                            .unregisterServiceWorker(scope);
+                                        await onChanged();
+                                      },
+                                icon: Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: cs.error,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (scope.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'scope: $scope',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
@@ -3606,6 +3794,61 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                       );
                     },
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// 快照比较弹窗里的一行：左标签 / 中 A→B 数值 / 右 delta（带正负号）。
+class _DiffRow extends StatelessWidget {
+  const _DiffRow({
+    required this.label,
+    required this.a,
+    required this.b,
+    required this.delta,
+  });
+
+  final String label;
+  final String a;
+  final String b;
+  final num delta;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final positive = delta > 0;
+    final color = delta == 0
+        ? cs.onSurfaceVariant
+        : (positive ? cs.error : Colors.green);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '$a  →  $b',
+              style: const TextStyle(fontFamily: 'monospace'),
+            ),
+          ),
+          Text(
+            (delta == 0 ? '0' : (positive ? '+$delta' : '$delta')),
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
         ],
       ),

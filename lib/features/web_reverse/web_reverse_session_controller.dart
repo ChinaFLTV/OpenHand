@@ -917,6 +917,56 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  /// 注册 / 更新 / 卸载指定 Service Worker。
+  /// `register` 走 `ServiceWorker.startRegistration`（接 scopeURL）；
+  /// `update` 走 `ServiceWorker.updateRegistration`；
+  /// `unregister` 走 `ServiceWorker.unregister`。
+  Future<bool> registerServiceWorker(String scopeURL) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return false;
+    try {
+      await cdp.send('ServiceWorker.enable');
+      await cdp.send(
+        'ServiceWorker.startRegistration',
+        params: <String, Object?>{'scopeURL': scopeURL},
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'registerSW', error, stack);
+      return false;
+    }
+  }
+
+  Future<bool> updateServiceWorker(String scopeURL) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return false;
+    try {
+      await cdp.send(
+        'ServiceWorker.updateRegistration',
+        params: <String, Object?>{'scopeURL': scopeURL},
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'updateSW', error, stack);
+      return false;
+    }
+  }
+
+  Future<bool> unregisterServiceWorker(String scopeURL) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return false;
+    try {
+      await cdp.send(
+        'ServiceWorker.unregister',
+        params: <String, Object?>{'scopeURL': scopeURL},
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'unregisterSW', error, stack);
+      return false;
+    }
+  }
+
   /// `ServiceWorker.deliverPushMessage` 不暴露——这里只列已注册的 worker。
   /// 数据来自 `ServiceWorker.workerVersionUpdated` 事件累积；这里同步发一次
   /// `ServiceWorker.enable` 触发首次推送。
@@ -3611,6 +3661,38 @@ class WebReverseSessionController extends ChangeNotifier {
       silentLog('web_reverse_session_controller', 'enableDebugger', error, stack);
       return false;
     }
+  }
+
+  /// 跨脚本全局搜索：把 [_parsedScripts] 全部源码 grep 一次（已缓存的复用，
+  /// 未缓存的按需 getScriptSource 拉一次）。返回 hit 列表：每条包含
+  /// scriptId / url / line / preview。仅做基本的字符串匹配（不区分大小写），
+  /// 模型若需要正则可在 UI 端自己处理。
+  Future<List<({String scriptId, String url, int line, String preview})>>
+      searchScriptsGlobal(String query, {int limit = 200}) async {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+    final hits =
+        <({String scriptId, String url, int line, String preview})>[];
+    for (final entry in _parsedScripts.entries) {
+      if (hits.length >= limit) break;
+      final id = entry.key;
+      final src = await getScriptSource(id);
+      if (src == null || src.isEmpty) continue;
+      final lines = src.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        if (hits.length >= limit) break;
+        final l = lines[i];
+        if (l.toLowerCase().contains(q)) {
+          hits.add((
+            scriptId: id,
+            url: entry.value.url,
+            line: i,
+            preview: l.length > 120 ? '${l.substring(0, 120)}…' : l,
+          ));
+        }
+      }
+    }
+    return hits;
   }
 
   /// 拉取脚本源码。CDP `Debugger.getScriptSource`。
