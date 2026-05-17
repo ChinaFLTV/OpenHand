@@ -157,6 +157,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _pendingAnimatedScrollToBottom = false;
   bool _programmaticAutoFollowScrollInProgress = false;
   bool _userScrollInProgress = false;
+  // 2026-05-17：trackpad / 鼠标滚轮等 pointer-signal 滚动每个 tick 都会
+  // 完整经历 ScrollStart → Update → ScrollEnd，而非整段手势包裹一次。
+  // 慢速滚动时两个 tick 之间会出现 _userScrollInProgress=false 的空窗，
+  // 让 layout-change / composer 折叠 / 流式新消息触发的 jumpTo 抢到一帧，
+  // 表现为视口被一股力反复拽回底部，呈现"抽搐/鬼畜"。给 scroll-end 加上
+  // 220 ms 宽限：宽限期内任何新的 scroll start 都会续期；超时未再发生
+  // 滚动活动才视为用户真正松手。快速滑动时 ballistic 持续 → scroll-end
+  // 推迟到松手才发，不依赖此宽限。
+  Timer? _userScrollGraceTimer;
+  static const Duration _userScrollEndGraceDuration = Duration(
+    milliseconds: 220,
+  );
   int _pendingScrollToBottomSettlePasses = 0;
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
@@ -643,6 +655,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _composerController.dispose();
     _messageScrollController.dispose();
     _navigationWidthNotifier.dispose();
+    _userScrollGraceTimer?.cancel();
+    _userScrollGraceTimer = null;
     super.dispose();
   }
 
@@ -651,6 +665,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _queuedForcedScrollToBottom = false;
     _pendingAnimatedScrollToBottom = false;
     _pendingScrollToBottomSettlePasses = 0;
+  }
+
+  /// 标记用户正在主动滚动；取消任何待执行的 scroll-end 宽限计时。
+  void _markUserScrollInProgress() {
+    _userScrollGraceTimer?.cancel();
+    _userScrollGraceTimer = null;
+    _userScrollInProgress = true;
+  }
+
+  /// 用户当前 tick 的 scroll-end 已触发，但 trackpad / 滚轮的下一 tick
+  /// 可能紧跟到来。在 [_userScrollEndGraceDuration] 内若有新的滚动活动，
+  /// `_markUserScrollInProgress` 会取消本计时器；超时未续期则真正放手。
+  void _scheduleUserScrollEndGrace() {
+    _userScrollGraceTimer?.cancel();
+    _userScrollGraceTimer = Timer(_userScrollEndGraceDuration, () {
+      _userScrollGraceTimer = null;
+      if (!mounted) {
+        return;
+      }
+      _userScrollInProgress = false;
+    });
   }
 
   /// Presents the AskUserChoice dialog on behalf of the AI tool.
@@ -1639,10 +1674,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         notification is ScrollEndNotification ||
         (notification is UserScrollNotification &&
             notification.direction == ScrollDirection.idle);
-    if (explicitUserScroll) {
-      _userScrollInProgress = true;
+    // 2026-05-17：trackpad / 滚轮 pointer-signal 滚动每 tick 都会发完整
+    // start→update→end；ScrollStartNotification 即便没有 dragDetails，
+    // 在非 programmatic 路径下也只能来自用户输入设备。把它视作用户活动
+    // 的延续，配合宽限计时器避免 _userScrollInProgress 在两 tick 之间
+    // 抖回 false。
+    final implicitUserScrollGesture =
+        !_programmaticAutoFollowScrollInProgress &&
+        (notification is ScrollStartNotification ||
+            notification is ScrollUpdateNotification ||
+            notification is OverscrollNotification);
+    if (explicitUserScroll || implicitUserScrollGesture) {
+      _markUserScrollInProgress();
     } else if (userScrollEnded) {
-      _userScrollInProgress = false;
+      _scheduleUserScrollEndGrace();
     }
     if (_programmaticAutoFollowScrollInProgress) {
       if (!explicitUserScroll) {

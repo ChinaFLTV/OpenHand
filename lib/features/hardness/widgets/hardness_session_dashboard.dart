@@ -928,6 +928,15 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
   bool _pendingAnimatedFeedScrollToBottom = false;
   bool _programmaticFeedScrollInProgress = false;
   bool _userFeedScrollInProgress = false;
+  // 2026-05-17：与 home transcript 同样的 trackpad / 滚轮 tick 抖动
+  // 问题——慢速滚动期间每个 pointer-signal tick 都包成 start→update→end，
+  // 中途 _userFeedScrollInProgress=false 会让 layout-change / 流式 feed
+  // 触发的 jumpTo 抢到一帧，造成视口抽搐。给 scroll-end 加 220 ms 宽限，
+  // 期间任何新的滚动活动都续期。
+  Timer? _userFeedScrollGraceTimer;
+  static const Duration _userFeedScrollEndGraceDuration = Duration(
+    milliseconds: 220,
+  );
 
   /// Number of extra settle passes to run after the current scroll.
   /// Settle passes re-invoke the scroll logic every frame until content
@@ -983,6 +992,8 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     _manualPhaseFocusNode.dispose();
     _feedController.removeListener(_handleFeedScroll);
     _feedController.dispose();
+    _userFeedScrollGraceTimer?.cancel();
+    _userFeedScrollGraceTimer = null;
     super.dispose();
   }
 
@@ -1445,11 +1456,37 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     _scrollSettlePasses = 0;
   }
 
+  /// 标记用户正在滚动 feed；取消任何待执行的 scroll-end 宽限。
+  void _markUserFeedScrollInProgress() {
+    _userFeedScrollGraceTimer?.cancel();
+    _userFeedScrollGraceTimer = null;
+    _userFeedScrollInProgress = true;
+  }
+
+  /// scroll-end 后延迟 [_userFeedScrollEndGraceDuration] 才真正放手，
+  /// 桥接 trackpad / 滚轮连续 tick 之间的空窗。
+  void _scheduleUserFeedScrollEndGrace() {
+    _userFeedScrollGraceTimer?.cancel();
+    _userFeedScrollGraceTimer = Timer(_userFeedScrollEndGraceDuration, () {
+      _userFeedScrollGraceTimer = null;
+      if (!mounted) {
+        return;
+      }
+      _userFeedScrollInProgress = false;
+    });
+  }
+
   void _handleFeedScroll() {
     if (!_isNearFeedBottom()) {
       return;
     }
     if (!_autoFollowEnabled) {
+      return;
+    }
+    // 2026-05-17：与 home transcript 对齐——用户拖动 / trackpad tick 进行中
+    // 不允许在 pixel 监听里偷偷 re-arm 自动跟随，否则一旦贴近底部就会
+    // 在下一帧把视口拉走。
+    if (_userFeedScrollInProgress) {
       return;
     }
     if (!_shouldAutoFollowFeed) {
@@ -1482,11 +1519,19 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
         notification is ScrollEndNotification ||
         (notification is UserScrollNotification &&
             notification.direction == ScrollDirection.idle);
+    // 见字段处的 trackpad / 滚轮 tick 注释：把 non-programmatic 的
+    // ScrollStart/Update/Overscroll 也当作用户活动延续，并对 scroll-end
+    // 走宽限计时，避免 _userFeedScrollInProgress 在两 tick 之间抖回 false。
+    final implicitUserScrollGesture =
+        !_programmaticFeedScrollInProgress &&
+        (notification is ScrollStartNotification ||
+            notification is ScrollUpdateNotification ||
+            notification is OverscrollNotification);
 
-    if (explicitUserScroll) {
-      _userFeedScrollInProgress = true;
+    if (explicitUserScroll || implicitUserScrollGesture) {
+      _markUserFeedScrollInProgress();
     } else if (userScrollEnded) {
-      _userFeedScrollInProgress = false;
+      _scheduleUserFeedScrollEndGrace();
     }
 
     if (_programmaticFeedScrollInProgress) {
