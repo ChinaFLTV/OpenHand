@@ -27,6 +27,9 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   static const int _historyLen = 60;
   bool _tracing = false;
   Duration _traceDuration = const Duration(seconds: 5);
+  // 上次成功录制的 trace JSON，用于「查看火焰图」按钮；超过 8MB 不缓存以
+  // 防内存暴涨。
+  String? _lastTraceJson;
 
   // FPS：用 requestAnimationFrame 在浏览器里采样上一秒帧数，
   // 通过 Runtime.evaluate 拉回。
@@ -116,6 +119,17 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     });
   }
 
+  /// 把上次录制的 trace 解析成 X 事件帧序列，用 _FlamePainter 渲染简化火焰图。
+  /// 仅识别 ph='X'（complete）类型，按 ts 起点 + dur 长度 + tid 行号布局。
+  void _showFlameGraph() {
+    final raw = _lastTraceJson;
+    if (raw == null) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => _FlameGraphDialog(traceJson: raw, isZh: widget.isZh),
+    );
+  }
+
   /// 把当前记录的 FPS 历史 + Long task 列表合并成 CSV 落盘。两段数据放
   /// 同一个文件，靠 section 标记区分，方便 Excel / 数据分析工具一次性吃。
   Future<void> _exportCsv() async {
@@ -197,6 +211,9 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         duration: const Duration(seconds: 2),
       );
       return;
+    }
+    if (json.length <= 8 * 1024 * 1024) {
+      _lastTraceJson = json;
     }
     const typeGroup = XTypeGroup(label: 'Trace', extensions: <String>['json']);
     final ts = DateTime.now()
@@ -301,6 +318,12 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                     (_fpsHistory.isEmpty && _longTasks.isEmpty) ? null : _exportCsv,
                 icon: const Icon(Icons.table_view_rounded, size: 18),
                 label: Text(isZh ? '导出 CSV' : 'Export CSV'),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed: _lastTraceJson == null ? null : _showFlameGraph,
+                icon: const Icon(Icons.local_fire_department_rounded, size: 18),
+                label: Text(isZh ? '火焰图' : 'Flame graph'),
               ),
             ],
           ),
@@ -3854,4 +3877,202 @@ class _DiffRow extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// 把 Tracing.dataCollected JSON 转成简化火焰图的弹窗。
+/// 解析规则：只挑 ph == 'X'（完整事件）、有 ts + dur 的条目；按 tid 分行
+/// 堆叠，按时间轴横向布局；超过 3000 个事件自动抽样到 3000 个保性能。
+class _FlameGraphDialog extends StatelessWidget {
+  const _FlameGraphDialog({required this.traceJson, required this.isZh});
+
+  final String traceJson;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    List<_FlameEvent> events;
+    int minTs;
+    int maxTs;
+    try {
+      final decoded = jsonDecode(traceJson) as Map<String, Object?>;
+      final raw = decoded['traceEvents'];
+      final list = raw is List ? raw : const <Object?>[];
+      var minT = (1 << 62);
+      var maxT = -1;
+      final all = <_FlameEvent>[];
+      for (final item in list.whereType<Map>()) {
+        if (item['ph'] != 'X') continue;
+        final ts = (item['ts'] as num?)?.toInt();
+        final dur = (item['dur'] as num?)?.toInt();
+        if (ts == null || dur == null || dur <= 0) continue;
+        all.add(_FlameEvent(
+          tid: '${item['tid'] ?? '0'}',
+          name: '${item['name'] ?? ''}',
+          ts: ts,
+          dur: dur,
+        ));
+        if (ts < minT) minT = ts;
+        if (ts + dur > maxT) maxT = ts + dur;
+      }
+      // 抽样：对超长 trace 取等距样本，火焰图依然能反映分布。
+      if (all.length > 3000) {
+        final step = (all.length / 3000).ceil();
+        events = [for (var i = 0; i < all.length; i += step) all[i]];
+      } else {
+        events = all;
+      }
+      minTs = minT;
+      maxTs = maxT;
+    } catch (_) {
+      events = const [];
+      minTs = 0;
+      maxTs = 0;
+    }
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1080, maxHeight: 640),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.local_fire_department_rounded, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isZh
+                          ? '火焰图（${events.length} 事件 · ${(maxTs - minTs) / 1000} ms）'
+                          : 'Flame graph (${events.length} ev · ${(maxTs - minTs) / 1000} ms)',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: events.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        isZh
+                            ? '没有可视化的完整事件（trace 内可能只含 metadata）。'
+                            : 'No X-phase events to plot.',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                    )
+                  : InteractiveViewer(
+                      maxScale: 8,
+                      minScale: 0.5,
+                      child: SizedBox(
+                        width: 1600,
+                        height: 480,
+                        child: CustomPaint(
+                          painter: _FlamePainter(
+                            events: events,
+                            minTs: minTs,
+                            maxTs: maxTs,
+                            primary: cs.primary,
+                            tertiary: cs.tertiary,
+                            onSurface: cs.onSurface,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FlameEvent {
+  const _FlameEvent({
+    required this.tid,
+    required this.name,
+    required this.ts,
+    required this.dur,
+  });
+
+  final String tid;
+  final String name;
+  final int ts;
+  final int dur;
+}
+
+class _FlamePainter extends CustomPainter {
+  _FlamePainter({
+    required this.events,
+    required this.minTs,
+    required this.maxTs,
+    required this.primary,
+    required this.tertiary,
+    required this.onSurface,
+  });
+
+  final List<_FlameEvent> events;
+  final int minTs;
+  final int maxTs;
+  final Color primary;
+  final Color tertiary;
+  final Color onSurface;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (events.isEmpty) return;
+    final span = (maxTs - minTs).toDouble().clamp(1, double.infinity);
+    final tidIndex = <String, int>{};
+    for (final e in events) {
+      tidIndex.putIfAbsent(e.tid, () => tidIndex.length);
+    }
+    final rowH = size.height / (tidIndex.length).clamp(1, 999);
+    for (final e in events) {
+      final x = (e.ts - minTs) / span * size.width;
+      final w = (e.dur / span * size.width).clamp(1, size.width).toDouble();
+      final y = (tidIndex[e.tid] ?? 0) * rowH;
+      final h = (rowH - 2).clamp(2.0, double.infinity);
+      // 颜色按 dur 长短分级：>50ms 用 tertiary（红橙），其它用 primary。
+      final color = e.dur > 50000
+          ? tertiary
+          : primary.withValues(alpha: 0.55);
+      canvas.drawRect(
+        Rect.fromLTWH(x, y, w, h),
+        Paint()..color = color,
+      );
+      if (w > 40) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: e.name,
+            style: TextStyle(
+              color: onSurface,
+              fontSize: 10,
+              fontFamily: 'monospace',
+            ),
+          ),
+          maxLines: 1,
+          ellipsis: '…',
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: w - 4);
+        tp.paint(canvas, Offset(x + 2, y + 1));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FlamePainter old) =>
+      old.events != events || old.minTs != minTs || old.maxTs != maxTs;
 }
