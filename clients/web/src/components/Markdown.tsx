@@ -24,6 +24,14 @@ const CONTENT_TOO_BIG_BYTES = 120 * 1024;
 /// 1 KB 以上的内容首次挂载时走帧节流 deferred 路径 (首帧 plain text 占位
 /// + 下一空闲帧补回 markdown), 避免会话打开时多卡片同步 parse 卡顿。
 const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 1024;
+/// W1 流式节流：parseReady=true 后的内容变更，若增量很小且距上次 flush 不久，
+/// 短期 coalesce 到一帧。覆盖 SSE 80ms 一 tick 期间内容追加只增几字符的场景，
+/// 把"每 token 重 parse 整棵 react-markdown 树"压成最多 ~12 次/秒。
+const MARKDOWN_STREAM_FLUSH_MS = 80;
+const MARKDOWN_STREAM_FLUSH_DELTA = 64;
+/// W2 跳过 highlight：无 ``` 代码块的消息没必要把 rehype-highlight (内置
+/// highlight.js 子集) 跑一遍。大段中文/英文纯文本消息全跳过，主线程压力骤降。
+const FENCED_CODE_RE = /(^|\n)[ \t]*```/;
 const LOCAL_MEDIA_EXT = /\.(?:png|jpe?g|gif|webp|bmp|heic|svg|mp4|webm|mov|m4v|mp3|wav|ogg|m4a|flac|aac)(?:[?#].*)?$/i;
 const MARKDOWN_MEDIA_REF = /!?\[[^\]\n]{0,240}\]\(([^)\r\n]+)\)/g;
 
@@ -146,6 +154,48 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
     });
     return cancel;
   }, [shouldDeferParse, content, parseReady]);
+
+  // W1 流式节流：parseReady=true 之后的内容变更走 coalesce —— 增量较小
+  // 且距上次 flush 不到 80ms 时延迟到本批结束再 setState，避免 SSE 每 tick
+  // 触发整棵 react-markdown re-parse。增量大 / 内容回退 / 距离够久立即 flush，
+  // 保证视觉响应不延迟。非流式（不变更）路径完全无影响。
+  const [renderedContent, setRenderedContent] = useState(markdownContent);
+  const lastFlushAtRef = useRef<number>(0);
+  useEffect(() => {
+    if (!parseReady) {
+      // 首次 parse 完成前由 deferred 占位托管，等 parseReady 切换时一次性同步。
+      setRenderedContent(markdownContent);
+      lastFlushAtRef.current = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      return;
+    }
+    if (markdownContent === renderedContent) return;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const ageMs = now - lastFlushAtRef.current;
+    const delta = Math.abs(markdownContent.length - renderedContent.length);
+    const shouldFlushNow =
+      markdownContent.length < renderedContent.length // 内容回退/截断
+      || delta >= MARKDOWN_STREAM_FLUSH_DELTA
+      || ageMs >= MARKDOWN_STREAM_FLUSH_MS;
+    if (shouldFlushNow) {
+      lastFlushAtRef.current = now;
+      setRenderedContent(markdownContent);
+      return;
+    }
+    const wait = Math.max(0, MARKDOWN_STREAM_FLUSH_MS - ageMs);
+    const handle = window.setTimeout(() => {
+      lastFlushAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      setRenderedContent(markdownContent);
+    }, wait);
+    return () => window.clearTimeout(handle);
+  }, [parseReady, markdownContent, renderedContent]);
+
+  // W2 无 ``` 代码块直接跳过 rehype-highlight，省一次 hast 遍历 + highlight.js
+  // auto-detect。中长文本（占绝大多数 AI 消息）受益最大。
+  const hasFencedCode = useMemo(() => FENCED_CODE_RE.test(renderedContent), [renderedContent]);
+  const rehypePlugins = useMemo(
+    () => (hasFencedCode ? [rehypeHighlight] : []),
+    [hasFencedCode],
+  );
 
   const fontFamily = mono
     ? 'ui-monospace, SFMono-Regular, Menlo, monospace'
@@ -334,10 +384,10 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
     <div class="oh-markdown text-sm" style={{ fontFamily }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
+        rehypePlugins={rehypePlugins}
         components={components}
       >
-        {markdownContent}
+        {renderedContent}
       </ReactMarkdown>
     </div>
   );
