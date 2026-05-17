@@ -216,7 +216,12 @@ class ThrottleAutoSyncService {
       // exported_at / updated_at_ms 都是时间戳类辅助字段，跳过避免
       // 假阳性变更（updated_at_ms 在每次 commit 都会 bump，但配置内
       // 容若没动我们也不该判定为"变更"）。
-      if (k == 'exported_at' || k == 'updated_at_ms') continue;
+      // version 是 schema 标记位，不属于"用户数据"；跨版本时 migrate
+      // 已经把缺失字段补齐，签名只要数据等价就视为相同，避免老远端
+      // 触发不必要的 push/pull 循环。
+      if (k == 'exported_at' || k == 'updated_at_ms' || k == 'version') {
+        continue;
+      }
       final v = config[k];
       buffer
         ..write(k)

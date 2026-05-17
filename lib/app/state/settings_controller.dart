@@ -31,6 +31,33 @@ import 'settings_store.dart';
 
 enum _MutationDisposition { apply, successNoChange, reject }
 
+/// 当前 AI 流式节流配置文档的 schema 版本号。
+///
+/// * v1 (2026-05-18)：`throttle_enabled` / `auto_mode` /
+///   `max_chars_per_second` / `max_message_cards_per_second` /
+///   `template_overrides` / `cloud_sync` 等字段。
+/// * v2 (2026-05-17)：新增 `duration_seconds`（0 = 持续节流）。导入老版本
+///   时由 [migrateAiStreamThrottleConfig] 自动补默认值，向后兼容。
+const int aiStreamThrottleConfigSchemaVersion = 2;
+
+/// 把任意旧版/新版节流配置文档归一化为当前 schema：
+///
+///   * 老 doc（v1）缺 `duration_seconds` → 注入默认 0（持续节流）；
+///   * `version` 字段统一改写为当前版本号，方便上层 hash / diff 一致；
+///   * 不破坏未识别字段（forward-compatible，预留给未来 schema 扩展）。
+///
+/// 同时被手动 import 路径与云端同步 push/pull 路径共用，确保跨版本
+/// JSON 在任意流向下都能落地为 v2 格式。
+Map<String, Object?> migrateAiStreamThrottleConfig(Map<String, Object?> doc) {
+  final migrated = Map<String, Object?>.from(doc);
+  if (!migrated.containsKey('duration_seconds')) {
+    migrated['duration_seconds'] =
+        AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds;
+  }
+  migrated['version'] = aiStreamThrottleConfigSchemaVersion;
+  return migrated;
+}
+
 class SettingsController extends ChangeNotifier {
   SettingsController._({
     required SettingsStore store,
@@ -1700,7 +1727,9 @@ class SettingsController extends ChangeNotifier {
   /// ```
   Map<String, Object?> exportAiStreamThrottleConfig() {
     return <String, Object?>{
-      'version': 1,
+      // 2026-05-17 — v2 引入 duration_seconds 字段；老版本（v1）的 doc
+      // 可经 migrateAiStreamThrottleConfig() 平滑升级到 v2。
+      'version': aiStreamThrottleConfigSchemaVersion,
       'exported_at': DateTime.now().toUtc().toIso8601String(),
       // 2026-05-19 — 携带本地最近一次有效修改的 epoch ms。自动同步会
       // 用 max(remote, local) 决定哪一方覆盖另一方，避免老覆新。
@@ -1734,35 +1763,38 @@ class SettingsController extends ChangeNotifier {
     Map<String, Object?> doc, {
     int? overrideUpdatedAtMs,
   }) async {
+    // 跨版本兼容：老 doc 自动补默认 duration_seconds=0；导入路径不直接
+    // 操作原始 map，避免上层把 migrate 副作用带回到自己持有的对象。
+    final migrated = migrateAiStreamThrottleConfig(doc);
     var anyChange = false;
-    final enabled = doc['throttle_enabled'];
+    final enabled = migrated['throttle_enabled'];
     if (enabled is bool) {
       anyChange =
           await updateAiStreamThrottleEnabled(enabled) || anyChange;
     }
-    final auto = doc['auto_mode'];
+    final auto = migrated['auto_mode'];
     if (auto is bool) {
       anyChange =
           await updateAiStreamThrottleAutoMode(auto) || anyChange;
     }
-    final durationSec = doc['duration_seconds'];
+    final durationSec = migrated['duration_seconds'];
     if (durationSec is int) {
       anyChange =
           await updateAiStreamThrottleDurationSeconds(durationSec) ||
           anyChange;
     }
-    final maxChars = doc['max_chars_per_second'];
+    final maxChars = migrated['max_chars_per_second'];
     if (maxChars is int) {
       anyChange =
           await updateAiStreamMaxCharsPerSecond(maxChars) || anyChange;
     }
-    final maxCards = doc['max_message_cards_per_second'];
+    final maxCards = migrated['max_message_cards_per_second'];
     if (maxCards is int) {
       anyChange =
           await updateAiStreamMaxMessageCardsPerSecond(maxCards) ||
           anyChange;
     }
-    final overrides = doc['template_overrides'];
+    final overrides = migrated['template_overrides'];
     if (overrides is Map) {
       // 先清空旧覆盖，再按导入项重建——避免 import 后还残留旧模板。
       final keysToClear = _aiStreamThrottleTemplateOverrides.keys.toList(

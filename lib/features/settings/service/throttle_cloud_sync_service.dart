@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../app/state/settings_controller.dart'
+    show aiStreamThrottleConfigSchemaVersion, migrateAiStreamThrottleConfig;
 import '../../../app/support/silent_log.dart';
 
 /// 节流配置云端同步 provider 类型。
@@ -185,7 +187,7 @@ class ThrottleCloudSyncService {
     try {
       final body = jsonEncode(<String, Object?>{
         'kind': 'openhand.throttle_config',
-        'version': 1,
+        'version': aiStreamThrottleConfigSchemaVersion,
         'config': config,
         'updated_at_ms': updatedAtMs,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
@@ -286,6 +288,9 @@ class ThrottleCloudSyncService {
           'response is not a JSON object',
         );
       }
+      // 跨版本兼容：远端可能仍是 v1 文档（无 duration_seconds），
+      // 在这里统一升级到当前 schema 再上抛。
+      cfg = migrateAiStreamThrottleConfig(cfg);
       return ThrottleCloudSyncResult.success(
         config: cfg,
         fetchedAt: DateTime.now().toUtc(),
@@ -403,6 +408,7 @@ class ThrottleCloudSyncService {
           'iCloud payload is not a JSON object',
         );
       }
+      cfg = migrateAiStreamThrottleConfig(cfg);
       return ThrottleCloudSyncResult.success(
         config: cfg,
         fetchedAt: DateTime.now().toUtc(),
@@ -442,7 +448,7 @@ class ThrottleCloudSyncService {
       final fileContent = const JsonEncoder.withIndent('  ').convert(
         <String, Object?>{
           'kind': 'openhand.throttle_config',
-          'version': 1,
+          'version': aiStreamThrottleConfigSchemaVersion,
           'config': config,
           'updated_at_ms': updatedAtMs,
           'updated_at': DateTime.now().toUtc().toIso8601String(),
@@ -588,6 +594,7 @@ class ThrottleCloudSyncService {
         cfg = Map<String, Object?>.from(inner);
       }
       final updatedAtMs = _readUpdatedAtMs(inner, cfg);
+      cfg = migrateAiStreamThrottleConfig(cfg);
       return ThrottleCloudSyncResult.success(
         config: cfg,
         fetchedAt: DateTime.now().toUtc(),

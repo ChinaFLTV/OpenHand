@@ -4082,8 +4082,12 @@ class _SettingsViewState extends State<SettingsView> {
     if (!context.mounted) return;
     // 2026-05-18 — 应用前先弹「冲突预览」对话框，让用户看清哪些字段
     // 会被覆盖；用户确认后才真正写入。
+    // 2026-05-17 — 跨版本兼容：老 doc（v1）缺 `duration_seconds` 时，
+    // 先 migrate 到当前 schema 再做 diff，避免预览里出现 5→— 这种
+    // 容易被误读为"清空"的展示。migrate 不会破坏未识别字段，向前兼容。
     final current = controller.exportAiStreamThrottleConfig();
-    final diffs = _diffThrottleConfig(current, nextDoc);
+    final migratedNext = migrateAiStreamThrottleConfig(nextDoc);
+    final diffs = _diffThrottleConfig(current, migratedNext);
     if (diffs.isEmpty) {
       _showSnackBar(
         context,
