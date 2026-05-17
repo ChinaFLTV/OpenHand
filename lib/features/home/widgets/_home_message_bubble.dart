@@ -40,9 +40,22 @@ class _MessageBubble extends StatefulWidget {
   State<_MessageBubble> createState() => _MessageBubbleState();
 }
 
-class _MessageBubbleState extends State<_MessageBubble> {
+class _MessageBubbleState extends State<_MessageBubble>
+    with AutomaticKeepAliveClientMixin {
   bool _compressionExpanded = false;
   bool? _reasoningExpandedOverride;
+
+  // 2026-05-17：开启 keep-alive 杜绝慢速滚动抽搐。message bubble 一旦
+  // 完成首次 layout，其 markdown 解析得到的真实高度便已缓存在子树内；
+  // 之前由于未实现该 mixin，bubble 在被 ListView cacheExtent 边界扫
+  // 出时会真正销毁，下一次再越过边界进入时重新解析的高度与原高度偏
+  // 差几个像素，触发 SliverList correctPixels 把视窗瞬间拽住。开启
+  // keep-alive 后，一旦 bubble 被首次构建就永久保留在 element tree
+  // 中，cacheExtent 边界只控制 visible / not-visible 切换，不再触发
+  // dispose / rebuild，几何始终稳定。memory 代价可接受：一条会话中
+  // 等同时已被滚动浏览过的气泡才会进入 keep-alive 池。
+  @override
+  bool get wantKeepAlive => true;
 
   // 2026-04-27: 启用文本 selectable 后外层 GestureDetector 的 onTap
   // 会被子节点的文本选择手势抢占，导致点击气泡后
@@ -103,6 +116,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    // AutomaticKeepAliveClientMixin 要求 build 中调用 super.build。
+    super.build(context);
     developer.Timeline.startSync(
       'openhand.bubble.build',
       arguments: <String, Object?>{

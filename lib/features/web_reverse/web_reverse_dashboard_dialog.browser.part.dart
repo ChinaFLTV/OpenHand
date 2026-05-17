@@ -36,6 +36,12 @@ class _BrowserBody extends StatefulWidget {
 class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   final TextEditingController _addressCtrl = TextEditingController();
   final FocusNode _surfaceFocus = FocusNode(debugLabel: 'browser-surface');
+  final FocusNode _addressBarFocus = FocusNode(debugLabel: 'browser-address');
+  final FocusNode _findFocus = FocusNode(debugLabel: 'browser-find');
+  final TextEditingController _findCtrl = TextEditingController();
+  bool _findBarOpen = false;
+  int _findMatchCount = 0;
+  Timer? _findDebouncer;
   Timer? _resizeDebouncer;
   Timer? _urlPoller;
   bool _addressEditing = false;
@@ -94,10 +100,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _surfaceFocus.removeListener(_onSurfaceFocusChanged);
     _resizeDebouncer?.cancel();
     _urlPoller?.cancel();
+    _findDebouncer?.cancel();
     widget.controller.releaseScreencast();
     _detachImeConnection();
     _addressCtrl.dispose();
     _surfaceFocus.dispose();
+    _addressBarFocus.dispose();
+    _findFocus.dispose();
+    _findCtrl.dispose();
     super.dispose();
   }
 
@@ -252,6 +262,72 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    // 顶级快捷键拦截（Cmd on macOS / Ctrl elsewhere）：browser-like 操作走
+    // 我们自己的 controller，不下发到浏览器侧（浏览器自身的快捷键被
+    // screencast 屏蔽，需要 Flutter 端实现）。仅在 KeyDown 时触发，避免
+    // KeyRepeat 二次触发误开多 tab / 关 tab。
+    if (event is KeyDownEvent) {
+      final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+      final hasMeta = pressed.contains(LogicalKeyboardKey.metaLeft) ||
+          pressed.contains(LogicalKeyboardKey.metaRight);
+      final hasCtrl = pressed.contains(LogicalKeyboardKey.controlLeft) ||
+          pressed.contains(LogicalKeyboardKey.controlRight);
+      final hasShift = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+          pressed.contains(LogicalKeyboardKey.shiftRight);
+      final cmd = Platform.isMacOS ? hasMeta : hasCtrl;
+      if (cmd) {
+        final key = event.logicalKey;
+        if (key == LogicalKeyboardKey.keyT) {
+          unawaited(_shortcutNewTab());
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.keyW) {
+          unawaited(_shortcutCloseTab());
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.keyR) {
+          unawaited(widget.controller.reload(ignoreCache: hasShift));
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.keyL) {
+          _addressBarFocus.requestFocus();
+          _addressCtrl.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: _addressCtrl.text.length,
+          );
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.keyF) {
+          setState(() => _findBarOpen = true);
+          // 等帧布局后让 find field 自动 focus，避免和 surface 焦点冲突。
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _findFocus.requestFocus();
+          });
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.equal ||
+            key == LogicalKeyboardKey.add ||
+            key == LogicalKeyboardKey.numpadAdd) {
+          unawaited(_shortcutZoomDelta(1));
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.minus ||
+            key == LogicalKeyboardKey.numpadSubtract) {
+          unawaited(_shortcutZoomDelta(-1));
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.digit0 ||
+            key == LogicalKeyboardKey.numpad0) {
+          unawaited(_shortcutZoomReset());
+          return KeyEventResult.handled;
+        }
+      }
+      // Esc 关闭 find bar
+      if (event.logicalKey == LogicalKeyboardKey.escape && _findBarOpen) {
+        _closeFindBar();
+        return KeyEventResult.handled;
+      }
+    }
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       final keyId = event.logicalKey.keyId;
       // 文本键（character 非空且为单字符）走 char 分发；功能键走 keyDown。
@@ -285,6 +361,74 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  // ── 快捷键实现 ────────────────────────────────────────────────────────
+
+  Future<void> _shortcutNewTab() async {
+    final id = await widget.controller.createPageTarget();
+    if (id != null) await widget.controller.switchToPageTarget(id);
+  }
+
+  Future<void> _shortcutCloseTab() async {
+    final cur = widget.controller.currentPageTargetId;
+    if (cur == null) return;
+    await widget.controller.closePageTarget(cur);
+  }
+
+  static const _zoomLadder = <double>[0.5, 0.75, 1.0, 1.25, 1.5];
+
+  Future<void> _shortcutZoomDelta(int dir) async {
+    var idx = _zoomLadder.indexWhere((v) => (v - _zoom).abs() < 0.01);
+    if (idx < 0) {
+      // 当前不是档位之一，先就近吸附。
+      idx = 0;
+      for (var i = 0; i < _zoomLadder.length; i++) {
+        if ((_zoomLadder[i] - _zoom).abs() <
+            (_zoomLadder[idx] - _zoom).abs()) {
+          idx = i;
+        }
+      }
+    }
+    final next = (idx + dir).clamp(0, _zoomLadder.length - 1);
+    final v = _zoomLadder[next];
+    setState(() => _zoom = v);
+    await widget.controller.setZoomFactor(v);
+  }
+
+  Future<void> _shortcutZoomReset() async {
+    setState(() => _zoom = 1);
+    await widget.controller.setZoomFactor(1);
+  }
+
+  // ── 页面查找 ──────────────────────────────────────────────────────────
+
+  void _closeFindBar() {
+    _findDebouncer?.cancel();
+    setState(() {
+      _findBarOpen = false;
+      _findMatchCount = 0;
+    });
+    _findCtrl.clear();
+    unawaited(widget.controller.clearFindHighlights());
+    _surfaceFocus.requestFocus();
+  }
+
+  void _onFindChanged(String s) {
+    _findDebouncer?.cancel();
+    _findDebouncer = Timer(const Duration(milliseconds: 200), () async {
+      final n = await widget.controller.findInPage(s);
+      if (!mounted) return;
+      setState(() => _findMatchCount = n);
+    });
+  }
+
+  Future<void> _findNext() async {
+    await widget.controller.findCycleNext();
+  }
+
+  Future<void> _findPrev() async {
+    await widget.controller.findCycleNext(forward: false);
   }
 
   String _logicalKeyName(LogicalKeyboardKey key) {
@@ -674,6 +818,21 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                             ),
                           ),
                         ),
+                        if (_findBarOpen)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: _FindBar(
+                              focusNode: _findFocus,
+                              controller: _findCtrl,
+                              matchCount: _findMatchCount,
+                              isZh: isZh,
+                              onChanged: _onFindChanged,
+                              onPrev: _findPrev,
+                              onNext: _findNext,
+                              onClose: _closeFindBar,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -720,6 +879,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               height: 36,
               child: TextField(
                 controller: _addressCtrl,
+                focusNode: _addressBarFocus,
                 enabled: alive,
                 textAlignVertical: TextAlignVertical.center,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1184,6 +1344,109 @@ class _TabStrip extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// 浏览器面板顶部右上角浮起的找词条：复刻 Chrome 的 Cmd+F 行为，
+/// 支持回车下一项、Shift+Enter 上一项、Esc 关闭、关闭后清掉所有 mark 高亮。
+class _FindBar extends StatelessWidget {
+  const _FindBar({
+    required this.focusNode,
+    required this.controller,
+    required this.matchCount,
+    required this.isZh,
+    required this.onChanged,
+    required this.onPrev,
+    required this.onNext,
+    required this.onClose,
+  });
+
+  final FocusNode focusNode;
+  final TextEditingController controller;
+  final int matchCount;
+  final bool isZh;
+  final ValueChanged<String> onChanged;
+  final Future<void> Function() onPrev;
+  final Future<void> Function() onNext;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Material(
+      color: cs.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(_kToolbarRadius),
+      elevation: 4,
+      shadowColor: Colors.black26,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 4, 6, 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_kToolbarRadius),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_rounded, size: 14, color: cs.onSurfaceVariant),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 200,
+              child: TextField(
+                focusNode: focusNode,
+                controller: controller,
+                style: theme.textTheme.bodySmall,
+                onChanged: onChanged,
+                onSubmitted: (_) => onNext(),
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  hintText: isZh ? '查找词条' : 'Find',
+                  hintStyle: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 36),
+              child: Text(
+                matchCount > 0 ? '$matchCount' : '0',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: isZh ? '上一个' : 'Previous',
+              visualDensity: VisualDensity.compact,
+              onPressed: matchCount > 0 ? () async => onPrev() : null,
+              icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 18),
+            ),
+            IconButton(
+              tooltip: isZh ? '下一个' : 'Next',
+              visualDensity: VisualDensity.compact,
+              onPressed: matchCount > 0 ? () async => onNext() : null,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+            ),
+            IconButton(
+              tooltip: isZh ? '关闭' : 'Close',
+              visualDensity: VisualDensity.compact,
+              onPressed: onClose,
+              icon: const Icon(Icons.close_rounded, size: 16),
             ),
           ],
         ),

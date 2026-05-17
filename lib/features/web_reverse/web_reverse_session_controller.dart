@@ -242,6 +242,8 @@ class WebReverseSessionController extends ChangeNotifier {
       } catch (_) {}
       _pageSessionId = null;
     }
+    // 新 page 上 finder 还没注入；切完 target 第一次 findInPage 会按需注入。
+    _finderInstalled = false;
     final attachResult = await cdp.send(
       'Target.attachToTarget',
       params: <String, Object?>{
@@ -2550,6 +2552,174 @@ class WebReverseSessionController extends ChangeNotifier {
       silentLog(
         'web_reverse_session_controller',
         'setZoomFactor $clamped',
+        error,
+        stack,
+      );
+    }
+  }
+
+  // ── 页面查找：基于注入 JS 的 textNode 扫描 + mark 高亮 + cycle ───────────
+  // CDP `DOM.performSearch` 返回的是 DOM 节点 ID，需要再 `DOM.scrollIntoViewIfNeeded`
+  // 才能跳转，体验上和浏览器原生 Cmd+F 还是有差距；这里改为 Runtime.evaluate
+  // 注入一个轻量 finder：扫文档 textNode、insertion 高亮 mark 标签、维护
+  // 当前 index、cycle next / prev / 清理。一次注入多次复用，性能比反复
+  // performSearch 好，对模型来说也更可控。
+
+  bool _finderInstalled = false;
+
+  Future<int> findInPage(String query) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return 0;
+    if (query.trim().isEmpty) {
+      await clearFindHighlights();
+      return 0;
+    }
+    if (!_finderInstalled) {
+      await _installFinder();
+    }
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression': '__oh_find_set(${jsonEncode(query)})',
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 5),
+      );
+      final v = (r['result'] as Map?)?['value'];
+      return v is num ? v.toInt() : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> findCycleNext({bool forward = true}) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression': '__oh_find_cycle(${forward ? 1 : -1})',
+        },
+        sessionId: _pageSessionId,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> clearFindHighlights() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{
+          'expression': 'window.__oh_find_clear && __oh_find_clear()',
+        },
+        sessionId: _pageSessionId,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _installFinder() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    const js = r'''
+(() => {
+  if (window.__oh_find_installed) return;
+  window.__oh_find_installed = true;
+  let marks = [];
+  let curIndex = -1;
+  const STYLE_ID = '__oh_find_style';
+  const ensureStyle = () => {
+    if (document.getElementById(STYLE_ID)) return;
+    const s = document.createElement('style');
+    s.id = STYLE_ID;
+    s.textContent = '.__oh_find_mark{background:#ffd54f;color:#000;border-radius:2px}.__oh_find_mark.__oh_find_active{background:#ff9800;color:#fff}';
+    document.documentElement.appendChild(s);
+  };
+  window.__oh_find_clear = () => {
+    for (const m of marks) {
+      const parent = m.parentNode;
+      if (!parent) continue;
+      parent.replaceChild(document.createTextNode(m.textContent || ''), m);
+      parent.normalize();
+    }
+    marks = []; curIndex = -1;
+  };
+  const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  window.__oh_find_set = (q) => {
+    __oh_find_clear();
+    if (!q) return 0;
+    ensureStyle();
+    const re = new RegExp(escapeRe(q), 'gi');
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => {
+        const p = n.parentElement;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        const tag = p.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') return NodeFilter.FILTER_REJECT;
+        if (!n.nodeValue || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    const nodes = []; let cur;
+    while ((cur = walker.nextNode())) nodes.push(cur);
+    for (const n of nodes) {
+      const text = n.nodeValue;
+      let m; const frag = document.createDocumentFragment();
+      let last = 0;
+      re.lastIndex = 0;
+      while ((m = re.exec(text)) != null) {
+        if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const span = document.createElement('mark');
+        span.className = '__oh_find_mark';
+        span.textContent = m[0];
+        frag.appendChild(span);
+        marks.push(span);
+        last = re.lastIndex;
+        if (m[0].length === 0) re.lastIndex++;
+      }
+      if (last > 0) {
+        if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+        n.parentNode && n.parentNode.replaceChild(frag, n);
+      }
+    }
+    if (marks.length > 0) {
+      curIndex = 0;
+      marks[0].classList.add('__oh_find_active');
+      marks[0].scrollIntoView({block:'center', behavior:'smooth'});
+    }
+    return marks.length;
+  };
+  window.__oh_find_cycle = (dir) => {
+    if (marks.length === 0) return 0;
+    if (curIndex >= 0) marks[curIndex].classList.remove('__oh_find_active');
+    curIndex = (curIndex + dir + marks.length) % marks.length;
+    const m = marks[curIndex];
+    m.classList.add('__oh_find_active');
+    m.scrollIntoView({block:'center', behavior:'smooth'});
+    return curIndex + 1;
+  };
+})();
+''';
+    try {
+      await cdp.send(
+        'Page.addScriptToEvaluateOnNewDocument',
+        params: <String, Object?>{'source': js},
+        sessionId: _pageSessionId,
+      );
+      await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{'expression': js},
+        sessionId: _pageSessionId,
+      );
+      _finderInstalled = true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        '_installFinder',
         error,
         stack,
       );

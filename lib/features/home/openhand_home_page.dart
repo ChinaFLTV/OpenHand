@@ -106,10 +106,6 @@ class OpenHandHomePage extends StatefulWidget {
   State<OpenHandHomePage> createState() => _OpenHandHomePageState();
 }
 
-// 临时排查日志：滚动抽搐问题 —— 排查完毕后移除此常量与所有
-// `if (_kScrollDiagEnabled) debugPrint('[scroll.diag] ...')` 调用。
-const bool _kScrollDiagEnabled = true;
-
 class _OpenHandHomePageState extends State<OpenHandHomePage>
     with WidgetsBindingObserver {
   /// 当前活跃的 home state 实例引用——`part of` 文件（例如
@@ -673,13 +669,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   /// 标记用户正在主动滚动；取消任何待执行的 scroll-end 宽限计时。
   void _markUserScrollInProgress() {
-    final wasInProgress = _userScrollInProgress;
     _userScrollGraceTimer?.cancel();
     _userScrollGraceTimer = null;
     _userScrollInProgress = true;
-    if (_kScrollDiagEnabled && !wasInProgress) {
-      debugPrint('[scroll.diag] mark=true (was=false)');
-    }
   }
 
   /// 用户当前 tick 的 scroll-end 已触发，但 trackpad / 滚轮的下一 tick
@@ -693,9 +685,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       _userScrollInProgress = false;
-      if (_kScrollDiagEnabled) {
-        debugPrint('[scroll.diag] grace-expired -> mark=false');
-      }
     });
   }
 
@@ -1695,25 +1684,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (notification is ScrollStartNotification ||
             notification is ScrollUpdateNotification ||
             notification is OverscrollNotification);
-    if (_kScrollDiagEnabled) {
-      final kind = notification.runtimeType;
-      final drag = (notification is ScrollStartNotification)
-          ? notification.dragDetails != null
-          : (notification is ScrollUpdateNotification)
-          ? notification.dragDetails != null
-          : (notification is OverscrollNotification)
-          ? notification.dragDetails != null
-          : null;
-      final dir = (notification is UserScrollNotification)
-          ? notification.direction.name
-          : null;
-      debugPrint(
-        '[scroll.diag] notif=$kind px=${notification.metrics.pixels.toStringAsFixed(1)} '
-        'max=${notification.metrics.maxScrollExtent.toStringAsFixed(1)} '
-        'drag=$drag dir=$dir prog=$_programmaticAutoFollowScrollInProgress '
-        'uip=$_userScrollInProgress',
-      );
-    }
     if (explicitUserScroll || implicitUserScrollGesture) {
       _markUserScrollInProgress();
     } else if (userScrollEnded) {
@@ -4716,13 +4686,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         });
       }
 
-      if (_kScrollDiagEnabled) {
-        debugPrint(
-          '[scroll.diag] scroll-to-bottom run force=$shouldForce '
-          'animate=$shouldAnimate distance=${distance.toStringAsFixed(1)} '
-          'uip=$_userScrollInProgress',
-        );
-      }
       if (distance >= 1 &&
           shouldAnimate &&
           distance > _autoFollowAnimatedDistanceThreshold) {
@@ -4856,9 +4819,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // jumpTo 会和触摸 / 鼠标滚轮事件同帧争夺 ScrollPosition.pixels，
     // 表现为视口被强行拉回到一个"未补偿"位置，体感是"鬼畜"和"被拽住"。
     if (_userScrollInProgress) {
-      if (_kScrollDiagEnabled) {
-        debugPrint('[scroll.diag] composer-compensate SKIP (uip=true)');
-      }
       return;
     }
     final composerCtx = _composerPanelKey.currentContext;
@@ -4879,12 +4839,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 在动画期间 maxScrollExtent 可能尚未更新（transcript layout 滞后），
     // 使用 correctPixels 绕过 clamp 确保补偿立即生效。
     final newPixels = position.pixels + delta;
-    if (_kScrollDiagEnabled) {
-      debugPrint(
-        '[scroll.diag] composer-compensate JUMP delta=${delta.toStringAsFixed(1)} '
-        'from=${position.pixels.toStringAsFixed(1)} to=${newPixels.toStringAsFixed(1)}',
-      );
-    }
     if (newPixels >= position.minScrollExtent &&
         newPixels <= position.maxScrollExtent) {
       position.jumpTo(newPixels);
@@ -4899,13 +4853,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   void _handleTranscriptLayoutChanged() {
     if (_shouldDeferAutoFollowScheduling()) {
-      if (_kScrollDiagEnabled) {
-        debugPrint('[scroll.diag] transcript-layout-changed DEFERRED');
-      }
       return;
-    }
-    if (_kScrollDiagEnabled) {
-      debugPrint('[scroll.diag] transcript-layout-changed -> schedule');
     }
     _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
   }
