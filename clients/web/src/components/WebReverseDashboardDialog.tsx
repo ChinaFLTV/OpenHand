@@ -212,6 +212,12 @@ function BrowserTab() {
             '应用 tab 可编辑 Cookies / LocalStorage / SessionStorage；记录器 tab 一键导出 puppeteer / playwright；高级菜单新增「网络拦截规则」（URL 通配 → block / 重写 / 注入 header）。',
           )}
         </li>
+        <li>
+          {t(
+            'webReverse.browser.bulletPersistence',
+            'Sources 断点 + Console REPL 历史按会话持久化；Network 单条请求支持「编辑后重放」改写 URL / Headers 后再 replay；Performance 面板一键导出 FPS + Long task CSV；Shift+? 弹快捷键速查面板。',
+          )}
+        </li>
       </ul>
     </div>
   );
