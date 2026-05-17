@@ -1098,9 +1098,10 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     }
   }
 
-  /// 比较 _snapA 与 _snapB：从 .heapsnapshot 头部读 nodes / strings 计数和
-  /// total_size，输出节点数 / 字节数差。两份缺一即提示。
-  void _compareSnapshots() {
+  /// 比较 _snapA 与 _snapB：把两份 .heapsnapshot 在 isolate 里解析成
+  /// 「constructor → 字节累计/节点数」聚合表，再做 delta 排序，输出节点
+  /// 数 / 字节数 总差以及 top-growth 构造器列表。两份缺一即提示。
+  Future<void> _compareSnapshots() async {
     final isZh = widget.isZh;
     final a = _snapA;
     final b = _snapB;
@@ -1112,54 +1113,23 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       );
       return;
     }
-    int countNodes(String src) {
-      try {
-        final m = jsonDecode(src) as Map<String, Object?>;
-        final snap = m['snapshot'] as Map?;
-        return (snap?['node_count'] as num?)?.toInt() ?? 0;
-      } catch (_) {
-        return 0;
-      }
-    }
-
-    final nodesA = countNodes(a.json);
-    final nodesB = countNodes(b.json);
-    final dBytes = b.bytes - a.bytes;
-    final dNodes = nodesB - nodesA;
+    setState(() => _capturing = true);
+    final fut = compute(_heapDiffWorker, <String, String>{
+      'a': a.json,
+      'b': b.json,
+    });
+    final result = await fut;
+    if (!mounted) return;
+    setState(() => _capturing = false);
     showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(isZh ? '快照比较' : 'Snapshot diff'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('A: ${a.ts.toLocal().toIso8601String().split(".").first}'),
-              Text('B: ${b.ts.toLocal().toIso8601String().split(".").first}'),
-              const SizedBox(height: 12),
-              _DiffRow(
-                label: isZh ? '原始字节' : 'Raw bytes',
-                a: '${a.bytes}',
-                b: '${b.bytes}',
-                delta: dBytes,
-              ),
-              _DiffRow(
-                label: isZh ? '节点数' : 'Nodes',
-                a: '$nodesA',
-                b: '$nodesB',
-                delta: dNodes,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(isZh ? '关闭' : 'Close'),
-          ),
-        ],
+      builder: (_) => _SnapshotDiffDialog(
+        whenA: a.ts,
+        whenB: b.ts,
+        bytesA: a.bytes,
+        bytesB: b.bytes,
+        result: result,
+        isZh: isZh,
       ),
     );
   }
@@ -4075,4 +4045,387 @@ class _FlamePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _FlamePainter old) =>
       old.events != events || old.minTs != minTs || old.maxTs != maxTs;
+}
+
+
+/// .heapsnapshot 解析结果：按 (typeName, constructorName) 聚合的两份对象
+/// 列表 + 排好序的 top growth。所有数值都是有限可序列化的纯类型，能跨
+/// isolate 安全传输。
+class _HeapDiffResult {
+  const _HeapDiffResult({
+    required this.nodesA,
+    required this.nodesB,
+    required this.totalSelfA,
+    required this.totalSelfB,
+    required this.growth,
+    required this.error,
+  });
+
+  final int nodesA;
+  final int nodesB;
+  final int totalSelfA;
+  final int totalSelfB;
+  final List<_HeapGrowthEntry> growth;
+  final String? error;
+}
+
+class _HeapGrowthEntry {
+  const _HeapGrowthEntry({
+    required this.label,
+    required this.bytesDelta,
+    required this.countDelta,
+    required this.bytesA,
+    required this.bytesB,
+    required this.countA,
+    required this.countB,
+  });
+
+  final String label;
+  final int bytesDelta;
+  final int countDelta;
+  final int bytesA;
+  final int bytesB;
+  final int countA;
+  final int countB;
+}
+
+/// 在 isolate 里跑：把两份 heapsnapshot JSON 解析成「constructor →
+/// (字节累计, 节点数)」聚合表，然后做 delta 排序。失败时返回 error。
+_HeapDiffResult _heapDiffWorker(Map<String, String> input) {
+  try {
+    final aggA = _aggregateHeap(input['a']!);
+    final aggB = _aggregateHeap(input['b']!);
+    final all = <String>{...aggA.byCtor.keys, ...aggB.byCtor.keys};
+    final list = <_HeapGrowthEntry>[];
+    for (final k in all) {
+      final ea = aggA.byCtor[k];
+      final eb = aggB.byCtor[k];
+      final bytesA = ea?.bytes ?? 0;
+      final bytesB = eb?.bytes ?? 0;
+      final countA = ea?.count ?? 0;
+      final countB = eb?.count ?? 0;
+      list.add(_HeapGrowthEntry(
+        label: k,
+        bytesDelta: bytesB - bytesA,
+        countDelta: countB - countA,
+        bytesA: bytesA,
+        bytesB: bytesB,
+        countA: countA,
+        countB: countB,
+      ));
+    }
+    list.sort((x, y) => y.bytesDelta.compareTo(x.bytesDelta));
+    final top = list.take(40).toList(growable: false);
+    return _HeapDiffResult(
+      nodesA: aggA.nodeCount,
+      nodesB: aggB.nodeCount,
+      totalSelfA: aggA.totalSelf,
+      totalSelfB: aggB.totalSelf,
+      growth: top,
+      error: null,
+    );
+  } catch (e) {
+    return _HeapDiffResult(
+      nodesA: 0,
+      nodesB: 0,
+      totalSelfA: 0,
+      totalSelfB: 0,
+      growth: const [],
+      error: '$e',
+    );
+  }
+}
+
+class _HeapAggResult {
+  _HeapAggResult({
+    required this.byCtor,
+    required this.nodeCount,
+    required this.totalSelf,
+  });
+
+  final Map<String, ({int bytes, int count})> byCtor;
+  final int nodeCount;
+  final int totalSelf;
+}
+
+/// 解析 .heapsnapshot 头：
+/// snapshot.meta.node_fields 给出每节点字段顺序，含 type/name/self_size 等；
+/// snapshot.meta.node_types[0] 为 type 名称表（如 hidden/object/string）；
+/// nodes 是扁平 int 数组，长度 = node_count * fields.length；
+/// strings 是字符串表，name 字段是其下标。
+/// 我们按 type==object 时 ctor=strings\[name]，其他类型用 `<type>` 字面聚合。
+_HeapAggResult _aggregateHeap(String src) {
+  final m = jsonDecode(src) as Map<String, Object?>;
+  final snapshot = m['snapshot'] as Map<String, Object?>? ?? const {};
+  final meta = snapshot['meta'] as Map<String, Object?>? ?? const {};
+  final fields = (meta['node_fields'] as List?)?.cast<String>() ??
+      const ['type', 'name', 'id', 'self_size', 'edge_count'];
+  final fLen = fields.length;
+  final iType = fields.indexOf('type');
+  final iName = fields.indexOf('name');
+  final iSelf = fields.indexOf('self_size');
+  final typesRaw = meta['node_types'] as List?;
+  final typeNames = (typesRaw != null && typesRaw.isNotEmpty)
+      ? (typesRaw.first as List).cast<String>()
+      : const <String>['object'];
+  final nodesAny = m['nodes'];
+  final stringsAny = m['strings'];
+  final strings = (stringsAny as List?)?.cast<String>() ?? const <String>[];
+  final nodes = (nodesAny as List?) ?? const [];
+  final byCtor = <String, ({int bytes, int count})>{};
+  var totalSelf = 0;
+  // nodes 内可能是 int 也可能是 num；用 toInt() 兜底。
+  for (var i = 0; i + fLen <= nodes.length; i += fLen) {
+    final type = (nodes[i + iType] as num).toInt();
+    final nameIdx = iName >= 0 ? (nodes[i + iName] as num).toInt() : 0;
+    final self = iSelf >= 0 ? (nodes[i + iSelf] as num).toInt() : 0;
+    final typeName = (type >= 0 && type < typeNames.length) ? typeNames[type] : '?';
+    String label;
+    if (typeName == 'object') {
+      label = (nameIdx >= 0 && nameIdx < strings.length)
+          ? strings[nameIdx]
+          : '<object>';
+    } else if (typeName == 'closure') {
+      final fn = (nameIdx >= 0 && nameIdx < strings.length)
+          ? strings[nameIdx]
+          : '';
+      label = fn.isEmpty ? '<closure>' : 'closure:$fn';
+    } else {
+      label = '<$typeName>';
+    }
+    final cur = byCtor[label];
+    byCtor[label] = (
+      bytes: (cur?.bytes ?? 0) + self,
+      count: (cur?.count ?? 0) + 1,
+    );
+    totalSelf += self;
+  }
+  return _HeapAggResult(
+    byCtor: byCtor,
+    nodeCount: (snapshot['node_count'] as num?)?.toInt() ??
+        (nodes.length ~/ (fLen == 0 ? 1 : fLen)),
+    totalSelf: totalSelf,
+  );
+}
+
+/// 快照对比弹窗：上方两行 raw bytes / 节点数 / 自有大小 delta，下方
+/// DataTable 列出 top growth constructor（默认按字节增长降序）。
+class _SnapshotDiffDialog extends StatelessWidget {
+  const _SnapshotDiffDialog({
+    required this.whenA,
+    required this.whenB,
+    required this.bytesA,
+    required this.bytesB,
+    required this.result,
+    required this.isZh,
+  });
+
+  final DateTime whenA;
+  final DateTime whenB;
+  final int bytesA;
+  final int bytesB;
+  final _HeapDiffResult result;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final dBytes = bytesB - bytesA;
+    final dNodes = result.nodesB - result.nodesA;
+    final dSelf = result.totalSelfB - result.totalSelfA;
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 640),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 14, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.compare_arrows_rounded, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Text(
+                    isZh ? '堆快照对比' : 'Heap snapshot diff',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'A: ${whenA.toLocal().toIso8601String().split(".").first}'
+                    '   →   '
+                    'B: ${whenB.toLocal().toIso8601String().split(".").first}',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(fontFamily: 'monospace'),
+                  ),
+                  const SizedBox(height: 10),
+                  _DiffRow(
+                    label: isZh ? '原始字节' : 'Raw bytes',
+                    a: _fmtBytes(bytesA),
+                    b: _fmtBytes(bytesB),
+                    delta: dBytes,
+                  ),
+                  _DiffRow(
+                    label: isZh ? '节点数' : 'Nodes',
+                    a: '${result.nodesA}',
+                    b: '${result.nodesB}',
+                    delta: dNodes,
+                  ),
+                  _DiffRow(
+                    label: isZh ? '自有大小' : 'Self size',
+                    a: _fmtBytes(result.totalSelfA),
+                    b: _fmtBytes(result.totalSelfB),
+                    delta: dSelf,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+              child: Row(
+                children: [
+                  Text(
+                    isZh ? '构造器增长 Top 40' : 'Top 40 constructor growth',
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const Spacer(),
+                  if (result.error != null)
+                    Text(
+                      isZh
+                          ? '解析失败：${result.error}'
+                          : 'Parse error: ${result.error}',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: cs.error),
+                    ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: result.growth.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        isZh ? '无可见增长' : 'No growth detected',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                    )
+                  : Scrollbar(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                        child: DataTable(
+                          headingRowHeight: 32,
+                          dataRowMinHeight: 28,
+                          dataRowMaxHeight: 32,
+                          columnSpacing: 24,
+                          columns: [
+                            DataColumn(
+                              label: Text(isZh ? '构造器' : 'Constructor'),
+                            ),
+                            DataColumn(
+                              label: Text(isZh ? '字节增量' : 'Δ bytes'),
+                              numeric: true,
+                            ),
+                            DataColumn(
+                              label: Text(isZh ? '节点增量' : 'Δ count'),
+                              numeric: true,
+                            ),
+                            DataColumn(
+                              label: Text(isZh ? 'A 字节' : 'A bytes'),
+                              numeric: true,
+                            ),
+                            DataColumn(
+                              label: Text(isZh ? 'B 字节' : 'B bytes'),
+                              numeric: true,
+                            ),
+                          ],
+                          rows: [
+                            for (final g in result.growth)
+                              DataRow(cells: [
+                                DataCell(SelectableText(
+                                  g.label,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
+                                )),
+                                DataCell(Text(
+                                  _fmtSignedBytes(g.bytesDelta),
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    color: g.bytesDelta > 0
+                                        ? cs.error
+                                        : (g.bytesDelta < 0
+                                            ? Colors.green
+                                            : cs.onSurfaceVariant),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                )),
+                                DataCell(Text(
+                                  _fmtSigned(g.countDelta),
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
+                                )),
+                                DataCell(Text(
+                                  _fmtBytes(g.bytesA),
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
+                                )),
+                                DataCell(Text(
+                                  _fmtBytes(g.bytesB),
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
+                                )),
+                              ]),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _fmtBytes(int v) {
+    if (v < 1024) return '$v B';
+    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
+    if (v < 1024 * 1024 * 1024) {
+      return '${(v / 1024 / 1024).toStringAsFixed(1)} MB';
+    }
+    return '${(v / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
+  }
+
+  static String _fmtSignedBytes(int v) {
+    final s = _fmtBytes(v.abs());
+    return v >= 0 ? '+$s' : '-$s';
+  }
+
+  static String _fmtSigned(int v) => v >= 0 ? '+$v' : '$v';
 }
