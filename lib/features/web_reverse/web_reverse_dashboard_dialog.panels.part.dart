@@ -2155,18 +2155,27 @@ class _CookiesTableState extends State<_CookiesTable> {
                                     children: [
                                       IconButton(
                                         tooltip: widget.isZh ? '编辑' : 'Edit',
+                                        visualDensity: VisualDensity.compact,
                                         iconSize: 16,
-                                        padding: const EdgeInsets.all(4),
-                                        constraints: const BoxConstraints(),
+                                        padding: const EdgeInsets.all(6),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 28,
+                                          minHeight: 28,
+                                        ),
                                         onPressed: () => _editCookie(c),
                                         icon: const Icon(Icons.edit_rounded),
                                       ),
+                                      const SizedBox(width: 4),
                                       IconButton(
                                         tooltip:
                                             widget.isZh ? '删除' : 'Delete',
+                                        visualDensity: VisualDensity.compact,
                                         iconSize: 16,
-                                        padding: const EdgeInsets.all(4),
-                                        constraints: const BoxConstraints(),
+                                        padding: const EdgeInsets.all(6),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 28,
+                                          minHeight: 28,
+                                        ),
                                         onPressed: () => _deleteCookie(c),
                                         icon: Icon(
                                           Icons.delete_outline_rounded,
@@ -2411,17 +2420,26 @@ class _StorageTableState extends State<_StorageTable> {
                           ),
                           IconButton(
                             tooltip: widget.isZh ? '编辑' : 'Edit',
+                            visualDensity: VisualDensity.compact,
                             iconSize: 16,
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(
+                              minWidth: 28,
+                              minHeight: 28,
+                            ),
                             onPressed: () => _edit(r),
                             icon: const Icon(Icons.edit_rounded),
                           ),
+                          const SizedBox(width: 4),
                           IconButton(
                             tooltip: widget.isZh ? '删除' : 'Delete',
+                            visualDensity: VisualDensity.compact,
                             iconSize: 16,
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(
+                              minWidth: 28,
+                              minHeight: 28,
+                            ),
                             onPressed: () => _delete(r),
                             icon: Icon(
                               Icons.delete_outline_rounded,

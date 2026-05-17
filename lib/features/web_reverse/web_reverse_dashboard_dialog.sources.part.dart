@@ -267,6 +267,13 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               const SizedBox(width: 8),
               IconButton(
                 tooltip: isZh ? '复制源码' : 'Copy source',
+                visualDensity: VisualDensity.compact,
+                iconSize: 18,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(
+                  minWidth: 30,
+                  minHeight: 30,
+                ),
                 onPressed: () async {
                   await Clipboard.setData(ClipboardData(text: source));
                   if (!mounted) return;
@@ -276,10 +283,18 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     duration: const Duration(seconds: 1),
                   );
                 },
-                icon: const Icon(Icons.copy_rounded, size: 18),
+                icon: const Icon(Icons.copy_rounded),
               ),
+              const SizedBox(width: 4),
               IconButton(
                 tooltip: isZh ? '继续运行（Resume）' : 'Resume',
+                visualDensity: VisualDensity.compact,
+                iconSize: 18,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(
+                  minWidth: 30,
+                  minHeight: 30,
+                ),
                 onPressed: widget.controller.resumeDebugger,
                 icon: const Icon(Icons.play_arrow_rounded),
               ),

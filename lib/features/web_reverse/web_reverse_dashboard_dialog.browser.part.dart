@@ -1813,20 +1813,34 @@ class _FindBar extends StatelessWidget {
             IconButton(
               tooltip: isZh ? '上一个' : 'Previous',
               visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              padding: const EdgeInsets.all(6),
+              constraints:
+                  const BoxConstraints(minWidth: 30, minHeight: 30),
               onPressed: matchCount > 0 ? () async => onPrev() : null,
-              icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 18),
+              icon: const Icon(Icons.keyboard_arrow_up_rounded),
             ),
+            const SizedBox(width: 4),
             IconButton(
               tooltip: isZh ? '下一个' : 'Next',
               visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              padding: const EdgeInsets.all(6),
+              constraints:
+                  const BoxConstraints(minWidth: 30, minHeight: 30),
               onPressed: matchCount > 0 ? () async => onNext() : null,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded),
             ),
+            const SizedBox(width: 4),
             IconButton(
               tooltip: isZh ? '关闭' : 'Close',
               visualDensity: VisualDensity.compact,
+              iconSize: 16,
+              padding: const EdgeInsets.all(6),
+              constraints:
+                  const BoxConstraints(minWidth: 30, minHeight: 30),
               onPressed: onClose,
-              icon: const Icon(Icons.close_rounded, size: 16),
+              icon: const Icon(Icons.close_rounded),
             ),
           ],
         ),

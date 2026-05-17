@@ -380,19 +380,26 @@ class _WebReverseDashboardDialogState
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           insetPadding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 760),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              // 关键：所有子项横向拉到 Dialog 全宽，避免不同 tab 切换时
-              // body 内容更窄导致 Column 把 toolbar 行整体回缩并重新居中
-              // （Network 行能拉满工具条变左对齐；Console / 性能行 body 窄、
-              // 工具条又默认 MainAxisSize.min，外层 stretch 会强制铺满）。
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(theme, cs, isZh),
-                Divider(height: 1, color: cs.outlineVariant),
-                AnimatedSize(
+          child: ClipRRect(
+            // Dialog 自带 shape 只裁切 Material 自身的背景；body 内的 Container
+            // / Image / Stack 等会延伸到 Dialog 边缘，覆盖掉本来的圆角。
+            // 用一层 ClipRRect 把所有 body 内容统一裁成圆角，右下角不再是
+            // 尖角。
+            borderRadius: BorderRadius.circular(20),
+            child: ConstrainedBox(
+              constraints:
+                  const BoxConstraints(maxWidth: 1180, maxHeight: 760),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                // 关键：所有子项横向拉到 Dialog 全宽，避免不同 tab 切换时
+                // body 内容更窄导致 Column 把 toolbar 行整体回缩并重新居中
+                // （Network 行能拉满工具条变左对齐；Console / 性能行 body 窄、
+                // 工具条又默认 MainAxisSize.min，外层 stretch 会强制铺满）。
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(theme, cs, isZh),
+                  Divider(height: 1, color: cs.outlineVariant),
+                  AnimatedSize(
                   duration:
                       reduceMotion ? Duration.zero : _kSwitchDuration,
                   curve: _kSwitchInCurve,
@@ -447,6 +454,7 @@ class _WebReverseDashboardDialogState
                   ),
                 ),
               ],
+              ),
             ),
           ),
         ),

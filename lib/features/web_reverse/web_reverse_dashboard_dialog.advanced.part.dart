@@ -1252,14 +1252,28 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                             children: [
                               IconButton(
                                 tooltip: isZh ? '编辑' : 'Edit',
-                                icon: const Icon(Icons.edit_rounded, size: 18),
+                                visualDensity: VisualDensity.compact,
+                                iconSize: 18,
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(
+                                  minWidth: 30,
+                                  minHeight: 30,
+                                ),
+                                icon: const Icon(Icons.edit_rounded),
                                 onPressed: () => _editRule(i),
                               ),
+                              const SizedBox(width: 4),
                               IconButton(
                                 tooltip: isZh ? '删除' : 'Delete',
+                                visualDensity: VisualDensity.compact,
+                                iconSize: 18,
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(
+                                  minWidth: 30,
+                                  minHeight: 30,
+                                ),
                                 icon: Icon(
                                   Icons.delete_outline_rounded,
-                                  size: 18,
                                   color: cs.error,
                                 ),
                                 onPressed: () {
