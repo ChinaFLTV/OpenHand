@@ -52,6 +52,17 @@ class _AdvancedMenuDialog extends StatelessWidget {
         },
       ),
       _AdvancedEntry(
+        icon: Icons.alt_route_rounded,
+        title: isZh ? '网络拦截规则' : 'Network intercept rules',
+        subtitle: isZh
+            ? 'URL 通配 → block / 重写 URL / 追加 Header；命中即自动放行'
+            : 'URL pattern → block / rewrite URL / inject headers',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await _showInterceptRulesDialog(context, controller, isZh);
+        },
+      ),
+      _AdvancedEntry(
         icon: Icons.code_rounded,
         title: isZh ? 'CDP 命令面板' : 'CDP Command Palette',
         subtitle: isZh
@@ -1094,5 +1105,318 @@ Future<String> _runWebcrack(String src) async {
     try {
       await tmpDir.delete(recursive: true);
     } catch (_) {}
+  }
+}
+
+
+Future<void> _showInterceptRulesDialog(
+  BuildContext context,
+  WebReverseSessionController controller,
+  bool isZh,
+) async {
+  await showDialog<void>(
+    context: context,
+    builder: (_) => _InterceptRulesDialog(controller: controller, isZh: isZh),
+  );
+}
+
+class _InterceptRulesDialog extends StatefulWidget {
+  const _InterceptRulesDialog({required this.controller, required this.isZh});
+  final WebReverseSessionController controller;
+  final bool isZh;
+
+  @override
+  State<_InterceptRulesDialog> createState() => _InterceptRulesDialogState();
+}
+
+class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
+  late List<WebReverseInterceptRule> _rules;
+
+  @override
+  void initState() {
+    super.initState();
+    _rules = [...widget.controller.interceptRules];
+  }
+
+  void _save() {
+    widget.controller.setInterceptRules(_rules);
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _editRule(int? index) async {
+    final initial = index == null
+        ? const WebReverseInterceptRule(urlPattern: '')
+        : _rules[index];
+    final updated = await showDialog<WebReverseInterceptRule>(
+      context: context,
+      builder: (_) => _InterceptRuleEditor(
+        initial: initial,
+        isZh: widget.isZh,
+      ),
+    );
+    if (updated == null) return;
+    setState(() {
+      if (index == null) {
+        _rules.add(updated);
+      } else {
+        _rules[index] = updated;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 600),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Icon(Icons.alt_route_rounded, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isZh ? '网络拦截规则' : 'Network intercept rules',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _editRule(null),
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    label: Text(isZh ? '新增规则' : 'Add rule'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: _rules.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        isZh
+                            ? '无规则。点「新增规则」开始：URL 通配 → block / 改写。\n命中规则的请求会自动放行/改写，不再走拦截队列。'
+                            : 'No rules. Click Add rule to start: URL pattern → block / rewrite.',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _rules.length,
+                      separatorBuilder: (_, _) =>
+                          Divider(height: 1, color: cs.outlineVariant),
+                      itemBuilder: (_, i) {
+                        final r = _rules[i];
+                        return ListTile(
+                          dense: true,
+                          leading: Switch(
+                            value: r.enabled,
+                            onChanged: (v) {
+                              setState(() {
+                                _rules[i] = r.copyWith(enabled: v);
+                              });
+                            },
+                          ),
+                          title: Text(
+                            r.urlPattern,
+                            style: const TextStyle(fontFamily: 'monospace'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            r.block
+                                ? (isZh ? '动作: 屏蔽' : 'Action: block')
+                                : r.replaceUrl != null &&
+                                        r.replaceUrl!.isNotEmpty
+                                    ? (isZh
+                                        ? '动作: 重定向到 ${r.replaceUrl}'
+                                        : 'Action: redirect → ${r.replaceUrl}')
+                                    : r.headerOverrides.isEmpty
+                                        ? (isZh ? '动作: 仅标记' : 'Action: tag only')
+                                        : (isZh
+                                            ? '动作: 注入 ${r.headerOverrides.length} 个 header'
+                                            : 'Action: inject ${r.headerOverrides.length} headers'),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: isZh ? '编辑' : 'Edit',
+                                icon: const Icon(Icons.edit_rounded, size: 18),
+                                onPressed: () => _editRule(i),
+                              ),
+                              IconButton(
+                                tooltip: isZh ? '删除' : 'Delete',
+                                icon: Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 18,
+                                  color: cs.error,
+                                ),
+                                onPressed: () {
+                                  setState(() => _rules.removeAt(i));
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(isZh ? '取消' : 'Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _save,
+                    child: Text(isZh ? '保存' : 'Save'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InterceptRuleEditor extends StatefulWidget {
+  const _InterceptRuleEditor({required this.initial, required this.isZh});
+  final WebReverseInterceptRule initial;
+  final bool isZh;
+
+  @override
+  State<_InterceptRuleEditor> createState() => _InterceptRuleEditorState();
+}
+
+class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
+  late TextEditingController _patternCtrl;
+  late TextEditingController _replaceCtrl;
+  late TextEditingController _headersCtrl;
+  late bool _enabled;
+  late bool _block;
+
+  @override
+  void initState() {
+    super.initState();
+    _patternCtrl = TextEditingController(text: widget.initial.urlPattern);
+    _replaceCtrl = TextEditingController(text: widget.initial.replaceUrl ?? '');
+    _headersCtrl = TextEditingController(
+      text: widget.initial.headerOverrides.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join('\n'),
+    );
+    _enabled = widget.initial.enabled;
+    _block = widget.initial.block;
+  }
+
+  @override
+  void dispose() {
+    _patternCtrl.dispose();
+    _replaceCtrl.dispose();
+    _headersCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isZh = widget.isZh;
+    return AlertDialog(
+      title: Text(isZh ? '编辑规则' : 'Edit rule'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _patternCtrl,
+                decoration: InputDecoration(
+                  labelText: isZh ? 'URL 通配（* / ?）' : 'URL pattern (* / ?)',
+                  hintText: '*://api.example.com/v1/*',
+                ),
+              ),
+              SwitchListTile(
+                title: Text(isZh ? '启用' : 'Enabled'),
+                value: _enabled,
+                onChanged: (v) => setState(() => _enabled = v),
+              ),
+              SwitchListTile(
+                title: Text(isZh ? '屏蔽请求 (Block)' : 'Block request'),
+                value: _block,
+                onChanged: (v) => setState(() => _block = v),
+              ),
+              TextField(
+                controller: _replaceCtrl,
+                decoration: InputDecoration(
+                  labelText:
+                      isZh ? '重写 URL（可选）' : 'Replace URL (optional)',
+                  hintText: 'https://mock.local/v1/',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _headersCtrl,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  labelText: isZh
+                      ? 'Header 覆盖（每行 Key: Value）'
+                      : 'Header overrides (Key: Value per line)',
+                  hintText: 'X-Debug: 1\nAuthorization: Bearer xxx',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(isZh ? '取消' : 'Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final headers = <String, String>{};
+            for (final line in _headersCtrl.text.split('\n')) {
+              final trimmed = line.trim();
+              if (trimmed.isEmpty) continue;
+              final idx = trimmed.indexOf(':');
+              if (idx <= 0) continue;
+              headers[trimmed.substring(0, idx).trim()] =
+                  trimmed.substring(idx + 1).trim();
+            }
+            Navigator.of(context).pop(
+              WebReverseInterceptRule(
+                urlPattern: _patternCtrl.text.trim(),
+                enabled: _enabled,
+                block: _block,
+                replaceUrl: _replaceCtrl.text.trim().isEmpty
+                    ? null
+                    : _replaceCtrl.text.trim(),
+                headerOverrides: headers,
+              ),
+            );
+          },
+          child: Text(isZh ? '保存' : 'Save'),
+        ),
+      ],
+    );
   }
 }

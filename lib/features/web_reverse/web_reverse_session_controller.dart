@@ -3254,12 +3254,67 @@ class WebReverseSessionController extends ChangeNotifier {
     final requestId = '${p['requestId']}';
     final request = p['request'] as Map?;
     if (requestId.isEmpty || request == null) return;
+    final url = '${request['url'] ?? ''}';
+    // 自动规则匹配：先看匹配到的第一条 rule，决定是 block / rewrite / 放行。
+    final rule = _matchInterceptRule(url);
+    if (rule != null) {
+      if (rule.block) {
+        unawaited(abortFetchRequest(requestId, reason: 'BlockedByClient'));
+        return;
+      }
+      String? newUrl;
+      if (rule.replaceUrl != null && rule.replaceUrl!.isNotEmpty) {
+        newUrl = rule.replaceUrl;
+      }
+      Map<String, String>? newHeaders;
+      if (rule.headerOverrides.isNotEmpty) {
+        final hdrs = <String, String>{};
+        final orig = request['headers'] as Map? ?? const {};
+        for (final entry in orig.entries) {
+          hdrs['${entry.key}'] = '${entry.value}';
+        }
+        hdrs.addAll(rule.headerOverrides);
+        newHeaders = hdrs;
+      }
+      if (newUrl != null || newHeaders != null) {
+        unawaited(continueFetchRequestEdited(
+          requestId,
+          url: newUrl,
+          headers: newHeaders,
+        ));
+        return;
+      }
+      // 命中规则但仅作"标记"，仍然 hold 住等用户决定。
+    }
     _pendingFetchRequests[requestId] = <String, Object?>{
       'method': request['method'],
       'url': request['url'],
       'ts': DateTime.now().toUtc().toIso8601String(),
     };
     _safeNotify();
+  }
+
+  /// 自动规则集（URL 通配匹配）。匹配到的第一条按指令对请求 block / rewrite。
+  /// 没有命中时回退到原有的"暂停 → 等用户操作"路径。
+  final List<WebReverseInterceptRule> _interceptRules =
+      <WebReverseInterceptRule>[];
+
+  List<WebReverseInterceptRule> get interceptRules =>
+      List<WebReverseInterceptRule>.unmodifiable(_interceptRules);
+
+  void setInterceptRules(List<WebReverseInterceptRule> rules) {
+    _interceptRules
+      ..clear()
+      ..addAll(rules);
+    _safeNotify();
+  }
+
+  WebReverseInterceptRule? _matchInterceptRule(String url) {
+    for (final r in _interceptRules) {
+      if (!r.enabled) continue;
+      if (r.matches(url)) return r;
+    }
+    return null;
   }
 
   /// 已被屏蔽的 URL pattern 集合（CDP `Network.setBlockedURLs`）。
@@ -4237,4 +4292,69 @@ class CdpPageTargetSnapshot {
   final String id;
   final String url;
   final String title;
+}
+
+
+/// 一条网络拦截规则：URL 通配匹配后对请求 block 或 rewrite。
+/// `urlPattern` 支持 `*` 任意段、`?` 单字符；不区分大小写。
+class WebReverseInterceptRule {
+  const WebReverseInterceptRule({
+    required this.urlPattern,
+    this.enabled = true,
+    this.block = false,
+    this.replaceUrl,
+    this.headerOverrides = const <String, String>{},
+  });
+
+  factory WebReverseInterceptRule.fromJson(Map<String, Object?> j) =>
+      WebReverseInterceptRule(
+        urlPattern: '${j['urlPattern'] ?? ''}',
+        enabled: j['enabled'] != false,
+        block: j['block'] == true,
+        replaceUrl:
+            j['replaceUrl'] is String ? j['replaceUrl'] as String : null,
+        headerOverrides: (j['headerOverrides'] as Map?)
+                ?.map((k, v) => MapEntry('$k', '$v')) ??
+            const <String, String>{},
+      );
+
+  final String urlPattern;
+  final bool enabled;
+  final bool block;
+  final String? replaceUrl;
+  final Map<String, String> headerOverrides;
+
+  WebReverseInterceptRule copyWith({
+    String? urlPattern,
+    bool? enabled,
+    bool? block,
+    String? replaceUrl,
+    Map<String, String>? headerOverrides,
+  }) =>
+      WebReverseInterceptRule(
+        urlPattern: urlPattern ?? this.urlPattern,
+        enabled: enabled ?? this.enabled,
+        block: block ?? this.block,
+        replaceUrl: replaceUrl ?? this.replaceUrl,
+        headerOverrides: headerOverrides ?? this.headerOverrides,
+      );
+
+  bool matches(String url) {
+    if (urlPattern.isEmpty) return false;
+    final regexSrc = urlPattern
+        .split(RegExp(r'([*?])'))
+        .map(RegExp.escape)
+        .join()
+        .replaceAll(r'\*', '.*')
+        .replaceAll(r'\?', '.');
+    return RegExp('^$regexSrc\$', caseSensitive: false).hasMatch(url);
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'urlPattern': urlPattern,
+        'enabled': enabled,
+        'block': block,
+        if (replaceUrl != null) 'replaceUrl': replaceUrl,
+        'headerOverrides': headerOverrides,
+      };
 }
