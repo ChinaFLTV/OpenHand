@@ -470,7 +470,19 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _renderEntries = const <_TranscriptRenderEntry>[];
       _initialBuildDone = false;
       _stopIncrementalDrip();
+      // 阶段㉓d：双兜底物化 — 在 mount 状态变化或父级帧抢占
+      // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
+      // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
+      // 之前已 schedule）。`endOfFrame` 在当前帧结束后再尝试一次，
+      // 形成「post-frame → endOfFrame → build fallback」三重保险。
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_renderEntries.isNotEmpty) return;
+        setState(() {
+          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+        });
+      });
+      WidgetsBinding.instance.endOfFrame.then((_) {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
         setState(() {
@@ -1176,6 +1188,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         .toInt();
     final hiddenMessageCount = clampedWindowStartIndex;
     final visibleMessages = displayMessages.sublist(clampedWindowStartIndex);
+    // 阶段㉓d build-stage 同步首屏 fallback —
+    // 当 didUpdateWidget 把 `_renderEntries` 重置为空、且 post-frame
+    // callback 因 mount 抖动尚未触发时，直接同步物化首屏，避免
+    // 「displayMessages 非空 → empty short-circuit」连续 K 帧白屏。
+    // 注意：build 中不允许 setState，但 _replaceRenderEntries 仅做
+    // 字段赋值（与 didUpdateWidget 内的同名调用一致），赋值后
+    // 当前帧即拿到新 `_renderEntries` 用于绘制，不破坏 build 不变量。
+    if (_renderEntries.isEmpty && visibleMessages.isNotEmpty) {
+      _replaceRenderEntries(visibleMessages, animate: false);
+    }
     if (_renderEntries.isEmpty && visibleMessages.isEmpty) {
       return _WorkspaceEmptyState(
         key: ValueKey<String>('empty-session-transcript-${session.id}'),
