@@ -33,7 +33,7 @@ class _BrowserBody extends StatefulWidget {
   State<_BrowserBody> createState() => _BrowserBodyState();
 }
 
-class _BrowserBodyState extends State<_BrowserBody> {
+class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   final TextEditingController _addressCtrl = TextEditingController();
   final FocusNode _surfaceFocus = FocusNode(debugLabel: 'browser-surface');
   Timer? _resizeDebouncer;
@@ -53,10 +53,20 @@ class _BrowserBodyState extends State<_BrowserBody> {
   // 重新 attach 时不会保留（Chromium 重启即丢）。
   double _zoom = 1;
 
+  // ── IME 桥（TextInputClient 手动接管） ────────────────────────────────
+  // surface 拿到焦点时打开一条 TextInput connection，把 IME 候选词、回车 /
+  // 退格、跨端剪贴板粘贴等都拿到 [updateEditingValue]。我们仅在 composing
+  // 区间收敛后把"新增文本"作为一次 insertText 发到 CDP，删除字符则发
+  // Backspace 序列；这样既支持中文 / 日文 / 韩文输入，又不会和物理键盘
+  // 走的 Focus.onKeyEvent 重复下发文本字符。
+  TextInputConnection? _imeConnection;
+  TextEditingValue _lastImeValue = TextEditingValue.empty;
+
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
+    _surfaceFocus.addListener(_onSurfaceFocusChanged);
     _wasAlive = widget.controller.isBrowserAlive;
     // 首次进入时同步一次地址栏；CDP 已稳定时立即拉。
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -78,9 +88,11 @@ class _BrowserBodyState extends State<_BrowserBody> {
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
+    _surfaceFocus.removeListener(_onSurfaceFocusChanged);
     _resizeDebouncer?.cancel();
     _urlPoller?.cancel();
     widget.controller.releaseScreencast();
+    _detachImeConnection();
     _addressCtrl.dispose();
     _surfaceFocus.dispose();
     super.dispose();
@@ -271,6 +283,138 @@ class _BrowserBodyState extends State<_BrowserBody> {
     if (k.isNotEmpty) return k;
     return key.debugName ?? '';
   }
+
+  // ── IME 桥实现 ────────────────────────────────────────────────────────
+
+  void _onSurfaceFocusChanged() {
+    if (!mounted) return;
+    if (_surfaceFocus.hasFocus) {
+      _attachImeConnection();
+    } else {
+      _detachImeConnection();
+    }
+  }
+
+  void _attachImeConnection() {
+    if (_imeConnection != null && _imeConnection!.attached) return;
+    final c = TextInput.attach(
+      this,
+      const TextInputConfiguration(
+        inputAction: TextInputAction.unspecified,
+        autocorrect: false,
+        enableSuggestions: false,
+      ),
+    );
+    _imeConnection = c;
+    _lastImeValue = TextEditingValue.empty;
+    c.setEditingState(_lastImeValue);
+    c.show();
+  }
+
+  void _detachImeConnection() {
+    final c = _imeConnection;
+    _imeConnection = null;
+    if (c != null && c.attached) c.close();
+  }
+
+  @override
+  void updateEditingValue(TextEditingValue value) {
+    // 仅在 IME 完成 composition（composing 区间为空）时才把"已落字"作为
+    // 一次 insertText 发到 CDP。中文 / 日文输入法在打字过程中会反复更新
+    // composing 区间，这里跳过避免出现"半成品候选词被发送"。
+    if (!value.composing.isCollapsed) {
+      _lastImeValue = value;
+      return;
+    }
+    final old = _lastImeValue.text;
+    final cur = value.text;
+    if (cur.length > old.length) {
+      // 追加文本：取增量发送。多数 IME 一次提交 1-N 个字符。
+      final delta = cur.substring(old.length);
+      if (delta.isNotEmpty) widget.controller.insertText(delta);
+    } else if (cur.length < old.length) {
+      // 收缩：把删除量按 Backspace 序列发出，让浏览器侧 input/contenteditable
+      // 真正退格。
+      final n = old.length - cur.length;
+      for (var i = 0; i < n; i++) {
+        widget.controller.dispatchKeyEvent(
+          type: 'rawKeyDown',
+          key: 'Backspace',
+          code: 'Backspace',
+        );
+        widget.controller.dispatchKeyEvent(
+          type: 'keyUp',
+          key: 'Backspace',
+          code: 'Backspace',
+        );
+      }
+    }
+    // 重置 IME 端的"虚拟编辑器"为空，避免文本无限增长。
+    _lastImeValue = TextEditingValue.empty;
+    _imeConnection?.setEditingState(_lastImeValue);
+  }
+
+  @override
+  void performAction(TextInputAction action) {
+    if (action == TextInputAction.done ||
+        action == TextInputAction.go ||
+        action == TextInputAction.send ||
+        action == TextInputAction.next) {
+      widget.controller
+        ..dispatchKeyEvent(
+          type: 'rawKeyDown',
+          key: 'Enter',
+          code: 'Enter',
+          text: '\r',
+        )
+        ..dispatchKeyEvent(
+          type: 'keyUp',
+          key: 'Enter',
+          code: 'Enter',
+        );
+    }
+  }
+
+  @override
+  void performPrivateCommand(String action, Map<String, dynamic> data) {}
+
+  @override
+  void updateFloatingCursor(RawFloatingCursorPoint point) {}
+
+  @override
+  void showAutocorrectionPromptRect(int start, int end) {}
+
+  @override
+  void connectionClosed() {
+    _imeConnection = null;
+  }
+
+  @override
+  void didChangeInputControl(
+    TextInputControl? oldControl,
+    TextInputControl? newControl,
+  ) {}
+
+  @override
+  AutofillScope? get currentAutofillScope => null;
+
+  @override
+  TextEditingValue? get currentTextEditingValue => _lastImeValue;
+
+  @override
+  void insertTextPlaceholder(Size size) {}
+
+  @override
+  void removeTextPlaceholder() {}
+
+  @override
+  void showToolbar() {}
+
+  @override
+  void performSelector(String selectorName) {}
+
+  @override
+  void insertContent(KeyboardInsertedContent content) {}
 
   Future<void> _onAddressSubmit(String raw) async {
     var url = raw.trim();
