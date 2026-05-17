@@ -319,7 +319,6 @@ class _WebReverseDashboardDialogState
       _Tab.browser => _BrowserBody(
           controller: ctrl,
           isZh: isZh,
-          reduceMotion: reduceMotion,
         ),
       _Tab.overview => _OverviewBody(controller: ctrl, isZh: isZh),
       _Tab.network => _NetworkBody(

@@ -24,12 +24,10 @@ class _BrowserBody extends StatefulWidget {
   const _BrowserBody({
     required this.controller,
     required this.isZh,
-    required this.reduceMotion,
   });
 
   final WebReverseSessionController controller;
   final bool isZh;
-  final bool reduceMotion;
 
   @override
   State<_BrowserBody> createState() => _BrowserBodyState();
