@@ -61,6 +61,11 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 上次记录的 tab 列表标识：targets 数量 / currentId 任一变化即 rebuild。
   int _lastTargetsLen = 0;
   String? _lastCurrentTargetId;
+  // 框选导出模式：进入后吞掉所有指针事件，完成时把当前 viewport 矩形按
+  // 浏览器侧 CSS 像素裁切成 PNG。
+  bool _cropMode = false;
+  Offset? _cropStart;
+  Offset? _cropCurrent;
 
   // ── IME 桥（TextInputClient 手动接管） ────────────────────────────────
   // surface 拿到焦点时打开一条 TextInput connection，把 IME 候选词、回车 /
@@ -175,7 +180,18 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       if (!mounted) return;
       final w = (logical.width * dpr).round().clamp(160, 2560);
       final h = (logical.height * dpr).round().clamp(120, 1600);
-      widget.controller.reconfigureScreencast(maxWidth: w, maxHeight: h);
+      // 自适应帧率档位：viewport 大时降到 30fps + quality 65 节流，激活时
+      // 升到 60fps + quality 80。临界值取 1600 像素长边，平衡 retina
+      // 大屏 1440p / 4K 与常规 1280×720 dashboard 视窗。
+      final big = math.max(w, h) > 1600;
+      final everyNthFrame = big ? 2 : 1;
+      final quality = big ? 65 : 80;
+      widget.controller.reconfigureScreencast(
+        maxWidth: w,
+        maxHeight: h,
+        quality: quality,
+        everyNthFrame: everyNthFrame,
+      );
     });
   }
 
@@ -222,6 +238,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   void _handlePointerDown(PointerDownEvent e, Size renderSize) {
     _surfaceFocus.requestFocus();
+    if (_cropMode) {
+      // 第一次按下确定框选起点；之后 PointerMove 实时更新；松手 finalize。
+      // 框选模式下不下发任何 mouse 事件到 CDP。
+      setState(() {
+        _cropStart = e.localPosition;
+        _cropCurrent = e.localPosition;
+      });
+      return;
+    }
     // 右键改为弹出 Flutter 渲染的上下文菜单（screencast 模式下浏览器原生
     // 右键菜单只会出现在外部 Chrome 窗口里，对内嵌面板的用户不可见）。
     // 注意不更新 _buttons，避免随后到达的 PointerUp 把右键当成 mouse
@@ -244,6 +269,11 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   }
 
   void _handlePointerMove(PointerMoveEvent e, Size renderSize) {
+    if (_cropMode) {
+      if (_cropStart == null) return;
+      setState(() => _cropCurrent = e.localPosition);
+      return;
+    }
     final p = _toViewport(e.localPosition, renderSize);
     widget.controller.dispatchMouseEvent(
       type: 'mouseMoved',
@@ -256,6 +286,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   }
 
   void _handlePointerHover(PointerHoverEvent e, Size renderSize) {
+    if (_cropMode) return;
     final p = _toViewport(e.localPosition, renderSize);
     widget.controller.dispatchMouseEvent(
       type: 'mouseMoved',
@@ -266,6 +297,20 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   }
 
   void _handlePointerUp(PointerUpEvent e, Size renderSize) {
+    if (_cropMode) {
+      final start = _cropStart;
+      final cur = _cropCurrent;
+      if (start != null && cur != null && (start - cur).distance > 4) {
+        unawaited(_finalizeCrop(start, cur, renderSize));
+      } else {
+        setState(() {
+          _cropMode = false;
+          _cropStart = null;
+          _cropCurrent = null;
+        });
+      }
+      return;
+    }
     // 右键的按下我们已经截胡为 Flutter 上下文菜单，原 mouseUp 不需要发；
     // 否则会在浏览器侧产生一个孤立的 mouseReleased 事件。
     if (_buttons == 0) return;
@@ -283,6 +328,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   }
 
   void _handlePointerSignal(PointerSignalEvent e, Size renderSize) {
+    if (_cropMode) return;
     if (e is PointerScrollEvent) {
       final p = _toViewport(e.localPosition, renderSize);
       widget.controller.dispatchMouseEvent(
@@ -693,9 +739,105 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
   }
 
+  /// 框选导出局部帧：full-resolution 截图后用 image 包做裁切，按用户在
+  /// surface 上选的矩形百分比映射到浏览器侧 viewport 像素。
+  Future<void> _finalizeCrop(Offset start, Offset end, Size renderSize) async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _cropMode = false;
+      _cropStart = null;
+      _cropCurrent = null;
+    });
+    final rect = Rect.fromPoints(start, end);
+    if (rect.width < 4 || rect.height < 4) return;
+    final fx = rect.left / renderSize.width;
+    final fy = rect.top / renderSize.height;
+    final fw = rect.width / renderSize.width;
+    final fh = rect.height / renderSize.height;
+    Uint8List? png;
+    try {
+      png = await widget.controller
+          .captureScreenshot()
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {}
+    if (!mounted) return;
+    if (png == null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '截图失败' : 'Screenshot failed',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    final decoded = img.decodePng(png) ?? img.decodeImage(png);
+    if (decoded == null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '解码失败' : 'Decode failed',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    final cw = (decoded.width * fw).round().clamp(1, decoded.width);
+    final ch = (decoded.height * fh).round().clamp(1, decoded.height);
+    final cx = (decoded.width * fx).round().clamp(0, decoded.width - 1);
+    final cy = (decoded.height * fy).round().clamp(0, decoded.height - 1);
+    final cropped = img.copyCrop(
+      decoded,
+      x: cx,
+      y: cy,
+      width: cw.clamp(1, decoded.width - cx),
+      height: ch.clamp(1, decoded.height - cy),
+    );
+    final out = Uint8List.fromList(img.encodePng(cropped));
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    const typeGroup = XTypeGroup(
+      label: 'PNG',
+      extensions: <String>['png'],
+    );
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: 'browser-crop-$ts.png',
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+      );
+    } catch (_) {}
+    if (!mounted || location == null) return;
+    try {
+      await File(location.path).writeAsBytes(out, flush: true);
+      if (!mounted) return;
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '已保存到 ${location.path}' : 'Saved to ${location.path}',
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'save crop',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '保存失败' : 'Save failed',
+        duration: const Duration(seconds: 2),
+      );
+    }
+  }
+
   /// Flutter 端渲染的上下文菜单：复制 / 粘贴 / 全选 / 刷新 / 在外部浏览器
-  /// 打开 / 检查元素。复制 / 粘贴 / 全选通过 CDP `Input.dispatchKeyEvent`
-  /// 模拟 Cmd / Ctrl + C/V/A，让浏览器原生剪贴板路径自然处理。
+  /// 打开 / 检查元素 / 保存当前帧 / 框选导出。复制 / 粘贴 / 全选通过 CDP
+  /// `Input.dispatchKeyEvent` 模拟 Cmd / Ctrl + C/V/A，让浏览器原生剪贴板
+  /// 路径自然处理。
   Future<void> _showContextMenu(
     Offset globalPos,
     Size renderSize,
@@ -742,6 +884,10 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         PopupMenuItem(
           value: 'saveFrame',
           child: Text(isZh ? '保存当前帧 (PNG)' : 'Save current frame'),
+        ),
+        PopupMenuItem(
+          value: 'cropFrame',
+          child: Text(isZh ? '框选导出局部帧' : 'Save selected region'),
         ),
       ],
     );
@@ -791,6 +937,12 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         } catch (_) {}
       case 'saveFrame':
         await _saveCurrentFrame();
+      case 'cropFrame':
+        setState(() {
+          _cropMode = true;
+          _cropStart = null;
+          _cropCurrent = null;
+        });
     }
   }
 
@@ -886,6 +1038,41 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                               onPrev: _findPrev,
                               onNext: _findNext,
                               onClose: _closeFindBar,
+                            ),
+                          ),
+                        if (_cropMode)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: CustomPaint(
+                                painter: _CropOverlayPainter(
+                                  start: _cropStart,
+                                  current: _cropCurrent,
+                                  color: cs.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (_cropMode)
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            child: Material(
+                              color: cs.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(_kToolbarRadius),
+                              elevation: 4,
+                              shadowColor: Colors.black26,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                child: Text(
+                                  isZh
+                                      ? '拖动选择导出区域，松手保存'
+                                      : 'Drag to select region',
+                                  style: theme.textTheme.labelSmall,
+                                ),
+                              ),
                             ),
                           ),
                       ],
@@ -1530,5 +1717,46 @@ class _FindBar extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+
+/// 框选导出时的虚线矩形 + 半透明遮罩。
+class _CropOverlayPainter extends CustomPainter {
+  _CropOverlayPainter({
+    required this.start,
+    required this.current,
+    required this.color,
+  });
+
+  final Offset? start;
+  final Offset? current;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dim = Paint()..color = Colors.black.withValues(alpha: 0.25);
+    canvas.drawRect(Offset.zero & size, dim);
+    final s = start;
+    final c = current;
+    if (s == null || c == null) return;
+    final rect = Rect.fromPoints(s, c);
+    canvas.saveLayer(Offset.zero & size, Paint());
+    canvas.drawRect(Offset.zero & size, dim);
+    canvas.drawRect(
+      rect,
+      Paint()..blendMode = BlendMode.clear,
+    );
+    canvas.restore();
+    final border = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    canvas.drawRect(rect, border);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CropOverlayPainter old) {
+    return old.start != start || old.current != current || old.color != color;
   }
 }
