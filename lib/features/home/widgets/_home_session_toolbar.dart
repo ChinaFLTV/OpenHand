@@ -2764,11 +2764,11 @@ class _StreamThrottleSessionDialogState
                 ),
               ),
               const SizedBox(height: 20),
-              // 三枚操作按钮整体居中聚集：Wrap 在 Column(crossAxisAlignment:
-              // start) 里只会缩到子项总宽，alignment.center 在自身宽内是
-              // 空操作；外层套 Align(center) 才能把整组按钮推到对话框水平
-              // 中线。
-              Align(
+              // 2026-05-25 — 三枚操作按钮明确居中聚集：丢到 SizedBox(double.infinity)
+              // 里以推翻外层 Column.crossAxisAlignment.start 带来的隱性左贴边；
+              // Wrap 仍用来兼顾窄幅对话框的软换行。
+              SizedBox(
+                width: double.infinity,
                 child: Wrap(
                   alignment: WrapAlignment.center,
                   spacing: 12,
@@ -2813,10 +2813,11 @@ class _StreamThrottleSessionDialogState
 }
 
 
-/// 节流 mini 仪表盘：30 秒滑动窗口的字符吞吐柱状图。
+/// 节流 mini 仪表盘：30 秒滑动窗口的字符吞吐曲线图。
 ///
 /// 2026-05-18 — 让用户在节流弹窗里直接看到 AI 当前正以多快的速度流出
-/// 字符；柱越高越接近设定速率上限，柱越低则说明令牌桶已经消耗完毕。
+/// 字符；2026-05-25 改为平滑曲线 + 渐变填充，且支持 macOS 触控板双指
+/// 捏合放缩时间区间（PointerPanZoom.scale），让用户聚焦最近几秒的细节。
 /// 200ms 节奏轮询 controller 即可，自带 reduceMotion 跳过动画。
 class _StreamThroughputMiniGauge extends StatefulWidget {
   const _StreamThroughputMiniGauge({
@@ -2839,6 +2840,12 @@ class _StreamThroughputMiniGaugeState
   // 2026-05-18 — 鼠标悬停 / 触屏长按时高亮的桶索引；null = 不高亮。
   int? _hoveredIndex;
   Offset? _hoverLocal;
+  // 2026-05-25 — 时间轴放大倍数（1=全部 30s，4=最近约 7s）。trackpad
+  // 双指捏合 pan-zoom 时实时改写；保持 anchored on now（右端 = 当前秒）。
+  double _zoom = 1.0;
+  double _zoomBase = 1.0;
+  static const double _kMinZoom = 1.0;
+  static const double _kMaxZoom = 4.0;
 
   @override
   void initState() {
@@ -2878,10 +2885,20 @@ class _StreamThroughputMiniGaugeState
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final samples = _samples;
+    final fullSamples = _samples;
+    // 视窗：anchored on now（samples.first = 当前秒），保留前 visibleN 个桶。
+    final visibleN = fullSamples.isEmpty
+        ? 0
+        : math.max(3, (fullSamples.length / _zoom).round())
+            .clamp(3, fullSamples.length);
+    final samples = fullSamples.isEmpty
+        ? fullSamples
+        : fullSamples.sublist(0, visibleN);
     final peak = samples.isEmpty ? 0 : samples.reduce(math.max);
     final current = samples.isEmpty ? 0 : samples.first;
     final cap = math.max(widget.maxRate, peak == 0 ? 1 : peak);
+    final windowSeconds = samples.length;
+    final headerWindow = isZh ? '$windowSeconds 秒窗' : '${windowSeconds}s win';
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
@@ -2901,10 +2918,23 @@ class _StreamThroughputMiniGaugeState
               ),
               const SizedBox(width: 6),
               Text(
-                isZh ? '字符吞吐 (30s)' : 'Chars Throughput (30s)',
+                isZh
+                    ? '字符吞吐 · $headerWindow'
+                    : 'Chars Throughput · $headerWindow',
                 style: theme.textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Tooltip(
+                message: isZh
+                    ? '触控板双指捏合可放缩时间区间（${_kMinZoom.toInt()}–${_kMaxZoom.toInt()}x）'
+                    : 'Trackpad pinch to zoom the time range (${_kMinZoom.toInt()}\u2013${_kMaxZoom.toInt()}x)',
+                child: Icon(
+                  Icons.pinch_rounded,
+                  size: 12,
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
               const Spacer(),
@@ -2933,16 +2963,43 @@ class _StreamThroughputMiniGaugeState
                   if (samples.isEmpty || width <= 0) return null;
                   if (local.dx < 0 || local.dx > width) return null;
                   final n = samples.length;
-                  const gap = 1.5;
-                  final totalGap = gap * (n - 1);
-                  final barW = (width - totalGap) / n;
-                  // bucket 0 在最右；指针 X = (n-1-i) * (barW+gap)..+barW
+                  if (n <= 1) return 0;
+                  // 曲线模式：将 X 均匀分桶（n 段，n+1 个 anchor）。
+                  final slotW = width / n;
                   final visualSlot =
-                      (local.dx / (barW + gap)).floor().clamp(0, n - 1);
+                      (local.dx / slotW).floor().clamp(0, n - 1);
+                  // 视觉上 X=0 = 最老（samples[n-1]），X=width = 当前（samples[0]）
                   return n - 1 - visualSlot;
                 }
 
-                return MouseRegion(
+                return Listener(
+                  onPointerPanZoomStart: (_) {
+                    _zoomBase = _zoom;
+                  },
+                  onPointerPanZoomUpdate: (event) {
+                    if (fullSamples.isEmpty) return;
+                    final next = (_zoomBase * event.scale)
+                        .clamp(_kMinZoom, _kMaxZoom);
+                    if ((next - _zoom).abs() > 0.01) {
+                      setState(() => _zoom = next);
+                    }
+                  },
+                  onPointerPanZoomEnd: (_) {
+                    _zoomBase = _zoom;
+                  },
+                  // 鼠标滚轮 + Ctrl 也可放缩（桌面常用兜底）。
+                  onPointerSignal: (signal) {
+                    if (signal is PointerScrollEvent &&
+                        HardwareKeyboard.instance.isControlPressed) {
+                      final delta = -signal.scrollDelta.dy / 200.0;
+                      final next =
+                          (_zoom * (1.0 + delta)).clamp(_kMinZoom, _kMaxZoom);
+                      if ((next - _zoom).abs() > 0.01) {
+                        setState(() => _zoom = next);
+                      }
+                    }
+                  },
+                  child: MouseRegion(
                   onHover: (event) {
                     final i = indexAt(event.localPosition);
                     if (i != _hoveredIndex || event.localPosition != _hoverLocal) {
@@ -3008,6 +3065,7 @@ class _StreamThroughputMiniGaugeState
                           ),
                       ],
                     ),
+                  ),
                   ),
                 );
               },
@@ -3076,63 +3134,123 @@ class _ThroughputBarsPainter extends CustomPainter {
         x += dashWidth + dashGap;
       }
     }
-    // 柱子：bucket 0 = 当前秒（最右侧），bucket N-1 = 30s 前（最左）
+    // 柱状渲染已升级为平滑曲线 + 渐变填充：bucket 0 = 当前秒（最右），
+    // bucket N-1 = 最老（最左）。Catmull-Rom → 三次贝塞尔，端点
+    // strokeCap.round 让曲线两端柔和；填充区域顶到曲线下方，alpha
+    // 渐弱到 0.04 形成「面积图」视觉，符合用户对吞吐曲线的预期。
     final n = samples.length;
-    const gap = 1.5;
-    final totalGap = gap * (n - 1);
-    final barW = (size.width - totalGap) / n;
-    for (var i = 0; i < n; i++) {
-      final v = samples[i];
-      final x = (n - 1 - i) * (barW + gap);
-      final h = cap == 0 ? 0.0 : (v / cap) * size.height;
-      final clamped = h.clamp(0.0, size.height);
-      final rect = Rect.fromLTWH(
-        x,
-        size.height - clamped,
-        barW,
-        clamped,
+    final stepX = n <= 1 ? size.width : size.width / (n - 1);
+    final points = <Offset>[
+      for (var i = 0; i < n; i++)
+        Offset(
+          (n - 1 - i) * stepX,
+          size.height - (samples[i].clamp(0, cap) / cap) * size.height,
+        ),
+    ]..sort((a, b) => a.dx.compareTo(b.dx));
+    if (points.length == 1) {
+      final p = points.first;
+      final dot = Paint()..color = color;
+      canvas.drawCircle(Offset(size.width / 2, p.dy), 2.4, dot);
+      return;
+    }
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final p0 = i == 0 ? points[i] : points[i - 1];
+      final p1 = points[i];
+      final p2 = points[i + 1];
+      final p3 = (i + 2 < points.length) ? points[i + 2] : points[i + 1];
+      // Catmull-Rom 张力 1/6
+      final c1 = Offset(
+        p1.dx + (p2.dx - p0.dx) / 6.0,
+        p1.dy + (p2.dy - p0.dy) / 6.0,
       );
-      // 2026-05-18 — 柱状渐变：底部满色 → 顶部柔和透明，让"高度=吞
-      // 吐量"的视觉一眼就读得出来；超过 limitValue 的样本切换到红
-      // 色 overLimitColor，提示用户当前秒有超阈值释放。
-      final overLimit = hasLimit && limitValue > 0 && v > limitValue;
-      final baseColor = overLimit ? overLimitColor : color;
-      final isCurrent = i == 0;
-      final topAlpha = isCurrent ? 1.0 : 0.55;
-      final bottomAlpha = isCurrent ? 0.55 : 0.18;
-      final paint = Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: <Color>[
-            baseColor.withValues(alpha: topAlpha),
-            baseColor.withValues(alpha: bottomAlpha),
-          ],
-        ).createShader(rect);
-      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(2));
-      canvas.drawRRect(rrect, paint);
-      // 超阈值柱子加一道高亮顶边，让用户更明显感知"溢出令牌桶"。
-      if (overLimit && clamped > 1) {
-        final highlight = Paint()
-          ..color = overLimitColor
-          ..strokeWidth = 1.4
-          ..style = PaintingStyle.stroke;
+      final c2 = Offset(
+        p2.dx - (p3.dx - p1.dx) / 6.0,
+        p2.dy - (p3.dy - p1.dy) / 6.0,
+      );
+      path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p2.dx, p2.dy);
+    }
+    // 渐变面积填充
+    final fillPath = Path.from(path)
+      ..lineTo(points.last.dx, size.height)
+      ..lineTo(points.first.dx, size.height)
+      ..close();
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: <Color>[
+          color.withValues(alpha: 0.38),
+          color.withValues(alpha: 0.04),
+        ],
+      ).createShader(Offset.zero & size);
+    canvas.drawPath(fillPath, fillPaint);
+    // 主曲线描边
+    final strokePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = color
+      ..strokeWidth = 1.6
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+    canvas.drawPath(path, strokePaint);
+    // 超阈值的点：红色小圆点
+    if (hasLimit) {
+      final dotPaint = Paint()..color = overLimitColor;
+      for (var i = 0; i < n; i++) {
+        if (samples[i] > limitValue) {
+          final p = Offset(
+            (n - 1 - i) * stepX,
+            size.height - (samples[i].clamp(0, cap) / cap) * size.height,
+          );
+          canvas.drawCircle(p, 2.0, dotPaint);
+        }
+      }
+    }
+    // 当前秒突出标记：右端实心圆
+    final lastPoint = Offset(
+      (n - 1) * stepX,
+      size.height - (samples[0].clamp(0, cap) / cap) * size.height,
+    );
+    final currentDot = Paint()..color = color;
+    canvas.drawCircle(lastPoint, 2.8, currentDot);
+    canvas.drawCircle(
+      lastPoint,
+      4.6,
+      Paint()
+        ..color = color.withValues(alpha: 0.22)
+        ..style = PaintingStyle.fill,
+    );
+    // 悬停指示：垂直虚线 + dot
+    if (hoveredIndex != null &&
+        hoveredIndex! >= 0 &&
+        hoveredIndex! < n &&
+        hoverHighlightColor != null) {
+      final hoverX = (n - 1 - hoveredIndex!) * stepX;
+      final hoverY = size.height -
+          (samples[hoveredIndex!].clamp(0, cap) / cap) * size.height;
+      final dashPaint = Paint()
+        ..color = hoverHighlightColor!.withValues(alpha: 0.4)
+        ..strokeWidth = 1.0;
+      var y = 0.0;
+      while (y < size.height) {
         canvas.drawLine(
-          Offset(rect.left, rect.top + 0.7),
-          Offset(rect.right, rect.top + 0.7),
-          highlight,
+          Offset(hoverX, y),
+          Offset(hoverX, math.min(y + 3, size.height)),
+          dashPaint,
         );
+        y += 6;
       }
-      // 鼠标悬停 / 触屏选中时给当前柱描一圈：让交互即时被感知。
-      if (hoveredIndex == i &&
-          hoverHighlightColor != null &&
-          clamped > 0) {
-        final ring = Paint()
-          ..color = hoverHighlightColor!
-          ..strokeWidth = 1.2
-          ..style = PaintingStyle.stroke;
-        canvas.drawRRect(rrect.deflate(0.4), ring);
-      }
+      canvas.drawCircle(
+        Offset(hoverX, hoverY),
+        3.4,
+        Paint()..color = hoverHighlightColor!,
+      );
+      canvas.drawCircle(
+        Offset(hoverX, hoverY),
+        2.0,
+        Paint()..color = color,
+      );
     }
   }
 

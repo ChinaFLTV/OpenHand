@@ -5836,12 +5836,12 @@ function SessionThrottleDialog({
         style={{ background: 'var(--m3-surface-container-high)' }}
       >
         <h2 class="text-base font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
-          {t('topbar.throttle.dialogTitle', '本会话流式节流（临时）')}
+          {t('topbar.throttle.dialogTitle', '本会话流式节流')}
         </h2>
         <p class="text-xs mb-3" style={{ color: 'var(--m3-on-surface-variant)' }}>
           {t(
             'topbar.throttle.dialogHint',
-            '仅在当前进程内生效，重启即恢复模板/全局值。留空 = 沿用，0 = 关闭节流。',
+            '调整后在本会话中持久生效（重启后仍会保留）。留空 = 沿用模板/全局值，0 = 关闭节流。',
           )}
         </p>
         <div

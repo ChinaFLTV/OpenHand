@@ -1806,7 +1806,7 @@ class _ZoomMenu extends StatelessWidget {
 
 /// 浏览器面板顶部 tab strip：每个 page target 一个胶囊，激活态高亮。
 /// 「+」按钮新建 about:blank tab；激活胶囊上挂×按钮关闭。长按拖动重排。
-class _TabStrip extends StatelessWidget {
+class _TabStrip extends StatefulWidget {
   const _TabStrip({
     required this.targets,
     required this.currentId,
@@ -1828,10 +1828,93 @@ class _TabStrip extends StatelessWidget {
   final void Function(int oldIndex, int newIndex) onReorder;
 
   @override
+  State<_TabStrip> createState() => _TabStripState();
+}
+
+class _TabStripState extends State<_TabStrip> {
+  // 维护一份「正在显示中」的 Tab 列表 + 「正在退场中」的 id 集合：
+  // 当父组件传入的 targets 较上一帧少了某个 id（Tab 关闭），不立刻把它
+  // 从 ListView 中拿掉，而是先标记为 closing，让 _TabPill 通过 AnimatedSize
+  // + AnimatedOpacity + AnimatedScale 收缩到 0；240ms 后再从内部列表移除，
+  // 避免「啪地一下消失」。新增 Tab 直接走 TweenAnimationBuilder 入场。
+  final List<CdpPageTargetSnapshot> _displayed = <CdpPageTargetSnapshot>[];
+  final Set<String> _closingIds = <String>{};
+  final Map<String, Timer> _closingTimers = <String, Timer>{};
+  static const Duration _closeAnim = Duration(milliseconds: 240);
+
+  @override
+  void initState() {
+    super.initState();
+    _displayed.addAll(widget.targets);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TabStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncTargets(widget.targets);
+  }
+
+  @override
+  void dispose() {
+    for (final t in _closingTimers.values) {
+      t.cancel();
+    }
+    _closingTimers.clear();
+    super.dispose();
+  }
+
+  void _syncTargets(List<CdpPageTargetSnapshot> incoming) {
+    final incomingIds = incoming.map((t) => t.id).toSet();
+    // 1) 把已经在 incoming 里的 id 同步元数据 + 顺序：从 _displayed 中
+    //    剔除非 closing 项，按 incoming 的顺序重排（closing 项保持原位置）。
+    final retained = <CdpPageTargetSnapshot>[];
+    final closingKept = <CdpPageTargetSnapshot>[];
+    for (final d in _displayed) {
+      if (_closingIds.contains(d.id)) {
+        // closing 项继续保留在末尾占位，等动画跑完。
+        closingKept.add(d);
+      }
+    }
+    for (final t in incoming) {
+      retained.add(t);
+    }
+    // 2) 找出新被关闭的：上一帧在 _displayed 里、这一帧不在 incoming 里、
+    //    且还没标记 closing 的，标记为 closing 并启动 240ms 定时器。
+    for (final d in _displayed) {
+      if (!incomingIds.contains(d.id) && !_closingIds.contains(d.id)) {
+        _closingIds.add(d.id);
+        // 维持当前快照里的最后一份元数据（含可能已变的 title）。
+        closingKept.add(d);
+        _closingTimers[d.id]?.cancel();
+        _closingTimers[d.id] = Timer(_closeAnim, () {
+          if (!mounted) return;
+          setState(() {
+            _closingIds.remove(d.id);
+            _closingTimers.remove(d.id);
+            _displayed.removeWhere((x) => x.id == d.id);
+          });
+        });
+      }
+    }
+    _displayed
+      ..clear()
+      ..addAll(retained)
+      ..addAll(closingKept);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    if (targets.isEmpty) return const SizedBox.shrink();
+    if (_displayed.isEmpty) return const SizedBox.shrink();
+    // 把 onReorder 限定在「非 closing」前缀范围内 —— ReorderableListView 自带
+    // 索引是覆盖整个列表的，但 closing 项不能参与排序，所以把传出的索引按需
+    // 截断到 widget.targets 的范围内。
+    final activeCount = widget.targets.length;
+    final targets = _displayed;
+    final currentId = widget.currentId;
+    final enabled = widget.enabled;
+    final isZh = widget.isZh;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: SizedBox(
@@ -1842,7 +1925,15 @@ class _TabStrip extends StatelessWidget {
               child: ReorderableListView.builder(
                 scrollDirection: Axis.horizontal,
                 buildDefaultDragHandles: false,
-                onReorder: enabled ? onReorder : (_, _) {},
+                onReorder: enabled
+                    ? (oldI, newI) {
+                        // 只允许在「活跃 Tab」范围内排序；不让用户拖到 closing 占位上。
+                        if (oldI >= activeCount) return;
+                        var clamped = newI;
+                        if (clamped > activeCount) clamped = activeCount;
+                        widget.onReorder(oldI, clamped);
+                      }
+                    : (_, _) {},
                 proxyDecorator: (child, _, anim) {
                   return Material(
                     elevation: 4 * anim.value,
@@ -1855,6 +1946,7 @@ class _TabStrip extends StatelessWidget {
                 itemBuilder: (_, i) {
                   final t = targets[i];
                   final active = t.id == currentId;
+                  final closing = _closingIds.contains(t.id);
                   final label = t.title.isNotEmpty
                       ? t.title
                       : (t.url.isEmpty
@@ -1865,7 +1957,24 @@ class _TabStrip extends StatelessWidget {
                     padding: EdgeInsets.only(
                       right: i == targets.length - 1 ? 0 : 6,
                     ),
-                    child: TweenAnimationBuilder<double>(
+                    // 退场动画外壳：closing=true 时把高度 / 宽度 / 透明度 / 缩放
+                    // 一起收缩到 0，240ms 后由定时器从 _displayed 里移除。
+                    child: AnimatedSize(
+                      duration: _closeAnim,
+                      curve: Curves.easeInCubic,
+                      alignment: Alignment.centerLeft,
+                      child: AnimatedOpacity(
+                        duration: _closeAnim,
+                        opacity: closing ? 0 : 1,
+                        curve: Curves.easeInCubic,
+                        child: AnimatedScale(
+                          duration: _closeAnim,
+                          scale: closing ? 0.6 : 1,
+                          curve: Curves.easeInCubic,
+                          alignment: Alignment.centerLeft,
+                          child: closing
+                              ? const SizedBox(width: 0, height: 0)
+                              : TweenAnimationBuilder<double>(
                       tween: Tween<double>(begin: 0.85, end: 1),
                       duration: const Duration(milliseconds: 260),
                       curve: Curves.easeOutBack,
@@ -1918,7 +2027,9 @@ class _TabStrip extends StatelessWidget {
                               ),
                               InkWell(
                                 borderRadius: BorderRadius.circular(999),
-                                onTap: enabled ? () => onSwitch(t.id) : null,
+                                onTap: enabled
+                                    ? () => widget.onSwitch(t.id)
+                                    : null,
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 6,
@@ -2002,12 +2113,12 @@ class _TabStrip extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      if (targets.length > 1) ...[
+                                      if (activeCount > 1) ...[
                                         const SizedBox(width: 6),
                                         InkResponse(
                                           radius: 12,
                                           onTap: enabled
-                                              ? () => onClose(t.id)
+                                              ? () => widget.onClose(t.id)
                                               : null,
                                           child: Icon(
                                             Icons.close_rounded,
@@ -2026,7 +2137,10 @@ class _TabStrip extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
+                    ), // TweenAnimationBuilder
+                          ), // AnimatedScale
+                        ), // AnimatedOpacity
+                      ), // AnimatedSize
                   );
                 },
               ),
@@ -2042,7 +2156,7 @@ class _TabStrip extends StatelessWidget {
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
-                    onTap: enabled ? onNew : null,
+                    onTap: enabled ? widget.onNew : null,
                     child: Icon(
                       Icons.add_rounded,
                       size: 16,
