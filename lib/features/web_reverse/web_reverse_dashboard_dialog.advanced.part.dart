@@ -379,6 +379,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.account_tree_rounded,
+        title: isZh ? 'JS 调用图' : 'JS Callgraph',
+        subtitle: isZh
+            ? '启发式正则解析所有 frame 脚本，构造 caller→callees 邻接表'
+            : 'Heuristic regex parsing of frame scripts; build caller→callees graph',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseCallgraphDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
