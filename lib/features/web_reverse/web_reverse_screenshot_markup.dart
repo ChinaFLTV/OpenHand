@@ -205,10 +205,18 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
   }
 
   Widget _buildToolbar(ThemeData theme, ColorScheme cs, bool isZh) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
+    // 2026-05-19 — 深色模式下原本直接贴 surfaceContainer 视觉太平；这里
+    // 抬到 surfaceContainerHighest + 一道底分割线，给工具栏一个明确视
+    // 觉层级，颜色/工具按钮的对比度同时提升。
+    return Material(
+      color: cs.surfaceContainerHighest,
+      shape: Border(
+        bottom: BorderSide(color: cs.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
           for (final t in const [
             (_MarkupTool.draw, Icons.edit_rounded),
             (_MarkupTool.rect, Icons.crop_square_rounded),
@@ -242,8 +250,10 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
                   color: c,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: _color == c ? cs.primary : cs.outlineVariant,
-                    width: _color == c ? 2.4 : 1,
+                    // 深色模式下 outlineVariant 与小色块边缘融化，改用
+                    // outline 提升识别度。
+                    color: _color == c ? cs.primary : cs.outline,
+                    width: _color == c ? 2.4 : 1.2,
                   ),
                 ),
               ),
@@ -285,7 +295,8 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
             }),
             icon: const Icon(Icons.cleaning_services_rounded, size: 18),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -412,11 +423,11 @@ class _ToolButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Material(
-      color: active ? cs.primaryContainer : Colors.transparent,
+      color: active ? cs.primaryContainer : cs.surface.withValues(alpha: 0.6),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(999),
         side: BorderSide(
-          color: active ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant,
+          color: active ? cs.primary.withValues(alpha: 0.4) : cs.outline,
         ),
       ),
       child: InkWell(
