@@ -589,6 +589,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.travel_explore_rounded,
+        title: isZh ? 'DOM 选择器搜索' : 'DOM Selector Search',
+        subtitle: isZh
+            ? 'DOM.performSearch · CSS / text / XPath · 高亮'
+            : 'DOM.performSearch · CSS / text / XPath · highlight',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseDomSearchDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
