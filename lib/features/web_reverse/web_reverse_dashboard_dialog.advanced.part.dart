@@ -409,6 +409,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.save_as_rounded,
+        title: isZh ? 'HAR 全量持久化' : 'HAR Persistence',
+        subtitle: isZh
+            ? '立即落盘 / 反向加载 / 周期自动轮转'
+            : 'Save now / Load back / Periodic rotation',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseHarPersistenceDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

@@ -37,6 +37,7 @@ import 'web_reverse_geo_override_dialog.dart';
 import 'web_reverse_webauthn_dialog.dart';
 import 'web_reverse_ai_crypto_dialog.dart';
 import 'web_reverse_callgraph_dialog.dart';
+import 'web_reverse_har_persistence_dialog.dart';
 import 'web_reverse_postmessage_dialog.dart';
 import 'web_reverse_throttle_dialog.dart';
 import 'web_reverse_waterfall_dialog.dart';
