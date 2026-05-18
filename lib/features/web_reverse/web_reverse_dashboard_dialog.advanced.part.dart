@@ -319,6 +319,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.vpn_key_rounded,
+        title: isZh ? 'JWT 自动续期' : 'JWT Auto Refresh',
+        subtitle: isZh
+            ? '扫描 cookies/localStorage/sessionStorage 中的 JWT，临近过期自动跰刷新脚本'
+            : 'Scan JWT in cookies/storage, run refresh JS near expiry',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseJwtRefreshDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
