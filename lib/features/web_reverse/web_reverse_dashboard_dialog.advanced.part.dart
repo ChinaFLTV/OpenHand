@@ -679,6 +679,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.bug_report_rounded,
+        title: isZh ? 'Console 错误聚类' : 'Console Clusters',
+        subtitle: isZh
+            ? '按 level + 归一化首行去重 · 展开原始条目'
+            : 'dedupe by level + normalized first line',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseConsoleClusterDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

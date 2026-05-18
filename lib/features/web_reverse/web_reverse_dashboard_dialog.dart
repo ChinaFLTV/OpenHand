@@ -49,6 +49,7 @@ import 'web_reverse_websocket_dialog.dart';
 import 'web_reverse_cors_preflight_dialog.dart';
 import 'web_reverse_storage_dialog.dart';
 import 'web_reverse_cdp_console_dialog.dart';
+import 'web_reverse_console_cluster_dialog.dart';
 import 'web_reverse_dom_mutation_dialog.dart';
 import 'web_reverse_geo_override_dialog.dart';
 import 'web_reverse_webauthn_dialog.dart';

@@ -1,0 +1,406 @@
+/// Console 错误聚类面板。
+///
+/// 把 `controller.consoleMessages` 按 (level + 归一化文案首行 + URL 片段)
+/// 聚成簇，按出现次数倒序展示。点击展开看原始条目。
+library;
+
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../app/support/silent_log.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_session_controller.dart';
+
+Future<void> showWebReverseConsoleClusterDialog(
+  BuildContext context, {
+  required WebReverseSessionController controller,
+  required bool isZh,
+}) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (_) =>
+        _ConsoleClusterDialog(controller: controller, isZh: isZh),
+  );
+}
+
+class _Cluster {
+  _Cluster({
+    required this.signature,
+    required this.level,
+    required this.firstLine,
+  });
+  final String signature;
+  final String level;
+  final String firstLine;
+  final List<CdpConsoleEntry> entries = [];
+  DateTime? get first =>
+      entries.isEmpty ? null : entries.first.timestamp;
+  DateTime? get last =>
+      entries.isEmpty ? null : entries.last.timestamp;
+}
+
+class _ConsoleClusterDialog extends StatefulWidget {
+  const _ConsoleClusterDialog({
+    required this.controller,
+    required this.isZh,
+  });
+  final WebReverseSessionController controller;
+  final bool isZh;
+  @override
+  State<_ConsoleClusterDialog> createState() =>
+      _ConsoleClusterDialogState();
+}
+
+class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
+  String _levelFilter = 'all';
+  String _query = '';
+  final Set<String> _expanded = <String>{};
+
+  String _normalize(String t) {
+    // 取首行 → 去时间戳/数字 / URL 路径中的 hash 摘要 / 行列数字。
+    final firstLine = t.split('\n').first.trim();
+    return firstLine
+        .replaceAll(RegExp(r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*'), '<ts>')
+        .replaceAll(RegExp(r'\b0x[0-9a-fA-F]+\b'), '<hex>')
+        .replaceAll(RegExp(r'\b\d{3,}\b'), '<num>')
+        .replaceAll(RegExp(r'/[A-Fa-f0-9]{8,}'), '/<hash>')
+        .replaceAll(RegExp(r':\d+:\d+\)'), ':L:C)')
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  List<_Cluster> _build() {
+    final map = <String, _Cluster>{};
+    for (final e in widget.controller.consoleMessages) {
+      if (_levelFilter != 'all' && e.level != _levelFilter) continue;
+      if (_query.isNotEmpty &&
+          !e.text.toLowerCase().contains(_query.toLowerCase())) {
+        continue;
+      }
+      final sig = '${e.level}|${_normalize(e.text)}';
+      final c = map.putIfAbsent(
+        sig,
+        () => _Cluster(
+          signature: sig,
+          level: e.level,
+          firstLine: e.text.split('\n').first.trim(),
+        ),
+      );
+      c.entries.add(e);
+    }
+    final list = map.values.toList()
+      ..sort((a, b) => b.entries.length.compareTo(a.entries.length));
+    return list;
+  }
+
+  Color _colorFor(String lvl, ColorScheme cs) {
+    switch (lvl) {
+      case 'error':
+        return cs.error;
+      case 'warning':
+        return Colors.amber.shade700;
+      case 'info':
+        return cs.tertiary;
+      default:
+        return cs.onSurfaceVariant;
+    }
+  }
+
+  Future<void> _copyCluster(_Cluster c) async {
+    final payload = {
+      'signature': c.signature,
+      'level': c.level,
+      'count': c.entries.length,
+      'firstAt': c.first?.toIso8601String(),
+      'lastAt': c.last?.toIso8601String(),
+      'samples': c.entries
+          .take(20)
+          .map((e) => {
+                'ts': e.timestamp.toIso8601String(),
+                'text': e.text,
+              })
+          .toList(),
+    };
+    try {
+      await Clipboard.setData(ClipboardData(
+          text: const JsonEncoder.withIndent('  ').convert(payload)));
+    } catch (err, st) {
+      silentLog('web-reverse', 'console.cluster.copy', err, st);
+      return;
+    }
+    if (!mounted) return;
+    final m = ScaffoldMessenger.maybeOf(context);
+    if (m != null) {
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        m,
+        widget.isZh ? '簇 JSON 已复制' : 'Cluster JSON copied',
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    final clusters = _build();
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.all(20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 880, maxHeight: 760),
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+            child: Row(children: [
+              Icon(Icons.bug_report_rounded, color: cs.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isZh ? 'Console 错误聚类' : 'Console Clusters',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      isZh
+                          ? '按 level + 归一化首行去重 · 共 ${widget.controller.consoleMessages.length} 条 / ${clusters.length} 簇'
+                          : 'dedupe by level + normalized first line · ${widget.controller.consoleMessages.length} entries / ${clusters.length} clusters',
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => setState(() {}),
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: isZh ? '刷新' : 'Refresh',
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ]),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Row(children: [
+              Wrap(spacing: 6, children: [
+                for (final lvl in const ['all', 'error', 'warning', 'info', 'log'])
+                  ChoiceChip(
+                    label: Text(lvl),
+                    selected: _levelFilter == lvl,
+                    onSelected: (_) => setState(() => _levelFilter = lvl),
+                  ),
+              ]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                    hintText: isZh ? '关键字过滤' : 'filter',
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+              ),
+            ]),
+          ),
+          Expanded(
+            child: clusters.isEmpty
+                ? Center(
+                    child: Text(
+                      isZh ? '没有匹配的 console 条目' : 'No matching entries',
+                      style: TextStyle(
+                          color: cs.onSurfaceVariant, fontSize: 12),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: clusters.length,
+                    itemBuilder: (_, i) {
+                      final c = clusters[i];
+                      final open = _expanded.contains(c.signature);
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => setState(() {
+                                if (open) {
+                                  _expanded.remove(c.signature);
+                                } else {
+                                  _expanded.add(c.signature);
+                                }
+                              }),
+                              child: Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Row(children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _colorFor(c.level, cs)
+                                          .withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      c.level,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: _colorFor(c.level, cs),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: cs.primaryContainer
+                                          .withValues(alpha: 0.5),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '× ${c.entries.length}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 11),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      c.firstLine,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 12),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.copy_rounded,
+                                        size: 16),
+                                    tooltip:
+                                        isZh ? '复制 JSON' : 'Copy JSON',
+                                    onPressed: () => _copyCluster(c),
+                                  ),
+                                  Icon(
+                                    open
+                                        ? Icons.expand_less_rounded
+                                        : Icons.expand_more_rounded,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ]),
+                              ),
+                            ),
+                            if (open)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                    12, 0, 12, 10),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isZh
+                                          ? '首次：${c.first?.toIso8601String()}\n末次：${c.last?.toIso8601String()}'
+                                          : 'first: ${c.first?.toIso8601String()}\nlast: ${c.last?.toIso8601String()}',
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                              color: cs.onSurfaceVariant),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    for (final e in c.entries.take(30))
+                                      Container(
+                                        margin:
+                                            const EdgeInsets.only(bottom: 4),
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: cs.surface,
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                              color: cs.outlineVariant),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              e.timestamp
+                                                  .toIso8601String()
+                                                  .substring(11, 23),
+                                              style: TextStyle(
+                                                fontFamily: 'monospace',
+                                                fontSize: 10,
+                                                color: cs.onSurfaceVariant,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            SelectableText(
+                                              e.text,
+                                              style: const TextStyle(
+                                                  fontFamily: 'monospace',
+                                                  fontSize: 11),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    if (c.entries.length > 30)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          isZh
+                                              ? '… 还有 ${c.entries.length - 30} 条'
+                                              : '… and ${c.entries.length - 30} more',
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                  color:
+                                                      cs.onSurfaceVariant),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OpenHandDialogActionButton.primary(
+                label: isZh ? '关闭' : 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
