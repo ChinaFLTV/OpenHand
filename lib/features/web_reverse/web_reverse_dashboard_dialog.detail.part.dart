@@ -142,7 +142,30 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: Tooltip(
+              message: isZh ? '重放 / 改包' : 'Resend / Edit',
+              child: InkResponse(
+                radius: 18,
+                onTap: () => showWebReverseResendRequestDialog(
+                  context,
+                  entry: widget.entry,
+                  isZh: isZh,
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.replay_circle_filled_rounded,
+                    size: 18,
+                    color: cs.primary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
           SizedBox(
             width: 32,
             height: 32,

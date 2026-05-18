@@ -22,6 +22,7 @@ import 'lsp/web_reverse_lsp_client.dart';
 import 'web_reverse_launch_diagnosis.dart';
 import 'web_reverse_mitmproxy_bridge.dart';
 import 'web_reverse_profile_actions.dart';
+import 'web_reverse_resend_request_dialog.dart';
 import 'web_reverse_screenshot_markup.dart';
 import 'web_reverse_session_controller.dart';
 
