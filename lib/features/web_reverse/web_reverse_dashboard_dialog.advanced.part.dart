@@ -634,6 +634,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.shield_moon_rounded,
+        title: isZh ? 'CORS Preflight 测试' : 'CORS Preflight',
+        subtitle: isZh
+            ? 'OPTIONS · Allow-Origin / Methods / Headers 诊断'
+            : 'OPTIONS · diagnose Allow-Origin / Methods / Headers',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseCorsPreflightDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
