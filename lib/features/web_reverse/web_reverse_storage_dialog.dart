@@ -1,0 +1,704 @@
+/// 存储管理器：Cookies / LocalStorage / SessionStorage / IndexedDB。
+library;
+
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../app/support/silent_log.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_session_controller.dart';
+
+Future<void> showWebReverseStorageDialog(
+  BuildContext context, {
+  required WebReverseSessionController controller,
+  required bool isZh,
+}) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _StorageDialog(controller: controller, isZh: isZh),
+  );
+}
+
+class _StorageDialog extends StatefulWidget {
+  const _StorageDialog({required this.controller, required this.isZh});
+  final WebReverseSessionController controller;
+  final bool isZh;
+  @override
+  State<_StorageDialog> createState() => _StorageDialogState();
+}
+
+class _StorageDialogState extends State<_StorageDialog>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab;
+  String? _origin;
+  bool _loading = false;
+
+  List<Map<String, Object?>> _cookies = const [];
+  List<({String key, String value})> _local = const [];
+  List<({String key, String value})> _session = const [];
+
+  List<String> _idbDbs = const [];
+  String? _idbDb;
+  List<String> _idbStores = const [];
+  String? _idbStore;
+  List<Map<String, Object?>> _idbEntries = const [];
+  bool _idbHasMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = TabController(length: 4, vsync: this);
+    _tab.addListener(_onTab);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshActive());
+  }
+
+  @override
+  void dispose() {
+    _tab.removeListener(_onTab);
+    _tab.dispose();
+    super.dispose();
+  }
+
+  void _onTab() {
+    if (_tab.indexIsChanging) return;
+    _refreshActive();
+  }
+
+  Future<void> _refreshActive() async {
+    setState(() => _loading = true);
+    _origin ??= await widget.controller.currentOrigin();
+    switch (_tab.index) {
+      case 0:
+        _cookies = await widget.controller.listCookies();
+        break;
+      case 1:
+        if (_origin != null) {
+          _local = await widget.controller.listDomStorage(
+            origin: _origin!,
+            isLocalStorage: true,
+          );
+        }
+        break;
+      case 2:
+        if (_origin != null) {
+          _session = await widget.controller.listDomStorage(
+            origin: _origin!,
+            isLocalStorage: false,
+          );
+        }
+        break;
+      case 3:
+        _idbDbs = await widget.controller.listIndexedDbNames();
+        if (_idbDb != null && !_idbDbs.contains(_idbDb)) {
+          _idbDb = null;
+          _idbStores = const [];
+          _idbStore = null;
+          _idbEntries = const [];
+        }
+        break;
+    }
+    if (!mounted) return;
+    setState(() => _loading = false);
+  }
+
+  Future<void> _selectIdb(String db) async {
+    setState(() {
+      _loading = true;
+      _idbDb = db;
+      _idbStore = null;
+      _idbEntries = const [];
+    });
+    final desc = await widget.controller.describeIndexedDb(db);
+    if (!mounted) return;
+    setState(() {
+      _idbStores = desc?.stores ?? const [];
+      _loading = false;
+    });
+  }
+
+  Future<void> _selectIdbStore(String store) async {
+    final db = _idbDb;
+    if (db == null) return;
+    setState(() {
+      _loading = true;
+      _idbStore = store;
+    });
+    final res = await widget.controller.readIndexedDbStore(
+      dbName: db,
+      storeName: store,
+      pageSize: 50,
+    );
+    if (!mounted) return;
+    setState(() {
+      _idbEntries = res?.entries ?? const [];
+      _idbHasMore = res?.hasMore ?? false;
+      _loading = false;
+    });
+  }
+
+  Future<void> _copyJson(Object? data) async {
+    try {
+      await Clipboard.setData(
+        ClipboardData(
+            text: const JsonEncoder.withIndent('  ').convert(data)),
+      );
+    } catch (err, st) {
+      silentLog('web-reverse', 'storage.copy', err, st);
+      return;
+    }
+    if (!mounted) return;
+    final m = ScaffoldMessenger.maybeOf(context);
+    if (m != null) {
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        m,
+        widget.isZh ? '已复制' : 'Copied',
+      );
+    }
+  }
+
+  Future<void> _addCookieDialog() async {
+    final isZh = widget.isZh;
+    final nameCtl = TextEditingController();
+    final valueCtl = TextEditingController();
+    final domainCtl = TextEditingController();
+    final pathCtl = TextEditingController(text: '/');
+    bool secure = false;
+    bool httpOnly = false;
+    final ok = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Dialog(
+          backgroundColor: cs.surfaceContainer,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(isZh ? '新增 Cookie' : 'Add Cookie',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 16)),
+                  const SizedBox(height: 12),
+                  TextField(
+                      controller: nameCtl,
+                      decoration: const InputDecoration(
+                          labelText: 'name',
+                          border: OutlineInputBorder(),
+                          isDense: true)),
+                  const SizedBox(height: 8),
+                  TextField(
+                      controller: valueCtl,
+                      decoration: const InputDecoration(
+                          labelText: 'value',
+                          border: OutlineInputBorder(),
+                          isDense: true)),
+                  const SizedBox(height: 8),
+                  TextField(
+                      controller: domainCtl,
+                      decoration: const InputDecoration(
+                          labelText: 'domain (optional)',
+                          border: OutlineInputBorder(),
+                          isDense: true)),
+                  const SizedBox(height: 8),
+                  TextField(
+                      controller: pathCtl,
+                      decoration: const InputDecoration(
+                          labelText: 'path',
+                          border: OutlineInputBorder(),
+                          isDense: true)),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Switch(
+                        value: secure, onChanged: (v) => setS(() => secure = v)),
+                    const Text('Secure'),
+                    const SizedBox(width: 16),
+                    Switch(
+                        value: httpOnly,
+                        onChanged: (v) => setS(() => httpOnly = v)),
+                    const Text('HttpOnly'),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OpenHandDialogActionButton.secondary(
+                        label: isZh ? '取消' : 'Cancel',
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                      ),
+                      const SizedBox(width: 8),
+                      OpenHandDialogActionButton.primary(
+                        label: isZh ? '保存' : 'Save',
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+    if (ok != true) return;
+    final name = nameCtl.text.trim();
+    if (name.isEmpty) return;
+    final success = await widget.controller.setCookie(
+      name: name,
+      value: valueCtl.text,
+      domain: domainCtl.text.trim().isEmpty ? null : domainCtl.text.trim(),
+      path: pathCtl.text.trim().isEmpty ? null : pathCtl.text.trim(),
+      secure: secure,
+      httpOnly: httpOnly,
+    );
+    if (!mounted) return;
+    final m = ScaffoldMessenger.maybeOf(context);
+    if (m != null) {
+      if (success) {
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          m,
+          isZh ? 'Cookie 已保存' : 'Cookie saved',
+        );
+      } else {
+        OpenHandSnackBar.showErrorOn(
+          context,
+          m,
+          isZh ? '保存失败' : 'Save failed',
+        );
+      }
+    }
+    await _refreshActive();
+  }
+
+  Future<void> _editStorageDialog({required bool isLocal, String? key0, String? value0}) async {
+    final isZh = widget.isZh;
+    final origin = _origin;
+    if (origin == null) return;
+    final keyCtl = TextEditingController(text: key0 ?? '');
+    final valueCtl = TextEditingController(text: value0 ?? '');
+    final ok = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Dialog(
+          backgroundColor: cs.surfaceContainer,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    key0 == null
+                        ? (isZh ? '新增条目' : 'Add entry')
+                        : (isZh ? '编辑条目' : 'Edit entry'),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: keyCtl,
+                    enabled: key0 == null,
+                    decoration: const InputDecoration(
+                        labelText: 'key',
+                        border: OutlineInputBorder(),
+                        isDense: true),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: valueCtl,
+                    maxLines: 6,
+                    decoration: const InputDecoration(
+                      labelText: 'value',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OpenHandDialogActionButton.secondary(
+                        label: isZh ? '取消' : 'Cancel',
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                      ),
+                      const SizedBox(width: 8),
+                      OpenHandDialogActionButton.primary(
+                        label: isZh ? '保存' : 'Save',
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (ok != true) return;
+    final key = keyCtl.text.trim();
+    if (key.isEmpty) return;
+    await widget.controller.setDomStorageItem(
+      origin: origin,
+      isLocalStorage: isLocal,
+      key: key,
+      value: valueCtl.text,
+    );
+    await _refreshActive();
+  }
+
+  Widget _cookiesView() {
+    final cs = Theme.of(context).colorScheme;
+    final isZh = widget.isZh;
+    return Column(children: [
+      _toolbar(
+        right: [
+          FilledButton.icon(
+            onPressed: _addCookieDialog,
+            icon: const Icon(Icons.add_rounded),
+            label: Text(isZh ? '新增 Cookie' : 'Add Cookie'),
+          ),
+        ],
+      ),
+      Expanded(
+        child: _cookies.isEmpty
+            ? _emptyHint(isZh ? '没有 Cookie' : 'No cookies')
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemCount: _cookies.length,
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, color: cs.outlineVariant),
+                itemBuilder: (_, i) {
+                  final c = _cookies[i];
+                  return ListTile(
+                    dense: true,
+                    title: Text(
+                      '${c['name']}',
+                      style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12),
+                    ),
+                    subtitle: Text(
+                      '${c['domain']}${c['path']} • ${c['value']}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontFamily: 'monospace', fontSize: 11),
+                    ),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                        tooltip: isZh ? '复制 JSON' : 'Copy JSON',
+                        onPressed: () => _copyJson(c),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_rounded,
+                            size: 18, color: cs.error),
+                        tooltip: isZh ? '删除' : 'Delete',
+                        onPressed: () async {
+                          await widget.controller.deleteCookie(
+                            name: '${c['name']}',
+                            domain: c['domain'] as String?,
+                            path: c['path'] as String?,
+                          );
+                          await _refreshActive();
+                        },
+                      ),
+                    ]),
+                  );
+                },
+              ),
+      ),
+    ]);
+  }
+
+  Widget _storageView({required bool isLocal}) {
+    final list = isLocal ? _local : _session;
+    final isZh = widget.isZh;
+    final cs = Theme.of(context).colorScheme;
+    return Column(children: [
+      _toolbar(
+        right: [
+          FilledButton.icon(
+            onPressed: () => _editStorageDialog(isLocal: isLocal),
+            icon: const Icon(Icons.add_rounded),
+            label: Text(isZh ? '新增' : 'Add'),
+          ),
+        ],
+      ),
+      Expanded(
+        child: list.isEmpty
+            ? _emptyHint(isZh ? '空' : 'Empty')
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemCount: list.length,
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, color: cs.outlineVariant),
+                itemBuilder: (_, i) {
+                  final e = list[i];
+                  return ListTile(
+                    dense: true,
+                    title: Text(e.key,
+                        style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12)),
+                    subtitle: Text(
+                      e.value,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontFamily: 'monospace', fontSize: 11),
+                    ),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_rounded, size: 18),
+                        onPressed: () => _editStorageDialog(
+                          isLocal: isLocal,
+                          key0: e.key,
+                          value0: e.value,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_rounded,
+                            size: 18, color: cs.error),
+                        onPressed: () async {
+                          final origin = _origin;
+                          if (origin == null) return;
+                          await widget.controller.removeDomStorageItem(
+                            origin: origin,
+                            isLocalStorage: isLocal,
+                            key: e.key,
+                          );
+                          await _refreshActive();
+                        },
+                      ),
+                    ]),
+                  );
+                },
+              ),
+      ),
+    ]);
+  }
+
+  Widget _idbView() {
+    final isZh = widget.isZh;
+    final cs = Theme.of(context).colorScheme;
+    return Column(children: [
+      _toolbar(),
+      Expanded(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          SizedBox(
+            width: 180,
+            child: _idbDbs.isEmpty
+                ? _emptyHint(isZh ? '没有数据库' : 'No databases')
+                : ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    children: [
+                      for (final db in _idbDbs)
+                        ListTile(
+                          dense: true,
+                          selected: db == _idbDb,
+                          title: Text(db,
+                              style: const TextStyle(fontSize: 12)),
+                          onTap: () => _selectIdb(db),
+                        ),
+                    ],
+                  ),
+          ),
+          VerticalDivider(width: 1, color: cs.outlineVariant),
+          SizedBox(
+            width: 160,
+            child: _idbStores.isEmpty
+                ? _emptyHint(isZh ? '选择数据库' : 'Pick DB')
+                : ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    children: [
+                      for (final s in _idbStores)
+                        ListTile(
+                          dense: true,
+                          selected: s == _idbStore,
+                          title: Text(s,
+                              style: const TextStyle(fontSize: 12)),
+                          onTap: () => _selectIdbStore(s),
+                        ),
+                    ],
+                  ),
+          ),
+          VerticalDivider(width: 1, color: cs.outlineVariant),
+          Expanded(
+            child: _idbEntries.isEmpty
+                ? _emptyHint(isZh ? '选择 Object Store' : 'Pick store')
+                : ListView.separated(
+                    padding: const EdgeInsets.all(8),
+                    itemCount:
+                        _idbEntries.length + (_idbHasMore ? 1 : 0),
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: cs.outlineVariant),
+                    itemBuilder: (_, i) {
+                      if (i == _idbEntries.length) {
+                        return Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            isZh
+                                ? '… 还有更多记录（仅显示前 50 条）'
+                                : '… more records (showing first 50)',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        );
+                      }
+                      final e = _idbEntries[i];
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          'key: ${(e['key'] as Map?)?['value'] ?? e['key']}',
+                          style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12),
+                        ),
+                        subtitle: Text(
+                          jsonEncode(e['value']),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontFamily: 'monospace', fontSize: 11),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 18),
+                          onPressed: () => _copyJson(e),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ]),
+      ),
+    ]);
+  }
+
+  Widget _toolbar({List<Widget> right = const []}) {
+    final isZh = widget.isZh;
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        border: Border(bottom: BorderSide(color: cs.outlineVariant)),
+      ),
+      child: Row(
+        children: [
+          if (_origin != null)
+            Text(
+              '${isZh ? 'origin: ' : 'origin: '}${_origin!}',
+              style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600),
+            ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            tooltip: isZh ? '刷新' : 'Refresh',
+            onPressed: _loading ? null : _refreshActive,
+          ),
+          ...right,
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyHint(String t) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Text(
+        t,
+        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.all(20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 720),
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+            child: Row(children: [
+              Icon(Icons.storage_rounded, color: cs.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isZh ? '存储管理器' : 'Storage Manager',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ]),
+          ),
+          TabBar(
+            controller: _tab,
+            tabs: const [
+              Tab(text: 'Cookies'),
+              Tab(text: 'LocalStorage'),
+              Tab(text: 'SessionStorage'),
+              Tab(text: 'IndexedDB'),
+            ],
+          ),
+          if (_loading) const LinearProgressIndicator(minHeight: 3),
+          Expanded(
+            child: TabBarView(
+              controller: _tab,
+              children: [
+                _cookiesView(),
+                _storageView(isLocal: true),
+                _storageView(isLocal: false),
+                _idbView(),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OpenHandDialogActionButton.primary(
+                label: isZh ? '关闭' : 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}

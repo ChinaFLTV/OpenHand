@@ -649,6 +649,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.storage_rounded,
+        title: isZh ? '存储管理器' : 'Storage Manager',
+        subtitle: isZh
+            ? 'Cookies / Local / Session / IndexedDB 浏览与编辑'
+            : 'browse / edit Cookies / Local / Session / IndexedDB',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseStorageDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
