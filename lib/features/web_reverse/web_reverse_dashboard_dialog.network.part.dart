@@ -143,36 +143,30 @@ class _NetworkBody extends StatelessWidget {
               return fade;
             },
             child: hasSelection
-                ? Row(
+                ? ResizableSplitter(
                     key: const ValueKey<String>('with-detail'),
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        width: 480,
-                        child: _NetworkList(
-                          items: filtered,
-                          listKey: state._networkListKey,
-                          selectedId: selected.requestId,
-                          onSelect: (e) => state.rebuildFromExternal(
-                              () => state._selectedRequest = e),
-                          onCopyUrl: (e) => _copyUrl(context, e, isZh),
-                          controller: controller,
-                          reduceMotion: reduceMotion,
-                          isZh: isZh,
-                        ),
-                      ),
-                      VerticalDivider(width: 1, color: cs.outlineVariant),
-                      Expanded(
-                        child: _RequestDetailPanel(
-                          controller: controller,
-                          entry: selected,
-                          isZh: isZh,
-                          reduceMotion: reduceMotion,
-                          onClose: () => state.rebuildFromExternal(
-                              () => state._selectedRequest = null),
-                        ),
-                      ),
-                    ],
+                    initialLeftFraction: 0.4,
+                    minLeft: 320,
+                    minRight: 360,
+                    left: _NetworkList(
+                      items: filtered,
+                      listKey: state._networkListKey,
+                      selectedId: selected.requestId,
+                      onSelect: (e) => state.rebuildFromExternal(
+                          () => state._selectedRequest = e),
+                      onCopyUrl: (e) => _copyUrl(context, e, isZh),
+                      controller: controller,
+                      reduceMotion: reduceMotion,
+                      isZh: isZh,
+                    ),
+                    right: _RequestDetailPanel(
+                      controller: controller,
+                      entry: selected,
+                      isZh: isZh,
+                      reduceMotion: reduceMotion,
+                      onClose: () => state.rebuildFromExternal(
+                          () => state._selectedRequest = null),
+                    ),
                   )
                 : _NetworkList(
                     key: const ValueKey<String>('list-only'),

@@ -17,6 +17,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../ai/index.dart';
 import 'lsp/web_reverse_lsp_client.dart';

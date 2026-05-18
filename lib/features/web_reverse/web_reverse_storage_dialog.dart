@@ -10,6 +10,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/resizable_splitter.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseStorageDialog(
@@ -502,10 +503,16 @@ class _StorageDialogState extends State<_StorageDialog>
     return Column(children: [
       _toolbar(),
       Expanded(
-        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SizedBox(
-            width: 180,
-            child: _idbDbs.isEmpty
+        // 嵌套 ResizableSplitter：左侧再切 DB 列表 / Store 列表，右侧是 Entry 区。
+        child: ResizableSplitter(
+          initialLeftFraction: 0.34,
+          minLeft: 280,
+          minRight: 320,
+          left: ResizableSplitter(
+            initialLeftFraction: 0.52,
+            minLeft: 140,
+            minRight: 120,
+            left: _idbDbs.isEmpty
                 ? _emptyHint(isZh ? '没有数据库' : 'No databases')
                 : ListView(
                     padding: const EdgeInsets.symmetric(vertical: 6),
@@ -520,11 +527,7 @@ class _StorageDialogState extends State<_StorageDialog>
                         ),
                     ],
                   ),
-          ),
-          VerticalDivider(width: 1, color: cs.outlineVariant),
-          SizedBox(
-            width: 160,
-            child: _idbStores.isEmpty
+            right: _idbStores.isEmpty
                 ? _emptyHint(isZh ? '选择数据库' : 'Pick DB')
                 : ListView(
                     padding: const EdgeInsets.symmetric(vertical: 6),
@@ -540,57 +543,54 @@ class _StorageDialogState extends State<_StorageDialog>
                     ],
                   ),
           ),
-          VerticalDivider(width: 1, color: cs.outlineVariant),
-          Expanded(
-            child: _idbEntries.isEmpty
-                ? _emptyHint(isZh ? '选择 Object Store' : 'Pick store')
-                : ListView.separated(
-                    padding: const EdgeInsets.all(8),
-                    itemCount:
-                        _idbEntries.length + (_idbHasMore ? 1 : 0),
-                    separatorBuilder: (_, _) =>
-                        Divider(height: 1, color: cs.outlineVariant),
-                    itemBuilder: (_, i) {
-                      if (i == _idbEntries.length) {
-                        return Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Text(
-                            isZh
-                                ? '… 还有更多记录（仅显示前 50 条）'
-                                : '… more records (showing first 50)',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                          ),
-                        );
-                      }
-                      final e = _idbEntries[i];
-                      return ListTile(
-                        dense: true,
-                        title: Text(
-                          'key: ${(e['key'] as Map?)?['value'] ?? e['key']}',
-                          style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12),
-                        ),
-                        subtitle: Text(
-                          jsonEncode(e['value']),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 11),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 18),
-                          onPressed: () => _copyJson(e),
+          right: _idbEntries.isEmpty
+              ? _emptyHint(isZh ? '选择 Object Store' : 'Pick store')
+              : ListView.separated(
+                  padding: const EdgeInsets.all(8),
+                  itemCount:
+                      _idbEntries.length + (_idbHasMore ? 1 : 0),
+                  separatorBuilder: (_, _) =>
+                      Divider(height: 1, color: cs.outlineVariant),
+                  itemBuilder: (_, i) {
+                    if (i == _idbEntries.length) {
+                      return Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          isZh
+                              ? '… 还有更多记录（仅显示前 50 条）'
+                              : '… more records (showing first 50)',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
                         ),
                       );
-                    },
-                  ),
-          ),
-        ]),
+                    }
+                    final e = _idbEntries[i];
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        'key: ${(e['key'] as Map?)?['value'] ?? e['key']}',
+                        style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12),
+                      ),
+                      subtitle: Text(
+                        jsonEncode(e['value']),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 11),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                        onPressed: () => _copyJson(e),
+                      ),
+                    );
+                  },
+                ),
+        ),
       ),
     ]);
   }
