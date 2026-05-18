@@ -38,6 +38,7 @@ part 'web_reverse_dashboard_dialog.browser.part.dart';
 part 'web_reverse_dashboard_dialog.snippets.part.dart';
 part 'web_reverse_dashboard_dialog.elements.part.dart';
 part 'web_reverse_dashboard_dialog.crypto.part.dart';
+part 'web_reverse_dashboard_dialog.hooks.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -97,6 +98,7 @@ enum _Tab {
   sources,
   snippets,
   elements,
+  hooks,
   crypto,
   performance,
   memory,
@@ -118,6 +120,7 @@ class _WebReverseDashboardDialogState
   static const _kHeapSnapAMetaKey = 'web_reverse_memory_snap_a';
   static const _kHeapSnapBMetaKey = 'web_reverse_memory_snap_b';
   static const _kSnippetsMetaKey = 'web_reverse_snippets';
+  static const _kHooksMetaKey = 'web_reverse_hooks';
   _Tab _tab = _Tab.network;
 
   // Network 面板状态
@@ -222,6 +225,16 @@ class _WebReverseDashboardDialogState
             .where((s) => s.id.isNotEmpty)
             .toList(growable: false);
         if (snips.isNotEmpty) widget.controller.replaceSnippets(snips);
+      }
+      // 恢复 JS Hook 库。replaceHooks 会按 enabled 重新装载。
+      final hookRaw = session.metadata[_kHooksMetaKey];
+      if (hookRaw is List) {
+        final hooks = hookRaw
+            .whereType<Map>()
+            .map((m) => WebReverseHook.fromJson(Map<String, Object?>.from(m)))
+            .where((h) => h.id.isNotEmpty)
+            .toList(growable: false);
+        if (hooks.isNotEmpty) unawaited(widget.controller.replaceHooks(hooks));
       }
     });
   }
@@ -409,6 +422,20 @@ class _WebReverseDashboardDialogState
     unawaited(
       session.updateSessionMetadata(widget.sessionId, <String, Object?>{
         _kSnippetsMetaKey: items,
+      }),
+    );
+  }
+
+  /// 持久化 JS Hook 库。hook 新增 / 启用 / 编辑 / 删除后立即调一次。
+  void persistHooks() {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>();
+    final items = widget.controller.hooks
+        .map((h) => h.toJson())
+        .toList(growable: false);
+    unawaited(
+      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kHooksMetaKey: items,
       }),
     );
   }
@@ -784,6 +811,11 @@ class _WebReverseDashboardDialogState
           controller: ctrl,
           isZh: isZh,
           reduceMotion: reduceMotion,
+        ),
+      _Tab.hooks => _HooksBody(
+          controller: ctrl,
+          isZh: isZh,
+          onPersist: persistHooks,
         ),
       _Tab.crypto => _CryptoPadBody(
           isZh: isZh,

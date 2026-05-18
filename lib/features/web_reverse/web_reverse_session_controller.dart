@@ -353,6 +353,9 @@ class WebReverseSessionController extends ChangeNotifier {
     await cdp.send('Page.enable', sessionId: _pageSessionId);
     await cdp.send('Runtime.enable', sessionId: _pageSessionId);
     await cdp.send('Log.enable', sessionId: _pageSessionId);
+    // 当前 target 换了，上轮拿到的 hook scriptId 在新 target 上
+    // 无意义，重新沿着新 _pageSessionId 装载 enabled hook。
+    await _reapplyEnabledHooks();
     await _pageEventsSub?.cancel();
     _pageEventsSub = cdp.events
         .where((ev) => ev.sessionId == null || ev.sessionId == _pageSessionId)
@@ -2180,6 +2183,139 @@ class WebReverseSessionController extends ChangeNotifier {
     );
     if (s.id.isEmpty) return null;
     return runReplExpression(s.code);
+  }
+
+  // ─── JS Hook 库 (Hooks Pad) ─────────────────────────────────────────
+  // 用户 Hook 脚本通过 Page.addScriptToEvaluateOnNewDocument 注入，在每个
+  // 文档加载前执行：patch 全局对象 / 改写 fetch / 装载调试钩子。enabled 切换
+  // 即装载/卸载；切换 target 时所有 enabled hook 自动重装。持久化由 dashboard
+  // 写入 session metadata。
+  final List<WebReverseHook> _hooks = <WebReverseHook>[];
+  final Map<String, String> _hookCdpScriptId = <String, String>{};
+
+  List<WebReverseHook> get hooks => List.unmodifiable(_hooks);
+
+  Future<void> replaceHooks(List<WebReverseHook> items) async {
+    for (final old in List<WebReverseHook>.from(_hooks)) {
+      await _uninstallHook(old.id);
+    }
+    _hooks
+      ..clear()
+      ..addAll(items);
+    for (final h in _hooks.where((e) => e.enabled)) {
+      await _installHook(h);
+    }
+    _safeNotify();
+  }
+
+  Future<WebReverseHook> addHook({
+    required String name,
+    required String code,
+  }) async {
+    final id =
+        'hook_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
+    final h = WebReverseHook(
+      id: id,
+      name: name.trim().isEmpty ? 'untitled' : name.trim(),
+      code: code,
+      enabled: true,
+      updatedAt: DateTime.now(),
+    );
+    _hooks.add(h);
+    await _installHook(h);
+    _safeNotify();
+    return h;
+  }
+
+  Future<void> updateHook({
+    required String id,
+    String? name,
+    String? code,
+  }) async {
+    final i = _hooks.indexWhere((e) => e.id == id);
+    if (i < 0) return;
+    final old = _hooks[i];
+    final next = WebReverseHook(
+      id: old.id,
+      name: (name ?? old.name).trim().isEmpty
+          ? old.name
+          : (name ?? old.name).trim(),
+      code: code ?? old.code,
+      enabled: old.enabled,
+      updatedAt: DateTime.now(),
+    );
+    _hooks[i] = next;
+    if (next.enabled) {
+      await _uninstallHook(id);
+      await _installHook(next);
+    }
+    _safeNotify();
+  }
+
+  Future<void> setHookEnabled(String id, bool enabled) async {
+    final i = _hooks.indexWhere((e) => e.id == id);
+    if (i < 0) return;
+    final old = _hooks[i];
+    _hooks[i] = WebReverseHook(
+      id: old.id,
+      name: old.name,
+      code: old.code,
+      enabled: enabled,
+      updatedAt: DateTime.now(),
+    );
+    if (enabled) {
+      await _installHook(_hooks[i]);
+    } else {
+      await _uninstallHook(id);
+    }
+    _safeNotify();
+  }
+
+  Future<void> removeHook(String id) async {
+    await _uninstallHook(id);
+    _hooks.removeWhere((e) => e.id == id);
+    _safeNotify();
+  }
+
+  Future<void> _reapplyEnabledHooks() async {
+    _hookCdpScriptId.clear();
+    for (final h in _hooks.where((e) => e.enabled)) {
+      await _installHook(h);
+    }
+  }
+
+  Future<void> _installHook(WebReverseHook h) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      final r = await cdp.send(
+        'Page.addScriptToEvaluateOnNewDocument',
+        params: <String, Object?>{'source': h.code},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 5),
+      );
+      final sid = r['identifier'];
+      if (sid is String) _hookCdpScriptId[h.id] = sid;
+    } catch (e, st) {
+      silentLog(
+          'web_reverse_session_controller', 'installHook ${h.name}', e, st);
+    }
+  }
+
+  Future<void> _uninstallHook(String id) async {
+    final cdp = _browserCdp;
+    final sid = _hookCdpScriptId.remove(id);
+    if (cdp == null || _pageSessionId == null || sid == null) return;
+    try {
+      await cdp.send(
+        'Page.removeScriptToEvaluateOnNewDocument',
+        params: <String, Object?>{'identifier': sid},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 5),
+      );
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'uninstallHook', e, st);
+    }
   }
 
   // ─── DOM Inspector (Elements 面板) ───────────────────────────────────
@@ -5299,6 +5435,42 @@ class WebReverseSnippet {
       id: '${json['id'] ?? ''}',
       name: '${json['name'] ?? 'untitled'}',
       code: '${json['code'] ?? ''}',
+      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
+    );
+  }
+}
+
+/// 用户保存的 JS Hook（每个文档加载前注入）。
+class WebReverseHook {
+  const WebReverseHook({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.enabled,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String name;
+  final String code;
+  final bool enabled;
+  final DateTime? updatedAt;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'id': id,
+        'name': name,
+        'code': code,
+        'enabled': enabled,
+        'updated_ms': updatedAt?.millisecondsSinceEpoch,
+      };
+
+  factory WebReverseHook.fromJson(Map<String, Object?> json) {
+    final ms = json['updated_ms'];
+    return WebReverseHook(
+      id: '${json['id'] ?? ''}',
+      name: '${json['name'] ?? 'untitled'}',
+      code: '${json['code'] ?? ''}',
+      enabled: json['enabled'] != false,
       updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
     );
   }
