@@ -28,6 +28,45 @@ class _BreakpointsBody extends StatefulWidget {
 
 class _BreakpointsBodyState extends State<_BreakpointsBody> {
   final TextEditingController _xhrCtrl = TextEditingController();
+  final TextEditingController _domSelectorCtrl = TextEditingController();
+  String _domType = 'subtree-modified';
+  // Event Listener 断点支持的事件按类目分组（与 Chrome DevTools 命名一致）。
+  // 用户在 UI 上勾选 chip 后调用 setEventListenerBreakpoint。
+  static const Map<String, List<String>> _kEventCategories = {
+    'Mouse': [
+      'click', 'auxclick', 'dblclick', 'mousedown', 'mouseup',
+      'mouseenter', 'mouseleave', 'mousemove', 'mouseover', 'mouseout',
+      'contextmenu', 'wheel',
+    ],
+    'Keyboard': ['keydown', 'keypress', 'keyup'],
+    'Touch': ['touchstart', 'touchmove', 'touchend', 'touchcancel'],
+    'Pointer': [
+      'pointerdown', 'pointerup', 'pointermove', 'pointerover',
+      'pointerout', 'pointerenter', 'pointerleave', 'pointercancel',
+    ],
+    'Control': [
+      'focus', 'blur', 'change', 'input', 'submit', 'reset',
+      'select', 'invalid',
+    ],
+    'Clipboard': ['copy', 'cut', 'paste'],
+    'DOM Mutation': [
+      'DOMNodeInserted', 'DOMNodeRemoved', 'DOMAttrModified',
+      'DOMCharacterDataModified',
+    ],
+    'Timer': ['timer:setTimeout', 'timer:setInterval'],
+    'Animation': ['animationstart', 'animationend', 'animationiteration',
+        'transitionstart', 'transitionend'],
+    'Load': ['load', 'beforeunload', 'unload', 'DOMContentLoaded'],
+    'Worker': ['message', 'messageerror'],
+    'XHR': ['xhrSend', 'xhrReadyStateChange'],
+    'Drag/Drop': [
+      'drag', 'dragstart', 'dragend', 'dragenter', 'dragleave',
+      'dragover', 'drop',
+    ],
+  };
+
+  bool _gListLoading = false;
+  List<Map<String, Object?>>? _globalListeners;
 
   @override
   void initState() {
@@ -39,6 +78,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
     _xhrCtrl.dispose();
+    _domSelectorCtrl.dispose();
     super.dispose();
   }
 
@@ -89,6 +129,84 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     }
   }
 
+  Future<void> _toggleEventListener(String evt) async {
+    final has = widget.controller.eventListenerBreakpoints.contains(evt);
+    final ok = has
+        ? await widget.controller.removeEventListenerBreakpoint(evt)
+        : await widget.controller.setEventListenerBreakpoint(evt);
+    if (!mounted) return;
+    if (!ok) {
+      OpenHandSnackBar.showError(
+        context,
+        widget.isZh ? '操作失败（页面未在调试态）' : 'Op failed (not attached)',
+      );
+    }
+  }
+
+  Future<void> _addDomBp() async {
+    final sel = _domSelectorCtrl.text.trim();
+    if (sel.isEmpty) return;
+    final ok = await widget.controller
+        .addDomBreakpoint(selector: sel, type: _domType);
+    if (!mounted) return;
+    if (ok) {
+      _domSelectorCtrl.clear();
+    } else {
+      OpenHandSnackBar.showError(
+        context,
+        widget.isZh
+            ? '添加失败（选择器无匹配或未附加调试器）'
+            : 'Add failed (selector miss / not attached)',
+      );
+    }
+  }
+
+  Future<void> _removeDomBp(({String selector, String type}) b) async {
+    await widget.controller
+        .removeDomBreakpoint(selector: b.selector, type: b.type);
+  }
+
+  Future<void> _toggleCspViolation(String type) async {
+    final cur = widget.controller.cspViolationBreakpoints;
+    final next = cur.contains(type)
+        ? (cur.toSet()..remove(type))
+        : (cur.toSet()..add(type));
+    final ok = await widget.controller.setCspViolationBreakpoints(next);
+    if (!mounted) return;
+    if (!ok) {
+      OpenHandSnackBar.showError(
+        context,
+        widget.isZh ? '设置失败' : 'Set failed',
+      );
+    }
+  }
+
+  Future<void> _refreshGlobalListeners() async {
+    setState(() => _gListLoading = true);
+    final list = await widget.controller.listGlobalEventListeners();
+    if (!mounted) return;
+    setState(() {
+      _gListLoading = false;
+      _globalListeners = list;
+    });
+  }
+
+  Future<void> _stepOver() async {
+    await widget.controller.stepOverDebugger();
+  }
+
+  Future<void> _stepInto() async {
+    await widget.controller.stepIntoDebugger();
+  }
+
+  Future<void> _stepOut() async {
+    await widget.controller.stepOutDebugger();
+  }
+
+  Future<void> _resume() async {
+    await widget.controller.resumeDebugger();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -101,10 +219,66 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
         return c != 0 ? c : a.line.compareTo(b.line);
       });
     final xhrBps = widget.controller.xhrBreakpoints.toList()..sort();
+    final elBps = widget.controller.eventListenerBreakpoints;
+    final domBps = widget.controller.domBreakpoints;
+    final cspBps = widget.controller.cspViolationBreakpoints;
+    final paused = widget.controller.pausedState;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: ListView(
         children: [
+          // 顶部「执行控制」卡片：暂停/恢复 + Step Over/Into/Out + 状态徽章
+          _SectionCard(
+            icon: paused == null
+                ? Icons.play_circle_outline_rounded
+                : Icons.pause_circle_outline_rounded,
+            title: paused == null
+                ? (isZh ? '执行控制（运行中）' : 'Execution (running)')
+                : (isZh
+                    ? '执行控制（已暂停 · ${paused.reason}）'
+                    : 'Execution (paused · ${paused.reason})'),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: paused == null ? null : _resume,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: Text(isZh ? '继续' : 'Resume'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: paused == null ? null : _stepOver,
+                  icon: const Icon(Icons.redo_rounded, size: 18),
+                  label: Text(isZh ? '单步跳过' : 'Step over'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: paused == null ? null : _stepInto,
+                  icon: const Icon(Icons.subdirectory_arrow_right_rounded,
+                      size: 18),
+                  label: Text(isZh ? '单步进入' : 'Step into'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: paused == null ? null : _stepOut,
+                  icon: const Icon(Icons.subdirectory_arrow_left_rounded,
+                      size: 18),
+                  label: Text(isZh ? '单步跳出' : 'Step out'),
+                ),
+                if (paused != null && paused.callFrames.isNotEmpty)
+                  Tooltip(
+                    message: paused.callFrames.first['functionName']?.toString() ??
+                        '<anonymous>',
+                    child: Chip(
+                      avatar: const Icon(Icons.layers_rounded, size: 14),
+                      label: Text(
+                        '${(paused.callFrames.first['functionName'] ?? '<anonymous>')} '
+                        '· ${(paused.callFrames.first['location'] as Map?)?['lineNumber'] ?? '?'}',
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           _SectionCard(
             icon: Icons.location_on_rounded,
             title: isZh ? '代码断点' : 'Source breakpoints',
@@ -234,15 +408,209 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            icon: Icons.touch_app_outlined,
+            title: isZh ? '事件监听断点' : 'Event Listener Breakpoints',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final entry in _kEventCategories.entries) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, bottom: 4),
+                    child: Text(
+                      entry.key,
+                      style: theme.textTheme.labelMedium
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      for (final evt in entry.value)
+                        FilterChip(
+                          label: Text(evt, style: const TextStyle(fontSize: 12)),
+                          selected: elBps.contains(evt),
+                          onSelected: (_) => _toggleEventListener(evt),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            icon: Icons.account_tree_outlined,
+            title: isZh ? 'DOM 断点' : 'DOM Breakpoints',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _domSelectorCtrl,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: const OutlineInputBorder(),
+                          labelText:
+                              isZh ? 'CSS 选择器（如 #root）' : 'CSS selector (e.g. #root)',
+                        ),
+                        onSubmitted: (_) => _addDomBp(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownButton<String>(
+                      value: _domType,
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'subtree-modified',
+                            child: Text('subtree-modified')),
+                        DropdownMenuItem(
+                            value: 'attribute-modified',
+                            child: Text('attribute-modified')),
+                        DropdownMenuItem(
+                            value: 'node-removed',
+                            child: Text('node-removed')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setState(() => _domType = v);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _addDomBp,
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: Text(isZh ? '添加' : 'Add'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                AnimatedSize(
+                  duration: reduceMotion ? Duration.zero : _kSwitchDuration,
+                  curve: _kSwitchInCurve,
+                  child: domBps.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            isZh ? '尚未添加。' : 'None yet.',
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            for (final b in domBps)
+                              _BpRow(
+                                icon: Icons.code_rounded,
+                                iconColor: cs.secondary,
+                                title: b.selector,
+                                subtitle: b.type,
+                                tooltip: null,
+                                onTap: null,
+                                onDelete: () => _removeDomBp(b),
+                              ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            icon: Icons.security_outlined,
+            title: isZh ? 'CSP 违规断点' : 'CSP Violation Breakpoints',
+            child: Column(
+              children: [
+                CheckboxListTile(
+                  value: cspBps.contains('trustedtype-sink-violation'),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  title: const Text('trustedtype-sink-violation'),
+                  onChanged: (_) =>
+                      _toggleCspViolation('trustedtype-sink-violation'),
+                ),
+                CheckboxListTile(
+                  value: cspBps.contains('trustedtype-policy-violation'),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  title: const Text('trustedtype-policy-violation'),
+                  onChanged: (_) =>
+                      _toggleCspViolation('trustedtype-policy-violation'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            icon: Icons.list_alt_rounded,
+            title: isZh ? '全局事件监听器（window）' : 'Global Listeners (window)',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _globalListeners == null
+                            ? (isZh ? '点击右侧按钮抓取一次。' : 'Click to fetch.')
+                            : (isZh
+                                ? '共 ${_globalListeners!.length} 个监听器'
+                                : '${_globalListeners!.length} listeners'),
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: _gListLoading ? null : _refreshGlobalListeners,
+                      icon: _gListLoading
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh_rounded, size: 18),
+                      label: Text(isZh ? '刷新' : 'Refresh'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_globalListeners != null && _globalListeners!.isNotEmpty)
+                  ...[
+                    for (final l in _globalListeners!)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          children: [
+                            Icon(Icons.bolt_rounded,
+                                size: 14, color: cs.tertiary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${l['type']}'
+                                '${l['useCapture'] == true ? ' · capture' : ''}'
+                                '${l['passive'] == true ? ' · passive' : ''}'
+                                '${l['once'] == true ? ' · once' : ''}',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ),
+                            Text(
+                              '${l['scriptId'] ?? ''}:${l['lineNumber'] ?? ''}',
+                              style: theme.textTheme.labelSmall
+                                  ?.copyWith(color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+              ],
+            ),
+          ),
         ],
       ),
     );
-  }
-
-  String _shortUrl(String u) {
-    final lastSlash = u.lastIndexOf('/');
-    if (lastSlash < 0 || lastSlash == u.length - 1) return u;
-    return u.substring(lastSlash + 1);
   }
 }
 

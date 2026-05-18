@@ -58,10 +58,31 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   void initState() {
     super.initState();
     _bootstrap();
+    widget.controller.addListener(_onCtrlChanged);
+  }
+
+  void _onCtrlChanged() {
+    if (!mounted) return;
+    // 暂停状态变更时刷新调试器侧栏 + 把当前栈帧位置滚到视野中央。
+    final paused = widget.controller.pausedState;
+    if (paused != null && paused.callFrames.isNotEmpty) {
+      final loc = paused.callFrames.first['location'] as Map?;
+      final url = '${paused.callFrames.first['url'] ?? ''}';
+      final line = (loc?['lineNumber'] as num?)?.toInt() ?? -1;
+      if (line >= 0 && url.isNotEmpty) {
+        // 异步避免在 listener 回调里直接 setState 触发框架告警。
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          requestJumpTo(url: url, line: line, col: 0);
+        });
+      }
+    }
+    setState(() {});
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onCtrlChanged);
     _hoverDebounce?.cancel();
     _highlightTimer?.cancel();
     _sourceScroll.dispose();
@@ -1093,11 +1114,16 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             ),
           ),
         ),
+        // 调试器侧栏：Call Stack / Scope / Watch / Breakpoints / EventListener
+        // / DOM / CSP / Global Listeners。pausedState 变化时由 _onCtrlChanged
+        // 触发 setState 刷新。
+        _DebuggerSideRail(
+          controller: widget.controller,
+          isZh: widget.isZh,
+        ),
       ],
     );
   }
-
-  /// 估算指定行渲染宽度，让 _SourceHoverBubble 紧贴行尾出现。
   double _estimateLineWidth(String line) {
     if (line.isEmpty) return 0;
     final tp = TextPainter(
@@ -1286,6 +1312,483 @@ class _SourcesGlobalSearchDialogState
   }
 }
 
+
+/// 调试器右侧栏：暂停时显示 Call Stack / Scope / Watch，未暂停时仅显示
+/// Watch + 「点页面任何一行可触发暂停」提示。所有项随 controller.notify 自动
+/// 刷新；evaluateWatch 内部会按 paused 状态自动切换 evaluateOnCallFrame /
+/// Runtime.evaluate。AnimatedSize 控制展开收起。
+class _DebuggerSideRail extends StatefulWidget {
+  const _DebuggerSideRail({required this.controller, required this.isZh});
+  final WebReverseSessionController controller;
+  final bool isZh;
+  @override
+  State<_DebuggerSideRail> createState() => _DebuggerSideRailState();
+}
+
+class _DebuggerSideRailState extends State<_DebuggerSideRail> {
+  final TextEditingController _watchCtrl = TextEditingController();
+  final Map<String, String> _watchValues = <String, String>{};
+  int _selectedFrame = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onCtrl);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onCtrl);
+    _watchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onCtrl() {
+    if (!mounted) return;
+    _selectedFrame = 0;
+    _evaluateAllWatches();
+    setState(() {});
+  }
+
+  Future<void> _evaluateAllWatches() async {
+    for (final w in widget.controller.watchExpressions) {
+      final r = await widget.controller.evaluateWatch(w);
+      if (!mounted) return;
+      _watchValues[w] = _formatRemote(r);
+    }
+    if (mounted) setState(() {});
+  }
+
+  String _formatRemote(Map<String, Object?>? r) {
+    if (r == null) return '<n/a>';
+    if (r['type'] == 'error') return 'Error: ${r['description']}';
+    final desc = r['description'] ?? r['value'];
+    return '$desc';
+  }
+
+  Future<void> _addWatch() async {
+    final v = _watchCtrl.text.trim();
+    if (v.isEmpty) return;
+    widget.controller.addWatchExpression(v);
+    _watchCtrl.clear();
+    final r = await widget.controller.evaluateWatch(v);
+    if (!mounted) return;
+    setState(() => _watchValues[v] = _formatRemote(r));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    final paused = widget.controller.pausedState;
+    final frames = paused?.callFrames ?? const <Map<String, Object?>>[];
+    final selFrame = frames.isNotEmpty
+        ? frames[_selectedFrame.clamp(0, frames.length - 1)]
+        : null;
+    final scopeChain = (selFrame?['scopeChain'] as List?) ?? const [];
+
+    return Container(
+      width: 300,
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: cs.outlineVariant)),
+      ),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+        children: [
+          if (paused != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: cs.errorContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.pause_circle_filled_rounded,
+                      size: 16, color: cs.onErrorContainer),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      isZh
+                          ? '已暂停 · ${paused.reason}'
+                          : 'Paused · ${paused.reason}',
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: cs.onErrorContainer),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: isZh ? '继续' : 'Resume',
+                    iconSize: 18,
+                    onPressed: () => widget.controller.resumeDebugger(),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                  ),
+                  IconButton(
+                    tooltip: isZh ? '单步跳过' : 'Step over',
+                    iconSize: 18,
+                    onPressed: () => widget.controller.stepOverDebugger(),
+                    icon: const Icon(Icons.redo_rounded),
+                  ),
+                  IconButton(
+                    tooltip: isZh ? '单步进入' : 'Step into',
+                    iconSize: 18,
+                    onPressed: () => widget.controller.stepIntoDebugger(),
+                    icon: const Icon(
+                        Icons.subdirectory_arrow_right_rounded),
+                  ),
+                  IconButton(
+                    tooltip: isZh ? '单步跳出' : 'Step out',
+                    iconSize: 18,
+                    onPressed: () => widget.controller.stepOutDebugger(),
+                    icon:
+                        const Icon(Icons.subdirectory_arrow_left_rounded),
+                  ),
+                ],
+              ),
+            ),
+          if (paused != null) ...[
+            const SizedBox(height: 10),
+            _RailCard(
+              title: isZh ? '调用栈' : 'Call Stack',
+              icon: Icons.layers_rounded,
+              child: Column(
+                children: [
+                  for (var i = 0; i < frames.length; i++)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => setState(() => _selectedFrame = i),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: i == _selectedFrame
+                              ? cs.primaryContainer
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              i == 0
+                                  ? Icons.play_arrow_rounded
+                                  : Icons.circle_outlined,
+                              size: 12,
+                              color: cs.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                (frames[i]['functionName']
+                                                ?.toString()
+                                                .isNotEmpty ==
+                                            true
+                                        ? frames[i]['functionName']
+                                        : '<anonymous>')
+                                    .toString(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ),
+                            Text(
+                              ':${(frames[i]['location'] as Map?)?['lineNumber'] ?? '?'}',
+                              style: theme.textTheme.labelSmall
+                                  ?.copyWith(color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            _RailCard(
+              title: isZh ? '作用域' : 'Scope',
+              icon: Icons.account_tree_outlined,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final s in scopeChain.whereType<Map>())
+                    _ScopeSection(
+                      controller: widget.controller,
+                      scope: s.cast<String, Object?>(),
+                      isZh: isZh,
+                    ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          _RailCard(
+            title: isZh ? '观察' : 'Watch',
+            icon: Icons.visibility_outlined,
+            trailing: IconButton(
+              tooltip: isZh ? '全部重算' : 'Re-evaluate',
+              iconSize: 16,
+              onPressed: _evaluateAllWatches,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _watchCtrl,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: const OutlineInputBorder(),
+                          hintText:
+                              isZh ? '表达式（回车添加）' : 'expression (Enter)',
+                        ),
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 12),
+                        onSubmitted: (_) => _addWatch(),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      onPressed: _addWatch,
+                      iconSize: 18,
+                      icon: const Icon(Icons.add_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                for (final w in widget.controller.watchExpressions)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.chevron_right_rounded,
+                            size: 14, color: cs.primary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SelectableText(
+                                w,
+                                style: const TextStyle(
+                                    fontFamily: 'monospace', fontSize: 11.5),
+                              ),
+                              SelectableText(
+                                _watchValues[w] ?? '...',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  fontFamily: 'monospace',
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          iconSize: 14,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 24, minHeight: 24),
+                          icon: Icon(Icons.close_rounded, color: cs.error),
+                          onPressed: () {
+                            widget.controller.removeWatchExpression(w);
+                            _watchValues.remove(w);
+                            setState(() {});
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isZh
+                ? '更多断点（XHR / EventListener / DOM / CSP / 全局监听器）请打开「Breakpoints」标签页。'
+                : 'More breakpoint types in the Breakpoints tab.',
+            style: theme.textTheme.labelSmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RailCard extends StatelessWidget {
+  const _RailCard({
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.trailing,
+  });
+  final String title;
+  final IconData icon;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      padding: const EdgeInsets.fromLTRB(10, 8, 6, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: cs.primary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.labelMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Scope 卡片中单个 scope（local / closure / global）的展开行：第一次展开时
+/// 通过 `Runtime.getProperties` 拉一次属性列表并缓存到 State。
+class _ScopeSection extends StatefulWidget {
+  const _ScopeSection({
+    required this.controller,
+    required this.scope,
+    required this.isZh,
+  });
+  final WebReverseSessionController controller;
+  final Map<String, Object?> scope;
+  final bool isZh;
+  @override
+  State<_ScopeSection> createState() => _ScopeSectionState();
+}
+
+class _ScopeSectionState extends State<_ScopeSection> {
+  bool _expanded = false;
+  bool _loading = false;
+  List<Map<String, Object?>>? _props;
+
+  Future<void> _toggle() async {
+    if (_expanded) {
+      setState(() => _expanded = false);
+      return;
+    }
+    setState(() => _expanded = true);
+    if (_props != null) return;
+    final obj = widget.scope['object'] as Map?;
+    final objectId = obj?['objectId'] as String?;
+    if (objectId == null) return;
+    setState(() => _loading = true);
+    final list = await widget.controller
+        .runtimeGetProperties(objectId: objectId, ownProperties: true);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _props = list;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final type = '${widget.scope['type'] ?? 'scope'}';
+    final name = widget.scope['name'] as String?;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: _toggle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    _expanded
+                        ? Icons.expand_more_rounded
+                        : Icons.chevron_right_rounded,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    name == null || name.isEmpty ? type : '$type · $name',
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.only(left: 18),
+              child: _loading
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final p in (_props ?? const []).take(120))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 1),
+                            child: RichText(
+                              text: TextSpan(
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    color: cs.onSurface),
+                                children: [
+                                  TextSpan(
+                                    text: '${p['name']}',
+                                    style: TextStyle(color: cs.primary),
+                                  ),
+                                  const TextSpan(text: ': '),
+                                  TextSpan(
+                                    text:
+                                        '${(p['value'] as Map?)?['description'] ?? (p['value'] as Map?)?['value'] ?? ''}',
+                                    style:
+                                        TextStyle(color: cs.onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 /// LSP hover 浮窗：贴在当前悬停行的行尾。鼠标移开 → MouseRegion.onExit
 /// 触发 _clearAutoHover 让父组件 setState 把它销毁。Loading 状态下显示
