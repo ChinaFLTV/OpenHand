@@ -394,6 +394,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.network_check_rounded,
+        title: isZh ? '网络限速模拟' : 'Network Throttle',
+        subtitle: isZh
+            ? 'Network.emulateNetworkConditions 预设/自定义 kbps + 延迟 + 离线 + 禁用缓存'
+            : 'Network.emulateNetworkConditions presets/custom kbps + latency + offline + cache off',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseThrottleDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
