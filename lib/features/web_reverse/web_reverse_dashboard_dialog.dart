@@ -32,6 +32,7 @@ import 'web_reverse_request_breakpoints_dialog.dart';
 import 'web_reverse_account_snapshots_dialog.dart';
 import 'web_reverse_coverage_dialog.dart';
 import 'web_reverse_collection_export_dialog.dart';
+import 'web_reverse_dom_mutation_dialog.dart';
 import 'web_reverse_mock_rules_dialog.dart';
 import 'web_reverse_watch_dialog.dart';
 import 'web_reverse_ws_inject_dialog.dart';

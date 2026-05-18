@@ -274,6 +274,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.timeline_rounded,
+        title: isZh ? 'DOM Mutation 录制' : 'DOM Mutation Recorder',
+        subtitle: isZh
+            ? '注入 MutationObserver → attributes/characterData/childList 时间线'
+            : 'Inject MutationObserver → timeline of all DOM changes',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseDomMutationDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
