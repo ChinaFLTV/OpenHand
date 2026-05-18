@@ -229,6 +229,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.wifi_tethering_rounded,
+        title: isZh ? 'WebSocket 主动注入' : 'WebSocket Inject',
+        subtitle: isZh
+            ? '代理 window.WebSocket → 选中连接 → 注入任意文本帧'
+            : 'Proxy window.WebSocket → pick a socket → inject any text frame',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseWsInjectDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
