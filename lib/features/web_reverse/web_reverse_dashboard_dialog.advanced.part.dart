@@ -244,6 +244,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.alt_route_rounded,
+        title: isZh ? '本地 Mock 拦截' : 'Local Mock',
+        subtitle: isZh
+            ? 'URL 通配命中 → 自定义 status/headers/body 直接返回'
+            : 'URL match → return canned status/headers/body',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseMockRulesDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

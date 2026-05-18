@@ -4259,6 +4259,14 @@ class WebReverseSessionController extends ChangeNotifier {
     final request = p['request'] as Map?;
     if (requestId.isEmpty || request == null) return;
     final url = '${request['url'] ?? ''}';
+    final reqMethod = '${request['method'] ?? 'GET'}';
+    // Local Mock：最高优先级。命中 mock 规则 → 用 Fetch.fulfillRequest
+    // 直接回一段假数据短路网络层（典型场景：本地占位 / 测试 401/500 边界）。
+    final mock = _matchMockRule(reqMethod, url);
+    if (mock != null) {
+      unawaited(_fulfillMockRequest(requestId, mock));
+      return;
+    }
     // 自动规则匹配：先看匹配到的第一条 rule，决定是 block / rewrite / 放行。
     final rule = _matchInterceptRule(url);
     if (rule != null) {
@@ -4328,6 +4336,94 @@ class WebReverseSessionController extends ChangeNotifier {
       if (r.matches(url)) return r;
     }
     return null;
+  }
+
+  // ───────────────────── Local Mock 拦截 ─────────────────────
+  // 与 InterceptRule 平行；命中即用 Fetch.fulfillRequest 短路网络层。
+  final List<WebReverseMockRule> _mockRules = <WebReverseMockRule>[];
+  final List<WebReverseMockHit> _mockHits = <WebReverseMockHit>[];
+  static const int _maxMockHits = 200;
+
+  List<WebReverseMockRule> get mockRules =>
+      List<WebReverseMockRule>.unmodifiable(_mockRules);
+  List<WebReverseMockHit> get mockHits =>
+      List<WebReverseMockHit>.unmodifiable(_mockHits);
+
+  void setMockRules(List<WebReverseMockRule> rules) {
+    _mockRules
+      ..clear()
+      ..addAll(rules);
+    _safeNotify();
+  }
+
+  void clearMockHits() {
+    _mockHits.clear();
+    _safeNotify();
+  }
+
+  WebReverseMockRule? _matchMockRule(String method, String url) {
+    final mu = method.toUpperCase();
+    for (final r in _mockRules) {
+      if (!r.enabled) continue;
+      if (r.methodFilter.isNotEmpty && r.methodFilter.toUpperCase() != mu) {
+        continue;
+      }
+      if (r.matches(url)) return r;
+    }
+    return null;
+  }
+
+  Future<void> _fulfillMockRequest(
+    String requestId,
+    WebReverseMockRule rule,
+  ) async {
+    final cdp = _browserCdp;
+    if (cdp == null) return;
+    try {
+      final bytes = utf8.encode(rule.body);
+      final body = base64Encode(bytes);
+      final headers = <Map<String, Object?>>[
+        <String, Object?>{
+          'name': 'content-type',
+          'value': rule.contentType.isEmpty
+              ? 'application/json; charset=utf-8'
+              : rule.contentType,
+        },
+        for (final e in rule.extraHeaders.entries)
+          <String, Object?>{'name': e.key, 'value': e.value},
+      ];
+      await cdp.send(
+        'Fetch.fulfillRequest',
+        params: <String, Object?>{
+          'requestId': requestId,
+          'responseCode': rule.statusCode,
+          'responseHeaders': headers,
+          'body': body,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 5),
+      );
+      _mockHits.insert(
+        0,
+        WebReverseMockHit(
+          ruleId: rule.id,
+          ruleName: rule.name,
+          status: rule.statusCode,
+          at: DateTime.now(),
+        ),
+      );
+      while (_mockHits.length > _maxMockHits) {
+        _mockHits.removeLast();
+      }
+      _safeNotify();
+    } catch (e, st) {
+      silentLog(
+        'web_reverse_session_controller',
+        '_fulfillMockRequest',
+        e,
+        st,
+      );
+    }
   }
 
   /// 已被屏蔽的 URL pattern 集合（CDP `Network.setBlockedURLs`）。
@@ -6314,4 +6410,105 @@ class WebReverseAccountSnapshot {
         'localStorage': localStorage,
         'sessionStorage': sessionStorage,
       };
+}
+
+/// 本地 Mock 规则：URL 通配命中即用 Fetch.fulfillRequest 直接回 [statusCode]
+/// + [body] + [contentType] + [extraHeaders]。methodFilter 留空表示全部方法。
+class WebReverseMockRule {
+  const WebReverseMockRule({
+    required this.id,
+    required this.name,
+    required this.urlPattern,
+    this.enabled = true,
+    this.methodFilter = '',
+    this.statusCode = 200,
+    this.contentType = 'application/json; charset=utf-8',
+    this.body = '{}',
+    this.extraHeaders = const <String, String>{},
+  });
+
+  factory WebReverseMockRule.fromJson(Map<String, Object?> j) =>
+      WebReverseMockRule(
+        id: '${j['id'] ?? ''}',
+        name: '${j['name'] ?? ''}',
+        urlPattern: '${j['urlPattern'] ?? ''}',
+        enabled: j['enabled'] != false,
+        methodFilter: '${j['method'] ?? ''}',
+        statusCode: (j['status'] as num?)?.toInt() ?? 200,
+        contentType: '${j['contentType'] ?? 'application/json; charset=utf-8'}',
+        body: '${j['body'] ?? ''}',
+        extraHeaders: (j['headers'] as Map?)
+                ?.map((k, v) => MapEntry('$k', '$v')) ??
+            const <String, String>{},
+      );
+
+  final String id;
+  final String name;
+  final String urlPattern;
+  final bool enabled;
+  final String methodFilter;
+  final int statusCode;
+  final String contentType;
+  final String body;
+  final Map<String, String> extraHeaders;
+
+  bool matches(String url) {
+    if (urlPattern.isEmpty) return false;
+    final regexSrc = urlPattern
+        .split(RegExp(r'([*?])'))
+        .map(RegExp.escape)
+        .join()
+        .replaceAll(r'\*', '.*')
+        .replaceAll(r'\?', '.');
+    return RegExp('^$regexSrc\$', caseSensitive: false).hasMatch(url);
+  }
+
+  WebReverseMockRule copyWith({
+    String? id,
+    String? name,
+    String? urlPattern,
+    bool? enabled,
+    String? methodFilter,
+    int? statusCode,
+    String? contentType,
+    String? body,
+    Map<String, String>? extraHeaders,
+  }) =>
+      WebReverseMockRule(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        urlPattern: urlPattern ?? this.urlPattern,
+        enabled: enabled ?? this.enabled,
+        methodFilter: methodFilter ?? this.methodFilter,
+        statusCode: statusCode ?? this.statusCode,
+        contentType: contentType ?? this.contentType,
+        body: body ?? this.body,
+        extraHeaders: extraHeaders ?? this.extraHeaders,
+      );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'id': id,
+        'name': name,
+        'urlPattern': urlPattern,
+        'enabled': enabled,
+        'method': methodFilter,
+        'status': statusCode,
+        'contentType': contentType,
+        'body': body,
+        'headers': extraHeaders,
+      };
+}
+
+/// 单次 mock 命中记录。
+class WebReverseMockHit {
+  const WebReverseMockHit({
+    required this.ruleId,
+    required this.ruleName,
+    required this.status,
+    required this.at,
+  });
+  final String ruleId;
+  final String ruleName;
+  final int status;
+  final DateTime at;
 }
