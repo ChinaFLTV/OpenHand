@@ -20,6 +20,49 @@ part of 'web_reverse_dashboard_dialog.dart';
 //      调 `reconfigureScreencast`，让浏览器侧 maxWidth/maxHeight 跟手。
 // ─────────────────────────────────────────────────────────────────────────
 
+// LogicalKeyboardKey → (CDP key, CDP code, windowsVirtualKeyCode) 静态表。
+// 仅覆盖 character 为空的"功能键 / 控制键"；可打印字符直接走 character。
+// 值来自 W3C UI Events code list 与 Windows VK 常量。
+final Map<LogicalKeyboardKey, (String, String?, int?)> _kCdpSpecialKey = {
+  LogicalKeyboardKey.backspace: ('Backspace', 'Backspace', 8),
+  LogicalKeyboardKey.tab: ('Tab', 'Tab', 9),
+  LogicalKeyboardKey.enter: ('Enter', 'Enter', 13),
+  LogicalKeyboardKey.numpadEnter: ('Enter', 'NumpadEnter', 13),
+  LogicalKeyboardKey.escape: ('Escape', 'Escape', 27),
+  LogicalKeyboardKey.space: (' ', 'Space', 32),
+  LogicalKeyboardKey.pageUp: ('PageUp', 'PageUp', 33),
+  LogicalKeyboardKey.pageDown: ('PageDown', 'PageDown', 34),
+  LogicalKeyboardKey.end: ('End', 'End', 35),
+  LogicalKeyboardKey.home: ('Home', 'Home', 36),
+  LogicalKeyboardKey.arrowLeft: ('ArrowLeft', 'ArrowLeft', 37),
+  LogicalKeyboardKey.arrowUp: ('ArrowUp', 'ArrowUp', 38),
+  LogicalKeyboardKey.arrowRight: ('ArrowRight', 'ArrowRight', 39),
+  LogicalKeyboardKey.arrowDown: ('ArrowDown', 'ArrowDown', 40),
+  LogicalKeyboardKey.delete: ('Delete', 'Delete', 46),
+  LogicalKeyboardKey.insert: ('Insert', 'Insert', 45),
+  LogicalKeyboardKey.shiftLeft: ('Shift', 'ShiftLeft', 16),
+  LogicalKeyboardKey.shiftRight: ('Shift', 'ShiftRight', 16),
+  LogicalKeyboardKey.controlLeft: ('Control', 'ControlLeft', 17),
+  LogicalKeyboardKey.controlRight: ('Control', 'ControlRight', 17),
+  LogicalKeyboardKey.altLeft: ('Alt', 'AltLeft', 18),
+  LogicalKeyboardKey.altRight: ('Alt', 'AltRight', 18),
+  LogicalKeyboardKey.metaLeft: ('Meta', 'MetaLeft', 91),
+  LogicalKeyboardKey.metaRight: ('Meta', 'MetaRight', 93),
+  LogicalKeyboardKey.capsLock: ('CapsLock', 'CapsLock', 20),
+  LogicalKeyboardKey.f1: ('F1', 'F1', 112),
+  LogicalKeyboardKey.f2: ('F2', 'F2', 113),
+  LogicalKeyboardKey.f3: ('F3', 'F3', 114),
+  LogicalKeyboardKey.f4: ('F4', 'F4', 115),
+  LogicalKeyboardKey.f5: ('F5', 'F5', 116),
+  LogicalKeyboardKey.f6: ('F6', 'F6', 117),
+  LogicalKeyboardKey.f7: ('F7', 'F7', 118),
+  LogicalKeyboardKey.f8: ('F8', 'F8', 119),
+  LogicalKeyboardKey.f9: ('F9', 'F9', 120),
+  LogicalKeyboardKey.f10: ('F10', 'F10', 121),
+  LogicalKeyboardKey.f11: ('F11', 'F11', 122),
+  LogicalKeyboardKey.f12: ('F12', 'F12', 123),
+};
+
 class _BrowserBody extends StatefulWidget {
   const _BrowserBody({
     required this.controller,
@@ -96,6 +139,12 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 走的 Focus.onKeyEvent 重复下发文本字符。
   TextInputConnection? _imeConnection;
   TextEditingValue _lastImeValue = TextEditingValue.empty;
+  // 2026-06-04 — CJK 输入模式开关。默认关闭：所有按键经 HardwareKeyboard
+  // → `_handleKey` → CDP 透传，Backspace / 方向键 / 标点都生效，但 macOS
+  // 输入法激活时无法在内嵌页面打中文 / 日文 / 韩文。开启后挂 TextInput
+  // connection 走 [updateEditingValue] diff，CJK 候选词上屏可用，但部分
+  // 特殊键会被 IMK 拦截。用户可在地址栏按钮上手动 toggle。
+  bool _cjkInputEnabled = false;
 
   @override
   void initState() {
@@ -570,6 +619,19 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    // 2026-06-04 — ESC 是唯一不下发到浏览器的按键：交给外层
+    // `_EscapeDismissDialogScope` 关闭整个 Web 逆向调试弹窗（find bar 已开
+    // 时优先关 find bar）。其它所有按键统一通过 CDP `Input.dispatchKeyEvent`
+    // 透传给浏览器侧 —— 不再走 IME 中转，因为 macOS IMK 会吞 Backspace /
+    // Arrow / 标点。
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_findBarOpen) {
+        _closeFindBar();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
     // 顶级快捷键拦截（Cmd on macOS / Ctrl elsewhere）：browser-like 操作走
     // 我们自己的 controller，不下发到浏览器侧（浏览器自身的快捷键被
     // screencast 屏蔽，需要 Flutter 端实现）。仅在 KeyDown 时触发，避免
@@ -585,6 +647,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       final cmd = Platform.isMacOS ? hasMeta : hasCtrl;
       if (cmd) {
         final key = event.logicalKey;
+        // 2026-06-04 — Cmd/Ctrl+V 走系统剪贴板透传：读取 Flutter 端
+        // `Clipboard.getData('text/plain')`，通过 CDP `Input.insertText`
+        // 注入到当前焦点输入框。直接模拟 Cmd+V 的旧路径只能让浏览器拿到
+        // 它自己进程里的剪贴板（headless Chromium 通常是空的），剪贴桥
+        // 不通。
+        if (key == LogicalKeyboardKey.keyV) {
+          unawaited(_shortcutPasteFromHostClipboard());
+          return KeyEventResult.handled;
+        }
         if (key == LogicalKeyboardKey.keyT) {
           unawaited(_shortcutNewTab());
           return KeyEventResult.handled;
@@ -630,40 +701,40 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           return KeyEventResult.handled;
         }
       }
-      // Esc 关闭 find bar
-      if (event.logicalKey == LogicalKeyboardKey.escape && _findBarOpen) {
-        _closeFindBar();
-        return KeyEventResult.handled;
-      }
     }
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      final keyId = event.logicalKey.keyId;
-      // 文本键（character 非空且为单字符）走 char 分发；功能键走 keyDown。
+      final meta = _cdpKeyMeta(event);
       final ch = event.character;
-      if (ch != null && ch.isNotEmpty && keyId < 0x100) {
-        widget.controller.dispatchKeyEvent(
-          type: 'keyDown',
-          key: ch,
-          text: ch,
-          modifiers: _modifiersFromKeys(),
-          autoRepeat: event is KeyRepeatEvent,
-        );
-        return KeyEventResult.handled;
-      }
+      final hasPrintable = ch != null && ch.isNotEmpty && ch.codeUnitAt(0) >= 0x20;
+      // 2026-06-05 — keyDown 一律不带 text；可打印字符通过紧随其后的 char
+      // 事件写入文本节点。若 keyDown 也带 text，Chromium 会同时触发 keydown
+      // 的默认插入路径 + char 的 textInput 路径，导致每个字符被写入两次
+      // （bug：输入 "h" 浏览器显示 "hh"）。
       widget.controller.dispatchKeyEvent(
-        type: 'rawKeyDown',
-        key: _logicalKeyName(event.logicalKey),
-        code: event.physicalKey.debugName,
+        type: hasPrintable ? 'keyDown' : 'rawKeyDown',
+        key: meta.key,
+        code: meta.code,
+        windowsVirtualKeyCode: meta.vk,
         modifiers: _modifiersFromKeys(),
         autoRepeat: event is KeyRepeatEvent,
       );
+      if (hasPrintable) {
+        widget.controller.dispatchKeyEvent(
+          type: 'char',
+          key: ch,
+          text: ch,
+          modifiers: _modifiersFromKeys(),
+        );
+      }
       return KeyEventResult.handled;
     }
     if (event is KeyUpEvent) {
+      final meta = _cdpKeyMeta(event);
       widget.controller.dispatchKeyEvent(
         type: 'keyUp',
-        key: _logicalKeyName(event.logicalKey),
-        code: event.physicalKey.debugName,
+        key: meta.key,
+        code: meta.code,
+        windowsVirtualKeyCode: meta.vk,
         modifiers: _modifiersFromKeys(),
       );
       return KeyEventResult.handled;
@@ -676,6 +747,24 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   Future<void> _shortcutNewTab() async {
     final id = await widget.controller.createPageTarget();
     if (id != null) await widget.controller.switchToPageTarget(id);
+  }
+
+  /// 读取宿主系统剪贴板的纯文本，按 CDP `Input.insertText` 注入到当前焦点
+  /// 输入框。空剪贴板或非文本内容静默忽略。
+  Future<void> _shortcutPasteFromHostClipboard() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text;
+      if (text == null || text.isEmpty) return;
+      await widget.controller.insertText(text);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        '_shortcutPasteFromHostClipboard',
+        error,
+        stack,
+      );
+    }
   }
 
   Future<void> _shortcutCloseTab() async {
@@ -755,17 +844,63 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     await widget.controller.findCycleNext(forward: false);
   }
 
-  String _logicalKeyName(LogicalKeyboardKey key) {
-    final k = key.keyLabel;
-    if (k.isNotEmpty) return k;
-    return key.debugName ?? '';
+  /// 把 Flutter [KeyEvent] 折成 CDP `Input.dispatchKeyEvent` 期待的三元组：
+  ///   * `key`  ——  W3C UI Events `KeyboardEvent.key`（字符自身或 "Backspace"
+  ///                "ArrowUp" "Enter" 等控制名）。
+  ///   * `code` ——  W3C `KeyboardEvent.code`（"KeyA" / "Digit1" / "ArrowUp"
+  ///                / "ShiftLeft"），表示物理键位置。
+  ///   * `vk`   ——  Windows virtual-key-code（VK_BACK=8 / VK_RETURN=13 /
+  ///                方向键 37–40 等），Chromium 用它生成 `keyCode` 兼容历史
+  ///                Web 代码。
+  /// 这是 Backspace / 方向键 / Enter / 标点真正能落到内嵌页面输入框的关键。
+  ({String? key, String? code, int? vk}) _cdpKeyMeta(KeyEvent event) {
+    final logical = event.logicalKey;
+    final phys = event.physicalKey;
+    final special = _kCdpSpecialKey[logical];
+    if (special != null) {
+      return (key: special.$1, code: special.$2 ?? phys.debugName, vk: special.$3);
+    }
+    final ch = event.character;
+    if (ch != null && ch.isNotEmpty) {
+      // 字母 / 数字 / 标点：key = 字符；code 用 physical 名字；vk 取 ASCII
+      // 大写值（Chromium 行为）。
+      final upper = ch.toUpperCase();
+      final cu = upper.codeUnitAt(0);
+      return (key: ch, code: phys.debugName, vk: cu < 0x80 ? cu : null);
+    }
+    // 兜底：用 logical keyLabel 或 debugName，CDP 拿到非标准值时会忽略
+    // 但至少不抛异常。
+    final label = logical.keyLabel;
+    return (
+      key: label.isNotEmpty ? label : (logical.debugName ?? ''),
+      code: phys.debugName,
+      vk: null,
+    );
   }
 
   // ── IME 桥实现 ────────────────────────────────────────────────────────
 
   void _onSurfaceFocusChanged() {
     if (!mounted) return;
-    if (_surfaceFocus.hasFocus) {
+    // 2026-06-04 — 默认不随焦点挂 IME（macOS IMK 会吞 Backspace / 方向键 /
+    // 标点 / Enter）；仅在用户显式开启 CJK 输入模式时，surface 拿焦才挂
+    // TextInput connection，丢焦立即断。
+    if (_cjkInputEnabled && _surfaceFocus.hasFocus) {
+      _attachImeConnection();
+    } else {
+      _detachImeConnection();
+    }
+  }
+
+  /// 切换 CJK 输入模式（地址栏键盘按钮触发）。开启后将挂 TextInput
+  /// connection，让 macOS IME 把候选词通过 [updateEditingValue] 提交到内嵌
+  /// 页面；关闭后立即断开，恢复物理键直通。
+  void _toggleCjkInput() {
+    if (!mounted) return;
+    setState(() {
+      _cjkInputEnabled = !_cjkInputEnabled;
+    });
+    if (_cjkInputEnabled && _surfaceFocus.hasFocus) {
       _attachImeConnection();
     } else {
       _detachImeConnection();
@@ -1183,7 +1318,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       case 'copy':
         await sendShortcut('c');
       case 'paste':
-        await sendShortcut('v');
+        // 走宿主系统剪贴板，与 Cmd/Ctrl+V 透传同源；headless Chromium
+        // 自己进程的剪贴板默认是空的，直接模拟 Cmd+V 会粘贴失败。
+        await _shortcutPasteFromHostClipboard();
       case 'selectAll':
         await sendShortcut('a');
       case 'reload':
@@ -1247,14 +1384,18 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         _buildAddressBar(theme, cs, isZh, ctrl),
         const SizedBox(height: 8),
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final renderSize =
-                  Size(constraints.maxWidth, constraints.maxHeight);
-              _scheduleViewportSync(renderSize, dpr);
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                child: ClipRRect(
+          // 2026-06-04 — LayoutBuilder 必须包在 Padding 内部，否则 constraints
+          // 是 Padding 外层尺寸（含 12+12 横向、12 纵向留白），而 Listener 实际
+          // 命中区是 Padding 内层；二者错位导致 `_toViewport` 把右下角的点击
+          // 投影到画面之外，"点不到截图边缘按钮"。
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final renderSize =
+                    Size(constraints.maxWidth, constraints.maxHeight);
+                _scheduleViewportSync(renderSize, dpr);
+                return ClipRRect(
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
                     decoration: BoxDecoration(
@@ -1359,9 +1500,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                       ],
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -1521,6 +1662,21 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           ),
           const SizedBox(width: 6),
           _NavIconButton(
+            tooltip: _cjkInputEnabled
+                ? (isZh
+                    ? '关闭中文输入（默认按键直发，特殊键全可用）'
+                    : 'Disable CJK input (default raw key passthrough)')
+                : (isZh
+                    ? '开启中文输入（中/日/韩 IME 候选词上屏，部分特殊键可能被 IME 拦截）'
+                    : 'Enable CJK input (IME composition; some special keys may be captured)'),
+            icon: _cjkInputEnabled
+                ? Icons.keyboard_alt_rounded
+                : Icons.keyboard_alt_outlined,
+            tinted: _cjkInputEnabled,
+            onPressed: _toggleCjkInput,
+          ),
+          const SizedBox(width: 6),
+          _NavIconButton(
             tooltip: isZh ? '保存当前帧' : 'Save current frame',
             icon: Icons.photo_camera_outlined,
             onPressed: alive ? _saveCurrentFrame : null,
@@ -1641,11 +1797,13 @@ class _NavIconButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.tinted = false,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
+  final bool tinted;
 
   @override
   Widget build(BuildContext context) {
@@ -1658,13 +1816,17 @@ class _NavIconButton extends StatelessWidget {
         height: _kToolbarHeight,
         width: _kToolbarHeight,
         child: Material(
-          color: Colors.transparent,
+          color: tinted
+              ? cs.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(_kToolbarRadius),
             side: BorderSide(
-              color: enabled
-                  ? cs.outlineVariant
-                  : cs.outlineVariant.withValues(alpha: 0.4),
+              color: tinted
+                  ? cs.primary.withValues(alpha: 0.55)
+                  : (enabled
+                      ? cs.outlineVariant
+                      : cs.outlineVariant.withValues(alpha: 0.4)),
             ),
           ),
           child: InkWell(
@@ -1674,9 +1836,11 @@ class _NavIconButton extends StatelessWidget {
               child: Icon(
                 icon,
                 size: 18,
-                color: enabled
-                    ? cs.onSurface
-                    : cs.onSurface.withValues(alpha: 0.35),
+                color: tinted
+                    ? cs.primary
+                    : (enabled
+                        ? cs.onSurface
+                        : cs.onSurface.withValues(alpha: 0.35)),
               ),
             ),
           ),
