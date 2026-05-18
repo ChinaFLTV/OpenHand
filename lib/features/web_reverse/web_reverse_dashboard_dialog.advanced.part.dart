@@ -559,6 +559,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.devices_other_rounded,
+        title: isZh ? '设备模拟' : 'Device Emulation',
+        subtitle: isZh
+            ? '尺寸 / DPR / mobile flag / UA 覆写'
+            : 'metrics / DPR / mobile / UA override',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseDeviceEmulationDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
