@@ -604,6 +604,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.alt_route_rounded,
+        title: isZh ? 'SourceMap 反解析' : 'SourceMap Resolver',
+        subtitle: isZh
+            ? 'min file:line:col → 原始 source:line:col'
+            : 'min file:line:col → original source:line:col',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseSourceMapDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
