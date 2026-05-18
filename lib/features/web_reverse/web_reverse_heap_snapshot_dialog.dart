@@ -178,32 +178,28 @@ class _HeapDialogState extends State<_HeapDialog> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Row(
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
                   if (_lastSaved.isNotEmpty)
-                    Expanded(
-                      child: OpenHandDialogActionButton.secondary(
-                        label: isZh ? '复制路径' : 'Copy path',
-                        icon: Icons.copy_rounded,
-                        onPressed: _copyPath,
-                      ),
+                    OpenHandDialogActionButton.secondary(
+                      label: isZh ? '复制路径' : 'Copy path',
+                      icon: Icons.copy_rounded,
+                      onPressed: _copyPath,
                     ),
-                  if (_lastSaved.isNotEmpty) const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _busy ? null : _take,
-                      icon: const Icon(Icons.camera_alt_rounded),
-                      label: Text(isZh ? '抓取快照' : 'Take Snapshot'),
-                    ),
+                  OpenHandDialogActionButton.secondary(
+                    label: isZh ? '抓取快照' : 'Take Snapshot',
+                    icon: Icons.camera_alt_rounded,
+                    busy: _busy,
+                    onPressed: _busy ? null : _take,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OpenHandDialogActionButton.primary(
-                      label: isZh ? '关闭' : 'Close',
-                      onPressed: _busy
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                    ),
+                  OpenHandDialogActionButton.primary(
+                    label: isZh ? '关闭' : 'Close',
+                    onPressed: _busy
+                        ? null
+                        : () => Navigator.of(context).pop(),
                   ),
                 ],
               ),

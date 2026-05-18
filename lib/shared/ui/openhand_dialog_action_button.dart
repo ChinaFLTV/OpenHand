@@ -8,22 +8,30 @@ class OpenHandDialogActionButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
+    this.icon,
+    this.busy = false,
   }) : _variant = _OpenHandDialogActionButtonVariant.primary;
 
   const OpenHandDialogActionButton.destructive({
     super.key,
     required this.label,
     required this.onPressed,
+    this.icon,
+    this.busy = false,
   }) : _variant = _OpenHandDialogActionButtonVariant.destructive;
 
   const OpenHandDialogActionButton.secondary({
     super.key,
     required this.label,
     required this.onPressed,
+    this.icon,
+    this.busy = false,
   }) : _variant = _OpenHandDialogActionButtonVariant.secondary;
 
   final String label;
   final VoidCallback? onPressed;
+  final IconData? icon;
+  final bool busy;
   final _OpenHandDialogActionButtonVariant _variant;
 
   @override
@@ -42,13 +50,39 @@ class OpenHandDialogActionButton extends StatelessWidget {
       visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
-    final child = Text(
-      label,
+    final label = Text(
+      this.label,
       maxLines: 1,
       softWrap: false,
       overflow: TextOverflow.fade,
       textAlign: TextAlign.center,
     );
+    Widget child = label;
+    if (busy) {
+      child = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 10),
+          Flexible(child: label),
+        ],
+      );
+    } else if (icon != null) {
+      child = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 8),
+          Flexible(child: label),
+        ],
+      );
+    }
     return SizedBox(
       width: kOpenHandDialogActionButtonWidth,
       height: kOpenHandDialogActionButtonHeight,

@@ -233,27 +233,20 @@ class _ReplDialogState extends State<_ReplDialog> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Row(
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _busy ? null : _run,
-                      icon: _busy
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.play_arrow_rounded),
-                      label: Text(isZh ? '执行 (⌘/Ctrl+Enter)' : 'Run (⌘/Ctrl+Enter)'),
-                    ),
+                  OpenHandDialogActionButton.secondary(
+                    label: isZh ? '执行' : 'Run',
+                    icon: Icons.play_arrow_rounded,
+                    busy: _busy,
+                    onPressed: _busy ? null : _run,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OpenHandDialogActionButton.primary(
-                      label: isZh ? '关闭' : 'Close',
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
+                  OpenHandDialogActionButton.primary(
+                    label: isZh ? '关闭' : 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),

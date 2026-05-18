@@ -416,13 +416,14 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  FilledButton.icon(
+                  OpenHandDialogActionButton.secondary(
+                    label: isZh ? '开始重放' : 'Run Batch',
+                    icon: Icons.send_rounded,
+                    busy: _busy,
                     onPressed: (_busy || _selected.isEmpty) ? null : _runBatch,
-                    icon: const Icon(Icons.send_rounded),
-                    label: Text(isZh ? '开始重放' : 'Run Batch'),
                   ),
                   const SizedBox(width: 8),
-                  OpenHandDialogActionButton.secondary(
+                  OpenHandDialogActionButton.primary(
                     label: isZh ? '关闭' : 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),

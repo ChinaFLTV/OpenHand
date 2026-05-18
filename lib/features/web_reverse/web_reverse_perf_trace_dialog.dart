@@ -44,6 +44,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
   int _lastBytes = 0;
   Timer? _ticker;
   int _ticksLeft = 0;
+  Completer<void>? _earlyStop;
 
   static const List<String> _categories = [
     'devtools.timeline',
@@ -80,9 +81,11 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
   Future<void> _start() async {
     final isZh = widget.isZh;
     final secs = _seconds.round();
+    final earlyStop = Completer<void>();
     setState(() {
       _busy = true;
       _ticksLeft = secs;
+      _earlyStop = earlyStop;
       _status = isZh ? '正在录制（剩余 ${secs}s）' : 'Recording (${secs}s left)';
     });
     _ticker?.cancel();
@@ -100,6 +103,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       json = await widget.controller.recordTrace(
         duration: Duration(seconds: secs),
         categories: _selected.toList(),
+        earlyStop: earlyStop.future,
       );
     } catch (e, s) {
       silentLog('web-reverse', 'perf-trace.record', e, s);
@@ -110,6 +114,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     if (json == null || json.isEmpty) {
       setState(() {
         _busy = false;
+        _earlyStop = null;
         _status = isZh ? '录制失败或无数据' : 'Trace failed or empty';
       });
       return;
@@ -121,6 +126,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     if (!mounted) return;
     setState(() {
       _busy = false;
+      _earlyStop = null;
       _lastSaved = file.path;
       _lastBytes = json!.length;
       _status = isZh
@@ -134,6 +140,16 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
         m,
         isZh ? 'Trace 已保存' : 'Trace saved',
       );
+    }
+  }
+
+  void _stop() {
+    final c = _earlyStop;
+    if (c != null && !c.isCompleted) {
+      c.complete();
+      setState(() {
+        _status = widget.isZh ? '已请求停止，正在收尾…' : 'Stopping, finalizing…';
+      });
     }
   }
 
@@ -283,42 +299,34 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
                   if (_lastSaved.isNotEmpty)
-                    Expanded(
-                      child: OpenHandDialogActionButton.secondary(
-                        label: isZh ? '复制路径' : 'Copy path',
-                        icon: Icons.copy_rounded,
-                        onPressed: _copyPath,
-                      ),
+                    OpenHandDialogActionButton.secondary(
+                      label: isZh ? '复制路径' : 'Copy path',
+                      icon: Icons.copy_rounded,
+                      onPressed: _copyPath,
                     ),
-                  if (_lastSaved.isNotEmpty) const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _busy || _selected.isEmpty ? null : _start,
-                      icon: _busy
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.fiber_manual_record_rounded),
-                      label: Text(
-                        _busy
-                            ? (isZh ? '录制中...' : 'Recording...')
-                            : (isZh ? '开始录制' : 'Start'),
-                      ),
+                  if (_busy)
+                    OpenHandDialogActionButton.destructive(
+                      label: isZh ? '停止录制' : 'Stop',
+                      icon: Icons.stop_circle_rounded,
+                      onPressed: _earlyStop == null ? null : _stop,
+                    )
+                  else
+                    OpenHandDialogActionButton.secondary(
+                      label: isZh ? '开始录制' : 'Start',
+                      icon: Icons.fiber_manual_record_rounded,
+                      onPressed: _selected.isEmpty ? null : _start,
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OpenHandDialogActionButton.primary(
-                      label: isZh ? '关闭' : 'Close',
-                      onPressed: _busy
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                    ),
+                  OpenHandDialogActionButton.primary(
+                    label: isZh ? '关闭' : 'Close',
+                    onPressed: _busy
+                        ? null
+                        : () => Navigator.of(context).pop(),
                   ),
                 ],
               ),

@@ -628,6 +628,8 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 跑一次 `Performance.startTrace` / `stopTrace` 并返回 trace JSON 字符串。
   /// CDP 把 trace 通过 dataCollected 事件分块推；本方法做完整收集。
+  ///
+  /// 传入 [earlyStop]（任一 Future 完成即提前结束）即可在 UI 上提供 Stop。
   Future<String?> recordTrace({
     required Duration duration,
     List<String> categories = const [
@@ -635,6 +637,7 @@ class WebReverseSessionController extends ChangeNotifier {
       'v8.execute',
       'disabled-by-default-devtools.timeline',
     ],
+    Future<void>? earlyStop,
   }) async {
     final cdp = _browserCdp;
     if (cdp == null) return null; // tracing 用 root session
@@ -658,7 +661,12 @@ class WebReverseSessionController extends ChangeNotifier {
         'categories': categories.join(','),
         'transferMode': 'ReportEvents',
       });
-      await Future<void>.delayed(duration);
+      final timeout = Future<void>.delayed(duration);
+      if (earlyStop != null) {
+        await Future.any(<Future<void>>[timeout, earlyStop]);
+      } else {
+        await timeout;
+      }
       await cdp.send('Tracing.end');
       await completer.future
           .timeout(const Duration(seconds: 30), onTimeout: () {});
