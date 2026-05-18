@@ -484,6 +484,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.terminal_rounded,
+        title: isZh ? 'Console REPL' : 'Console REPL',
+        subtitle: isZh
+            ? 'Runtime.evaluate · 多行 JS · 历史记录 + 快捷键'
+            : 'Runtime.evaluate · multi-line JS · history + shortcuts',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseReplDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
