@@ -544,6 +544,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.ads_click_rounded,
+        title: isZh ? '输入事件模拟' : 'Input Simulator',
+        subtitle: isZh
+            ? 'dispatchMouseEvent / dispatchKeyEvent / insertText'
+            : 'dispatchMouseEvent / dispatchKeyEvent / insertText',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseInputSimDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
