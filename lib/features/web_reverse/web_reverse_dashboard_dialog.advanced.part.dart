@@ -424,6 +424,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.cookie_rounded,
+        title: isZh ? 'Cookie 编辑器' : 'Cookie Editor',
+        subtitle: isZh
+            ? 'Network.getCookies / setCookie / deleteCookies 精修级 CRUD'
+            : 'Network.getCookies / setCookie / deleteCookies — fine CRUD',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseCookieEditorDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

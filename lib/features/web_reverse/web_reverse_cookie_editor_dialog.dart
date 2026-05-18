@@ -1,0 +1,592 @@
+/// Cookie 编辑器：通过 `Network.getCookies` / `Network.setCookie` /
+/// `Network.deleteCookies` 完成全量 CRUD。按 domain 分组展示，
+/// 双击行直接进入编辑面板，新增亦走同一个面板。
+///
+/// 与「应用」tab 的 Cookies 视图互补：那里偏批量浏览，这里偏精修。
+library;
+
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_session_controller.dart';
+
+Future<void> showWebReverseCookieEditorDialog(
+  BuildContext context, {
+  required WebReverseSessionController controller,
+  required bool isZh,
+}) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _CookieEditorDialog(controller: controller, isZh: isZh),
+  );
+}
+
+class _CookieRow {
+  _CookieRow(this.raw);
+  final Map<String, Object?> raw;
+
+  String get name => (raw['name'] as String?) ?? '';
+  String get value => (raw['value'] as String?) ?? '';
+  String get domain => (raw['domain'] as String?) ?? '';
+  String get path => (raw['path'] as String?) ?? '/';
+  bool get httpOnly => raw['httpOnly'] == true;
+  bool get secure => raw['secure'] == true;
+  String get sameSite => (raw['sameSite'] as String?) ?? '';
+  num? get expires => raw['expires'] as num?;
+}
+
+class _CookieEditorDialog extends StatefulWidget {
+  const _CookieEditorDialog({required this.controller, required this.isZh});
+  final WebReverseSessionController controller;
+  final bool isZh;
+  @override
+  State<_CookieEditorDialog> createState() => _CookieEditorDialogState();
+}
+
+class _CookieEditorDialogState extends State<_CookieEditorDialog> {
+  bool _loading = false;
+  String _filter = '';
+  List<_CookieRow> _all = const [];
+  String _status = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+  }
+
+  Future<void> _refresh() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _status = widget.isZh ? '拉取 Cookies...' : 'Fetching cookies...';
+    });
+    try {
+      final r = await widget.controller.sendRawCdp(
+        method: 'Network.getCookies',
+        paramsJson: '{}',
+        useSession: true,
+      );
+      if (!mounted) return;
+      if (r == null || r['error'] != null) {
+        setState(() {
+          _status = widget.isZh
+              ? '失败：${r?['error'] ?? 'unknown'}'
+              : 'Failed: ${r?['error'] ?? 'unknown'}';
+        });
+        return;
+      }
+      final list = (r['cookies'] as List?) ?? const [];
+      _all = list
+          .whereType<Map>()
+          .map((m) => _CookieRow(Map<String, Object?>.from(m)))
+          .toList()
+        ..sort((a, b) {
+          final d = a.domain.compareTo(b.domain);
+          if (d != 0) return d;
+          return a.name.compareTo(b.name);
+        });
+      setState(() => _status = widget.isZh
+          ? '共 ${_all.length} 条'
+          : '${_all.length} cookies');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<_CookieRow> get _visible {
+    if (_filter.trim().isEmpty) return _all;
+    final f = _filter.toLowerCase();
+    return _all
+        .where((c) =>
+            c.name.toLowerCase().contains(f) ||
+            c.domain.toLowerCase().contains(f) ||
+            c.value.toLowerCase().contains(f))
+        .toList();
+  }
+
+  Future<void> _delete(_CookieRow row) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final r = await widget.controller.sendRawCdp(
+      method: 'Network.deleteCookies',
+      paramsJson: jsonEncode({
+        'name': row.name,
+        'domain': row.domain,
+        'path': row.path,
+      }),
+      useSession: true,
+    );
+    if (!mounted) return;
+    if (r == null || r['error'] != null) {
+      if (messenger != null) {
+        OpenHandSnackBar.showErrorOn(context, messenger,
+            widget.isZh ? '删除失败' : 'Delete failed');
+      }
+      return;
+    }
+    if (messenger != null) {
+      OpenHandSnackBar.showSuccessOn(context, messenger,
+          widget.isZh ? '已删除 ${row.name}' : 'Deleted ${row.name}');
+    }
+    await _refresh();
+  }
+
+  Future<void> _edit(_CookieRow? row) async {
+    final result = await showAnimatedDialog<Map<String, Object?>>(
+      context: context,
+      builder: (_) => _CookieEditPanel(row: row, isZh: widget.isZh),
+    );
+    if (result == null || !mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final r = await widget.controller.sendRawCdp(
+      method: 'Network.setCookie',
+      paramsJson: jsonEncode(result),
+      useSession: true,
+    );
+    if (!mounted) return;
+    if (r == null || r['error'] != null || r['success'] == false) {
+      if (messenger != null) {
+        OpenHandSnackBar.showErrorOn(context, messenger,
+            widget.isZh ? '写入失败' : 'Write failed');
+      }
+      return;
+    }
+    if (messenger != null) {
+      OpenHandSnackBar.showSuccessOn(context, messenger,
+          widget.isZh ? '已保存' : 'Saved');
+    }
+    await _refresh();
+  }
+
+  Future<void> _copyJson() async {
+    final json = const JsonEncoder.withIndent('  ')
+        .convert(_visible.map((c) => c.raw).toList());
+    await Clipboard.setData(ClipboardData(text: json));
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger != null) {
+      OpenHandSnackBar.showSuccessOn(context, messenger,
+          widget.isZh ? '已复制 JSON' : 'JSON copied');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    final list = _visible;
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 720),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+              child: Row(
+                children: [
+                  Icon(Icons.cookie_rounded, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isZh ? 'Cookie 编辑器' : 'Cookie Editor',
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          isZh
+                              ? 'Network.getCookies / setCookie / deleteCookies — 精修级 CRUD'
+                              : 'Network.getCookies / setCookie / deleteCookies — full CRUD',
+                          style: theme.textTheme.labelSmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: isZh ? '刷新' : 'Refresh',
+                    onPressed: _loading ? null : _refresh,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                  IconButton(
+                    tooltip: isZh ? '复制 JSON' : 'Copy JSON',
+                    onPressed: list.isEmpty ? null : _copyJson,
+                    icon: const Icon(Icons.copy_all_rounded),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: isZh
+                            ? '过滤 name / domain / value'
+                            : 'Filter name / domain / value',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (v) => setState(() => _filter = v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: _loading ? null : () => _edit(null),
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(isZh ? '新增' : 'New'),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _loading && list.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : list.isEmpty
+                      ? Center(
+                          child: Text(
+                            isZh ? '当前 target 无 Cookie' : 'No cookies',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                                color: cs.onSurfaceVariant),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          itemCount: list.length,
+                          separatorBuilder: (_, _) =>
+                              Divider(height: 1, color: cs.outlineVariant),
+                          itemBuilder: (_, i) {
+                            final c = list[i];
+                            return ListTile(
+                              dense: true,
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      c.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontFamily: 'monospace'),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    c.domain,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                        color: cs.onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  c.value,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontFamily: 'monospace', fontSize: 11.5),
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (c.httpOnly)
+                                    _badge(theme, 'HttpOnly', cs.tertiary),
+                                  if (c.secure)
+                                    _badge(theme, 'Secure', cs.primary),
+                                  if (c.sameSite.isNotEmpty)
+                                    _badge(theme, c.sameSite, cs.secondary),
+                                  IconButton(
+                                    tooltip: isZh ? '编辑' : 'Edit',
+                                    onPressed: () => _edit(c),
+                                    icon: const Icon(Icons.edit_rounded,
+                                        size: 16),
+                                  ),
+                                  IconButton(
+                                    tooltip: isZh ? '删除' : 'Delete',
+                                    onPressed: () => _delete(c),
+                                    icon: const Icon(Icons.delete_outline_rounded,
+                                        size: 16),
+                                  ),
+                                ],
+                              ),
+                              onTap: () => _edit(c),
+                            );
+                          },
+                        ),
+            ),
+            if (_status.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                color: cs.surfaceContainerHigh,
+                child: Text(
+                  _status,
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _badge(ThemeData theme, String text, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(right: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.labelSmall?.copyWith(
+            color: color, fontWeight: FontWeight.w700, fontSize: 10),
+      ),
+    );
+  }
+}
+
+class _CookieEditPanel extends StatefulWidget {
+  const _CookieEditPanel({required this.row, required this.isZh});
+  final _CookieRow? row;
+  final bool isZh;
+  @override
+  State<_CookieEditPanel> createState() => _CookieEditPanelState();
+}
+
+class _CookieEditPanelState extends State<_CookieEditPanel> {
+  late final TextEditingController _name;
+  late final TextEditingController _value;
+  late final TextEditingController _domain;
+  late final TextEditingController _path;
+  late final TextEditingController _url;
+  late final TextEditingController _expires;
+  bool _httpOnly = false;
+  bool _secure = false;
+  String _sameSite = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.row;
+    _name = TextEditingController(text: r?.name ?? '');
+    _value = TextEditingController(text: r?.value ?? '');
+    _domain = TextEditingController(text: r?.domain ?? '');
+    _path = TextEditingController(text: r?.path ?? '/');
+    _url = TextEditingController();
+    _expires = TextEditingController(
+        text: r?.expires == null ? '' : r!.expires!.toString());
+    _httpOnly = r?.httpOnly ?? false;
+    _secure = r?.secure ?? false;
+    _sameSite = r?.sameSite ?? '';
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _value.dispose();
+    _domain.dispose();
+    _path.dispose();
+    _url.dispose();
+    _expires.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final isZh = widget.isZh;
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        OpenHandSnackBar.showErrorOn(
+            context, m, isZh ? 'name 必填' : 'name required');
+      }
+      return;
+    }
+    final out = <String, Object?>{
+      'name': name,
+      'value': _value.text,
+      if (_domain.text.trim().isNotEmpty) 'domain': _domain.text.trim(),
+      if (_path.text.trim().isNotEmpty) 'path': _path.text.trim(),
+      if (_url.text.trim().isNotEmpty) 'url': _url.text.trim(),
+      if (_httpOnly) 'httpOnly': true,
+      if (_secure) 'secure': true,
+      if (_sameSite.isNotEmpty) 'sameSite': _sameSite,
+    };
+    final exp = double.tryParse(_expires.text.trim());
+    if (exp != null) out['expires'] = exp;
+    Navigator.of(context).pop(out);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 680),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+              child: Row(
+                children: [
+                  Icon(
+                      widget.row == null
+                          ? Icons.add_circle_outline_rounded
+                          : Icons.edit_rounded,
+                      color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.row == null
+                          ? (isZh ? '新增 Cookie' : 'New Cookie')
+                          : (isZh ? '编辑 ${widget.row!.name}' : 'Edit ${widget.row!.name}'),
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _field(isZh ? '名称 *' : 'name *', _name),
+                    _field(isZh ? '值' : 'value', _value, maxLines: 4),
+                    _field(isZh ? '域 (domain)' : 'domain', _domain,
+                        hint: '.example.com'),
+                    _field(isZh ? '路径 (path)' : 'path', _path),
+                    _field(isZh ? 'URL（设 domain/path 时可不填）' : 'URL (optional)',
+                        _url, hint: 'https://...'),
+                    _field(
+                        isZh ? '过期时间 unix 秒（留空=会话级）' : 'expires (unix sec)',
+                        _expires,
+                        hint: '1700000000'),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CheckboxListTile(
+                            value: _httpOnly,
+                            onChanged: (v) =>
+                                setState(() => _httpOnly = v ?? false),
+                            title: const Text('HttpOnly'),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            controlAffinity: ListTileControlAffinity.leading,
+                          ),
+                        ),
+                        Expanded(
+                          child: CheckboxListTile(
+                            value: _secure,
+                            onChanged: (v) =>
+                                setState(() => _secure = v ?? false),
+                            title: const Text('Secure'),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            controlAffinity: ListTileControlAffinity.leading,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(isZh ? 'SameSite' : 'SameSite',
+                        style: theme.textTheme.labelMedium),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      children: const ['', 'Strict', 'Lax', 'None']
+                          .map((s) => ChoiceChip(
+                                label: Text(s.isEmpty
+                                    ? (isZh ? '未指定' : 'unset')
+                                    : s),
+                                selected: _sameSite == s,
+                                onSelected: (_) => setState(() => _sameSite = s),
+                              ))
+                          .toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: () => Navigator.of(context).pop(),
+                    label: isZh ? '取消' : 'Cancel',
+                  ),
+                  const SizedBox(width: 8),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: _submit,
+                    label: isZh ? '保存' : 'Save',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _field(String label, TextEditingController c,
+      {String? hint, int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: c,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          isDense: true,
+          border: const OutlineInputBorder(),
+        ),
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+      ),
+    );
+  }
+}
