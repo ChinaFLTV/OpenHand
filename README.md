@@ -114,6 +114,13 @@
 - **Slash Command** 解析、附件粘贴、SVG 渲染、KaTeX 数学公式。
 - **入场动画**：消息、工具卡片、侧栏线程统一使用 `AppearOnce` + `AppearTracker`，列表性能不受影响。
 
+### 8. Web 逆向专家（Web Reverse Expert）
+- 通过外部 Chrome / Chromium 的 **CDP 通道**驱动真实浏览器，自动重连恢复持久 Header / 屏蔽 URL / screencast / page target。
+- **Dashboard 17 tab**：浏览器 / 概览 / 网络 / 控制台 / 源码 / 断点 / 实时 / 脚本片段 / 元素 / Hook / 定时 / 加密 / 性能 / 内存 / 应用 / 安全 / 记录器，上次停留 tab 写入 metadata 自动恢复。
+- **40+ 高级面板**：网络断点、Mock 规则、DOM Mutation Watch、SourceMap 反解析（VLQ 解码定位原始 source:line:col）、CSS 规则使用率（找死代码）、Frame 树查看器、CORS Preflight 诊断、Console 错误聚类、CDP Raw 命令控制台、Console REPL、Heap Snapshot、Performance Trace（可提前 Stop）、设备模拟、CPU 限速、存储管理器（Cookies/Local/Session/IndexedDB 编辑）、WebSocket 帧查看与重放、批量请求重放、输入事件模拟、Service Worker 调试 …
+- 内置 6 个 **JS 片段**（[assets/prompts/web_reverse_expert/snippets/](assets/prompts/web_reverse_expert/snippets/)）：`hook_crypto.js` / `hook_payload.js` / `hook_storage.js` / `hook_websocket.js` / `hook_postmessage.js` / `hook_console_errors.js` / `hook_dom_mutation.js` / `repl_dump_frames.js` / `repl_dump_storage.js`，统一 `__OH_*__` 前缀便于 grep。
+- 五阶段流水线 **Recon → Plan → Capture → Reverse → Reproduce**，复现脚本默认落 `WD/.web_reverse/<session_id>/scripts/`。
+
 ---
 
 ## 🧠 内置 AI 工具集
@@ -152,6 +159,7 @@
 | 💻 **Programming Expert** | 代码读写、重构、调试 | 完整工具集（Bash/LSP/Grep/Edit/...）+ 工作区视图。 |
 | 🛠 **Hardness Engineering** | 复杂多阶段任务 | Plan→Implement→Verify→Recap 阶段化流水线。 |
 | 💬 **Hermes Talker** | 闲聊式自学习 | `memory` + `skill_manager` + 后台 Cron 自动蒸馏长期记忆。 |
+| 🌐 **Web Reverse Expert** | 浏览器接口逆向 / 参数还原 / 复现脚本 | 真实 Chrome + CDP + 17 Dashboard tab + 40+ 高级面板 + JS 片段库。 |
 
 > 模板提示词位于 [assets/prompts/](assets/prompts/)，每个模板包含 `system_instructions.md`、`developer_instructions.md`、`compression_summary_instructions.md` 三件套。
 

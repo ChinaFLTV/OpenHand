@@ -117,6 +117,13 @@ Orchestrate 20+ model protocols, programmable tools, skills, MCP servers, hooks 
 - Slash-command parser, paste attachments, SVG rendering, KaTeX math.
 - **Appear animations** unified via `AppearOnce` + `AppearTracker` — no list-perf hit.
 
+### 8. Web Reverse Expert
+- Drives a real external Chrome / Chromium over **CDP**, with auto-reconnect that restores persistent headers, blocked URLs, screencast and page targets.
+- **17-tab dashboard**: Browser / Overview / Network / Console / Sources / Breakpoints / Live / Snippets / Elements / Hooks / Crons / Crypto / Performance / Memory / Application / Security / Recorder — last-active tab is persisted per session.
+- **40+ advanced panels**: network breakpoints, mock rules, DOM mutation watch, SourceMap reverse-resolve (VLQ decode → original source:line:col), CSS rule coverage (find dead CSS), frame-tree viewer, CORS preflight diagnostics, console error clustering, CDP raw-command console, console REPL, heap snapshot, performance trace (with early Stop), device emulation, CPU throttling, storage manager (Cookies / Local / Session / IndexedDB editing), WebSocket frame viewer & replay, batch request replayer, input-event simulator, Service Worker debugger…
+- Ships 9 ready-to-use **JS snippets** under [assets/prompts/web_reverse_expert/snippets/](assets/prompts/web_reverse_expert/snippets/) (`hook_crypto.js` / `hook_payload.js` / `hook_storage.js` / `hook_websocket.js` / `hook_postmessage.js` / `hook_console_errors.js` / `hook_dom_mutation.js` / `repl_dump_frames.js` / `repl_dump_storage.js`), all using the `__OH_*__` prefix for easy grep.
+- 5-stage workflow **Recon → Plan → Capture → Reverse → Reproduce**; reproduce scripts default to `WD/.web_reverse/<session_id>/scripts/`.
+
 ---
 
 ## 🧠 Built-in AI Tools
@@ -155,6 +162,7 @@ For each protocol OpenHand bundles:
 | 💻 **Programming Expert** | Read/edit/refactor code | Full toolset (Bash/LSP/Grep/Edit/...) + workspace view. |
 | 🛠 **Hardness Engineering** | Complex multi-phase tasks | Plan→Implement→Verify→Recap phased pipeline. |
 | 💬 **Hermes Talker** | Casual self-learning chat | `memory` + `skill_manager` + background cron distillation. |
+| 🌐 **Web Reverse Expert** | Browser API reversing / param recovery / repro scripts | Real Chrome + CDP + 17-tab dashboard + 40+ advanced panels + JS snippet library. |
 
 > Template prompts live under [assets/prompts/](assets/prompts/). Each template ships `system_instructions.md`, `developer_instructions.md`, and `compression_summary_instructions.md`.
 
