@@ -21,27 +21,55 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: _kToolbarHeight,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const ClampingScrollPhysics(),
-              child: Row(
-                children: [
-                  for (var i = 0; i < tabs.length; i++) ...[
-                    _ToolbarTabPill(
-                      label: _tabLabel(tabs[i], isZh),
-                      icon: _tabIcon(tabs[i]),
-                      count: _tabBadgeCount(tabs[i]),
-                      active: _tab == tabs[i],
-                      onTap: () => _setTab(tabs[i]),
+          // 窄屏（< 720）折叠为下拉，避免横向滚动条挤压控件；宽屏照旧
+          // 渲染所有 tab 胶囊 + 横向滚动作为兜底。
+          LayoutBuilder(
+            builder: (context, c) {
+              final narrow = c.maxWidth < 720;
+              if (narrow) {
+                return SizedBox(
+                  height: _kToolbarHeight,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _ToolbarTabDropdown(
+                      current: _tab,
+                      tabs: tabs,
+                      label: _tabLabel(_tab, isZh),
+                      icon: _tabIcon(_tab),
+                      count: _tabBadgeCount(_tab),
+                      isZh: isZh,
                       reduceMotion: reduceMotion,
+                      onChanged: _setTab,
+                      labelFor: (t) => _tabLabel(t, isZh),
+                      iconFor: _tabIcon,
+                      countFor: _tabBadgeCount,
                     ),
-                    if (i != tabs.length - 1) const SizedBox(width: 6),
-                  ],
-                ],
-              ),
-            ),
+                  ),
+                );
+              }
+              return SizedBox(
+                height: _kToolbarHeight,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < tabs.length; i++) ...[
+                        _ToolbarTabPill(
+                          label: _tabLabel(tabs[i], isZh),
+                          icon: _tabIcon(tabs[i]),
+                          count: _tabBadgeCount(tabs[i]),
+                          active: _tab == tabs[i],
+                          onTap: () => _setTab(tabs[i]),
+                          reduceMotion: reduceMotion,
+                        ),
+                        if (i != tabs.length - 1) const SizedBox(width: 6),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           if (showSearch || showNetworkControls) ...[
             const SizedBox(height: 8),
@@ -882,6 +910,151 @@ class _ToolbarTabPill extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 窄屏 (< 720) 时把 16 个顶部 tab 折叠为下拉胶囊，避免横向滚动条挤压
+/// 第二行的搜索框 + 控件链。下拉里仍然带 icon + label + count badge，与
+/// 宽屏 `_ToolbarTabPill` 视觉一致；当前激活项打勾。
+class _ToolbarTabDropdown extends StatelessWidget {
+  const _ToolbarTabDropdown({
+    required this.current,
+    required this.tabs,
+    required this.label,
+    required this.icon,
+    required this.isZh,
+    required this.reduceMotion,
+    required this.onChanged,
+    required this.labelFor,
+    required this.iconFor,
+    required this.countFor,
+    this.count,
+  });
+
+  final _Tab current;
+  final List<_Tab> tabs;
+  final String label;
+  final IconData icon;
+  final int? count;
+  final bool isZh;
+  final bool reduceMotion;
+  final ValueChanged<_Tab> onChanged;
+  final String Function(_Tab) labelFor;
+  final IconData Function(_Tab) iconFor;
+  final int? Function(_Tab) countFor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return PopupMenuButton<_Tab>(
+      tooltip: isZh ? '切换面板' : 'Switch panel',
+      position: PopupMenuPosition.under,
+      onSelected: onChanged,
+      itemBuilder: (_) => [
+        for (final t in tabs)
+          PopupMenuItem<_Tab>(
+            value: t,
+            child: Row(
+              children: [
+                Icon(
+                  iconFor(t),
+                  size: 16,
+                  color: t == current ? cs.primary : cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    labelFor(t),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight:
+                          t == current ? FontWeight.w700 : FontWeight.w500,
+                      color: t == current ? cs.primary : cs.onSurface,
+                    ),
+                  ),
+                ),
+                if (countFor(t) != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${countFor(t)}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+                if (t == current) ...[
+                  const SizedBox(width: 6),
+                  Icon(Icons.check_rounded, size: 16, color: cs.primary),
+                ],
+              ],
+            ),
+          ),
+      ],
+      child: AnimatedContainer(
+        duration:
+            reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        height: _kToolbarHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: cs.primaryContainer,
+          borderRadius: BorderRadius.circular(_kToolbarRadius),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: cs.onPrimaryContainer),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: cs.onPrimaryContainer,
+              ),
+            ),
+            if (count != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: cs.surface.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$count',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 6),
+            Icon(
+              Icons.expand_more_rounded,
+              size: 18,
+              color: cs.onPrimaryContainer,
+            ),
+          ],
         ),
       ),
     );
