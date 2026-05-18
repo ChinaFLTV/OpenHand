@@ -71,12 +71,8 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
       if (e.isWebSocket) out.add(e);
     }
     out.sort((a, b) {
-      final at = a.wsFrames.isEmpty
-          ? a.requestSentAt
-          : a.wsFrames.last.timestamp;
-      final bt = b.wsFrames.isEmpty
-          ? b.requestSentAt
-          : b.wsFrames.last.timestamp;
+      final at = a.wsFrames.isEmpty ? a.timestamp : a.wsFrames.last.timestamp;
+      final bt = b.wsFrames.isEmpty ? b.timestamp : b.wsFrames.last.timestamp;
       return bt.compareTo(at);
     });
     return out;
