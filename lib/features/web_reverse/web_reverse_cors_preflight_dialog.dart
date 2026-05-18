@@ -308,6 +308,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                 children: [
                   TextField(
                     controller: _urlCtl,
+                    autofocus: true,
                     decoration: InputDecoration(
                       labelText: isZh ? '目标 URL' : 'Target URL',
                       border: const OutlineInputBorder(),

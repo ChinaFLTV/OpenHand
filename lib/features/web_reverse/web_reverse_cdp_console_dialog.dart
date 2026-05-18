@@ -253,6 +253,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                             children: [
                               TextField(
                                 controller: _methodCtl,
+                                autofocus: true,
                                 decoration: InputDecoration(
                                   labelText: isZh
                                       ? 'method (Domain.command)'

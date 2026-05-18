@@ -392,6 +392,7 @@ class _ReplInput extends StatelessWidget {
           minLines: 3,
           maxLines: 8,
           enabled: !busy,
+          autofocus: true,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
           decoration: InputDecoration(
             hintText: hint,

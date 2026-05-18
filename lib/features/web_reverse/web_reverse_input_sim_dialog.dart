@@ -455,6 +455,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
                 children: [_mouseTab(), _keyTab(), _textTab()],
               ),
             ),
+            if (_busy) const LinearProgressIndicator(minHeight: 3),
             if (_status.isNotEmpty)
               Container(
                 width: double.infinity,

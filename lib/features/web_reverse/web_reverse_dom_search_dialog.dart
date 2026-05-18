@@ -235,6 +235,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                   Expanded(
                     child: TextField(
                       controller: _queryCtrl,
+                      autofocus: true,
                       decoration: InputDecoration(
                         hintText: isZh
                             ? '输入 selector / 文本 / XPath，回车搜索'

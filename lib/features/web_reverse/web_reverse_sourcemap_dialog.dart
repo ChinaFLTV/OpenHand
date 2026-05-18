@@ -374,6 +374,7 @@ class _SmDialogState extends State<_SmDialog> {
                 children: [
                   TextField(
                     controller: _url,
+                    autofocus: true,
                     decoration: InputDecoration(
                       labelText: isZh ? '压缩文件 URL' : 'Minified file URL',
                       hintText: 'https://.../app.min.js',

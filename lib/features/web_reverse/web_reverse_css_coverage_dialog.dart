@@ -280,6 +280,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                 ],
               ),
             ),
+            if (_busy) const LinearProgressIndicator(minHeight: 3),
             if (_status.isNotEmpty)
               Container(
                 width: double.infinity,
