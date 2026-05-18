@@ -13,6 +13,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseConsoleClusterDialog(
@@ -60,17 +61,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
   String _query = '';
   final Set<String> _expanded = <String>{};
 
-  String _normalize(String t) {
-    // 取首行 → 去时间戳/数字 / URL 路径中的 hash 摘要 / 行列数字。
-    final firstLine = t.split('\n').first.trim();
-    return firstLine
-        .replaceAll(RegExp(r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*'), '<ts>')
-        .replaceAll(RegExp(r'\b0x[0-9a-fA-F]+\b'), '<hex>')
-        .replaceAll(RegExp(r'\b\d{3,}\b'), '<num>')
-        .replaceAll(RegExp(r'/[A-Fa-f0-9]{8,}'), '/<hash>')
-        .replaceAll(RegExp(r':\d+:\d+\)'), ':L:C)')
-        .replaceAll(RegExp(r'\s+'), ' ');
-  }
+  String _normalize(String t) => normalizeConsoleSignature(t);
 
   List<_Cluster> _build() {
     final map = <String, _Cluster>{};

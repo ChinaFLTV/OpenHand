@@ -15,6 +15,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseSourceMapDialog(
@@ -58,9 +59,6 @@ class _SmDialogState extends State<_SmDialog> {
   bool _busy = false;
   String _status = '';
   _Resolved? _result;
-
-  static const _vlqAlphabet =
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
   @override
   void dispose() {
@@ -243,7 +241,7 @@ class _SmDialogState extends State<_SmDialog> {
       final segs = lines[li].split(',');
       for (final seg in segs) {
         if (seg.isEmpty) continue;
-        final nums = _vlqDecode(seg);
+        final nums = vlqDecode(seg);
         if (nums.length >= 4) {
           srcIdx += nums[1];
           origLine += nums[2];
@@ -256,7 +254,7 @@ class _SmDialogState extends State<_SmDialog> {
     Map<String, int?>? best;
     for (final seg in lineStr.split(',')) {
       if (seg.isEmpty) continue;
-      final nums = _vlqDecode(seg);
+      final nums = vlqDecode(seg);
       genCol += nums[0];
       if (nums.length >= 4) {
         srcIdx += nums[1];
@@ -273,30 +271,6 @@ class _SmDialogState extends State<_SmDialog> {
       };
     }
     return best;
-  }
-
-  List<int> _vlqDecode(String s) {
-    final result = <int>[];
-    var value = 0;
-    var shift = 0;
-    for (final ch in s.codeUnits) {
-      final digit = _vlqAlphabet.indexOf(String.fromCharCode(ch));
-      if (digit < 0) continue;
-      final cont = (digit & 32) != 0;
-      final data = digit & 31;
-      value |= data << shift;
-      if (cont) {
-        shift += 5;
-      } else {
-        final neg = (value & 1) != 0;
-        var v = value >> 1;
-        if (neg) v = -v;
-        result.add(v);
-        value = 0;
-        shift = 0;
-      }
-    }
-    return result;
   }
 
   Future<void> _copy() async {
