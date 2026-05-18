@@ -499,6 +499,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.account_tree_rounded,
+        title: isZh ? 'Frame 树查看器' : 'Frame Tree',
+        subtitle: isZh
+            ? 'Page.getFrameTree · 主框架 + 嵌套 iframe 递归'
+            : 'Page.getFrameTree · main + nested iframes',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseFrameTreeDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
