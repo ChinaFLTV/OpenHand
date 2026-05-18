@@ -265,7 +265,7 @@ Future<void> _showExtraHeadersDialog(
         .join('\n'),
   );
   final messenger = ScaffoldMessenger.of(context);
-  final ok = await showDialog<bool>(
+  final ok = await showAnimatedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(isZh ? '持久注入 Headers' : 'Persistent Headers'),
@@ -338,7 +338,7 @@ Future<void> _showCdpPaletteDialog(
   final params = TextEditingController(text: '{}');
   final result = ValueNotifier<String?>(null);
   final useSession = ValueNotifier<bool>(true);
-  await showDialog<void>(
+  await showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(isZh ? 'CDP 命令面板' : 'CDP Command Palette'),
@@ -515,7 +515,7 @@ Future<void> _showDiffPicker(
   }
   CdpNetworkEntry? a;
   CdpNetworkEntry? b;
-  await showDialog<void>(
+  await showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (_, setState) => AlertDialog(
@@ -684,7 +684,7 @@ Future<void> _showServiceWorkersDialog(
   final messenger = ScaffoldMessenger.of(context);
   final list = await ctrl.listServiceWorkers();
   if (!context.mounted) return;
-  await showDialog<void>(
+  await showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(isZh ? 'Service Workers' : 'Service Workers'),
@@ -815,7 +815,7 @@ Future<void> _toggleMitmproxyBridge(
   final exe = await WebReverseMitmproxyBridge.detectMitmdump();
   if (exe == null) {
     if (!context.mounted) return;
-    await showDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(isZh ? '未检测到 mitmdump' : 'mitmdump not found'),
@@ -839,7 +839,7 @@ Future<void> _toggleMitmproxyBridge(
   }
   // 提示用户配置代理。
   if (!context.mounted) return;
-  final go = await showDialog<bool>(
+  final go = await showAnimatedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(isZh ? '即将启动 mitmproxy 桥接' : 'Start mitmproxy bridge'),
@@ -904,7 +904,7 @@ Future<void> _toggleWebRtcCapture(
     );
     return;
   }
-  await showDialog<void>(
+  await showAnimatedDialog<void>(
     context: context,
     builder: (_) => _WebRtcLiveDialog(controller: ctrl, isZh: isZh),
   );
@@ -1809,7 +1809,7 @@ Future<void> _showWebcrackDialog(
   final input = TextEditingController();
   final output = ValueNotifier<String?>(null);
   final running = ValueNotifier<bool>(false);
-  await showDialog<void>(
+  await showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(isZh ? 'JS 反混淆（webcrack）' : 'JS deobfuscate (webcrack)'),
@@ -1953,7 +1953,7 @@ Future<void> _showInterceptRulesDialog(
   WebReverseSessionController controller,
   bool isZh,
 ) async {
-  await showDialog<void>(
+  await showAnimatedDialog<void>(
     context: context,
     builder: (_) => _InterceptRulesDialog(controller: controller, isZh: isZh),
   );
@@ -1989,7 +1989,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
     final initial = index == null
         ? const WebReverseInterceptRule(urlPattern: '')
         : _rules[index];
-    final updated = await showDialog<WebReverseInterceptRule>(
+    final updated = await showAnimatedDialog<WebReverseInterceptRule>(
       context: context,
       builder: (_) => _InterceptRuleEditor(
         initial: initial,

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../../shared/ui/animated_dialog.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -109,7 +110,7 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
 
   // ③ 仍有锁 → 引导用户走更激进的"重置整个 profile"。
   if (!context.mounted) return ProgressiveProfileOutcome.failed;
-  final ok = await showDialog<bool>(
+  final ok = await showAnimatedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(isZh ? '锁仍未清干净，是否重置 profile？' : 'Locks still present — reset profile?'),

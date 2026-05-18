@@ -351,7 +351,7 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
   Future<void> _addText(Offset position) async {
     final isZh = _isZh();
     final ctrl = TextEditingController();
-    final text = await showDialog<String>(
+    final text = await showAnimatedDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(isZh ? '添加文字注释' : 'Add text label'),

@@ -694,12 +694,12 @@ class _NetworkRow extends StatelessWidget {
 
   Future<void> _replayWithOverridesAndShow(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    final overrides = await showDialog<({String url, Map<String, String> headers})>(
+    final overrides = await showAnimatedDialog<({String url, Map<String, String> headers})>(
       context: context,
       builder: (_) => _ReplayOverrideEditor(entry: entry, isZh: isZh),
     );
     if (overrides == null || !context.mounted) return;
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const AlertDialog(
@@ -726,7 +726,7 @@ class _NetworkRow extends StatelessWidget {
       return;
     }
     if (!context.mounted) return;
-    await showDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(
@@ -757,7 +757,7 @@ class _NetworkRow extends StatelessWidget {
   Future<void> _replayAndShow(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     // 显示一个"重放中"占位 dialog，结束后用结果替换。
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const AlertDialog(
@@ -779,7 +779,7 @@ class _NetworkRow extends StatelessWidget {
       );
       return;
     }
-    await showDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(
@@ -992,7 +992,7 @@ class _PendingFetchBanner extends StatelessWidget {
     Future.microtask(() async {
       if (!context.mounted) return;
       final isZh = this.isZh;
-      final action = await showDialog<String>(
+      final action = await showAnimatedDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(isZh ? '处理拦截请求' : 'Handle intercepted request'),
@@ -1054,7 +1054,7 @@ class _PendingFetchBanner extends StatelessWidget {
     final methodCtrl = TextEditingController(text: p.method);
     final headersCtrl = TextEditingController(); // 一行 key:value
     final bodyCtrl = TextEditingController();
-    final result = await showDialog<bool>(
+    final result = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(isZh ? '修改请求后放行' : 'Modify and continue'),

@@ -398,7 +398,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     bool merge = false;
     if (ctrl.networkRequests.isNotEmpty) {
       if (!mounted) return;
-      final mode = await showDialog<String>(
+      final mode = await showAnimatedDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(isZh ? '加载 HAR' : 'Load HAR'),
@@ -564,7 +564,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       }
     }
     if (!context.mounted) return;
-    await showDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isZh ? 'HAR 对比' : 'HAR diff'),
@@ -633,7 +633,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     bool isZh,
   ) {
     final filtered = _filteredNetworkEntries(ctrl);
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(isZh

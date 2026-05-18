@@ -439,7 +439,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       );
       return;
     }
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isZh ? 'LSP Hover' : 'LSP Hover'),
@@ -502,7 +502,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (uri == null) return;
     if (!mounted) return;
     final ctrl = TextEditingController();
-    final newName = await showDialog<String>(
+    final newName = await showAnimatedDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isZh ? '重命名为' : 'Rename to'),
@@ -540,7 +540,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final summary = changes is Map
         ? '${changes.length} files'
         : (docChanges is List ? '${docChanges.length} changes' : 'edit');
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isZh ? '重命名结果（仅查看）' : 'Rename result (read-only)'),
@@ -678,7 +678,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
 
   Future<void> _showGlobalCodeSearch() async {
     final isZh = widget.isZh;
-    final result = await showDialog<({String scriptId, int line})>(
+    final result = await showAnimatedDialog<({String scriptId, int line})>(
       context: context,
       builder: (_) => _SourcesGlobalSearchDialog(
         controller: widget.controller,

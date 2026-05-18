@@ -671,7 +671,7 @@ class _WebReverseDashboardDialogState
   /// recorder / network 等所有键盘快捷键。
   void _showShortcutsHelp() {
     final isZh = _isZh();
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (_) => _ShortcutsHelpDialog(isZh: isZh),
     );

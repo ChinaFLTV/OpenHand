@@ -124,7 +124,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   void _showFlameGraph() {
     final raw = _lastTraceJson;
     if (raw == null) return;
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (_) => _FlameGraphDialog(traceJson: raw, isZh: widget.isZh),
     );
@@ -1130,7 +1130,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     final result = await fut;
     if (!mounted) return;
     setState(() => _capturing = false);
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (_) => _SnapshotDiffDialog(
         whenA: a.ts,
@@ -1796,7 +1796,7 @@ class _SamplingTopList extends StatelessWidget {
     ({String label, int size, List<String> stack}) row,
   ) {
     final isZh = this.isZh;
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -2181,6 +2181,54 @@ class _CookiesTableState extends State<_CookiesTable> {
     if (mounted) await widget.onChanged();
   }
 
+  Future<void> _clearAll() async {
+    if (widget.cookies.isEmpty) return;
+    final ok = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(widget.isZh ? '清空全部 cookie？' : 'Clear all cookies?'),
+        content: Text(
+          widget.isZh
+              ? '将删除当前页可见的 ${widget.cookies.length} 条 cookie，无法撤销。'
+              : 'Will delete ${widget.cookies.length} cookies. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(widget.isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(widget.isZh ? '清空' : 'Clear'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    for (final c in List<Map<String, Object?>>.from(widget.cookies)) {
+      await widget.controller.deleteCookie(
+        name: '${c['name'] ?? ''}',
+        domain: '${c['domain'] ?? ''}'.trim().isEmpty
+            ? null
+            : '${c['domain']}',
+        path: '${c['path'] ?? ''}'.trim().isEmpty ? null : '${c['path']}',
+      );
+    }
+    if (mounted) await widget.onChanged();
+  }
+
+  Future<void> _exportJson() async {
+    final encoded = const JsonEncoder.withIndent('  ').convert(widget.cookies);
+    await Clipboard.setData(ClipboardData(text: encoded));
+    if (!mounted) return;
+    OpenHandSnackBar.showSuccess(
+      context,
+      widget.isZh
+          ? '已复制 ${widget.cookies.length} 条 cookie 到剪贴板'
+          : 'Copied ${widget.cookies.length} cookies to clipboard',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -2188,13 +2236,27 @@ class _CookiesTableState extends State<_CookiesTable> {
     final cookies = widget.cookies;
     return Column(
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: _addCookie,
-            icon: const Icon(Icons.add_rounded, size: 16),
-            label: Text(widget.isZh ? '新增 cookie' : 'Add cookie'),
-          ),
+        Row(
+          children: [
+            TextButton.icon(
+              onPressed: _addCookie,
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: Text(widget.isZh ? '新增 cookie' : 'Add cookie'),
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              onPressed: cookies.isEmpty ? null : _exportJson,
+              icon: const Icon(Icons.copy_all_rounded, size: 16),
+              label: Text(widget.isZh ? '导出 JSON' : 'Export JSON'),
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: cs.error),
+              onPressed: cookies.isEmpty ? null : _clearAll,
+              icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+              label: Text(widget.isZh ? '清空' : 'Clear all'),
+            ),
+          ],
         ),
         Expanded(
           child: cookies.isEmpty
@@ -2315,7 +2377,7 @@ Future<Map<String, Object?>?> _showCookieEditor(
   final value = TextEditingController(text: '${initial['value'] ?? ''}');
   final domain = TextEditingController(text: '${initial['domain'] ?? ''}');
   final path = TextEditingController(text: '${initial['path'] ?? '/'}');
-  final result = await showDialog<Map<String, Object?>>(
+  final result = await showAnimatedDialog<Map<String, Object?>>(
     context: context,
     builder: (_) => AlertDialog(
       title:
@@ -2448,22 +2510,85 @@ class _StorageTableState extends State<_StorageTable> {
     if (mounted) await widget.onChanged();
   }
 
+  Future<void> _clearAll() async {
+    final origin = widget.origin;
+    if (origin == null || origin.isEmpty || widget.rows.isEmpty) return;
+    final ok = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(widget.isZh ? '清空全部条目？' : 'Clear all entries?'),
+        content: Text(
+          widget.isZh
+              ? '将删除 ${widget.rows.length} 条 ${widget.isLocalStorage ? "localStorage" : "sessionStorage"} 条目，无法撤销。'
+              : 'Will delete ${widget.rows.length} entries. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(widget.isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(widget.isZh ? '清空' : 'Clear'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    for (final r in List<({String key, String value})>.from(widget.rows)) {
+      await widget.controller.removeDomStorageItem(
+        origin: origin,
+        isLocalStorage: widget.isLocalStorage,
+        key: r.key,
+      );
+    }
+    if (mounted) await widget.onChanged();
+  }
+
+  Future<void> _exportJson() async {
+    final map = <String, String>{
+      for (final r in widget.rows) r.key: r.value,
+    };
+    final encoded = const JsonEncoder.withIndent('  ').convert(map);
+    await Clipboard.setData(ClipboardData(text: encoded));
+    if (!mounted) return;
+    OpenHandSnackBar.showSuccess(
+      context,
+      widget.isZh
+          ? '已复制 ${widget.rows.length} 条到剪贴板'
+          : 'Copied ${widget.rows.length} entries to clipboard',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final rows = widget.rows;
+    final originOk = widget.origin != null && widget.origin!.isNotEmpty;
     return Column(
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: widget.origin == null || widget.origin!.isEmpty
-                ? null
-                : _add,
-            icon: const Icon(Icons.add_rounded, size: 16),
-            label: Text(widget.isZh ? '新增条目' : 'Add entry'),
-          ),
+        Row(
+          children: [
+            TextButton.icon(
+              onPressed: !originOk ? null : _add,
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: Text(widget.isZh ? '新增条目' : 'Add entry'),
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              onPressed: rows.isEmpty ? null : _exportJson,
+              icon: const Icon(Icons.copy_all_rounded, size: 16),
+              label: Text(widget.isZh ? '导出 JSON' : 'Export JSON'),
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: cs.error),
+              onPressed: rows.isEmpty || !originOk ? null : _clearAll,
+              icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+              label: Text(widget.isZh ? '清空' : 'Clear all'),
+            ),
+          ],
         ),
         Expanded(
           child: rows.isEmpty
@@ -2556,7 +2681,7 @@ Future<({String key, String value})?> _showStorageEditor(
 }) async {
   final keyCtrl = TextEditingController(text: initialKey);
   final valueCtrl = TextEditingController(text: initialValue);
-  final result = await showDialog<({String key, String value})>(
+  final result = await showAnimatedDialog<({String key, String value})>(
     context: context,
     builder: (_) => AlertDialog(
       title: Text(isZh ? '存储条目' : 'Storage entry'),
@@ -3006,7 +3131,7 @@ class _ServiceWorkersTable extends StatelessWidget {
 
   Future<void> _registerNew(BuildContext context) async {
     final ctrl = TextEditingController();
-    final ok = await showDialog<String>(
+    final ok = await showAnimatedDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isZh ? '注册 Service Worker' : 'Register SW'),
@@ -3559,7 +3684,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     final isZh = widget.isZh;
     final selectorCtrl = TextEditingController();
     final expectedCtrl = TextEditingController();
-    final result = await showDialog<bool>(
+    final result = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(
@@ -3946,7 +4071,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
 
   void _showEventDetail(_FlameEvent e) {
     final isZh = widget.isZh;
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isZh ? '事件详情' : 'Event detail'),
