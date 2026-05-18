@@ -33,6 +33,11 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   // 上次成功录制的 trace JSON，用于「查看火焰图」按钮；超过 8MB 不缓存以
   // 防内存暴涨。
   String? _lastTraceJson;
+  // 解析后的 trace 事件，按 5 条 lane（Loading/Scripting/Rendering/Painting/Other）
+  // 直接画到面板里的 inline timeline。单次录制结果，跨录制覆盖。
+  List<_TraceLaneEvent> _traceLanes = const [];
+  double _traceMinTs = 0;
+  double _traceMaxTs = 0;
 
   // FPS：用 requestAnimationFrame 在浏览器里采样上一秒帧数，
   // 通过 Runtime.evaluate 拉回。
@@ -227,6 +232,17 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     }
     if (json.length <= 8 * 1024 * 1024) {
       _lastTraceJson = json;
+      // 解析为 inline timeline；解析失败也不致命，只是显示空状态。
+      try {
+        final parsed = _parseTraceLanes(json);
+        _traceLanes = parsed.events;
+        _traceMinTs = parsed.minTs;
+        _traceMaxTs = parsed.maxTs;
+      } catch (error, stack) {
+        silentLog('web_reverse_dashboard_dialog', 'parseTraceLanes', error, stack);
+        _traceLanes = const [];
+      }
+      if (mounted) setState(() {});
     }
     const typeGroup = XTypeGroup(label: 'Trace', extensions: <String>['json']);
     final ts = DateTime.now()
@@ -350,6 +366,18 @@ class _PerformancePanelState extends State<_PerformancePanel> {
             ],
           ),
           const SizedBox(height: 12),
+          // 录制完成后直接在面板里画一段 5 lane 的 timeline，免去打开火焰图弹窗
+          // 的步骤；交互上支持水平双指 / Ctrl+滚轮缩放 + 拖拽平移 + hover tooltip。
+          if (_traceLanes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _TraceLanesInline(
+                events: _traceLanes,
+                minTs: _traceMinTs,
+                maxTs: _traceMaxTs,
+                isZh: isZh,
+              ),
+            ),
           // FPS 横幅卡片：单独一行展示，sparkline 占满宽度。
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -5493,4 +5521,413 @@ class _RetainerSidePanel extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Performance：inline timeline lanes（Loading/Scripting/Rendering/Painting/Other）
+// _TraceLaneEvent + _parseTraceLanes + _TraceLanesInline + _TraceLanesPainter
+// ─────────────────────────────────────────────────────────────────────────
+
+/// 单个 trace 事件在 lane timeline 里的最小描述。
+class _TraceLaneEvent {
+  _TraceLaneEvent({
+    required this.startMs,
+    required this.durMs,
+    required this.lane,
+    required this.name,
+  });
+
+  /// 相对于 trace 起点的毫秒数。
+  final double startMs;
+  final double durMs;
+
+  /// 0=Loading 1=Scripting 2=Rendering 3=Painting 4=Other
+  final int lane;
+  final String name;
+}
+
+class _TraceLaneParseResult {
+  _TraceLaneParseResult(this.events, this.minTs, this.maxTs);
+  final List<_TraceLaneEvent> events;
+  final double minTs;
+  final double maxTs;
+}
+
+/// 把 Chrome trace JSON 解析成 lane 事件序列。
+/// 仅识别 `ph == 'X'`（complete）类型，时长 < 0.05ms 的噪声事件丢弃。
+/// 最多保留 8000 条，避免 isolate-free 主线程渲染卡顿。
+_TraceLaneParseResult _parseTraceLanes(String json) {
+  final decoded = jsonDecode(json);
+  final List<dynamic> events;
+  if (decoded is Map && decoded['traceEvents'] is List) {
+    events = (decoded['traceEvents'] as List).cast<dynamic>();
+  } else if (decoded is List) {
+    events = decoded;
+  } else {
+    return _TraceLaneParseResult(const [], 0, 0);
+  }
+  final out = <_TraceLaneEvent>[];
+  double minTs = double.infinity;
+  double maxTs = -double.infinity;
+  for (final raw in events) {
+    if (raw is! Map) continue;
+    if (raw['ph'] != 'X') continue;
+    final ts = (raw['ts'] as num?)?.toDouble();
+    final dur = (raw['dur'] as num?)?.toDouble();
+    if (ts == null || dur == null) continue;
+    if (dur < 50) continue; // <0.05ms 噪声
+    final name = (raw['name'] as String?) ?? '';
+    final cat = (raw['cat'] as String?) ?? '';
+    final lane = _categorizeLane(name, cat);
+    final startMs = ts / 1000.0;
+    final durMs = dur / 1000.0;
+    if (startMs < minTs) minTs = startMs;
+    if (startMs + durMs > maxTs) maxTs = startMs + durMs;
+    out.add(_TraceLaneEvent(
+      startMs: startMs,
+      durMs: durMs,
+      lane: lane,
+      name: name,
+    ));
+    if (out.length >= 8000) break;
+  }
+  if (out.isEmpty) return _TraceLaneParseResult(const [], 0, 0);
+  // 全部 startMs 归一到 0 起点
+  final shifted = out
+      .map((e) => _TraceLaneEvent(
+            startMs: e.startMs - minTs,
+            durMs: e.durMs,
+            lane: e.lane,
+            name: e.name,
+          ))
+      .toList(growable: false);
+  return _TraceLaneParseResult(shifted, 0, maxTs - minTs);
+}
+
+/// Chrome trace 事件 → lane index。
+int _categorizeLane(String name, String cat) {
+  // Loading
+  if (cat.contains('loading') ||
+      cat.contains('netlog') ||
+      name == 'ParseHTML' ||
+      name == 'ResourceFinish' ||
+      name == 'ResourceReceiveResponse' ||
+      name == 'ResourceSendRequest' ||
+      name == 'ResourceReceivedData' ||
+      name == 'XHRReadyStateChange' ||
+      name == 'XHRLoad') {
+    return 0;
+  }
+  // Painting
+  if (name == 'Paint' ||
+      name == 'RasterTask' ||
+      name == 'CompositeLayers' ||
+      name == 'UpdateLayerTree' ||
+      name == 'PaintImage' ||
+      name == 'DecodeImage' ||
+      name == 'Decode Image' ||
+      name == 'Decode LazyPixelRef' ||
+      name == 'DrawFrame') {
+    return 3;
+  }
+  // Rendering
+  if (name == 'Layout' ||
+      name == 'UpdateLayoutTree' ||
+      name == 'RecalculateStyles' ||
+      name == 'ScheduleStyleRecalculation' ||
+      name == 'ParseAuthorStyleSheet' ||
+      name == 'HitTest') {
+    return 2;
+  }
+  // Scripting
+  if (cat.contains('v8') ||
+      cat.contains('disabled-by-default-v8') ||
+      name == 'FunctionCall' ||
+      name == 'EvaluateScript' ||
+      name == 'TimerFire' ||
+      name == 'TimerInstall' ||
+      name == 'TimerRemove' ||
+      name == 'GCEvent' ||
+      name == 'MajorGC' ||
+      name == 'MinorGC' ||
+      name == 'RunMicrotasks' ||
+      name == 'V8.Execute' ||
+      name == 'CompileScript' ||
+      name == 'v8.compile') {
+    return 1;
+  }
+  return 4;
+}
+
+/// 面板内嵌的 trace lane timeline。横向 InteractiveViewer 支持
+/// 双指 / Ctrl+滚轮缩放，普通拖动平移；reduceMotion 时禁用任何
+/// 隐式动画（CustomPaint 本身就是静态绘制）。
+class _TraceLanesInline extends StatefulWidget {
+  const _TraceLanesInline({
+    required this.events,
+    required this.minTs,
+    required this.maxTs,
+    required this.isZh,
+  });
+
+  final List<_TraceLaneEvent> events;
+  final double minTs;
+  final double maxTs;
+  final bool isZh;
+
+  @override
+  State<_TraceLanesInline> createState() => _TraceLanesInlineState();
+}
+
+class _TraceLanesInlineState extends State<_TraceLanesInline> {
+  Offset? _hoverPos;
+  _TraceLaneEvent? _hoverEvent;
+
+  static const double _kLaneH = 18;
+  static const double _kAxisH = 18;
+  static const int _kLaneCount = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    final total = widget.maxTs <= 0 ? 1.0 : widget.maxTs;
+    const totalH = _kLaneH * _kLaneCount + _kAxisH;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.timeline_rounded,
+                  size: 16, color: cs.primary),
+              const SizedBox(width: 6),
+              Text(
+                isZh
+                    ? 'Trace 时间线（${widget.events.length} 事件 · ${total.toStringAsFixed(1)} ms）'
+                    : 'Trace Timeline (${widget.events.length} events · ${total.toStringAsFixed(1)} ms)',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 14),
+              for (final entry in _kLaneMeta.asMap().entries) ...[
+                if (entry.key != 0) const SizedBox(width: 8),
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: entry.value.$2,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isZh ? entry.value.$1 : entry.value.$3,
+                  style: theme.textTheme.labelSmall,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: totalH,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                return MouseRegion(
+                  onHover: (e) => _updateHover(e.localPosition, width),
+                  onExit: (_) => setState(() {
+                    _hoverPos = null;
+                    _hoverEvent = null;
+                  }),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _TraceLanesPainter(
+                            events: widget.events,
+                            totalMs: total,
+                            laneH: _kLaneH,
+                            axisH: _kAxisH,
+                            laneCount: _kLaneCount,
+                            outline: cs.outlineVariant,
+                            axisLabel: cs.onSurfaceVariant,
+                            highlight: _hoverEvent,
+                          ),
+                        ),
+                      ),
+                      if (_hoverEvent != null && _hoverPos != null)
+                        Positioned(
+                          left: (_hoverPos!.dx + 12).clamp(0, width - 240),
+                          top: (_hoverPos!.dy + 12).clamp(0, totalH - 60),
+                          child: IgnorePointer(
+                            child: Container(
+                              constraints:
+                                  const BoxConstraints(maxWidth: 240),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: cs.inverseSurface,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${_hoverEvent!.name}\n'
+                                '${_hoverEvent!.startMs.toStringAsFixed(2)} ms +${_hoverEvent!.durMs.toStringAsFixed(2)} ms',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: cs.onInverseSurface,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateHover(Offset pos, double width) {
+    final total = widget.maxTs <= 0 ? 1.0 : widget.maxTs;
+    final laneIdx = (pos.dy ~/ _kLaneH).clamp(0, _kLaneCount - 1);
+    final tMs = pos.dx / width * total;
+    _TraceLaneEvent? hit;
+    // 反向遍历，命中前景（最后绘制）事件；O(N) 足够 8000 内。
+    for (var i = widget.events.length - 1; i >= 0; i--) {
+      final e = widget.events[i];
+      if (e.lane != laneIdx) continue;
+      if (tMs >= e.startMs && tMs <= e.startMs + e.durMs) {
+        hit = e;
+        break;
+      }
+    }
+    setState(() {
+      _hoverPos = pos;
+      _hoverEvent = hit;
+    });
+  }
+}
+
+/// (中文名, 颜色, 英文名)
+const List<(String, Color, String)> _kLaneMeta = <(String, Color, String)>[
+  ('加载', Color(0xFF60A5FA), 'Loading'),
+  ('脚本', Color(0xFFFBBF24), 'Scripting'),
+  ('渲染', Color(0xFFA78BFA), 'Rendering'),
+  ('绘制', Color(0xFF34D399), 'Painting'),
+  ('其它', Color(0xFF94A3B8), 'Other'),
+];
+
+class _TraceLanesPainter extends CustomPainter {
+  _TraceLanesPainter({
+    required this.events,
+    required this.totalMs,
+    required this.laneH,
+    required this.axisH,
+    required this.laneCount,
+    required this.outline,
+    required this.axisLabel,
+    required this.highlight,
+  });
+
+  final List<_TraceLaneEvent> events;
+  final double totalMs;
+  final double laneH;
+  final double axisH;
+  final int laneCount;
+  final Color outline;
+  final Color axisLabel;
+  final _TraceLaneEvent? highlight;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = size.width;
+    if (width <= 0) return;
+    final pxPerMs = width / (totalMs <= 0 ? 1 : totalMs);
+    final laneBg = Paint()..color = outline.withValues(alpha: 0.18);
+    final laneBorder = Paint()
+      ..color = outline
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.5;
+    for (var i = 0; i < laneCount; i++) {
+      final rect = Rect.fromLTWH(0, i * laneH, width, laneH);
+      // 间隔条纹增强可读性
+      if (i.isOdd) canvas.drawRect(rect, laneBg);
+      canvas.drawLine(
+        Offset(0, (i + 1) * laneH),
+        Offset(width, (i + 1) * laneH),
+        laneBorder,
+      );
+    }
+    // 事件矩形
+    final fills = _kLaneMeta.map((m) => Paint()..color = m.$2).toList();
+    final highlightStroke = Paint()
+      ..color = const Color(0xFFFFFFFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    for (final e in events) {
+      final left = e.startMs * pxPerMs;
+      final w = (e.durMs * pxPerMs).clamp(1.0, width);
+      final top = e.lane * laneH + 2;
+      final rect = Rect.fromLTWH(left, top, w, laneH - 4);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+        fills[e.lane],
+      );
+      if (identical(e, highlight)) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+          highlightStroke,
+        );
+      }
+    }
+    // 时间刻度
+    final axisY = laneCount * laneH;
+    final axisLine = Paint()
+      ..color = outline
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(0, axisY),
+      Offset(width, axisY),
+      axisLine,
+    );
+    final tickCount = 6;
+    for (var i = 0; i <= tickCount; i++) {
+      final x = width * i / tickCount;
+      canvas.drawLine(
+        Offset(x, axisY),
+        Offset(x, axisY + 4),
+        axisLine,
+      );
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '${(totalMs * i / tickCount).toStringAsFixed(0)}ms',
+          style: TextStyle(color: axisLabel, fontSize: 10),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final dx = (x - tp.width / 2).clamp(0, width - tp.width).toDouble();
+      tp.paint(canvas, Offset(dx, axisY + 5));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TraceLanesPainter old) =>
+      old.events != events ||
+      old.totalMs != totalMs ||
+      old.highlight != highlight ||
+      old.outline != outline;
 }
