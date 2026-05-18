@@ -41,6 +41,7 @@ part 'web_reverse_dashboard_dialog.crypto.part.dart';
 part 'web_reverse_dashboard_dialog.hooks.part.dart';
 part 'web_reverse_dashboard_dialog.crons.part.dart';
 part 'web_reverse_dashboard_dialog.breakpoints.part.dart';
+part 'web_reverse_dashboard_dialog.realtime.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -99,6 +100,7 @@ enum _Tab {
   console,
   sources,
   breakpoints,
+  realtime,
   snippets,
   elements,
   hooks,
@@ -864,6 +866,7 @@ class _WebReverseDashboardDialogState
             });
           },
         ),
+      _Tab.realtime => _RealtimeBody(controller: ctrl, isZh: isZh),
       _Tab.crypto => _CryptoPadBody(
           isZh: isZh,
           reduceMotion: reduceMotion,
