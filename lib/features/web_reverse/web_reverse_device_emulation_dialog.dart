@@ -263,7 +263,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _ua,
                       decoration: InputDecoration(

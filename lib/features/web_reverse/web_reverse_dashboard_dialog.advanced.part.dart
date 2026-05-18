@@ -2759,6 +2759,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
                 value: _block,
                 onChanged: (v) => setState(() => _block = v),
               ),
+              const SizedBox(height: 10),
               TextField(
                 controller: _replaceCtrl,
                 decoration: InputDecoration(
@@ -2767,7 +2768,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
                   hintText: 'https://mock.local/v1/',
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               TextField(
                 controller: _headersCtrl,
                 maxLines: 5,

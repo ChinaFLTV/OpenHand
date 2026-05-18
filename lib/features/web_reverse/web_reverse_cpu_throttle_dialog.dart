@@ -169,6 +169,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                           : 'Slider ${_rate.toStringAsFixed(1)}×',
                       style: theme.textTheme.labelLarge,
                     ),
+                    const SizedBox(height: 6),
                     Slider(
                       value: _rate,
                       min: 1,

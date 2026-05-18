@@ -2391,15 +2391,18 @@ Future<Map<String, Object?>?> _showCookieEditor(
               controller: name,
               decoration: const InputDecoration(labelText: 'Name'),
             ),
+            const SizedBox(height: 10),
             TextField(
               controller: value,
               maxLines: 3,
               decoration: const InputDecoration(labelText: 'Value'),
             ),
+            const SizedBox(height: 10),
             TextField(
               controller: domain,
               decoration: const InputDecoration(labelText: 'Domain'),
             ),
+            const SizedBox(height: 10),
             TextField(
               controller: path,
               decoration: const InputDecoration(labelText: 'Path'),
@@ -2694,6 +2697,7 @@ Future<({String key, String value})?> _showStorageEditor(
               controller: keyCtrl,
               decoration: const InputDecoration(labelText: 'Key'),
             ),
+            const SizedBox(height: 10),
             TextField(
               controller: valueCtrl,
               maxLines: 6,

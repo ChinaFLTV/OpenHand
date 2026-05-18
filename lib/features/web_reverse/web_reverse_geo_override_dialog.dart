@@ -340,6 +340,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
                     TextField(
                       controller: _tzCtl,
                       enabled: _enableTz,
@@ -365,6 +366,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
                     TextField(
                       controller: _localeCtl,
                       enabled: _enableLocale,
