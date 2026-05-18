@@ -5434,6 +5434,11 @@ class WebReverseSessionController extends ChangeNotifier {
     if (_disposed) return;
     notifyListeners();
   }
+
+  /// Headless 批量采集要直接持有 browser-level CDP（共享 sessionId-less 命令通道）。
+  /// 仅在 controller 已经 `start()` 过、且没被 dispose 时返回非空。
+  WebReverseCdpClient? get browserCdpForBatch =>
+      _disposed ? null : _browserCdp;
 }
 
 /// 单条网络请求的精简快照，dashboard 用它渲染。

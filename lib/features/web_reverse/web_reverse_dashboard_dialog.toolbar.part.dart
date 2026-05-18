@@ -166,6 +166,16 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       onPressed: () => _showHarDiff(context, isZh),
                     ),
                     const SizedBox(width: 8),
+                    _ToolbarIconButton(
+                      tooltip: isZh ? 'Headless 批量采集' : 'Headless batch',
+                      icon: Icons.dynamic_feed_rounded,
+                      onPressed: () => showWebReverseHeadlessBatchDialog(
+                        context,
+                        controller: ctrl,
+                        isZh: isZh,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     // 高级菜单：把"持久 Header / 体检报告 / 原生 CDP / 反向脚本"
                     // 等低频但威力强的功能合到一颗按钮，避免 Toolbar 二行膨胀。
                     _ToolbarIconButton(
