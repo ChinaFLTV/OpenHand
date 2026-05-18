@@ -45,6 +45,7 @@ import 'web_reverse_device_emulation_dialog.dart';
 import 'web_reverse_cpu_throttle_dialog.dart';
 import 'web_reverse_dom_search_dialog.dart';
 import 'web_reverse_sourcemap_dialog.dart';
+import 'web_reverse_websocket_dialog.dart';
 import 'web_reverse_dom_mutation_dialog.dart';
 import 'web_reverse_geo_override_dialog.dart';
 import 'web_reverse_webauthn_dialog.dart';

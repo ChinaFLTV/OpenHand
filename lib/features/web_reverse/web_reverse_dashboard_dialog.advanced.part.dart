@@ -619,6 +619,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.swap_horiz_rounded,
+        title: isZh ? 'WebSocket 帧' : 'WebSocket Frames',
+        subtitle: isZh
+            ? '查看帧 · 重放 sent 帧到新连接'
+            : 'inspect frames · replay sent frames',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseWebSocketDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
