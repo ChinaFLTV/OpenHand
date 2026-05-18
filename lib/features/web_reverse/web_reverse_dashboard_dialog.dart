@@ -30,6 +30,7 @@ import 'web_reverse_session_controller.dart';
 import 'web_reverse_signature_diff_dialog.dart';
 import 'web_reverse_request_breakpoints_dialog.dart';
 import 'web_reverse_account_snapshots_dialog.dart';
+import 'web_reverse_coverage_dialog.dart';
 
 part 'web_reverse_dashboard_dialog.network.part.dart';
 part 'web_reverse_dashboard_dialog.console.part.dart';

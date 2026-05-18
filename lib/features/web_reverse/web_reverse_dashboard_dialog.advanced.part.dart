@@ -199,6 +199,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.bar_chart_rounded,
+        title: isZh ? '代码覆盖率面板' : 'JS Coverage',
+        subtitle: isZh
+            ? 'Start → 操作页面 → Take 查看哪些脚本被执行'
+            : 'Start → use the page → Take to see which scripts ran',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseCoverageDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
