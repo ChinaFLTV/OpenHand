@@ -33,6 +33,7 @@ part 'web_reverse_dashboard_dialog.panels.part.dart';
 part 'web_reverse_dashboard_dialog.advanced.part.dart';
 part 'web_reverse_dashboard_dialog.sources.part.dart';
 part 'web_reverse_dashboard_dialog.browser.part.dart';
+part 'web_reverse_dashboard_dialog.snippets.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -90,6 +91,7 @@ enum _Tab {
   network,
   console,
   sources,
+  snippets,
   performance,
   memory,
   application,
@@ -109,6 +111,7 @@ class _WebReverseDashboardDialogState
   static const _kLspArgsMetaKey = 'web_reverse_lsp_args';
   static const _kHeapSnapAMetaKey = 'web_reverse_memory_snap_a';
   static const _kHeapSnapBMetaKey = 'web_reverse_memory_snap_b';
+  static const _kSnippetsMetaKey = 'web_reverse_snippets';
   _Tab _tab = _Tab.network;
 
   // Network 面板状态
@@ -203,6 +206,16 @@ class _WebReverseDashboardDialogState
                 WebReverseInterceptRule.fromJson(Map<String, Object?>.from(m)))
             .toList(growable: false);
         if (rules.isNotEmpty) widget.controller.setInterceptRules(rules);
+      }
+      // 恢复 snippet pad 内容。
+      final snipRaw = session.metadata[_kSnippetsMetaKey];
+      if (snipRaw is List) {
+        final snips = snipRaw
+            .whereType<Map>()
+            .map((m) => WebReverseSnippet.fromJson(Map<String, Object?>.from(m)))
+            .where((s) => s.id.isNotEmpty)
+            .toList(growable: false);
+        if (snips.isNotEmpty) widget.controller.replaceSnippets(snips);
       }
     });
   }
@@ -376,6 +389,20 @@ class _WebReverseDashboardDialogState
     unawaited(
       session.updateSessionMetadata(widget.sessionId, <String, Object?>{
         _kBreakpointsMetaKey: bps,
+      }),
+    );
+  }
+
+  /// 持久化脚本注入库。snippet 增删改后立即调一次，写回 session metadata。
+  void persistSnippets() {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>();
+    final items = widget.controller.snippets
+        .map((s) => s.toJson())
+        .toList(growable: false);
+    unawaited(
+      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kSnippetsMetaKey: items,
       }),
     );
   }
@@ -741,6 +768,11 @@ class _WebReverseDashboardDialogState
           controller: ctrl,
           isZh: isZh,
           reduceMotion: reduceMotion,
+        ),
+      _Tab.snippets => _SnippetsBody(
+          controller: ctrl,
+          isZh: isZh,
+          onPersist: persistSnippets,
         ),
       _Tab.performance => _PerformancePanel(
           controller: ctrl,

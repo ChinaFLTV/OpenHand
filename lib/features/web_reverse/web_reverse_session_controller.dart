@@ -2120,6 +2120,68 @@ class WebReverseSessionController extends ChangeNotifier {
     _safeNotify();
   }
 
+  // ─── 脚本注入库 (Snippet Pad) ────────────────────────────────────────
+  // 用户在「脚本」tab 创建的 JS 代码片段；执行时直接复用 [runReplExpression]，
+  // 持久化由 dashboard 写入 session metadata。
+  final List<WebReverseSnippet> _snippets = <WebReverseSnippet>[];
+  List<WebReverseSnippet> get snippets => List.unmodifiable(_snippets);
+
+  void replaceSnippets(List<WebReverseSnippet> items) {
+    _snippets
+      ..clear()
+      ..addAll(items);
+    _safeNotify();
+  }
+
+  WebReverseSnippet addSnippet({required String name, required String code}) {
+    final id = 'snip_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
+    final s = WebReverseSnippet(
+      id: id,
+      name: name.trim().isEmpty ? 'untitled' : name.trim(),
+      code: code,
+      updatedAt: DateTime.now(),
+    );
+    _snippets.add(s);
+    _safeNotify();
+    return s;
+  }
+
+  void updateSnippet({
+    required String id,
+    String? name,
+    String? code,
+  }) {
+    final i = _snippets.indexWhere((e) => e.id == id);
+    if (i < 0) return;
+    final old = _snippets[i];
+    _snippets[i] = WebReverseSnippet(
+      id: old.id,
+      name: (name ?? old.name).trim().isEmpty ? old.name : (name ?? old.name).trim(),
+      code: code ?? old.code,
+      updatedAt: DateTime.now(),
+    );
+    _safeNotify();
+  }
+
+  void removeSnippet(String id) {
+    final i = _snippets.indexWhere((e) => e.id == id);
+    if (i < 0) return;
+    _snippets.removeAt(i);
+    _safeNotify();
+  }
+
+  /// 执行 snippet：直接走 REPL 通道，结果写入 Console 面板供回看。
+  Future<String?> runSnippet(String id) async {
+    final s = _snippets.firstWhere(
+      (e) => e.id == id,
+      orElse: () => const WebReverseSnippet(
+        id: '', name: '', code: '', updatedAt: null,
+      ),
+    );
+    if (s.id.isEmpty) return null;
+    return runReplExpression(s.code);
+  }
+
   /// 输入和结果都以 [_appendConsole] 写回 console buffer，
   /// 渲染端按 'repl-input' / 'repl-result' / 'error' level 区分配色。
   Future<String?> runReplExpression(String expression) async {
@@ -4988,4 +5050,38 @@ class _PerTargetBuffer {
   final Map<String, String> scriptSources;
   final Map<String, String> bpIdByKey;
   final DateTime lastUsedAt;
+}
+
+
+/// 用户保存的 JS 片段（脚本注入库）。`runReplExpression` 执行后结果
+/// 进入 Console 面板；持久化由 dashboard 写入 session metadata。
+class WebReverseSnippet {
+  const WebReverseSnippet({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String name;
+  final String code;
+  final DateTime? updatedAt;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'id': id,
+        'name': name,
+        'code': code,
+        'updated_ms': updatedAt?.millisecondsSinceEpoch,
+      };
+
+  factory WebReverseSnippet.fromJson(Map<String, Object?> json) {
+    final ms = json['updated_ms'];
+    return WebReverseSnippet(
+      id: '${json['id'] ?? ''}',
+      name: '${json['name'] ?? 'untitled'}',
+      code: '${json['code'] ?? ''}',
+      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
+    );
+  }
 }

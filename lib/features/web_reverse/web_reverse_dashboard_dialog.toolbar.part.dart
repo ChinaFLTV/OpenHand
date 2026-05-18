@@ -195,6 +195,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         _Tab.network => isZh ? '网络' : 'Network',
         _Tab.console => isZh ? '控制台' : 'Console',
         _Tab.sources => isZh ? '源码' : 'Sources',
+        _Tab.snippets => isZh ? '脚本' : 'Snippets',
         _Tab.performance => isZh ? '性能' : 'Performance',
         _Tab.memory => isZh ? '内存' : 'Memory',
         _Tab.application => isZh ? '应用' : 'Application',
@@ -208,6 +209,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         _Tab.network => Icons.swap_horiz_rounded,
         _Tab.console => Icons.terminal_rounded,
         _Tab.sources => Icons.source_rounded,
+        _Tab.snippets => Icons.code_rounded,
         _Tab.performance => Icons.speed_rounded,
         _Tab.memory => Icons.memory_rounded,
         _Tab.application => Icons.apps_rounded,
@@ -224,6 +226,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       _Tab.console => c.consoleMessages.length,
       _Tab.sources =>
         c.parsedScripts.isEmpty ? null : c.parsedScripts.length,
+      _Tab.snippets => c.snippets.isEmpty ? null : c.snippets.length,
       _ => null,
     };
   }
