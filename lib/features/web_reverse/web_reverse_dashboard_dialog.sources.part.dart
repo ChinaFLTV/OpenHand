@@ -54,6 +54,17 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   static const double _kSourceLineHeight = 19.5;
   final ScrollController _sourceScroll = ScrollController();
 
+  // ── Slice 3: Source Map ──
+  // 当前选中脚本的 source map（懒加载，失败/无 map 时为 null）。
+  WebReverseSourceMapInfo? _sourceMap;
+  // 是否正在抓 map，决定 chip 是否显示进度。
+  bool _sourceMapLoading = false;
+  // 当前在源码视图里展示的原始源 index；-1 表示还在看压缩源。
+  int _originalSourceIndex = -1;
+  // 是否优先展示原始源（即使 sourcesContent[index] 为 null 也按 inline
+  // 占位写「未内联到 map 的源」）。
+  bool get _viewingOriginal => _originalSourceIndex >= 0;
+
   @override
   void initState() {
     super.initState();
@@ -590,11 +601,26 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       _selectedId = id;
       _source = null;
       _bpAtLine.clear();
+      // 切脚本：source map 状态全部重置；新脚本懒加载。
+      _sourceMap = null;
+      _sourceMapLoading = false;
+      _originalSourceIndex = -1;
     });
     final src = await widget.controller.getScriptSource(id);
     if (!mounted) return;
     setState(() => _source = src);
     await _pushCurrentToLsp();
+    // 抓 sourcemap 不阻塞源码渲染；完成后追加显示「Map(N)」chip。
+    final url = widget.controller.parsedScripts[id]?.url ?? '';
+    if (url.isNotEmpty) {
+      setState(() => _sourceMapLoading = true);
+      final info = await widget.controller.fetchSourceMapForUrl(url);
+      if (!mounted) return;
+      setState(() {
+        _sourceMap = info;
+        _sourceMapLoading = false;
+      });
+    }
   }
 
   /// 由 dashboard 调用：根据 (url, line, col) 选中匹配的脚本并滚到目标行。
@@ -649,6 +675,22 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   Future<void> _toggleBreakpoint(int lineIdx) async {
     final id = _selectedId;
     if (id == null) return;
+    // 查看原始源时点行号无法直接转成生成文件行号（需要反向 mapping），
+    // 现阶段不支持，直接 SnackBar 提示用户「切回压缩源再下断点」。
+    if (_viewingOriginal) {
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger != null) {
+        OpenHandSnackBar.showInfoOn(
+          context,
+          messenger,
+          widget.isZh
+              ? '原始源视图暂不支持下断点，请先返回压缩源'
+              : 'Breakpoint not supported in original-source view',
+          duration: const Duration(seconds: 2),
+        );
+      }
+      return;
+    }
     final url = widget.controller.parsedScripts[id]?.url;
     if (url == null || url.isEmpty) return;
     final existing = _bpAtLine[lineIdx];
@@ -876,14 +918,97 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     );
   }
 
+  /// Source Map chip：标题写「Map(N)」，点击弹出原始源列表；选中后
+  /// 切到原始源视图。N = sources 数。
+  Widget _buildSourceMapChip(ThemeData theme, ColorScheme cs, bool isZh) {
+    final sm = _sourceMap!;
+    return PopupMenuButton<int>(
+      tooltip: isZh ? '切到原始源' : 'Pick original source',
+      position: PopupMenuPosition.under,
+      constraints: const BoxConstraints(minWidth: 300, maxWidth: 560),
+      itemBuilder: (ctx) {
+        return <PopupMenuEntry<int>>[
+          PopupMenuItem<int>(
+            enabled: false,
+            child: Text(
+              isZh
+                  ? '映射来源：${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}'
+                  : 'From: ${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ),
+          const PopupMenuDivider(),
+          for (var i = 0; i < sm.sources.length; i++)
+            PopupMenuItem<int>(
+              value: i,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    sm.sourcesContent.length > i && sm.sourcesContent[i] != null
+                        ? Icons.description_outlined
+                        : Icons.cloud_outlined,
+                    size: 14,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      sm.resolveSource(i),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ];
+      },
+      onSelected: (idx) {
+        setState(() => _originalSourceIndex = idx);
+      },
+      child: Chip(
+        avatar: Icon(Icons.alt_route_rounded, size: 14, color: cs.primary),
+        label: Text(
+          isZh
+              ? 'Map(${sm.sources.length})'
+              : 'Map(${sm.sources.length})',
+          style: const TextStyle(fontSize: 12),
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+      ),
+    );
+  }
+
   Widget _buildSourceView(ThemeData theme, ColorScheme cs, bool isZh) {
     final raw = _source;
     final url = widget.controller.parsedScripts[_selectedId]?.url ?? '';
     if (raw == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    final source =
-        _prettify ? WebReverseSessionController.prettifyJs(raw) : raw;
+    // 若选了原始源，优先渲染映射出来的源码；sourcesContent[index] 为
+    // null 时显示「未内联到 map」占位。
+    String source;
+    String? originalLabel;
+    if (_viewingOriginal && _sourceMap != null) {
+      final idx = _originalSourceIndex;
+      final sm = _sourceMap!;
+      final body = (idx >= 0 && idx < sm.sourcesContent.length)
+          ? sm.sourcesContent[idx]
+          : null;
+      originalLabel = sm.resolveSource(idx);
+      source = body ??
+          (isZh
+              ? '// 该原始源未内联到 sourcesContent 中。\n// 可以在终端单独 fetch ${sm.mapUrl} 下载完整映射，\n// 或在浏览器 DevTools Sources 里手动展开。'
+              : '// This original source is not inlined in sourcesContent.\n// Fetch ${sm.mapUrl} manually to inspect.');
+    } else {
+      source = _prettify ? WebReverseSessionController.prettifyJs(raw) : raw;
+    }
     final lines = source.split('\n');
     return Column(
       children: [
@@ -893,16 +1018,57 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             children: [
               Expanded(
                 child: SelectableText(
-                  url,
+                  _viewingOriginal && originalLabel != null
+                      ? '↳ $originalLabel'
+                      : url,
                   maxLines: 1,
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontFamily: 'monospace',
                     fontSize: 11,
-                    color: cs.onSurfaceVariant,
+                    color: _viewingOriginal ? cs.primary : cs.onSurfaceVariant,
+                    fontWeight:
+                        _viewingOriginal ? FontWeight.w700 : FontWeight.w400,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
+              // ── Source Map chip：已抓到 N>0 个原始源时启用；正在
+              // 抓取显示菊花；命中后点击弹 PopupMenu 选源切换视图。
+              if (_sourceMapLoading)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else if (_sourceMap != null && _sourceMap!.sources.isNotEmpty)
+                SizedBox(
+                  height: 32,
+                  child: _buildSourceMapChip(theme, cs, isZh),
+                ),
+              if (_viewingOriginal) ...[
+                const SizedBox(width: 6),
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() => _originalSourceIndex = -1);
+                    },
+                    icon: const Icon(Icons.subdirectory_arrow_left_rounded,
+                        size: 16),
+                    label: Text(isZh ? '返回压缩' : 'Back to gen'),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 6),
               // “原样” / “LSP” 胶囊外明确限定高 32，与右侧复制源码 /
               // 继续运行等动作胶囊保持同高，避免主侊变得徽高徽矮。
               SizedBox(
@@ -915,9 +1081,12 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   visualDensity: VisualDensity.compact,
                   materialTapTargetSize:
                       MaterialTapTargetSize.shrinkWrap,
-                  onSelected: (v) {
-                    setState(() => _prettify = v);
-                    _pushCurrentToLsp();
+                  // 查看原始源时美化按钮无意义，置灰。
+                  onSelected: _viewingOriginal
+                      ? null
+                      : (v) {
+                          setState(() => _prettify = v);
+                          _pushCurrentToLsp();
                   },
                 ),
               ),

@@ -9,6 +9,7 @@ import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_har_replay_server.dart';
 import 'web_reverse_mitmproxy_bridge.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_artifacts.dart';
 import 'web_reverse_session_config.dart';
 
@@ -6630,6 +6631,101 @@ class WebReverseSessionController extends ChangeNotifier {
     _safeNotify();
     return true;
   }
+
+  // ─── Source Map 解析（Slice 3：源码板块集成） ───
+  // 缓存 key 用脚本 URL；命中后避免重复 fetch（map 经常 1-10 MB）。
+  // null 表示「尝试过但失败 / 没有 sourceMappingURL」，避免反复重试。
+  final Map<String, WebReverseSourceMapInfo?> _sourceMapCache =
+      <String, WebReverseSourceMapInfo?>{};
+
+  /// 从已 parsed 脚本的 URL 抓取并解析 source map：先 fetch 文件文本拿
+  /// `//# sourceMappingURL=` 注释，再 fetch map JSON，最后 Dart 端 VLQ
+  /// 解码 mappings 为 segments（按行索引）。
+  /// 返回 null：网络失败 / map 不存在 / JSON 解析失败。
+  Future<WebReverseSourceMapInfo?> fetchSourceMapForUrl(String url) async {
+    if (url.isEmpty) return null;
+    if (_sourceMapCache.containsKey(url)) return _sourceMapCache[url];
+    if (_browserCdp == null || _pageSessionId == null) return null;
+    try {
+      final js = '''
+(async () => {
+  try {
+    const r = await fetch(${jsonEncode(url)});
+    const text = await r.text();
+    const m = /[#@]\\s*sourceMappingURL=(\\S+)/.exec(text);
+    if (!m) return JSON.stringify({ error: 'no sourceMappingURL' });
+    let mapUrl = m[1];
+    if (mapUrl.startsWith('data:')) {
+      const b64 = mapUrl.slice(mapUrl.indexOf('base64,') + 7);
+      return JSON.stringify({ map: atob(b64), mapUrl: '<inline>' });
+    }
+    mapUrl = new URL(mapUrl, ${jsonEncode(url)}).toString();
+    const mr = await fetch(mapUrl);
+    const mt = await mr.text();
+    return JSON.stringify({ map: mt, mapUrl });
+  } catch (err) {
+    return JSON.stringify({ error: String(err) });
+  }
+})()
+''';
+      final r = await sendRawCdp(
+        method: 'Runtime.evaluate',
+        paramsJson: jsonEncode({
+          'expression': js,
+          'awaitPromise': true,
+          'returnByValue': true,
+        }),
+      );
+      final raw = (r?['result'] as Map?)?['value'];
+      if (raw is! String) {
+        _sourceMapCache[url] = null;
+        return null;
+      }
+      final wrap = jsonDecode(raw) as Map<String, Object?>;
+      if (wrap['error'] != null || wrap['map'] is! String) {
+        _sourceMapCache[url] = null;
+        return null;
+      }
+      final mapJson = jsonDecode('${wrap['map']}') as Map<String, Object?>;
+      final sources = (mapJson['sources'] as List?)
+              ?.cast<Object?>()
+              .map((e) => '$e')
+              .toList(growable: false) ??
+          const <String>[];
+      final names = (mapJson['names'] as List?)
+              ?.cast<Object?>()
+              .map((e) => '$e')
+              .toList(growable: false) ??
+          const <String>[];
+      final sourcesContent = (mapJson['sourcesContent'] as List?)
+              ?.cast<Object?>()
+              .map((e) => e == null ? null : '$e')
+              .toList(growable: false) ??
+          List<String?>.filled(sources.length, null);
+      final sourceRoot = '${mapJson['sourceRoot'] ?? ''}';
+      final mappings = '${mapJson['mappings'] ?? ''}';
+      final info = WebReverseSourceMapInfo(
+        scriptUrl: url,
+        mapUrl: '${wrap['mapUrl'] ?? ''}',
+        sources: sources,
+        sourcesContent: sourcesContent,
+        names: names,
+        sourceRoot: sourceRoot,
+        mappings: mappings,
+      );
+      _sourceMapCache[url] = info;
+      return info;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'fetchSourceMapForUrl', e, st);
+      _sourceMapCache[url] = null;
+      return null;
+    }
+  }
+
+  /// 清除某个脚本的 sourcemap 缓存（用户主动「重新抓取」时调）。
+  void invalidateSourceMapForUrl(String url) {
+    _sourceMapCache.remove(url);
+  }
 }
 
 /// 单条网络请求的精简快照，dashboard 用它渲染。
@@ -6831,6 +6927,101 @@ class CdpPageTargetSnapshot {
   final String id;
   final String url;
   final String title;
+}
+
+
+/// 抓取并解析后的 Source Map 信息，供源码板块「跳到原始源」使用。
+/// 这里只保留浏览器侧返回的字段；mappings 解码是按需进行的：调用
+/// [decodeOriginalLocation] 才会扫到目标段。
+class WebReverseSourceMapInfo {
+  WebReverseSourceMapInfo({
+    required this.scriptUrl,
+    required this.mapUrl,
+    required this.sources,
+    required this.sourcesContent,
+    required this.names,
+    required this.sourceRoot,
+    required this.mappings,
+  });
+
+  /// 生成文件（压缩 JS）的 URL。
+  final String scriptUrl;
+
+  /// 来源 source map 的 URL（data: 内联时为 `<inline>`）。
+  final String mapUrl;
+
+  /// 原始源文件列表（sourceRoot 拼接前）。
+  final List<String> sources;
+
+  /// 与 [sources] 同长，可能含 null 表示该源未内联到 map 里。
+  final List<String?> sourcesContent;
+
+  /// 名字表，给段四元组中的 name 字段使用。
+  final List<String> names;
+
+  /// 拼接前缀。
+  final String sourceRoot;
+
+  /// 原始 mappings 字符串（按 `;` 分行，按 `,` 分段，每段 VLQ 编码）。
+  final String mappings;
+
+  /// 通过 sourceRoot 拼出最终展示用的 source URL。
+  String resolveSource(int sourceIndex) {
+    if (sourceIndex < 0 || sourceIndex >= sources.length) return '?';
+    final rel = sources[sourceIndex];
+    if (sourceRoot.isEmpty) return rel;
+    return sourceRoot.endsWith('/') ? '$sourceRoot$rel' : '$sourceRoot/$rel';
+  }
+
+  /// 把 (生成文件行, 生成文件列) 反查到 (sourceIndex, origLine, origCol,
+  /// nameIndex?)。0-based。命中不到返回 null。
+  /// 实现与独立 SourceMap 对话框等价，但内联到模型里便于复用。
+  Map<String, int?>? decodeOriginalLocation({
+    required int generatedLine,
+    required int generatedColumn,
+  }) {
+    final lines = mappings.split(';');
+    if (generatedLine < 0 || generatedLine >= lines.length) return null;
+    var srcIdx = 0;
+    var origLine = 0;
+    var origCol = 0;
+    var nameIdx = 0;
+    for (var li = 0; li < generatedLine; li += 1) {
+      for (final seg in lines[li].split(',')) {
+        if (seg.isEmpty) continue;
+        final nums = vlqDecode(seg);
+        if (nums.length >= 4) {
+          srcIdx += nums[1];
+          origLine += nums[2];
+          origCol += nums[3];
+          if (nums.length >= 5) nameIdx += nums[4];
+        }
+      }
+    }
+    final lineStr = lines[generatedLine];
+    if (lineStr.isEmpty) return null;
+    var genCol = 0;
+    Map<String, int?>? best;
+    for (final seg in lineStr.split(',')) {
+      if (seg.isEmpty) continue;
+      final nums = vlqDecode(seg);
+      genCol += nums[0];
+      if (nums.length >= 4) {
+        srcIdx += nums[1];
+        origLine += nums[2];
+        origCol += nums[3];
+        if (nums.length >= 5) nameIdx += nums[4];
+      }
+      if (genCol > generatedColumn) break;
+      best = <String, int?>{
+        'source': srcIdx,
+        'origLine': origLine,
+        'origCol': origCol,
+        'name': nums.length >= 5 ? nameIdx : null,
+      };
+    }
+    return best;
+  }
 }
 
 
