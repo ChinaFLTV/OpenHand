@@ -180,7 +180,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
       if (!mounted) return;
       if (r == null || r['error'] != null) {
         setState(() => _status = widget.isZh
-            ? '失败：${r?['error'] ?? widget.isZh}'
+            ? '失败：${r?['error'] ?? '未知错误'}'
             : 'Failed: ${r?['error'] ?? 'unknown'}');
         final m = ScaffoldMessenger.maybeOf(context);
         if (m != null) {
