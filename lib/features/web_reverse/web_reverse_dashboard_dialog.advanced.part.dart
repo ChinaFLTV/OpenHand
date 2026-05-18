@@ -664,6 +664,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.terminal_rounded,
+        title: isZh ? 'CDP Raw 控制台' : 'CDP Raw Console',
+        subtitle: isZh
+            ? '带历史 · 快捷键 · 任意 CDP method/params'
+            : 'history · shortcuts · arbitrary CDP method/params',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseCdpConsoleDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
