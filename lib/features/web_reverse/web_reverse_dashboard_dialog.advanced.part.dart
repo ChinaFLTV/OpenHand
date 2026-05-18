@@ -214,6 +214,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.ios_share_rounded,
+        title: isZh ? 'API 集合导出' : 'Export Collection',
+        subtitle: isZh
+            ? 'Postman / Insomnia / Bruno / cURL / HAR 一键复制'
+            : 'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseCollectionExportDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

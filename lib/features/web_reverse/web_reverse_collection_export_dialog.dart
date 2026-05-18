@@ -1,0 +1,524 @@
+/// API 集合导出面板。
+///
+/// 把已抓到的 HTTP 请求一次性转换成 Postman v2.1 / Insomnia v4 /
+/// Bruno (.bru 拼接文本) / cURL 列表 / HAR 1.2 五种主流格式之一，
+/// 复制到剪贴板。可按 URL 子串过滤，避免把大量静态资源也带进集合。
+library;
+
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../app/support/silent_log.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_session_controller.dart';
+
+enum _CollectionFormat { postman, insomnia, bruno, curl, har }
+
+Future<void> showWebReverseCollectionExportDialog(
+  BuildContext context, {
+  required WebReverseSessionController controller,
+  required bool isZh,
+}) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _CollectionExportDialog(
+      controller: controller,
+      isZh: isZh,
+    ),
+  );
+}
+
+class _CollectionExportDialog extends StatefulWidget {
+  const _CollectionExportDialog({
+    required this.controller,
+    required this.isZh,
+  });
+  final WebReverseSessionController controller;
+  final bool isZh;
+  @override
+  State<_CollectionExportDialog> createState() =>
+      _CollectionExportDialogState();
+}
+
+class _CollectionExportDialogState extends State<_CollectionExportDialog> {
+  _CollectionFormat _format = _CollectionFormat.postman;
+  final TextEditingController _filterCtrl = TextEditingController();
+  final TextEditingController _nameCtrl =
+      TextEditingController(text: 'OpenHand Capture');
+  bool _xhrOnly = true;
+
+  @override
+  void dispose() {
+    _filterCtrl.dispose();
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  List<CdpNetworkEntry> _selected() {
+    final filter = _filterCtrl.text.trim().toLowerCase();
+    final all = widget.controller.networkRequests;
+    return all.where((e) {
+      if (_xhrOnly) {
+        final rt = e.resourceType.toLowerCase();
+        if (rt != 'xhr' && rt != 'fetch') return false;
+      }
+      if (filter.isEmpty) return true;
+      return e.url.toLowerCase().contains(filter);
+    }).toList();
+  }
+
+  String _buildOutput(List<CdpNetworkEntry> entries) {
+    switch (_format) {
+      case _CollectionFormat.postman:
+        return _buildPostman(entries);
+      case _CollectionFormat.insomnia:
+        return _buildInsomnia(entries);
+      case _CollectionFormat.bruno:
+        return _buildBruno(entries);
+      case _CollectionFormat.curl:
+        return _buildCurlList(entries);
+      case _CollectionFormat.har:
+        return _buildHar(entries);
+    }
+  }
+
+  String _buildPostman(List<CdpNetworkEntry> entries) {
+    final items = entries.map((e) {
+      final uri = Uri.tryParse(e.url);
+      final headerArr = e.requestHeaders.entries
+          .map((h) => <String, Object?>{'key': h.key, 'value': h.value})
+          .toList();
+      return <String, Object?>{
+        'name': '${e.method} ${uri?.path ?? e.url}',
+        'request': <String, Object?>{
+          'method': e.method,
+          'header': headerArr,
+          if (e.requestPostData != null)
+            'body': <String, Object?>{
+              'mode': 'raw',
+              'raw': e.requestPostData,
+            },
+          'url': <String, Object?>{
+            'raw': e.url,
+            if (uri != null) ...{
+              'protocol': uri.scheme,
+              'host': uri.host.split('.'),
+              if (uri.hasPort) 'port': '${uri.port}',
+              'path': uri.pathSegments,
+              if (uri.hasQuery)
+                'query': uri.queryParameters.entries
+                    .map((q) => <String, Object?>{
+                          'key': q.key,
+                          'value': q.value,
+                        })
+                    .toList(),
+            },
+          },
+        },
+      };
+    }).toList();
+    return _pretty(<String, Object?>{
+      'info': <String, Object?>{
+        'name': _nameCtrl.text.trim().isEmpty
+            ? 'OpenHand Capture'
+            : _nameCtrl.text.trim(),
+        '_postman_id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'schema':
+            'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+      },
+      'item': items,
+    });
+  }
+
+  String _buildInsomnia(List<CdpNetworkEntry> entries) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final wsId = 'wrk_openhand_$now';
+    final resources = <Map<String, Object?>>[
+      <String, Object?>{
+        '_id': wsId,
+        '_type': 'workspace',
+        'name': _nameCtrl.text.trim().isEmpty
+            ? 'OpenHand Capture'
+            : _nameCtrl.text.trim(),
+      },
+      ...entries.asMap().entries.map((kv) {
+        final i = kv.key;
+        final e = kv.value;
+        return <String, Object?>{
+          '_id': 'req_openhand_${now}_$i',
+          '_type': 'request',
+          'parentId': wsId,
+          'method': e.method,
+          'url': e.url,
+          'name': '${e.method} ${Uri.tryParse(e.url)?.path ?? e.url}',
+          'headers': e.requestHeaders.entries
+              .map((h) => <String, Object?>{
+                    'name': h.key,
+                    'value': h.value,
+                  })
+              .toList(),
+          if (e.requestPostData != null)
+            'body': <String, Object?>{
+              'mimeType':
+                  e.requestHeaders['content-type'] ?? 'application/json',
+              'text': e.requestPostData,
+            },
+        };
+      }),
+    ];
+    return _pretty(<String, Object?>{
+      '_type': 'export',
+      '__export_format': 4,
+      '__export_date': DateTime.now().toUtc().toIso8601String(),
+      '__export_source': 'openhand.web_reverse',
+      'resources': resources,
+    });
+  }
+
+  String _buildBruno(List<CdpNetworkEntry> entries) {
+    final buf = StringBuffer()
+      ..writeln('# Bruno collection (concat) — split each `--- request ---`')
+      ..writeln('# Name: ${_nameCtrl.text.trim()}')
+      ..writeln();
+    for (final e in entries) {
+      buf
+        ..writeln('--- request ---')
+        ..writeln('meta {')
+        ..writeln('  name: ${e.method} ${Uri.tryParse(e.url)?.path ?? e.url}')
+        ..writeln('  type: http')
+        ..writeln('}')
+        ..writeln()
+        ..writeln('${e.method.toLowerCase()} {')
+        ..writeln('  url: ${e.url}')
+        ..writeln('  body: ${e.requestPostData == null ? 'none' : 'json'}')
+        ..writeln('}');
+      if (e.requestHeaders.isNotEmpty) {
+        buf.writeln('headers {');
+        for (final h in e.requestHeaders.entries) {
+          buf.writeln('  ${h.key}: ${h.value}');
+        }
+        buf.writeln('}');
+      }
+      if (e.requestPostData != null) {
+        buf
+          ..writeln('body:json {')
+          ..writeln(e.requestPostData)
+          ..writeln('}');
+      }
+      buf.writeln();
+    }
+    return buf.toString();
+  }
+
+  String _buildCurlList(List<CdpNetworkEntry> entries) {
+    final buf = StringBuffer();
+    for (final e in entries) {
+      buf.write("curl -X ${e.method} '${e.url}'");
+      for (final h in e.requestHeaders.entries) {
+        buf.write(" \\\n  -H '${h.key}: ${_escSingle(h.value)}'");
+      }
+      if (e.requestPostData != null) {
+        buf.write(" \\\n  --data-raw '${_escSingle(e.requestPostData!)}'");
+      }
+      buf.writeln();
+      buf.writeln();
+    }
+    return buf.toString();
+  }
+
+  String _buildHar(List<CdpNetworkEntry> entries) {
+    final harEntries = entries.map((e) {
+      final uri = Uri.tryParse(e.url);
+      return <String, Object?>{
+        'startedDateTime': e.timestamp.toUtc().toIso8601String(),
+        'time': 0,
+        'request': <String, Object?>{
+          'method': e.method,
+          'url': e.url,
+          'httpVersion': e.protocol ?? 'HTTP/1.1',
+          'headers': e.requestHeaders.entries
+              .map((h) => <String, Object?>{
+                    'name': h.key,
+                    'value': h.value,
+                  })
+              .toList(),
+          'queryString': (uri?.queryParameters ?? const <String, String>{})
+              .entries
+              .map((q) => <String, Object?>{
+                    'name': q.key,
+                    'value': q.value,
+                  })
+              .toList(),
+          if (e.requestPostData != null)
+            'postData': <String, Object?>{
+              'mimeType':
+                  e.requestHeaders['content-type'] ?? 'application/json',
+              'text': e.requestPostData,
+            },
+          'headersSize': -1,
+          'bodySize': e.requestPostData?.length ?? 0,
+          'cookies': <Object?>[],
+        },
+        'response': <String, Object?>{
+          'status': e.statusCode ?? 0,
+          'statusText': e.statusText ?? '',
+          'httpVersion': e.protocol ?? 'HTTP/1.1',
+          'headers': e.responseHeaders.entries
+              .map((h) => <String, Object?>{
+                    'name': h.key,
+                    'value': h.value,
+                  })
+              .toList(),
+          'content': <String, Object?>{
+            'size': e.decodedBodyLength ?? 0,
+            'mimeType': e.mimeType ?? '',
+            if (e.cachedBody != null) 'text': e.cachedBody,
+            if (e.cachedBodyBase64) 'encoding': 'base64',
+          },
+          'redirectURL': '',
+          'headersSize': -1,
+          'bodySize': e.encodedDataLength ?? 0,
+          'cookies': <Object?>[],
+        },
+        'cache': <String, Object?>{},
+        'timings': <String, Object?>{'send': 0, 'wait': 0, 'receive': 0},
+      };
+    }).toList();
+    return _pretty(<String, Object?>{
+      'log': <String, Object?>{
+        'version': '1.2',
+        'creator': <String, Object?>{
+          'name': 'OpenHand WebReverse',
+          'version': '1.0',
+        },
+        'entries': harEntries,
+      },
+    });
+  }
+
+  String _pretty(Object? v) =>
+      const JsonEncoder.withIndent('  ').convert(v);
+
+  String _escSingle(String s) => s.replaceAll("'", r"'\''");
+
+  Future<void> _copy() async {
+    final entries = _selected();
+    if (entries.isEmpty) {
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        OpenHandSnackBar.showErrorOn(
+          context,
+          m,
+          widget.isZh ? '没有可导出的请求' : 'Nothing to export',
+        );
+      }
+      return;
+    }
+    try {
+      final out = _buildOutput(entries);
+      await Clipboard.setData(ClipboardData(text: out));
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          m,
+          widget.isZh
+              ? '已复制 ${entries.length} 条请求到剪贴板'
+              : 'Copied ${entries.length} requests to clipboard',
+        );
+      }
+    } catch (e, st) {
+      silentLog('web_reverse_collection_export', 'copy', e, st);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    final entries = _selected();
+    final preview = entries.isEmpty
+        ? (isZh
+            ? '// 没有匹配的请求。\n// 调整过滤条件或取消「仅 XHR/Fetch」。'
+            : '// No matching requests.\n// Adjust the filter or turn off "XHR/Fetch only".')
+        : _buildOutput(entries.take(2).toList());
+
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 720),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+              child: Row(
+                children: [
+                  Icon(Icons.ios_share_rounded, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isZh ? 'API 集合导出' : 'Export Collection',
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          isZh
+                              ? 'Postman / Insomnia / Bruno / cURL / HAR  —— 一键复制'
+                              : 'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard',
+                          style: theme.textTheme.labelSmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _CollectionFormat.values.map((f) {
+                  final selected = _format == f;
+                  return ChoiceChip(
+                    label: Text(_labelOf(f)),
+                    selected: selected,
+                    onSelected: (_) => setState(() => _format = f),
+                  );
+                }).toList(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 240,
+                    child: TextField(
+                      controller: _nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: isZh ? '集合名称' : 'Collection name',
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _filterCtrl,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        labelText: isZh ? 'URL 子串过滤' : 'URL filter',
+                        prefixIcon:
+                            const Icon(Icons.filter_alt_rounded, size: 18),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilterChip(
+                    label: Text(isZh ? '仅 XHR/Fetch' : 'XHR/Fetch only'),
+                    selected: _xhrOnly,
+                    onSelected: (v) => setState(() => _xhrOnly = v),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text(
+                    isZh
+                        ? '匹配 ${entries.length} 条 · 共 ${widget.controller.networkRequests.length}'
+                        : '${entries.length} match · ${widget.controller.networkRequests.length} total',
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const Spacer(),
+                  Text(
+                    isZh ? '下方为前两条预览' : 'Preview: first 2 entries',
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: cs.outlineVariant),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    preview,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    label: isZh ? '关闭' : 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(width: 8),
+                  OpenHandDialogActionButton.primary(
+                    label: isZh ? '复制集合' : 'Copy collection',
+                    onPressed: entries.isEmpty ? null : _copy,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _labelOf(_CollectionFormat f) {
+    switch (f) {
+      case _CollectionFormat.postman:
+        return 'Postman v2.1';
+      case _CollectionFormat.insomnia:
+        return 'Insomnia v4';
+      case _CollectionFormat.bruno:
+        return 'Bruno (.bru)';
+      case _CollectionFormat.curl:
+        return 'cURL list';
+      case _CollectionFormat.har:
+        return 'HAR 1.2';
+    }
+  }
+}
