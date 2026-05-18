@@ -100,6 +100,104 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     }
   }
 
+  // 条件断点编辑器：从行号右侧 ✎ 图标进入。Esc/取消保留原值；保存后调
+  // controller.setBreakpointCondition（内部走 remove + setBreakpointByUrl
+  // 重建），结果通过 _safeNotify → addListener → setState 刷新 UI。
+  Future<void> _editSourceBpCondition(({String url, int line}) b) async {
+    final isZh = widget.isZh;
+    final existing =
+        widget.controller.breakpointCondition(url: b.url, line: b.line);
+    final ctrl = TextEditingController(text: existing);
+    final value = await showAnimatedDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(isZh ? '编辑条件断点' : 'Edit conditional breakpoint'),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isZh
+                      ? '当表达式求值为真时才暂停。留空则改回普通断点。\n'
+                          '表达式在断点所在栈帧的作用域内求值。'
+                      : 'Pause only when the expression is truthy. Leave empty to revert to a plain breakpoint.\n'
+                          'Evaluated in the frame scope where the breakpoint fires.',
+                  style: Theme.of(dialogContext).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '${b.url}  line ${b.line + 1}',
+                  style: Theme.of(dialogContext)
+                      .textTheme
+                      .labelSmall
+                      ?.copyWith(
+                        fontFamily: 'monospace',
+                        color: Theme.of(dialogContext)
+                            .colorScheme
+                            .onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  maxLines: 4,
+                  minLines: 2,
+                  style: const TextStyle(
+                      fontFamily: 'monospace', fontSize: 13),
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    hintText: isZh
+                        ? '例如：count > 100 && user.id === 42'
+                        : 'e.g. count > 100 && user.id === 42',
+                    isDense: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              label: isZh ? '取消' : 'Cancel',
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            OpenHandDialogActionButton.primary(
+              label: isZh ? '保存' : 'Save',
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(ctrl.text),
+            ),
+          ],
+        );
+      },
+    );
+    ctrl.dispose();
+    if (!mounted || value == null) return;
+    final newId = await widget.controller.setBreakpointCondition(
+      url: b.url,
+      line: b.line,
+      condition: value,
+    );
+    if (!mounted) return;
+    if (newId == null) {
+      OpenHandSnackBar.showError(
+        context,
+        isZh ? '更新条件断点失败' : 'Failed to update conditional breakpoint',
+      );
+    } else {
+      widget.onPersist();
+      OpenHandSnackBar.showSuccess(
+        context,
+        value.trim().isEmpty
+            ? (isZh ? '已转为普通断点' : 'Reverted to plain breakpoint')
+            : (isZh ? '条件断点已生效' : 'Conditional breakpoint applied'),
+      );
+    }
+  }
+
   Future<void> _addXhr() async {
     final v = _xhrCtrl.text.trim();
     final ok = await widget.controller.addXhrBreakpoint(v);
@@ -116,6 +214,29 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
 
   Future<void> _removeXhr(String s) async {
     await widget.controller.removeXhrBreakpoint(s);
+  }
+
+  // 把 URL 收成「文件名」级别的短串展示在断点行标题：
+  //   https://a.com/foo/bar.js?v=1#L → bar.js
+  // 没有路径分量时直接返回原 URL。完整 URL 仍通过 tooltip 展示。
+  String _shortUrl(String url) {
+    if (url.isEmpty) return url;
+    try {
+      final uri = Uri.parse(url);
+      final segments = uri.pathSegments;
+      for (var i = segments.length - 1; i >= 0; i--) {
+        final s = segments[i];
+        if (s.isNotEmpty) return s;
+      }
+      if (uri.host.isNotEmpty) return uri.host;
+    } catch (_) {
+      // 解析失败回落到字符串截断。
+    }
+    final cleaned = url.split('?').first.split('#').first;
+    final slash = cleaned.lastIndexOf('/');
+    return slash >= 0 && slash < cleaned.length - 1
+        ? cleaned.substring(slash + 1)
+        : cleaned;
   }
 
   Future<void> _setPause(String state) async {
@@ -309,6 +430,9 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                             tooltip: b.url,
                             onTap: () => widget.onJumpToSource(b.url, b.line),
                             onDelete: () => _removeSourceBp(b),
+                            condition: widget.controller
+                                .breakpointCondition(url: b.url, line: b.line),
+                            onEditCondition: () => _editSourceBpCondition(b),
                           ),
                       ],
                     ),
@@ -666,6 +790,8 @@ class _BpRow extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     required this.onDelete,
+    this.onEditCondition,
+    this.condition,
   });
   final IconData icon;
   final Color iconColor;
@@ -674,11 +800,16 @@ class _BpRow extends StatelessWidget {
   final String? tooltip;
   final VoidCallback? onTap;
   final VoidCallback onDelete;
+  // 条件断点：若提供 onEditCondition 则在删除按钮旁渲染编辑图标，
+  // condition 不空时图标用 primary 高亮以提示「该断点已附带条件」。
+  final VoidCallback? onEditCondition;
+  final String? condition;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final hasCondition = (condition ?? '').isNotEmpty;
     final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
       child: Row(
@@ -702,9 +833,36 @@ class _BpRow extends StatelessWidget {
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
+                if (hasCondition)
+                  // 已设条件：把表达式以小字 + monospace 直接渲染出来，便于
+                  // 用户一眼回忆「这个断点为什么只在这个上下文才停」。
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      'if (${condition!})',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.primary,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
+          if (onEditCondition != null)
+            IconButton(
+              tooltip: hasCondition ? 'Edit condition' : 'Add condition',
+              icon: Icon(
+                hasCondition
+                    ? Icons.tune_rounded
+                    : Icons.edit_note_rounded,
+                size: 16,
+                color: hasCondition ? cs.primary : cs.onSurfaceVariant,
+              ),
+              onPressed: onEditCondition,
+            ),
           IconButton(
             tooltip: 'Delete',
             icon: Icon(Icons.close_rounded, size: 16, color: cs.error),

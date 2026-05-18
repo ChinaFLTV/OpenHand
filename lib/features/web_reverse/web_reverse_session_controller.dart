@@ -4791,31 +4791,52 @@ class WebReverseSessionController extends ChangeNotifier {
   // remove。
   final Map<String, String> _bpIdByKey = <String, String>{};
 
+  // 条件断点：key = '$url#$line'，value = 用户填的 JS 表达式（求值为
+  // truthy 才暂停）。空字符串/缺失表示无条件断点。Chrome DevTools 协议
+  // 通过 `Debugger.setBreakpointByUrl` 的 `condition` 字段实现，修改条件
+  // 必须先 removeBreakpoint 再 set，故 setBreakpointCondition 内部走该
+  // 删→建流程。仅内存态，不持久化（避免恶意条件随 session 复活）。
+  final Map<String, String> _bpConditions = <String, String>{};
+
   Set<({String url, int line})> get userBreakpoints =>
       Set<({String url, int line})>.unmodifiable(_userBreakpoints);
 
+  /// 取某断点当前的条件表达式；无则返回空串。
+  String breakpointCondition({required String url, required int line}) =>
+      _bpConditions['$url#$line'] ?? '';
+
   /// 按 URL+lineNumber 下断点。返回 breakpointId 用于后续 remove。
+  /// 可选 [condition]：JS 表达式，求值为 truthy 时才暂停。
   Future<String?> setBreakpointByUrl({
     required String url,
     required int lineNumber,
     int columnNumber = 0,
+    String? condition,
   }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return null;
     try {
+      final params = <String, Object?>{
+        'url': url,
+        'lineNumber': lineNumber,
+        'columnNumber': columnNumber,
+      };
+      final c = condition?.trim() ?? '';
+      if (c.isNotEmpty) params['condition'] = c;
       final r = await cdp.send(
         'Debugger.setBreakpointByUrl',
-        params: <String, Object?>{
-          'url': url,
-          'lineNumber': lineNumber,
-          'columnNumber': columnNumber,
-        },
+        params: params,
         sessionId: _pageSessionId,
       );
       final bp = r['breakpointId'] as String?;
       if (bp != null) {
         _userBreakpoints.add((url: url, line: lineNumber));
         _bpIdByKey['$url#$lineNumber'] = bp;
+        if (c.isEmpty) {
+          _bpConditions.remove('$url#$lineNumber');
+        } else {
+          _bpConditions['$url#$lineNumber'] = c;
+        }
         _safeNotify();
       }
       return bp;
@@ -4823,6 +4844,25 @@ class WebReverseSessionController extends ChangeNotifier {
       silentLog('web_reverse_session_controller', 'setBreakpointByUrl', error, stack);
       return null;
     }
+  }
+
+  /// 修改已存在断点的条件表达式：先 removeBreakpoint 再 setBreakpointByUrl，
+  /// 传空串等价于把它转换回普通断点。返回新 breakpointId。
+  Future<String?> setBreakpointCondition({
+    required String url,
+    required int line,
+    required String condition,
+  }) async {
+    final key = '$url#$line';
+    final oldId = _bpIdByKey[key];
+    if (oldId != null) {
+      await removeBreakpoint(oldId);
+    }
+    return setBreakpointByUrl(
+      url: url,
+      lineNumber: line,
+      condition: condition,
+    );
   }
 
   /// 持久化数据下发：恢复之前持久化的断点（dashboard 启动 / 浏览器重启用）。
@@ -4844,6 +4884,10 @@ class WebReverseSessionController extends ChangeNotifier {
       _bpIdByKey.removeWhere((_, v) => v == breakpointId);
       _userBreakpoints.removeWhere(
         (b) => !_bpIdByKey.containsKey('${b.url}#${b.line}'),
+      );
+      // 同步清理已失效断点的条件表达式。
+      _bpConditions.removeWhere(
+        (k, _) => !_bpIdByKey.containsKey(k),
       );
       _safeNotify();
       return true;
