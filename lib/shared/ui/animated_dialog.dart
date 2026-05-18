@@ -140,9 +140,34 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
       ),
       child: builder(dialogContext),
     );
-    if (!dismissOnEscape) return themed;
-    return _EscapeDismissDialogScope(child: themed);
+    // 视口收缩：保证任何子弹窗的最大尺寸不超过当前屏幕的 95%，
+    // 在窄屏 / 浮动小窗模式下不会贴边或溢出。
+    // 只设置上限，不强行撑满，原本小弹窗（install_guide 等）不受影响。
+    final clamped = _ViewportClamp(child: themed);
+    if (!dismissOnEscape) return clamped;
+    return _EscapeDismissDialogScope(child: clamped);
   };
+}
+
+/// 在弹窗外层套一个 MediaQuery 感知的 ConstrainedBox，把最大宽 / 高限制为
+/// 视口的 95%。子弹窗自身的 maxWidth/maxHeight 仍生效——两个约束取最小值。
+class _ViewportClamp extends StatelessWidget {
+  const _ViewportClamp({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final maxW = size.width * 0.95;
+    final maxH = size.height * 0.95;
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
+        child: child,
+      ),
+    );
+  }
 }
 
 /// Adds Escape-to-dismiss to a dialog without stealing focus from descendant
