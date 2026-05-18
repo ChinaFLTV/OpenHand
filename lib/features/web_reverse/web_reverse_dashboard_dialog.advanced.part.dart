@@ -529,6 +529,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.replay_circle_filled_rounded,
+        title: isZh ? '网络请求重放器' : 'Network Replayer',
+        subtitle: isZh
+            ? '多选请求 · 顺序重发 · 对比状态'
+            : 'multi-select · sequential replay · status diff',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseReplayDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

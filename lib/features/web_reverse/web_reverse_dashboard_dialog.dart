@@ -39,6 +39,7 @@ import 'web_reverse_heap_snapshot_dialog.dart';
 import 'web_reverse_repl_dialog.dart';
 import 'web_reverse_frame_tree_dialog.dart';
 import 'web_reverse_css_coverage_dialog.dart';
+import 'web_reverse_replay_dialog.dart';
 import 'web_reverse_dom_mutation_dialog.dart';
 import 'web_reverse_geo_override_dialog.dart';
 import 'web_reverse_webauthn_dialog.dart';
