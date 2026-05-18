@@ -184,6 +184,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.switch_account_rounded,
+        title: isZh ? '多账号会话快照' : 'Account Snapshots',
+        subtitle: isZh
+            ? '保存 cookies + storage → 一键在不同账号间切换'
+            : 'Save cookies + storage → one-click switch between accounts',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseAccountSnapshotsDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

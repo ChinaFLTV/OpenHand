@@ -5450,7 +5450,6 @@ class WebReverseSessionController extends ChangeNotifier {
       _disposed ? null : _browserCdp;
 
   // ── 报文条件断点 ─────────────────────────────────────────────────
-  //
   // 与拦截规则不同，这里不改写也不放行 —— 只在「请求拦截」全局开关已开的
   // 前提下，对命中条件的请求额外记录一次 hit 事件，方便用户在 dashboard
   // 里 review 触发链。可选地伴随一段 JS 表达式被丢给 page 评估（典型用法：
@@ -5549,6 +5548,127 @@ class WebReverseSessionController extends ChangeNotifier {
         }
       }
     }
+  }
+
+  // ── 多账号会话快照 ────────────────────────────────────────────────
+  // 把当前页面的 cookies + 当前 origin 的 localStorage/sessionStorage 命名
+  // 保存到内存快照（用户主动 export 后才落盘）。restore 时先清掉同 domain
+  // 现有 cookies，再批量回写，并把 storage 注入回去（页面刷新后生效）。
+  final List<WebReverseAccountSnapshot> _accountSnapshots =
+      <WebReverseAccountSnapshot>[];
+  List<WebReverseAccountSnapshot> get accountSnapshots =>
+      List<WebReverseAccountSnapshot>.unmodifiable(_accountSnapshots);
+
+  void setAccountSnapshots(List<WebReverseAccountSnapshot> list) {
+    _accountSnapshots
+      ..clear()
+      ..addAll(list);
+    _safeNotify();
+  }
+
+  Future<String?> _currentPageOrigin() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{
+          'expression': 'location.origin',
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+      );
+      final result = r['result'] as Map?;
+      final v = result?['value'];
+      return v is String && v.isNotEmpty ? v : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 抓取当前 cookies + 当前 origin 的两类 storage，返回新快照（未入列表）。
+  Future<WebReverseAccountSnapshot?> captureAccountSnapshot(String name) async {
+    final origin = await _currentPageOrigin();
+    final cookies = await listCookies();
+    List<({String key, String value})> ls = const [];
+    List<({String key, String value})> ss = const [];
+    if (origin != null) {
+      ls = await listDomStorage(origin: origin, isLocalStorage: true);
+      ss = await listDomStorage(origin: origin, isLocalStorage: false);
+    }
+    final snap = WebReverseAccountSnapshot(
+      id: 'acct_${DateTime.now().microsecondsSinceEpoch}',
+      name: name.isEmpty ? 'snapshot' : name,
+      origin: origin ?? '',
+      capturedAt: DateTime.now(),
+      cookies: cookies
+          .map((c) => Map<String, Object?>.from(c))
+          .toList(growable: false),
+      localStorage: <String, String>{
+        for (final e in ls) e.key: e.value,
+      },
+      sessionStorage: <String, String>{
+        for (final e in ss) e.key: e.value,
+      },
+    );
+    _accountSnapshots.add(snap);
+    _safeNotify();
+    return snap;
+  }
+
+  Future<void> deleteAccountSnapshot(String id) async {
+    _accountSnapshots.removeWhere((s) => s.id == id);
+    _safeNotify();
+  }
+
+  /// 应用一份快照：清掉当前 cookies + 当前 origin storage，回写快照内容。
+  /// 调用方负责刷新页面让 JS 重新读取 storage / cookies。
+  Future<bool> restoreAccountSnapshot(WebReverseAccountSnapshot snap) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send('Network.clearBrowserCookies', sessionId: _pageSessionId);
+    } catch (e, st) {
+      silentLog(
+        'web_reverse_session_controller',
+        'clearBrowserCookies',
+        e,
+        st,
+      );
+    }
+    for (final c in snap.cookies) {
+      await setCookie(
+        name: '${c['name'] ?? ''}',
+        value: '${c['value'] ?? ''}',
+        domain: c['domain'] is String ? c['domain'] as String : null,
+        path: c['path'] is String ? c['path'] as String : null,
+        secure: c['secure'] == true,
+        httpOnly: c['httpOnly'] == true,
+        sameSite: c['sameSite'] is String ? c['sameSite'] as String : null,
+        expires: c['expires'] is num ? (c['expires'] as num).toInt() : null,
+      );
+    }
+    final origin = snap.origin;
+    if (origin.isNotEmpty) {
+      for (final e in snap.localStorage.entries) {
+        await setDomStorageItem(
+          origin: origin,
+          isLocalStorage: true,
+          key: e.key,
+          value: e.value,
+        );
+      }
+      for (final e in snap.sessionStorage.entries) {
+        await setDomStorageItem(
+          origin: origin,
+          isLocalStorage: false,
+          key: e.key,
+          value: e.value,
+        );
+      }
+    }
+    _safeNotify();
+    return true;
   }
 }
 
@@ -6139,4 +6259,59 @@ class WebReverseRequestBreakpointHit {
   final String method;
   final String url;
   final DateTime at;
+}
+
+/// 一份命名的账号会话快照（cookies + 当前 origin 的两类 storage）。
+/// 在内存里持有；用户可在 UI 里手动 export 成 JSON 长期保留。
+class WebReverseAccountSnapshot {
+  const WebReverseAccountSnapshot({
+    required this.id,
+    required this.name,
+    required this.origin,
+    required this.capturedAt,
+    required this.cookies,
+    required this.localStorage,
+    required this.sessionStorage,
+  });
+
+  factory WebReverseAccountSnapshot.fromJson(Map<String, Object?> j) {
+    final ts = j['captured_ms'];
+    return WebReverseAccountSnapshot(
+      id: '${j['id'] ?? ''}',
+      name: '${j['name'] ?? ''}',
+      origin: '${j['origin'] ?? ''}',
+      capturedAt: ts is int
+          ? DateTime.fromMillisecondsSinceEpoch(ts)
+          : DateTime.now(),
+      cookies: (j['cookies'] as List?)
+              ?.whereType<Map>()
+              .map((m) => Map<String, Object?>.from(m))
+              .toList(growable: false) ??
+          const <Map<String, Object?>>[],
+      localStorage: (j['localStorage'] as Map?)
+              ?.map((k, v) => MapEntry('$k', '$v')) ??
+          const <String, String>{},
+      sessionStorage: (j['sessionStorage'] as Map?)
+              ?.map((k, v) => MapEntry('$k', '$v')) ??
+          const <String, String>{},
+    );
+  }
+
+  final String id;
+  final String name;
+  final String origin;
+  final DateTime capturedAt;
+  final List<Map<String, Object?>> cookies;
+  final Map<String, String> localStorage;
+  final Map<String, String> sessionStorage;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'id': id,
+        'name': name,
+        'origin': origin,
+        'captured_ms': capturedAt.millisecondsSinceEpoch,
+        'cookies': cookies,
+        'localStorage': localStorage,
+        'sessionStorage': sessionStorage,
+      };
 }
