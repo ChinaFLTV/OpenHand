@@ -34,8 +34,29 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
 
   List<String> get _history => widget.controller.replHistory;
 
+  // 跟踪上一次的暂停态：仅在 isPaused 翻转时 setState，避免控制器其他
+  // 通知（如 console 新增）让我们重复 rebuild（_syncSlots 已经处理 console）。
+  bool _wasPaused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _wasPaused = widget.controller.isPaused;
+    widget.controller.addListener(_onPauseStateMaybeChanged);
+  }
+
+  void _onPauseStateMaybeChanged() {
+    if (!mounted) return;
+    final now = widget.controller.isPaused;
+    if (now != _wasPaused) {
+      _wasPaused = now;
+      setState(() {});
+    }
+  }
+
   @override
   void dispose() {
+    widget.controller.removeListener(_onPauseStateMaybeChanged);
     for (final s in _slots) {
       s.exitTimer?.cancel();
     }
@@ -279,6 +300,31 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         Divider(height: 1, color: cs.outlineVariant),
         // REPL 输入：单行。回车执行；上下方向键浏览历史；
         // 结果通过 controller.runReplExpression 写入 console，复用渲染。
+        if (widget.controller.isPaused)
+          Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: cs.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.pause_circle_filled_rounded,
+                    size: 14, color: cs.onErrorContainer),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    isZh
+                        ? '调试器已暂停 · 表达式将在当前栈帧的作用域内求值'
+                        : 'Debugger paused · expressions evaluate in the top frame scope',
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: cs.onErrorContainer),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
           child: Row(
