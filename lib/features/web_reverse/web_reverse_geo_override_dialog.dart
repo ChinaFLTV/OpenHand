@@ -1,0 +1,438 @@
+/// 地理位置 / 时区 / 语言环境覆盖面板。
+///
+/// 通过 CDP 协议直接修改当前 target 的环境：
+///   - `Emulation.setGeolocationOverride` {latitude, longitude, accuracy}
+///   - `Emulation.setTimezoneOverride` {timezoneId}
+///   - `Emulation.setLocaleOverride` {locale}
+///
+/// 这些覆盖一直生效到 target 关闭或显式 clear。提供预设城市快捷按钮。
+library;
+
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+
+import '../../app/support/silent_log.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_session_controller.dart';
+
+class _GeoPreset {
+  const _GeoPreset(this.name, this.lat, this.lng, this.tz, this.locale);
+  final String name;
+  final double lat;
+  final double lng;
+  final String tz;
+  final String locale;
+}
+
+const List<_GeoPreset> _presets = <_GeoPreset>[
+  _GeoPreset('北京', 39.9042, 116.4074, 'Asia/Shanghai', 'zh-CN'),
+  _GeoPreset('上海', 31.2304, 121.4737, 'Asia/Shanghai', 'zh-CN'),
+  _GeoPreset('香港', 22.3193, 114.1694, 'Asia/Hong_Kong', 'zh-HK'),
+  _GeoPreset('Tokyo', 35.6762, 139.6503, 'Asia/Tokyo', 'ja-JP'),
+  _GeoPreset('Seoul', 37.5665, 126.9780, 'Asia/Seoul', 'ko-KR'),
+  _GeoPreset('Singapore', 1.3521, 103.8198, 'Asia/Singapore', 'en-SG'),
+  _GeoPreset('London', 51.5074, -0.1278, 'Europe/London', 'en-GB'),
+  _GeoPreset('Paris', 48.8566, 2.3522, 'Europe/Paris', 'fr-FR'),
+  _GeoPreset('Berlin', 52.5200, 13.4050, 'Europe/Berlin', 'de-DE'),
+  _GeoPreset('New York', 40.7128, -74.0060, 'America/New_York', 'en-US'),
+  _GeoPreset('Los Angeles', 34.0522, -118.2437, 'America/Los_Angeles', 'en-US'),
+  _GeoPreset('San Francisco', 37.7749, -122.4194, 'America/Los_Angeles', 'en-US'),
+  _GeoPreset('Sydney', -33.8688, 151.2093, 'Australia/Sydney', 'en-AU'),
+  _GeoPreset('São Paulo', -23.5505, -46.6333, 'America/Sao_Paulo', 'pt-BR'),
+  _GeoPreset('Moscow', 55.7558, 37.6173, 'Europe/Moscow', 'ru-RU'),
+];
+
+Future<void> showWebReverseGeoOverrideDialog(
+  BuildContext context, {
+  required WebReverseSessionController controller,
+  required bool isZh,
+}) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _GeoOverrideDialog(controller: controller, isZh: isZh),
+  );
+}
+
+class _GeoOverrideDialog extends StatefulWidget {
+  const _GeoOverrideDialog({required this.controller, required this.isZh});
+  final WebReverseSessionController controller;
+  final bool isZh;
+  @override
+  State<_GeoOverrideDialog> createState() => _GeoOverrideDialogState();
+}
+
+class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
+  final _latCtl = TextEditingController(text: '39.9042');
+  final _lngCtl = TextEditingController(text: '116.4074');
+  final _accCtl = TextEditingController(text: '50');
+  final _tzCtl = TextEditingController(text: 'Asia/Shanghai');
+  final _localeCtl = TextEditingController(text: 'zh-CN');
+
+  bool _enableGeo = true;
+  bool _enableTz = true;
+  bool _enableLocale = true;
+  bool _busy = false;
+  String? _lastStatus;
+
+  @override
+  void dispose() {
+    _latCtl.dispose();
+    _lngCtl.dispose();
+    _accCtl.dispose();
+    _tzCtl.dispose();
+    _localeCtl.dispose();
+    super.dispose();
+  }
+
+  void _applyPreset(_GeoPreset p) {
+    setState(() {
+      _latCtl.text = p.lat.toString();
+      _lngCtl.text = p.lng.toString();
+      _tzCtl.text = p.tz;
+      _localeCtl.text = p.locale;
+    });
+  }
+
+  Future<Map<String, Object?>?> _callCdp(String method, Map<String, Object?> params) async {
+    return widget.controller.sendRawCdp(
+      method: method,
+      paramsJson: jsonEncode(params),
+      useSession: true,
+    );
+  }
+
+  Future<void> _apply() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _lastStatus = null;
+    });
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final errors = <String>[];
+    try {
+      if (_enableGeo) {
+        final lat = double.tryParse(_latCtl.text.trim());
+        final lng = double.tryParse(_lngCtl.text.trim());
+        final acc = double.tryParse(_accCtl.text.trim()) ?? 50;
+        if (lat == null || lng == null) {
+          errors.add('lat/lng 解析失败');
+        } else {
+          final r = await _callCdp('Emulation.setGeolocationOverride', {
+            'latitude': lat,
+            'longitude': lng,
+            'accuracy': acc,
+          });
+          if (r != null && r['error'] != null) errors.add('geo: ${r['error']}');
+        }
+      }
+      if (_enableTz) {
+        final tz = _tzCtl.text.trim();
+        if (tz.isEmpty) {
+          errors.add('timezone 为空');
+        } else {
+          final r = await _callCdp('Emulation.setTimezoneOverride', {'timezoneId': tz});
+          if (r != null && r['error'] != null) errors.add('tz: ${r['error']}');
+        }
+      }
+      if (_enableLocale) {
+        final loc = _localeCtl.text.trim();
+        if (loc.isEmpty) {
+          errors.add('locale 为空');
+        } else {
+          final r = await _callCdp('Emulation.setLocaleOverride', {'locale': loc});
+          if (r != null && r['error'] != null) errors.add('locale: ${r['error']}');
+        }
+      }
+    } catch (e, st) {
+      silentLog('web_reverse_geo_override', 'apply', e, st);
+      errors.add('$e');
+    }
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _lastStatus = errors.isEmpty
+          ? (widget.isZh ? '已应用覆盖' : 'Overrides applied')
+          : errors.join('; ');
+    });
+    if (messenger != null) {
+      if (errors.isEmpty) {
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          messenger,
+          widget.isZh ? '环境覆盖已应用' : 'Environment overrides applied',
+        );
+      } else {
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          errors.join('; '),
+        );
+      }
+    }
+  }
+
+  Future<void> _clear() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await _callCdp('Emulation.clearGeolocationOverride', const {});
+      // CDP 没有 clearTimezone/clearLocale 等单独方法，用空字符串重置。
+      await _callCdp('Emulation.setTimezoneOverride', {'timezoneId': ''});
+      await _callCdp('Emulation.setLocaleOverride', const {});
+    } catch (e, st) {
+      silentLog('web_reverse_geo_override', 'clear', e, st);
+    }
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _lastStatus = widget.isZh ? '已清除覆盖' : 'Overrides cleared';
+    });
+    if (messenger != null) {
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        widget.isZh ? '已清除环境覆盖' : 'Cleared environment overrides',
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.public_rounded, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isZh ? '地理 / 时区 / 语言覆盖' : 'Geo / TZ / Locale Override',
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          'Emulation.setGeolocationOverride / setTimezoneOverride / setLocaleOverride',
+                          style: theme.textTheme.labelSmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isZh ? '预设城市' : 'City Presets',
+                      style: theme.textTheme.labelLarge
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final p in _presets)
+                          ActionChip(
+                            label: Text(p.name),
+                            onPressed: () => _applyPreset(p),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _enableGeo,
+                          onChanged: (v) =>
+                              setState(() => _enableGeo = v ?? true),
+                        ),
+                        Expanded(
+                          child: Text(
+                            isZh ? '启用地理位置覆盖' : 'Enable geolocation override',
+                            style: theme.textTheme.labelLarge,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _latCtl,
+                            enabled: _enableGeo,
+                            decoration: const InputDecoration(
+                              labelText: 'Latitude',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _lngCtl,
+                            enabled: _enableGeo,
+                            decoration: const InputDecoration(
+                              labelText: 'Longitude',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 110,
+                          child: TextField(
+                            controller: _accCtl,
+                            enabled: _enableGeo,
+                            decoration: const InputDecoration(
+                              labelText: 'Accuracy(m)',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _enableTz,
+                          onChanged: (v) =>
+                              setState(() => _enableTz = v ?? true),
+                        ),
+                        Expanded(
+                          child: Text(
+                            isZh ? '启用时区覆盖' : 'Enable timezone override',
+                            style: theme.textTheme.labelLarge,
+                          ),
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: _tzCtl,
+                      enabled: _enableTz,
+                      decoration: const InputDecoration(
+                        labelText: 'IANA timezone (eg. Asia/Shanghai)',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _enableLocale,
+                          onChanged: (v) =>
+                              setState(() => _enableLocale = v ?? true),
+                        ),
+                        Expanded(
+                          child: Text(
+                            isZh ? '启用语言覆盖' : 'Enable locale override',
+                            style: theme.textTheme.labelLarge,
+                          ),
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: _localeCtl,
+                      enabled: _enableLocale,
+                      decoration: const InputDecoration(
+                        labelText: 'Locale (eg. zh-CN / en-US)',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    if (_lastStatus != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: Text(
+                          _lastStatus!,
+                          style: const TextStyle(
+                              fontFamily: 'monospace', fontSize: 12),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: cs.tertiaryContainer.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        isZh
+                            ? '提示：覆盖在当前 target 内立即生效，刷新仍保留。需通过页面 `navigator.geolocation`、`Intl.DateTimeFormat().resolvedOptions().timeZone`、`navigator.language` 来感知效果。某些站点会缓存首次结果，建议覆盖后再硬刷新。'
+                            : 'Tip: overrides apply immediately within current target and persist across reloads. Inspect via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Hard-reload after override if a site caches detection.',
+                        style: theme.textTheme.labelSmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    label: isZh ? '清除' : 'Clear',
+                    onPressed: _busy ? null : _clear,
+                  ),
+                  const SizedBox(width: 8),
+                  OpenHandDialogActionButton.primary(
+                    label: _busy
+                        ? (isZh ? '处理中…' : 'Working…')
+                        : (isZh ? '应用覆盖' : 'Apply Overrides'),
+                    onPressed: _busy ? null : _apply,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

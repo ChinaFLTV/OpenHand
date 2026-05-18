@@ -289,6 +289,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.public_rounded,
+        title: isZh ? '地理 / 时区 / 语言覆盖' : 'Geo / TZ / Locale Override',
+        subtitle: isZh
+            ? '一键伪装当前 target 的 GPS / timezone / navigator.language'
+            : 'Spoof current target GPS / timezone / navigator.language',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseGeoOverrideDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
