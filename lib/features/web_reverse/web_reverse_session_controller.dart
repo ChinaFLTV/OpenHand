@@ -5267,6 +5267,166 @@ class WebReverseSessionController extends ChangeNotifier {
     super.dispose();
   }
 
+  /// 把当前 target 的网络/控制台/WS 帧打成一个可重放的 JSON 快照。
+  /// 用于离线分析、Issue 复现、跨机器协作；importSnapshot 反向还原。
+  /// 不包含截屏二进制 / cookie / 浏览器进程信息。
+  Map<String, Object?> exportSnapshot() {
+    return <String, Object?>{
+      'version': 1,
+      'exported_ms': DateTime.now().millisecondsSinceEpoch,
+      'target_id': _currentTargetId,
+      'network': _networkRequests
+          .map((e) => <String, Object?>{
+                'request_id': e.requestId,
+                'url': e.url,
+                'method': e.method,
+                'ts': e.timestamp.toIso8601String(),
+                'resource_type': e.resourceType,
+                'request_headers': e.requestHeaders,
+                'request_post': e.requestPostData,
+                'status': e.statusCode,
+                'status_text': e.statusText,
+                'mime_type': e.mimeType,
+                'response_headers': e.responseHeaders,
+                'remote': e.remoteAddress,
+                'protocol': e.protocol,
+                'from_cache': e.fromCache,
+                'encoded_len': e.encodedDataLength,
+                'decoded_len': e.decodedBodyLength,
+                'initiator_type': e.initiatorType,
+                'initiator_url': e.initiatorUrl,
+                'initiator_line': e.initiatorLineNumber,
+                'initiator_col': e.initiatorColumnNumber,
+                'cached_body': e.cachedBody,
+                'cached_body_b64': e.cachedBodyBase64,
+                'failed': e.failed,
+                'error_text': e.errorText,
+                'response_received_ms':
+                    e.responseReceivedAt?.millisecondsSinceEpoch,
+                'loading_finished_ms':
+                    e.loadingFinishedAt?.millisecondsSinceEpoch,
+                'ws_frames': e.wsFrames
+                    .map((f) => <String, Object?>{
+                          'dir': f.direction.name,
+                          'ts': f.timestamp.toIso8601String(),
+                          'opcode': f.opcode,
+                          'mask': f.mask,
+                          'payload': f.payload,
+                          'error': f.errorMessage,
+                        })
+                    .toList(),
+              })
+          .toList(),
+      'console': _consoleMessages
+          .map((c) => <String, Object?>{
+                'level': c.level,
+                'text': c.text,
+                'ts': c.timestamp.toIso8601String(),
+              })
+          .toList(),
+    };
+  }
+
+  /// 用 JSON 快照覆盖当前 target 的网络/控制台缓冲（保留实时连接、不动 cron/hook）。
+  /// 返回成功导入的网络请求数；格式错误 / version 不识别时返回 -1。
+  int importSnapshot(Map<String, Object?> snap) {
+    try {
+      final v = snap['version'];
+      if (v is! int || v != 1) return -1;
+      _networkRequests.clear();
+      _networkByRequestId.clear();
+      _consoleMessages.clear();
+      final rawNet = snap['network'];
+      if (rawNet is List) {
+        for (final raw in rawNet) {
+          if (raw is! Map) continue;
+          final m = raw.cast<String, Object?>();
+          final entry = CdpNetworkEntry(
+            requestId: '${m['request_id'] ?? ''}',
+            url: '${m['url'] ?? ''}',
+            method: '${m['method'] ?? 'GET'}',
+            timestamp: DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
+            resourceType: '${m['resource_type'] ?? 'Other'}',
+          );
+          entry.requestHeaders = (m['request_headers'] as Map?)
+                  ?.map((k, v) => MapEntry('$k', '$v')) ??
+              const <String, String>{};
+          entry.requestPostData = m['request_post'] as String?;
+          entry.statusCode = m['status'] as int?;
+          entry.statusText = m['status_text'] as String?;
+          entry.mimeType = m['mime_type'] as String?;
+          entry.responseHeaders = (m['response_headers'] as Map?)
+                  ?.map((k, v) => MapEntry('$k', '$v')) ??
+              const <String, String>{};
+          entry.remoteAddress = m['remote'] as String?;
+          entry.protocol = m['protocol'] as String?;
+          entry.fromCache = m['from_cache'] == true;
+          entry.encodedDataLength = m['encoded_len'] as int?;
+          entry.decodedBodyLength = m['decoded_len'] as int?;
+          entry.initiatorType = m['initiator_type'] as String?;
+          entry.initiatorUrl = m['initiator_url'] as String?;
+          entry.initiatorLineNumber = m['initiator_line'] as int?;
+          entry.initiatorColumnNumber = m['initiator_col'] as int?;
+          entry.cachedBody = m['cached_body'] as String?;
+          entry.cachedBodyBase64 = m['cached_body_b64'] == true;
+          entry.failed = m['failed'] == true;
+          entry.errorText = m['error_text'] as String?;
+          final rrMs = m['response_received_ms'];
+          if (rrMs is int) {
+            entry.responseReceivedAt =
+                DateTime.fromMillisecondsSinceEpoch(rrMs);
+          }
+          final lfMs = m['loading_finished_ms'];
+          if (lfMs is int) {
+            entry.loadingFinishedAt =
+                DateTime.fromMillisecondsSinceEpoch(lfMs);
+          }
+          final rawWs = m['ws_frames'];
+          if (rawWs is List) {
+            for (final rf in rawWs) {
+              if (rf is! Map) continue;
+              final fm = rf.cast<String, Object?>();
+              final dirName = '${fm['dir'] ?? 'received'}';
+              final dir = CdpWebSocketDirection.values.firstWhere(
+                (d) => d.name == dirName,
+                orElse: () => CdpWebSocketDirection.received,
+              );
+              entry.wsFrames.add(CdpWebSocketFrame(
+                direction: dir,
+                timestamp:
+                    DateTime.tryParse('${fm['ts'] ?? ''}') ?? DateTime.now(),
+                opcode: fm['opcode'] is int ? fm['opcode'] as int : 1,
+                mask: fm['mask'] == true,
+                payload: '${fm['payload'] ?? ''}',
+                errorMessage: fm['error'] as String?,
+              ));
+            }
+          }
+          _networkRequests.add(entry);
+          _networkByRequestId[entry.requestId] = entry;
+        }
+      }
+      final rawCon = snap['console'];
+      if (rawCon is List) {
+        for (final raw in rawCon) {
+          if (raw is! Map) continue;
+          final m = raw.cast<String, Object?>();
+          _consoleMessages.add(CdpConsoleEntry(
+            level: '${m['level'] ?? 'log'}',
+            text: '${m['text'] ?? ''}',
+            timestamp:
+                DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
+          ));
+        }
+      }
+      _safeNotify();
+      return _networkRequests.length;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'importSnapshot', e, st);
+      return -1;
+    }
+  }
+
   /// dispose 后再 notifyListeners 会抛 assertion。所有内部状态变更点统一走
   /// 这一层，避免任何回调（CDP 事件 / 异步收尾）在 controller 已 dispose
   /// 后再触发监听器。

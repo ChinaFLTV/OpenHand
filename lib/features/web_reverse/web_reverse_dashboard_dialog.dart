@@ -988,10 +988,113 @@ Future<void> _openOfficialDevToolsForController(
   }
 }
 
-class _OverviewBody extends StatelessWidget {
+class _OverviewBody extends StatefulWidget {
   const _OverviewBody({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
   final bool isZh;
+
+  @override
+  State<_OverviewBody> createState() => _OverviewBodyState();
+}
+
+class _OverviewBodyState extends State<_OverviewBody> {
+  bool _busy = false;
+
+  WebReverseSessionController get controller => widget.controller;
+  bool get isZh => widget.isZh;
+
+  Future<void> _exportSnapshot() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final ts = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .replaceAll('.', '-');
+      const typeGroup =
+          XTypeGroup(label: 'JSON', extensions: <String>['json']);
+      final location = await getSaveLocation(
+        suggestedName: 'web-reverse-snapshot-$ts.json',
+        acceptedTypeGroups: const <XTypeGroup>[typeGroup],
+      );
+      if (location == null) return;
+      final snap = controller.exportSnapshot();
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(snap);
+      await File(location.path).writeAsString(jsonStr);
+      if (!mounted) return;
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '快照已保存到 ${location.path}' : 'Snapshot saved to ${location.path}',
+        duration: const Duration(seconds: 3),
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard_dialog', 'exportSnapshot', error, stack);
+      if (!mounted) return;
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '快照导出失败' : 'Snapshot export failed',
+        duration: const Duration(seconds: 3),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _importSnapshot() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      const typeGroup =
+          XTypeGroup(label: 'JSON', extensions: <String>['json']);
+      final file = await openFile(acceptedTypeGroups: const [typeGroup]);
+      if (file == null) return;
+      final raw = await File(file.path).readAsString();
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        if (!mounted) return;
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          isZh ? '快照格式无效' : 'Invalid snapshot format',
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+      final count =
+          controller.importSnapshot(decoded.cast<String, Object?>());
+      if (!mounted) return;
+      if (count < 0) {
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          isZh ? '快照版本不兼容' : 'Snapshot version unsupported',
+          duration: const Duration(seconds: 3),
+        );
+      } else {
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          messenger,
+          isZh ? '已导入 $count 条网络记录' : 'Imported $count network entries',
+          duration: const Duration(seconds: 3),
+        );
+      }
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard_dialog', 'importSnapshot', error, stack);
+      if (!mounted) return;
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '快照导入失败' : 'Snapshot import failed',
+        duration: const Duration(seconds: 3),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1107,11 +1210,71 @@ class _OverviewBody extends StatelessWidget {
               ),
           ],
         ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.bookmarks_rounded,
+                      size: 18, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Text(
+                    isZh ? '会话快照' : 'Session snapshot',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isZh
+                    ? '把当前 target 的网络/控制台/WebSocket 帧导出为 JSON，便于离线重放、Issue 复现、跨机器协作。导入会覆盖现有缓冲。'
+                    : 'Export current target network / console / WebSocket frames to JSON for offline replay, issue reproduction or hand-off. Import overwrites the current buffer.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: _busy ? null : _exportSnapshot,
+                    icon: const Icon(Icons.file_download_outlined, size: 18),
+                    label: Text(isZh ? '导出快照' : 'Export snapshot'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: _busy ? null : _importSnapshot,
+                    icon: const Icon(Icons.file_upload_outlined, size: 18),
+                    label: Text(isZh ? '导入快照' : 'Import snapshot'),
+                  ),
+                  if (_busy) ...[
+                    const SizedBox(width: 12),
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 }
-
 
 /// Dashboard 顶部的诊断 banner：当 [WebReverseSessionController.errorMessage]
 /// 不为空时挂在 header 与 toolbar 之间，把 [WebReverseLaunchDiagnosis]
