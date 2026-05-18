@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -36,6 +37,7 @@ part 'web_reverse_dashboard_dialog.sources.part.dart';
 part 'web_reverse_dashboard_dialog.browser.part.dart';
 part 'web_reverse_dashboard_dialog.snippets.part.dart';
 part 'web_reverse_dashboard_dialog.elements.part.dart';
+part 'web_reverse_dashboard_dialog.crypto.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -95,6 +97,7 @@ enum _Tab {
   sources,
   snippets,
   elements,
+  crypto,
   performance,
   memory,
   application,
@@ -779,6 +782,10 @@ class _WebReverseDashboardDialogState
         ),
       _Tab.elements => _ElementsBody(
           controller: ctrl,
+          isZh: isZh,
+          reduceMotion: reduceMotion,
+        ),
+      _Tab.crypto => _CryptoPadBody(
           isZh: isZh,
           reduceMotion: reduceMotion,
         ),
