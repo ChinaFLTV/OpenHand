@@ -35,6 +35,7 @@ part 'web_reverse_dashboard_dialog.advanced.part.dart';
 part 'web_reverse_dashboard_dialog.sources.part.dart';
 part 'web_reverse_dashboard_dialog.browser.part.dart';
 part 'web_reverse_dashboard_dialog.snippets.part.dart';
+part 'web_reverse_dashboard_dialog.elements.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -93,6 +94,7 @@ enum _Tab {
   console,
   sources,
   snippets,
+  elements,
   performance,
   memory,
   application,
@@ -774,6 +776,11 @@ class _WebReverseDashboardDialogState
           controller: ctrl,
           isZh: isZh,
           onPersist: persistSnippets,
+        ),
+      _Tab.elements => _ElementsBody(
+          controller: ctrl,
+          isZh: isZh,
+          reduceMotion: reduceMotion,
         ),
       _Tab.performance => _PerformancePanel(
           controller: ctrl,

@@ -1,0 +1,663 @@
+// 元素 (Elements / DOM Inspector) 面板
+//
+// 左：DOM 树（懒加载子节点，单击选中，双击展开/折叠）
+// 右：3 子 tab — Attributes / Computed / Listeners
+// 顶部工具栏：刷新根、复制 selector / xpath、在页面里高亮 / 滚动到。
+//
+// CDP 调用全部走 [WebReverseSessionController] 上新增的 `dom*` 方法；
+// 本面板自己不缓存 DOM 树到 metadata（每次刷新都重读，避免会话不一致）。
+
+part of 'web_reverse_dashboard_dialog.dart';
+
+class _ElementsBody extends StatefulWidget {
+  const _ElementsBody({
+    required this.controller,
+    required this.isZh,
+    required this.reduceMotion,
+  });
+  final WebReverseSessionController controller;
+  final bool isZh;
+  final bool reduceMotion;
+
+  @override
+  State<_ElementsBody> createState() => _ElementsBodyState();
+}
+
+class _ElementsBodyState extends State<_ElementsBody> {
+  Map<String, dynamic>? _root;
+  bool _loading = false;
+  String? _loadError;
+
+  /// nodeId -> 是否已展开。
+  final Map<int, bool> _expanded = <int, bool>{};
+
+  /// nodeId -> 节点数据（含 children）。子树懒加载时填充进来。
+  final Map<int, Map<String, dynamic>> _byNodeId = <int, Map<String, dynamic>>{};
+
+  int? _selectedNodeId;
+
+  // 右侧详情数据
+  Map<String, String> _attrs = const <String, String>{};
+  List<Map<String, String>> _computed = const <Map<String, String>>[];
+  List<Map<String, dynamic>> _listeners = const <Map<String, dynamic>>[];
+  bool _loadingDetails = false;
+  int _detailsTab = 0; // 0=Attrs 1=Computed 2=Listeners
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDocument());
+  }
+
+  Future<void> _loadDocument() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    final root = await widget.controller.domGetDocument(depth: 2);
+    if (!mounted) return;
+    if (root == null) {
+      setState(() {
+        _loading = false;
+        _loadError = widget.isZh
+            ? '加载失败：浏览器未启动或 CDP 不可用'
+            : 'Load failed: browser not running or CDP unavailable';
+      });
+      return;
+    }
+    _byNodeId.clear();
+    _expanded.clear();
+    _indexNode(root);
+    setState(() {
+      _root = root;
+      _loading = false;
+    });
+  }
+
+  /// 递归把 node 写进 [_byNodeId]，children 一并展开 1 层。
+  void _indexNode(Map<String, dynamic> node) {
+    final id = node['nodeId'];
+    if (id is int) _byNodeId[id] = node;
+    final children = node['children'];
+    if (children is List) {
+      for (final c in children) {
+        if (c is Map<String, dynamic>) _indexNode(c);
+      }
+    }
+  }
+
+  Future<void> _toggleExpand(int nodeId) async {
+    final isOpen = _expanded[nodeId] ?? false;
+    if (isOpen) {
+      setState(() => _expanded[nodeId] = false);
+      return;
+    }
+    final node = _byNodeId[nodeId];
+    final children = node?['children'];
+    if (children is! List || children.isEmpty) {
+      // 拉一层
+      final fresh = await widget.controller.domDescribeNode(nodeId, depth: 1);
+      if (!mounted) return;
+      if (fresh != null) {
+        _byNodeId[nodeId] = fresh;
+        _indexNode(fresh);
+      }
+    }
+    if (!mounted) return;
+    setState(() => _expanded[nodeId] = true);
+  }
+
+  Future<void> _select(int nodeId) async {
+    setState(() {
+      _selectedNodeId = nodeId;
+      _loadingDetails = true;
+    });
+    final node = _byNodeId[nodeId];
+    final attrs = <String, String>{};
+    final attrArr = node?['attributes'];
+    if (attrArr is List) {
+      for (var i = 0; i + 1 < attrArr.length; i += 2) {
+        attrs['${attrArr[i]}'] = '${attrArr[i + 1]}';
+      }
+    }
+    final computed = await widget.controller.domGetComputedStyle(nodeId);
+    final listeners = await widget.controller.domGetEventListeners(nodeId);
+    if (!mounted) return;
+    setState(() {
+      _attrs = attrs;
+      _computed = computed;
+      _listeners = listeners;
+      _loadingDetails = false;
+    });
+    // 视觉反馈：在页面里画高亮框（1.5s 自动隐藏）。
+    await widget.controller.domHighlightNode(nodeId);
+    Future<void>.delayed(const Duration(milliseconds: 1500), () {
+      widget.controller.domHideHighlight();
+    });
+  }
+
+  Future<void> _copySelector() async {
+    final id = _selectedNodeId;
+    if (id == null) return;
+    final s = await widget.controller.domCssSelectorForNode(id);
+    if (!mounted) return;
+    if (s == null) {
+      OpenHandSnackBar.showError(
+          context, widget.isZh ? '无法生成 selector' : 'Failed to build selector');
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: s));
+    if (!mounted) return;
+    OpenHandSnackBar.showSuccess(
+      context,
+      widget.isZh ? '已复制 selector' : 'Selector copied',
+      duration: const Duration(seconds: 1),
+    );
+  }
+
+  Future<void> _copyXPath() async {
+    final id = _selectedNodeId;
+    if (id == null) return;
+    final s = await widget.controller.domXPathForNode(id);
+    if (!mounted) return;
+    if (s == null) {
+      OpenHandSnackBar.showError(
+          context, widget.isZh ? '无法生成 XPath' : 'Failed to build XPath');
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: s));
+    if (!mounted) return;
+    OpenHandSnackBar.showSuccess(
+      context,
+      widget.isZh ? '已复制 XPath' : 'XPath copied',
+      duration: const Duration(seconds: 1),
+    );
+  }
+
+  Future<void> _scrollIntoView() async {
+    final id = _selectedNodeId;
+    if (id == null) return;
+    await widget.controller.domScrollIntoView(id);
+    await widget.controller.domHighlightNode(id);
+    Future<void>.delayed(const Duration(milliseconds: 1500), () {
+      widget.controller.domHideHighlight();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    return Column(
+      children: [
+        _buildToolbar(theme, cs, isZh),
+        const Divider(height: 1),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+              : _loadError != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(
+                          _loadError!,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: cs.error),
+                        ),
+                      ),
+                    )
+                  : _root == null
+                      ? const SizedBox()
+                      : Row(
+                          children: [
+                            SizedBox(
+                              width: 380,
+                              child: _buildTree(theme, cs),
+                            ),
+                            const VerticalDivider(width: 1),
+                            Expanded(child: _buildDetails(theme, cs, isZh)),
+                          ],
+                        ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildToolbar(ThemeData theme, ColorScheme cs, bool isZh) {
+    final hasSel = _selectedNodeId != null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      child: Row(
+        children: [
+          Tooltip(
+            message: isZh ? '刷新 DOM 根' : 'Reload DOM root',
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              onPressed: _loading ? null : _loadDocument,
+            ),
+          ),
+          const SizedBox(width: 4),
+          OutlinedButton.icon(
+            onPressed: hasSel ? _copySelector : null,
+            icon: const Icon(Icons.link_rounded, size: 14),
+            label: Text(isZh ? '复制 selector' : 'Copy selector'),
+          ),
+          const SizedBox(width: 6),
+          OutlinedButton.icon(
+            onPressed: hasSel ? _copyXPath : null,
+            icon: const Icon(Icons.alt_route_rounded, size: 14),
+            label: Text(isZh ? '复制 XPath' : 'Copy XPath'),
+          ),
+          const SizedBox(width: 6),
+          OutlinedButton.icon(
+            onPressed: hasSel ? _scrollIntoView : null,
+            icon: const Icon(Icons.center_focus_strong_rounded, size: 14),
+            label: Text(isZh ? '页面定位' : 'Scroll into view'),
+          ),
+          const Spacer(),
+          if (_selectedNodeId != null)
+            Text(
+              'nodeId=${_selectedNodeId!}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace', color: cs.onSurfaceVariant),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 左：DOM 树 ─────────────────────────────────────────────────────
+  Widget _buildTree(ThemeData theme, ColorScheme cs) {
+    final root = _root;
+    if (root == null) return const SizedBox();
+    final rows = <_TreeRow>[];
+    _flatten(root, 0, rows);
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      itemCount: rows.length,
+      itemBuilder: (_, i) => _buildTreeRow(theme, cs, rows[i]),
+    );
+  }
+
+  void _flatten(Map<String, dynamic> node, int depth, List<_TreeRow> out) {
+    final id = node['nodeId'];
+    if (id is! int) return;
+    final type = node['nodeType'] as int? ?? 1;
+    if (type != 1 && type != 9) {
+      // 仅显示 element / document，跳过 text/comment（保留信息但不滚屏）
+      // 也跳过 attribute/cdata 之类。
+      // text 节点用一行折叠在父节点旁更紧凑——这里简化：直接不显示。
+      return;
+    }
+    out.add(_TreeRow(node: node, depth: depth));
+    final open = _expanded[id] ?? false;
+    if (!open) return;
+    final children = node['children'];
+    if (children is List) {
+      for (final c in children) {
+        if (c is Map<String, dynamic>) _flatten(c, depth + 1, out);
+      }
+    }
+  }
+
+  Widget _buildTreeRow(ThemeData theme, ColorScheme cs, _TreeRow row) {
+    final node = row.node;
+    final id = node['nodeId'] as int;
+    final selected = id == _selectedNodeId;
+    final isOpen = _expanded[id] ?? false;
+    final childCount = node['childNodeCount'] as int? ?? 0;
+    final hasChildren = childCount > 0;
+    final localName = (node['localName'] as String?) ?? '';
+    final nodeName = (node['nodeName'] as String?) ?? '';
+    final tag = localName.isNotEmpty ? localName : nodeName.toLowerCase();
+    // 提取 id / class 属性显示
+    String idAttr = '';
+    String classAttr = '';
+    final attrArr = node['attributes'];
+    if (attrArr is List) {
+      for (var i = 0; i + 1 < attrArr.length; i += 2) {
+        final k = '${attrArr[i]}';
+        final v = '${attrArr[i + 1]}';
+        if (k == 'id') idAttr = v;
+        if (k == 'class') classAttr = v;
+      }
+    }
+    return InkWell(
+      onTap: () => _select(id),
+      child: AnimatedContainer(
+        duration: widget.reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        color: selected ? cs.primary.withValues(alpha: 0.12) : null,
+        padding: EdgeInsets.fromLTRB(8.0 + row.depth * 14, 2, 8, 2),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: hasChildren
+                  ? InkResponse(
+                      radius: 12,
+                      onTap: () => _toggleExpand(id),
+                      child: Icon(
+                        isOpen
+                            ? Icons.keyboard_arrow_down_rounded
+                            : Icons.keyboard_arrow_right_rounded,
+                        size: 16,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    )
+                  : const SizedBox(),
+            ),
+            Expanded(
+              child: RichText(
+                overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(fontFamily: 'monospace'),
+                  children: [
+                    TextSpan(
+                      text: '<$tag',
+                      style: TextStyle(color: cs.tertiary),
+                    ),
+                    if (idAttr.isNotEmpty)
+                      TextSpan(
+                        text: ' id="$idAttr"',
+                        style: TextStyle(color: cs.primary),
+                      ),
+                    if (classAttr.isNotEmpty)
+                      TextSpan(
+                        text: ' class="$classAttr"',
+                        style: TextStyle(color: cs.secondary),
+                      ),
+                    TextSpan(
+                      text: hasChildren && !isOpen ? '>…</$tag>' : '>',
+                      style: TextStyle(color: cs.tertiary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (hasChildren)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  '$childCount',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: cs.onSurfaceVariant, fontSize: 10),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── 右：详情 ───────────────────────────────────────────────────────
+  Widget _buildDetails(ThemeData theme, ColorScheme cs, bool isZh) {
+    if (_selectedNodeId == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            isZh ? '从左侧 DOM 树选择一个元素' : 'Pick an element from the tree',
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        SizedBox(
+          height: 40,
+          child: Row(
+            children: [
+              const SizedBox(width: 10),
+              _subTabBtn(theme, cs, 0,
+                  isZh ? '属性 (${_attrs.length})' : 'Attrs (${_attrs.length})'),
+              _subTabBtn(
+                  theme,
+                  cs,
+                  1,
+                  isZh
+                      ? '计算样式 (${_computed.length})'
+                      : 'Computed (${_computed.length})'),
+              _subTabBtn(
+                  theme,
+                  cs,
+                  2,
+                  isZh
+                      ? '事件 (${_listeners.length})'
+                      : 'Listeners (${_listeners.length})'),
+              const Spacer(),
+              if (_loadingDetails)
+                const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: widget.reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
+            switchInCurve: Curves.easeOutCubic,
+            child: switch (_detailsTab) {
+              0 => _attrsView(theme, cs, isZh),
+              1 => _computedView(theme, cs, isZh),
+              _ => _listenersView(theme, cs, isZh),
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _subTabBtn(ThemeData theme, ColorScheme cs, int idx, String label) {
+    final on = _detailsTab == idx;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: TextButton(
+        onPressed: () => setState(() => _detailsTab = idx),
+        style: TextButton.styleFrom(
+          foregroundColor: on ? cs.primary : cs.onSurfaceVariant,
+          backgroundColor: on ? cs.primary.withValues(alpha: 0.1) : null,
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+
+  Widget _attrsView(ThemeData theme, ColorScheme cs, bool isZh) {
+    if (_attrs.isEmpty) {
+      return Center(
+        key: const ValueKey('attrs-empty'),
+        child: Text(
+          isZh ? '该元素无属性' : 'No attributes',
+          style:
+              theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+      );
+    }
+    final entries = _attrs.entries.toList();
+    return ListView.builder(
+      key: const ValueKey('attrs'),
+      padding: const EdgeInsets.all(12),
+      itemCount: entries.length,
+      itemBuilder: (_, i) {
+        final e = entries[i];
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: SelectableText.rich(
+            TextSpan(
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              children: [
+                TextSpan(text: e.key, style: TextStyle(color: cs.primary)),
+                const TextSpan(text: '="'),
+                TextSpan(
+                    text: e.value, style: TextStyle(color: cs.onSurface)),
+                const TextSpan(text: '"'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _computedView(ThemeData theme, ColorScheme cs, bool isZh) {
+    if (_computed.isEmpty) {
+      return Center(
+        key: const ValueKey('comp-empty'),
+        child: Text(
+          isZh ? '无计算样式' : 'No computed style',
+          style:
+              theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+      );
+    }
+    return ListView.builder(
+      key: const ValueKey('computed'),
+      padding: const EdgeInsets.all(12),
+      itemCount: _computed.length,
+      itemBuilder: (_, i) {
+        final e = _computed[i];
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: SelectableText.rich(
+            TextSpan(
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              children: [
+                TextSpan(
+                    text: '${e['name']}: ',
+                    style: TextStyle(color: cs.primary)),
+                TextSpan(
+                    text: '${e['value']};',
+                    style: TextStyle(color: cs.onSurface)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _listenersView(ThemeData theme, ColorScheme cs, bool isZh) {
+    if (_listeners.isEmpty) {
+      return Center(
+        key: const ValueKey('listen-empty'),
+        child: Text(
+          isZh ? '该元素无监听' : 'No event listeners',
+          style:
+              theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+      );
+    }
+    return ListView.builder(
+      key: const ValueKey('listeners'),
+      padding: const EdgeInsets.all(12),
+      itemCount: _listeners.length,
+      itemBuilder: (_, i) {
+        final l = _listeners[i];
+        final type = '${l['type'] ?? ''}';
+        final useCapture = l['useCapture'] == true;
+        final passive = l['passive'] == true;
+        final once = l['once'] == true;
+        final src = '${l['scriptId'] ?? ''}:'
+            '${l['lineNumber'] ?? 0}:${l['columnNumber'] ?? 0}';
+        final handler = l['handler'];
+        final desc = handler is Map ? '${handler['description'] ?? ''}' : '';
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      type,
+                      style: TextStyle(
+                          color: cs.primary,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'monospace',
+                          fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (useCapture) _flag('capture', cs),
+                  if (passive) _flag('passive', cs),
+                  if (once) _flag('once', cs),
+                  const Spacer(),
+                  SelectableText(
+                    src,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        color: cs.onSurfaceVariant,
+                        fontSize: 10),
+                  ),
+                ],
+              ),
+              if (desc.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: SelectableText(
+                    desc,
+                    style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 11),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _flag(String text, ColorScheme cs) => Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: cs.tertiary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+                color: cs.tertiary,
+                fontSize: 10,
+                fontWeight: FontWeight.w600),
+          ),
+        ),
+      );
+}
+
+class _TreeRow {
+  const _TreeRow({required this.node, required this.depth});
+  final Map<String, dynamic> node;
+  final int depth;
+}

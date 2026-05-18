@@ -2182,6 +2182,224 @@ class WebReverseSessionController extends ChangeNotifier {
     return runReplExpression(s.code);
   }
 
+  // ─── DOM Inspector (Elements 面板) ───────────────────────────────────
+  // 直接走 CDP `DOM.*` / `CSS.*` / `DOMDebugger.*` 协议；所有方法返回
+  // 解码后的原始 JSON（Map / List），上层 UI 自己拼树。无副作用，不持
+  // 久化。失败统一返回 null / 空集合并写一行 console error 便于排查。
+
+  /// `DOM.getDocument` — 拿到当前页面 root node（一次性 depth 控制深度，
+  /// -1 表示完整树，但对大页面会卡，默认 2 层；UI 用 lazy expand 补深度）。
+  Future<Map<String, dynamic>?> domGetDocument({int depth = 2}) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'DOM.getDocument',
+        params: <String, Object?>{'depth': depth, 'pierce': false},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 8),
+      );
+      final root = r['root'];
+      return root is Map<String, dynamic> ? root : null;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'domGetDocument', e, st);
+      return null;
+    }
+  }
+
+  /// `DOM.describeNode` — 取指定 node 的最新结构 + 一层 children。
+  Future<Map<String, dynamic>?> domDescribeNode(int nodeId,
+      {int depth = 1}) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'DOM.describeNode',
+        params: <String, Object?>{'nodeId': nodeId, 'depth': depth},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 6),
+      );
+      final node = r['node'];
+      return node is Map<String, dynamic> ? node : null;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'domDescribeNode', e, st);
+      return null;
+    }
+  }
+
+  /// `CSS.getComputedStyleForNode` — 返回 [{name,value}] 列表（已 enable
+  /// CSS domain；首次调用会自动 enable）。
+  Future<List<Map<String, String>>> domGetComputedStyle(int nodeId) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      await cdp.send('CSS.enable',
+          sessionId: _pageSessionId,
+          timeout: const Duration(seconds: 3));
+      final r = await cdp.send(
+        'CSS.getComputedStyleForNode',
+        params: <String, Object?>{'nodeId': nodeId},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 6),
+      );
+      final list = r['computedStyle'];
+      if (list is! List) return const [];
+      return list.whereType<Map>().map((e) {
+        return <String, String>{
+          'name': '${e['name']}',
+          'value': '${e['value']}',
+        };
+      }).toList();
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'domGetComputedStyle', e, st);
+      return const [];
+    }
+  }
+
+  /// `DOMDebugger.getEventListeners` 需要 objectId，先 `DOM.resolveNode`
+  /// 把 nodeId 转成 Runtime objectId。返回 [{type,useCapture,passive,
+  /// once,scriptId,lineNumber,columnNumber,handler:{description}}] 列表。
+  Future<List<Map<String, dynamic>>> domGetEventListeners(int nodeId) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      final resolved = await cdp.send(
+        'DOM.resolveNode',
+        params: <String, Object?>{'nodeId': nodeId},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 5),
+      );
+      final obj = resolved['object'];
+      if (obj is! Map) return const [];
+      final objectId = obj['objectId'];
+      if (objectId is! String) return const [];
+      final r = await cdp.send(
+        'DOMDebugger.getEventListeners',
+        params: <String, Object?>{'objectId': objectId, 'depth': 1},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 6),
+      );
+      final list = r['listeners'];
+      if (list is! List) return const [];
+      return list.whereType<Map<String, dynamic>>().toList();
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'domGetEventListeners', e, st);
+      return const [];
+    }
+  }
+
+  /// 走 `Runtime.callFunctionOn` + DOM.resolveNode 在浏览器侧合成 CSS
+  /// selector 路径（nth-of-type / id 优先）。比纯客户端递归更准。
+  Future<String?> domCssSelectorForNode(int nodeId) async {
+    return _domEvaluatePathFn(nodeId, _kCssSelectorFn);
+  }
+
+  /// 同上，返回简化 XPath。
+  Future<String?> domXPathForNode(int nodeId) async {
+    return _domEvaluatePathFn(nodeId, _kXPathFn);
+  }
+
+  Future<String?> _domEvaluatePathFn(int nodeId, String fnBody) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final resolved = await cdp.send(
+        'DOM.resolveNode',
+        params: <String, Object?>{'nodeId': nodeId},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 5),
+      );
+      final obj = resolved['object'];
+      if (obj is! Map) return null;
+      final objectId = obj['objectId'];
+      if (objectId is! String) return null;
+      final r = await cdp.send(
+        'Runtime.callFunctionOn',
+        params: <String, Object?>{
+          'objectId': objectId,
+          'functionDeclaration': fnBody,
+          'returnByValue': true,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 6),
+      );
+      final result = r['result'];
+      if (result is Map && result['value'] is String) {
+        return result['value'] as String;
+      }
+      return null;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', '_domEvaluatePathFn', e, st);
+      return null;
+    }
+  }
+
+  /// `Overlay.highlightNode` — 在页面里画 inspector 高亮框。需要先 enable。
+  Future<void> domHighlightNode(int nodeId) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send('Overlay.enable',
+          sessionId: _pageSessionId,
+          timeout: const Duration(seconds: 3));
+      await cdp.send(
+        'Overlay.highlightNode',
+        params: <String, Object?>{
+          'nodeId': nodeId,
+          'highlightConfig': <String, Object?>{
+            'showInfo': true,
+            'showRulers': false,
+            'showExtensionLines': false,
+            'contentColor': <String, Object?>{
+              'r': 111, 'g': 168, 'b': 220, 'a': 0.35,
+            },
+            'paddingColor': <String, Object?>{
+              'r': 147, 'g': 196, 'b': 125, 'a': 0.55,
+            },
+            'borderColor': <String, Object?>{
+              'r': 255, 'g': 229, 'b': 153, 'a': 0.66,
+            },
+            'marginColor': <String, Object?>{
+              'r': 246, 'g': 178, 'b': 107, 'a': 0.66,
+            },
+          },
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 4),
+      );
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'domHighlightNode', e, st);
+    }
+  }
+
+  Future<void> domHideHighlight() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send('Overlay.hideHighlight',
+          sessionId: _pageSessionId,
+          timeout: const Duration(seconds: 3));
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'domHideHighlight', e, st);
+    }
+  }
+
+  /// 滚动到目标节点，方便用户在页面里看到 inspector 选中的元素。
+  Future<void> domScrollIntoView(int nodeId) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return;
+    try {
+      await cdp.send(
+        'DOM.scrollIntoViewIfNeeded',
+        params: <String, Object?>{'nodeId': nodeId},
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 4),
+      );
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'domScrollIntoView', e, st);
+    }
+  }
+
   /// 输入和结果都以 [_appendConsole] 写回 console buffer，
   /// 渲染端按 'repl-input' / 'repl-result' / 'error' level 区分配色。
   Future<String?> runReplExpression(String expression) async {
@@ -5085,3 +5303,60 @@ class WebReverseSnippet {
     );
   }
 }
+
+// ─── DOM 路径 JS 函数体 ────────────────────────────────────────────────
+// 由 `domCssSelectorForNode` / `domXPathForNode` 通过 `Runtime.callFunctionOn`
+// 注入到目标对象上执行。注意 `this` 即对应 DOM node。
+
+const String _kCssSelectorFn = r'''
+function() {
+  function seg(el) {
+    if (!el || el.nodeType !== 1) return '';
+    if (el.id) return '#' + CSS.escape(el.id);
+    let name = el.localName;
+    const parent = el.parentNode;
+    if (!parent || parent.nodeType !== 1) return name;
+    const siblings = Array.from(parent.children).filter(c => c.localName === name);
+    if (siblings.length === 1) return name;
+    const idx = siblings.indexOf(el) + 1;
+    return name + ':nth-of-type(' + idx + ')';
+  }
+  const parts = [];
+  let cur = this;
+  while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
+    const s = seg(cur);
+    if (!s) break;
+    parts.unshift(s);
+    if (s.startsWith('#')) return parts.join(' > ');
+    cur = cur.parentNode;
+  }
+  parts.unshift('html');
+  return parts.join(' > ');
+}
+''';
+
+const String _kXPathFn = r'''
+function() {
+  function ix(el) {
+    let i = 1;
+    let sib = el.previousElementSibling;
+    while (sib) {
+      if (sib.localName === el.localName) i++;
+      sib = sib.previousElementSibling;
+    }
+    return i;
+  }
+  const parts = [];
+  let cur = this;
+  while (cur && cur.nodeType === 1) {
+    if (cur.id) {
+      parts.unshift('//*[@id="' + cur.id + '"]');
+      break;
+    }
+    parts.unshift(cur.localName + '[' + ix(cur) + ']');
+    cur = cur.parentElement;
+  }
+  return '/' + parts.join('/');
+}
+''';
+
