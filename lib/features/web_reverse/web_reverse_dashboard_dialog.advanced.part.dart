@@ -439,6 +439,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.miscellaneous_services_rounded,
+        title: isZh ? 'Service Worker 调试' : 'Service Worker Debug',
+        subtitle: isZh
+            ? '启停 / 强制更新 / 注销 / 触发 sync / 送 push'
+            : 'Start/stop, force-update, unregister, dispatch sync, push',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseSwDebugDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
