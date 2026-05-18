@@ -39,6 +39,7 @@ part 'web_reverse_dashboard_dialog.snippets.part.dart';
 part 'web_reverse_dashboard_dialog.elements.part.dart';
 part 'web_reverse_dashboard_dialog.crypto.part.dart';
 part 'web_reverse_dashboard_dialog.hooks.part.dart';
+part 'web_reverse_dashboard_dialog.crons.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -99,6 +100,7 @@ enum _Tab {
   snippets,
   elements,
   hooks,
+  crons,
   crypto,
   performance,
   memory,
@@ -121,6 +123,7 @@ class _WebReverseDashboardDialogState
   static const _kHeapSnapBMetaKey = 'web_reverse_memory_snap_b';
   static const _kSnippetsMetaKey = 'web_reverse_snippets';
   static const _kHooksMetaKey = 'web_reverse_hooks';
+  static const _kCronsMetaKey = 'web_reverse_crons';
   _Tab _tab = _Tab.network;
 
   // Network 面板状态
@@ -235,6 +238,16 @@ class _WebReverseDashboardDialogState
             .where((h) => h.id.isNotEmpty)
             .toList(growable: false);
         if (hooks.isNotEmpty) unawaited(widget.controller.replaceHooks(hooks));
+      }
+      // 恢复定时任务。replaceCrons 会按 enabled 重新 schedule。
+      final cronRaw = session.metadata[_kCronsMetaKey];
+      if (cronRaw is List) {
+        final crons = cronRaw
+            .whereType<Map>()
+            .map((m) => WebReverseCron.fromJson(Map<String, Object?>.from(m)))
+            .where((c) => c.id.isNotEmpty)
+            .toList(growable: false);
+        if (crons.isNotEmpty) unawaited(widget.controller.replaceCrons(crons));
       }
     });
   }
@@ -436,6 +449,20 @@ class _WebReverseDashboardDialogState
     unawaited(
       session.updateSessionMetadata(widget.sessionId, <String, Object?>{
         _kHooksMetaKey: items,
+      }),
+    );
+  }
+
+  /// 持久化定时任务。cron 增删改 / 启禁后立即调一次。
+  void persistCrons() {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>();
+    final items = widget.controller.crons
+        .map((c) => c.toJson())
+        .toList(growable: false);
+    unawaited(
+      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kCronsMetaKey: items,
       }),
     );
   }
@@ -816,6 +843,11 @@ class _WebReverseDashboardDialogState
           controller: ctrl,
           isZh: isZh,
           onPersist: persistHooks,
+        ),
+      _Tab.crons => _CronsBody(
+          controller: ctrl,
+          isZh: isZh,
+          onPersist: persistCrons,
         ),
       _Tab.crypto => _CryptoPadBody(
           isZh: isZh,

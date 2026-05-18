@@ -2318,6 +2318,144 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  // ─── 定时任务 (Crons) ─────────────────────────────────────────────────
+  // 周期性运行一段 JS：心跳脚本、轮询接口、固定 1 分钟点一下登录续期按钮。
+  // 与 hook 不同——它不在文档加载时跑，而是按 intervalSeconds 节拍跑；
+  // 关 dashboard 不停。dispose / replaceCrons 一定要 cancel 所有 Timer。
+  final List<WebReverseCron> _crons = <WebReverseCron>[];
+  final Map<String, Timer> _cronTimers = <String, Timer>{};
+  final Map<String, DateTime> _cronLastRun = <String, DateTime>{};
+
+  List<WebReverseCron> get crons => List.unmodifiable(_crons);
+
+  /// 最近一次成功跑完的时刻（UI 显示「上次执行 X 秒前」用）。
+  DateTime? cronLastRunAt(String id) => _cronLastRun[id];
+
+  Future<void> replaceCrons(List<WebReverseCron> items) async {
+    for (final t in _cronTimers.values) {
+      t.cancel();
+    }
+    _cronTimers.clear();
+    _crons
+      ..clear()
+      ..addAll(items);
+    for (final c in _crons.where((e) => e.enabled)) {
+      _scheduleCron(c);
+    }
+    _safeNotify();
+  }
+
+  Future<WebReverseCron> addCron({
+    required String name,
+    required String code,
+    required int intervalSeconds,
+  }) async {
+    final id =
+        'cron_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
+    final c = WebReverseCron(
+      id: id,
+      name: name.trim().isEmpty ? 'untitled' : name.trim(),
+      code: code,
+      intervalSeconds: intervalSeconds < 1 ? 1 : intervalSeconds,
+      enabled: true,
+      updatedAt: DateTime.now(),
+    );
+    _crons.add(c);
+    _scheduleCron(c);
+    _safeNotify();
+    return c;
+  }
+
+  Future<void> updateCron({
+    required String id,
+    String? name,
+    String? code,
+    int? intervalSeconds,
+  }) async {
+    final i = _crons.indexWhere((e) => e.id == id);
+    if (i < 0) return;
+    final old = _crons[i];
+    final next = WebReverseCron(
+      id: old.id,
+      name: (name ?? old.name).trim().isEmpty
+          ? old.name
+          : (name ?? old.name).trim(),
+      code: code ?? old.code,
+      intervalSeconds: () {
+        final v = intervalSeconds ?? old.intervalSeconds;
+        return v < 1 ? 1 : v;
+      }(),
+      enabled: old.enabled,
+      updatedAt: DateTime.now(),
+    );
+    _crons[i] = next;
+    if (next.enabled) {
+      _cronTimers.remove(id)?.cancel();
+      _scheduleCron(next);
+    }
+    _safeNotify();
+  }
+
+  Future<void> setCronEnabled(String id, bool enabled) async {
+    final i = _crons.indexWhere((e) => e.id == id);
+    if (i < 0) return;
+    final old = _crons[i];
+    _crons[i] = WebReverseCron(
+      id: old.id,
+      name: old.name,
+      code: old.code,
+      intervalSeconds: old.intervalSeconds,
+      enabled: enabled,
+      updatedAt: DateTime.now(),
+    );
+    if (enabled) {
+      _scheduleCron(_crons[i]);
+    } else {
+      _cronTimers.remove(id)?.cancel();
+    }
+    _safeNotify();
+  }
+
+  Future<void> removeCron(String id) async {
+    _cronTimers.remove(id)?.cancel();
+    _cronLastRun.remove(id);
+    _crons.removeWhere((e) => e.id == id);
+    _safeNotify();
+  }
+
+  /// 立即手动触发一次（不影响周期定时）。
+  Future<String?> runCronNow(String id) async {
+    final c = _crons.firstWhere(
+      (e) => e.id == id,
+      orElse: () => const WebReverseCron(
+        id: '', name: '', code: '', intervalSeconds: 0, enabled: false,
+        updatedAt: null,
+      ),
+    );
+    if (c.id.isEmpty) return null;
+    return _executeCronOnce(c);
+  }
+
+  void _scheduleCron(WebReverseCron c) {
+    final dur = Duration(seconds: c.intervalSeconds);
+    _cronTimers[c.id] = Timer.periodic(dur, (_) {
+      // 不 await——失败由 _executeCronOnce 内部吞掉，避免一次错误打死定时器。
+      unawaited(_executeCronOnce(c));
+    });
+  }
+
+  Future<String?> _executeCronOnce(WebReverseCron c) async {
+    try {
+      final r = await runReplExpression(c.code);
+      _cronLastRun[c.id] = DateTime.now();
+      _safeNotify();
+      return r;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'cron ${c.name}', e, st);
+      return null;
+    }
+  }
+
   // ─── DOM Inspector (Elements 面板) ───────────────────────────────────
   // 直接走 CDP `DOM.*` / `CSS.*` / `DOMDebugger.*` 协议；所有方法返回
   // 解码后的原始 JSON（Map / List），上层 UI 自己拼树。无副作用，不持
@@ -5047,6 +5185,10 @@ class WebReverseSessionController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    for (final t in _cronTimers.values) {
+      t.cancel();
+    }
+    _cronTimers.clear();
     // 不阻塞 dispose；safeStop 内部所有调用都已对 _disposed 做了短路。
     unawaited(_safeStop());
     screencastFrameNotifier.dispose();
@@ -5471,6 +5613,46 @@ class WebReverseHook {
       name: '${json['name'] ?? 'untitled'}',
       code: '${json['code'] ?? ''}',
       enabled: json['enabled'] != false,
+      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
+    );
+  }
+}
+
+class WebReverseCron {
+  const WebReverseCron({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.intervalSeconds,
+    required this.enabled,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String name;
+  final String code;
+  final int intervalSeconds;
+  final bool enabled;
+  final DateTime? updatedAt;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'id': id,
+        'name': name,
+        'code': code,
+        'interval_s': intervalSeconds,
+        'enabled': enabled,
+        'updated_ms': updatedAt?.millisecondsSinceEpoch,
+      };
+
+  factory WebReverseCron.fromJson(Map<String, Object?> json) {
+    final ms = json['updated_ms'];
+    final iv = json['interval_s'];
+    return WebReverseCron(
+      id: '${json['id'] ?? ''}',
+      name: '${json['name'] ?? 'untitled'}',
+      code: '${json['code'] ?? ''}',
+      intervalSeconds: iv is int && iv >= 1 ? iv : 60,
+      enabled: json['enabled'] == true,
       updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
     );
   }
