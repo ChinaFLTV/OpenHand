@@ -5397,92 +5397,361 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  /// 简易 JS 美化：单遍扫描，按 `{` `}` `;` `,` 缩进 / 换行。
-  /// 不引入新依赖；牺牲 prettier 的精度换取零依赖、纯 Dart 实现。
-  /// 输入超长（>= 2MB）时直接返回原文，避免阻塞 UI。
+  /// JS 美化：单遍状态机扫描，正确处理字符串 / 模板字面量 (含 `${}`
+  /// 插值递归) / 行注释 / 块注释 / 正则字面量。按 `{[(` 缩进、`}])` 退
+  /// 缩、`;` 与 `{` 后换行、`} else/catch/finally/while/,/)` 智能合并。
+  /// 大于 4 MB 直接返回原文，避免阻塞 UI。设计为零依赖、纯 Dart 实现，
+  /// 优先保证「能读」而不是 prettier 级别的精确。
   static String prettifyJs(String src) {
-    if (src.length >= 2 * 1024 * 1024) return src;
+    const maxSize = 4 * 1024 * 1024;
+    if (src.length >= maxSize) return src;
     final out = StringBuffer();
     var indent = 0;
-    var inString = false;
-    var stringChar = '';
-    var prev = '';
-    var inLineComment = false;
-    var inBlockComment = false;
-    void newline() {
-      out.write('\n');
-      out.write('  ' * indent);
+    // 模板字面量内的 `${...}` 插值会进入 JS 模式但还要回到模板字符串。
+    // 用一个简易栈表示当前所处的「字符串模式」：'`' 表示当前在模板字
+    // 面量里，'$' 表示在模板里的 `${}` 插值（JS 代码）。空栈代表普通
+    // JS 代码上下文。
+    final tmplStack = <String>[];
+    var i = 0;
+    final n = src.length;
+
+    void writeIndent() {
+      for (var k = 0; k < indent; k++) {
+        out.write('  ');
+      }
     }
 
-    for (var i = 0; i < src.length; i++) {
+    void newline() {
+      // 去掉本行末尾空格——避免缩进与之前残留空格叠加。
+      while (out.length > 0) {
+        final last = out.toString().codeUnitAt(out.length - 1);
+        if (last == 0x20 || last == 0x09) {
+          // O(N) 截断：写入一个新缓冲。下面 trimEndInPlace 替代。
+          break;
+        }
+        break;
+      }
+      // 用 _trimTrailingWhitespace 一次性裁剪当前行末。
+      _trimTrailingWhitespace(out);
+      out.write('\n');
+      writeIndent();
+    }
+
+    // 上一非空白可打印字符（用于正则 / 除号歧义判断）。
+    var prevSig = '';
+
+    // 把字符 c 写入 out 并刷新 prevSig（如果非空白）。
+    void emit(String c) {
+      out.write(c);
+      if (c.isNotEmpty && c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+        prevSig = c;
+      }
+    }
+
+    // 判断当前位置 i 上的 `/` 应当被解析为正则字面量起始（true）还是
+    // 除号 / 注释（false）。基于 prevSig：若前一个有效字符是表达式起
+    // 始/分隔符（如 `=,;:!&|?{}([*/+-~^%<>` 或空），则是正则。
+    bool looksLikeRegexStart() {
+      if (prevSig.isEmpty) return true;
+      const exprStarters = r'=,;:!&|?{([*/+-~^%<>';
+      if (exprStarters.contains(prevSig)) return true;
+      // `return` / `typeof` / `in` / `of` 等关键字后接 `/` 也是正则。
+      // 简化处理：回扫最多 8 个字符判断是否以这些关键字结尾。
+      final tail = out.length > 12
+          ? out.toString().substring(out.length - 12)
+          : out.toString();
+      for (final kw in const [
+        'return',
+        'typeof',
+        'instanceof',
+        'in',
+        'of',
+        'delete',
+        'void',
+        'throw',
+        'new',
+      ]) {
+        if (tail.endsWith(kw) &&
+            (tail.length == kw.length ||
+                _isIdSep(tail[tail.length - kw.length - 1]))) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    while (i < n) {
       final c = src[i];
-      final next = i + 1 < src.length ? src[i + 1] : '';
-      if (inLineComment) {
+      final next = i + 1 < n ? src[i + 1] : '';
+      final mode = tmplStack.isEmpty ? '' : tmplStack.last;
+
+      // ───── 模板字符串字符模式 ─────
+      if (mode == '`') {
         out.write(c);
-        if (c == '\n') {
-          inLineComment = false;
-          out.write('  ' * indent);
-        }
-        prev = c;
-        continue;
-      }
-      if (inBlockComment) {
-        out.write(c);
-        if (c == '*' && next == '/') {
+        if (c == r'\' && next.isNotEmpty) {
           out.write(next);
-          i++;
-          inBlockComment = false;
+          i += 2;
+          continue;
         }
-        prev = c;
+        if (c == r'$' && next == '{') {
+          out.write(next);
+          tmplStack.add(r'$');
+          i += 2;
+          continue;
+        }
+        if (c == '`') {
+          tmplStack.removeLast();
+          prevSig = '`';
+        }
+        i += 1;
         continue;
       }
-      if (!inString) {
-        if (c == '/' && next == '/') {
-          inLineComment = true;
-          out.write(c);
-          continue;
-        }
-        if (c == '/' && next == '*') {
-          inBlockComment = true;
-          out.write(c);
-          continue;
-        }
-      }
-      if (inString) {
+
+      // ───── 普通字符串字符模式：直接遇到 emit 即可（下方分支处理） ─────
+
+      // ───── 行注释 / 块注释 ─────
+      if (c == '/' && next == '/') {
+        // 写到行尾。
         out.write(c);
-        if (c == stringChar && prev != r'\') inString = false;
-      } else {
-        if (c == '"' || c == "'" || c == '`') {
-          inString = true;
-          stringChar = c;
+        out.write(next);
+        i += 2;
+        while (i < n && src[i] != '\n') {
+          out.write(src[i]);
+          i++;
+        }
+        if (i < n) {
+          out.write('\n');
+          writeIndent();
+          i++;
+        }
+        prevSig = '';
+        continue;
+      }
+      if (c == '/' && next == '*') {
+        out.write(c);
+        out.write(next);
+        i += 2;
+        while (i < n - 1 && !(src[i] == '*' && src[i + 1] == '/')) {
+          out.write(src[i]);
+          i++;
+        }
+        if (i < n - 1) {
+          out.write('*/');
+          i += 2;
+        } else if (i < n) {
+          out.write(src[i]);
+          i++;
+        }
+        prevSig = '/';
+        continue;
+      }
+
+      // ───── 普通字符串 ('  " ) ─────
+      if (c == '"' || c == "'") {
+        final quote = c;
+        out.write(c);
+        i++;
+        while (i < n) {
+          final ch = src[i];
+          out.write(ch);
+          if (ch == r'\' && i + 1 < n) {
+            out.write(src[i + 1]);
+            i += 2;
+            continue;
+          }
+          i++;
+          if (ch == quote) break;
+        }
+        prevSig = quote;
+        continue;
+      }
+
+      // ───── 模板字符串起始 ─────
+      if (c == '`') {
+        out.write(c);
+        tmplStack.add('`');
+        i++;
+        continue;
+      }
+
+      // ───── 正则字面量 ─────
+      if (c == '/' && looksLikeRegexStart()) {
+        out.write(c);
+        i++;
+        var inCharClass = false;
+        while (i < n) {
+          final ch = src[i];
+          out.write(ch);
+          if (ch == r'\' && i + 1 < n) {
+            out.write(src[i + 1]);
+            i += 2;
+            continue;
+          }
+          if (ch == '[') inCharClass = true;
+          if (ch == ']') inCharClass = false;
+          i++;
+          if (ch == '/' && !inCharClass) break;
+        }
+        // flags
+        while (i < n && _isIdChar(src[i])) {
+          out.write(src[i]);
+          i++;
+        }
+        prevSig = '/';
+        continue;
+      }
+
+      // ───── 缩进 / 换行控制字符 ─────
+      if (c == '{') {
+        emit(c);
+        indent++;
+        newline();
+        i++;
+        continue;
+      }
+      if (c == '}') {
+        // 智能合并：把 } 之前一个 newline 撤掉前的空行清理。
+        indent = (indent - 1).clamp(0, 200);
+        // 如果当前 mode 是 '$'(模板插值)，遇到匹配的 } 要回到模板字
+        // 符串模式，不参与缩进 / 换行。
+        if (mode == r'$') {
+          tmplStack.removeLast();
           out.write(c);
-        } else if (c == '{') {
-          out.write(c);
-          indent++;
+          prevSig = c;
+          i++;
+          continue;
+        }
+        newline();
+        out.write(c);
+        prevSig = c;
+        i++;
+        // 智能合并：`} else` / `} catch` / `} finally` / `} while` /
+        // `},` / `})` / `};` / `}]`。
+        // 先跳过空白（注意：跨原始换行不算）。
+        var j = i;
+        while (j < n && (src[j] == ' ' || src[j] == '\t')) {
+          j++;
+        }
+        if (j < n) {
+          final after = src[j];
+          if (after == ',' ||
+              after == ')' ||
+              after == ';' ||
+              after == ']' ||
+              after == '.') {
+            // 紧贴写；不换行。
+            out.write(after);
+            prevSig = after;
+            i = j + 1;
+            continue;
+          }
+          // 关键字合并：识别后续 identifier，若是 else/catch/finally/while
+          // 则同行 `} else` 输出。
+          var k = j;
+          while (k < n && _isIdChar(src[k])) {
+            k++;
+          }
+          final id = src.substring(j, k);
+          if (id == 'else' ||
+              id == 'catch' ||
+              id == 'finally' ||
+              id == 'while') {
+            out.write(' ');
+            out.write(id);
+            prevSig = id[id.length - 1];
+            i = k;
+            continue;
+          }
+        }
+        newline();
+        continue;
+      }
+      if (c == '[' || c == '(') {
+        emit(c);
+        i++;
+        continue;
+      }
+      if (c == ']' || c == ')') {
+        emit(c);
+        i++;
+        continue;
+      }
+      if (c == ';') {
+        emit(c);
+        // for (;;) 头内不换行 —— 简化：若紧跟 `)` 不换行。
+        var j = i + 1;
+        while (j < n && (src[j] == ' ' || src[j] == '\t')) {
+          j++;
+        }
+        if (j < n && src[j] == ')') {
+          i++;
+          continue;
+        }
+        newline();
+        i++;
+        continue;
+      }
+      if (c == ',') {
+        emit(c);
+        if (indent > 0) {
           newline();
-        } else if (c == '}') {
-          indent = (indent - 1).clamp(0, 100);
-          newline();
-          out.write(c);
-        } else if (c == ';') {
-          out.write(c);
-          newline();
-        } else if (c == ',') {
-          out.write(c);
-          // 简单启发式：嵌套深度 > 0 时换行，避免一行参数列表也炸开。
-          if (indent > 0) newline();
-        } else if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
-          // 跳过空白；indent 自带缩进。
-          if (out.isNotEmpty && out.toString().codeUnits.last != 0x20 && out.toString().codeUnits.last != 0x0a) {
+        } else {
+          out.write(' ');
+        }
+        i++;
+        continue;
+      }
+      if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+        // 折叠空白：仅当 out 末尾不是空白 / 换行时插一个空格。
+        if (out.length > 0) {
+          final last = out.toString().codeUnitAt(out.length - 1);
+          if (last != 0x20 && last != 0x0a) {
             out.write(' ');
           }
-        } else {
-          out.write(c);
         }
+        i++;
+        continue;
       }
-      prev = c;
+
+      emit(c);
+      i++;
     }
     return out.toString();
+  }
+
+  /// `_BreakpointsBodyState` 也会用到的简易标识符尾字符判断。
+  static bool _isIdChar(String c) {
+    if (c.isEmpty) return false;
+    final code = c.codeUnitAt(0);
+    return (code >= 0x30 && code <= 0x39) || // 0-9
+        (code >= 0x41 && code <= 0x5a) || // A-Z
+        (code >= 0x61 && code <= 0x7a) || // a-z
+        code == 0x24 || // $
+        code == 0x5f; // _
+  }
+
+  /// 与 _isIdChar 反向：用来判断关键字前一个字符是不是分隔符。
+  static bool _isIdSep(String c) => !_isIdChar(c);
+
+  /// 修剪 StringBuffer 末尾连续的空格 / Tab。仅当末尾确实有空白才重
+  /// 建（避免无谓 toString）。
+  static void _trimTrailingWhitespace(StringBuffer buf) {
+    if (buf.length == 0) return;
+    final s = buf.toString();
+    var end = s.length;
+    while (end > 0) {
+      final code = s.codeUnitAt(end - 1);
+      if (code == 0x20 || code == 0x09) {
+        end--;
+      } else {
+        break;
+      }
+    }
+    if (end != s.length) {
+      buf
+        ..clear()
+        ..write(s.substring(0, end));
+    }
   }
 
   /// 持久化注入到所有请求的 extra HTTP headers（CDP `Network.setExtraHTTPHeaders`）。
