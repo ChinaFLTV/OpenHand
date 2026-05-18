@@ -334,6 +334,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.lock_open_rounded,
+        title: isZh ? 'AI 加密参数还原' : 'AI Crypto Param Recover',
+        subtitle: isZh
+            ? '同 endpoint 多次 diff + JS 全文搜索命中，复制成 AI 可吃的提示词'
+            : 'Diff repeated endpoint hits + search JS, copy as AI-ready prompt',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseAiCryptoDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
