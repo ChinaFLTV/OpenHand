@@ -574,6 +574,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.speed_rounded,
+        title: isZh ? 'CPU 限速' : 'CPU Throttling',
+        subtitle: isZh
+            ? 'Emulation.setCPUThrottlingRate · 1×–20×'
+            : 'Emulation.setCPUThrottlingRate · 1×–20×',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseCpuThrottleDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

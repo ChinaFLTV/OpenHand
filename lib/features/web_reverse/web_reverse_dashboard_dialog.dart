@@ -42,6 +42,7 @@ import 'web_reverse_css_coverage_dialog.dart';
 import 'web_reverse_replay_dialog.dart';
 import 'web_reverse_input_sim_dialog.dart';
 import 'web_reverse_device_emulation_dialog.dart';
+import 'web_reverse_cpu_throttle_dialog.dart';
 import 'web_reverse_dom_mutation_dialog.dart';
 import 'web_reverse_geo_override_dialog.dart';
 import 'web_reverse_webauthn_dialog.dart';
