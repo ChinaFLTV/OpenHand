@@ -987,6 +987,108 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  /// `IndexedDB.clearObjectStore` —— 清空指定 store 全部记录。失败返回 false。
+  Future<bool> clearIndexedDbStore({
+    required String dbName,
+    required String storeName,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      final origin = await currentOrigin();
+      if (origin == null) return false;
+      await cdp.send(
+        'IndexedDB.clearObjectStore',
+        params: <String, Object?>{
+          'securityOrigin': origin,
+          'databaseName': dbName,
+          'objectStoreName': storeName,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 10),
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'clearIndexedDbStore $dbName/$storeName',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
+  /// `IndexedDB.deleteObjectStoreEntries` —— 删除指定 key 的单条记录。
+  /// CDP 协议要求 keyRange 用 `{lower, upper, lowerOpen, upperOpen}` 结构；
+  /// 这里构造为 `[key, key]` 闭区间精准命中一条。
+  /// key 走 IndexedDB.Key 结构：`{type: 'string'|'number'|'date'|'array', value, ...}`。
+  Future<bool> deleteIndexedDbEntry({
+    required String dbName,
+    required String storeName,
+    required Map<String, Object?> key,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      final origin = await currentOrigin();
+      if (origin == null) return false;
+      await cdp.send(
+        'IndexedDB.deleteObjectStoreEntries',
+        params: <String, Object?>{
+          'securityOrigin': origin,
+          'databaseName': dbName,
+          'objectStoreName': storeName,
+          'keyRange': <String, Object?>{
+            'lower': key,
+            'upper': key,
+            'lowerOpen': false,
+            'upperOpen': false,
+          },
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 10),
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'deleteIndexedDbEntry $dbName/$storeName',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
+  /// `IndexedDB.deleteDatabase` —— 删除整个数据库。
+  Future<bool> deleteIndexedDb(String dbName) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      final origin = await currentOrigin();
+      if (origin == null) return false;
+      await cdp.send(
+        'IndexedDB.deleteDatabase',
+        params: <String, Object?>{
+          'securityOrigin': origin,
+          'databaseName': dbName,
+        },
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 10),
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'deleteIndexedDb $dbName',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
   /// `CacheStorage.requestCacheNames` —— 当前 origin 下所有 Cache 名。
   Future<List<String>> listCacheStorage() async {
     final cdp = _browserCdp;

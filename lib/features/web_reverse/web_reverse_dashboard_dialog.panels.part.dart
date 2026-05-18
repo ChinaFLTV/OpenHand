@@ -27,6 +27,9 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   static const int _historyLen = 60;
   bool _tracing = false;
   Duration _traceDuration = const Duration(seconds: 5);
+  // 录制提前停止信号；非空表示当前在录，点击 Stop 时 complete 即可让
+  // [WebReverseSessionController.recordTrace] 立即 Tracing.end。
+  Completer<void>? _traceEarlyStop;
   // 上次成功录制的 trace JSON，用于「查看火焰图」按钮；超过 8MB 不缓存以
   // 防内存暴涨。
   String? _lastTraceJson;
@@ -194,15 +197,25 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   Future<void> _record() async {
     final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
-    setState(() => _tracing = true);
+    final earlyStop = Completer<void>();
+    setState(() {
+      _tracing = true;
+      _traceEarlyStop = earlyStop;
+    });
     String? json;
     try {
-      json = await widget.controller.recordTrace(duration: _traceDuration);
+      json = await widget.controller.recordTrace(
+        duration: _traceDuration,
+        earlyStop: earlyStop.future,
+      );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'recordTrace', error, stack);
     }
     if (!mounted) return;
-    setState(() => _tracing = false);
+    setState(() {
+      _tracing = false;
+      _traceEarlyStop = null;
+    });
     if (json == null) {
       OpenHandSnackBar.showErrorOn(
         context,
@@ -300,18 +313,27 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 ],
               ),
               const SizedBox(width: 10),
-              FilledButton.icon(
-                onPressed: _tracing ? null : _record,
-                icon: Icon(
-                  _tracing
-                      ? Icons.fiber_manual_record_rounded
-                      : Icons.play_arrow_rounded,
-                  size: 18,
+              if (_tracing)
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.error,
+                    foregroundColor: cs.onError,
+                  ),
+                  onPressed: _traceEarlyStop == null
+                      ? null
+                      : () {
+                          final c = _traceEarlyStop;
+                          if (c != null && !c.isCompleted) c.complete();
+                        },
+                  icon: const Icon(Icons.stop_rounded, size: 18),
+                  label: Text(isZh ? '停止录制' : 'Stop'),
+                )
+              else
+                FilledButton.icon(
+                  onPressed: _record,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: Text(isZh ? '录制 Trace' : 'Record Trace'),
                 ),
-                label: Text(_tracing
-                    ? (isZh ? '录制中…' : 'Recording…')
-                    : (isZh ? '录制 Trace' : 'Record Trace')),
-              ),
               const SizedBox(width: 10),
               OutlinedButton.icon(
                 onPressed:
@@ -2039,6 +2061,8 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
                   controller: widget.controller,
                   names: _idbNames,
                   described: _idbDescribed,
+                  isZh: isZh,
+                  onChanged: _refresh,
                 ),
               _AppTab.cacheStorage =>
                 _NameListPanel(names: _cacheNames, isZh: isZh),
@@ -2193,13 +2217,13 @@ class _CookiesTableState extends State<_CookiesTable> {
               : 'Will delete ${widget.cookies.length} cookies. This cannot be undone.',
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(widget.isZh ? '取消' : 'Cancel'),
+            label: widget.isZh ? '取消' : 'Cancel',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.destructive(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(widget.isZh ? '清空' : 'Clear'),
+            label: widget.isZh ? '清空' : 'Clear',
           ),
         ],
       ),
@@ -2411,18 +2435,18 @@ Future<Map<String, Object?>?> _showCookieEditor(
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          label: isZh ? '取消' : 'Cancel',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(<String, Object?>{
             'name': name.text.trim(),
             'value': value.text,
             'domain': domain.text.trim(),
             'path': path.text.trim(),
           }),
-          child: Text(isZh ? '保存' : 'Save'),
+          label: isZh ? '保存' : 'Save',
         ),
       ],
     ),
@@ -2526,13 +2550,13 @@ class _StorageTableState extends State<_StorageTable> {
               : 'Will delete ${widget.rows.length} entries. This cannot be undone.',
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(widget.isZh ? '取消' : 'Cancel'),
+            label: widget.isZh ? '取消' : 'Cancel',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.destructive(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(widget.isZh ? '清空' : 'Clear'),
+            label: widget.isZh ? '清空' : 'Clear',
           ),
         ],
       ),
@@ -2708,15 +2732,15 @@ Future<({String key, String value})?> _showStorageEditor(
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          label: isZh ? '取消' : 'Cancel',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(
             (key: keyCtrl.text.trim(), value: valueCtrl.text),
           ),
-          child: Text(isZh ? '保存' : 'Save'),
+          label: isZh ? '保存' : 'Save',
         ),
       ],
     ),
@@ -2735,11 +2759,15 @@ class _IndexedDbTable extends StatefulWidget {
     required this.controller,
     required this.names,
     required this.described,
+    required this.isZh,
+    required this.onChanged,
   });
 
   final WebReverseSessionController controller;
   final List<String> names;
   final Map<String, ({int version, List<String> stores})> described;
+  final bool isZh;
+  final Future<void> Function() onChanged;
 
   @override
   State<_IndexedDbTable> createState() => _IndexedDbTableState();
@@ -2790,6 +2818,185 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       _skipCount = _entries.length;
       _loading = false;
     });
+  }
+
+  /// 删除整个数据库。弹二次确认。
+  Future<void> _confirmDeleteDb(String dbName) async {
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh ? '删除数据库' : 'Delete database'),
+        content: Text(isZh
+            ? '确定删除数据库 “$dbName” 及其全部 store ？此操作不可撤销。'
+            : 'Delete database “$dbName” and all stores? Irreversible.'),
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            label: isZh ? '取消' : 'Cancel',
+          ),
+          OpenHandDialogActionButton.destructive(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            label: isZh ? '删除' : 'Delete',
+          ),
+        ],
+      ),
+    );
+    if (!mounted || ok != true) return;
+    final success = await widget.controller.deleteIndexedDb(dbName);
+    if (!mounted) return;
+    if (success) {
+      setState(() {
+        if (_selected?.db == dbName) {
+          _selected = null;
+          _entries = const [];
+          _hasMore = false;
+          _skipCount = 0;
+        }
+      });
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? '已删除 $dbName' : 'Deleted',
+      );
+      await widget.onChanged();
+    } else {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '删除失败' : 'Delete failed',
+      );
+    }
+  }
+
+  /// 清空当前选中 store 的全部记录。
+  Future<void> _confirmClearStore() async {
+    final selected = _selected;
+    if (selected == null) return;
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh ? '清空 Object Store' : 'Clear object store'),
+        content: Text(isZh
+            ? '确定清空 “${selected.db} / ${selected.store}” 的全部记录？'
+            : 'Clear all records in “${selected.db} / ${selected.store}”?'),
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            label: isZh ? '取消' : 'Cancel',
+          ),
+          OpenHandDialogActionButton.destructive(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            label: isZh ? '清空' : 'Clear',
+          ),
+        ],
+      ),
+    );
+    if (!mounted || ok != true) return;
+    final success = await widget.controller.clearIndexedDbStore(
+      dbName: selected.db,
+      storeName: selected.store,
+    );
+    if (!mounted) return;
+    if (success) {
+      await _expand(selected.db, selected.store);
+      if (mounted) {
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          messenger,
+          isZh ? '已清空' : 'Cleared',
+        );
+      }
+    } else {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '清空失败' : 'Clear failed',
+      );
+    }
+  }
+
+  /// 删除单条记录。CDP 传入原始 key 结构（RemoteObject 转 IndexedDB.Key）。
+  Future<void> _confirmDeleteEntry(Map<String, Object?> entry) async {
+    final selected = _selected;
+    if (selected == null) return;
+    final keyRaw = entry['key'];
+    final keyParam = _remoteObjectToKey(keyRaw);
+    if (keyParam == null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        ScaffoldMessenger.of(context),
+        widget.isZh ? '不支持的 key 类型' : 'Unsupported key type',
+      );
+      return;
+    }
+    final isZh = widget.isZh;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isZh ? '删除记录' : 'Delete record'),
+        content: Text(isZh
+            ? '确定删除 key = ${_describeRemoteObject(keyRaw)} ？'
+            : 'Delete record with key = ${_describeRemoteObject(keyRaw)}?'),
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            label: isZh ? '取消' : 'Cancel',
+          ),
+          OpenHandDialogActionButton.destructive(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            label: isZh ? '删除' : 'Delete',
+          ),
+        ],
+      ),
+    );
+    if (!mounted || ok != true) return;
+    final success = await widget.controller.deleteIndexedDbEntry(
+      dbName: selected.db,
+      storeName: selected.store,
+      key: keyParam,
+    );
+    if (!mounted) return;
+    if (success) {
+      await _expand(selected.db, selected.store);
+      if (mounted) {
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          messenger,
+          isZh ? '已删除' : 'Deleted',
+        );
+      }
+    } else {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '删除失败' : 'Delete failed',
+      );
+    }
+  }
+
+  /// CDP RemoteObject -> IndexedDB.Key 请求参数。仅支持 string / number；
+  /// date / array 类型返回 null（需要手工处理）。
+  Map<String, Object?>? _remoteObjectToKey(Object? raw) {
+    if (raw is! Map) return null;
+    final type = raw['type'];
+    final value = raw['value'];
+    final desc = raw['description'];
+    if (type == 'string') {
+      final v = value ?? desc;
+      if (v is String) return <String, Object?>{'type': 'string', 'string': v};
+    }
+    if (type == 'number') {
+      final n = value is num ? value : num.tryParse('${value ?? desc ?? ''}');
+      if (n != null) {
+        return <String, Object?>{'type': 'number', 'number': n};
+      }
+    }
+    return null;
   }
 
   @override
@@ -2848,6 +3055,23 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                 color: cs.onSurfaceVariant,
                               ),
                             ),
+                          IconButton(
+                            tooltip: widget.isZh
+                                ? '删除数据库'
+                                : 'Delete database',
+                            iconSize: 14,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 26,
+                              height: 26,
+                            ),
+                            onPressed: () => _confirmDeleteDb(name),
+                            icon: Icon(
+                              Icons.delete_outline_rounded,
+                              color: cs.error,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -2942,6 +3166,19 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                     : 'Load more',
                               ),
                             ),
+                          IconButton(
+                            tooltip: widget.isZh
+                                ? '清空当前 store'
+                                : 'Clear current store',
+                            iconSize: 16,
+                            visualDensity: VisualDensity.compact,
+                            onPressed:
+                                _loading ? null : _confirmClearStore,
+                            icon: Icon(
+                              Icons.delete_sweep_outlined,
+                              color: cs.error,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -2981,6 +3218,9 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                 }
                                 return _IndexedDbEntryRow(
                                   entry: _entries[i],
+                                  isZh: widget.isZh,
+                                  onDelete: () =>
+                                      _confirmDeleteEntry(_entries[i]),
                                 );
                               },
                             ),
@@ -2996,8 +3236,14 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
 /// IndexedDB.requestData 回来的单条记录视图。CDP 的 key/value 是嵌套 RemoteObject，
 /// 直接 jsonEncode 即可读到 description 字段；展开/收起避免一行撑爆。
 class _IndexedDbEntryRow extends StatefulWidget {
-  const _IndexedDbEntryRow({required this.entry});
+  const _IndexedDbEntryRow({
+    required this.entry,
+    required this.isZh,
+    required this.onDelete,
+  });
   final Map<String, Object?> entry;
+  final bool isZh;
+  final VoidCallback onDelete;
 
   @override
   State<_IndexedDbEntryRow> createState() => _IndexedDbEntryRowState();
@@ -3053,6 +3299,21 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
                     ),
                   ),
                 ),
+                IconButton(
+                  tooltip: widget.isZh ? '删除记录' : 'Delete record',
+                  iconSize: 16,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 28,
+                    height: 28,
+                  ),
+                  onPressed: widget.onDelete,
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: cs.error,
+                  ),
+                ),
               ],
             ),
             if (_expanded)
@@ -3071,17 +3332,17 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
       ),
     );
   }
+}
 
-  /// CDP RemoteObject -> 人可读字符串。
-  static String _describeRemoteObject(Object? raw) {
-    if (raw is! Map) return '${raw ?? ''}';
-    final type = raw['type'];
-    final desc = raw['description'];
-    final value = raw['value'];
-    if (desc is String && desc.isNotEmpty) return desc;
-    if (value != null) return '$value';
-    return '<$type>';
-  }
+/// CDP RemoteObject -> 人可读字符串。被 _IndexedDbTable / _IndexedDbEntryRow 共用。
+String _describeRemoteObject(Object? raw) {
+  if (raw is! Map) return '${raw ?? ''}';
+  final type = raw['type'];
+  final desc = raw['description'];
+  final value = raw['value'];
+  if (desc is String && desc.isNotEmpty) return desc;
+  if (value != null) return '$value';
+  return '<$type>';
 }
 
 class _NameListPanel extends StatelessWidget {
@@ -3145,13 +3406,13 @@ class _ServiceWorkersTable extends StatelessWidget {
           decoration: const InputDecoration(labelText: 'scopeURL'),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            label: isZh ? '取消' : 'Cancel',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(ctrl.text.trim()),
-            child: Text(isZh ? '注册' : 'Register'),
+            label: isZh ? '注册' : 'Register',
           ),
         ],
       ),
@@ -3409,6 +3670,28 @@ class _RecorderPanel extends StatefulWidget {
 
 class _RecorderPanelState extends State<_RecorderPanel> {
   bool _replaying = false;
+
+  // 控件本身不在 dashboard 的 _onChanged 脘脟字段列表里，那里为了避
+  // screencast 频繁 setState 是按类别跳出的，isRecording / recorderSteps 变
+  // 动不会重建 Recorder 面板。这里直接订阅 controller，让 Stop / 步数
+  // 实时反馈。
+  late final VoidCallback _ctrlListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrlListener = () {
+      if (!mounted) return;
+      setState(() {});
+    };
+    widget.controller.addListener(_ctrlListener);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_ctrlListener);
+    super.dispose();
+  }
 
   Future<void> _save() async {
     final isZh = widget.isZh;
