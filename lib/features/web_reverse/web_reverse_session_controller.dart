@@ -549,6 +549,10 @@ class WebReverseSessionController extends ChangeNotifier {
         _onFetchRequestPaused(ev.params);
       case 'Debugger.scriptParsed':
         _onScriptParsed(ev.params);
+      case 'Debugger.paused':
+        _onDebuggerPaused(ev.params);
+      case 'Debugger.resumed':
+        _onDebuggerResumed();
     }
   }
 
@@ -2793,17 +2797,37 @@ class WebReverseSessionController extends ChangeNotifier {
     if (raw.isEmpty) return null;
     _appendConsole('repl-input', '> $raw');
     try {
-      final r = await cdp.send(
-        'Runtime.evaluate',
-        params: <String, Object?>{
-          'expression': raw,
-          'returnByValue': true,
-          'awaitPromise': true,
-          'allowUnsafeEvalBlockedByCSP': true,
-        },
-        sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 15),
-      );
+      // 暂停态下走 evaluateOnCallFrame，求值发生在用户当前栈帧的作用域里，
+      // 可直接访问局部变量、闭包变量；正常运行态则走全局 Runtime.evaluate。
+      final paused = _pausedState;
+      Map<String, Object?> r;
+      if (paused != null && paused.callFrames.isNotEmpty) {
+        final fid = '${paused.callFrames.first['callFrameId'] ?? ''}';
+        r = await cdp.send(
+          'Debugger.evaluateOnCallFrame',
+          params: <String, Object?>{
+            'callFrameId': fid,
+            'expression': raw,
+            'returnByValue': true,
+            'generatePreview': true,
+            'objectGroup': 'oh_console',
+          },
+          sessionId: _pageSessionId,
+          timeout: const Duration(seconds: 15),
+        );
+      } else {
+        r = await cdp.send(
+          'Runtime.evaluate',
+          params: <String, Object?>{
+            'expression': raw,
+            'returnByValue': true,
+            'awaitPromise': true,
+            'allowUnsafeEvalBlockedByCSP': true,
+          },
+          sessionId: _pageSessionId,
+          timeout: const Duration(seconds: 15),
+        );
+      }
       final exception = r['exceptionDetails'];
       if (exception is Map) {
         final m = '${exception['exception']?['description'] ?? exception['text'] ?? 'eval failed'}';
@@ -4909,6 +4933,423 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (e, st) {
       silentLog('web_reverse_session_controller', 'removeXhrBreakpoint', e, st);
       return false;
+    }
+  }
+
+  // ─── Debugger 暂停 / step / evaluate-on-call-frame ───────────────────
+  // 接收 `Debugger.paused` 事件后保留当前 call frames + scope chain + 命中
+  // 的 breakpointId，给 Sources 面板和 Breakpoints 面板「Call Stack / Scope /
+  // Watch」三段联动使用；`Debugger.resumed` 与所有 step* 操作前会清空。
+  ({
+    List<Map<String, Object?>> callFrames,
+    String reason,
+    Map<String, Object?> data,
+    List<String> hitBreakpoints,
+  })? _pausedState;
+
+  ({
+    List<Map<String, Object?>> callFrames,
+    String reason,
+    Map<String, Object?> data,
+    List<String> hitBreakpoints,
+  })? get pausedState => _pausedState;
+
+  bool get isPaused => _pausedState != null;
+
+  void _onDebuggerPaused(Map<String, Object?> p) {
+    final frames = (p['callFrames'] as List?)
+            ?.whereType<Map>()
+            .map(Map<String, Object?>.from)
+            .toList(growable: false) ??
+        const <Map<String, Object?>>[];
+    final reason = '${p['reason'] ?? ''}';
+    final data = (p['data'] as Map?)?.cast<String, Object?>() ??
+        const <String, Object?>{};
+    final hits = (p['hitBreakpoints'] as List?)
+            ?.whereType<String>()
+            .toList(growable: false) ??
+        const <String>[];
+    _pausedState = (
+      callFrames: frames,
+      reason: reason,
+      data: data,
+      hitBreakpoints: hits,
+    );
+    _safeNotify();
+  }
+
+  void _onDebuggerResumed() {
+    if (_pausedState == null) return;
+    _pausedState = null;
+    _safeNotify();
+  }
+
+  Future<bool> stepOverDebugger() => _stepCommand('Debugger.stepOver');
+  Future<bool> stepIntoDebugger() => _stepCommand('Debugger.stepInto');
+  Future<bool> stepOutDebugger() => _stepCommand('Debugger.stepOut');
+
+  Future<bool> _stepCommand(String method) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send(method, sessionId: _pageSessionId);
+      return true;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', method, e, st);
+      return false;
+    }
+  }
+
+  /// `Debugger.evaluateOnCallFrame` —— 在指定栈帧的作用域里求值。供 Sources
+  /// 面板 Watch 列表 / 控制台「暂停时执行」复用。返回 RemoteObject map（保留
+  /// description / type / value），失败返回 null。
+  Future<Map<String, Object?>?> evaluateOnCallFrame({
+    required String callFrameId,
+    required String expression,
+    bool returnByValue = false,
+    bool generatePreview = true,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'Debugger.evaluateOnCallFrame',
+        params: <String, Object?>{
+          'callFrameId': callFrameId,
+          'expression': expression,
+          'returnByValue': returnByValue,
+          'generatePreview': generatePreview,
+          'silent': true,
+          'objectGroup': 'oh_watch',
+        },
+        sessionId: _pageSessionId,
+      );
+      final exception = r['exceptionDetails'];
+      if (exception is Map) {
+        return <String, Object?>{
+          'type': 'error',
+          'description':
+              '${(exception['exception'] as Map?)?['description'] ?? exception['text'] ?? 'error'}',
+        };
+      }
+      return (r['result'] as Map?)?.cast<String, Object?>();
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'evaluateOnCallFrame', e, st);
+      return null;
+    }
+  }
+
+  // ─── Watch 表达式 ────────────────────────────────────────────────────
+  // 纯前端维护；每次调 evaluateWatch 时会按当前是否处于暂停态走
+  // evaluateOnCallFrame 或 Runtime.evaluate。
+  final List<String> _watchExpressions = <String>[];
+  List<String> get watchExpressions => List<String>.unmodifiable(_watchExpressions);
+
+  void addWatchExpression(String expr) {
+    final e = expr.trim();
+    if (e.isEmpty || _watchExpressions.contains(e)) return;
+    _watchExpressions.add(e);
+    _safeNotify();
+  }
+
+  void removeWatchExpression(String expr) {
+    if (_watchExpressions.remove(expr)) _safeNotify();
+  }
+
+  /// 求值单个 watch 表达式。暂停态走 evaluateOnCallFrame（top frame），否则
+  /// 走 Runtime.evaluate。返回 RemoteObject map。
+  Future<Map<String, Object?>?> evaluateWatch(String expression) async {
+    final paused = _pausedState;
+    if (paused != null && paused.callFrames.isNotEmpty) {
+      final fid = '${paused.callFrames.first['callFrameId'] ?? ''}';
+      if (fid.isNotEmpty) {
+        return evaluateOnCallFrame(
+          callFrameId: fid,
+          expression: expression,
+        );
+      }
+    }
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return null;
+    try {
+      final r = await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression': expression,
+          'silent': true,
+          'returnByValue': false,
+          'generatePreview': true,
+          'objectGroup': 'oh_watch',
+        },
+        sessionId: _pageSessionId,
+      );
+      final exception = r['exceptionDetails'];
+      if (exception is Map) {
+        return <String, Object?>{
+          'type': 'error',
+          'description':
+              '${(exception['exception'] as Map?)?['description'] ?? exception['text'] ?? 'error'}',
+        };
+      }
+      return (r['result'] as Map?)?.cast<String, Object?>();
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'evaluateWatch', e, st);
+      return null;
+    }
+  }
+
+  // ─── Event Listener 断点 ─────────────────────────────────────────────
+  // CDP `DOMDebugger.setEventListenerBreakpoint` —— 按事件名（如 'click' /
+  // 'keydown' / 'timer:setTimeout'）拦截全局事件分发。Chrome DevTools 的
+  // 「Event Listener Breakpoints」面板把这些事件分组（Mouse / Keyboard /
+  // Animation / Control / Timer / Worker 等）；这里同样维护到 set 里。
+  final Set<String> _eventListenerBreakpoints = <String>{};
+  Set<String> get eventListenerBreakpoints =>
+      Set<String>.unmodifiable(_eventListenerBreakpoints);
+
+  Future<bool> setEventListenerBreakpoint(String eventName) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send(
+        'DOMDebugger.setEventListenerBreakpoint',
+        params: <String, Object?>{'eventName': eventName},
+        sessionId: _pageSessionId,
+      );
+      _eventListenerBreakpoints.add(eventName);
+      _safeNotify();
+      return true;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'setEventListenerBreakpoint', e, st);
+      return false;
+    }
+  }
+
+  Future<bool> removeEventListenerBreakpoint(String eventName) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send(
+        'DOMDebugger.removeEventListenerBreakpoint',
+        params: <String, Object?>{'eventName': eventName},
+        sessionId: _pageSessionId,
+      );
+      _eventListenerBreakpoints.remove(eventName);
+      _safeNotify();
+      return true;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'removeEventListenerBreakpoint', e, st);
+      return false;
+    }
+  }
+
+  // ─── DOM Breakpoints ─────────────────────────────────────────────────
+  // CDP `DOMDebugger.setDOMBreakpoint({nodeId, type})` —— 监听 DOM 节点的
+  // subtree-modified / attribute-modified / node-removed。前端按 (selector,
+  // type) 维护；启动时由 selector 先 querySelector 拿 nodeId 再注册。
+  final List<({String selector, String type})> _domBreakpoints =
+      <({String selector, String type})>[];
+  List<({String selector, String type})> get domBreakpoints =>
+      List<({String selector, String type})>.unmodifiable(_domBreakpoints);
+
+  /// 通过 `document.querySelector` + `DOM.requestNode` 把 selector 解析成
+  /// nodeId，然后下断点。type ∈ {subtree-modified, attribute-modified,
+  /// node-removed}（与 CDP 一致）。
+  Future<bool> addDomBreakpoint({
+    required String selector,
+    required String type,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    if (type != 'subtree-modified' &&
+        type != 'attribute-modified' &&
+        type != 'node-removed') {
+      return false;
+    }
+    try {
+      final eval = await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression': 'document.querySelector(${jsonEncode(selector)})',
+          'objectGroup': 'oh_dombp',
+        },
+        sessionId: _pageSessionId,
+      );
+      final result = eval['result'] as Map?;
+      final objectId = result?['objectId'] as String?;
+      if (objectId == null) return false;
+      final node = await cdp.send(
+        'DOM.requestNode',
+        params: <String, Object?>{'objectId': objectId},
+        sessionId: _pageSessionId,
+      );
+      final nodeId = (node['nodeId'] as num?)?.toInt();
+      if (nodeId == null) return false;
+      await cdp.send(
+        'DOMDebugger.setDOMBreakpoint',
+        params: <String, Object?>{'nodeId': nodeId, 'type': type},
+        sessionId: _pageSessionId,
+      );
+      // selector 同 type 重复添加时合并去重。
+      if (!_domBreakpoints.any(
+          (b) => b.selector == selector && b.type == type)) {
+        _domBreakpoints.add((selector: selector, type: type));
+      }
+      _safeNotify();
+      return true;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'addDomBreakpoint', e, st);
+      return false;
+    }
+  }
+
+  Future<bool> removeDomBreakpoint({
+    required String selector,
+    required String type,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      final eval = await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression': 'document.querySelector(${jsonEncode(selector)})',
+          'objectGroup': 'oh_dombp',
+        },
+        sessionId: _pageSessionId,
+      );
+      final objectId = (eval['result'] as Map?)?['objectId'] as String?;
+      if (objectId != null) {
+        final node = await cdp.send(
+          'DOM.requestNode',
+          params: <String, Object?>{'objectId': objectId},
+          sessionId: _pageSessionId,
+        );
+        final nodeId = (node['nodeId'] as num?)?.toInt();
+        if (nodeId != null) {
+          await cdp.send(
+            'DOMDebugger.removeDOMBreakpoint',
+            params: <String, Object?>{'nodeId': nodeId, 'type': type},
+            sessionId: _pageSessionId,
+          );
+        }
+      }
+      _domBreakpoints.removeWhere(
+        (b) => b.selector == selector && b.type == type,
+      );
+      _safeNotify();
+      return true;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'removeDomBreakpoint', e, st);
+      return false;
+    }
+  }
+
+  // ─── CSP Violation 断点 ──────────────────────────────────────────────
+  // CDP `DOMDebugger.setBreakOnCSPViolation({violationTypes:[...]})`。
+  // 只有两种 violationType：trustedtype-sink-violation /
+  // trustedtype-policy-violation。
+  final Set<String> _cspViolationBreakpoints = <String>{};
+  Set<String> get cspViolationBreakpoints =>
+      Set<String>.unmodifiable(_cspViolationBreakpoints);
+
+  Future<bool> setCspViolationBreakpoints(Set<String> types) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    final allowed = <String>{
+      'trustedtype-sink-violation',
+      'trustedtype-policy-violation',
+    };
+    final clean = types.where(allowed.contains).toList(growable: false);
+    try {
+      await cdp.send(
+        'DOMDebugger.setBreakOnCSPViolation',
+        params: <String, Object?>{'violationTypes': clean},
+        sessionId: _pageSessionId,
+      );
+      _cspViolationBreakpoints
+        ..clear()
+        ..addAll(clean);
+      _safeNotify();
+      return true;
+    } catch (e, st) {
+      silentLog(
+        'web_reverse_session_controller',
+        'setCspViolationBreakpoints',
+        e,
+        st,
+      );
+      return false;
+    }
+  }
+
+  /// `Runtime.getProperties` —— Scope/Watch 展开时拉对象属性列表。
+  Future<List<Map<String, Object?>>> runtimeGetProperties({
+    required String objectId,
+    bool ownProperties = true,
+    bool generatePreview = true,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      final r = await cdp.send(
+        'Runtime.getProperties',
+        params: <String, Object?>{
+          'objectId': objectId,
+          'ownProperties': ownProperties,
+          'generatePreview': generatePreview,
+        },
+        sessionId: _pageSessionId,
+      );
+      final list = r['result'] as List?;
+      if (list == null) return const [];
+      return list
+          .whereType<Map>()
+          .map(Map<String, Object?>.from)
+          .toList(growable: false);
+    } catch (e, st) {
+      silentLog(
+        'web_reverse_session_controller',
+        'runtimeGetProperties',
+        e,
+        st,
+      );
+      return const [];
+    }
+  }
+
+  // ─── 全局事件监听器（window）─────────────────────────────────────────
+  // CDP `DOMDebugger.getEventListeners` 需要一个 RemoteObject objectId；
+  // 先 Runtime.evaluate 拿到 window 的 objectId 再请求。返回列表中每条包含
+  // type/useCapture/passive/once/scriptId/lineNumber/columnNumber。
+  Future<List<Map<String, Object?>>> listGlobalEventListeners() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return const [];
+    try {
+      final win = await cdp.send(
+        'Runtime.evaluate',
+        params: <String, Object?>{
+          'expression': 'window',
+          'objectGroup': 'oh_global_listeners',
+        },
+        sessionId: _pageSessionId,
+      );
+      final objectId = (win['result'] as Map?)?['objectId'] as String?;
+      if (objectId == null) return const [];
+      final r = await cdp.send(
+        'DOMDebugger.getEventListeners',
+        params: <String, Object?>{'objectId': objectId, 'depth': 1},
+        sessionId: _pageSessionId,
+      );
+      final list = r['listeners'] as List?;
+      if (list == null) return const [];
+      return list
+          .whereType<Map>()
+          .map(Map<String, Object?>.from)
+          .toList(growable: false);
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'listGlobalEventListeners', e, st);
+      return const [];
     }
   }
 
