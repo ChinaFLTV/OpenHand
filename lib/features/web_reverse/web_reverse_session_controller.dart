@@ -4614,6 +4614,13 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  /// 便捷封装：按 (url,line) 查 breakpointId 再 remove。Breakpoints 面板用。
+  Future<bool> removeBreakpointAt({required String url, required int line}) async {
+    final id = _bpIdByKey['$url#$line'];
+    if (id == null) return false;
+    return removeBreakpoint(id);
+  }
+
   Future<bool> resumeDebugger() async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
@@ -4621,6 +4628,71 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send('Debugger.resume', sessionId: _pageSessionId);
       return true;
     } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── 异常 / XHR 断点 ─────────────────────────────────────────────────
+  // `Debugger.setPauseOnExceptions` 与 `DOMDebugger.setXHRBreakpoint` —— 让
+  // breakpoint 面板可以拦截抛出的异常 与 任意子串匹配的 XHR/fetch。XHR
+  // 断点服务端只接受字符串子串匹配（空串 = 拦截所有 XHR）；用户输入直接传。
+  String _pauseOnExceptions = 'none'; // 'none' | 'uncaught' | 'all'
+  final Set<String> _xhrBreakpoints = <String>{};
+
+  String get pauseOnExceptions => _pauseOnExceptions;
+  Set<String> get xhrBreakpoints => Set<String>.unmodifiable(_xhrBreakpoints);
+
+  Future<bool> setPauseOnExceptions(String state) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    if (state != 'none' && state != 'uncaught' && state != 'all') return false;
+    try {
+      await cdp.send(
+        'Debugger.setPauseOnExceptions',
+        params: <String, Object?>{'state': state},
+        sessionId: _pageSessionId,
+      );
+      _pauseOnExceptions = state;
+      _safeNotify();
+      return true;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'setPauseOnExceptions', e, st);
+      return false;
+    }
+  }
+
+  Future<bool> addXhrBreakpoint(String urlSubstring) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send(
+        'DOMDebugger.setXHRBreakpoint',
+        params: <String, Object?>{'url': urlSubstring},
+        sessionId: _pageSessionId,
+      );
+      _xhrBreakpoints.add(urlSubstring);
+      _safeNotify();
+      return true;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'addXhrBreakpoint', e, st);
+      return false;
+    }
+  }
+
+  Future<bool> removeXhrBreakpoint(String urlSubstring) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send(
+        'DOMDebugger.removeXHRBreakpoint',
+        params: <String, Object?>{'url': urlSubstring},
+        sessionId: _pageSessionId,
+      );
+      _xhrBreakpoints.remove(urlSubstring);
+      _safeNotify();
+      return true;
+    } catch (e, st) {
+      silentLog('web_reverse_session_controller', 'removeXhrBreakpoint', e, st);
       return false;
     }
   }

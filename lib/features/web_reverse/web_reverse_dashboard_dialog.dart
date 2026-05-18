@@ -40,6 +40,7 @@ part 'web_reverse_dashboard_dialog.elements.part.dart';
 part 'web_reverse_dashboard_dialog.crypto.part.dart';
 part 'web_reverse_dashboard_dialog.hooks.part.dart';
 part 'web_reverse_dashboard_dialog.crons.part.dart';
+part 'web_reverse_dashboard_dialog.breakpoints.part.dart';
 
 // ── 视觉常量 ───────────────────────────────────────────────────────────
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
@@ -97,6 +98,7 @@ enum _Tab {
   network,
   console,
   sources,
+  breakpoints,
   snippets,
   elements,
   hooks,
@@ -848,6 +850,19 @@ class _WebReverseDashboardDialogState
           controller: ctrl,
           isZh: isZh,
           onPersist: persistCrons,
+        ),
+      _Tab.breakpoints => _BreakpointsBody(
+          controller: ctrl,
+          isZh: isZh,
+          onPersist: persistBreakpoints,
+          onJumpToSource: (url, line) {
+            if (_tab != _Tab.sources) setState(() => _tab = _Tab.sources);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _sourcesPanelKey.currentState
+                  ?.requestJumpTo(url: url, line: line, col: 0);
+            });
+          },
         ),
       _Tab.crypto => _CryptoPadBody(
           isZh: isZh,
