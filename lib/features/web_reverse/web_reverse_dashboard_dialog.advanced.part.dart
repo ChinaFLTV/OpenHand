@@ -349,6 +349,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.swap_horiz_rounded,
+        title: isZh ? 'postMessage 追踪' : 'postMessage Trace',
+        subtitle: isZh
+            ? '注入 hook 收录跨窗口消息，含发送方向与 iframe'
+            : 'Inject hook to capture cross-window messages incl. iframe',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReversePostMessageDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
