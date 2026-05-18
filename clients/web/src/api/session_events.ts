@@ -46,6 +46,11 @@ export interface SessionEventSnapshot {
     cards_per_second: number;
     has_session_override: boolean;
     duration_expired?: boolean;
+    /// 2026-05-19 — 启用态：会话级覆盖 > 全局。前端据此渲染 Switch 与
+    /// 灰色胶囊。
+    enabled?: boolean;
+    /// 2026-05-19 — 会话历史上是否曾节流。胶囊可见性所需。
+    was_initially_throttled?: boolean;
     /// 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒），让 Web 端节流弹窗
     /// 渲染和 App 端一致的柱状图。非流式时回填全 0。
     throughput_buckets?: number[];

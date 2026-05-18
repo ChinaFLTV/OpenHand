@@ -1025,6 +1025,11 @@ export function SessionDetailPage() {
     cards: number;
     hasOverride: boolean;
     durationExpired: boolean;
+    /// 2026-05-19 — 当前生效的「启用节流」状态：会话级覆盖 > 全局。
+    /// 关闭时胶囊渲染为灰色，Dialog 中的 Switch 同步显示关闭态。
+    enabled: boolean;
+    /// 2026-05-19 — 会话历史上是否曾节流；用于胶囊可见性兜底。
+    wasInitiallyThrottled: boolean;
     /// 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒）。
     throughputBuckets?: number[];
   } | null>(null);
@@ -2022,6 +2027,8 @@ export function SessionDetailPage() {
             cards: throttle.cards_per_second ?? 0,
             hasOverride: throttle.has_session_override === true,
             durationExpired: throttle.duration_expired === true,
+            enabled: throttle.enabled !== false,
+            wasInitiallyThrottled: throttle.was_initially_throttled === true,
             throughputBuckets: throttle.throughput_buckets,
           });
         }
@@ -3100,36 +3107,48 @@ export function SessionDetailPage() {
     // 2026-05-17 — TopBar 节流指示胶囊：绿色 = 字符与卡片限速都开着；
     // 灰色 = 任一被关闭或当前生效值为 0；duration_expired 时也变灰，
     // 表示节流时长已耗尽、剩余响应正按 AI 真实速率追加。
+    // 2026-05-19 — 可见性闸：只有会话曾/正节流（hasOverride / wasInitiallyThrottled
+    // 或 chars+cards > 0）才显示胶囊；从未节流过的会话不放胶囊。
     if (streamThrottle) {
-      const disabled =
+      const enabledOff = streamThrottle.enabled === false;
+      const rateOff =
         (streamThrottle.chars ?? 0) <= 0 || (streamThrottle.cards ?? 0) <= 0;
+      const disabled = enabledOff || rateOff;
       const expired = streamThrottle.durationExpired === true;
       const showAsGray = disabled || expired;
-      const label = disabled
-        ? t('topbar.throttle.off', '节流·关')
-        : expired
-          ? t('topbar.throttle.expired', '节流·已耗尽')
-          : t('topbar.throttle.value', '字{chars}·卡{cards}')
-              .replace('{chars}', String(streamThrottle.chars))
-              .replace('{cards}', String(streamThrottle.cards));
-      capsules.push({
-        key: 'stream-throttle',
-        icon: 'throttle',
-        label,
-        title: disabled
-          ? t(
-              'topbar.throttle.off.title',
-              '节流已关闭：AI 输出将以真实速率全速渲染。',
-            )
+      const ratesActive =
+        (streamThrottle.chars ?? 0) > 0 && (streamThrottle.cards ?? 0) > 0;
+      const pillVisible =
+        streamThrottle.hasOverride ||
+        streamThrottle.wasInitiallyThrottled ||
+        ratesActive;
+      if (pillVisible) {
+        const label = disabled
+          ? t('topbar.throttle.off', '节流·关')
           : expired
+            ? t('topbar.throttle.expired', '节流·已耗尽')
+            : t('topbar.throttle.value', '字{chars}·卡{cards}')
+                .replace('{chars}', String(streamThrottle.chars))
+                .replace('{cards}', String(streamThrottle.cards));
+        capsules.push({
+          key: 'stream-throttle',
+          icon: 'throttle',
+          label,
+          title: disabled
             ? t(
-                'topbar.throttle.expired.title',
-                '节流时长已耗尽：剩余流式响应将按 AI 真实速率追加渲染。',
+                'topbar.throttle.off.title',
+                '节流已关闭：AI 输出将以真实速率全速渲染。',
               )
-            : t('topbar.throttle.on.title', '点击调整本会话节流速率（仅本进程生效）'),
-        tone: showAsGray ? 'muted' : 'success',
-        onClick: () => setThrottleDialogOpen(true),
-      });
+            : expired
+              ? t(
+                  'topbar.throttle.expired.title',
+                  '节流时长已耗尽：剩余流式响应将按 AI 真实速率追加渲染。',
+                )
+              : t('topbar.throttle.on.title', '点击调整本会话节流速率（仅本进程生效）'),
+          tone: showAsGray ? 'muted' : 'success',
+          onClick: () => setThrottleDialogOpen(true),
+        });
+      }
     }
     if (session.template_id === 'programming_expert') {
       capsules.push({
@@ -5754,6 +5773,8 @@ function SessionThrottleDialog({
     cards: number;
     hasOverride: boolean;
     durationExpired?: boolean;
+    enabled?: boolean;
+    wasInitiallyThrottled?: boolean;
     throughputBuckets?: number[];
   } | null;
   onClose: () => void;
@@ -5762,6 +5783,11 @@ function SessionThrottleDialog({
   const initialCards = current?.hasOverride ? String(current.cards) : '';
   const [chars, setChars] = useState(initialChars);
   const [cards, setCards] = useState(initialCards);
+  // 2026-05-19 — 会话级启用开关：undefined = 沿用全局；true/false = 强制
+  // 覆盖。Switch 切换会立即 PUT，让流式响应在下一帧就感受到差异。
+  const [enabledOverride, setEnabledOverride] = useState<boolean>(
+    current?.enabled !== false,
+  );
   const [busy, setBusy] = useState(false);
 
   const parse = (raw: string): number | null | undefined => {
@@ -5783,9 +5809,14 @@ function SessionThrottleDialog({
     }
     setBusy(true);
     try {
-      const patch: { charsPerSecond?: number | null; cardsPerSecond?: number | null } = {};
+      const patch: {
+        charsPerSecond?: number | null;
+        cardsPerSecond?: number | null;
+        enabled?: boolean | null;
+      } = {};
       patch.charsPerSecond = c === undefined ? null : c;
       patch.cardsPerSecond = m === undefined ? null : m;
+      patch.enabled = enabledOverride;
       await setSessionThrottle(sessionId, patch);
       showSnackbar(t('topbar.throttle.saved', '已应用本会话节流'), { tone: 'success' });
       onClose();
@@ -5820,9 +5851,36 @@ function SessionThrottleDialog({
   };
 
   const buckets = current?.throughputBuckets ?? [];
-  const cap = Math.max(current?.chars ?? 1, ...buckets, 1);
-  const peak = buckets.length === 0 ? 0 : Math.max(...buckets);
-  const nowVal = buckets.length === 0 ? 0 : buckets[0];
+  // 2026-05-19 — 本地墙钟自滑动：SSE 仅在控制器 notifyListeners 时推快照，
+  // 模型沉默期间柱状图会僵在 0/s。这里每秒 tick 一次，按 (now-lastUpdate)
+  // 把 buckets 整体左移，前端永远能看到「秒级别更新」的吞吐曲线。
+  const lastUpdateRef = useRef<number>(Date.now());
+  const lastBucketsRef = useRef<number[]>(buckets);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    lastUpdateRef.current = Date.now();
+    lastBucketsRef.current = buckets;
+  }, [current?.throughputBuckets]);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const displayedBuckets = useMemo(() => {
+    void tick;
+    const base = lastBucketsRef.current;
+    if (base.length === 0) return base;
+    const elapsed = Math.floor(
+      (Date.now() - lastUpdateRef.current) / 1000,
+    );
+    if (elapsed <= 0) return base;
+    const keep = Math.max(0, base.length - elapsed);
+    const out = new Array<number>(base.length).fill(0);
+    for (let i = 0; i < keep; i++) out[i + elapsed] = base[i];
+    return out;
+  }, [tick, current?.throughputBuckets]);
+  const cap = Math.max(current?.chars ?? 1, ...displayedBuckets, 1);
+  const peak = displayedBuckets.length === 0 ? 0 : Math.max(...displayedBuckets);
+  const nowVal = displayedBuckets.length === 0 ? 0 : displayedBuckets[0];
 
   const node = (
     <div
@@ -5868,10 +5926,90 @@ function SessionThrottleDialog({
             </div>
           </div>
           <ThroughputBars
-            samples={buckets}
+            samples={displayedBuckets}
             cap={cap}
             limitValue={current?.chars ?? 0}
           />
+        </div>
+        {/* 2026-05-19 — 会话级启用节流开关：切换会立即 PUT，让正在输出
+            的响应消息一帧内感受到差异；关闭后 TopBar 胶囊会变灰展示
+            「节流·关」，但只要会话历史曾节流过，胶囊就不会消失。 */}
+        <div
+          class="flex items-start justify-between rounded-m3-sm p-3 mb-3 gap-3"
+          style={{
+            background: 'var(--m3-surface-container-highest)',
+            border: '1px solid var(--m3-outline-variant)',
+          }}
+        >
+          <div class="flex-1 min-w-0">
+            <div
+              class="text-sm font-semibold mb-1"
+              style={{ color: 'var(--m3-on-surface)' }}
+            >
+              {t('topbar.throttle.enabledTitle', '启用流式输出节流（本会话）')}
+            </div>
+            <div class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {enabledOverride
+                ? t(
+                    'topbar.throttle.enabledOnHint',
+                    '已启用：按下方速率限制字符 / 卡片吞吐。',
+                  )
+                : t(
+                    'topbar.throttle.enabledOffHint',
+                    '已关闭：流式响应将不再受任何节流限制，按 AI 真实速率渲染。',
+                  )}
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabledOverride}
+            disabled={busy}
+            onClick={() => {
+              const next = !enabledOverride;
+              setEnabledOverride(next);
+              void setSessionThrottle(sessionId, { enabled: next }).catch(
+                (err: unknown) => {
+                  showSnackbar(
+                    `${t('topbar.throttle.failed', '应用节流失败')}：${
+                      err instanceof Error ? err.message : String(err)
+                    }`,
+                    { tone: 'error' },
+                  );
+                  setEnabledOverride(!next);
+                },
+              );
+            }}
+            class="oh-tap-press"
+            style={{
+              flex: '0 0 auto',
+              width: '40px',
+              height: '24px',
+              borderRadius: '12px',
+              border: '1px solid var(--m3-outline-variant)',
+              background: enabledOverride
+                ? 'var(--m3-primary)'
+                : 'var(--m3-surface)',
+              position: 'relative',
+              transition: 'background 160ms ease-out',
+              cursor: busy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <span
+              style={{
+                position: 'absolute',
+                top: '2px',
+                left: enabledOverride ? '18px' : '2px',
+                width: '18px',
+                height: '18px',
+                borderRadius: '50%',
+                background: enabledOverride
+                  ? 'var(--m3-on-primary)'
+                  : 'var(--m3-on-surface-variant)',
+                transition: 'left 160ms ease-out, background 160ms ease-out',
+              }}
+            />
+          </button>
         </div>
         <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
           {t('topbar.throttle.charsLabel', '字符 / 秒（当前生效：{cur}）').replace(

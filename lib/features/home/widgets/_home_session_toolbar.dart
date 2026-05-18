@@ -2521,13 +2521,29 @@ class _StreamThrottlePill extends StatelessWidget {
         final override = sessionController.sessionStreamThrottleOverride(
           sessionId,
         );
+        final globalEnabled = settingsController.aiStreamThrottleEnabled;
+        final effEnabled = override?.enabled ?? globalEnabled;
         final effChars = override?.charsPerSecond ??
             settingsController.effectiveStreamMaxCharsPerSecond(templateId);
         final effCards = override?.cardsPerSecond ??
             settingsController.effectiveStreamMaxMessageCardsPerSecond(
               templateId,
             );
-        final disabled = effChars <= 0 || effCards <= 0;
+        // 2026-05-19 — 胶囊可见性：
+        //   * 任何时候只要本会话有运行时覆盖（rate/enabled）→ 显示；
+        //   * 否则全局节流处于「开启 + 任一速率 > 0」时也显示；
+        //   * 否则该会话从未进入节流态 → 不显示。
+        //   * `sessionWasInitiallyThrottled` 兜底持久化关闭场景。
+        final hasOverride = override != null;
+        final wasInitiallyThrottled =
+            sessionController.sessionWasInitiallyThrottled(sessionId);
+        final globalActive =
+            globalEnabled && (effChars > 0 || effCards > 0);
+        if (!hasOverride && !wasInitiallyThrottled && !globalActive) {
+          return const SizedBox.shrink();
+        }
+        // 关闭状态（全局或会话级覆盖关闭）以及任一速率为 0 都视作灰态。
+        final disabled = !effEnabled || effChars <= 0 || effCards <= 0;
         // 2026-05-17 — 节流时长已耗尽：胶囊渲染为灰色并改文案，向用户
         // 暗示「剩余流式响应正以 AI 真实速率追加」。
         final durationExpired = sessionController
@@ -2544,11 +2560,15 @@ class _StreamThrottlePill extends StatelessWidget {
             : scheme.onTertiaryContainer;
         final isZh =
             Localizations.localeOf(context).languageCode.startsWith('zh');
-        final label = disabled
+        final label = !effEnabled
             ? (isZh ? '节流·关' : 'Throttle·off')
-            : durationExpired
-                ? (isZh ? '节流·已耗尽' : 'Throttle·expired')
-                : (isZh ? '字$effChars·卡$effCards' : 'Ch$effChars·Cd$effCards');
+            : disabled
+                ? (isZh ? '节流·关' : 'Throttle·off')
+                : durationExpired
+                    ? (isZh ? '节流·已耗尽' : 'Throttle·expired')
+                    : (isZh
+                        ? '字$effChars·卡$effCards'
+                        : 'Ch$effChars·Cd$effCards');
         return MicroPressFeedback(
           child: Material(
             color: Colors.transparent,
@@ -2665,6 +2685,10 @@ class _StreamThrottleSessionDialogState
     extends State<_StreamThrottleSessionDialog> {
   late final TextEditingController _charsCtrl;
   late final TextEditingController _cardsCtrl;
+  // 2026-05-19 — 弹窗内的「启用流式输出节流」开关。null = 沿用全局；
+  // true/false = 会话级强制。Apply 时 setSessionStreamEnabledOverride
+  // 立即生效；当前 Switch.value 用 effectiveEnabled 推断展示态。
+  bool? _enabledOverride;
 
   @override
   void initState() {
@@ -2677,6 +2701,7 @@ class _StreamThrottleSessionDialogState
     _cardsCtrl = TextEditingController(
       text: override?.cardsPerSecond?.toString() ?? '',
     );
+    _enabledOverride = override?.enabled;
   }
 
   @override
@@ -2704,6 +2729,9 @@ class _StreamThrottleSessionDialogState
     final globalCards = settings.effectiveStreamMaxMessageCardsPerSecond(
       widget.templateId,
     );
+    // 2026-05-19 — 当前生效的启用态：会话级 > 全局。
+    final globalEnabled = settings.aiStreamThrottleEnabled;
+    final effectiveEnabled = _enabledOverride ?? globalEnabled;
     return Dialog(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 600),
@@ -2724,6 +2752,64 @@ class _StreamThrottleSessionDialogState
                     : 'In-memory only; resets on restart. Empty = use template/global.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // 2026-05-19 — 会话级启用开关：关闭后从现在起不再对 AI
+              // 流式响应做任何节流；立即推送给活跃 throttle，正在输出
+              // 的字符也会立刻全速放出。
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isZh
+                                ? '启用流式输出节流（本会话）'
+                                : 'Enable stream throttle (this session)',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _enabledOverride == null
+                                ? (isZh
+                                    ? '当前沿用全局：${globalEnabled ? '已开启' : '已关闭'}'
+                                    : 'Following global: ${globalEnabled ? 'on' : 'off'}')
+                                : (isZh
+                                    ? '已会话级强制${_enabledOverride! ? '开启' : '关闭'}'
+                                    : 'Session-level forced ${_enabledOverride! ? 'on' : 'off'}'),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: effectiveEnabled,
+                      onChanged: (v) {
+                        // 立即应用：会话级覆盖 + 推到活跃 throttle。
+                        setState(() => _enabledOverride = v);
+                        session.setSessionStreamEnabledOverride(
+                          widget.sessionId,
+                          v,
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
@@ -2796,6 +2882,12 @@ class _StreamThrottleSessionDialogState
                         session.setSessionStreamCardsOverride(
                           widget.sessionId,
                           _parse(_cardsCtrl.text),
+                        );
+                        // Switch 已 setState 即时下发；Apply 再确认一次
+                        // 让单测/截屏验证场景拿到一致状态。
+                        session.setSessionStreamEnabledOverride(
+                          widget.sessionId,
+                          _enabledOverride,
                         );
                         Navigator.of(context).pop();
                       },

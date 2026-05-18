@@ -588,6 +588,21 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, _StreamCharThrottle> _activeCharThrottles =
       <String, _StreamCharThrottle>{};
 
+  /// 2026-05-19 — 会话级活跃 reasoning charThrottle 引用，仅在思考流式
+  /// 段存在。会话弹窗 Apply 速率/启用变更时需要把变更同步到这一份，
+  /// 否则推理仍按旧速率追加。
+  final Map<String, _StreamCharThrottle> _activeReasoningCharThrottles =
+      <String, _StreamCharThrottle>{};
+
+  /// 2026-05-19 — 会话开启流式时，若全局节流处于「启用且速率 > 0」状
+  /// 态，则把 sessionId 写入这个集合。之后即便用户在会话弹窗里把节流
+  /// 关闭（`enabled=false`），TopBar 节流胶囊也应继续显示（灰色），以
+  /// 便随时再次打开；而从未启用过节流的会话则永远不显示胶囊。
+  ///
+  /// 来源：流式构造点 + `_rehydrateThrottleOverrides`（持久化的关闭覆盖
+  /// 也算作「初始已节流」，否则重启后胶囊会消失）。
+  final Set<String> _sessionsInitiallyThrottled = <String>{};
+
   /// 2026-05-24 — 最近一次 charThrottle release 时 dump 的 30s 吞吐桶，
   /// 用于「会话非流式时打开节流弹窗也能看见上一次的吞吐曲线」。
   /// key=sessionId，value=immutable buckets（桶 0 = 当时的当前秒）。
@@ -736,6 +751,11 @@ class AiSessionController extends ChangeNotifier {
     if (activeChar != null && clamped != null) {
       activeChar.maxCharsPerSecond = clamped;
     }
+    // 2026-05-19 — reasoning throttle 也要同步，否则推理仍按旧速率追加。
+    final activeReasoning = _activeReasoningCharThrottles[sessionId];
+    if (activeReasoning != null && clamped != null) {
+      activeReasoning.maxCharsPerSecond = clamped;
+    }
     _persistThrottleOverride(sessionId);
     _sessionStreamThrottleSignal.value =
         _sessionStreamThrottleSignal.value + 1;
@@ -768,6 +788,40 @@ class AiSessionController extends ChangeNotifier {
     _sessionStreamThrottleSignal.value =
         _sessionStreamThrottleSignal.value + 1;
   }
+
+  /// 2026-05-19 — 设置或清除某个会话的「启用节流」开关覆盖。
+  /// `value == null` 表示清除覆盖、回退到全局开关；`false` 强制关闭、
+  /// `true` 强制开启。立即把变更推给活跃 throttle，使弹窗 Apply 后正
+  /// 在输出的字符能立刻全速放出（关闭）或重新进入限速桶（开启）。
+  void setSessionStreamEnabledOverride(String sessionId, bool? value) {
+    if (sessionId.isEmpty) return;
+    final current = _sessionStreamThrottleOverrides[sessionId];
+    final merged = (current ?? const AiStreamThrottleOverride()).copyWith(
+      enabled: value,
+    );
+    if (merged.isEmpty) {
+      if (_sessionStreamThrottleOverrides.remove(sessionId) == null) return;
+    } else {
+      if (_sessionStreamThrottleOverrides[sessionId] == merged) return;
+      _sessionStreamThrottleOverrides[sessionId] = merged;
+    }
+    // 任一非 null 值都视为「初始已节流」（重启后胶囊仍显示）。
+    if (value != null) {
+      _sessionsInitiallyThrottled.add(sessionId);
+    }
+    // 立即把开关推到活跃 throttle。null = 沿用 rate 推断；false = 直通；
+    // true = 重新启用限速。
+    _activeCharThrottles[sessionId]?.enabledOverride = value;
+    _activeReasoningCharThrottles[sessionId]?.enabledOverride = value;
+    _activeCardThrottles[sessionId]?.enabledOverride = value;
+    _persistThrottleOverride(sessionId);
+    _sessionStreamThrottleSignal.value =
+        _sessionStreamThrottleSignal.value + 1;
+  }
+
+  /// 2026-05-19 — 该会话历史上是否曾经处于节流态。胶囊可见性判据之一。
+  bool sessionWasInitiallyThrottled(String sessionId) =>
+      _sessionsInitiallyThrottled.contains(sessionId);
 
   /// 清除指定会话的全部覆盖；恢复到模板或全局值。
   void clearSessionStreamThrottleOverride(String sessionId) {
@@ -806,6 +860,8 @@ class AiSessionController extends ChangeNotifier {
           _sessionStreamThrottleOverrides[session.id] = override;
           changed = true;
         }
+        // 任何持久化的覆盖都视为「初始已节流」，胶囊在重启后保持可见。
+        _sessionsInitiallyThrottled.add(session.id);
       }
     }
     if (changed) {
@@ -3529,6 +3585,20 @@ class AiSessionController extends ChangeNotifier {
       );
       _activeCardThrottles[workingSession.id] = cardThrottle;
       _activeCharThrottles[workingSession.id] = charThrottle;
+      _activeReasoningCharThrottles[workingSession.id] = reasoningCharThrottle;
+      // 2026-05-19 — 流式构造时若任一限速 > 0，标记该会话「初始已节流」。
+      // 之后即便用户在弹窗里关闭节流，胶囊也会以灰色保留入口。
+      if (effChars > 0 || effCards > 0) {
+        _sessionsInitiallyThrottled.add(workingSession.id);
+      }
+      // 把已持久化的「启用」开关推给当前活跃 throttle，使「关闭」覆盖
+      // 在新一轮流式中立即生效。
+      final persistedEnabled = sessionThrottleOverride?.enabled;
+      if (persistedEnabled != null) {
+        charThrottle.enabledOverride = persistedEnabled;
+        reasoningCharThrottle.enabledOverride = persistedEnabled;
+        cardThrottle.enabledOverride = persistedEnabled;
+      }
       // 2026-05-17 — 节流时长一到，立刻向 UI 派发一次信号，让顶栏胶囊
       // 把渲染态切换为「时长已耗尽 → 灰色」。流式结束时统一被 release，
       // 此 timer 即便被回调命中也是无副作用。
@@ -3813,6 +3883,7 @@ class AiSessionController extends ChangeNotifier {
         cardThrottle.releaseAll();
         _activeCardThrottles.remove(workingSession.id);
         _activeCharThrottles.remove(workingSession.id);
+        _activeReasoningCharThrottles.remove(workingSession.id);
         _sessionStreamThrottleSignal.value =
             _sessionStreamThrottleSignal.value + 1;
         await subscription.cancel();
@@ -3927,6 +3998,7 @@ class AiSessionController extends ChangeNotifier {
       throttleExpiryTimer = null;
       _activeCardThrottles.remove(workingSession.id);
       _activeCharThrottles.remove(workingSession.id);
+      _activeReasoningCharThrottles.remove(workingSession.id);
       _sessionStreamThrottleSignal.value =
           _sessionStreamThrottleSignal.value + 1;
       materializePendingReasoningPreview();

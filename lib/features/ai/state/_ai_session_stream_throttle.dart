@@ -85,6 +85,25 @@ class _StreamCharThrottle {
     if (_budget > next) _budget = next.toDouble();
   }
 
+  /// 2026-05-19 — 会话级运行时开关：用户在节流弹窗中关闭节流时，控制
+  /// 器把 `false` 推到当前活跃 throttle，立即从限速桶切换到 pass-through。
+  /// `null` = 沿用 maxCharsPerSecond 推断的 enable 状态；显式 `false`
+  /// 时即便 maxCharsPerSecond > 0 也会绕过节流；`true` 等同于默认。
+  bool? _enabledOverride;
+  set enabledOverride(bool? next) {
+    if (next == _enabledOverride) return;
+    _enabledOverride = next;
+    // 关闭节流后立刻补一次 onTick，让等待中的 grapheme 一次性兑现，
+    // 不必等下一个 textDelta 才看见输出。
+    if (next == false && !_disposed) {
+      try {
+        _onTick();
+      } catch (_) {
+        // ignore
+      }
+    }
+  }
+
   final void Function() _onTick;
   Timer? _drainTimer;
   bool _disposed = false;
@@ -98,7 +117,8 @@ class _StreamCharThrottle {
   DateTime _lastTickAt;
   final DateTime? _expireAt;
 
-  bool get isEnabled => maxCharsPerSecond > 0 && !_isExpired;
+  bool get isEnabled =>
+      (_enabledOverride ?? true) && maxCharsPerSecond > 0 && !_isExpired;
 
   bool get _isExpired {
     final exp = _expireAt;
@@ -127,11 +147,15 @@ class _StreamCharThrottle {
       // 在持续节流（throttleDuration == null）+ 仍在流期（未 release）
       // 的路径里命中本短路就是真 bug —— 字符会被一次性 dump。
       assert(
-        !(maxCharsPerSecond > 0) || _disposed || _isExpired,
+        !(maxCharsPerSecond > 0) ||
+            _disposed ||
+            _isExpired ||
+            _enabledOverride == false,
         'positive-rate _StreamCharThrottle short-circuited to pass-through '
         'while still active — this would dump the whole assistant_final '
         'response in one frame. rate=$maxCharsPerSecond '
-        '_disposed=$_disposed _isExpired=$_isExpired.',
+        '_disposed=$_disposed _isExpired=$_isExpired '
+        '_enabledOverride=$_enabledOverride.',
       );
       final granted = totalSanitizedGraphemeCount - _emittedGraphemes;
       _emittedGraphemes = totalSanitizedGraphemeCount;
@@ -206,8 +230,42 @@ class _StreamCharThrottle {
 
   /// 最近 [_kThroughputBuckets] 秒的每秒 grapheme 吞吐快照，桶 0 =
   /// 当前秒，越往后越旧。返回不可变副本，UI 可直接喂给 painter。
-  List<int> throughputSnapshot() =>
-      List<int>.unmodifiable(_graphemeThroughputBuckets);
+  ///
+  /// 2026-05-19 — 读取时按当前墙钟主动把过时桶向后移并清零，使得：
+  ///   ① 流式中本秒未触发 emission 时，UI 也能看到「当前 0/s」而不是
+  ///      上一秒残留的数值；
+  ///   ② mini-gauge 200ms ticker 在两次 emission 之间也能正确滚动出
+  ///      最近 30s 的空闲带；
+  ///   ③ 流结束后 `_lastCharThroughputSnapshot` 缓存仍是「当时的桶」，
+  ///      不会被这里的副作用污染（缓存写入发生在 [release] 之后，桶
+  ///      已被 1<<30 短路占满前一次正常 snapshot 已落盘）。
+  List<int> throughputSnapshot() {
+    _advanceBucketsByWallClock();
+    return List<int>.unmodifiable(_graphemeThroughputBuckets);
+  }
+
+  /// 把过时桶按 nowSec - _throughputBucketSecond 向后挪，并把腾出的桶
+  /// 置零。仅在已经至少有过一次 emission（_throughputBucketSecond != 0）
+  /// 且差值 > 0 时生效；无副作用读。
+  void _advanceBucketsByWallClock() {
+    if (_throughputBucketSecond == 0) return;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final delta = nowSec - _throughputBucketSecond;
+    if (delta <= 0) return;
+    if (delta >= _kThroughputBuckets) {
+      for (var i = 0; i < _kThroughputBuckets; i++) {
+        _graphemeThroughputBuckets[i] = 0;
+      }
+    } else {
+      for (var i = _kThroughputBuckets - 1; i >= delta; i--) {
+        _graphemeThroughputBuckets[i] = _graphemeThroughputBuckets[i - delta];
+      }
+      for (var i = 0; i < delta; i++) {
+        _graphemeThroughputBuckets[i] = 0;
+      }
+    }
+    _throughputBucketSecond = nowSec;
+  }
 
   /// 当前秒（桶 0）累计已放出的 grapheme 数。
   int get currentSecondEmitted => _graphemeThroughputBuckets[0];
@@ -318,6 +376,31 @@ class _StreamCardThrottle {
     if (_budget > next) _budget = next.toDouble();
   }
 
+  /// 2026-05-19 — 会话级运行时开关：会话弹窗 Apply 关闭节流时，控制器
+  /// 把 `false` 推下来；下次 [tryAcquire] 直接通过 + 排空积压。
+  bool? _enabledOverride;
+  set enabledOverride(bool? next) {
+    if (next == _enabledOverride) return;
+    _enabledOverride = next;
+    if (next == false && _pending.isNotEmpty && !_disposed) {
+      // 立刻放行所有积压回调。
+      final pending = List<VoidCallback>.from(_pending);
+      _pending.clear();
+      for (final cb in pending) {
+        try {
+          cb();
+        } catch (_) {
+          // ignore
+        }
+      }
+      try {
+        _onCardEmitted();
+      } catch (_) {
+        // ignore
+      }
+    }
+  }
+
   final void Function() _onCardEmitted;
   final List<VoidCallback> _pending = <VoidCallback>[];
   Timer? _drainTimer;
@@ -325,7 +408,8 @@ class _StreamCardThrottle {
   double _budget;
   DateTime _lastTickAt;
 
-  bool get isEnabled => maxCardsPerSecond > 0;
+  bool get isEnabled =>
+      (_enabledOverride ?? true) && maxCardsPerSecond > 0;
 
   /// 当前积压的待发卡片数（仅在 isEnabled=true 时有意义）。供 TopBar
   /// 节流胶囊把"等几张"实时反馈给用户。

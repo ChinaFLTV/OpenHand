@@ -2990,6 +2990,7 @@ class WebMessagePlatformService {
     final body = await _readJsonBody(request);
     final hasChars = body.containsKey('chars_per_second');
     final hasCards = body.containsKey('cards_per_second');
+    final hasEnabled = body.containsKey('enabled');
     if (hasChars) {
       final raw = body['chars_per_second'];
       _sessionController.setSessionStreamCharsOverride(
@@ -3004,6 +3005,14 @@ class WebMessagePlatformService {
         raw is int ? raw : (raw == null ? null : null),
       );
     }
+    if (hasEnabled) {
+      // 2026-05-19 — 会话级启用开关：null 清除覆盖；true/false 立即生效。
+      final raw = body['enabled'];
+      _sessionController.setSessionStreamEnabledOverride(
+        session.id,
+        raw is bool ? raw : null,
+      );
+    }
     final override = _sessionController.sessionStreamThrottleOverride(
       session.id,
     );
@@ -3011,6 +3020,7 @@ class WebMessagePlatformService {
       'ok': true,
       'chars_per_second': override?.charsPerSecond,
       'cards_per_second': override?.cardsPerSecond,
+      'enabled': override?.enabled,
     });
   }
 
@@ -3153,6 +3163,13 @@ class WebMessagePlatformService {
           'chars_per_second': effChars,
           'cards_per_second': effCards,
           'has_session_override': throttleOverride != null,
+          // 2026-05-19 — 启用态：会话级 > 全局。前端据此渲染 Switch 与
+          // 灰色胶囊。
+          'enabled': throttleOverride?.enabled ??
+              _settingsController.aiStreamThrottleEnabled,
+          // 2026-05-19 — 会话历史上是否曾节流。胶囊可见性所需。
+          'was_initially_throttled': _sessionController
+              .sessionWasInitiallyThrottled(live.id),
           'duration_expired':
               _sessionController.sessionStreamThrottleDurationExpired(live.id),
           // 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒），让 Web 端节流弹

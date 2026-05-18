@@ -410,12 +410,29 @@ export async function deleteMessageCascade(
 /// 修改对应方向；为 0 表示对应方向关闭节流。
 export async function setSessionThrottle(
   sessionId: string,
-  patch: { charsPerSecond?: number | null; cardsPerSecond?: number | null },
-): Promise<{ ok: boolean; chars_per_second?: number | null; cards_per_second?: number | null }> {
+  patch: {
+    charsPerSecond?: number | null;
+    cardsPerSecond?: number | null;
+    /// 2026-05-19 — 会话级启用开关：null = 清除覆盖回退到全局；
+    /// false = 强制关闭节流；true = 强制开启。
+    enabled?: boolean | null;
+  },
+): Promise<{
+  ok: boolean;
+  chars_per_second?: number | null;
+  cards_per_second?: number | null;
+  enabled?: boolean | null;
+}> {
   const body: Record<string, unknown> = {};
   if (patch.charsPerSecond !== undefined) body['chars_per_second'] = patch.charsPerSecond;
   if (patch.cardsPerSecond !== undefined) body['cards_per_second'] = patch.cardsPerSecond;
-  return apiRequest<{ ok: boolean; chars_per_second?: number | null; cards_per_second?: number | null }>(
+  if (patch.enabled !== undefined) body['enabled'] = patch.enabled;
+  return apiRequest<{
+    ok: boolean;
+    chars_per_second?: number | null;
+    cards_per_second?: number | null;
+    enabled?: boolean | null;
+  }>(
     `/api/sessions/${encodeURIComponent(sessionId)}/throttle`,
     { method: 'PUT', body },
   );
