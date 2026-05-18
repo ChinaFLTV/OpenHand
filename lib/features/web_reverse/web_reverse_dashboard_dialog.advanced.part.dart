@@ -364,6 +364,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.timeline_rounded,
+        title: isZh ? '请求瀑布图' : 'Network Waterfall',
+        subtitle: isZh
+            ? 'TTFB / 下载两段可视化，按耗时/大小/时间排序'
+            : 'Visualize TTFB / download segments, sort by time/size/duration',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseWaterfallDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
