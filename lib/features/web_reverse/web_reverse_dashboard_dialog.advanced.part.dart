@@ -154,6 +154,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await _showWebcrackDialog(context, isZh);
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.fingerprint_rounded,
+        title: isZh ? '签名字段变量定位器' : 'Signature Field Locator',
+        subtitle: isZh
+            ? '同 endpoint 多次抓包后自动识别动态字段（sign / ts / nonce）'
+            : 'Identify dynamic fields (sign / ts / nonce) across repeated captures',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseSignatureDiffDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

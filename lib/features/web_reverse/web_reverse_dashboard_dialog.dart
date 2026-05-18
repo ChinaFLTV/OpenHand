@@ -27,6 +27,7 @@ import 'web_reverse_profile_actions.dart';
 import 'web_reverse_resend_request_dialog.dart';
 import 'web_reverse_screenshot_markup.dart';
 import 'web_reverse_session_controller.dart';
+import 'web_reverse_signature_diff_dialog.dart';
 
 part 'web_reverse_dashboard_dialog.network.part.dart';
 part 'web_reverse_dashboard_dialog.console.part.dart';
