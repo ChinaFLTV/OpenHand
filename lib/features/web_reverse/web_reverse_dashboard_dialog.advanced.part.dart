@@ -514,6 +514,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.style_rounded,
+        title: isZh ? 'CSS 规则使用率' : 'CSS Rule Coverage',
+        subtitle: isZh
+            ? 'CSS.startRuleUsageTracking · 找出未命中的死代码'
+            : 'CSS.startRuleUsageTracking · find dead rules',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseCssCoverageDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
