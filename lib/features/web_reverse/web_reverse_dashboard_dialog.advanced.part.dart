@@ -259,6 +259,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.visibility_rounded,
+        title: isZh ? '变量监视器' : 'Watch Expressions',
+        subtitle: isZh
+            ? '定时 Runtime.evaluate 任意 JS 表达式，记录历史采样'
+            : 'Periodic Runtime.evaluate on JS expressions, history tracked',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseWatchDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
