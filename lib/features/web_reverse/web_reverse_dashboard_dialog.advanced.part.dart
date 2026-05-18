@@ -454,6 +454,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.timeline_rounded,
+        title: isZh ? 'Performance Trace' : 'Performance Trace',
+        subtitle: isZh
+            ? '录制 Tracing → chrome-trace JSON（Perfetto 可加载）'
+            : 'Record Tracing → chrome-trace JSON',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReversePerfTraceDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
