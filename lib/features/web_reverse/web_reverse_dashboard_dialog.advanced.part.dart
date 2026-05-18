@@ -469,6 +469,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.memory_rounded,
+        title: isZh ? 'Heap Snapshot' : 'Heap Snapshot',
+        subtitle: isZh
+            ? 'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可加载）'
+            : 'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseHeapSnapshotDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

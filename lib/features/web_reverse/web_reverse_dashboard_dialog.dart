@@ -35,6 +35,7 @@ import 'web_reverse_collection_export_dialog.dart';
 import 'web_reverse_cookie_editor_dialog.dart';
 import 'web_reverse_sw_debug_dialog.dart';
 import 'web_reverse_perf_trace_dialog.dart';
+import 'web_reverse_heap_snapshot_dialog.dart';
 import 'web_reverse_dom_mutation_dialog.dart';
 import 'web_reverse_geo_override_dialog.dart';
 import 'web_reverse_webauthn_dialog.dart';
