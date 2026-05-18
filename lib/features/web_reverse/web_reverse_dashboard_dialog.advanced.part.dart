@@ -169,6 +169,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.notifications_active_rounded,
+        title: isZh ? '报文条件断点' : 'Request Breakpoints',
+        subtitle: isZh
+            ? 'URL/Body 子串命中 → 记录命中事件 + 可选触发 JS 表达式'
+            : 'URL/body substring match → log hits + optional JS eval',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseRequestBreakpointsDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,

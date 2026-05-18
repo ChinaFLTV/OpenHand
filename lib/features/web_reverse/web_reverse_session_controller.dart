@@ -4290,6 +4290,15 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       // 命中规则但仅作"标记"，仍然 hold 住等用户决定。
     }
+    // 条件断点：仅记录命中、可选触发 JS 求值，不改变后续 pending / 放行流程。
+    final method = '${request['method'] ?? 'GET'}';
+    final postData = request['postData'] is String
+        ? request['postData'] as String?
+        : null;
+    final bp = _matchRequestBreakpoint(method, url, postData);
+    if (bp != null) {
+      unawaited(_onRequestBreakpointHit(bp, method, url, postData));
+    }
     _pendingFetchRequests[requestId] = <String, Object?>{
       'method': request['method'],
       'url': request['url'],
@@ -5439,6 +5448,108 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 仅在 controller 已经 `start()` 过、且没被 dispose 时返回非空。
   WebReverseCdpClient? get browserCdpForBatch =>
       _disposed ? null : _browserCdp;
+
+  // ── 报文条件断点 ─────────────────────────────────────────────────
+  //
+  // 与拦截规则不同，这里不改写也不放行 —— 只在「请求拦截」全局开关已开的
+  // 前提下，对命中条件的请求额外记录一次 hit 事件，方便用户在 dashboard
+  // 里 review 触发链。可选地伴随一段 JS 表达式被丢给 page 评估（典型用法：
+  // `debugger`、`console.log(__OH__breakpoint__)`、调用站点录制脚本）。
+  // 全部命中放进 _breakpointHits 环形缓冲（≤200 条），UI 自助消费。
+  final List<WebReverseRequestBreakpoint> _requestBreakpoints =
+      <WebReverseRequestBreakpoint>[];
+  List<WebReverseRequestBreakpoint> get requestBreakpoints =>
+      List<WebReverseRequestBreakpoint>.unmodifiable(_requestBreakpoints);
+
+  final List<WebReverseRequestBreakpointHit> _breakpointHits =
+      <WebReverseRequestBreakpointHit>[];
+  List<WebReverseRequestBreakpointHit> get requestBreakpointHits =>
+      List<WebReverseRequestBreakpointHit>.unmodifiable(_breakpointHits);
+
+  static const int _kBreakpointHitsCap = 200;
+
+  void setRequestBreakpoints(List<WebReverseRequestBreakpoint> list) {
+    _requestBreakpoints
+      ..clear()
+      ..addAll(list);
+    _safeNotify();
+  }
+
+  void clearRequestBreakpointHits() {
+    _breakpointHits.clear();
+    _safeNotify();
+  }
+
+  WebReverseRequestBreakpoint? _matchRequestBreakpoint(
+    String method,
+    String url,
+    String? body,
+  ) {
+    for (final bp in _requestBreakpoints) {
+      if (!bp.enabled) continue;
+      if (bp.methodFilter.isNotEmpty &&
+          bp.methodFilter.toUpperCase() != method.toUpperCase()) {
+        continue;
+      }
+      if (bp.urlContains.isNotEmpty &&
+          !url.toLowerCase().contains(bp.urlContains.toLowerCase())) {
+        continue;
+      }
+      if (bp.bodyContains.isNotEmpty) {
+        if (body == null || body.isEmpty) continue;
+        if (!body.contains(bp.bodyContains)) continue;
+      }
+      return bp;
+    }
+    return null;
+  }
+
+  Future<void> _onRequestBreakpointHit(
+    WebReverseRequestBreakpoint bp,
+    String method,
+    String url,
+    String? body,
+  ) async {
+    _breakpointHits.add(WebReverseRequestBreakpointHit(
+      breakpointId: bp.id,
+      breakpointName: bp.name,
+      method: method,
+      url: url,
+      at: DateTime.now(),
+    ));
+    if (_breakpointHits.length > _kBreakpointHitsCap) {
+      _breakpointHits.removeRange(
+        0,
+        _breakpointHits.length - _kBreakpointHitsCap,
+      );
+    }
+    _safeNotify();
+    if (bp.evalExpression.isNotEmpty) {
+      final cdp = _browserCdp;
+      if (cdp != null && _pageSessionId != null) {
+        try {
+          await cdp.send(
+            'Runtime.evaluate',
+            params: <String, Object?>{
+              'expression': bp.evalExpression,
+              'awaitPromise': true,
+              'returnByValue': true,
+              'silent': true,
+            },
+            sessionId: _pageSessionId,
+            timeout: const Duration(seconds: 3),
+          );
+        } catch (e, st) {
+          silentLog(
+            'web_reverse_session_controller',
+            'breakpoint_eval',
+            e,
+            st,
+          );
+        }
+      }
+    }
+  }
 }
 
 /// 单条网络请求的精简快照，dashboard 用它渲染。
@@ -5951,3 +6062,81 @@ function() {
 }
 ''';
 
+
+/// 一条「报文条件断点」。匹配命中时只记录 hit + 可选触发 JS 表达式，
+/// 不改变请求放行决策（用户仍需在「请求拦截」面板里继续/中止）。
+class WebReverseRequestBreakpoint {
+  const WebReverseRequestBreakpoint({
+    required this.id,
+    required this.name,
+    required this.enabled,
+    required this.methodFilter,
+    required this.urlContains,
+    required this.bodyContains,
+    required this.evalExpression,
+  });
+
+  factory WebReverseRequestBreakpoint.fromJson(Map<String, Object?> j) =>
+      WebReverseRequestBreakpoint(
+        id: '${j['id'] ?? ''}',
+        name: '${j['name'] ?? ''}',
+        enabled: j['enabled'] != false,
+        methodFilter: '${j['method'] ?? ''}',
+        urlContains: '${j['url_contains'] ?? ''}',
+        bodyContains: '${j['body_contains'] ?? ''}',
+        evalExpression: '${j['eval'] ?? ''}',
+      );
+
+  final String id;
+  final String name;
+  final bool enabled;
+  final String methodFilter;
+  final String urlContains;
+  final String bodyContains;
+  final String evalExpression;
+
+  WebReverseRequestBreakpoint copyWith({
+    String? name,
+    bool? enabled,
+    String? methodFilter,
+    String? urlContains,
+    String? bodyContains,
+    String? evalExpression,
+  }) =>
+      WebReverseRequestBreakpoint(
+        id: id,
+        name: name ?? this.name,
+        enabled: enabled ?? this.enabled,
+        methodFilter: methodFilter ?? this.methodFilter,
+        urlContains: urlContains ?? this.urlContains,
+        bodyContains: bodyContains ?? this.bodyContains,
+        evalExpression: evalExpression ?? this.evalExpression,
+      );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'id': id,
+        'name': name,
+        'enabled': enabled,
+        'method': methodFilter,
+        'url_contains': urlContains,
+        'body_contains': bodyContains,
+        'eval': evalExpression,
+      };
+}
+
+/// 单次断点命中记录。
+class WebReverseRequestBreakpointHit {
+  const WebReverseRequestBreakpointHit({
+    required this.breakpointId,
+    required this.breakpointName,
+    required this.method,
+    required this.url,
+    required this.at,
+  });
+
+  final String breakpointId;
+  final String breakpointName;
+  final String method;
+  final String url;
+  final DateTime at;
+}
