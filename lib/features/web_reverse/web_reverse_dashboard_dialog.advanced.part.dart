@@ -304,6 +304,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
           );
         },
       ),
+      _AdvancedEntry(
+        icon: Icons.fingerprint_rounded,
+        title: isZh ? 'WebAuthn 虚拟认证器' : 'WebAuthn Virtual Authenticator',
+        subtitle: isZh
+            ? '注入虚拟 FIDO2 设备，无物理密钥完成 navigator.credentials 流程'
+            : 'Inject virtual FIDO2 device, complete navigator.credentials without hardware',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseWebAuthnDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
     ];
     return Dialog(
       backgroundColor: cs.surfaceContainer,
