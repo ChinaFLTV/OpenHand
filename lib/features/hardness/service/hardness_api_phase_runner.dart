@@ -266,26 +266,22 @@ class HardnessApiPhaseRunner {
     }
 
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
-    final supportsTools = adapter.supportsToolCalls;
+    final supportsNativeToolCalls = adapter.supportsToolCalls;
 
     // phaseSessionId is computed by the public `runPhase` wrapper and passed
     // in, so the same id flows to both the inner body and `onPhaseEnded`.
 
-    // Resolve tool catalog (builtin + MCP + skills) — same as default thread.
-    final rawToolCatalog = supportsTools
-        ? await _toolRuntimeService.resolveCatalog(
-            runtimeContext: runtimeContext,
-          )
-        : const AiResolvedToolCatalog(
-            definitions: <AiToolDefinition>[],
-            toolsByName: <String, AiResolvedTool>{},
-          );
+    // Resolve tool catalog (builtin + MCP + skills) for both native tool-call
+    // adapters and XML fallback adapters. Non-native adapters receive the
+    // catalog in the system prompt, but not in the protocol-level `tools` field.
+    final rawToolCatalog = await _toolRuntimeService.resolveCatalog(
+      runtimeContext: runtimeContext,
+    );
 
     // Apply MCP lazy-loading policy before phase-affinity filtering, so the
     // deferred list reflects the full server inventory and any subsequent
     // ToolSearch hit becomes immediately callable in this phase.
     AiResolvedToolCatalog applyMcpLazyLoadingForPhase() {
-      if (!supportsTools) return rawToolCatalog;
       return McpLazyLoadingApplier.apply(
         catalog: rawToolCatalog,
         runtimeContext: runtimeContext,
@@ -488,7 +484,9 @@ class HardnessApiPhaseRunner {
           completion = await _chatClient.sendMessage(
             model: model,
             messages: conversation,
-            tools: phaseToolCatalog.definitions,
+            tools: supportsNativeToolCalls
+                ? phaseToolCatalog.definitions
+                : const <AiToolDefinition>[],
             timeout: const Duration(minutes: 10),
           );
         } catch (e) {
