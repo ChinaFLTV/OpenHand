@@ -1338,9 +1338,10 @@ class _MarketStateMessage extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton.tonal(
+              OpenHandDialogActionButton.primary(
                 onPressed: onAction,
-                child: Text(actionLabel!),
+                icon: Icons.refresh_rounded,
+                label: actionLabel!,
               ),
             ],
           ],

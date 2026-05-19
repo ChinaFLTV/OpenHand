@@ -1785,10 +1785,10 @@ class _SkillsStateCard extends StatelessWidget {
                 ),
                 if (primaryActionLabel != null && onPrimaryAction != null) ...[
                   const SizedBox(height: 20),
-                  FilledButton.icon(
+                  OpenHandDialogActionButton.primary(
                     onPressed: onPrimaryAction,
-                    icon: const Icon(Icons.arrow_forward_rounded),
-                    label: Text(primaryActionLabel!),
+                    icon: Icons.arrow_forward_rounded,
+                    label: primaryActionLabel!,
                   ),
                 ],
               ],

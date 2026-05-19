@@ -4569,35 +4569,26 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                           spacing: 10,
                           runSpacing: 10,
                           children: [
-                            FilledButton.icon(
+                            OpenHandDialogActionButton.primary(
                               key: const ValueKey<String>(
                                 'mcpToolDebugRunButton',
                               ),
                               onPressed: _isRunning ? null : _runTool,
-                              icon: _isRunning
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.2,
-                                      ),
+                              icon: Icons.play_arrow_rounded,
+                              busy: _isRunning,
+                              label: _isRunning
+                                  ? _localizedText(
+                                      context,
+                                      zh: '执行中',
+                                      en: 'Running',
                                     )
-                                  : const Icon(Icons.play_arrow_rounded),
-                              label: Text(
-                                _isRunning
-                                    ? _localizedText(
-                                        context,
-                                        zh: '执行中',
-                                        en: 'Running',
-                                      )
-                                    : _localizedText(
-                                        context,
-                                        zh: '执行 Tool',
-                                        en: 'Run Tool',
-                                      ),
-                              ),
+                                  : _localizedText(
+                                      context,
+                                      zh: '执行 Tool',
+                                      en: 'Run Tool',
+                                    ),
                             ),
-                            OutlinedButton.icon(
+                            OpenHandDialogActionButton.secondary(
                               onPressed: _isRunning
                                   ? null
                                   : () {
@@ -4606,13 +4597,11 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                                             _suggestedArgumentsJson(tool);
                                       });
                                     },
-                              icon: const Icon(Icons.restart_alt_rounded),
-                              label: Text(
-                                _localizedText(
-                                  context,
-                                  zh: '恢复示例参数',
-                                  en: 'Reset Sample',
-                                ),
+                              icon: Icons.restart_alt_rounded,
+                              label: _localizedText(
+                                context,
+                                zh: '恢复示例参数',
+                                en: 'Reset Sample',
                               ),
                             ),
                           ],
