@@ -4908,5 +4908,39 @@
     }
   },
   "webReverseCssCovClose": "关闭",
-  "@webReverseCssCovClose": {}
+  "@webReverseCssCovClose": {},
+  "webReverseAiCryptoStatusFetchResources": "获取 frame 资源...",
+  "webReverseAiCryptoStatusDetecting": "提取嫌疑字段...",
+  "webReverseAiCryptoStatusDone": "完成",
+  "webReverseAiCryptoCopied": "已复制到剪贴板",
+  "webReverseAiCryptoTitle": "AI 加密参数还原",
+  "webReverseAiCryptoSubtitle": "聚合 endpoint → diff 变量字段 → JS 源码定位 → 一键复制提示词",
+  "webReverseAiCryptoRefresh": "重新聚合",
+  "webReverseAiCryptoEmpty": "没有可分析的 endpoint（需要同一接口至少抓 2 次）",
+  "webReverseAiCryptoAnalyze": "分析",
+  "webReverseAiCryptoCopyPrompt": "复制提示词",
+  "webReverseAiCryptoSuspectsLabel": "嫌疑字段：",
+  "webReverseAiCryptoPromptHint": "点击「分析」生成提示词。",
+  "webReverseAiCryptoClose": "关闭",
+  "webReverseAiCryptoStatusSearchProgress": "搜索字段 {done}/{total}",
+  "@webReverseAiCryptoStatusSearchProgress": {
+    "description": "Web reverse AI crypto: search progress.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAiCryptoHits": "{count} 次",
+  "@webReverseAiCryptoHits": {
+    "description": "Web reverse AI crypto: hit count suffix.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

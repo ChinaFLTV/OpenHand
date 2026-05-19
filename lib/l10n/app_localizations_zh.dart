@@ -6849,6 +6849,56 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseCssCovClose => '关闭';
+
+  @override
+  String get webReverseAiCryptoStatusFetchResources => '获取 frame 资源...';
+
+  @override
+  String get webReverseAiCryptoStatusDetecting => '提取嫌疑字段...';
+
+  @override
+  String get webReverseAiCryptoStatusDone => '完成';
+
+  @override
+  String get webReverseAiCryptoCopied => '已复制到剪贴板';
+
+  @override
+  String get webReverseAiCryptoTitle => 'AI 加密参数还原';
+
+  @override
+  String get webReverseAiCryptoSubtitle =>
+      '聚合 endpoint → diff 变量字段 → JS 源码定位 → 一键复制提示词';
+
+  @override
+  String get webReverseAiCryptoRefresh => '重新聚合';
+
+  @override
+  String get webReverseAiCryptoEmpty => '没有可分析的 endpoint（需要同一接口至少抓 2 次）';
+
+  @override
+  String get webReverseAiCryptoAnalyze => '分析';
+
+  @override
+  String get webReverseAiCryptoCopyPrompt => '复制提示词';
+
+  @override
+  String get webReverseAiCryptoSuspectsLabel => '嫌疑字段：';
+
+  @override
+  String get webReverseAiCryptoPromptHint => '点击「分析」生成提示词。';
+
+  @override
+  String get webReverseAiCryptoClose => '关闭';
+
+  @override
+  String webReverseAiCryptoStatusSearchProgress(int done, int total) {
+    return '搜索字段 $done/$total';
+  }
+
+  @override
+  String webReverseAiCryptoHits(int count) {
+    return '$count 次';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -13696,6 +13746,56 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseCssCovClose => '关闭';
+
+  @override
+  String get webReverseAiCryptoStatusFetchResources => '获取 frame 资源...';
+
+  @override
+  String get webReverseAiCryptoStatusDetecting => '提取嫌疑字段...';
+
+  @override
+  String get webReverseAiCryptoStatusDone => '完成';
+
+  @override
+  String get webReverseAiCryptoCopied => '已复制到剪贴板';
+
+  @override
+  String get webReverseAiCryptoTitle => 'AI 加密参数还原';
+
+  @override
+  String get webReverseAiCryptoSubtitle =>
+      '聚合 endpoint → diff 变量字段 → JS 源码定位 → 一键复制提示词';
+
+  @override
+  String get webReverseAiCryptoRefresh => '重新聚合';
+
+  @override
+  String get webReverseAiCryptoEmpty => '没有可分析的 endpoint（需要同一接口至少抓 2 次）';
+
+  @override
+  String get webReverseAiCryptoAnalyze => '分析';
+
+  @override
+  String get webReverseAiCryptoCopyPrompt => '复制提示词';
+
+  @override
+  String get webReverseAiCryptoSuspectsLabel => '嫌疑字段：';
+
+  @override
+  String get webReverseAiCryptoPromptHint => '点击「分析」生成提示词。';
+
+  @override
+  String get webReverseAiCryptoClose => '关闭';
+
+  @override
+  String webReverseAiCryptoStatusSearchProgress(int done, int total) {
+    return '搜索字段 $done/$total';
+  }
+
+  @override
+  String webReverseAiCryptoHits(int count) {
+    return '$count 次';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -20542,4 +20642,54 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseCssCovClose => '关闭';
+
+  @override
+  String get webReverseAiCryptoStatusFetchResources => '获取 frame 资源...';
+
+  @override
+  String get webReverseAiCryptoStatusDetecting => '提取嫌疑字段...';
+
+  @override
+  String get webReverseAiCryptoStatusDone => '完成';
+
+  @override
+  String get webReverseAiCryptoCopied => '已复制到剪贴板';
+
+  @override
+  String get webReverseAiCryptoTitle => 'AI 加密参数还原';
+
+  @override
+  String get webReverseAiCryptoSubtitle =>
+      '聚合 endpoint → diff 变量字段 → JS 源码定位 → 一键复制提示词';
+
+  @override
+  String get webReverseAiCryptoRefresh => '重新聚合';
+
+  @override
+  String get webReverseAiCryptoEmpty => '没有可分析的 endpoint（需要同一接口至少抓 2 次）';
+
+  @override
+  String get webReverseAiCryptoAnalyze => '分析';
+
+  @override
+  String get webReverseAiCryptoCopyPrompt => '复制提示词';
+
+  @override
+  String get webReverseAiCryptoSuspectsLabel => '嫌疑字段：';
+
+  @override
+  String get webReverseAiCryptoPromptHint => '点击「分析」生成提示词。';
+
+  @override
+  String get webReverseAiCryptoClose => '关闭';
+
+  @override
+  String webReverseAiCryptoStatusSearchProgress(int done, int total) {
+    return '搜索字段 $done/$total';
+  }
+
+  @override
+  String webReverseAiCryptoHits(int count) {
+    return '$count 次';
+  }
 }

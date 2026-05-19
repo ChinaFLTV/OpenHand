@@ -12658,6 +12658,96 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'关闭'**
   String get webReverseCssCovClose;
+
+  /// No description provided for @webReverseAiCryptoStatusFetchResources.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'获取 frame 资源...'**
+  String get webReverseAiCryptoStatusFetchResources;
+
+  /// No description provided for @webReverseAiCryptoStatusDetecting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'提取嫌疑字段...'**
+  String get webReverseAiCryptoStatusDetecting;
+
+  /// No description provided for @webReverseAiCryptoStatusDone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'完成'**
+  String get webReverseAiCryptoStatusDone;
+
+  /// No description provided for @webReverseAiCryptoCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制到剪贴板'**
+  String get webReverseAiCryptoCopied;
+
+  /// No description provided for @webReverseAiCryptoTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'AI 加密参数还原'**
+  String get webReverseAiCryptoTitle;
+
+  /// No description provided for @webReverseAiCryptoSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'聚合 endpoint → diff 变量字段 → JS 源码定位 → 一键复制提示词'**
+  String get webReverseAiCryptoSubtitle;
+
+  /// No description provided for @webReverseAiCryptoRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重新聚合'**
+  String get webReverseAiCryptoRefresh;
+
+  /// No description provided for @webReverseAiCryptoEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有可分析的 endpoint（需要同一接口至少抓 2 次）'**
+  String get webReverseAiCryptoEmpty;
+
+  /// No description provided for @webReverseAiCryptoAnalyze.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'分析'**
+  String get webReverseAiCryptoAnalyze;
+
+  /// No description provided for @webReverseAiCryptoCopyPrompt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制提示词'**
+  String get webReverseAiCryptoCopyPrompt;
+
+  /// No description provided for @webReverseAiCryptoSuspectsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'嫌疑字段：'**
+  String get webReverseAiCryptoSuspectsLabel;
+
+  /// No description provided for @webReverseAiCryptoPromptHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击「分析」生成提示词。'**
+  String get webReverseAiCryptoPromptHint;
+
+  /// No description provided for @webReverseAiCryptoClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseAiCryptoClose;
+
+  /// Web reverse AI crypto: search progress.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'搜索字段 {done}/{total}'**
+  String webReverseAiCryptoStatusSearchProgress(int done, int total);
+
+  /// Web reverse AI crypto: hit count suffix.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count} 次'**
+  String webReverseAiCryptoHits(int count);
 }
 
 class _AppLocalizationsDelegate

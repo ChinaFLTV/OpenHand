@@ -7205,4 +7205,58 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get webReverseCssCovClose => 'Schließen';
+
+  @override
+  String get webReverseAiCryptoStatusFetchResources =>
+      'Frame-Ressourcen werden geladen...';
+
+  @override
+  String get webReverseAiCryptoStatusDetecting =>
+      'Verdächtige Felder werden erkannt...';
+
+  @override
+  String get webReverseAiCryptoStatusDone => 'Fertig';
+
+  @override
+  String get webReverseAiCryptoCopied => 'In Zwischenablage kopiert';
+
+  @override
+  String get webReverseAiCryptoTitle => 'KI Krypto-Parameter wiederherstellen';
+
+  @override
+  String get webReverseAiCryptoSubtitle =>
+      'Endpoint gruppieren → Variablen diff → in JS lokalisieren → Prompt kopieren';
+
+  @override
+  String get webReverseAiCryptoRefresh => 'Neu gruppieren';
+
+  @override
+  String get webReverseAiCryptoEmpty =>
+      'Kein analysierbarer Endpoint (≥2 Treffer pro Endpoint nötig)';
+
+  @override
+  String get webReverseAiCryptoAnalyze => 'Analysieren';
+
+  @override
+  String get webReverseAiCryptoCopyPrompt => 'Prompt kopieren';
+
+  @override
+  String get webReverseAiCryptoSuspectsLabel => 'Verdächtige Felder:';
+
+  @override
+  String get webReverseAiCryptoPromptHint =>
+      'Klicken Sie auf Analysieren, um den Prompt zu erzeugen.';
+
+  @override
+  String get webReverseAiCryptoClose => 'Schließen';
+
+  @override
+  String webReverseAiCryptoStatusSearchProgress(int done, int total) {
+    return 'Suche $done/$total';
+  }
+
+  @override
+  String webReverseAiCryptoHits(int count) {
+    return '$count Treffer';
+  }
 }

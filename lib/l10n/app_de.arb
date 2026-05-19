@@ -4908,5 +4908,39 @@
     }
   },
   "webReverseCssCovClose": "Schließen",
-  "@webReverseCssCovClose": {}
+  "@webReverseCssCovClose": {},
+  "webReverseAiCryptoStatusFetchResources": "Frame-Ressourcen werden geladen...",
+  "webReverseAiCryptoStatusDetecting": "Verdächtige Felder werden erkannt...",
+  "webReverseAiCryptoStatusDone": "Fertig",
+  "webReverseAiCryptoCopied": "In Zwischenablage kopiert",
+  "webReverseAiCryptoTitle": "KI Krypto-Parameter wiederherstellen",
+  "webReverseAiCryptoSubtitle": "Endpoint gruppieren → Variablen diff → in JS lokalisieren → Prompt kopieren",
+  "webReverseAiCryptoRefresh": "Neu gruppieren",
+  "webReverseAiCryptoEmpty": "Kein analysierbarer Endpoint (≥2 Treffer pro Endpoint nötig)",
+  "webReverseAiCryptoAnalyze": "Analysieren",
+  "webReverseAiCryptoCopyPrompt": "Prompt kopieren",
+  "webReverseAiCryptoSuspectsLabel": "Verdächtige Felder:",
+  "webReverseAiCryptoPromptHint": "Klicken Sie auf Analysieren, um den Prompt zu erzeugen.",
+  "webReverseAiCryptoClose": "Schließen",
+  "webReverseAiCryptoStatusSearchProgress": "Suche {done}/{total}",
+  "@webReverseAiCryptoStatusSearchProgress": {
+    "description": "Web reverse AI crypto: search progress.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAiCryptoHits": "{count} Treffer",
+  "@webReverseAiCryptoHits": {
+    "description": "Web reverse AI crypto: hit count suffix.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

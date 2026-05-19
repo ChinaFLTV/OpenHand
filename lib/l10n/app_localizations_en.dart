@@ -7139,4 +7139,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webReverseCssCovClose => 'Close';
+
+  @override
+  String get webReverseAiCryptoStatusFetchResources => 'Fetching resources...';
+
+  @override
+  String get webReverseAiCryptoStatusDetecting => 'Detecting suspects...';
+
+  @override
+  String get webReverseAiCryptoStatusDone => 'Done';
+
+  @override
+  String get webReverseAiCryptoCopied => 'Copied to clipboard';
+
+  @override
+  String get webReverseAiCryptoTitle => 'AI Crypto Param Recover';
+
+  @override
+  String get webReverseAiCryptoSubtitle =>
+      'Group endpoint → diff vars → locate in JS → copy prompt';
+
+  @override
+  String get webReverseAiCryptoRefresh => 'Refresh';
+
+  @override
+  String get webReverseAiCryptoEmpty =>
+      'No analyzable endpoint (need ≥2 hits per endpoint)';
+
+  @override
+  String get webReverseAiCryptoAnalyze => 'Analyze';
+
+  @override
+  String get webReverseAiCryptoCopyPrompt => 'Copy prompt';
+
+  @override
+  String get webReverseAiCryptoSuspectsLabel => 'Suspects:';
+
+  @override
+  String get webReverseAiCryptoPromptHint =>
+      'Click Analyze to generate the prompt.';
+
+  @override
+  String get webReverseAiCryptoClose => 'Close';
+
+  @override
+  String webReverseAiCryptoStatusSearchProgress(int done, int total) {
+    return 'Search $done/$total';
+  }
+
+  @override
+  String webReverseAiCryptoHits(int count) {
+    return '$count hits';
+  }
 }

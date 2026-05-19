@@ -4908,5 +4908,39 @@
     }
   },
   "webReverseCssCovClose": "閉じる",
-  "@webReverseCssCovClose": {}
+  "@webReverseCssCovClose": {},
+  "webReverseAiCryptoStatusFetchResources": "frame リソースを取得中...",
+  "webReverseAiCryptoStatusDetecting": "疑わしいフィールドを抽出中...",
+  "webReverseAiCryptoStatusDone": "完了",
+  "webReverseAiCryptoCopied": "クリップボードにコピーしました",
+  "webReverseAiCryptoTitle": "AI 暗号化パラメータ復元",
+  "webReverseAiCryptoSubtitle": "endpoint を集約 → 変数 diff → JS ソースで特定 → プロンプトをコピー",
+  "webReverseAiCryptoRefresh": "再集約",
+  "webReverseAiCryptoEmpty": "解析可能な endpoint がありません (同一エンドポイントで 2 回以上必要)",
+  "webReverseAiCryptoAnalyze": "解析",
+  "webReverseAiCryptoCopyPrompt": "プロンプトをコピー",
+  "webReverseAiCryptoSuspectsLabel": "疑わしいフィールド:",
+  "webReverseAiCryptoPromptHint": "「解析」をクリックしてプロンプトを生成します。",
+  "webReverseAiCryptoClose": "閉じる",
+  "webReverseAiCryptoStatusSearchProgress": "フィールド検索 {done}/{total}",
+  "@webReverseAiCryptoStatusSearchProgress": {
+    "description": "Web reverse AI crypto: search progress.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAiCryptoHits": "{count} 件",
+  "@webReverseAiCryptoHits": {
+    "description": "Web reverse AI crypto: hit count suffix.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

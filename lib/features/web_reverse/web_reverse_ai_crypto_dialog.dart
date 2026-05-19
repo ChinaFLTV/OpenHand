@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -51,6 +52,7 @@ Future<void> showWebReverseAiCryptoDialog(
 class _AiCryptoDialog extends StatefulWidget {
   const _AiCryptoDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_AiCryptoDialog> createState() => _AiCryptoDialogState();
@@ -215,7 +217,9 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
 
   Future<Map<String, List<_JsHit>>> _searchSuspects(List<String> suspects) async {
     if (suspects.isEmpty) return const <String, List<_JsHit>>{};
-    setState(() => _status = widget.isZh ? '获取 frame 资源...' : 'Fetching resources...');
+    final loc = AppLocalizations.of(context);
+    setState(() => _status =
+        loc?.webReverseAiCryptoStatusFetchResources ?? 'Fetching resources...');
     final tree = await widget.controller.sendRawCdp(
       method: 'Page.getResourceTree',
       paramsJson: '{}',
@@ -297,9 +301,11 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       if (list.isNotEmpty) out[key] = list;
       done++;
       if (mounted) {
-        setState(() => _status = widget.isZh
-            ? '搜索字段 $done/${suspects.length}'
-            : 'Search $done/${suspects.length}');
+        final loc = AppLocalizations.of(context);
+        setState(() => _status = loc?.webReverseAiCryptoStatusSearchProgress(
+              done, suspects.length,
+            ) ??
+            'Search $done/${suspects.length}');
       }
     }
     return out;
@@ -380,9 +386,11 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
   Future<void> _analyze() async {
     final g = _selected;
     if (g == null || _busy) return;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _busy = true;
-      _status = widget.isZh ? '提取嫌疑字段...' : 'Detecting suspects...';
+      _status =
+          loc?.webReverseAiCryptoStatusDetecting ?? 'Detecting suspects...';
       _suspects = const <String>[];
       _prompt = '';
     });
@@ -394,7 +402,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
         setState(() {
           _suspects = suspects;
           _prompt = prompt;
-          _status = widget.isZh ? '完成' : 'Done';
+          _status = loc?.webReverseAiCryptoStatusDone ?? 'Done';
         });
       }
     } catch (e, st) {
@@ -407,12 +415,14 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
   Future<void> _copy() async {
     if (_prompt.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: _prompt));
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger != null && mounted) {
+    final loc = AppLocalizations.of(context);
+    if (messenger != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        widget.isZh ? '已复制到剪贴板' : 'Copied to clipboard',
+        loc?.webReverseAiCryptoCopied ?? 'Copied to clipboard',
       );
     }
   }
@@ -421,7 +431,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -441,14 +451,14 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'AI 加密参数还原' : 'AI Crypto Param Recover',
+                          loc?.webReverseAiCryptoTitle ??
+                              'AI Crypto Param Recover',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '聚合 endpoint → diff 变量字段 → JS 源码定位 → 一键复制提示词'
-                              : 'Group endpoint → diff vars → locate in JS → copy prompt',
+                          loc?.webReverseAiCryptoSubtitle ??
+                              'Group endpoint → diff vars → locate in JS → copy prompt',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -458,7 +468,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                   IconButton(
                     onPressed: _reloadGroups,
                     icon: const Icon(Icons.refresh_rounded),
-                    tooltip: isZh ? '重新聚合' : 'Refresh',
+                    tooltip: loc?.webReverseAiCryptoRefresh ?? 'Refresh',
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -481,9 +491,8 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
                                 child: Text(
-                                  isZh
-                                      ? '没有可分析的 endpoint（需要同一接口至少抓 2 次）'
-                                      : 'No analyzable endpoint (need ≥2 hits per endpoint)',
+                                  loc?.webReverseAiCryptoEmpty ??
+                                      'No analyzable endpoint (need ≥2 hits per endpoint)',
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodySmall
                                       ?.copyWith(color: cs.onSurfaceVariant),
@@ -524,7 +533,10 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                           Text(
-                                            '${g.entries.length} ${isZh ? '次' : 'hits'}',
+                                            loc?.webReverseAiCryptoHits(
+                                                  g.entries.length,
+                                                ) ??
+                                                '${g.entries.length} hits',
                                             style: theme.textTheme.labelSmall
                                                 ?.copyWith(
                                                     color: cs.onSurfaceVariant),
@@ -552,14 +564,16 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                     ? null
                                     : _analyze,
                                 icon: const Icon(Icons.psychology_rounded),
-                                label: Text(isZh ? '分析' : 'Analyze'),
+                                label: Text(
+                                    loc?.webReverseAiCryptoAnalyze ?? 'Analyze'),
                               ),
                               const SizedBox(width: 10),
                               FilledButton.tonalIcon(
                                 onPressed:
                                     _prompt.isEmpty ? null : _copy,
                                 icon: const Icon(Icons.copy_all_rounded),
-                                label: Text(isZh ? '复制提示词' : 'Copy prompt'),
+                                label: Text(loc?.webReverseAiCryptoCopyPrompt ??
+                                    'Copy prompt'),
                               ),
                               const Spacer(),
                               if (_status != null)
@@ -579,7 +593,8 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                               runSpacing: 4,
                               children: [
                                 Text(
-                                  isZh ? '嫌疑字段：' : 'Suspects:',
+                                  loc?.webReverseAiCryptoSuspectsLabel ??
+                                      'Suspects:',
                                   style: theme.textTheme.labelMedium
                                       ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
@@ -612,9 +627,8 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                 padding: const EdgeInsets.all(10),
                                 child: SelectableText(
                                   _prompt.isEmpty
-                                      ? (isZh
-                                          ? '点击「分析」生成提示词。'
-                                          : 'Click Analyze to generate the prompt.')
+                                      ? (loc?.webReverseAiCryptoPromptHint ??
+                                          'Click Analyze to generate the prompt.')
                                       : _prompt,
                                   style: TextStyle(
                                     fontFamily: 'monospace',
@@ -641,7 +655,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseAiCryptoClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

@@ -6946,4 +6946,55 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseCssCovClose => '閉じる';
+
+  @override
+  String get webReverseAiCryptoStatusFetchResources => 'frame リソースを取得中...';
+
+  @override
+  String get webReverseAiCryptoStatusDetecting => '疑わしいフィールドを抽出中...';
+
+  @override
+  String get webReverseAiCryptoStatusDone => '完了';
+
+  @override
+  String get webReverseAiCryptoCopied => 'クリップボードにコピーしました';
+
+  @override
+  String get webReverseAiCryptoTitle => 'AI 暗号化パラメータ復元';
+
+  @override
+  String get webReverseAiCryptoSubtitle =>
+      'endpoint を集約 → 変数 diff → JS ソースで特定 → プロンプトをコピー';
+
+  @override
+  String get webReverseAiCryptoRefresh => '再集約';
+
+  @override
+  String get webReverseAiCryptoEmpty =>
+      '解析可能な endpoint がありません (同一エンドポイントで 2 回以上必要)';
+
+  @override
+  String get webReverseAiCryptoAnalyze => '解析';
+
+  @override
+  String get webReverseAiCryptoCopyPrompt => 'プロンプトをコピー';
+
+  @override
+  String get webReverseAiCryptoSuspectsLabel => '疑わしいフィールド:';
+
+  @override
+  String get webReverseAiCryptoPromptHint => '「解析」をクリックしてプロンプトを生成します。';
+
+  @override
+  String get webReverseAiCryptoClose => '閉じる';
+
+  @override
+  String webReverseAiCryptoStatusSearchProgress(int done, int total) {
+    return 'フィールド検索 $done/$total';
+  }
+
+  @override
+  String webReverseAiCryptoHits(int count) {
+    return '$count 件';
+  }
 }
