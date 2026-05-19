@@ -4011,6 +4011,45 @@ class AiSessionController extends ChangeNotifier {
             ),
           ]).catchError((_) => <Object>[]);
         }
+        // 2026-05-25 — Bug 1 防御层（task 3 后续加固）：drainGracefully
+        // 已尽力按 pendingChars/rate 自然 drain，但极端情况下（rate=0
+        // 时 maxWaitMs=0，或者 effChars 估算偏差）可能在 release 前仍
+        // 残留 grapheme。release() 之后任何 syncFinalAssistantMessage
+        // 都会把 result.reply 全文一次性 dump，重现「正式响应一股脑
+        // 输出」。这里 release 前再做一道兜底：检测 hasPending，发出
+        // silentLog（regression 可观察），然后 16ms 一拍按 grapheme
+        // 批次手动喂剩余字符，保证视觉上仍是「逐字铺开」而非一次性 dump。
+        if (!didCancelStreamEarly &&
+            (charThrottle.hasPending || reasoningCharThrottle.hasPending)) {
+          silentLog(
+            'ai_session_controller',
+            'drain_undercut',
+            'release-time throttle still pending '
+                'assistant=${charThrottle.hasPending} '
+                'reasoning=${reasoningCharThrottle.hasPending} '
+                'effChars=$effChars maxWaitMs=$maxWaitMs',
+          );
+          // 兜底节奏：按 effChars 估一个 step interval，最少 16ms（避免
+          // 把主线程卡死），最多 200ms（避免低速率下显得卡顿）。
+          final fallbackStep = effChars <= 0
+              ? const Duration(milliseconds: 32)
+              : Duration(
+                  milliseconds: math
+                      .max(16, math.min(200, (1000 / effChars).ceil())),
+                );
+          // 兜底总时长上限 5s，避免卡死 UI；超出后强制 release。
+          final fallbackDeadline = DateTime.now().add(
+            const Duration(seconds: 5),
+          );
+          while (DateTime.now().isBefore(fallbackDeadline) &&
+              !_isDisposed &&
+              (charThrottle.hasPending ||
+                  reasoningCharThrottle.hasPending)) {
+            await Future<void>.delayed(fallbackStep);
+            if (charThrottle.hasPending) renderAssistantBuffered();
+            if (reasoningCharThrottle.hasPending) renderReasoningBuffered();
+          }
+        }
       }
       // 流正常结束：放开字符余量、回放 pending 卡片，确保即便 drain
       // 超时也能把残余字符一次性补到 UI（兜底）。
