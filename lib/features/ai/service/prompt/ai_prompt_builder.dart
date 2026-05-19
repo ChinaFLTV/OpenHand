@@ -1617,7 +1617,18 @@ class AiPromptBuilder {
   }
 
   bool _isWebReverseCdpRuntimeLive(Object? value) {
-    return value is Map && value['browser_alive'] == true;
+    if (value is! Map || value['browser_alive'] != true) return false;
+    bool hasText(Object? raw) => raw is String && raw.trim().isNotEmpty;
+    bool hasPort(Object? raw) {
+      if (raw is num) return raw.toInt() > 0;
+      final parsed = int.tryParse('${raw ?? ''}'.trim());
+      return parsed != null && parsed > 0;
+    }
+
+    return hasPort(value['cdp_port']) ||
+        hasText(value['cdp_http_endpoint']) ||
+        hasText(value['json_version_url']) ||
+        hasText(value['json_list_url']);
   }
 
   void _disambiguateWebReverseConfigPort(

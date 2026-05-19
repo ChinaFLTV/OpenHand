@@ -351,6 +351,57 @@ void main() {
       expect(availability, contains('runtime_liveness_blocker'));
     },
   );
+
+  test(
+    'requires a current CDP endpoint or port before marking runtime live',
+    () {
+      final now = DateTime.utc(2026, 5, 19);
+      final latestUserMessage = AiSessionMessage.user(
+        id: 'user-1',
+        content: 'Continue reversing https://example.test',
+        createdAt: now,
+      );
+      final session = _webReverseSession(
+        now: now,
+        latestUserMessage: latestUserMessage,
+        metadata: const <String, Object?>{
+          'web_reverse_config': <String, Object?>{
+            'target_url': 'https://example.test',
+            'cdp_port': 9222,
+          },
+          'web_reverse_cdp_runtime': <String, Object?>{'browser_alive': true},
+        },
+      );
+      final cdpTool = _mcpTool(
+        catalogName: 'mcp__chrome_devtools__navigate_page',
+        toolName: 'navigate_page',
+        description: 'Navigate a Chrome DevTools Protocol page target.',
+      );
+
+      final result = _buildWebReversePrompt(
+        session,
+        latestUserMessage,
+        availableTools: <AiToolDefinition>[cdpTool.definition],
+        resolvedToolsByName: <String, AiResolvedTool>{cdpTool.name: cdpTool},
+      );
+
+      final runtimeMap =
+          result.metadata['web_reverse_runtime']! as Map<String, Object?>;
+      final availability =
+          runtimeMap['cdp_mcp_tool_availability']! as Map<String, Object?>;
+      expect(availability['current_turn_callable'], true);
+      expect(availability['browser_runtime_live'], false);
+      expect(availability['live_cdp_actions_current_turn_callable'], false);
+      expect(
+        runtimeMap['fallback_policy'],
+        contains('current CDP endpoint/port'),
+      );
+      expect(
+        runtimeMap['cdp_runtime_warning'],
+        contains('does not confirm browser_alive=true'),
+      );
+    },
+  );
 }
 
 const _templateBundle = AiPromptTemplateBundle(
