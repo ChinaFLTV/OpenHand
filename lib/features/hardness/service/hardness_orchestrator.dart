@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../ai/index.dart';
 import '../model/hardness_phase.dart';
@@ -2186,7 +2187,7 @@ class HardnessOrchestrator extends ChangeNotifier {
     final quotedWd = _shellSingleQuote(workingDirectory);
     final fullCmd = 'cd $quotedWd && $cmdStr';
 
-    final process = await Process.start(
+    final process = await startTrackedProcess(
       resolveHardnessCliShellExecutable(),
       buildHardnessCliShellArgs(fullCmd),
     );

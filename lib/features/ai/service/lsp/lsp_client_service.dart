@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
+import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
 import '../../model/ai_lsp_language_settings.dart';
@@ -1010,7 +1011,7 @@ class AiLspClientService {
     Process? process;
     var timedOut = false;
     try {
-      process = await Process.start(
+      process = await startTrackedProcess(
         Platform.isWindows ? 'where' : 'which',
         <String>[executable],
       );
@@ -1776,7 +1777,7 @@ class _AiLspSession {
         environment['GOROOT'] = sdkPath;
       }
     }
-    _process = await Process.start(
+    _process = await startTrackedProcess(
       backend.executablePath!,
       backend.arguments,
       workingDirectory: backend.rootPath,

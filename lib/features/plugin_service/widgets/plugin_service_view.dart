@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/safe_subprocess.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
@@ -1593,7 +1594,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     _addLog('> npm ${args.join(' ')}');
     _addLog('');
     try {
-      final process = await Process.start('npm', args);
+      final process = await startTrackedProcess('npm', args);
       process.stdout.transform(const SystemEncoding().decoder).listen((data) {
         for (final line in data.split('\n')) {
           if (line.trim().isNotEmpty) _addLog(line);

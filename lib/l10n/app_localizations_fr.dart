@@ -7477,4 +7477,47 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get webReverseGeoApply => 'Appliquer les surcharges';
+
+  @override
+  String get webReverseCollectionExportNothing => 'Rien à exporter';
+
+  @override
+  String get webReverseCollectionExportTitle => 'Exporter la collection API';
+
+  @override
+  String get webReverseCollectionExportSubtitle =>
+      'Postman / Insomnia / Bruno / cURL / HAR — copier dans le presse-papiers';
+
+  @override
+  String get webReverseCollectionExportName => 'Nom de la collection';
+
+  @override
+  String get webReverseCollectionExportUrlFilter => 'Filtre URL';
+
+  @override
+  String get webReverseCollectionExportXhrOnly => 'XHR/Fetch uniquement';
+
+  @override
+  String get webReverseCollectionExportPreview2 =>
+      'Aperçu : 2 premières entrées';
+
+  @override
+  String get webReverseCollectionExportClose => 'Fermer';
+
+  @override
+  String get webReverseCollectionExportCopyAction => 'Copier la collection';
+
+  @override
+  String get webReverseCollectionExportNoMatch =>
+      '// Aucune requête correspondante.\n// Ajuster le filtre ou désactiver « XHR/Fetch uniquement ».';
+
+  @override
+  String webReverseCollectionExportCopied(int count) {
+    return '$count requêtes copiées dans le presse-papiers';
+  }
+
+  @override
+  String webReverseCollectionExportMatchCount(int match, int total) {
+    return '$match correspondance · $total au total';
+  }
 }

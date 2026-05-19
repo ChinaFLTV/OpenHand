@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../../app/support/openhand_paths.dart';
+import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../model/ai_deny_command_rule.dart';
@@ -1191,7 +1192,7 @@ class AiBashToolService {
 
   Future<Process> _startProcess(AiSandboxLaunchSpec launchSpec) {
     if (Platform.isWindows) {
-      return Process.start(
+      return startTrackedProcess(
         launchSpec.executable,
         launchSpec.arguments,
         workingDirectory: launchSpec.workingDirectory,
@@ -1238,7 +1239,7 @@ class AiBashToolService {
   }) async {
     final setsidPath = await _resolveSetsidPath();
     if (setsidPath != null) {
-      final process = await Process.start(
+      final process = await startTrackedProcess(
         setsidPath,
         <String>[executable, ...arguments],
         workingDirectory: workingDirectory,
@@ -1251,7 +1252,7 @@ class AiBashToolService {
           .ignore();
       return process;
     }
-    return Process.start(
+    return startTrackedProcess(
       executable,
       arguments,
       workingDirectory: workingDirectory,
@@ -1314,7 +1315,7 @@ class AiBashToolService {
         ? null
         : <String, String>{...Platform.environment, ...proxyEnv};
     final process = Platform.isWindows
-        ? await Process.start(
+        ? await startTrackedProcess(
             shellExecutable,
             shellArgs,
             workingDirectory: initialWorkingDirectory,

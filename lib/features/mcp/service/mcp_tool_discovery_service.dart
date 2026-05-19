@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
@@ -537,7 +538,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<_StdioSession> _initializeStdioSession(McpServer server) async {
     final resolved = await _resolveStdioLaunch(server);
     final session = _StdioSession(
-      process: await Process.start(
+      process: await startTrackedProcess(
         resolved.executable,
         resolved.args,
         environment: resolved.environment,
@@ -1721,7 +1722,7 @@ Future<String> _probeLoginShellPath() {
       for (final candidate in fallbackShells) {
         if (!File(candidate).existsSync()) continue;
         try {
-          final proc = await Process.start(candidate, const [
+          final proc = await startTrackedProcess(candidate, const [
             '-ilc',
             'printf %s "\$PATH"',
           ]);

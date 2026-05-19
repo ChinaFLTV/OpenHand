@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -38,6 +39,7 @@ class _CollectionExportDialog extends StatefulWidget {
     required this.isZh,
   });
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_CollectionExportDialog> createState() =>
@@ -306,6 +308,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
   String _escSingle(String s) => s.replaceAll("'", r"'\''");
 
   Future<void> _copy() async {
+    final loc = AppLocalizations.of(context);
     final entries = _selected();
     if (entries.isEmpty) {
       final m = ScaffoldMessenger.maybeOf(context);
@@ -313,7 +316,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
         OpenHandSnackBar.showErrorOn(
           context,
           m,
-          widget.isZh ? '没有可导出的请求' : 'Nothing to export',
+          loc?.webReverseCollectionExportNothing ?? 'Nothing to export',
         );
       }
       return;
@@ -321,14 +324,14 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
     try {
       final out = _buildOutput(entries);
       await Clipboard.setData(ClipboardData(text: out));
+      if (!mounted) return;
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
         OpenHandSnackBar.showSuccessOn(
           context,
           m,
-          widget.isZh
-              ? '已复制 ${entries.length} 条请求到剪贴板'
-              : 'Copied ${entries.length} requests to clipboard',
+          loc?.webReverseCollectionExportCopied(entries.length) ??
+              'Copied ${entries.length} requests to clipboard',
         );
       }
     } catch (e, st) {
@@ -340,12 +343,11 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final entries = _selected();
     final preview = entries.isEmpty
-        ? (isZh
-            ? '// 没有匹配的请求。\n// 调整过滤条件或取消「仅 XHR/Fetch」。'
-            : '// No matching requests.\n// Adjust the filter or turn off "XHR/Fetch only".')
+        ? (loc?.webReverseCollectionExportNoMatch ??
+            '// No matching requests.\n// Adjust the filter or turn off "XHR/Fetch only".')
         : _buildOutput(entries.take(2).toList());
 
     return Dialog(
@@ -367,14 +369,14 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'API 集合导出' : 'Export Collection',
+                          loc?.webReverseCollectionExportTitle ??
+                              'Export Collection',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'Postman / Insomnia / Bruno / cURL / HAR  —— 一键复制'
-                              : 'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard',
+                          loc?.webReverseCollectionExportSubtitle ??
+                              'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -413,7 +415,8 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                     child: TextField(
                       controller: _nameCtrl,
                       decoration: InputDecoration(
-                        labelText: isZh ? '集合名称' : 'Collection name',
+                        labelText: loc?.webReverseCollectionExportName ??
+                            'Collection name',
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -425,7 +428,8 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                       controller: _filterCtrl,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        labelText: isZh ? 'URL 子串过滤' : 'URL filter',
+                        labelText: loc?.webReverseCollectionExportUrlFilter ??
+                            'URL filter',
                         prefixIcon:
                             const Icon(Icons.filter_alt_rounded, size: 18),
                         border: const OutlineInputBorder(),
@@ -435,7 +439,8 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
-                    label: Text(isZh ? '仅 XHR/Fetch' : 'XHR/Fetch only'),
+                    label: Text(loc?.webReverseCollectionExportXhrOnly ??
+                        'XHR/Fetch only'),
                     selected: _xhrOnly,
                     onSelected: (v) => setState(() => _xhrOnly = v),
                   ),
@@ -447,15 +452,18 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
               child: Row(
                 children: [
                   Text(
-                    isZh
-                        ? '匹配 ${entries.length} 条 · 共 ${widget.controller.networkRequests.length}'
-                        : '${entries.length} match · ${widget.controller.networkRequests.length} total',
+                    loc?.webReverseCollectionExportMatchCount(
+                          entries.length,
+                          widget.controller.networkRequests.length,
+                        ) ??
+                        '${entries.length} match · ${widget.controller.networkRequests.length} total',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const Spacer(),
                   Text(
-                    isZh ? '下方为前两条预览' : 'Preview: first 2 entries',
+                    loc?.webReverseCollectionExportPreview2 ??
+                        'Preview: first 2 entries',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
@@ -490,12 +498,13 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseCollectionExportClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(
-                    label: isZh ? '复制集合' : 'Copy collection',
+                    label: loc?.webReverseCollectionExportCopyAction ??
+                        'Copy collection',
                     onPressed: entries.isEmpty ? null : _copy,
                   ),
                 ],

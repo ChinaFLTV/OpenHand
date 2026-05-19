@@ -7442,4 +7442,46 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get webReverseGeoApply => 'Overrides anwenden';
+
+  @override
+  String get webReverseCollectionExportNothing => 'Nichts zu exportieren';
+
+  @override
+  String get webReverseCollectionExportTitle => 'API-Sammlung exportieren';
+
+  @override
+  String get webReverseCollectionExportSubtitle =>
+      'Postman / Insomnia / Bruno / cURL / HAR — in die Zwischenablage kopieren';
+
+  @override
+  String get webReverseCollectionExportName => 'Sammlungsname';
+
+  @override
+  String get webReverseCollectionExportUrlFilter => 'URL-Filter';
+
+  @override
+  String get webReverseCollectionExportXhrOnly => 'Nur XHR/Fetch';
+
+  @override
+  String get webReverseCollectionExportPreview2 => 'Vorschau: erste 2 Einträge';
+
+  @override
+  String get webReverseCollectionExportClose => 'Schließen';
+
+  @override
+  String get webReverseCollectionExportCopyAction => 'Sammlung kopieren';
+
+  @override
+  String get webReverseCollectionExportNoMatch =>
+      '// Keine passenden Requests.\n// Filter anpassen oder „Nur XHR/Fetch\" deaktivieren.';
+
+  @override
+  String webReverseCollectionExportCopied(int count) {
+    return '$count Requests in Zwischenablage kopiert';
+  }
+
+  @override
+  String webReverseCollectionExportMatchCount(int match, int total) {
+    return '$match Treffer · $total insgesamt';
+  }
 }

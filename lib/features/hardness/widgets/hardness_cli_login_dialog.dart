@@ -266,7 +266,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
         final terminals = ['gnome-terminal', 'xterm', 'konsole'];
         for (final term in terminals) {
           try {
-            await Process.start(term, [
+            await startTrackedProcess(term, [
               '--',
               'bash',
               '-c',
@@ -278,7 +278,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
           }
         }
       } else if (Platform.isWindows) {
-        await Process.start('cmd', [
+        await startTrackedProcess('cmd', [
           '/c',
           'start',
           'cmd',

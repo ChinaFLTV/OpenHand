@@ -7177,4 +7177,46 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseGeoApply => 'オーバーライド適用';
+
+  @override
+  String get webReverseCollectionExportNothing => 'エクスポート対象なし';
+
+  @override
+  String get webReverseCollectionExportTitle => 'APIコレクション エクスポート';
+
+  @override
+  String get webReverseCollectionExportSubtitle =>
+      'Postman / Insomnia / Bruno / cURL / HAR — クリップボードへコピー';
+
+  @override
+  String get webReverseCollectionExportName => 'コレクション名';
+
+  @override
+  String get webReverseCollectionExportUrlFilter => 'URLフィルター';
+
+  @override
+  String get webReverseCollectionExportXhrOnly => 'XHR/Fetchのみ';
+
+  @override
+  String get webReverseCollectionExportPreview2 => 'プレビュー: 先頭2件';
+
+  @override
+  String get webReverseCollectionExportClose => '閉じる';
+
+  @override
+  String get webReverseCollectionExportCopyAction => 'コレクションをコピー';
+
+  @override
+  String get webReverseCollectionExportNoMatch =>
+      '// 一致するリクエストがありません。\n// フィルターを調整するか「XHR/Fetchのみ」を解除してください。';
+
+  @override
+  String webReverseCollectionExportCopied(int count) {
+    return '$count件のリクエストをクリップボードへコピー';
+  }
+
+  @override
+  String webReverseCollectionExportMatchCount(int match, int total) {
+    return '$match件一致 · 合計 $total';
+  }
 }

@@ -13078,6 +13078,78 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'应用覆盖'**
   String get webReverseGeoApply;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有可导出的请求'**
+  String get webReverseCollectionExportNothing;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'API 集合导出'**
+  String get webReverseCollectionExportTitle;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Postman / Insomnia / Bruno / cURL / HAR  —— 一键复制'**
+  String get webReverseCollectionExportSubtitle;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集合名称'**
+  String get webReverseCollectionExportName;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL 子串过滤'**
+  String get webReverseCollectionExportUrlFilter;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'仅 XHR/Fetch'**
+  String get webReverseCollectionExportXhrOnly;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'下方为前两条预览'**
+  String get webReverseCollectionExportPreview2;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseCollectionExportClose;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制集合'**
+  String get webReverseCollectionExportCopyAction;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'// 没有匹配的请求。\n// 调整过滤条件或取消「仅 XHR/Fetch」。'**
+  String get webReverseCollectionExportNoMatch;
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 {count} 条请求到剪贴板'**
+  String webReverseCollectionExportCopied(int count);
+
+  /// web_reverse: Collection export dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'匹配 {match} 条 · 共 {total}'**
+  String webReverseCollectionExportMatchCount(int match, int total);
 }
 
 class _AppLocalizationsDelegate

@@ -5104,5 +5104,66 @@
   "webReverseGeoApply": "Appliquer les surcharges",
   "@webReverseGeoApply": {
     "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseCollectionExportNothing": "Rien à exporter",
+  "@webReverseCollectionExportNothing": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportTitle": "Exporter la collection API",
+  "@webReverseCollectionExportTitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportSubtitle": "Postman / Insomnia / Bruno / cURL / HAR — copier dans le presse-papiers",
+  "@webReverseCollectionExportSubtitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportName": "Nom de la collection",
+  "@webReverseCollectionExportName": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportUrlFilter": "Filtre URL",
+  "@webReverseCollectionExportUrlFilter": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportXhrOnly": "XHR/Fetch uniquement",
+  "@webReverseCollectionExportXhrOnly": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportPreview2": "Aperçu : 2 premières entrées",
+  "@webReverseCollectionExportPreview2": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportClose": "Fermer",
+  "@webReverseCollectionExportClose": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopyAction": "Copier la collection",
+  "@webReverseCollectionExportCopyAction": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportNoMatch": "// Aucune requête correspondante.\n// Ajuster le filtre ou désactiver « XHR/Fetch uniquement ».",
+  "@webReverseCollectionExportNoMatch": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopied": "{count} requêtes copiées dans le presse-papiers",
+  "@webReverseCollectionExportCopied": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCollectionExportMatchCount": "{match} correspondance · {total} au total",
+  "@webReverseCollectionExportMatchCount": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "match": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

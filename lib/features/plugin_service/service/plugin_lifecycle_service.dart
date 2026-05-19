@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../../../app/support/safe_subprocess.dart';
+
 /// 插件生命周期操作结果。
 class PluginOperationResult {
   const PluginOperationResult({
@@ -545,7 +547,7 @@ export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
     Duration timeout = const Duration(minutes: 3),
   }) async {
     try {
-      final process = await Process.start(executable, arguments);
+      final process = await startTrackedProcess(executable, arguments);
       final stdoutLines = <String>[];
       final stderrLines = <String>[];
       process.stdout.transform(const SystemEncoding().decoder).listen((data) {

@@ -7080,6 +7080,48 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseGeoApply => '应用覆盖';
+
+  @override
+  String get webReverseCollectionExportNothing => '没有可导出的请求';
+
+  @override
+  String get webReverseCollectionExportTitle => 'API 集合导出';
+
+  @override
+  String get webReverseCollectionExportSubtitle =>
+      'Postman / Insomnia / Bruno / cURL / HAR  —— 一键复制';
+
+  @override
+  String get webReverseCollectionExportName => '集合名称';
+
+  @override
+  String get webReverseCollectionExportUrlFilter => 'URL 子串过滤';
+
+  @override
+  String get webReverseCollectionExportXhrOnly => '仅 XHR/Fetch';
+
+  @override
+  String get webReverseCollectionExportPreview2 => '下方为前两条预览';
+
+  @override
+  String get webReverseCollectionExportClose => '关闭';
+
+  @override
+  String get webReverseCollectionExportCopyAction => '复制集合';
+
+  @override
+  String get webReverseCollectionExportNoMatch =>
+      '// 没有匹配的请求。\n// 调整过滤条件或取消「仅 XHR/Fetch」。';
+
+  @override
+  String webReverseCollectionExportCopied(int count) {
+    return '已复制 $count 条请求到剪贴板';
+  }
+
+  @override
+  String webReverseCollectionExportMatchCount(int match, int total) {
+    return '匹配 $match 条 · 共 $total';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14158,6 +14200,48 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseGeoApply => '应用覆盖';
+
+  @override
+  String get webReverseCollectionExportNothing => '没有可导出的请求';
+
+  @override
+  String get webReverseCollectionExportTitle => 'API 集合导出';
+
+  @override
+  String get webReverseCollectionExportSubtitle =>
+      'Postman / Insomnia / Bruno / cURL / HAR  —— 一键复制';
+
+  @override
+  String get webReverseCollectionExportName => '集合名称';
+
+  @override
+  String get webReverseCollectionExportUrlFilter => 'URL 子串过滤';
+
+  @override
+  String get webReverseCollectionExportXhrOnly => '仅 XHR/Fetch';
+
+  @override
+  String get webReverseCollectionExportPreview2 => '下方为前两条预览';
+
+  @override
+  String get webReverseCollectionExportClose => '关闭';
+
+  @override
+  String get webReverseCollectionExportCopyAction => '复制集合';
+
+  @override
+  String get webReverseCollectionExportNoMatch =>
+      '// 没有匹配的请求。\n// 调整过滤条件或取消「仅 XHR/Fetch」。';
+
+  @override
+  String webReverseCollectionExportCopied(int count) {
+    return '已复制 $count 条请求到剪贴板';
+  }
+
+  @override
+  String webReverseCollectionExportMatchCount(int match, int total) {
+    return '匹配 $match 条 · 共 $total';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21235,4 +21319,46 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseGeoApply => '应用覆盖';
+
+  @override
+  String get webReverseCollectionExportNothing => '没有可导出的请求';
+
+  @override
+  String get webReverseCollectionExportTitle => 'API 集合导出';
+
+  @override
+  String get webReverseCollectionExportSubtitle =>
+      'Postman / Insomnia / Bruno / cURL / HAR  —— 一键复制';
+
+  @override
+  String get webReverseCollectionExportName => '集合名称';
+
+  @override
+  String get webReverseCollectionExportUrlFilter => 'URL 子串过滤';
+
+  @override
+  String get webReverseCollectionExportXhrOnly => '仅 XHR/Fetch';
+
+  @override
+  String get webReverseCollectionExportPreview2 => '下方为前两条预览';
+
+  @override
+  String get webReverseCollectionExportClose => '关闭';
+
+  @override
+  String get webReverseCollectionExportCopyAction => '复制集合';
+
+  @override
+  String get webReverseCollectionExportNoMatch =>
+      '// 没有匹配的请求。\n// 调整过滤条件或取消「仅 XHR/Fetch」。';
+
+  @override
+  String webReverseCollectionExportCopied(int count) {
+    return '已复制 $count 条请求到剪贴板';
+  }
+
+  @override
+  String webReverseCollectionExportMatchCount(int match, int total) {
+    return '匹配 $match 条 · 共 $total';
+  }
 }

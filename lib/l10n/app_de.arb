@@ -5104,5 +5104,66 @@
   "webReverseGeoApply": "Overrides anwenden",
   "@webReverseGeoApply": {
     "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseCollectionExportNothing": "Nichts zu exportieren",
+  "@webReverseCollectionExportNothing": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportTitle": "API-Sammlung exportieren",
+  "@webReverseCollectionExportTitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportSubtitle": "Postman / Insomnia / Bruno / cURL / HAR — in die Zwischenablage kopieren",
+  "@webReverseCollectionExportSubtitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportName": "Sammlungsname",
+  "@webReverseCollectionExportName": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportUrlFilter": "URL-Filter",
+  "@webReverseCollectionExportUrlFilter": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportXhrOnly": "Nur XHR/Fetch",
+  "@webReverseCollectionExportXhrOnly": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportPreview2": "Vorschau: erste 2 Einträge",
+  "@webReverseCollectionExportPreview2": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportClose": "Schließen",
+  "@webReverseCollectionExportClose": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopyAction": "Sammlung kopieren",
+  "@webReverseCollectionExportCopyAction": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportNoMatch": "// Keine passenden Requests.\n// Filter anpassen oder „Nur XHR/Fetch\" deaktivieren.",
+  "@webReverseCollectionExportNoMatch": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopied": "{count} Requests in Zwischenablage kopiert",
+  "@webReverseCollectionExportCopied": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCollectionExportMatchCount": "{match} Treffer · {total} insgesamt",
+  "@webReverseCollectionExportMatchCount": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "match": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

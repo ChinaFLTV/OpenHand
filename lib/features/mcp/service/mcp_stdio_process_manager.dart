@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../app/support/safe_subprocess.dart';
 import '../model/mcp_server.dart';
 import 'mcp_tool_discovery_service.dart';
 
@@ -105,7 +106,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       // 解析实际的可执行文件和参数。对于 npx 命令，尝试直接定位已安装包的
       // 入口脚本用 node 执行，避免 npx 的启动开销和 stdin 转发问题。
       final launch = await _resolveDirectLaunch(server);
-      final process = await Process.start(launch.executable, launch.args);
+      final process = await startTrackedProcess(launch.executable, launch.args);
 
       final logs = <String>[];
       logs.add('[${_timestamp()}] 进程已启动 (PID: ${process.pid})');

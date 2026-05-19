@@ -168,11 +168,11 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
   /// On Windows: runs directly with runInShell=true.
   Future<Process> _spawnProcess(List<String> cmd) async {
     if (Platform.isWindows) {
-      return Process.start(cmd[0], cmd.sublist(1), runInShell: true);
+      return startTrackedProcess(cmd[0], cmd.sublist(1), runInShell: true);
     }
     // Single-quote each arg to prevent word splitting.
     final cmdStr = cmd.map(_shellQuote).join(' ');
-    return Process.start(
+    return startTrackedProcess(
       resolveHardnessCliShellExecutable(),
       buildHardnessCliShellArgs(cmdStr),
     );

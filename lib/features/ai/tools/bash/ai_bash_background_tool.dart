@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../model/ai_deny_command_rule.dart';
@@ -143,7 +144,7 @@ class AiBashBackgroundTool extends AiTool {
     final startedAt = Stopwatch()..start();
     final Process process;
     try {
-      process = await Process.start(
+      process = await startTrackedProcess(
         launchSpec.executable,
         launchSpec.arguments,
         workingDirectory: launchSpec.workingDirectory,

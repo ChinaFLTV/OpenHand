@@ -7374,4 +7374,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webReverseGeoApply => 'Apply Overrides';
+
+  @override
+  String get webReverseCollectionExportNothing => 'Nothing to export';
+
+  @override
+  String get webReverseCollectionExportTitle => 'Export Collection';
+
+  @override
+  String get webReverseCollectionExportSubtitle =>
+      'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard';
+
+  @override
+  String get webReverseCollectionExportName => 'Collection name';
+
+  @override
+  String get webReverseCollectionExportUrlFilter => 'URL filter';
+
+  @override
+  String get webReverseCollectionExportXhrOnly => 'XHR/Fetch only';
+
+  @override
+  String get webReverseCollectionExportPreview2 => 'Preview: first 2 entries';
+
+  @override
+  String get webReverseCollectionExportClose => 'Close';
+
+  @override
+  String get webReverseCollectionExportCopyAction => 'Copy collection';
+
+  @override
+  String get webReverseCollectionExportNoMatch =>
+      '// No matching requests.\n// Adjust the filter or turn off \"XHR/Fetch only\".';
+
+  @override
+  String webReverseCollectionExportCopied(int count) {
+    return 'Copied $count requests to clipboard';
+  }
+
+  @override
+  String webReverseCollectionExportMatchCount(int match, int total) {
+    return '$match match · $total total';
+  }
 }

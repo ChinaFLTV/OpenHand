@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../app/support/safe_subprocess.dart';
 import '../../model/ai_session_runtime_context.dart';
 
 typedef AiProcessRunner =
@@ -240,7 +241,7 @@ class AiGitSnapshotService {
     List<String> arguments,
     Duration timeout,
   ) async {
-    final process = await Process.start(
+    final process = await startTrackedProcess(
       'git',
       arguments,
       workingDirectory: workingDirectory,

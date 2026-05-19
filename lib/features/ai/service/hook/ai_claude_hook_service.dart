@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
+import '../../../../app/support/safe_subprocess.dart';
 
 const String aiHookSystemRemindersMetadataKey = 'hook_system_reminders';
 const String aiUserPromptHookFeedbackMetadataKey =
@@ -192,7 +193,7 @@ class AiClaudeHookService {
     required String workingDirectory,
   }) async {
     final shellCommand = _resolveShellCommand(command);
-    final process = await Process.start(
+    final process = await startTrackedProcess(
       shellCommand.executable,
       shellCommand.arguments,
       workingDirectory: workingDirectory,

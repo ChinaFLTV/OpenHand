@@ -5104,5 +5104,66 @@
   "webReverseGeoApply": "Apply Overrides",
   "@webReverseGeoApply": {
     "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseCollectionExportNothing": "Nothing to export",
+  "@webReverseCollectionExportNothing": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportTitle": "Export Collection",
+  "@webReverseCollectionExportTitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportSubtitle": "Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard",
+  "@webReverseCollectionExportSubtitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportName": "Collection name",
+  "@webReverseCollectionExportName": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportUrlFilter": "URL filter",
+  "@webReverseCollectionExportUrlFilter": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportXhrOnly": "XHR/Fetch only",
+  "@webReverseCollectionExportXhrOnly": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportPreview2": "Preview: first 2 entries",
+  "@webReverseCollectionExportPreview2": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportClose": "Close",
+  "@webReverseCollectionExportClose": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopyAction": "Copy collection",
+  "@webReverseCollectionExportCopyAction": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportNoMatch": "// No matching requests.\n// Adjust the filter or turn off \"XHR/Fetch only\".",
+  "@webReverseCollectionExportNoMatch": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopied": "Copied {count} requests to clipboard",
+  "@webReverseCollectionExportCopied": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCollectionExportMatchCount": "{match} match · {total} total",
+  "@webReverseCollectionExportMatchCount": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "match": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

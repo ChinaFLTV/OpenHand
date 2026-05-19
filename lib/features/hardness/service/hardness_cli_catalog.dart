@@ -898,7 +898,7 @@ Future<Process> startHardnessCliInteractiveProcess({
 }) {
   final normalizedWorkingDirectory = workingDirectory?.trim();
   if (Platform.isWindows) {
-    return Process.start(
+    return startTrackedProcess(
       executable,
       args,
       workingDirectory: normalizedWorkingDirectory?.isNotEmpty == true
@@ -921,7 +921,7 @@ Future<Process> startHardnessCliInteractiveProcess({
       'cd ${_q(normalizedWorkingDirectory)}',
     'exec ${formatHardnessCliCommandPreview(executable, args)}',
   ];
-  return Process.start(
+  return startTrackedProcess(
     shell,
     buildHardnessCliShellArgs(shellFragments.join(' && ')),
     environment: <String, String>{

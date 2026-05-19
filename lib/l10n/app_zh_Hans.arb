@@ -5173,5 +5173,66 @@
   "webReverseGeoApply": "应用覆盖",
   "@webReverseGeoApply": {
     "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseCollectionExportNothing": "没有可导出的请求",
+  "@webReverseCollectionExportNothing": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportTitle": "API 集合导出",
+  "@webReverseCollectionExportTitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportSubtitle": "Postman / Insomnia / Bruno / cURL / HAR  —— 一键复制",
+  "@webReverseCollectionExportSubtitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportName": "集合名称",
+  "@webReverseCollectionExportName": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportUrlFilter": "URL 子串过滤",
+  "@webReverseCollectionExportUrlFilter": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportXhrOnly": "仅 XHR/Fetch",
+  "@webReverseCollectionExportXhrOnly": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportPreview2": "下方为前两条预览",
+  "@webReverseCollectionExportPreview2": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportClose": "关闭",
+  "@webReverseCollectionExportClose": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopyAction": "复制集合",
+  "@webReverseCollectionExportCopyAction": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportNoMatch": "// 没有匹配的请求。\n// 调整过滤条件或取消「仅 XHR/Fetch」。",
+  "@webReverseCollectionExportNoMatch": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopied": "已复制 {count} 条请求到剪贴板",
+  "@webReverseCollectionExportCopied": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCollectionExportMatchCount": "匹配 {match} 条 · 共 {total}",
+  "@webReverseCollectionExportMatchCount": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "match": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

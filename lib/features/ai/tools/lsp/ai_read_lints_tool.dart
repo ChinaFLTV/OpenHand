@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_execution_registry.dart';
@@ -102,7 +103,7 @@ class AiReadLintsTool extends AiTool {
     Process? process;
     var timedOut = false;
     try {
-      process = await Process.start(
+      process = await startTrackedProcess(
         executable,
         analyzeArgs,
         workingDirectory: workingDirectory,

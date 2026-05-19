@@ -5104,5 +5104,66 @@
   "webReverseGeoApply": "オーバーライド適用",
   "@webReverseGeoApply": {
     "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseCollectionExportNothing": "エクスポート対象なし",
+  "@webReverseCollectionExportNothing": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportTitle": "APIコレクション エクスポート",
+  "@webReverseCollectionExportTitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportSubtitle": "Postman / Insomnia / Bruno / cURL / HAR — クリップボードへコピー",
+  "@webReverseCollectionExportSubtitle": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportName": "コレクション名",
+  "@webReverseCollectionExportName": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportUrlFilter": "URLフィルター",
+  "@webReverseCollectionExportUrlFilter": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportXhrOnly": "XHR/Fetchのみ",
+  "@webReverseCollectionExportXhrOnly": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportPreview2": "プレビュー: 先頭2件",
+  "@webReverseCollectionExportPreview2": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportClose": "閉じる",
+  "@webReverseCollectionExportClose": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopyAction": "コレクションをコピー",
+  "@webReverseCollectionExportCopyAction": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportNoMatch": "// 一致するリクエストがありません。\n// フィルターを調整するか「XHR/Fetchのみ」を解除してください。",
+  "@webReverseCollectionExportNoMatch": {
+    "description": "web_reverse: Collection export dialog"
+  },
+  "webReverseCollectionExportCopied": "{count}件のリクエストをクリップボードへコピー",
+  "@webReverseCollectionExportCopied": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCollectionExportMatchCount": "{match}件一致 · 合計 {total}",
+  "@webReverseCollectionExportMatchCount": {
+    "description": "web_reverse: Collection export dialog",
+    "placeholders": {
+      "match": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }
