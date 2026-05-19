@@ -7776,4 +7776,33 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseDomSearchHitCount(int total, int shown) {
     return '$total correspondances, $shown affichées';
   }
+
+  @override
+  String get webReverseFrameTreeTitle => 'Arborescence des frames';
+
+  @override
+  String get webReverseFrameTreeSubtitle =>
+      'Page.getFrameTree · principal + iframes imbriqués';
+
+  @override
+  String get webReverseFrameTreeRefresh => 'Actualiser';
+
+  @override
+  String get webReverseFrameTreeCopyJson => 'Copier JSON';
+
+  @override
+  String get webReverseFrameTreeCopied => 'Copié';
+
+  @override
+  String get webReverseFrameTreeEmpty => 'Aucun frame';
+
+  @override
+  String webReverseFrameTreeFailed(String error) {
+    return 'Échec : $error';
+  }
+
+  @override
+  String webReverseFrameTreeCount(int count) {
+    return '$count frames';
+  }
 }

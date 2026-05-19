@@ -5533,5 +5533,47 @@
         "type": "int"
       }
     }
+  },
+  "webReverseFrameTreeTitle": "Arborescence des frames",
+  "@webReverseFrameTreeTitle": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeSubtitle": "Page.getFrameTree · principal + iframes imbriqués",
+  "@webReverseFrameTreeSubtitle": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeRefresh": "Actualiser",
+  "@webReverseFrameTreeRefresh": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeCopyJson": "Copier JSON",
+  "@webReverseFrameTreeCopyJson": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeCopied": "Copié",
+  "@webReverseFrameTreeCopied": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeEmpty": "Aucun frame",
+  "@webReverseFrameTreeEmpty": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeFailed": "Échec : {error}",
+  "@webReverseFrameTreeFailed": {
+    "description": "web_reverse: frame tree dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseFrameTreeCount": "{count} frames",
+  "@webReverseFrameTreeCount": {
+    "description": "web_reverse: frame tree dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

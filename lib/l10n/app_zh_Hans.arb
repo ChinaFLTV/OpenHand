@@ -5602,5 +5602,47 @@
         "type": "int"
       }
     }
+  },
+  "webReverseFrameTreeTitle": "Frame 树查看器",
+  "@webReverseFrameTreeTitle": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeSubtitle": "Page.getFrameTree · 主框架 + 所有 iframe 递归",
+  "@webReverseFrameTreeSubtitle": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeRefresh": "刷新",
+  "@webReverseFrameTreeRefresh": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeCopyJson": "复制 JSON",
+  "@webReverseFrameTreeCopyJson": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeCopied": "已复制",
+  "@webReverseFrameTreeCopied": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeEmpty": "当前页面无 frame",
+  "@webReverseFrameTreeEmpty": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeFailed": "获取失败: {error}",
+  "@webReverseFrameTreeFailed": {
+    "description": "web_reverse: frame tree dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseFrameTreeCount": "共 {count} 帧",
+  "@webReverseFrameTreeCount": {
+    "description": "web_reverse: frame tree dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -7471,4 +7471,33 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseDomSearchHitCount(int total, int shown) {
     return '$total 件ヒット、上位 $shown 件を表示';
   }
+
+  @override
+  String get webReverseFrameTreeTitle => 'フレームツリー';
+
+  @override
+  String get webReverseFrameTreeSubtitle =>
+      'Page.getFrameTree · メイン + ネスト iframe';
+
+  @override
+  String get webReverseFrameTreeRefresh => '更新';
+
+  @override
+  String get webReverseFrameTreeCopyJson => 'JSON をコピー';
+
+  @override
+  String get webReverseFrameTreeCopied => 'コピーしました';
+
+  @override
+  String get webReverseFrameTreeEmpty => '現在のページにフレームがありません';
+
+  @override
+  String webReverseFrameTreeFailed(String error) {
+    return '取得に失敗: $error';
+  }
+
+  @override
+  String webReverseFrameTreeCount(int count) {
+    return '$count フレーム';
+  }
 }

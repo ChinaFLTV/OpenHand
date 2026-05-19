@@ -13576,6 +13576,54 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'命中 {total} 个，展示前 {shown} 条'**
   String webReverseDomSearchHitCount(int total, int shown);
+
+  /// web_reverse: frame tree dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Frame 树查看器'**
+  String get webReverseFrameTreeTitle;
+
+  /// web_reverse: frame tree dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Page.getFrameTree · 主框架 + 所有 iframe 递归'**
+  String get webReverseFrameTreeSubtitle;
+
+  /// web_reverse: frame tree dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get webReverseFrameTreeRefresh;
+
+  /// web_reverse: frame tree dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get webReverseFrameTreeCopyJson;
+
+  /// web_reverse: frame tree dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制'**
+  String get webReverseFrameTreeCopied;
+
+  /// web_reverse: frame tree dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前页面无 frame'**
+  String get webReverseFrameTreeEmpty;
+
+  /// web_reverse: frame tree dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'获取失败: {error}'**
+  String webReverseFrameTreeFailed(String error);
+
+  /// web_reverse: frame tree dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'共 {count} 帧'**
+  String webReverseFrameTreeCount(int count);
 }
 
 class _AppLocalizationsDelegate

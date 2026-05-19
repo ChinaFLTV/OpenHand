@@ -7372,6 +7372,35 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseDomSearchHitCount(int total, int shown) {
     return '命中 $total 个，展示前 $shown 条';
   }
+
+  @override
+  String get webReverseFrameTreeTitle => 'Frame 树查看器';
+
+  @override
+  String get webReverseFrameTreeSubtitle =>
+      'Page.getFrameTree · 主框架 + 所有 iframe 递归';
+
+  @override
+  String get webReverseFrameTreeRefresh => '刷新';
+
+  @override
+  String get webReverseFrameTreeCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseFrameTreeCopied => '已复制';
+
+  @override
+  String get webReverseFrameTreeEmpty => '当前页面无 frame';
+
+  @override
+  String webReverseFrameTreeFailed(String error) {
+    return '获取失败: $error';
+  }
+
+  @override
+  String webReverseFrameTreeCount(int count) {
+    return '共 $count 帧';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14742,6 +14771,35 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseDomSearchHitCount(int total, int shown) {
     return '命中 $total 个，展示前 $shown 条';
   }
+
+  @override
+  String get webReverseFrameTreeTitle => 'Frame 树查看器';
+
+  @override
+  String get webReverseFrameTreeSubtitle =>
+      'Page.getFrameTree · 主框架 + 所有 iframe 递归';
+
+  @override
+  String get webReverseFrameTreeRefresh => '刷新';
+
+  @override
+  String get webReverseFrameTreeCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseFrameTreeCopied => '已复制';
+
+  @override
+  String get webReverseFrameTreeEmpty => '当前页面无 frame';
+
+  @override
+  String webReverseFrameTreeFailed(String error) {
+    return '获取失败: $error';
+  }
+
+  @override
+  String webReverseFrameTreeCount(int count) {
+    return '共 $count 帧';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -22110,5 +22168,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseDomSearchHitCount(int total, int shown) {
     return '命中 $total 个，展示前 $shown 条';
+  }
+
+  @override
+  String get webReverseFrameTreeTitle => 'Frame 树查看器';
+
+  @override
+  String get webReverseFrameTreeSubtitle =>
+      'Page.getFrameTree · 主框架 + 所有 iframe 递归';
+
+  @override
+  String get webReverseFrameTreeRefresh => '刷新';
+
+  @override
+  String get webReverseFrameTreeCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseFrameTreeCopied => '已复制';
+
+  @override
+  String get webReverseFrameTreeEmpty => '当前页面无 frame';
+
+  @override
+  String webReverseFrameTreeFailed(String error) {
+    return '获取失败: $error';
+  }
+
+  @override
+  String webReverseFrameTreeCount(int count) {
+    return '共 $count 帧';
   }
 }

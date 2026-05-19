@@ -7741,4 +7741,33 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseDomSearchHitCount(int total, int shown) {
     return '$total Treffer, oben $shown angezeigt';
   }
+
+  @override
+  String get webReverseFrameTreeTitle => 'Frame-Baum';
+
+  @override
+  String get webReverseFrameTreeSubtitle =>
+      'Page.getFrameTree · Haupt + verschachtelte iframes';
+
+  @override
+  String get webReverseFrameTreeRefresh => 'Aktualisieren';
+
+  @override
+  String get webReverseFrameTreeCopyJson => 'JSON kopieren';
+
+  @override
+  String get webReverseFrameTreeCopied => 'Kopiert';
+
+  @override
+  String get webReverseFrameTreeEmpty => 'Keine Frames';
+
+  @override
+  String webReverseFrameTreeFailed(String error) {
+    return 'Fehlgeschlagen: $error';
+  }
+
+  @override
+  String webReverseFrameTreeCount(int count) {
+    return '$count Frames';
+  }
 }

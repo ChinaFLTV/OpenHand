@@ -5533,5 +5533,47 @@
         "type": "int"
       }
     }
+  },
+  "webReverseFrameTreeTitle": "フレームツリー",
+  "@webReverseFrameTreeTitle": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeSubtitle": "Page.getFrameTree · メイン + ネスト iframe",
+  "@webReverseFrameTreeSubtitle": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeRefresh": "更新",
+  "@webReverseFrameTreeRefresh": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeCopyJson": "JSON をコピー",
+  "@webReverseFrameTreeCopyJson": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeCopied": "コピーしました",
+  "@webReverseFrameTreeCopied": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeEmpty": "現在のページにフレームがありません",
+  "@webReverseFrameTreeEmpty": {
+    "description": "web_reverse: frame tree dialog"
+  },
+  "webReverseFrameTreeFailed": "取得に失敗: {error}",
+  "@webReverseFrameTreeFailed": {
+    "description": "web_reverse: frame tree dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseFrameTreeCount": "{count} フレーム",
+  "@webReverseFrameTreeCount": {
+    "description": "web_reverse: frame tree dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

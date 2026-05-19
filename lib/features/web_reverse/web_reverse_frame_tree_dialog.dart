@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -29,6 +30,7 @@ Future<void> showWebReverseFrameTreeDialog(
 class _FrameTreeDialog extends StatefulWidget {
   const _FrameTreeDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_FrameTreeDialog> createState() => _FrameTreeDialogState();
@@ -82,9 +84,11 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
     if (r == null || r['error'] != null) {
       setState(() {
         _busy = false;
-        _err = widget.isZh
-            ? '获取失败: ${r?['error'] ?? 'unknown'}'
-            : 'Failed: ${r?['error'] ?? 'unknown'}';
+        _err = AppLocalizations.of(context)
+                ?.webReverseFrameTreeFailed(
+                  '${r?['error'] ?? 'unknown'}',
+                ) ??
+            'Failed: ${r?['error'] ?? 'unknown'}';
       });
       return;
     }
@@ -130,7 +134,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '已复制' : 'Copied',
+        AppLocalizations.of(context)?.webReverseFrameTreeCopied ?? 'Copied',
       );
     }
   }
@@ -155,7 +159,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -175,14 +179,13 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'Frame 树查看器' : 'Frame Tree',
+                          loc?.webReverseFrameTreeTitle ?? 'Frame Tree',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'Page.getFrameTree · 主框架 + 所有 iframe 递归'
-                              : 'Page.getFrameTree · main + nested iframes',
+                          loc?.webReverseFrameTreeSubtitle ??
+                              'Page.getFrameTree · main + nested iframes',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -192,12 +195,12 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                   IconButton(
                     onPressed: _busy ? null : _load,
                     icon: const Icon(Icons.refresh_rounded),
-                    tooltip: isZh ? '刷新' : 'Refresh',
+                    tooltip: loc?.webReverseFrameTreeRefresh ?? 'Refresh',
                   ),
                   IconButton(
                     onPressed: _rows.isEmpty ? null : _copyJson,
                     icon: const Icon(Icons.data_object_rounded),
-                    tooltip: isZh ? '复制 JSON' : 'Copy JSON',
+                    tooltip: loc?.webReverseFrameTreeCopyJson ?? 'Copy JSON',
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -223,7 +226,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                   : _rows.isEmpty
                       ? Center(
                           child: Text(
-                            isZh ? '当前页面无 frame' : 'No frames',
+                            loc?.webReverseFrameTreeEmpty ?? 'No frames',
                             style: theme.textTheme.bodySmall
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
@@ -241,7 +244,8 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                 children: [
                   Expanded(
                     child: Text(
-                      isZh ? '共 ${_rows.length} 帧' : '${_rows.length} frames',
+                      loc?.webReverseFrameTreeCount(_rows.length) ??
+                          '${_rows.length} frames',
                       style: theme.textTheme.labelSmall
                           ?.copyWith(color: cs.onSurfaceVariant),
                     ),
@@ -249,7 +253,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                   SizedBox(
                     width: 160,
                     child: OpenHandDialogActionButton.primary(
-                      label: isZh ? '关闭' : 'Close',
+                      label: loc?.commonClose ?? 'Close',
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
