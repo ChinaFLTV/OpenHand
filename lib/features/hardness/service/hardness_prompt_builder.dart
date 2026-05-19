@@ -162,6 +162,7 @@ class HardnessPromptBuilder {
       definitions: filteredDefinitions,
       toolsByName: filteredToolsByName,
       notices: catalog.notices,
+      mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
     );
   }
 

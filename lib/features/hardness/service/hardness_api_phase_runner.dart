@@ -320,90 +320,109 @@ class HardnessApiPhaseRunner {
       'hardness_engineering',
     );
 
-    // Build conversation context with HE-optimized structure.
-    final systemContent = StringBuffer()
-      ..writeln('# [0] System Instructions')
-      ..writeln()
-      ..writeln(templateBundle.systemInstructions)
-      ..writeln()
-      ..writeln('# [1] Developer Instructions')
-      ..writeln()
-      ..writeln(templateBundle.developerInstructions)
-      ..writeln()
-      ..writeln('# 运行时环境')
-      ..writeln()
-      ..writeln('工作目录：${runtimeContext.workingDirectory}')
-      ..writeln('平台：${runtimeContext.platformName}')
-      ..writeln('日期：${runtimeContext.todayLocalDate}')
-      ..writeln('时区：${runtimeContext.timeZoneName}');
+    String buildSystemContent(AiResolvedToolCatalog currentPhaseToolCatalog) {
+      final systemContent = StringBuffer()
+        ..writeln('# [0] System Instructions')
+        ..writeln()
+        ..writeln(templateBundle.systemInstructions)
+        ..writeln()
+        ..writeln('# [1] Developer Instructions')
+        ..writeln()
+        ..writeln(templateBundle.developerInstructions)
+        ..writeln()
+        ..writeln('# 运行时环境')
+        ..writeln()
+        ..writeln('工作目录：${runtimeContext.workingDirectory}')
+        ..writeln('平台：${runtimeContext.platformName}')
+        ..writeln('日期：${runtimeContext.todayLocalDate}')
+        ..writeln('时区：${runtimeContext.timeZoneName}');
 
-    // Inject memory if enabled.
-    if (runtimeContext.memoryEnabled &&
-        runtimeContext.memoryEntries.isNotEmpty) {
-      systemContent
-        ..writeln()
-        ..writeln('# 用户记忆')
-        ..writeln();
-      for (final entry in runtimeContext.memoryEntries) {
-        systemContent.writeln('- ${entry.preview}');
-      }
-    }
-
-    // Render compressed tool catalog for HE phases.
-    if (phaseToolCatalog.definitions.isNotEmpty) {
-      systemContent
-        ..writeln()
-        ..writeln(
-          hardnessPromptBuilder.renderCompactToolCatalog(
-            tools: phaseToolCatalog.definitions,
-            phase: phase,
-          ),
-        );
-    }
-
-    // Inject compact XML tool instructions only if the model doesn't
-    // support native tool calls (e.g., CLI mode fallback).
-    if (hardnessPromptBuilder.shouldInjectXmlInstructions(adapter)) {
-      systemContent
-        ..writeln()
-        ..writeln(hardnessPromptBuilder.compactXmlToolInstructions);
-    }
-
-    // ── Reviewer isolation reinforcement ──────────────────────────────────
-    // When executing the reviewing phase via API, inject an explicit
-    // isolation statement into the system prompt to combat self-evaluation
-    // bias (the model reviewing its own work tends to score higher).
-    if (phase == HardnessPhase.reviewing) {
-      systemContent
-        ..writeln()
-        ..writeln('# 代理隔离声明')
-        ..writeln()
-        ..writeln(
-          '你正在作为 **独立的验收代理** 运行。'
-          '本会话与实施代理 **没有任何共享状态**。'
-          '你必须仅基于执行计划、原始需求和代码库的真实状态进行评估。'
-          '**不要假设任何实施步骤已正确完成** — 请逐一独立验证。',
-        );
-    }
-
-    // Inject workspace instruction documents (same as default thread).
-    if (runtimeContext.workspaceInstructionDocuments.isNotEmpty) {
-      systemContent
-        ..writeln()
-        ..writeln('# Workspace Instructions')
-        ..writeln();
-      for (final doc in runtimeContext.workspaceInstructionDocuments) {
+      // Inject memory if enabled.
+      if (runtimeContext.memoryEnabled &&
+          runtimeContext.memoryEntries.isNotEmpty) {
         systemContent
-          ..writeln('## ${doc.name}')
-          ..writeln(doc.content)
+          ..writeln()
+          ..writeln('# 用户记忆')
           ..writeln();
+        for (final entry in runtimeContext.memoryEntries) {
+          systemContent.writeln('- ${entry.preview}');
+        }
       }
+
+      // Render compressed tool catalog for HE phases.
+      if (currentPhaseToolCatalog.definitions.isNotEmpty) {
+        systemContent
+          ..writeln()
+          ..writeln(
+            hardnessPromptBuilder.renderCompactToolCatalog(
+              tools: currentPhaseToolCatalog.definitions,
+              phase: phase,
+            ),
+          );
+      }
+
+      // Inject compact XML tool instructions only if the model doesn't
+      // support native tool calls (e.g., CLI mode fallback).
+      if (hardnessPromptBuilder.shouldInjectXmlInstructions(adapter)) {
+        systemContent
+          ..writeln()
+          ..writeln(hardnessPromptBuilder.compactXmlToolInstructions);
+      }
+
+      // ── Reviewer isolation reinforcement ──────────────────────────────────
+      // When executing the reviewing phase via API, inject an explicit
+      // isolation statement into the system prompt to combat self-evaluation
+      // bias (the model reviewing its own work tends to score higher).
+      if (phase == HardnessPhase.reviewing) {
+        systemContent
+          ..writeln()
+          ..writeln('# 代理隔离声明')
+          ..writeln()
+          ..writeln(
+            '你正在作为 **独立的验收代理** 运行。'
+            '本会话与实施代理 **没有任何共享状态**。'
+            '你必须仅基于执行计划、原始需求和代码库的真实状态进行评估。'
+            '**不要假设任何实施步骤已正确完成** — 请逐一独立验证。',
+          );
+      }
+
+      // Inject workspace instruction documents (same as default thread).
+      if (runtimeContext.workspaceInstructionDocuments.isNotEmpty) {
+        systemContent
+          ..writeln()
+          ..writeln('# Workspace Instructions')
+          ..writeln();
+        for (final doc in runtimeContext.workspaceInstructionDocuments) {
+          systemContent
+            ..writeln('## ${doc.name}')
+            ..writeln(doc.content)
+            ..writeln();
+        }
+      }
+
+      return systemContent.toString();
     }
+
+    var currentSystemContent = buildSystemContent(phaseToolCatalog);
 
     final conversation = <AiChatTurn>[
-      AiChatTurn(role: AiChatRole.system, content: systemContent.toString()),
+      AiChatTurn(role: AiChatRole.system, content: currentSystemContent),
       AiChatTurn(role: AiChatRole.user, content: phasePrompt),
     ];
+
+    void refreshSystemTurn() {
+      currentSystemContent = buildSystemContent(phaseToolCatalog);
+      final turn = AiChatTurn(
+        role: AiChatRole.system,
+        content: currentSystemContent,
+      );
+      if (conversation.isNotEmpty &&
+          conversation.first.role == AiChatRole.system) {
+        conversation[0] = turn;
+      } else {
+        conversation.insert(0, turn);
+      }
+    }
 
     // Agentic tool loop — mirrors AiSessionController._runAssistantConversation.
     final maxToolRounds = math.max(1, runtimeContext.sequentialToolRoundLimit);
@@ -438,6 +457,10 @@ class HardnessApiPhaseRunner {
           }
         }
 
+        toolCatalog = applyMcpLazyLoadingForPhase();
+        phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
+        refreshSystemTurn();
+
         // Handoff if approaching context window limit: generate a handoff
         // document and restart the session instead of simple truncation.
         final handoffResult = await _handoffIfNeeded(
@@ -448,7 +471,7 @@ class HardnessApiPhaseRunner {
           runtimeContext: runtimeContext,
           persistenceDirectory: persistenceDirectory,
           contextWindowTokens: contextWindowTokens,
-          systemContent: systemContent.toString(),
+          systemContent: currentSystemContent,
           emit: emit,
           cancelSignal: cancelSignal,
         );
@@ -458,9 +481,6 @@ class HardnessApiPhaseRunner {
             ..clear()
             ..addAll(handoffResult);
         }
-
-        toolCatalog = applyMcpLazyLoadingForPhase();
-        phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
 
         // Send API request.
         final AiChatCompletion completion;
