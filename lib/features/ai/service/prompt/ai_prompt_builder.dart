@@ -1440,6 +1440,9 @@ class AiPromptBuilder {
     final cdpRuntimeDead = _isWebReverseCdpRuntimeDead(cdpRuntime);
     _disambiguateWebReverseConfigPort(config, cdpRuntime);
     final cdpMcpToolNames = _webReverseCdpMcpToolNames(resolvedToolsByName);
+    final deferredCdpMcpToolNames = _webReverseDeferredCdpMcpToolNames(
+      resolvedToolsByName,
+    );
     final hasToolSearch = availableToolNames.any(
       (name) => name.trim().toLowerCase() == 'toolsearch',
     );
@@ -1467,7 +1470,14 @@ class AiPromptBuilder {
         'current_turn_callable_count': cdpMcpToolNames.length,
         'current_turn_callable_names': cdpMcpToolNames,
         'tool_search_available': hasToolSearch,
-        if (cdpMcpToolNames.isEmpty)
+        'tool_search_deferred_cdp_mcp_count': deferredCdpMcpToolNames.length,
+        'tool_search_deferred_cdp_mcp_names': deferredCdpMcpToolNames,
+        if (cdpMcpToolNames.isEmpty && deferredCdpMcpToolNames.isNotEmpty) ...{
+          'tool_search_recommended_query':
+              'select:${deferredCdpMcpToolNames.take(8).join(',')}',
+          'guidance':
+              'CDP / Chrome DevTools MCP tools are present only as deferred ToolSearch entries. Before any live CDP action, call ToolSearch with tool_search_recommended_query, then use the exact loaded MCP names from the next model request onward.',
+        } else if (cdpMcpToolNames.isEmpty)
           'warning':
               'No CDP / Chrome DevTools MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. Use local jsonl/HAR artifacts, or ask the user to enable/refresh chrome-devtools-mcp before live CDP actions.'
         else
@@ -1614,6 +1624,27 @@ class AiPromptBuilder {
     ).toList();
     names.sort();
     return names;
+  }
+
+  List<String> _webReverseDeferredCdpMcpToolNames(
+    Map<String, AiResolvedTool> resolvedToolsByName,
+  ) {
+    final toolSearch = resolvedToolsByName.values.where(
+      (tool) => tool.builtinKind == AiBuiltinToolKind.toolSearch,
+    );
+    final deferredDefinitions = toolSearch
+        .expand((tool) => tool.toolSearchDeferredToolDefinitions.entries)
+        .toList(growable: false);
+    if (deferredDefinitions.isEmpty) return const <String>[];
+    final deferredToolsByName = <String, AiResolvedTool>{
+      for (final entry in deferredDefinitions)
+        entry.key: AiResolvedTool(
+          name: entry.key,
+          definition: entry.value,
+          source: AiRuntimeToolSource.mcp,
+        ),
+    };
+    return _webReverseCdpMcpToolNames(deferredToolsByName);
   }
 
   String _compressionSystemInstructionsForTemplate(AiThreadTemplate template) {

@@ -149,6 +149,64 @@ void main() {
     expect(availability, isNot(contains('warning')));
   });
 
+  test('points Web Reverse to ToolSearch when CDP MCP tools are deferred', () {
+    final now = DateTime.utc(2026, 5, 19);
+    final latestUserMessage = AiSessionMessage.user(
+      id: 'user-1',
+      content: 'Start reversing https://example.test',
+      createdAt: now,
+    );
+    final session = _webReverseSession(
+      now: now,
+      latestUserMessage: latestUserMessage,
+      metadata: const <String, Object?>{
+        'web_reverse_config': <String, Object?>{
+          'target_url': 'https://example.test',
+          'cdp_port': 9222,
+        },
+        'web_reverse_cdp_runtime': <String, Object?>{
+          'cdp_port': 9233,
+          'browser_alive': true,
+        },
+      },
+    );
+    final deferredCdpTool = _mcpTool(
+      catalogName: 'mcp__chrome_devtools__navigate_page',
+      toolName: 'navigate_page',
+      description: 'Navigate a Chrome DevTools Protocol page target.',
+    );
+    final toolSearch = _toolSearchTool(<String, AiToolDefinition>{
+      deferredCdpTool.name: deferredCdpTool.definition,
+    });
+
+    final result = _buildWebReversePrompt(
+      session,
+      latestUserMessage,
+      availableTools: <AiToolDefinition>[toolSearch.definition],
+      resolvedToolsByName: <String, AiResolvedTool>{
+        toolSearch.name: toolSearch,
+      },
+    );
+
+    final runtimeMap =
+        result.metadata['web_reverse_runtime']! as Map<String, Object?>;
+    final availability =
+        runtimeMap['cdp_mcp_tool_availability']! as Map<String, Object?>;
+    expect(availability['current_turn_callable'], false);
+    expect(availability['tool_search_available'], true);
+    expect(availability['tool_search_deferred_cdp_mcp_count'], 1);
+    expect(
+      availability['tool_search_deferred_cdp_mcp_names'],
+      contains('mcp__chrome_devtools__navigate_page'),
+    );
+    expect(
+      availability['tool_search_recommended_query'],
+      'select:mcp__chrome_devtools__navigate_page',
+    );
+    expect(availability['guidance'], contains('call ToolSearch'));
+    expect(availability, isNot(contains('warning')));
+  });
+
   test(
     'strips live CDP endpoints and marks targets last when browser is dead',
     () {
@@ -363,5 +421,24 @@ AiResolvedTool _mcpTool({
         'properties': <String, Object?>{},
       },
     ),
+  );
+}
+
+AiResolvedTool _toolSearchTool(
+  Map<String, AiToolDefinition> deferredDefinitions,
+) {
+  return AiResolvedTool(
+    name: 'ToolSearch',
+    definition: const AiToolDefinition(
+      name: 'ToolSearch',
+      description: 'Load deferred MCP tools.',
+      parameters: <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{},
+      },
+    ),
+    source: AiRuntimeToolSource.builtin,
+    builtinKind: AiBuiltinToolKind.toolSearch,
+    toolSearchDeferredToolDefinitions: deferredDefinitions,
   );
 }
