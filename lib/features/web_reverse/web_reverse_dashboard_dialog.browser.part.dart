@@ -64,10 +64,7 @@ final Map<LogicalKeyboardKey, (String, String?, int?)> _kCdpSpecialKey = {
 };
 
 class _BrowserBody extends StatefulWidget {
-  const _BrowserBody({
-    required this.controller,
-    required this.isZh,
-  });
+  const _BrowserBody({required this.controller, required this.isZh});
 
   final WebReverseSessionController controller;
   final bool isZh;
@@ -184,11 +181,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         var dirty = false;
         for (final t in widget.controller.pageTargets) {
           if (t.id == cur && t.url != realUrl) {
-            updated.add(CdpPageTargetSnapshot(
-              id: t.id,
-              url: realUrl,
-              title: t.title,
-            ));
+            updated.add(
+              CdpPageTargetSnapshot(id: t.id, url: realUrl, title: t.title),
+            );
             dirty = true;
           } else {
             updated.add(t);
@@ -230,13 +225,13 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final cur = widget.controller.currentPageTargetId;
     final orderHash = _hashTargetsOrder(widget.controller.pageTargets);
     final titleHash = _hashTargetsTitle(widget.controller.pageTargets);
-    final dirty = w != _frameW ||
-        h != _frameH ||
-        alive != _wasAlive ||
+    final targetStateDirty =
         len != _lastTargetsLen ||
         cur != _lastCurrentTargetId ||
         orderHash != _lastTargetsOrderHash ||
         titleHash != _lastTargetsTitleHash;
+    final dirty =
+        w != _frameW || h != _frameH || alive != _wasAlive || targetStateDirty;
     final aliveJustFlipped = alive && !_wasAlive;
     _frameW = w;
     _frameH = h;
@@ -246,6 +241,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _lastTargetsOrderHash = orderHash;
     _lastTargetsTitleHash = titleHash;
     if (dirty) setState(() {});
+    if (targetStateDirty) _persistTabsAndUrls();
     if (aliveJustFlipped) {
       // 浏览器刚拉起 / 重启完毕：① 重新 acquire screencast（之前 release/safeStop
       // 已把引用计数和 active 都清零，否则面板会一直停在"等待浏览器画面"
@@ -314,17 +310,21 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       // 为浏览器原生窗口尺寸。
       if (device == null) {
         if (override != null) {
-          unawaited(widget.controller.applyResolutionEmulation(
-            cssWidth: (override.w / dpr).round().clamp(160, 4096),
-            cssHeight: (override.h / dpr).round().clamp(120, 4096),
-            deviceScaleFactor: dpr,
-          ));
+          unawaited(
+            widget.controller.applyResolutionEmulation(
+              cssWidth: (override.w / dpr).round().clamp(160, 4096),
+              cssHeight: (override.h / dpr).round().clamp(120, 4096),
+              deviceScaleFactor: dpr,
+            ),
+          );
         } else {
-          unawaited(widget.controller.applyResolutionEmulation(
-            cssWidth: 0,
-            cssHeight: 0,
-            deviceScaleFactor: 0,
-          ));
+          unawaited(
+            widget.controller.applyResolutionEmulation(
+              cssWidth: 0,
+              cssHeight: 0,
+              deviceScaleFactor: 0,
+            ),
+          );
         }
       }
       // 自适应帧率档位：viewport 大时降到 30fps + quality 65 节流，激活时
@@ -569,8 +569,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     // 用最近一次 update 的速度近似当前手势速度（dt 取本次 update 的耗
     // 时；clamp 避免抖动放大）。下一次 update 用新的 delta 替换。
     final now = DateTime.now();
-    final dtMs =
-        now.difference(_scrollInertiaAt).inMilliseconds.clamp(8, 80);
+    final dtMs = now.difference(_scrollInertiaAt).inMilliseconds.clamp(8, 80);
     _scrollInertiaVelocity = Offset(
       scaledDx / dtMs * 16, // 折成「16ms 的位移」
       scaledDy / dtMs * 16,
@@ -592,30 +591,29 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   void _startScrollInertia() {
     _scrollInertiaTimer?.cancel();
-    _scrollInertiaTimer = Timer.periodic(
-      const Duration(milliseconds: 16),
-      (timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
-        final v = _scrollInertiaVelocity;
-        if (v.distance < 0.6) {
-          timer.cancel();
-          _scrollInertiaVelocity = Offset.zero;
-          return;
-        }
-        widget.controller.dispatchMouseEvent(
-          type: 'mouseWheel',
-          x: _scrollInertiaPos.dx,
-          y: _scrollInertiaPos.dy,
-          deltaX: v.dx,
-          deltaY: v.dy,
-        );
-        // 衰减系数 0.92：≈300ms 内速度衰减到 5%。
-        _scrollInertiaVelocity = v * 0.92;
-      },
-    );
+    _scrollInertiaTimer = Timer.periodic(const Duration(milliseconds: 16), (
+      timer,
+    ) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final v = _scrollInertiaVelocity;
+      if (v.distance < 0.6) {
+        timer.cancel();
+        _scrollInertiaVelocity = Offset.zero;
+        return;
+      }
+      widget.controller.dispatchMouseEvent(
+        type: 'mouseWheel',
+        x: _scrollInertiaPos.dx,
+        y: _scrollInertiaPos.dy,
+        deltaX: v.dx,
+        deltaY: v.dy,
+      );
+      // 衰减系数 0.92：≈300ms 内速度衰减到 5%。
+      _scrollInertiaVelocity = v * 0.92;
+    });
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
@@ -638,11 +636,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     // KeyRepeat 二次触发误开多 tab / 关 tab。
     if (event is KeyDownEvent) {
       final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-      final hasMeta = pressed.contains(LogicalKeyboardKey.metaLeft) ||
+      final hasMeta =
+          pressed.contains(LogicalKeyboardKey.metaLeft) ||
           pressed.contains(LogicalKeyboardKey.metaRight);
-      final hasCtrl = pressed.contains(LogicalKeyboardKey.controlLeft) ||
+      final hasCtrl =
+          pressed.contains(LogicalKeyboardKey.controlLeft) ||
           pressed.contains(LogicalKeyboardKey.controlRight);
-      final hasShift = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+      final hasShift =
+          pressed.contains(LogicalKeyboardKey.shiftLeft) ||
           pressed.contains(LogicalKeyboardKey.shiftRight);
       final cmd = Platform.isMacOS ? hasMeta : hasCtrl;
       if (cmd) {
@@ -705,7 +706,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       final meta = _cdpKeyMeta(event);
       final ch = event.character;
-      final hasPrintable = ch != null && ch.isNotEmpty && ch.codeUnitAt(0) >= 0x20;
+      final hasPrintable =
+          ch != null && ch.isNotEmpty && ch.codeUnitAt(0) >= 0x20;
       // 2026-06-05 — keyDown 一律不带 text；可打印字符通过紧随其后的 char
       // 事件写入文本节点。若 keyDown 也带 text，Chromium 会同时触发 keydown
       // 的默认插入路径 + char 的 textInput 路径，导致每个字符被写入两次
@@ -747,6 +749,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   Future<void> _shortcutNewTab() async {
     final id = await widget.controller.createPageTarget();
     if (id != null) await widget.controller.switchToPageTarget(id);
+    _persistTabsAndUrls();
   }
 
   /// 读取宿主系统剪贴板的纯文本，按 CDP `Input.insertText` 注入到当前焦点
@@ -771,6 +774,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final cur = widget.controller.currentPageTargetId;
     if (cur == null) return;
     await widget.controller.closePageTarget(cur);
+    _persistTabsAndUrls();
   }
 
   static const _zoomLadder = <double>[0.5, 0.75, 1.0, 1.25, 1.5];
@@ -781,8 +785,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       // 当前不是档位之一，先就近吸附。
       idx = 0;
       for (var i = 0; i < _zoomLadder.length; i++) {
-        if ((_zoomLadder[i] - _zoom).abs() <
-            (_zoomLadder[idx] - _zoom).abs()) {
+        if ((_zoomLadder[i] - _zoom).abs() < (_zoomLadder[idx] - _zoom).abs()) {
           idx = i;
         }
       }
@@ -807,8 +810,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _metaPersistDebouncer?.cancel();
     _metaPersistDebouncer = Timer(const Duration(milliseconds: 350), () {
       if (!mounted) return;
-      final state =
-          context.findAncestorStateOfType<_WebReverseDashboardDialogState>();
+      final state = context
+          .findAncestorStateOfType<_WebReverseDashboardDialogState>();
       if (state == null) return;
       state.persistBrowserPanelState();
     });
@@ -858,7 +861,11 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final phys = event.physicalKey;
     final special = _kCdpSpecialKey[logical];
     if (special != null) {
-      return (key: special.$1, code: special.$2 ?? phys.debugName, vk: special.$3);
+      return (
+        key: special.$1,
+        code: special.$2 ?? phys.debugName,
+        vk: special.$3,
+      );
     }
     final ch = event.character;
     if (ch != null && ch.isNotEmpty) {
@@ -953,7 +960,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     // 整体替换：old=' ', cur='a' → 删 1 个 + insert 'a'。
     var prefix = 0;
     final maxPrefix = old.length < cur.length ? old.length : cur.length;
-    while (prefix < maxPrefix && old.codeUnitAt(prefix) == cur.codeUnitAt(prefix)) {
+    while (prefix < maxPrefix &&
+        old.codeUnitAt(prefix) == cur.codeUnitAt(prefix)) {
       prefix++;
     }
     final toDelete = old.length - prefix;
@@ -995,11 +1003,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           code: 'Enter',
           text: '\r',
         )
-        ..dispatchKeyEvent(
-          type: 'keyUp',
-          key: 'Enter',
-          code: 'Enter',
-        );
+        ..dispatchKeyEvent(type: 'keyUp', key: 'Enter', code: 'Enter');
     }
   }
 
@@ -1056,16 +1060,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final curUrl = cur == null
         ? null
         : ctrl.pageTargets
-            .firstWhere(
-              (t) => t.id == cur,
-              orElse: () => const CdpPageTargetSnapshot(
-                id: '',
-                url: '',
-                title: '',
-              ),
-            )
-            .url;
-    final isBlank = curUrl == null ||
+              .firstWhere(
+                (t) => t.id == cur,
+                orElse: () =>
+                    const CdpPageTargetSnapshot(id: '', url: '', title: ''),
+              )
+              .url;
+    final isBlank =
+        curUrl == null ||
         curUrl.isEmpty ||
         curUrl.startsWith('about:') ||
         curUrl == 'chrome://newtab/';
@@ -1161,9 +1163,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final fh = rect.height / renderSize.height;
     Uint8List? png;
     try {
-      png = await widget.controller
-          .captureScreenshot()
-          .timeout(const Duration(seconds: 10));
+      png = await widget.controller.captureScreenshot().timeout(
+        const Duration(seconds: 10),
+      );
     } catch (_) {}
     if (!mounted) return;
     if (png == null) {
@@ -1201,10 +1203,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         .toIso8601String()
         .replaceAll(':', '-')
         .replaceAll('.', '-');
-    const typeGroup = XTypeGroup(
-      label: 'PNG',
-      extensions: <String>['png'],
-    );
+    const typeGroup = XTypeGroup(label: 'PNG', extensions: <String>['png']);
     FileSaveLocation? location;
     try {
       location = await getSaveLocation(
@@ -1222,12 +1221,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         isZh ? '已保存到 ${location.path}' : 'Saved to ${location.path}',
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'save crop',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', 'save crop', error, stack);
       if (!mounted) return;
       OpenHandSnackBar.showErrorOn(
         context,
@@ -1259,23 +1253,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       context: context,
       position: position,
       items: [
-        PopupMenuItem(
-          value: 'copy',
-          child: Text(isZh ? '复制' : 'Copy'),
-        ),
-        PopupMenuItem(
-          value: 'paste',
-          child: Text(isZh ? '粘贴' : 'Paste'),
-        ),
+        PopupMenuItem(value: 'copy', child: Text(isZh ? '复制' : 'Copy')),
+        PopupMenuItem(value: 'paste', child: Text(isZh ? '粘贴' : 'Paste')),
         PopupMenuItem(
           value: 'selectAll',
           child: Text(isZh ? '全选' : 'Select all'),
         ),
         const PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'reload',
-          child: Text(isZh ? '刷新' : 'Reload'),
-        ),
+        PopupMenuItem(value: 'reload', child: Text(isZh ? '刷新' : 'Reload')),
         PopupMenuItem(
           value: 'inspect',
           child: Text(isZh ? '检查元素 (DevTools)' : 'Inspect (DevTools)'),
@@ -1383,13 +1368,16 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           isZh: isZh,
           onSwitch: (id) async {
             await ctrl.switchToPageTarget(id);
+            _persistTabsAndUrls();
           },
           onClose: (id) async {
             await ctrl.closePageTarget(id);
+            _persistTabsAndUrls();
           },
           onNew: () async {
             final id = await ctrl.createPageTarget();
             if (id != null) await ctrl.switchToPageTarget(id);
+            _persistTabsAndUrls();
           },
           onReorder: (oldI, newI) {
             ctrl.reorderPageTarget(oldI, newI);
@@ -1407,8 +1395,10 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final renderSize =
-                    Size(constraints.maxWidth, constraints.maxHeight);
+                final renderSize = Size(
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                );
                 _scheduleViewportSync(renderSize, dpr);
                 return ClipRRect(
                   borderRadius: BorderRadius.circular(14),
@@ -1495,7 +1485,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                             left: 8,
                             child: Material(
                               color: cs.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(_kToolbarRadius),
+                              borderRadius: BorderRadius.circular(
+                                _kToolbarRadius,
+                              ),
                               elevation: 4,
                               shadowColor: Colors.black26,
                               child: Padding(
@@ -1588,8 +1580,10 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                       _surfaceFocus.requestFocus();
                     },
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(_kToolbarRadius),
                     borderSide: BorderSide(color: cs.outlineVariant),
@@ -1679,11 +1673,11 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           _NavIconButton(
             tooltip: _cjkInputEnabled
                 ? (isZh
-                    ? '关闭中文输入（默认按键直发，特殊键全可用）'
-                    : 'Disable CJK input (default raw key passthrough)')
+                      ? '关闭中文输入（默认按键直发，特殊键全可用）'
+                      : 'Disable CJK input (default raw key passthrough)')
                 : (isZh
-                    ? '开启中文输入（中/日/韩 IME 候选词上屏，部分特殊键可能被 IME 拦截）'
-                    : 'Enable CJK input (IME composition; some special keys may be captured)'),
+                      ? '开启中文输入（中/日/韩 IME 候选词上屏，部分特殊键可能被 IME 拦截）'
+                      : 'Enable CJK input (IME composition; some special keys may be captured)'),
             icon: _cjkInputEnabled
                 ? Icons.keyboard_alt_rounded
                 : Icons.keyboard_alt_outlined,
@@ -1741,11 +1735,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.power_off_rounded,
-                size: 36,
-                color: cs.error,
-              ),
+              Icon(Icons.power_off_rounded, size: 36, color: cs.error),
               const SizedBox(height: 12),
               Text(
                 isZh ? '浏览器已断开' : 'Browser disconnected',
@@ -1757,12 +1747,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               Text(
                 err.isEmpty
                     ? (isZh
-                        ? '会话仍在，但 CDP 已断。点击下方按钮重新拉起浏览器即可继续逆向。'
-                        : 'Session retained but CDP is down. Click below to relaunch the browser.')
+                          ? '会话仍在，但 CDP 已断。点击下方按钮重新拉起浏览器即可继续逆向。'
+                          : 'Session retained but CDP is down. Click below to relaunch the browser.')
                     : err,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
@@ -1795,11 +1787,10 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           Text(
             running
                 ? (isZh ? '等待浏览器画面…' : 'Waiting for browser frame…')
-                : (isZh
-                    ? '会话尚未运行，无法启动 screencast'
-                    : 'Session not running'),
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+                : (isZh ? '会话尚未运行，无法启动 screencast' : 'Session not running'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -1840,8 +1831,8 @@ class _NavIconButton extends StatelessWidget {
               color: tinted
                   ? cs.primary.withValues(alpha: 0.55)
                   : (enabled
-                      ? cs.outlineVariant
-                      : cs.outlineVariant.withValues(alpha: 0.4)),
+                        ? cs.outlineVariant
+                        : cs.outlineVariant.withValues(alpha: 0.4)),
             ),
           ),
           child: InkWell(
@@ -1854,8 +1845,8 @@ class _NavIconButton extends StatelessWidget {
                 color: tinted
                     ? cs.primary
                     : (enabled
-                        ? cs.onSurface
-                        : cs.onSurface.withValues(alpha: 0.35)),
+                          ? cs.onSurface
+                          : cs.onSurface.withValues(alpha: 0.35)),
               ),
             ),
           ),
@@ -1905,7 +1896,6 @@ class _ScreencastImage extends StatelessWidget {
   }
 }
 
-
 /// 缩放比例下拉胶囊：支持 50% / 75% / 100% / 125% / 150%。选中后立刻把
 /// 比例下发到浏览器侧 `Emulation.setPageScaleFactor`，让 page reflow 即时
 /// 反馈到 screencast 帧。
@@ -1937,10 +1927,12 @@ class _ZoomMenu extends StatelessWidget {
           tooltip: '',
           onSelected: onChanged,
           itemBuilder: (_) => _presets
-              .map((p) => PopupMenuItem<double>(
-                    value: p,
-                    child: Text('${(p * 100).round()}%'),
-                  ))
+              .map(
+                (p) => PopupMenuItem<double>(
+                  value: p,
+                  child: Text('${(p * 100).round()}%'),
+                ),
+              )
               .toList(growable: false),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1981,7 +1973,6 @@ class _ZoomMenu extends StatelessWidget {
     );
   }
 }
-
 
 /// 浏览器面板顶部 tab strip：每个 page target 一个胶囊，激活态高亮。
 /// 「+」按钮新建 about:blank tab；激活胶囊上挂×按钮关闭。长按拖动重排。
@@ -2129,8 +2120,8 @@ class _TabStripState extends State<_TabStrip> {
                   final label = t.title.isNotEmpty
                       ? t.title
                       : (t.url.isEmpty
-                          ? (isZh ? '新标签页' : 'New tab')
-                          : Uri.tryParse(t.url)?.host ?? t.url);
+                            ? (isZh ? '新标签页' : 'New tab')
+                            : Uri.tryParse(t.url)?.host ?? t.url);
                   return Padding(
                     key: ValueKey<String>(t.id),
                     padding: EdgeInsets.only(
@@ -2154,172 +2145,213 @@ class _TabStripState extends State<_TabStrip> {
                           child: closing
                               ? const SizedBox(width: 0, height: 0)
                               : TweenAnimationBuilder<double>(
-                      tween: Tween<double>(begin: 0.85, end: 1),
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutBack,
-                      builder: (_, v, child) => Opacity(
-                        opacity: v.clamp(0, 1),
-                        child: Transform.scale(scale: v, child: child),
-                      ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        decoration: BoxDecoration(
-                          color: active
-                              ? cs.primaryContainer
-                              : cs.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: active
-                                ? cs.primary.withValues(alpha: 0.4)
-                                : Colors.transparent,
-                          ),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(999),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // 2026-05-24 — 在 tab 左侧加一个独立 drag
-                              // handle，使用 ReorderableDragStartListener
-                              // 即点即拖，不再需要等长按（之前的 long-
-                              // press 在桌面下被 InkWell 抢走 / 体验差）。
-                              ReorderableDragStartListener(
-                                index: i,
-                                child: MouseRegion(
-                                  cursor: SystemMouseCursors.grab,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                        left: 6, right: 2),
-                                    child: Icon(
-                                      Icons.drag_indicator_rounded,
-                                      size: 12,
-                                      color: active
-                                          ? cs.onPrimaryContainer
-                                              .withValues(alpha: 0.7)
-                                          : cs.onSurfaceVariant
-                                              .withValues(alpha: 0.7),
+                                  tween: Tween<double>(begin: 0.85, end: 1),
+                                  duration: const Duration(milliseconds: 260),
+                                  curve: Curves.easeOutBack,
+                                  builder: (_, v, child) => Opacity(
+                                    opacity: v.clamp(0, 1),
+                                    child: Transform.scale(
+                                      scale: v,
+                                      child: child,
                                     ),
                                   ),
-                                ),
-                              ),
-                              InkWell(
-                                borderRadius: BorderRadius.circular(999),
-                                onTap: enabled
-                                    ? () => widget.onSwitch(t.id)
-                                    : null,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 4,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.public_rounded,
-                                        size: 12,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 220),
+                                    curve: Curves.easeOutCubic,
+                                    decoration: BoxDecoration(
+                                      color: active
+                                          ? cs.primaryContainer
+                                          : cs.surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(
                                         color: active
-                                            ? cs.onPrimaryContainer
-                                            : cs.onSurfaceVariant,
+                                            ? cs.primary.withValues(alpha: 0.4)
+                                            : Colors.transparent,
                                       ),
-                                      const SizedBox(width: 6),
-                                      AnimatedDefaultTextStyle(
-                                        duration: const Duration(
-                                            milliseconds: 220),
-                                        style: theme.textTheme.labelSmall!
-                                            .copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          color: active
-                                              ? cs.onPrimaryContainer
-                                              : cs.onSurface,
-                                        ),
-                                        child: ConstrainedBox(
-                                          constraints: const BoxConstraints(
-                                              maxWidth: 140),
-                                          child: AnimatedSwitcher(
-                                            duration: const Duration(
-                                                milliseconds: 280),
-                                            switchInCurve:
-                                                Curves.easeOutBack,
-                                            switchOutCurve:
-                                                Curves.easeInCubic,
-                                            transitionBuilder:
-                                                (child, animation) {
-                                              // Q 弹文本切换：fade + 轻微上推 + 缩放，
-                                              // 标题刷新（CDP `Page.frameNavigated` 后
-                                              // `_refreshPageTitle` 写回）时让胶囊文字
-                                              // 顺滑替换，不闪烁。
-                                              final slide = Tween<Offset>(
-                                                begin:
-                                                    const Offset(0, 0.25),
-                                                end: Offset.zero,
-                                              ).animate(animation);
-                                              return FadeTransition(
-                                                opacity: animation,
-                                                child: SlideTransition(
-                                                  position: slide,
-                                                  child: ScaleTransition(
-                                                    scale: Tween<double>(
-                                                            begin: 0.92,
-                                                            end: 1)
-                                                        .animate(animation),
-                                                    child: child,
-                                                  ),
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // 2026-05-24 — 在 tab 左侧加一个独立 drag
+                                          // handle，使用 ReorderableDragStartListener
+                                          // 即点即拖，不再需要等长按（之前的 long-
+                                          // press 在桌面下被 InkWell 抢走 / 体验差）。
+                                          ReorderableDragStartListener(
+                                            index: i,
+                                            child: MouseRegion(
+                                              cursor: SystemMouseCursors.grab,
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  left: 6,
+                                                  right: 2,
                                                 ),
-                                              );
-                                            },
-                                            layoutBuilder:
-                                                (current, previous) {
-                                              return Stack(
-                                                alignment:
-                                                    Alignment.centerLeft,
-                                                children: [
-                                                  ...previous,
-                                                  if (current != null)
-                                                    current,
-                                                ],
-                                              );
-                                            },
-                                            child: Text(
-                                              label,
-                                              key: ValueKey<String>(label),
-                                              maxLines: 1,
-                                              overflow:
-                                                  TextOverflow.ellipsis,
+                                                child: Icon(
+                                                  Icons.drag_indicator_rounded,
+                                                  size: 12,
+                                                  color: active
+                                                      ? cs.onPrimaryContainer
+                                                            .withValues(
+                                                              alpha: 0.7,
+                                                            )
+                                                      : cs.onSurfaceVariant
+                                                            .withValues(
+                                                              alpha: 0.7,
+                                                            ),
+                                                ),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                      if (activeCount > 1) ...[
-                                        const SizedBox(width: 6),
-                                        InkResponse(
-                                          radius: 12,
-                                          onTap: enabled
-                                              ? () => widget.onClose(t.id)
-                                              : null,
-                                          child: Icon(
-                                            Icons.close_rounded,
-                                            size: 12,
-                                            color: active
-                                                ? cs.onPrimaryContainer
-                                                : cs.onSurfaceVariant,
+                                          InkWell(
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                            onTap: enabled
+                                                ? () => widget.onSwitch(t.id)
+                                                : null,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 4,
+                                                  ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    Icons.public_rounded,
+                                                    size: 12,
+                                                    color: active
+                                                        ? cs.onPrimaryContainer
+                                                        : cs.onSurfaceVariant,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  AnimatedDefaultTextStyle(
+                                                    duration: const Duration(
+                                                      milliseconds: 220,
+                                                    ),
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelSmall!
+                                                        .copyWith(
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: active
+                                                              ? cs.onPrimaryContainer
+                                                              : cs.onSurface,
+                                                        ),
+                                                    child: ConstrainedBox(
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                            maxWidth: 140,
+                                                          ),
+                                                      child: AnimatedSwitcher(
+                                                        duration:
+                                                            const Duration(
+                                                              milliseconds: 280,
+                                                            ),
+                                                        switchInCurve:
+                                                            Curves.easeOutBack,
+                                                        switchOutCurve:
+                                                            Curves.easeInCubic,
+                                                        transitionBuilder: (child, animation) {
+                                                          // Q 弹文本切换：fade + 轻微上推 + 缩放，
+                                                          // 标题刷新（CDP `Page.frameNavigated` 后
+                                                          // `_refreshPageTitle` 写回）时让胶囊文字
+                                                          // 顺滑替换，不闪烁。
+                                                          final slide =
+                                                              Tween<Offset>(
+                                                                begin:
+                                                                    const Offset(
+                                                                      0,
+                                                                      0.25,
+                                                                    ),
+                                                                end:
+                                                                    Offset.zero,
+                                                              ).animate(
+                                                                animation,
+                                                              );
+                                                          return FadeTransition(
+                                                            opacity: animation,
+                                                            child: SlideTransition(
+                                                              position: slide,
+                                                              child: ScaleTransition(
+                                                                scale:
+                                                                    Tween<
+                                                                          double
+                                                                        >(
+                                                                          begin:
+                                                                              0.92,
+                                                                          end:
+                                                                              1,
+                                                                        )
+                                                                        .animate(
+                                                                          animation,
+                                                                        ),
+                                                                child: child,
+                                                              ),
+                                                            ),
+                                                          );
+                                                        },
+                                                        layoutBuilder:
+                                                            (
+                                                              current,
+                                                              previous,
+                                                            ) {
+                                                              return Stack(
+                                                                alignment: Alignment
+                                                                    .centerLeft,
+                                                                children: [
+                                                                  ...previous,
+                                                                  if (current !=
+                                                                      null)
+                                                                    current,
+                                                                ],
+                                                              );
+                                                            },
+                                                        child: Text(
+                                                          label,
+                                                          key: ValueKey<String>(
+                                                            label,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (activeCount > 1) ...[
+                                                    const SizedBox(width: 6),
+                                                    InkResponse(
+                                                      radius: 12,
+                                                      onTap: enabled
+                                                          ? () => widget
+                                                                .onClose(t.id)
+                                                          : null,
+                                                      child: Icon(
+                                                        Icons.close_rounded,
+                                                        size: 12,
+                                                        color: active
+                                                            ? cs.onPrimaryContainer
+                                                            : cs.onSurfaceVariant,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ],
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ), // TweenAnimationBuilder
-                          ), // AnimatedScale
-                        ), // AnimatedOpacity
-                      ), // AnimatedSize
+                                ), // TweenAnimationBuilder
+                        ), // AnimatedScale
+                      ), // AnimatedOpacity
+                    ), // AnimatedSize
                   );
                 },
               ),
@@ -2353,7 +2385,6 @@ class _TabStripState extends State<_TabStrip> {
     );
   }
 }
-
 
 /// 浏览器面板顶部右上角浮起的找词条：复刻 Chrome 的 Cmd+F 行为，
 /// 支持回车下一项、Shift+Enter 上一项、Esc 关闭、关闭后清掉所有 mark 高亮。
@@ -2437,8 +2468,7 @@ class _FindBar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               iconSize: 18,
               padding: const EdgeInsets.all(6),
-              constraints:
-                  const BoxConstraints(minWidth: 30, minHeight: 30),
+              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
               onPressed: matchCount > 0 ? () async => onPrev() : null,
               icon: const Icon(Icons.keyboard_arrow_up_rounded),
             ),
@@ -2448,8 +2478,7 @@ class _FindBar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               iconSize: 18,
               padding: const EdgeInsets.all(6),
-              constraints:
-                  const BoxConstraints(minWidth: 30, minHeight: 30),
+              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
               onPressed: matchCount > 0 ? () async => onNext() : null,
               icon: const Icon(Icons.keyboard_arrow_down_rounded),
             ),
@@ -2459,8 +2488,7 @@ class _FindBar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               iconSize: 16,
               padding: const EdgeInsets.all(6),
-              constraints:
-                  const BoxConstraints(minWidth: 30, minHeight: 30),
+              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
               onPressed: onClose,
               icon: const Icon(Icons.close_rounded),
             ),
@@ -2470,7 +2498,6 @@ class _FindBar extends StatelessWidget {
     );
   }
 }
-
 
 /// 框选导出时的虚线矩形 + 半透明遮罩。
 class _CropOverlayPainter extends CustomPainter {
@@ -2494,10 +2521,7 @@ class _CropOverlayPainter extends CustomPainter {
     final rect = Rect.fromPoints(s, c);
     canvas.saveLayer(Offset.zero & size, Paint());
     canvas.drawRect(Offset.zero & size, dim);
-    canvas.drawRect(
-      rect,
-      Paint()..blendMode = BlendMode.clear,
-    );
+    canvas.drawRect(rect, Paint()..blendMode = BlendMode.clear);
     canvas.restore();
     final border = Paint()
       ..color = color
@@ -2511,7 +2535,6 @@ class _CropOverlayPainter extends CustomPainter {
     return old.start != start || old.current != current || old.color != color;
   }
 }
-
 
 /// screencast 分辨率档位下拉：自动 / 720p / 1080p / 1440p / 2160p。
 /// 选中后立即覆盖 [_BrowserBodyState._resolutionOverride] 并触发一次重新
@@ -2605,7 +2628,6 @@ class _ResolutionMenu extends StatelessWidget {
   }
 }
 
-
 /// 设备模拟预设下拉：桌面 / 平板 / 移动；选中后调
 /// `Emulation.setDeviceMetricsOverride` + `setUserAgentOverride`。
 class _DevicePresetMenu extends StatelessWidget {
@@ -2670,9 +2692,11 @@ class _DevicePresetMenu extends StatelessWidget {
               .map(
                 (p) => PopupMenuItem<WebReverseDevicePreset?>(
                   value: p,
-                  child: Text(p == null
-                      ? (isZh ? '原生（清除模拟）' : 'Native (clear)')
-                      : p.label),
+                  child: Text(
+                    p == null
+                        ? (isZh ? '原生（清除模拟）' : 'Native (clear)')
+                        : p.label,
+                  ),
                 ),
               )
               .toList(growable: false),
@@ -2715,7 +2739,6 @@ class _DevicePresetMenu extends StatelessWidget {
   }
 }
 
-
 /// 地址栏前置图标兼"历史下拉"按钮：点击弹本会话访问过的 URL 列表，
 /// 按时间倒序，最多显示最近 30 条。选中即直接 navigate 过去。
 class _HistoryDropdownIcon extends StatelessWidget {
@@ -2747,10 +2770,7 @@ class _HistoryDropdownIcon extends StatelessWidget {
               height: 32,
               child: Text(
                 u,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                ),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

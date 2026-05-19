@@ -162,6 +162,8 @@ class _WebReverseDashboardDialogState
   static const _kLastTabMetaKey = 'web_reverse_dashboard_last_tab';
   static const _kBrowserTabOrderMetaKey = 'web_reverse_browser_tab_order';
   static const _kBrowserTabUrlsMetaKey = 'web_reverse_browser_tab_urls';
+  static const _kBrowserCurrentTargetMetaKey =
+      'web_reverse_browser_current_target';
   static const _kReplHistoryMetaKey = 'web_reverse_console_repl_history';
   static const _kBreakpointsMetaKey = 'web_reverse_sources_breakpoints';
   // Stream E：除行断点外的其它 4 类 + pauseOnExceptions 也需要持久化。
@@ -238,13 +240,10 @@ class _WebReverseDashboardDialogState
     // 用 enum.name 序列化；解析失败 / 没记录时保持 _Tab.network 默认。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final session = context
-          .read<AiSessionController>()
-          .sessions
-          .firstWhere(
-            (s) => s.id == widget.sessionId,
-            orElse: () => context.read<AiSessionController>().sessions.first,
-          );
+      final session = context.read<AiSessionController>().sessions.firstWhere(
+        (s) => s.id == widget.sessionId,
+        orElse: () => context.read<AiSessionController>().sessions.first,
+      );
       final raw = session.metadata[_kLastTabMetaKey];
       if (raw is String && raw.isNotEmpty) {
         for (final t in _Tab.values) {
@@ -271,8 +270,11 @@ class _WebReverseDashboardDialogState
       if (rulesRaw is List) {
         final rules = rulesRaw
             .whereType<Map>()
-            .map((m) =>
-                WebReverseInterceptRule.fromJson(Map<String, Object?>.from(m)))
+            .map(
+              (m) => WebReverseInterceptRule.fromJson(
+                Map<String, Object?>.from(m),
+              ),
+            )
             .toList(growable: false);
         if (rules.isNotEmpty) widget.controller.setInterceptRules(rules);
       }
@@ -281,7 +283,9 @@ class _WebReverseDashboardDialogState
       if (snipRaw is List) {
         final snips = snipRaw
             .whereType<Map>()
-            .map((m) => WebReverseSnippet.fromJson(Map<String, Object?>.from(m)))
+            .map(
+              (m) => WebReverseSnippet.fromJson(Map<String, Object?>.from(m)),
+            )
             .where((s) => s.id.isNotEmpty)
             .toList(growable: false);
         if (snips.isNotEmpty) widget.controller.replaceSnippets(snips);
@@ -312,8 +316,7 @@ class _WebReverseDashboardDialogState
   @override
   void dispose() {
     widget.controller.removeListener(_onChanged);
-    widget.controller.sourceJumpRequest
-        .removeListener(_onSourceJumpRequested);
+    widget.controller.sourceJumpRequest.removeListener(_onSourceJumpRequested);
     _filterCtrl.dispose();
     super.dispose();
   }
@@ -327,8 +330,11 @@ class _WebReverseDashboardDialogState
     if (_tab != _Tab.sources) setState(() => _tab = _Tab.sources);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _sourcesPanelKey.currentState
-          ?.requestJumpTo(url: req.url, line: req.line, col: req.col);
+      _sourcesPanelKey.currentState?.requestJumpTo(
+        url: req.url,
+        line: req.line,
+        col: req.col,
+      );
       widget.controller.clearSourceJumpRequest();
     });
   }
@@ -347,7 +353,8 @@ class _WebReverseDashboardDialogState
     final newTabsTitleHash = _computeTabsTitleHash(ctrl.pageTargets);
     // 关键：screencast 帧抵达不会改变这些计数，所以这里就早退。让浏览器
     // 面板内的 [_ScreencastImage] 自行 AnimatedBuilder 局部 repaint。
-    final dashboardDirty = newSize != _lastNetworkSize ||
+    final dashboardDirty =
+        newSize != _lastNetworkSize ||
         newConsole != _lastConsoleSize ||
         newErr != _lastErrorCount ||
         newRunning != _lastIsRunning ||
@@ -409,9 +416,11 @@ class _WebReverseDashboardDialogState
     setState(() => _tab = next);
     // 异步写回 metadata，失败不阻塞 UI；merge 写入避免覆盖其它键。
     final ctrl = context.read<AiSessionController>();
-    unawaited(ctrl.updateSessionMetadata(widget.sessionId, <String, Object?>{
-      _kLastTabMetaKey: next.name,
-    }));
+    unawaited(
+      ctrl.updateSessionMetadata(widget.sessionId, <String, Object?>{
+        _kLastTabMetaKey: next.name,
+      }),
+    );
   }
 
   /// 浏览器刚拉起时由 _BrowserBody 调用：把上次持久化的 URL 列表逐条
@@ -421,9 +430,9 @@ class _WebReverseDashboardDialogState
   Future<void> restoreBrowserTabs() async {
     if (!mounted) return;
     final session = context.read<AiSessionController>().sessions.firstWhere(
-          (s) => s.id == widget.sessionId,
-          orElse: () => context.read<AiSessionController>().sessions.first,
-        );
+      (s) => s.id == widget.sessionId,
+      orElse: () => context.read<AiSessionController>().sessions.first,
+    );
     final urlsRaw = session.metadata[_kBrowserTabUrlsMetaKey];
     final orderRaw = session.metadata[_kBrowserTabOrderMetaKey];
     if (urlsRaw is! Map || urlsRaw.isEmpty) return;
@@ -431,8 +440,7 @@ class _WebReverseDashboardDialogState
         ? orderRaw.whereType<String>().toList(growable: false)
         : <String>[];
     final urls = <String, String>{
-      for (final entry in urlsRaw.entries)
-        '${entry.key}': '${entry.value}',
+      for (final entry in urlsRaw.entries) '${entry.key}': '${entry.value}',
     };
     final wantUrls = order
         .map((id) => urls[id])
@@ -477,14 +485,16 @@ class _WebReverseDashboardDialogState
     if (!mounted) return;
     final session = context.read<AiSessionController>();
     final c = widget.controller;
-    final bps = c.userBreakpoints.map((b) {
-      final cond = c.breakpointCondition(url: b.url, line: b.line);
-      return <String, Object?>{
-        'url': b.url,
-        'line': b.line,
-        if (cond.isNotEmpty) 'condition': cond,
-      };
-    }).toList(growable: false);
+    final bps = c.userBreakpoints
+        .map((b) {
+          final cond = c.breakpointCondition(url: b.url, line: b.line);
+          return <String, Object?>{
+            'url': b.url,
+            'line': b.line,
+            if (cond.isNotEmpty) 'condition': cond,
+          };
+        })
+        .toList(growable: false);
     final dom = c.domBreakpoints
         .map((b) => <String, Object?>{'selector': b.selector, 'type': b.type})
         .toList(growable: false);
@@ -492,11 +502,13 @@ class _WebReverseDashboardDialogState
       session.updateSessionMetadata(widget.sessionId, <String, Object?>{
         _kBreakpointsMetaKey: bps,
         _kXhrBreakpointsMetaKey: c.xhrBreakpoints.toList(growable: false),
-        _kEventListenerBreakpointsMetaKey:
-            c.eventListenerBreakpoints.toList(growable: false),
+        _kEventListenerBreakpointsMetaKey: c.eventListenerBreakpoints.toList(
+          growable: false,
+        ),
         _kDomBreakpointsMetaKey: dom,
-        _kCspBreakpointsMetaKey:
-            c.cspViolationBreakpoints.toList(growable: false),
+        _kCspBreakpointsMetaKey: c.cspViolationBreakpoints.toList(
+          growable: false,
+        ),
         _kPauseExceptionsMetaKey: c.pauseOnExceptions,
       }),
     );
@@ -562,9 +574,9 @@ class _WebReverseDashboardDialogState
   ({String command, List<String> args})? readLspConfig() {
     if (!mounted) return null;
     final session = context.read<AiSessionController>().sessions.firstWhere(
-          (s) => s.id == widget.sessionId,
-          orElse: () => context.read<AiSessionController>().sessions.first,
-        );
+      (s) => s.id == widget.sessionId,
+      orElse: () => context.read<AiSessionController>().sessions.first,
+    );
     final cmd = session.metadata[_kLspCommandMetaKey];
     final args = session.metadata[_kLspArgsMetaKey];
     if (cmd is! String || cmd.trim().isEmpty) return null;
@@ -603,6 +615,7 @@ class _WebReverseDashboardDialogState
         'ts_ms': s.ts.millisecondsSinceEpoch,
       };
     }
+
     unawaited(
       session.updateSessionMetadata(widget.sessionId, <String, Object?>{
         _kHeapSnapAMetaKey: toJson(snapA),
@@ -615,12 +628,13 @@ class _WebReverseDashboardDialogState
   ({
     ({String json, int bytes, DateTime ts})? snapA,
     ({String json, int bytes, DateTime ts})? snapB,
-  })? readHeapSnapshots() {
+  })?
+  readHeapSnapshots() {
     if (!mounted) return null;
     final session = context.read<AiSessionController>().sessions.firstWhere(
-          (s) => s.id == widget.sessionId,
-          orElse: () => context.read<AiSessionController>().sessions.first,
-        );
+      (s) => s.id == widget.sessionId,
+      orElse: () => context.read<AiSessionController>().sessions.first,
+    );
     ({String json, int bytes, DateTime ts})? parse(Object? raw) {
       if (raw is! Map) return null;
       final json = raw['json'];
@@ -648,9 +662,9 @@ class _WebReverseDashboardDialogState
   Future<void> restoreBreakpoints() async {
     if (!mounted) return;
     final session = context.read<AiSessionController>().sessions.firstWhere(
-          (s) => s.id == widget.sessionId,
-          orElse: () => context.read<AiSessionController>().sessions.first,
-        );
+      (s) => s.id == widget.sessionId,
+      orElse: () => context.read<AiSessionController>().sessions.first,
+    );
     final meta = session.metadata;
     final rawBps = meta[_kBreakpointsMetaKey];
     final rawXhr = meta[_kXhrBreakpointsMetaKey];
@@ -658,7 +672,8 @@ class _WebReverseDashboardDialogState
     final rawDom = meta[_kDomBreakpointsMetaKey];
     final rawCsp = meta[_kCspBreakpointsMetaKey];
     final rawPause = meta[_kPauseExceptionsMetaKey];
-    final hasAny = (rawBps is List && rawBps.isNotEmpty) ||
+    final hasAny =
+        (rawBps is List && rawBps.isNotEmpty) ||
         (rawXhr is List && rawXhr.isNotEmpty) ||
         (rawEvent is List && rawEvent.isNotEmpty) ||
         (rawDom is List && rawDom.isNotEmpty) ||
@@ -669,8 +684,7 @@ class _WebReverseDashboardDialogState
     final c = widget.controller;
 
     // pauseOnExceptions
-    if (rawPause is String &&
-        (rawPause == 'uncaught' || rawPause == 'all')) {
+    if (rawPause is String && (rawPause == 'uncaught' || rawPause == 'all')) {
       try {
         await c.setPauseOnExceptions(rawPause);
       } catch (_) {}
@@ -739,23 +753,32 @@ class _WebReverseDashboardDialogState
     if (!mounted) return;
     final ctrl = widget.controller;
     final order = ctrl.pageTargetOrder;
+    final currentId = ctrl.currentPageTargetId;
     // 尝试拉每个 target 的真实 URL；失败则用 snapshot 里的。控制总耗时
     // ≤ 500ms，超时即用 snapshot。
     final urls = <String, String>{};
+    CdpPageTargetSnapshot? currentTarget;
     for (final t in ctrl.pageTargets) {
       urls[t.id] = t.url;
+      if (t.id == currentId) currentTarget = t;
     }
     final session = context.read<AiSessionController>();
     unawaited(
       session.updateSessionMetadata(widget.sessionId, <String, Object?>{
         _kBrowserTabOrderMetaKey: order,
         _kBrowserTabUrlsMetaKey: urls,
+        _kBrowserCurrentTargetMetaKey: currentTarget == null
+            ? null
+            : <String, Object?>{
+                'id': currentTarget.id,
+                'url': currentTarget.url,
+                'title': currentTarget.title,
+              },
       }),
     );
   }
 
-  bool _isZh() =>
-      Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool _isZh() => Localizations.localeOf(context).languageCode.startsWith('zh');
 
   @override
   Widget build(BuildContext context) {
@@ -767,10 +790,18 @@ class _WebReverseDashboardDialogState
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         // Cmd+Shift+R / Ctrl+Shift+R 启停 Recorder。
-        const SingleActivator(LogicalKeyboardKey.keyR,
-            meta: true, shift: true): () => _toggleRecorder(ctrl),
-        const SingleActivator(LogicalKeyboardKey.keyR,
-            control: true, shift: true): () => _toggleRecorder(ctrl),
+        const SingleActivator(
+          LogicalKeyboardKey.keyR,
+          meta: true,
+          shift: true,
+        ): () =>
+            _toggleRecorder(ctrl),
+        const SingleActivator(
+          LogicalKeyboardKey.keyR,
+          control: true,
+          shift: true,
+        ): () =>
+            _toggleRecorder(ctrl),
         // Shift + ? 打开快捷键速查面板。`?` 在大多数键盘上需要 shift+/，
         // SingleActivator 的 includeRepeats 默认 true 不影响这里。
         const SingleActivator(LogicalKeyboardKey.slash, shift: true): () =>
@@ -782,37 +813,33 @@ class _WebReverseDashboardDialogState
       // 套上 `_EscapeDismissDialogScope` 提供 ESC 关闭，ModalRoute 自身的
       // 焦点 scope 已足以让 CallbackShortcuts 接收到键盘事件。
       child: Dialog(
-          backgroundColor: cs.surfaceContainer,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          insetPadding: const EdgeInsets.all(24),
-          child: ClipRRect(
-            // Dialog 自带 shape 只裁切 Material 自身的背景；body 内的 Container
-            // / Image / Stack 等会延伸到 Dialog 边缘，覆盖掉本来的圆角。
-            // 用一层 ClipRRect 把所有 body 内容统一裁成圆角，右下角不再是
-            // 尖角。
-            borderRadius: BorderRadius.circular(20),
-            child: ConstrainedBox(
-              constraints:
-                  const BoxConstraints(maxWidth: 1180, maxHeight: 760),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                // 关键：所有子项横向拉到 Dialog 全宽，避免不同 tab 切换时
-                // body 内容更窄导致 Column 把 toolbar 行整体回缩并重新居中
-                // （Network 行能拉满工具条变左对齐；Console / 性能行 body 窄、
-                // 工具条又默认 MainAxisSize.min，外层 stretch 会强制铺满）。
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(theme, cs, isZh),
-                  Divider(height: 1, color: cs.outlineVariant),
-                  AnimatedSize(
-                  duration:
-                      reduceMotion ? Duration.zero : _kSwitchDuration,
+        backgroundColor: cs.surfaceContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.all(24),
+        child: ClipRRect(
+          // Dialog 自带 shape 只裁切 Material 自身的背景；body 内的 Container
+          // / Image / Stack 等会延伸到 Dialog 边缘，覆盖掉本来的圆角。
+          // 用一层 ClipRRect 把所有 body 内容统一裁成圆角，右下角不再是
+          // 尖角。
+          borderRadius: BorderRadius.circular(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 760),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              // 关键：所有子项横向拉到 Dialog 全宽，避免不同 tab 切换时
+              // body 内容更窄导致 Column 把 toolbar 行整体回缩并重新居中
+              // （Network 行能拉满工具条变左对齐；Console / 性能行 body 窄、
+              // 工具条又默认 MainAxisSize.min，外层 stretch 会强制铺满）。
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(theme, cs, isZh),
+                Divider(height: 1, color: cs.outlineVariant),
+                AnimatedSize(
+                  duration: reduceMotion ? Duration.zero : _kSwitchDuration,
                   curve: _kSwitchInCurve,
                   alignment: Alignment.topCenter,
                   child: AnimatedSwitcher(
-                    duration:
-                        reduceMotion ? Duration.zero : _kSwitchDuration,
+                    duration: reduceMotion ? Duration.zero : _kSwitchDuration,
                     switchInCurve: _kSwitchInCurve,
                     switchOutCurve: _kSwitchOutCurve,
                     transitionBuilder: (child, animation) => FadeTransition(
@@ -839,8 +866,7 @@ class _WebReverseDashboardDialogState
                 Divider(height: 1, color: cs.outlineVariant),
                 Expanded(
                   child: AnimatedSwitcher(
-                    duration:
-                        reduceMotion ? Duration.zero : _kSwitchDuration,
+                    duration: reduceMotion ? Duration.zero : _kSwitchDuration,
                     switchInCurve: _kSwitchInCurve,
                     switchOutCurve: _kSwitchOutCurve,
                     transitionBuilder: (child, animation) => FadeTransition(
@@ -860,10 +886,10 @@ class _WebReverseDashboardDialogState
                   ),
                 ),
               ],
-              ),
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -910,8 +936,11 @@ class _WebReverseDashboardDialogState
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Icon(Icons.travel_explore_rounded,
-                color: cs.onPrimaryContainer, size: 20),
+            child: Icon(
+              Icons.travel_explore_rounded,
+              color: cs.onPrimaryContainer,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -952,97 +981,85 @@ class _WebReverseDashboardDialogState
     bool reduceMotion,
   ) {
     return switch (_tab) {
-      _Tab.browser => _BrowserBody(
-          controller: ctrl,
-          isZh: isZh,
-        ),
+      _Tab.browser => _BrowserBody(controller: ctrl, isZh: isZh),
       _Tab.overview => _OverviewBody(controller: ctrl, isZh: isZh),
       _Tab.network => _NetworkBody(
-          state: this,
-          controller: ctrl,
-          isZh: isZh,
-          reduceMotion: reduceMotion,
-        ),
+        state: this,
+        controller: ctrl,
+        isZh: isZh,
+        reduceMotion: reduceMotion,
+      ),
       _Tab.console => _ConsoleBody(
-          controller: ctrl,
-          filter: _networkFilter,
-          isZh: isZh,
-          reduceMotion: reduceMotion,
-        ),
+        controller: ctrl,
+        filter: _networkFilter,
+        isZh: isZh,
+        reduceMotion: reduceMotion,
+      ),
       _Tab.sources => _SourcesPanel(
-          key: _sourcesPanelKey,
-          controller: ctrl,
-          isZh: isZh,
-          reduceMotion: reduceMotion,
-        ),
+        key: _sourcesPanelKey,
+        controller: ctrl,
+        isZh: isZh,
+        reduceMotion: reduceMotion,
+      ),
       _Tab.snippets => _SnippetsBody(
-          controller: ctrl,
-          isZh: isZh,
-          onPersist: persistSnippets,
-        ),
+        controller: ctrl,
+        isZh: isZh,
+        onPersist: persistSnippets,
+      ),
       _Tab.elements => _ElementsBody(
-          controller: ctrl,
-          isZh: isZh,
-          reduceMotion: reduceMotion,
-        ),
+        controller: ctrl,
+        isZh: isZh,
+        reduceMotion: reduceMotion,
+      ),
       _Tab.hooks => _HooksBody(
-          controller: ctrl,
-          isZh: isZh,
-          onPersist: persistHooks,
-        ),
+        controller: ctrl,
+        isZh: isZh,
+        onPersist: persistHooks,
+      ),
       _Tab.crons => _CronsBody(
-          controller: ctrl,
-          isZh: isZh,
-          onPersist: persistCrons,
-        ),
+        controller: ctrl,
+        isZh: isZh,
+        onPersist: persistCrons,
+      ),
       _Tab.breakpoints => _BreakpointsBody(
-          controller: ctrl,
-          isZh: isZh,
-          onPersist: persistBreakpoints,
-          onJumpToSource: (url, line) {
-            if (_tab != _Tab.sources) setState(() => _tab = _Tab.sources);
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              _sourcesPanelKey.currentState
-                  ?.requestJumpTo(url: url, line: line);
-            });
-          },
-        ),
+        controller: ctrl,
+        isZh: isZh,
+        onPersist: persistBreakpoints,
+        onJumpToSource: (url, line) {
+          if (_tab != _Tab.sources) setState(() => _tab = _Tab.sources);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _sourcesPanelKey.currentState?.requestJumpTo(url: url, line: line);
+          });
+        },
+      ),
       _Tab.realtime => _RealtimeBody(controller: ctrl, isZh: isZh),
-      _Tab.crypto => _CryptoPadBody(
-          isZh: isZh,
-          reduceMotion: reduceMotion,
-        ),
+      _Tab.crypto => _CryptoPadBody(isZh: isZh, reduceMotion: reduceMotion),
       _Tab.performance => _PerformancePanel(
-          controller: ctrl,
-          isZh: isZh,
-          reduceMotion: reduceMotion,
-        ),
+        controller: ctrl,
+        isZh: isZh,
+        reduceMotion: reduceMotion,
+      ),
       _Tab.memory => _MemoryPanel(
-          controller: ctrl,
-          isZh: isZh,
-          reduceMotion: reduceMotion,
-        ),
+        controller: ctrl,
+        isZh: isZh,
+        reduceMotion: reduceMotion,
+      ),
       _Tab.application => _ApplicationPanel(
-          controller: ctrl,
-          isZh: isZh,
-          reduceMotion: reduceMotion,
-        ),
-      _Tab.security => _SecurityPanel(
-          controller: ctrl,
-          isZh: isZh,
-        ),
+        controller: ctrl,
+        isZh: isZh,
+        reduceMotion: reduceMotion,
+      ),
+      _Tab.security => _SecurityPanel(controller: ctrl, isZh: isZh),
       _Tab.recorder => _RecorderPanel(
-          controller: ctrl,
-          isZh: isZh,
-          reduceMotion: reduceMotion,
-        ),
+        controller: ctrl,
+        isZh: isZh,
+        reduceMotion: reduceMotion,
+      ),
     };
   }
 
-  Future<void> _openOfficialDevTools(
-    WebReverseSessionController ctrl,
-  ) async {
+  Future<void> _openOfficialDevTools(WebReverseSessionController ctrl) async {
     await _openOfficialDevToolsForController(context, ctrl, _isZh());
   }
 }
@@ -1060,8 +1077,7 @@ Future<void> _openOfficialDevToolsForController(
   final messenger = ScaffoldMessenger.of(context);
   String? frontendUrl;
   try {
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 3);
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
     try {
       final req = await client.getUrl(
         Uri.parse('http://127.0.0.1:$port/json/list'),
@@ -1091,8 +1107,9 @@ Future<void> _openOfficialDevToolsForController(
             .firstOrNull;
         final fe = best?['devtoolsFrontendUrl'] as String?;
         if (fe != null && fe.isNotEmpty) {
-          frontendUrl =
-              fe.startsWith('http') ? fe : 'http://127.0.0.1:$port$fe';
+          frontendUrl = fe.startsWith('http')
+              ? fe
+              : 'http://127.0.0.1:$port$fe';
         }
       }
     } finally {
@@ -1169,8 +1186,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
           .toIso8601String()
           .replaceAll(':', '-')
           .replaceAll('.', '-');
-      const typeGroup =
-          XTypeGroup(label: 'JSON', extensions: <String>['json']);
+      const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
       final location = await getSaveLocation(
         suggestedName: 'web-reverse-snapshot-$ts.json',
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
@@ -1205,8 +1221,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      const typeGroup =
-          XTypeGroup(label: 'JSON', extensions: <String>['json']);
+      const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
       final file = await openFile(acceptedTypeGroups: const [typeGroup]);
       if (file == null) return;
       final raw = await File(file.path).readAsString();
@@ -1221,8 +1236,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         );
         return;
       }
-      final count =
-          controller.importSnapshot(decoded.cast<String, Object?>());
+      final count = controller.importSnapshot(decoded.cast<String, Object?>());
       if (!mounted) return;
       if (count < 0) {
         OpenHandSnackBar.showErrorOn(
@@ -1263,15 +1277,14 @@ class _OverviewBodyState extends State<_OverviewBody> {
       (isZh ? '请求数' : 'Requests', '${ctrl.networkRequests.length}'),
       (
         isZh ? '错误' : 'Errors',
-        '${ctrl.networkRequests.where((e) => e.isError).length}'
+        '${ctrl.networkRequests.where((e) => e.isError).length}',
       ),
-      (
-        isZh ? '控制台条目' : 'Console',
-        '${ctrl.consoleMessages.length}'
-      ),
+      (isZh ? '控制台条目' : 'Console', '${ctrl.consoleMessages.length}'),
       (
         isZh ? '运行状态' : 'Status',
-        ctrl.isRunning ? (isZh ? '运行中' : 'Running') : (isZh ? '已停止' : 'Stopped')
+        ctrl.isRunning
+            ? (isZh ? '运行中' : 'Running')
+            : (isZh ? '已停止' : 'Stopped'),
       ),
       (isZh ? '浏览器' : 'Browser', ctrl.browserVersion ?? '-'),
       (isZh ? 'CDP 端口' : 'CDP Port', '${ctrl.cdpPort ?? '-'}'),
@@ -1290,8 +1303,11 @@ class _OverviewBodyState extends State<_OverviewBody> {
             ),
             child: Row(
               children: [
-                Icon(Icons.shield_moon_rounded,
-                    color: cs.onTertiaryContainer, size: 20),
+                Icon(
+                  Icons.shield_moon_rounded,
+                  color: cs.onTertiaryContainer,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -1339,7 +1355,9 @@ class _OverviewBodyState extends State<_OverviewBody> {
             for (final (label, value) in stats)
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 10),
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(14),
@@ -1380,8 +1398,11 @@ class _OverviewBodyState extends State<_OverviewBody> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.bookmarks_rounded,
-                      size: 18, color: cs.onSurfaceVariant),
+                  Icon(
+                    Icons.bookmarks_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     isZh ? '会话快照' : 'Session snapshot',
@@ -1558,8 +1579,9 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
     final raw = widget.controller.errorMessage ?? '';
     final diagnosis = WebReverseLaunchDiagnosis.parse(raw);
     return AnimatedSize(
-      duration:
-          widget.reduceMotion ? Duration.zero : const Duration(milliseconds: 240),
+      duration: widget.reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: Container(
@@ -1576,8 +1598,11 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
           children: [
             Row(
               children: [
-                Icon(Icons.report_gmailerrorred_rounded,
-                    size: 18, color: cs.error),
+                Icon(
+                  Icons.report_gmailerrorred_rounded,
+                  size: 18,
+                  color: cs.error,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1602,9 +1627,11 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                     minHeight: 30,
                   ),
                   onPressed: () => setState(() => _expanded = !_expanded),
-                  icon: Icon(_expanded
-                      ? Icons.expand_less_rounded
-                      : Icons.expand_more_rounded),
+                  icon: Icon(
+                    _expanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                  ),
                 ),
                 const SizedBox(width: 4),
                 IconButton(
@@ -1625,8 +1652,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
               const SizedBox(height: 8),
               for (var i = 0; i < diagnosis.causes.length; i++) ...[
                 _CauseEntry(cause: diagnosis.causes[i], index: i, isZh: isZh),
-                if (i != diagnosis.causes.length - 1)
-                  const SizedBox(height: 8),
+                if (i != diagnosis.causes.length - 1) const SizedBox(height: 8),
               ],
               const SizedBox(height: 12),
               Wrap(
@@ -1640,19 +1666,19 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                       _busy
                           ? Icons.hourglass_top_rounded
                           : (_onCooldown
-                              ? Icons.timer_rounded
-                              : Icons.auto_fix_high_rounded),
+                                ? Icons.timer_rounded
+                                : Icons.auto_fix_high_rounded),
                       size: 16,
                     ),
-                    label: Text(_busy
-                        ? (isZh ? '处理中…' : 'Working…')
-                        : _onCooldown
-                            ? (isZh
+                    label: Text(
+                      _busy
+                          ? (isZh ? '处理中…' : 'Working…')
+                          : _onCooldown
+                          ? (isZh
                                 ? '冷却中（${_cooldownLeftSec}s）'
                                 : 'Cool-down ${_cooldownLeftSec}s')
-                            : (isZh
-                                ? '解决 Profile 冲突'
-                                : 'Resolve profile lock')),
+                          : (isZh ? '解决 Profile 冲突' : 'Resolve profile lock'),
+                    ),
                     style: FilledButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                     ),
@@ -1702,8 +1728,7 @@ class _CauseEntry extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer,
                   borderRadius: BorderRadius.circular(999),
@@ -1742,7 +1767,6 @@ class _CauseEntry extends StatelessWidget {
   }
 }
 
-
 /// dashboard 全局快捷键速查面板：按 Shift+? 打开，分类列出所有热键。
 /// macOS 上 Cmd 用 ⌘ 渲染；其它平台用 Ctrl。
 class _ShortcutsHelpDialog extends StatelessWidget {
@@ -1759,10 +1783,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
       (
         title: isZh ? 'Dashboard' : 'Dashboard',
         rows: [
-          (
-            keys: 'Shift + ?',
-            desc: isZh ? '打开本面板' : 'Open this panel',
-          ),
+          (keys: 'Shift + ?', desc: isZh ? '打开本面板' : 'Open this panel'),
           (
             keys: '$cmd + Shift + R',
             desc: isZh ? '启停 Recorder' : 'Toggle Recorder',
@@ -1820,8 +1841,9 @@ class _ShortcutsHelpDialog extends StatelessWidget {
                   Expanded(
                     child: Text(
                       isZh ? '快捷键速查' : 'Keyboard shortcuts',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -1849,14 +1871,15 @@ class _ShortcutsHelpDialog extends StatelessWidget {
                     ),
                     for (final r in g.rows)
                       Padding(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           children: [
                             Container(
                               constraints: const BoxConstraints(minWidth: 110),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: cs.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(6),

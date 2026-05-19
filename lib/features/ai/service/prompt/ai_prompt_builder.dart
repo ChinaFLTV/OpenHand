@@ -1442,10 +1442,12 @@ class AiPromptBuilder {
       'fallback_policy':
           'Use CDP MCP / OpenHand CDP Bridge first. Use Playwright or other automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
       if (config.isNotEmpty) 'config': config,
+      'cdp_runtime': meta('web_reverse_cdp_runtime'),
       'dashboard_state': <String, Object?>{
         'last_tab': meta('web_reverse_dashboard_last_tab'),
         'browser_tab_order': meta('web_reverse_browser_tab_order'),
         'browser_tab_urls': meta('web_reverse_browser_tab_urls'),
+        'browser_current_target': meta('web_reverse_browser_current_target'),
       },
       'dashboard_tabs': const <String>[
         'browser',

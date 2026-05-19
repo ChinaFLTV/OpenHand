@@ -223,6 +223,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // controller managing one external Chrome process + CDP channel.
   final Map<String, WebReverseSessionController> _webReverseControllers =
       <String, WebReverseSessionController>{};
+  final Map<String, String> _webReverseRuntimeMetadataSignatures =
+      <String, String>{};
+  Timer? _webReverseRuntimeMetadataTimer;
 
   // Programming Expert: file explorer & inline editor state.
   bool _fileExplorerVisible = false;
@@ -624,6 +627,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ctrl.dispose();
     }
     _webReverseControllers.clear();
+    _webReverseRuntimeMetadataTimer?.cancel();
+    _webReverseRuntimeMetadataTimer = null;
+    _webReverseRuntimeMetadataSignatures.clear();
     _hardnessSessionSaveTimer?.cancel();
     _editorTabsSaveTimer?.cancel();
     // Flush pending editor tabs before disposal.
@@ -2653,6 +2659,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     try {
       await controller.start();
       launchOk = true;
+      await _persistWebReverseRuntimeMetadata(session.id, controller);
     } on WebReverseLaunchException catch (error, stack) {
       silentLog(
         'openhand_home_page',
@@ -2681,6 +2688,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // 启动失败则把 dead controller 摘除，避免胶囊点击拿到残骸。
       controller.removeListener(_onWebReverseControllerChanged);
       _webReverseControllers.remove(session.id);
+      _webReverseRuntimeMetadataSignatures.remove(session.id);
       // 必须先 await stop() 才能 dispose；旧顺序会触发
       // dispose 后 notifyListeners 断言。
       try {
@@ -2700,6 +2708,87 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _onWebReverseControllerChanged() {
     if (!mounted) return;
     setState(() {});
+    _scheduleWebReverseRuntimeMetadataSync();
+  }
+
+  void _scheduleWebReverseRuntimeMetadataSync() {
+    _webReverseRuntimeMetadataTimer?.cancel();
+    _webReverseRuntimeMetadataTimer = Timer(
+      const Duration(milliseconds: 500),
+      _syncWebReverseRuntimeMetadata,
+    );
+  }
+
+  void _syncWebReverseRuntimeMetadata() {
+    if (!mounted) return;
+    final entries = List<MapEntry<String, WebReverseSessionController>>.of(
+      _webReverseControllers.entries,
+    );
+    for (final entry in entries) {
+      unawaited(_persistWebReverseRuntimeMetadata(entry.key, entry.value));
+    }
+  }
+
+  Future<void> _persistWebReverseRuntimeMetadata(
+    String sessionId,
+    WebReverseSessionController controller,
+  ) async {
+    if (!mounted) return;
+    final metadata = _webReverseRuntimeMetadata(controller);
+    final signature = jsonEncode(metadata);
+    if (_webReverseRuntimeMetadataSignatures[sessionId] == signature) return;
+    try {
+      await context.read<AiSessionController>().updateSessionMetadata(
+        sessionId,
+        <String, Object?>{'web_reverse_cdp_runtime': metadata},
+      );
+      _webReverseRuntimeMetadataSignatures[sessionId] = signature;
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'persist web reverse runtime metadata $sessionId',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Map<String, Object?> _webReverseRuntimeMetadata(
+    WebReverseSessionController controller,
+  ) {
+    final port = controller.cdpPort;
+    final browserVersion = controller.browserVersion?.trim();
+    final currentTargetId = controller.currentPageTargetId;
+    CdpPageTargetSnapshot? currentTarget;
+    if (currentTargetId != null && currentTargetId.isNotEmpty) {
+      for (final target in controller.pageTargets) {
+        if (target.id == currentTargetId) {
+          currentTarget = target;
+          break;
+        }
+      }
+    }
+    return <String, Object?>{
+      'source': 'OpenHand WebReverseSessionController',
+      'is_running': controller.isRunning,
+      'browser_alive': controller.isBrowserAlive,
+      if (port != null) ...<String, Object?>{
+        'cdp_port': port,
+        'cdp_host': '127.0.0.1',
+        'cdp_http_endpoint': 'http://127.0.0.1:$port',
+        'json_version_url': 'http://127.0.0.1:$port/json/version',
+        'json_list_url': 'http://127.0.0.1:$port/json/list',
+      },
+      if (browserVersion != null && browserVersion.isNotEmpty)
+        'browser_version': browserVersion,
+      'artifacts_root_dir': controller.artifactsRootDir,
+      if (currentTarget != null)
+        'current_target': <String, Object?>{
+          'id': currentTarget.id,
+          'url': currentTarget.url,
+          'title': currentTarget.title,
+        },
+    };
   }
 
   /// 把 [WebReverseLaunchException] 转成"标题 + 详情"两段式文案，
@@ -2812,6 +2901,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     try {
       await controller.start();
       launchOk = true;
+      await _persistWebReverseRuntimeMetadata(session.id, controller);
     } on WebReverseLaunchException catch (error, stack) {
       silentLog(
         'openhand_home_page',
@@ -2839,6 +2929,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!launchOk) {
       controller.removeListener(_onWebReverseControllerChanged);
       _webReverseControllers.remove(session.id);
+      _webReverseRuntimeMetadataSignatures.remove(session.id);
       // 必须先 await stop()，stop 内部的收尾 I/O 才能在 dispose 之前完成；
       // 旧实现 unawaited(stop) + dispose() 会触发 dispose 后的 notifyListeners。
       try {
@@ -5509,6 +5600,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _removeComposerDraftForSession(session.id);
         // 释放该会话挂着的 Web 逆向 controller（停 dock / 关 CDP / 关浏览器进程）。
         final wr = _webReverseControllers.remove(session.id);
+        _webReverseRuntimeMetadataSignatures.remove(session.id);
         if (wr != null) {
           wr.removeListener(_onWebReverseControllerChanged);
           unawaited(wr.stop());
