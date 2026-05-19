@@ -70,6 +70,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     super.initState();
     _bootstrap();
     widget.controller.addListener(_onCtrlChanged);
+    // 2026-05-19 — Cmd+P / Ctrl+P 全局快速打开脚本/跳行（类 VSCode/Chrome
+    // DevTools）。挂在 HardwareKeyboard 上避免 TextField 焦点抢键。
+    HardwareKeyboard.instance.addHandler(_handleQuickOpenKey);
   }
 
   void _onCtrlChanged() {
@@ -94,11 +97,63 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   @override
   void dispose() {
     widget.controller.removeListener(_onCtrlChanged);
+    HardwareKeyboard.instance.removeHandler(_handleQuickOpenKey);
     _hoverDebounce?.cancel();
     _highlightTimer?.cancel();
     _sourceScroll.dispose();
     _lsp.stop();
     super.dispose();
+  }
+
+  /// HW 键回调：Cmd+P (macOS) / Ctrl+P (其他)。Shift/Alt 修饰键按下时
+  /// 不响应（避免与潜在的「全部脚本搜索」冲突，留给现有圆形 chip）。
+  bool _handleQuickOpenKey(KeyEvent e) {
+    if (e is! KeyDownEvent) return false;
+    if (e.logicalKey != LogicalKeyboardKey.keyP) return false;
+    final hw = HardwareKeyboard.instance;
+    final modOk = Platform.isMacOS ? hw.isMetaPressed : hw.isControlPressed;
+    if (!modOk) return false;
+    if (hw.isShiftPressed || hw.isAltPressed) return false;
+    if (!mounted) return false;
+    // 异步打开，避免在 HW 回调里同步 build dialog。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_showQuickOpen());
+    });
+    return true;
+  }
+
+  /// Cmd+P 弹窗：模糊匹配脚本 URL（basename 加权），尾随 `:42` 跳目标行；
+  /// 选中后等价于 `_selectScript` + `_scrollToLine`。
+  Future<void> _showQuickOpen() async {
+    final isZh = widget.isZh;
+    final scripts = widget.controller.parsedScripts;
+    if (scripts.isEmpty) {
+      OpenHandSnackBar.showInfo(
+        context,
+        isZh ? '尚未捕获脚本' : 'No scripts yet',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    final picked = await showAnimatedDialog<({String scriptId, int? line})>(
+      context: context,
+      builder: (_) => _SourcesQuickOpenDialog(
+        controller: widget.controller,
+        currentScriptId: _selectedId,
+        isZh: isZh,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    await _selectScript(picked.scriptId);
+    if (!mounted) return;
+    final line = picked.line;
+    if (line != null && line > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _scrollToLine(line);
+      });
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -2018,4 +2073,296 @@ class _SourceHoverBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Cmd+P / Ctrl+P 快速打开脚本（类 VSCode/Chrome DevTools）。
+// 输入纯文本 → 模糊匹配脚本 URL（basename 命中加权）。结尾 `:42` 跳到指定
+// 行。↑↓ 移动高亮项，Enter 选中，Esc 关闭。仅做文件/行跳转；符号检索受限
+// 于 CDP（要拉源码现取），暂不放进首屏。
+// ─────────────────────────────────────────────────────────────────────────
+class _SourcesQuickOpenDialog extends StatefulWidget {
+  const _SourcesQuickOpenDialog({
+    required this.controller,
+    required this.currentScriptId,
+    required this.isZh,
+  });
+  final WebReverseSessionController controller;
+  final String? currentScriptId;
+  final bool isZh;
+  @override
+  State<_SourcesQuickOpenDialog> createState() =>
+      _SourcesQuickOpenDialogState();
+}
+
+class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
+  final TextEditingController _qCtrl = TextEditingController();
+  final FocusNode _qFocus = FocusNode();
+  final ScrollController _listScroll = ScrollController();
+  late final List<_QuickEntry> _all;
+  List<_QuickEntry> _filtered = const [];
+  int? _gotoLine;
+  int _activeIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final scripts = widget.controller.parsedScripts;
+    _all = scripts.entries
+        .map((e) => _QuickEntry(scriptId: e.key, url: e.value.url))
+        .toList(growable: false);
+    _refilter();
+    _qCtrl.addListener(_onText);
+  }
+
+  @override
+  void dispose() {
+    _qCtrl.removeListener(_onText);
+    _qCtrl.dispose();
+    _qFocus.dispose();
+    _listScroll.dispose();
+    super.dispose();
+  }
+
+  void _onText() => setState(_refilter);
+
+  void _refilter() {
+    var raw = _qCtrl.text;
+    int? line;
+    final colonIdx = raw.lastIndexOf(':');
+    if (colonIdx > 0 && colonIdx < raw.length - 1) {
+      final tail = raw.substring(colonIdx + 1).trim();
+      final n = int.tryParse(tail);
+      if (n != null && n > 0) {
+        line = n;
+        raw = raw.substring(0, colonIdx);
+      }
+    }
+    _gotoLine = line;
+    final q = raw.trim().toLowerCase();
+    if (q.isEmpty) {
+      // 默认按 URL 排序，把当前文件置顶。
+      final sorted = [..._all]..sort((a, b) => a.url.compareTo(b.url));
+      final cur = widget.currentScriptId;
+      if (cur != null) {
+        final idx = sorted.indexWhere((e) => e.scriptId == cur);
+        if (idx > 0) {
+          final pick = sorted.removeAt(idx);
+          sorted.insert(0, pick);
+        }
+      }
+      _filtered = sorted;
+    } else {
+      // 评分：basename 包含 +3，开头匹配 +2，URL 包含 +1。
+      final scored = <(int, _QuickEntry)>[];
+      for (final e in _all) {
+        final url = e.url.toLowerCase();
+        final base = url.split('/').last;
+        var s = 0;
+        if (base.startsWith(q)) s += 5;
+        if (base.contains(q)) s += 3;
+        if (url.contains(q)) s += 1;
+        if (s > 0) scored.add((s, e));
+      }
+      scored.sort((a, b) {
+        final cmp = b.$1.compareTo(a.$1);
+        if (cmp != 0) return cmp;
+        return a.$2.url.compareTo(b.$2.url);
+      });
+      _filtered = scored.map((p) => p.$2).toList(growable: false);
+    }
+    if (_activeIndex >= _filtered.length) {
+      _activeIndex = _filtered.isEmpty ? 0 : _filtered.length - 1;
+    }
+  }
+
+  void _move(int delta) {
+    if (_filtered.isEmpty) return;
+    setState(() {
+      _activeIndex = (_activeIndex + delta) % _filtered.length;
+      if (_activeIndex < 0) _activeIndex += _filtered.length;
+    });
+    // 简易滚动：把活跃项滚到中间。
+    if (_listScroll.hasClients) {
+      const rowH = 36.0;
+      final target = (_activeIndex * rowH - 100).clamp(
+        0.0,
+        _listScroll.position.maxScrollExtent,
+      );
+      _listScroll.animateTo(
+        target,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  void _commit() {
+    if (_filtered.isEmpty) return;
+    final pick = _filtered[_activeIndex];
+    Navigator.of(context).pop((scriptId: pick.scriptId, line: _gotoLine));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = widget.isZh;
+    return Dialog(
+      backgroundColor: cs.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: SizedBox(
+        width: 640,
+        height: 480,
+        child: CallbackShortcuts(
+          bindings: <ShortcutActivator, VoidCallback>{
+            const SingleActivator(LogicalKeyboardKey.escape): () =>
+                Navigator.of(context).pop(),
+            const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+                _move(1),
+            const SingleActivator(LogicalKeyboardKey.arrowUp): () => _move(-1),
+            const SingleActivator(LogicalKeyboardKey.enter): _commit,
+            const SingleActivator(LogicalKeyboardKey.numpadEnter): _commit,
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+                child: TextField(
+                  controller: _qCtrl,
+                  focusNode: _qFocus,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: isZh
+                        ? '快速打开脚本… 末尾加 :42 可跳到指定行'
+                        : 'Go to file… (suffix :42 jumps to line)',
+                    prefixIcon:
+                        const Icon(Icons.flash_on_rounded, size: 16),
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 12),
+                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              if (_gotoLine != null)
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  child: Text(
+                    isZh
+                        ? '将跳到第 $_gotoLine 行'
+                        : 'Will jump to line $_gotoLine',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.primary,
+                    ),
+                  ),
+                ),
+              const Divider(height: 1),
+              Expanded(
+                child: _filtered.isEmpty
+                    ? Center(
+                        child: Text(
+                          isZh ? '无匹配脚本' : 'No matches',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _listScroll,
+                        itemExtent: 36,
+                        itemCount: _filtered.length,
+                        itemBuilder: (ctx, i) {
+                          final e = _filtered[i];
+                          final active = i == _activeIndex;
+                          final base = e.url.split('/').last;
+                          final dir = base.length >= e.url.length
+                              ? ''
+                              : e.url.substring(
+                                  0, e.url.length - base.length - 1);
+                          return InkWell(
+                            onTap: () {
+                              setState(() => _activeIndex = i);
+                              _commit();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 6),
+                              color: active
+                                  ? cs.primary.withValues(alpha: 0.12)
+                                  : Colors.transparent,
+                              alignment: Alignment.centerLeft,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.description_outlined,
+                                    size: 14,
+                                    color: active
+                                        ? cs.primary
+                                        : cs.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    base.isEmpty ? '(anonymous)' : base,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontFamily: 'monospace',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: active
+                                          ? cs.primary
+                                          : cs.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      dir,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        fontFamily: 'monospace',
+                                        fontSize: 11,
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                child: Text(
+                  isZh
+                      ? '↑/↓ 选择 · Enter 打开 · Esc 关闭'
+                      : '↑/↓ navigate · Enter open · Esc close',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickEntry {
+  const _QuickEntry({required this.scriptId, required this.url});
+  final String scriptId;
+  final String url;
 }
