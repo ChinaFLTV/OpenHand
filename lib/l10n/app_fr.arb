@@ -5737,5 +5737,41 @@
         "type": "int"
       }
     }
+  },
+  "webReverseMarkupTitle": "Annotation de capture",
+  "@webReverseMarkupTitle": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupSaveWithout": "Enregistrer sans annotation",
+  "@webReverseMarkupSaveWithout": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupExporting": "Export en cours…",
+  "@webReverseMarkupExporting": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupDone": "Terminé",
+  "@webReverseMarkupDone": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupUndo": "Annuler",
+  "@webReverseMarkupUndo": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupClear": "Effacer",
+  "@webReverseMarkupClear": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupAddTextTitle": "Ajouter une étiquette texte",
+  "@webReverseMarkupAddTextTitle": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupLabelHint": "Saisir l'étiquette",
+  "@webReverseMarkupLabelHint": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupAdd": "Ajouter",
+  "@webReverseMarkupAdd": {
+    "description": "web_reverse: screenshot markup dialog"
   }
 }

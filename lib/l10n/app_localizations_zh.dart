@@ -7512,6 +7512,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseRealtimeFrameCount(int count) {
     return '$count 帧';
   }
+
+  @override
+  String get webReverseMarkupTitle => '截图标注';
+
+  @override
+  String get webReverseMarkupSaveWithout => '不标注直接保存';
+
+  @override
+  String get webReverseMarkupExporting => '导出中…';
+
+  @override
+  String get webReverseMarkupDone => '完成';
+
+  @override
+  String get webReverseMarkupUndo => '撤销';
+
+  @override
+  String get webReverseMarkupClear => '清空';
+
+  @override
+  String get webReverseMarkupAddTextTitle => '添加文字注释';
+
+  @override
+  String get webReverseMarkupLabelHint => '输入标注文字';
+
+  @override
+  String get webReverseMarkupAdd => '添加';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -15022,6 +15049,33 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseRealtimeFrameCount(int count) {
     return '$count 帧';
   }
+
+  @override
+  String get webReverseMarkupTitle => '截图标注';
+
+  @override
+  String get webReverseMarkupSaveWithout => '不标注直接保存';
+
+  @override
+  String get webReverseMarkupExporting => '导出中…';
+
+  @override
+  String get webReverseMarkupDone => '完成';
+
+  @override
+  String get webReverseMarkupUndo => '撤销';
+
+  @override
+  String get webReverseMarkupClear => '清空';
+
+  @override
+  String get webReverseMarkupAddTextTitle => '添加文字注释';
+
+  @override
+  String get webReverseMarkupLabelHint => '输入标注文字';
+
+  @override
+  String get webReverseMarkupAdd => '添加';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -22531,4 +22585,31 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseRealtimeFrameCount(int count) {
     return '$count 帧';
   }
+
+  @override
+  String get webReverseMarkupTitle => '截图标注';
+
+  @override
+  String get webReverseMarkupSaveWithout => '不标注直接保存';
+
+  @override
+  String get webReverseMarkupExporting => '导出中…';
+
+  @override
+  String get webReverseMarkupDone => '完成';
+
+  @override
+  String get webReverseMarkupUndo => '撤销';
+
+  @override
+  String get webReverseMarkupClear => '清空';
+
+  @override
+  String get webReverseMarkupAddTextTitle => '添加文字注释';
+
+  @override
+  String get webReverseMarkupLabelHint => '输入标注文字';
+
+  @override
+  String get webReverseMarkupAdd => '添加';
 }

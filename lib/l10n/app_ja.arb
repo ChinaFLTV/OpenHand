@@ -5737,5 +5737,41 @@
         "type": "int"
       }
     }
+  },
+  "webReverseMarkupTitle": "スクリーンショット注釈",
+  "@webReverseMarkupTitle": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupSaveWithout": "注釈なしで保存",
+  "@webReverseMarkupSaveWithout": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupExporting": "エクスポート中…",
+  "@webReverseMarkupExporting": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupDone": "完了",
+  "@webReverseMarkupDone": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupUndo": "元に戻す",
+  "@webReverseMarkupUndo": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupClear": "クリア",
+  "@webReverseMarkupClear": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupAddTextTitle": "テキスト注釈を追加",
+  "@webReverseMarkupAddTextTitle": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupLabelHint": "ラベルを入力",
+  "@webReverseMarkupLabelHint": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupAdd": "追加",
+  "@webReverseMarkupAdd": {
+    "description": "web_reverse: screenshot markup dialog"
   }
 }

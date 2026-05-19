@@ -5737,5 +5737,41 @@
         "type": "int"
       }
     }
+  },
+  "webReverseMarkupTitle": "截图标注",
+  "@webReverseMarkupTitle": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupSaveWithout": "不标注直接保存",
+  "@webReverseMarkupSaveWithout": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupExporting": "导出中…",
+  "@webReverseMarkupExporting": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupDone": "完成",
+  "@webReverseMarkupDone": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupUndo": "撤销",
+  "@webReverseMarkupUndo": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupClear": "清空",
+  "@webReverseMarkupClear": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupAddTextTitle": "添加文字注释",
+  "@webReverseMarkupAddTextTitle": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupLabelHint": "输入标注文字",
+  "@webReverseMarkupLabelHint": {
+    "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseMarkupAdd": "添加",
+  "@webReverseMarkupAdd": {
+    "description": "web_reverse: screenshot markup dialog"
   }
 }

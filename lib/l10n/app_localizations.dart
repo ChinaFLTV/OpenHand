@@ -13810,6 +13810,60 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'{count} 帧'**
   String webReverseRealtimeFrameCount(int count);
+
+  /// web_reverse: screenshot markup dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'截图标注'**
+  String get webReverseMarkupTitle;
+
+  /// web_reverse: screenshot markup dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'不标注直接保存'**
+  String get webReverseMarkupSaveWithout;
+
+  /// web_reverse: screenshot markup dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出中…'**
+  String get webReverseMarkupExporting;
+
+  /// web_reverse: screenshot markup dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'完成'**
+  String get webReverseMarkupDone;
+
+  /// web_reverse: screenshot markup dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'撤销'**
+  String get webReverseMarkupUndo;
+
+  /// web_reverse: screenshot markup dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空'**
+  String get webReverseMarkupClear;
+
+  /// web_reverse: screenshot markup dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'添加文字注释'**
+  String get webReverseMarkupAddTextTitle;
+
+  /// web_reverse: screenshot markup dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入标注文字'**
+  String get webReverseMarkupLabelHint;
+
+  /// web_reverse: screenshot markup dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'添加'**
+  String get webReverseMarkupAdd;
 }
 
 class _AppLocalizationsDelegate

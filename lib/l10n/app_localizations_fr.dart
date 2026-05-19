@@ -7919,4 +7919,31 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseRealtimeFrameCount(int count) {
     return '$count trames';
   }
+
+  @override
+  String get webReverseMarkupTitle => 'Annotation de capture';
+
+  @override
+  String get webReverseMarkupSaveWithout => 'Enregistrer sans annotation';
+
+  @override
+  String get webReverseMarkupExporting => 'Export en cours…';
+
+  @override
+  String get webReverseMarkupDone => 'Terminé';
+
+  @override
+  String get webReverseMarkupUndo => 'Annuler';
+
+  @override
+  String get webReverseMarkupClear => 'Effacer';
+
+  @override
+  String get webReverseMarkupAddTextTitle => 'Ajouter une étiquette texte';
+
+  @override
+  String get webReverseMarkupLabelHint => 'Saisir l\'étiquette';
+
+  @override
+  String get webReverseMarkupAdd => 'Ajouter';
 }

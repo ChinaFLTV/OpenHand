@@ -7611,4 +7611,31 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseRealtimeFrameCount(int count) {
     return '$count フレーム';
   }
+
+  @override
+  String get webReverseMarkupTitle => 'スクリーンショット注釈';
+
+  @override
+  String get webReverseMarkupSaveWithout => '注釈なしで保存';
+
+  @override
+  String get webReverseMarkupExporting => 'エクスポート中…';
+
+  @override
+  String get webReverseMarkupDone => '完了';
+
+  @override
+  String get webReverseMarkupUndo => '元に戻す';
+
+  @override
+  String get webReverseMarkupClear => 'クリア';
+
+  @override
+  String get webReverseMarkupAddTextTitle => 'テキスト注釈を追加';
+
+  @override
+  String get webReverseMarkupLabelHint => 'ラベルを入力';
+
+  @override
+  String get webReverseMarkupAdd => '追加';
 }

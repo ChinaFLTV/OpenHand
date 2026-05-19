@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 
 /// 截图导出前的注释面板。支持五种笔刷：
@@ -97,13 +98,13 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
   }
 
   bool _isZh() =>
+      // ignore: unused_element
       Localizations.localeOf(context).languageCode.startsWith('zh');
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = _isZh();
     final img = _decoded;
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -114,9 +115,9 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeader(theme, cs, isZh),
+            _buildHeader(theme, cs),
             Divider(height: 1, color: cs.outlineVariant),
-            _buildToolbar(theme, cs, isZh),
+            _buildToolbar(theme, cs),
             Divider(height: 1, color: cs.outlineVariant),
             Expanded(
               child: Container(
@@ -163,7 +164,8 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHeader(ThemeData theme, ColorScheme cs) {
+    final loc = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
       child: Row(
@@ -172,7 +174,7 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              isZh ? '截图标注' : 'Screenshot Markup',
+              loc?.webReverseMarkupTitle ?? 'Screenshot Markup',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
@@ -180,7 +182,8 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(widget.image),
-            child: Text(isZh ? '不标注直接保存' : 'Save without markup'),
+            child: Text(loc?.webReverseMarkupSaveWithout ??
+                'Save without markup'),
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
@@ -190,12 +193,12 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
               size: 18,
             ),
             label: Text(_exporting
-                ? (isZh ? '导出中…' : 'Exporting…')
-                : (isZh ? '完成' : 'Done')),
+                ? (loc?.webReverseMarkupExporting ?? 'Exporting…')
+                : (loc?.webReverseMarkupDone ?? 'Done')),
           ),
           const SizedBox(width: 6),
           IconButton(
-            tooltip: isZh ? '取消' : 'Cancel',
+            tooltip: loc?.commonCancel ?? 'Cancel',
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close_rounded),
           ),
@@ -204,10 +207,11 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
     );
   }
 
-  Widget _buildToolbar(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildToolbar(ThemeData theme, ColorScheme cs) {
     // 2026-05-19 — 深色模式下原本直接贴 surfaceContainer 视觉太平；这里
     // 抬到 surfaceContainerHighest + 一道底分割线，给工具栏一个明确视
     // 觉层级，颜色/工具按钮的对比度同时提升。
+    final loc = AppLocalizations.of(context);
     return Material(
       color: cs.surfaceContainerHighest,
       shape: Border(
@@ -282,12 +286,12 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
           ),
           const Spacer(),
           IconButton(
-            tooltip: isZh ? '撤销' : 'Undo',
+            tooltip: loc?.webReverseMarkupUndo ?? 'Undo',
             onPressed: _undo,
             icon: const Icon(Icons.undo_rounded, size: 18),
           ),
           IconButton(
-            tooltip: isZh ? '清空' : 'Clear',
+            tooltip: loc?.webReverseMarkupClear ?? 'Clear',
             onPressed: () => setState(() {
               _strokes.clear();
               _rects.clear();
@@ -360,25 +364,26 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
   }
 
   Future<void> _addText(Offset position) async {
-    final isZh = _isZh();
+    final loc = AppLocalizations.of(context);
     final ctrl = TextEditingController();
     final text = await showAnimatedDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(isZh ? '添加文字注释' : 'Add text label'),
+        title: Text(loc?.webReverseMarkupAddTextTitle ?? 'Add text label'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: InputDecoration(hintText: isZh ? '输入标注文字' : 'Label'),
+          decoration: InputDecoration(
+              hintText: loc?.webReverseMarkupLabelHint ?? 'Label'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            child: Text(loc?.commonCancel ?? 'Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(ctrl.text.trim()),
-            child: Text(isZh ? '添加' : 'Add'),
+            child: Text(loc?.webReverseMarkupAdd ?? 'Add'),
           ),
         ],
       ),
