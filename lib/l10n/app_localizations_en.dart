@@ -7561,4 +7561,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseProfileResetFailed(String error) {
     return 'Reset failed: $error';
   }
+
+  @override
+  String get webReverseReplNoResult => '(no result)';
+
+  @override
+  String get webReverseReplCopied => 'Copied';
+
+  @override
+  String get webReverseReplTitle => 'Console REPL';
+
+  @override
+  String get webReverseReplSubtitle =>
+      'Runtime.evaluate · ↑/↓ history · Ctrl/⌘+Enter run';
+
+  @override
+  String get webReverseReplClear => 'Clear log';
+
+  @override
+  String get webReverseReplEmpty => 'Type JS below → Ctrl/⌘+Enter to run';
+
+  @override
+  String get webReverseReplHint =>
+      'eg: document.title or await fetch(\"/api\").then(r=>r.json())';
+
+  @override
+  String get webReverseReplRun => 'Run';
 }

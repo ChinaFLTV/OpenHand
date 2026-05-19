@@ -5370,5 +5370,37 @@
         "type": "String"
       }
     }
+  },
+  "webReverseReplNoResult": "(kein Ergebnis)",
+  "@webReverseReplNoResult": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplCopied": "Kopiert",
+  "@webReverseReplCopied": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplTitle": "Console REPL",
+  "@webReverseReplTitle": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplSubtitle": "Runtime.evaluate · ↑/↓ Verlauf · Ctrl/⌘+Enter ausführen",
+  "@webReverseReplSubtitle": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplClear": "Log leeren",
+  "@webReverseReplClear": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplEmpty": "JS unten eingeben → Ctrl/⌘+Enter ausführen",
+  "@webReverseReplEmpty": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplHint": "z.B.: document.title oder await fetch(\"/api\").then(r=>r.json())",
+  "@webReverseReplHint": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplRun": "Ausführen",
+  "@webReverseReplRun": {
+    "description": "web_reverse: repl dialog"
   }
 }

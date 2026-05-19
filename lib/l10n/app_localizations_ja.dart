@@ -7362,4 +7362,30 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseProfileResetFailed(String error) {
     return 'リセット失敗：$error';
   }
+
+  @override
+  String get webReverseReplNoResult => '(結果なし)';
+
+  @override
+  String get webReverseReplCopied => 'コピーしました';
+
+  @override
+  String get webReverseReplTitle => 'Console REPL';
+
+  @override
+  String get webReverseReplSubtitle =>
+      'Runtime.evaluate · ↑/↓ 履歴 · Ctrl/⌘+Enter 実行';
+
+  @override
+  String get webReverseReplClear => 'ログを消去';
+
+  @override
+  String get webReverseReplEmpty => '下に JS 式を入力 → Ctrl/⌘+Enter で実行';
+
+  @override
+  String get webReverseReplHint =>
+      '例: document.title または await fetch(\"/api\").then(r=>r.json())';
+
+  @override
+  String get webReverseReplRun => '実行';
 }

@@ -13390,6 +13390,54 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'重置失败：{error}'**
   String webReverseProfileResetFailed(String error);
+
+  /// web_reverse: repl dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'(无返回)'**
+  String get webReverseReplNoResult;
+
+  /// web_reverse: repl dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制'**
+  String get webReverseReplCopied;
+
+  /// web_reverse: repl dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Console REPL'**
+  String get webReverseReplTitle;
+
+  /// web_reverse: repl dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Runtime.evaluate · ↑/↓ 历史 · Ctrl/⌘+Enter 执行'**
+  String get webReverseReplSubtitle;
+
+  /// web_reverse: repl dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空输出'**
+  String get webReverseReplClear;
+
+  /// web_reverse: repl dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在下方输入 JS 表达式 → Ctrl/⌘+Enter 执行'**
+  String get webReverseReplEmpty;
+
+  /// web_reverse: repl dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'示例: document.title  或  await fetch(\"/api\").then(r=>r.json())'**
+  String get webReverseReplHint;
+
+  /// web_reverse: repl dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行'**
+  String get webReverseReplRun;
 }
 
 class _AppLocalizationsDelegate

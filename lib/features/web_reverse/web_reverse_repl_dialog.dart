@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -28,6 +29,7 @@ Future<void> showWebReverseReplDialog(
 class _ReplDialog extends StatefulWidget {
   const _ReplDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_ReplDialog> createState() => _ReplDialogState();
@@ -66,7 +68,8 @@ class _ReplDialogState extends State<_ReplDialog> {
       final r = await widget.controller.runReplExpression(expr);
       if (r == null) {
         error = true;
-        result = widget.isZh ? '(无返回)' : '(no result)';
+        result = AppLocalizations.of(context)?.webReverseReplNoResult ??
+            '(no result)';
       } else {
         result = r;
       }
@@ -138,7 +141,7 @@ class _ReplDialogState extends State<_ReplDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '已复制' : 'Copied',
+        AppLocalizations.of(context)?.webReverseReplCopied ?? 'Copied',
       );
     }
   }
@@ -147,7 +150,7 @@ class _ReplDialogState extends State<_ReplDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -167,14 +170,13 @@ class _ReplDialogState extends State<_ReplDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'Console REPL' : 'Console REPL',
+                          loc?.webReverseReplTitle ?? 'Console REPL',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'Runtime.evaluate · ↑/↓ 历史 · Ctrl/⌘+Enter 执行'
-                              : 'Runtime.evaluate · ↑/↓ history · Ctrl/⌘+Enter run',
+                          loc?.webReverseReplSubtitle ??
+                              'Runtime.evaluate · ↑/↓ history · Ctrl/⌘+Enter run',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -186,7 +188,7 @@ class _ReplDialogState extends State<_ReplDialog> {
                         ? null
                         : () => setState(_log.clear),
                     icon: const Icon(Icons.delete_sweep_rounded),
-                    tooltip: isZh ? '清空输出' : 'Clear log',
+                    tooltip: loc?.webReverseReplClear ?? 'Clear log',
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -200,9 +202,8 @@ class _ReplDialogState extends State<_ReplDialog> {
               child: _log.isEmpty
                   ? Center(
                       child: Text(
-                        isZh
-                            ? '在下方输入 JS 表达式 → Ctrl/⌘+Enter 执行'
-                            : 'Type JS below → Ctrl/⌘+Enter to run',
+                        loc?.webReverseReplEmpty ??
+                            'Type JS below → Ctrl/⌘+Enter to run',
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -226,9 +227,8 @@ class _ReplDialogState extends State<_ReplDialog> {
                 onRun: _run,
                 onHistoryUp: _historyUp,
                 onHistoryDown: _historyDown,
-                hint: isZh
-                    ? '示例: document.title  或  await fetch("/api").then(r=>r.json())'
-                    : 'eg: document.title or await fetch("/api").then(r=>r.json())',
+                hint: loc?.webReverseReplHint ??
+                    'eg: document.title or await fetch("/api").then(r=>r.json())',
               ),
             ),
             Padding(
@@ -239,13 +239,13 @@ class _ReplDialogState extends State<_ReplDialog> {
                 runSpacing: 10,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '执行' : 'Run',
+                    label: loc?.webReverseReplRun ?? 'Run',
                     icon: Icons.play_arrow_rounded,
                     busy: _busy,
                     onPressed: _busy ? null : _run,
                   ),
                   OpenHandDialogActionButton.primary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.commonClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

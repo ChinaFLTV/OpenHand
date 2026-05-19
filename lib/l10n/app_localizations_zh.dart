@@ -7264,6 +7264,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseProfileResetFailed(String error) {
     return '重置失败：$error';
   }
+
+  @override
+  String get webReverseReplNoResult => '(无返回)';
+
+  @override
+  String get webReverseReplCopied => '已复制';
+
+  @override
+  String get webReverseReplTitle => 'Console REPL';
+
+  @override
+  String get webReverseReplSubtitle =>
+      'Runtime.evaluate · ↑/↓ 历史 · Ctrl/⌘+Enter 执行';
+
+  @override
+  String get webReverseReplClear => '清空输出';
+
+  @override
+  String get webReverseReplEmpty => '在下方输入 JS 表达式 → Ctrl/⌘+Enter 执行';
+
+  @override
+  String get webReverseReplHint =>
+      '示例: document.title  或  await fetch(\"/api\").then(r=>r.json())';
+
+  @override
+  String get webReverseReplRun => '执行';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14526,6 +14552,32 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseProfileResetFailed(String error) {
     return '重置失败：$error';
   }
+
+  @override
+  String get webReverseReplNoResult => '(无返回)';
+
+  @override
+  String get webReverseReplCopied => '已复制';
+
+  @override
+  String get webReverseReplTitle => 'Console REPL';
+
+  @override
+  String get webReverseReplSubtitle =>
+      'Runtime.evaluate · ↑/↓ 历史 · Ctrl/⌘+Enter 执行';
+
+  @override
+  String get webReverseReplClear => '清空输出';
+
+  @override
+  String get webReverseReplEmpty => '在下方输入 JS 表达式 → Ctrl/⌘+Enter 执行';
+
+  @override
+  String get webReverseReplHint =>
+      '示例: document.title  或  await fetch(\"/api\").then(r=>r.json())';
+
+  @override
+  String get webReverseReplRun => '执行';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21787,4 +21839,30 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseProfileResetFailed(String error) {
     return '重置失败：$error';
   }
+
+  @override
+  String get webReverseReplNoResult => '(无返回)';
+
+  @override
+  String get webReverseReplCopied => '已复制';
+
+  @override
+  String get webReverseReplTitle => 'Console REPL';
+
+  @override
+  String get webReverseReplSubtitle =>
+      'Runtime.evaluate · ↑/↓ 历史 · Ctrl/⌘+Enter 执行';
+
+  @override
+  String get webReverseReplClear => '清空输出';
+
+  @override
+  String get webReverseReplEmpty => '在下方输入 JS 表达式 → Ctrl/⌘+Enter 执行';
+
+  @override
+  String get webReverseReplHint =>
+      '示例: document.title  或  await fetch(\"/api\").then(r=>r.json())';
+
+  @override
+  String get webReverseReplRun => '执行';
 }

@@ -5370,5 +5370,37 @@
         "type": "String"
       }
     }
+  },
+  "webReverseReplNoResult": "(結果なし)",
+  "@webReverseReplNoResult": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplCopied": "コピーしました",
+  "@webReverseReplCopied": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplTitle": "Console REPL",
+  "@webReverseReplTitle": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplSubtitle": "Runtime.evaluate · ↑/↓ 履歴 · Ctrl/⌘+Enter 実行",
+  "@webReverseReplSubtitle": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplClear": "ログを消去",
+  "@webReverseReplClear": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplEmpty": "下に JS 式を入力 → Ctrl/⌘+Enter で実行",
+  "@webReverseReplEmpty": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplHint": "例: document.title または await fetch(\"/api\").then(r=>r.json())",
+  "@webReverseReplHint": {
+    "description": "web_reverse: repl dialog"
+  },
+  "webReverseReplRun": "実行",
+  "@webReverseReplRun": {
+    "description": "web_reverse: repl dialog"
   }
 }
