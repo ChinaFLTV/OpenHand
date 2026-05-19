@@ -96,8 +96,9 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
     final out =
         const JsonEncoder.withIndent('  ').convert(_draft.map((e) => e.toJson()).toList());
     final loc = AppLocalizations.of(context);
-    await Clipboard.setData(ClipboardData(text: out));
     final m = ScaffoldMessenger.maybeOf(context);
+    await Clipboard.setData(ClipboardData(text: out));
+    if (!mounted) return;
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
@@ -115,6 +116,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
       final text = data?.text ?? '';
       final decoded = jsonDecode(text);
       if (decoded is! List) throw Exception('expected array');
+      if (!mounted) return;
       setState(() {
         _draft = decoded
             .whereType<Map>()
@@ -133,6 +135,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
       }
     } catch (e, st) {
       silentLog('web_reverse_mock_rules', 'import', e, st);
+      if (!mounted) return;
       if (m != null) {
         OpenHandSnackBar.showErrorOn(
           context,

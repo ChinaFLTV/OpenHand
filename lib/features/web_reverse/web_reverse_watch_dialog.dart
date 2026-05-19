@@ -127,7 +127,6 @@ class _WatchDialogState extends State<_WatchDialog> {
           'allowUnsafeEvalBlockedByCSP': true,
           'timeout': 800,
         }),
-        useSession: true,
       );
       String text;
       bool err = false;

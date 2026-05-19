@@ -54,7 +54,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
       _loading = true;
       _loadError = null;
     });
-    final root = await widget.controller.domGetDocument(depth: 2);
+    final root = await widget.controller.domGetDocument();
     if (!mounted) return;
     if (root == null) {
       final loc = AppLocalizations.of(context);
@@ -96,7 +96,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
     final children = node?['children'];
     if (children is! List || children.isEmpty) {
       // 拉一层
-      final fresh = await widget.controller.domDescribeNode(nodeId, depth: 1);
+      final fresh = await widget.controller.domDescribeNode(nodeId);
       if (!mounted) return;
       if (fresh != null) {
         _byNodeId[nodeId] = fresh;

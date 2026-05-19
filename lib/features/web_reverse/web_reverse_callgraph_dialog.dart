@@ -72,7 +72,6 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
       final tree = await widget.controller.sendRawCdp(
         method: 'Page.getResourceTree',
         paramsJson: '{}',
-        useSession: true,
       );
       if (tree == null || tree['error'] != null) {
         setState(() => _status = loc?.webReverseCallgraphFetchFailed ?? 'Fetch failed');
@@ -124,7 +123,6 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
           final r = await widget.controller.sendRawCdp(
             method: 'Page.getResourceContent',
             paramsJson: jsonEncode({'frameId': s.frameId, 'url': s.url}),
-            useSession: true,
           );
           if (r == null || r['error'] != null) continue;
           var content = r['content']?.toString() ?? '';
@@ -456,7 +454,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                                 Expanded(
                                   child: ListView.separated(
                                     itemCount: _graphs.length,
-                                    separatorBuilder: (_, __) => Divider(
+                                    separatorBuilder: (_, _) => Divider(
                                         height: 1, color: cs.outlineVariant),
                                     itemBuilder: (_, i) {
                                       final g = _graphs[i];
@@ -661,7 +659,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
         Expanded(
           child: ListView.separated(
             itemCount: hits.length,
-            separatorBuilder: (_, __) =>
+            separatorBuilder: (_, _) =>
                 Divider(height: 1, color: cs.outlineVariant),
             itemBuilder: (_, i) {
               final h = hits[i];

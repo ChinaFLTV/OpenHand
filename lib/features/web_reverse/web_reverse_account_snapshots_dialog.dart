@@ -138,10 +138,11 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
 
   Future<void> _import() async {
     final loc = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
     final data = await Clipboard.getData('text/plain');
     final text = data?.text?.trim() ?? '';
     if (text.isEmpty) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (!mounted) return;
     try {
       final parsed = jsonDecode(text);
       if (parsed is! List) throw const FormatException('expect JSON array');

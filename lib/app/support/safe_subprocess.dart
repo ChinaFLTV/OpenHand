@@ -79,7 +79,7 @@ Future<void> killAllTrackedChildren({
   final snapshot = List<Process>.of(_trackedChildren.values);
   for (final p in snapshot) {
     try {
-      p.kill(ProcessSignal.sigterm);
+      p.kill();
     } catch (_) {
       // 已退出会抛，忽略即可。
     }

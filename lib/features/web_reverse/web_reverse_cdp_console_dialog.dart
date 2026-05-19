@@ -22,8 +22,6 @@ class _CdpHistoryEntry {
     required this.paramsJson,
     required this.useSession,
     required this.timestamp,
-    this.error,
-    this.resultJson,
   });
   final String method;
   final String paramsJson;
@@ -205,7 +203,6 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 920, maxHeight: 760),
         child: Focus(
-          autofocus: false,
           onKeyEvent: _onKey,
           child: Column(children: [
             Padding(

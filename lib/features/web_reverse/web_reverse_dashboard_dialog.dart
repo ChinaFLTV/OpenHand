@@ -1004,7 +1004,7 @@ class _WebReverseDashboardDialogState
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               _sourcesPanelKey.currentState
-                  ?.requestJumpTo(url: url, line: line, col: 0);
+                  ?.requestJumpTo(url: url, line: line);
             });
           },
         ),

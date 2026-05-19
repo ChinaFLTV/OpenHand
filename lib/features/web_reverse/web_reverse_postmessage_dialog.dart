@@ -78,6 +78,17 @@ const String _kHookSource = r"""
 """;
 
 class _PmRecord {
+
+  factory _PmRecord.fromJson(Map<String, Object?> j) => _PmRecord(
+        dir: j['dir']?.toString() ?? 'recv',
+        at: DateTime.fromMillisecondsSinceEpoch(
+          (j['t'] is num) ? (j['t'] as num).toInt() : DateTime.now().millisecondsSinceEpoch,
+        ),
+        origin: j['origin']?.toString() ?? '',
+        target: j['target']?.toString() ?? '',
+        source: j['source']?.toString() ?? '',
+        data: j['data']?.toString() ?? '',
+      );
   _PmRecord({
     required this.dir,
     required this.at,
@@ -93,17 +104,6 @@ class _PmRecord {
   final String target;
   final String source;
   final String data;
-
-  factory _PmRecord.fromJson(Map<String, Object?> j) => _PmRecord(
-        dir: j['dir']?.toString() ?? 'recv',
-        at: DateTime.fromMillisecondsSinceEpoch(
-          (j['t'] is num) ? (j['t'] as num).toInt() : DateTime.now().millisecondsSinceEpoch,
-        ),
-        origin: j['origin']?.toString() ?? '',
-        target: j['target']?.toString() ?? '',
-        source: j['source']?.toString() ?? '',
-        data: j['data']?.toString() ?? '',
-      );
 
   Map<String, Object?> toJson() => <String, Object?>{
         'dir': dir,
@@ -164,7 +164,6 @@ class _PmDialogState extends State<_PmDialog> {
         final addRes = await widget.controller.sendRawCdp(
           method: 'Page.addScriptToEvaluateOnNewDocument',
           paramsJson: jsonEncode({'source': _kHookSource}),
-          useSession: true,
         );
         if (addRes != null && addRes['identifier'] != null) {
           _hookScriptId = addRes['identifier'].toString();
@@ -177,7 +176,6 @@ class _PmDialogState extends State<_PmDialog> {
             'awaitPromise': false,
             'returnByValue': true,
           }),
-          useSession: true,
         );
         _pollTimer?.cancel();
         _pollTimer = Timer.periodic(const Duration(milliseconds: 800), (_) => _drain());
@@ -195,7 +193,6 @@ class _PmDialogState extends State<_PmDialog> {
           await widget.controller.sendRawCdp(
             method: 'Page.removeScriptToEvaluateOnNewDocument',
             paramsJson: jsonEncode({'identifier': _hookScriptId}),
-            useSession: true,
           );
           _hookScriptId = null;
         }
@@ -221,7 +218,6 @@ class _PmDialogState extends State<_PmDialog> {
           'expression': 'window.__OH_PM_drain__ ? window.__OH_PM_drain__() : "[]"',
           'returnByValue': true,
         }),
-        useSession: true,
       );
       if (r == null || r['error'] != null) return;
       final result = r['result'];
@@ -260,7 +256,6 @@ class _PmDialogState extends State<_PmDialog> {
           'expression': 'window.__OH_PM_clear__ && window.__OH_PM_clear__()',
           'returnByValue': true,
         }),
-        useSession: true,
       );
     } catch (e, st) {
       silentLog('web_reverse_pm', 'clear', e, st);
@@ -272,8 +267,8 @@ class _PmDialogState extends State<_PmDialog> {
     if (filtered.isEmpty) return;
     final json = const JsonEncoder.withIndent('  ')
         .convert(filtered.map((r) => r.toJson()).toList());
-    await Clipboard.setData(ClipboardData(text: json));
     final messenger = ScaffoldMessenger.maybeOf(context);
+    await Clipboard.setData(ClipboardData(text: json));
     if (messenger != null && mounted) {
       OpenHandSnackBar.showSuccessOn(
         context,
@@ -438,7 +433,7 @@ class _PmDialogState extends State<_PmDialog> {
                         padding: const EdgeInsets.all(8),
                         itemCount: filtered.length,
                         reverse: true,
-                        separatorBuilder: (_, __) => Divider(height: 1, color: cs.outlineVariant),
+                        separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
                         itemBuilder: (_, i) {
                           final r = filtered[filtered.length - 1 - i];
                           final isSend = r.dir == 'send';

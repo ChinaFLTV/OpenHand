@@ -102,7 +102,6 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
     return widget.controller.sendRawCdp(
       method: method,
       paramsJson: jsonEncode(params),
-      useSession: true,
     );
   }
 

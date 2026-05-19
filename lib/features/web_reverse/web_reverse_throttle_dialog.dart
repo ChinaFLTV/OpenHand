@@ -143,7 +143,6 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
       await widget.controller.sendRawCdp(
         method: 'Network.enable',
         paramsJson: '{}',
-        useSession: true,
       );
       bool offline;
       int downKbps;
@@ -171,13 +170,11 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
       final r = await widget.controller.sendRawCdp(
         method: 'Network.emulateNetworkConditions',
         paramsJson: params,
-        useSession: true,
       );
       // 缓存开关
       await widget.controller.sendRawCdp(
         method: 'Network.setCacheDisabled',
         paramsJson: jsonEncode({'cacheDisabled': _disableCache}),
-        useSession: true,
       );
       if (!mounted) return;
       if (r == null || r['error'] != null) {

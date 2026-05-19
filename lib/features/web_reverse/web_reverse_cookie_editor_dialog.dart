@@ -73,7 +73,6 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       final r = await widget.controller.sendRawCdp(
         method: 'Network.getCookies',
         paramsJson: '{}',
-        useSession: true,
       );
       if (!mounted) return;
       final loc1 = AppLocalizations.of(context);
@@ -122,7 +121,6 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
         'domain': row.domain,
         'path': row.path,
       }),
-      useSession: true,
     );
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
@@ -150,7 +148,6 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     final r = await widget.controller.sendRawCdp(
       method: 'Network.setCookie',
       paramsJson: jsonEncode(result),
-      useSession: true,
     );
     if (!mounted) return;
     final loc = AppLocalizations.of(context);

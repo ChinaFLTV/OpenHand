@@ -59,6 +59,8 @@ class _ReplDialogState extends State<_ReplDialog> {
   Future<void> _run() async {
     final expr = _input.text.trim();
     if (expr.isEmpty || _busy) return;
+    final noResultLabel =
+        AppLocalizations.of(context)?.webReverseReplNoResult ?? '(no result)';
     setState(() => _busy = true);
     widget.controller.pushReplHistory(expr);
     _historyCursor = -1;
@@ -68,8 +70,7 @@ class _ReplDialogState extends State<_ReplDialog> {
       final r = await widget.controller.runReplExpression(expr);
       if (r == null) {
         error = true;
-        result = AppLocalizations.of(context)?.webReverseReplNoResult ??
-            '(no result)';
+        result = noResultLabel;
       } else {
         result = r;
       }

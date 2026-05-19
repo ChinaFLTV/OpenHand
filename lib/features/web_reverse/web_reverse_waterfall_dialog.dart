@@ -224,7 +224,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                               Expanded(
                                 child: ListView.separated(
                                   itemCount: entries.length,
-                                  separatorBuilder: (_, __) => Divider(height: 1, color: cs.outlineVariant),
+                                  separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
                                   itemBuilder: (_, i) {
                                     final e = entries[i];
                                     return _row(
@@ -237,7 +237,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                       barWidth: barWidth,
                                       onTap: () async {
                                         await Clipboard.setData(ClipboardData(text: e.url));
-                                        if (messenger != null && mounted) {
+                                        if (messenger != null && context.mounted) {
                                           OpenHandSnackBar.showSuccessOn(
                                             context,
                                             messenger,
@@ -412,7 +412,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                         ? DecoratedBox(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(2),
-                              border: Border.all(color: cs.outlineVariant, width: 1),
+                              border: Border.all(color: cs.outlineVariant),
                             ),
                           )
                         : Row(
@@ -501,7 +501,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
             height: 14,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              border: Border.all(color: color, width: 1),
+              border: Border.all(color: color),
               borderRadius: BorderRadius.circular(3),
             ),
             child: Text(
@@ -619,7 +619,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       : ListView.separated(
                           shrinkWrap: true,
                           itemCount: frames.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (_, _) =>
                               Divider(height: 1, color: cs.outlineVariant),
                           itemBuilder: (_, i) {
                             final f = frames[i];

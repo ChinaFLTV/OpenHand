@@ -83,7 +83,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       try {
         final uri = Uri.parse(e.url);
         final path = uri.path.isEmpty ? '/' : uri.path;
-        final key = '${e.method.toUpperCase()} ${uri.host}${path}';
+        final key = '${e.method.toUpperCase()} ${uri.host}$path';
         (map[key] ??= <CdpNetworkEntry>[]).add(e);
       } catch (err, st) {
         silentLog('web_reverse_ai_crypto', 'group', err, st);
@@ -223,7 +223,6 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     final tree = await widget.controller.sendRawCdp(
       method: 'Page.getResourceTree',
       paramsJson: '{}',
-      useSession: true,
     );
     if (tree == null || tree['error'] != null) {
       return const <String, List<_JsHit>>{};
@@ -274,7 +273,6 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
               'caseSensitive': false,
               'isRegex': false,
             }),
-            useSession: true,
           );
           if (r == null || r['error'] != null) continue;
           final results = r['result'];

@@ -579,7 +579,6 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
       context,
       messenger,
       loc?.webReverseSignatureDiffReportCopied ?? 'Report copied to clipboard',
-      duration: const Duration(seconds: 2),
     );
   }
 }

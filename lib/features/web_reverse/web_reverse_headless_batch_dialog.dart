@@ -18,7 +18,6 @@ Future<void> showWebReverseHeadlessBatchDialog(
 }) async {
   await showAnimatedDialog<void>(
     context: context,
-    barrierDismissible: true,
     builder: (ctx) => _HeadlessBatchDialog(controller: controller, isZh: isZh),
   );
 }

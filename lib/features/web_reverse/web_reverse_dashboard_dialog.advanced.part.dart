@@ -1766,7 +1766,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                           text: const JsonEncoder.withIndent('  ')
                               .convert(_events),
                         ));
-                        if (!mounted) return;
+                        if (!context.mounted) return;
                         OpenHandSnackBar.showSuccessOn(
                           context,
                           messenger,

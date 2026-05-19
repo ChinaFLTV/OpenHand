@@ -398,7 +398,6 @@ print(resp.text[:2000])''';
           width: 120,
           child: DropdownButtonFormField<String>(
             initialValue: _method,
-            isDense: true,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               contentPadding:

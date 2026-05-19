@@ -337,7 +337,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                       itemCount: visible.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 6),
+                      separatorBuilder: (_, _) => const SizedBox(height: 6),
                       itemBuilder: (_, i) {
                         final e = visible[i];
                         final brief = _briefOf(e);

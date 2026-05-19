@@ -97,7 +97,6 @@ class _InputSimDialogState extends State<_InputSimDialog>
         type: 'mouseMoved',
         x: x,
         y: y,
-        button: 'none',
         modifiers: _modifiers,
       );
       await widget.controller.dispatchMouseEvent(
@@ -140,7 +139,6 @@ class _InputSimDialogState extends State<_InputSimDialog>
         type: 'mouseWheel',
         x: x,
         y: y,
-        deltaX: 0,
         deltaY: dy,
         modifiers: _modifiers,
       );

@@ -132,7 +132,6 @@ class _StorageDialogState extends State<_StorageDialog>
     final res = await widget.controller.readIndexedDbStore(
       dbName: db,
       storeName: store,
-      pageSize: 50,
     );
     if (!mounted) return;
     setState(() {

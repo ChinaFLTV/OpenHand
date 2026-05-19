@@ -158,7 +158,6 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
       final reg = await widget.controller.sendRawCdp(
         method: 'Page.addScriptToEvaluateOnNewDocument',
         paramsJson: jsonEncode({'source': _kInstallScript}),
-        useSession: true,
       );
       _scriptIdentifier = reg?['identifier']?.toString();
       // 当前页面立即装一次。
@@ -168,7 +167,6 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
           'expression': _kInstallScript,
           'awaitPromise': false,
         }),
-        useSession: true,
       );
       _drainTimer = Timer.periodic(
         const Duration(milliseconds: 800),
@@ -213,7 +211,6 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         await widget.controller.sendRawCdp(
           method: 'Page.removeScriptToEvaluateOnNewDocument',
           paramsJson: jsonEncode({'identifier': _scriptIdentifier}),
-          useSession: true,
         );
       }
       await widget.controller.sendRawCdp(
@@ -221,7 +218,6 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         paramsJson: jsonEncode({
           'expression': 'window.__OH_DOM_MUT_STOP__ && window.__OH_DOM_MUT_STOP__()',
         }),
-        useSession: true,
       );
     } catch (e, st) {
       silentLog('web_reverse_dom_mutation', 'stop', e, st);
@@ -238,7 +234,6 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
               '(window.__OH_DOM_MUT_DRAIN__ && JSON.stringify(window.__OH_DOM_MUT_DRAIN__())) || "[]"',
           'returnByValue': true,
         }),
-        useSession: true,
       );
       if (r == null) return;
       final result = r['result'] as Map?;
@@ -443,7 +438,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                     label: loc?.webReverseDomMutClose ?? 'Close',
                     onPressed: () async {
                       if (_recording) await _stop();
-                      if (mounted) Navigator.of(context).pop();
+                      if (context.mounted) Navigator.of(context).pop();
                     },
                   ),
                 ],

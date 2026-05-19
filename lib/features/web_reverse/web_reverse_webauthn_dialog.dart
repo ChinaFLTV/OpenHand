@@ -80,7 +80,6 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
     return widget.controller.sendRawCdp(
       method: method,
       paramsJson: jsonEncode(p),
-      useSession: true,
     );
   }
 

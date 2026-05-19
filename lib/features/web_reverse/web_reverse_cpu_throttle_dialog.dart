@@ -83,7 +83,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
       _status = rate <= 1
           ? (loc?.webReverseCpuThrottleOff ?? 'CPU throttle off')
           : (loc?.webReverseCpuThrottleCurrent(rateStr) ??
-              'CPU throttled ${rateStr}×');
+              'CPU throttled $rateStr×');
     });
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
@@ -93,7 +93,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
         rate <= 1
             ? (loc?.webReverseCpuThrottleResetDone ?? 'Reset')
             : (loc?.webReverseCpuThrottleApplied(rateStr) ??
-                'Applied ${rateStr}× throttle'),
+                'Applied $rateStr× throttle'),
       );
     }
   }

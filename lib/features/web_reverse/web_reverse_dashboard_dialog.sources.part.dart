@@ -87,7 +87,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         // 异步避免在 listener 回调里直接 setState 触发框架告警。
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          requestJumpTo(url: url, line: line, col: 0);
+          requestJumpTo(url: url, line: line);
         });
       }
     }
@@ -1924,7 +1924,7 @@ class _ScopeSectionState extends State<_ScopeSection> {
     if (objectId == null) return;
     setState(() => _loading = true);
     final list = await widget.controller
-        .runtimeGetProperties(objectId: objectId, ownProperties: true);
+        .runtimeGetProperties(objectId: objectId);
     if (!mounted) return;
     setState(() {
       _loading = false;

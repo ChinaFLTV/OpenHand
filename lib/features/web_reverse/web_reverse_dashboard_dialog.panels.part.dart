@@ -6117,7 +6117,7 @@ class _TraceLanesPainter extends CustomPainter {
       Offset(width, axisY),
       axisLine,
     );
-    final tickCount = 6;
+    const tickCount = 6;
     for (var i = 0; i <= tickCount; i++) {
       final x = width * i / tickCount;
       canvas.drawLine(

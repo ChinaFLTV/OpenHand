@@ -110,7 +110,6 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     final ctrl = TextEditingController(text: existing);
     final value = await showAnimatedDialog<String>(
       context: context,
-      barrierDismissible: true,
       builder: (dialogContext) {
         return AlertDialog(
           title: Text(isZh ? '编辑条件断点' : 'Edit conditional breakpoint'),
@@ -889,7 +888,7 @@ class _BpRow extends StatelessWidget {
             child: row,
           );
     if (tooltip != null) {
-      content = Tooltip(message: tooltip!, child: content);
+      content = Tooltip(message: tooltip, child: content);
     }
     return content;
   }

@@ -2604,7 +2604,6 @@ class WebReverseSessionController extends ChangeNotifier {
         'DOM.getDocument',
         params: <String, Object?>{'depth': depth, 'pierce': false},
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 8),
       );
       final root = r['root'];
       return root is Map<String, dynamic> ? root : null;
@@ -7194,6 +7193,16 @@ class _PerTargetBuffer {
 /// 用户保存的 JS 片段（脚本注入库）。`runReplExpression` 执行后结果
 /// 进入 Console 面板；持久化由 dashboard 写入 session metadata。
 class WebReverseSnippet {
+
+  factory WebReverseSnippet.fromJson(Map<String, Object?> json) {
+    final ms = json['updated_ms'];
+    return WebReverseSnippet(
+      id: '${json['id'] ?? ''}',
+      name: '${json['name'] ?? 'untitled'}',
+      code: '${json['code'] ?? ''}',
+      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
+    );
+  }
   const WebReverseSnippet({
     required this.id,
     required this.name,
@@ -7212,20 +7221,21 @@ class WebReverseSnippet {
         'code': code,
         'updated_ms': updatedAt?.millisecondsSinceEpoch,
       };
-
-  factory WebReverseSnippet.fromJson(Map<String, Object?> json) {
-    final ms = json['updated_ms'];
-    return WebReverseSnippet(
-      id: '${json['id'] ?? ''}',
-      name: '${json['name'] ?? 'untitled'}',
-      code: '${json['code'] ?? ''}',
-      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
-    );
-  }
 }
 
 /// 用户保存的 JS Hook（每个文档加载前注入）。
 class WebReverseHook {
+
+  factory WebReverseHook.fromJson(Map<String, Object?> json) {
+    final ms = json['updated_ms'];
+    return WebReverseHook(
+      id: '${json['id'] ?? ''}',
+      name: '${json['name'] ?? 'untitled'}',
+      code: '${json['code'] ?? ''}',
+      enabled: json['enabled'] != false,
+      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
+    );
+  }
   const WebReverseHook({
     required this.id,
     required this.name,
@@ -7247,20 +7257,22 @@ class WebReverseHook {
         'enabled': enabled,
         'updated_ms': updatedAt?.millisecondsSinceEpoch,
       };
-
-  factory WebReverseHook.fromJson(Map<String, Object?> json) {
-    final ms = json['updated_ms'];
-    return WebReverseHook(
-      id: '${json['id'] ?? ''}',
-      name: '${json['name'] ?? 'untitled'}',
-      code: '${json['code'] ?? ''}',
-      enabled: json['enabled'] != false,
-      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
-    );
-  }
 }
 
 class WebReverseCron {
+
+  factory WebReverseCron.fromJson(Map<String, Object?> json) {
+    final ms = json['updated_ms'];
+    final iv = json['interval_s'];
+    return WebReverseCron(
+      id: '${json['id'] ?? ''}',
+      name: '${json['name'] ?? 'untitled'}',
+      code: '${json['code'] ?? ''}',
+      intervalSeconds: iv is int && iv >= 1 ? iv : 60,
+      enabled: json['enabled'] == true,
+      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
+    );
+  }
   const WebReverseCron({
     required this.id,
     required this.name,
@@ -7285,19 +7297,6 @@ class WebReverseCron {
         'enabled': enabled,
         'updated_ms': updatedAt?.millisecondsSinceEpoch,
       };
-
-  factory WebReverseCron.fromJson(Map<String, Object?> json) {
-    final ms = json['updated_ms'];
-    final iv = json['interval_s'];
-    return WebReverseCron(
-      id: '${json['id'] ?? ''}',
-      name: '${json['name'] ?? 'untitled'}',
-      code: '${json['code'] ?? ''}',
-      intervalSeconds: iv is int && iv >= 1 ? iv : 60,
-      enabled: json['enabled'] == true,
-      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
-    );
-  }
 }
 
 // ─── DOM 路径 JS 函数体 ────────────────────────────────────────────────

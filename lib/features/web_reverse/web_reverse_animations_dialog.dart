@@ -451,7 +451,6 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
               child: Slider(
                 value: _playbackRate.clamp(0.0, 2.0),
-                min: 0.0,
                 max: 2.0,
                 divisions: 40,
                 label: '${_playbackRate.toStringAsFixed(2)}x',
