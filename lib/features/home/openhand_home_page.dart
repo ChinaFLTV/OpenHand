@@ -2201,8 +2201,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _activateSession(String sessionId) async {
     final sessionController = context.read<AiSessionController>();
-    if (sessionController.currentSessionId == sessionId &&
-        _selectedSection == AppSection.workspace) {
+    if (sessionController.currentSessionId == sessionId) {
+      if (_selectedSection != AppSection.workspace) {
+        setState(() {
+          _selectedSection = AppSection.workspace;
+          _preparingTranscriptSessionId = null;
+          _transcriptPreparationGeneration += 1;
+        });
+        _clearPendingAutoFollowState();
+        _armAutoFollowToBottom();
+        _scheduleScrollToBottom(force: true);
+      }
       return;
     }
     // Devtools / Timeline marker: lets us measure first-open latency on
@@ -2609,12 +2618,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       userDataDir: sessionScopedUserDataDir,
     );
     // 写入 metadata，便于 SessionDetailPage / 调试胶囊定位 controller。
-    await sessionController.updateSessionMetadata(
-      session.id,
-      <String, Object?>{
-        'web_reverse_config': scopedConfig.toJson(),
-      },
-    );
+    await sessionController.updateSessionMetadata(session.id, <String, Object?>{
+      'web_reverse_config': scopedConfig.toJson(),
+    });
     if (!mounted) return created;
     // 启动 controller。
     final controller = WebReverseSessionController(
@@ -2684,12 +2690,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 末尾保留原始报错供高级用户复制。
   String _formatWebReverseLaunchError(WebReverseLaunchException error) {
     final headline = switch (error.failure) {
-      WebReverseLaunchFailure.noFreePort =>
-        '9222-9322 端口区间已被占用，无法分配 CDP 端口',
-      WebReverseLaunchFailure.spawnFailed =>
-        '浏览器进程启动失败',
-      WebReverseLaunchFailure.cdpHandshakeFailed =>
-        'CDP 握手超时',
+      WebReverseLaunchFailure.noFreePort => '9222-9322 端口区间已被占用，无法分配 CDP 端口',
+      WebReverseLaunchFailure.spawnFailed => '浏览器进程启动失败',
+      WebReverseLaunchFailure.cdpHandshakeFailed => 'CDP 握手超时',
     };
     final diagnosis = WebReverseLaunchDiagnosis.parse(error.message);
     final buf = StringBuffer()
@@ -2766,11 +2769,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       effectiveConfig = config.copyWith(userDataDir: desired);
       try {
         await context.read<AiSessionController>().updateSessionMetadata(
-              session.id,
-              <String, Object?>{
-                'web_reverse_config': effectiveConfig.toJson(),
-              },
-            );
+          session.id,
+          <String, Object?>{'web_reverse_config': effectiveConfig.toJson()},
+        );
       } catch (e, st) {
         silentLog(
           'openhand_home_page',
@@ -2824,8 +2825,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       try {
         await controller.stop();
       } catch (error, stack) {
-        silentLog('openhand_home_page', 'restore web reverse stop', error,
-            stack);
+        silentLog(
+          'openhand_home_page',
+          'restore web reverse stop',
+          error,
+          stack,
+        );
       }
       controller.dispose();
       return null;

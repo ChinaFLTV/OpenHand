@@ -42,32 +42,46 @@ class _ShortcutBindingTile extends StatelessWidget {
                 ),
               ],
             );
-            // 2026-05-19 — 三件控件统一高度 40：原来 Container 自由撑高、
-            // OutlinedButton.icon ≈40、IconButton ≈48，视觉错位。Wrap 每个
-            // 子控件到 SizedBox(height: kCtrlHeight) 并把 IconButton 拉成
-            // 正方形 40x40，整体协调。
             const double kCtrlHeight = 40;
+            const double kValueMinWidth = 136;
+            const double kValueMaxWidth = 260;
             final controls = Wrap(
               spacing: 10,
               runSpacing: 10,
               alignment: WrapAlignment.end,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                SizedBox(
-                  height: kCtrlHeight,
-                  child: Container(
-                    key: ValueKey<String>('shortcut-value-$actionStorageKey'),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: colorScheme.outlineVariant),
-                    ),
-                    child: Text(
-                      value,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: kValueMinWidth,
+                    maxWidth: kValueMaxWidth,
+                  ),
+                  child: SizedBox(
+                    height: kCtrlHeight,
+                    child: DecoratedBox(
+                      key: ValueKey<String>('shortcut-value-$actionStorageKey'),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: colorScheme.outlineVariant),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Align(
+                          widthFactor: 1,
+                          child: Tooltip(
+                            message: value,
+                            child: Text(
+                              value,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
