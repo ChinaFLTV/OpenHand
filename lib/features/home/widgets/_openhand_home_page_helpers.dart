@@ -245,10 +245,6 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
       color: cs.onSurfaceVariant,
       fontWeight: FontWeight.w600,
     );
-    final actionTextStyle = theme.textTheme.titleSmall?.copyWith(
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.2,
-    );
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -373,59 +369,30 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                     constraints: const BoxConstraints(maxWidth: 360),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 46,
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(color: cs.outlineVariant),
-                                textStyle: actionTextStyle,
-                                minimumSize: const Size(0, 46),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                ),
-                              ),
-                              child: Text(
-                                _localizedText(context, zh: '取消', en: 'Cancel'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
+                        OpenHandDialogActionButton.secondary(
+                          onPressed: () => Navigator.of(context).pop(),
+                          label: _localizedText(
+                            context,
+                            zh: '取消',
+                            en: 'Cancel',
                           ),
                         ),
                         const SizedBox(width: 10),
-                        Expanded(
-                          child: SizedBox(
-                            height: 46,
-                            child: FilledButton(
-                              onPressed: () {
-                                Navigator.of(context).pop(
-                                  AiCreationOptions(
-                                    size: _size,
-                                    aspectRatio: _aspectRatio,
-                                    durationSeconds: _duration,
-                                    count: _count,
-                                  ),
-                                );
-                              },
-                              style: FilledButton.styleFrom(
-                                textStyle: actionTextStyle,
-                                minimumSize: const Size(0, 46),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                ),
+                        OpenHandDialogActionButton.primary(
+                          onPressed: () {
+                            Navigator.of(context).pop(
+                              AiCreationOptions(
+                                size: _size,
+                                aspectRatio: _aspectRatio,
+                                durationSeconds: _duration,
+                                count: _count,
                               ),
-                              child: Text(
-                                _localizedText(
-                                  context,
-                                  zh: '确认',
-                                  en: 'Confirm',
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
+                            );
+                          },
+                          label: _localizedText(
+                            context,
+                            zh: '确认',
+                            en: 'Confirm',
                           ),
                         ),
                       ],
