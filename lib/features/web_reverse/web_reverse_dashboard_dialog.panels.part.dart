@@ -1020,6 +1020,12 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   final List<double> _heapUsed = <double>[];
   final List<double> _heapTotal = <double>[];
   static const int _heapHistoryLen = 80;
+  // 2026-05-19 — 采样期间的每 tick 分配增量（used.t - used.t-1，取正值）。
+  // 配合 Switch 形式的「采样开关」让用户在采样窗口内直观看到分配压力曲
+  // 线；停止后会冻结，待下次开启再清空。
+  final List<double> _samplingDeltas = <double>[];
+  static const int _samplingDeltasMax = 120;
+  double? _samplingLastUsed;
   // 采样收尾后的 top-N 函数。
   ({int totalSize, List<({String label, int size, List<String> stack})> top})?
       _samplingResult;
@@ -1072,6 +1078,19 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         _heapTotal.removeAt(0);
       }
       _heapBreached = breached;
+      // 2026-05-19 — 采样窗口内追加每 tick 分配增量（正值；GC 回收当 0），
+      // 让下方 sparkline 实时反映分配压力。
+      if (widget.controller.isMemorySampling) {
+        final prev = _samplingLastUsed ?? r.used;
+        final delta = math.max(0.0, r.used - prev);
+        _samplingDeltas.add(delta);
+        while (_samplingDeltas.length > _samplingDeltasMax) {
+          _samplingDeltas.removeAt(0);
+        }
+        _samplingLastUsed = r.used;
+      } else {
+        _samplingLastUsed = r.used;
+      }
     });
     // 触发告警：超过阈值且距上次告警 ≥ 60s 才再次提示。
     if (breached) {
@@ -1119,7 +1138,12 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           duration: const Duration(seconds: 2),
         );
       } else {
-        setState(() => _samplingResult = null);
+        setState(() {
+          _samplingResult = null;
+          // 2026-05-19 — 清空旧的采样窗口序列，sparkline 从 0 重新累计。
+          _samplingDeltas.clear();
+          _samplingLastUsed = null;
+        });
       }
     }
   }
@@ -1266,6 +1290,18 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             breached: _heapBreached,
             onThresholdChanged: (v) => setState(() => _heapWarnThresholdMb = v),
           ),
+          const SizedBox(height: 10),
+          // 2026-05-19 — 「采样开关 + 实时 sparkline」整合卡片：开关切换会
+          // 触发 startSampling / stopSampling；采样窗口内 1.5s 拍一根条柱，
+          // 高度 = 该 tick 的 used 增量（>=0），自动归一化。停止后冻结便
+          // 于回顾，下次开启自动清空。
+          _HeapSamplingSwitchCard(
+            isZh: isZh,
+            isSampling: widget.controller.isMemorySampling,
+            deltas: _samplingDeltas,
+            onToggle: _toggleSampling,
+            reduceMotion: widget.reduceMotion,
+          ),
           const SizedBox(height: 12),
           // ── 采样 / 快照工具栏 ──────────────────────────────────────
           Row(
@@ -1296,21 +1332,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                     : null,
                 icon: const Icon(Icons.compare_arrows_rounded, size: 18),
                 label: Text(isZh ? '比较快照' : 'Diff snapshots'),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _toggleSampling,
-                icon: Icon(
-                  widget.controller.isMemorySampling
-                      ? Icons.stop_circle_rounded
-                      : Icons.timeline_rounded,
-                  size: 18,
-                ),
-                label: Text(
-                  widget.controller.isMemorySampling
-                      ? (isZh ? '停止采样' : 'Stop sampling')
-                      : (isZh ? '开始采样' : 'Start sampling'),
-                ),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
@@ -1710,6 +1731,198 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Memory: 「采样开关 + 实时 sparkline」整合卡片。Switch 触发 HeapProfiler.
+// startSampling / stopSampling；采样窗口内 1.5s 拍一根柱，宽度自适应、高
+// 度按窗内峰值归一。停止后冻结柱序，便于回放分配压力曲线。reduceMotion 时
+// 仍渲染但不做柱条动画。
+// ─────────────────────────────────────────────────────────────────────────
+class _HeapSamplingSwitchCard extends StatelessWidget {
+  const _HeapSamplingSwitchCard({
+    required this.isZh,
+    required this.isSampling,
+    required this.deltas,
+    required this.onToggle,
+    required this.reduceMotion,
+  });
+
+  final bool isZh;
+  final bool isSampling;
+  final List<double> deltas;
+  final Future<void> Function() onToggle;
+  final bool reduceMotion;
+
+  String _fmtBytes(double v) {
+    if (v < 1024) return '${v.toStringAsFixed(0)} B';
+    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
+    return '${(v / 1024 / 1024).toStringAsFixed(2)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final peak = deltas.isEmpty
+        ? 0.0
+        : deltas.reduce((a, b) => a > b ? a : b);
+    final total = deltas.isEmpty
+        ? 0.0
+        : deltas.reduce((a, b) => a + b);
+    final activeBorder = isSampling ? cs.primary : cs.outlineVariant;
+    final activeBg = isSampling
+        ? cs.primaryContainer.withValues(alpha: 0.18)
+        : cs.surfaceContainerHigh;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: activeBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: activeBorder,
+          width: isSampling ? 1.4 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 220,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isSampling
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.timeline_rounded,
+                      size: 14,
+                      color: isSampling ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isZh ? '堆分配采样' : 'Heap allocation sampling',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  isSampling
+                      ? (isZh ? '采样中…' : 'Sampling…')
+                      : (deltas.isEmpty
+                          ? (isZh ? '未开启' : 'Off')
+                          : (isZh ? '已停止' : 'Stopped')),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: isSampling ? cs.primary : cs.onSurface,
+                  ),
+                ),
+                if (deltas.isNotEmpty)
+                  Text(
+                    isZh
+                        ? '峰值 ${_fmtBytes(peak)} · 累计 ${_fmtBytes(total)}'
+                        : 'peak ${_fmtBytes(peak)} · sum ${_fmtBytes(total)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(
+                height: 44,
+                child: deltas.isEmpty
+                    ? Center(
+                        child: Text(
+                          isZh
+                              ? '开启后每 1.5s 记录一次分配增量'
+                              : 'Records allocation deltas every 1.5s',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : CustomPaint(
+                        painter: _HeapSamplingBarsPainter(
+                          deltas: deltas,
+                          color: isSampling ? cs.primary : cs.secondary,
+                          peak: peak,
+                        ),
+                        size: Size.infinite,
+                      ),
+              ),
+            ),
+          ),
+          Tooltip(
+            message: isSampling
+                ? (isZh ? '关闭后保留窗口柱条' : 'Off keeps bars')
+                : (isZh ? '开启堆分配采样' : 'Start heap sampling'),
+            child: Switch.adaptive(
+              value: isSampling,
+              onChanged: (_) => onToggle(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeapSamplingBarsPainter extends CustomPainter {
+  _HeapSamplingBarsPainter({
+    required this.deltas,
+    required this.color,
+    required this.peak,
+  });
+
+  final List<double> deltas;
+  final Color color;
+  final double peak;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (deltas.isEmpty || size.width <= 0 || size.height <= 0) return;
+    final n = deltas.length;
+    final slot = size.width / n;
+    final barWidth = math.max(1.0, slot - 1.5);
+    final norm = peak <= 0 ? 1.0 : peak;
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (var i = 0; i < n; i++) {
+      final v = deltas[i];
+      final hRatio = (v / norm).clamp(0.0, 1.0);
+      // 视觉低位至少 1.5px，保证 0 增量也有薄基线提示采样仍在跑。
+      final h = math.max(1.5, size.height * hRatio);
+      final x = i * slot + (slot - barWidth) / 2;
+      final y = size.height - h;
+      final alpha = v <= 0 ? 0.35 : (0.55 + 0.45 * hRatio);
+      paint.color = color.withValues(alpha: alpha);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, y, barWidth, h),
+          const Radius.circular(1.5),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeapSamplingBarsPainter old) =>
+      old.deltas.length != deltas.length ||
+      (old.deltas.isNotEmpty &&
+          deltas.isNotEmpty &&
+          old.deltas.last != deltas.last) ||
+      old.peak != peak ||
+      old.color != color;
 }
 
 class _SamplingTopList extends StatelessWidget {
