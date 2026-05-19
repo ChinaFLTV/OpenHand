@@ -7354,4 +7354,50 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReversePerfSaved(String path, String kb) {
     return 'Gespeichert: $path ($kb KB)';
   }
+
+  @override
+  String get webReverseReplayJsonCopied => 'JSON kopiert';
+
+  @override
+  String get webReverseReplayTitle => 'Netzwerk-Batch-Replay';
+
+  @override
+  String get webReverseReplaySubtitle =>
+      'Mehrfachauswahl → seq. Wiederholung → Diff';
+
+  @override
+  String get webReverseReplayCopyResultsJson => 'Ergebnisse als JSON kopieren';
+
+  @override
+  String get webReverseReplayFilterByUrl => 'Nach URL filtern';
+
+  @override
+  String get webReverseReplaySelectAll => 'Alle auswählen';
+
+  @override
+  String get webReverseReplayClear => 'Leeren';
+
+  @override
+  String get webReverseReplayEmpty => 'Keine HTTP-Anfragen in der Sitzung';
+
+  @override
+  String get webReverseReplayRunBatch => 'Batch starten';
+
+  @override
+  String get webReverseReplayClose => 'Schließen';
+
+  @override
+  String webReverseReplayDone(int ok, int total) {
+    return 'Replay fertig: $ok/$total ok';
+  }
+
+  @override
+  String webReverseReplayProgress(int done, int total) {
+    return 'Wiederholt $done / $total';
+  }
+
+  @override
+  String webReverseReplaySelected(int count, int total) {
+    return 'Ausgewählt $count / $total';
+  }
 }

@@ -5006,5 +5006,51 @@
         "type": "String"
       }
     }
+  },
+  "webReverseReplayJsonCopied": "JSON kopiert",
+  "webReverseReplayTitle": "Netzwerk-Batch-Replay",
+  "webReverseReplaySubtitle": "Mehrfachauswahl → seq. Wiederholung → Diff",
+  "webReverseReplayCopyResultsJson": "Ergebnisse als JSON kopieren",
+  "webReverseReplayFilterByUrl": "Nach URL filtern",
+  "webReverseReplaySelectAll": "Alle auswählen",
+  "webReverseReplayClear": "Leeren",
+  "webReverseReplayEmpty": "Keine HTTP-Anfragen in der Sitzung",
+  "webReverseReplayRunBatch": "Batch starten",
+  "webReverseReplayClose": "Schließen",
+  "webReverseReplayDone": "Replay fertig: {ok}/{total} ok",
+  "@webReverseReplayDone": {
+    "description": "Replay completed snackbar.",
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplayProgress": "Wiederholt {done} / {total}",
+  "@webReverseReplayProgress": {
+    "description": "Replay in progress label.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplaySelected": "Ausgewählt {count} / {total}",
+  "@webReverseReplaySelected": {
+    "description": "Selected count vs total label.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

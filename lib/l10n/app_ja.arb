@@ -5006,5 +5006,51 @@
         "type": "String"
       }
     }
+  },
+  "webReverseReplayJsonCopied": "JSON をコピーしました",
+  "webReverseReplayTitle": "ネットワーク一括リプレイ",
+  "webReverseReplaySubtitle": "複数選択 → 順次再送 → 差分",
+  "webReverseReplayCopyResultsJson": "結果 JSON をコピー",
+  "webReverseReplayFilterByUrl": "URL で絞り込み",
+  "webReverseReplaySelectAll": "全選択",
+  "webReverseReplayClear": "クリア",
+  "webReverseReplayEmpty": "セッションに HTTP リクエストなし",
+  "webReverseReplayRunBatch": "再送開始",
+  "webReverseReplayClose": "閉じる",
+  "webReverseReplayDone": "再送完了: {ok}/{total} 成功",
+  "@webReverseReplayDone": {
+    "description": "Replay completed snackbar.",
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplayProgress": "再送中 {done} / {total}",
+  "@webReverseReplayProgress": {
+    "description": "Replay in progress label.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplaySelected": "選択 {count} / {total}",
+  "@webReverseReplaySelected": {
+    "description": "Selected count vs total label.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

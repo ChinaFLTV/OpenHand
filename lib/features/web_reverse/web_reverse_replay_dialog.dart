@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -29,6 +30,7 @@ Future<void> showWebReverseReplayDialog(
 class _ReplayDialog extends StatefulWidget {
   const _ReplayDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_ReplayDialog> createState() => _ReplayDialogState();
@@ -71,7 +73,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
   }
 
   Future<void> _runBatch() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final byId = {for (final e in widget.controller.networkRequests) e.requestId: e};
     final picks = _selected.map((id) => byId[id]).whereType<CdpNetworkEntry>().toList();
     if (picks.isEmpty) return;
@@ -119,9 +121,8 @@ class _ReplayDialogState extends State<_ReplayDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        isZh
-            ? '重放完成：$okCount/${_results.length} 成功'
-            : 'Replay done: $okCount/${_results.length} ok',
+        loc?.webReverseReplayDone(okCount, _results.length) ??
+            'Replay done: $okCount/${_results.length} ok',
       );
     }
   }
@@ -146,12 +147,13 @@ class _ReplayDialogState extends State<_ReplayDialog> {
       return;
     }
     if (!mounted) return;
+    final loc = AppLocalizations.of(context);
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? 'JSON 已复制' : 'JSON copied',
+        loc?.webReverseReplayJsonCopied ?? 'JSON copied',
       );
     }
   }
@@ -160,7 +162,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final entries = _entries;
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -181,14 +183,14 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? '网络请求批量重放器' : 'Network Request Replayer',
+                          loc?.webReverseReplayTitle ??
+                              'Network Request Replayer',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '多选 → 顺序重发 → 对比原状态与新状态'
-                              : 'multi-select → sequential replay → diff',
+                          loc?.webReverseReplaySubtitle ??
+                              'multi-select → sequential replay → diff',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -198,7 +200,8 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                   IconButton(
                     onPressed: _results.isEmpty ? null : _exportJson,
                     icon: const Icon(Icons.copy_rounded),
-                    tooltip: isZh ? '复制结果 JSON' : 'Copy results JSON',
+                    tooltip: loc?.webReverseReplayCopyResultsJson ??
+                        'Copy results JSON',
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -215,7 +218,8 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                   Expanded(
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: isZh ? '按 URL 过滤' : 'Filter by URL',
+                        hintText: loc?.webReverseReplayFilterByUrl ??
+                            'Filter by URL',
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
                         isDense: true,
                         border: OutlineInputBorder(
@@ -235,14 +239,15 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                                 ..addAll(entries.map((e) => e.requestId));
                             }),
                     icon: const Icon(Icons.select_all_rounded, size: 18),
-                    label: Text(isZh ? '全选' : 'Select All'),
+                    label: Text(
+                        loc?.webReverseReplaySelectAll ?? 'Select All'),
                   ),
                   TextButton.icon(
                     onPressed: _selected.isEmpty
                         ? null
                         : () => setState(() => _selected.clear()),
                     icon: const Icon(Icons.deselect_rounded, size: 18),
-                    label: Text(isZh ? '清空' : 'Clear'),
+                    label: Text(loc?.webReverseReplayClear ?? 'Clear'),
                   ),
                 ],
               ),
@@ -256,7 +261,8 @@ class _ReplayDialogState extends State<_ReplayDialog> {
               child: entries.isEmpty
                   ? Center(
                       child: Text(
-                        isZh ? '当前会话没有 HTTP 请求' : 'No HTTP requests in session',
+                        loc?.webReverseReplayEmpty ??
+                            'No HTTP requests in session',
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -406,25 +412,24 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                   Expanded(
                     child: Text(
                       _busy
-                          ? (isZh
-                              ? '重放中 $_progress / $_total'
-                              : 'Replaying $_progress / $_total')
-                          : (isZh
-                              ? '已选 ${_selected.length} / ${entries.length}'
-                              : 'Selected ${_selected.length} / ${entries.length}'),
+                          ? (loc?.webReverseReplayProgress(_progress, _total) ??
+                              'Replaying $_progress / $_total')
+                          : (loc?.webReverseReplaySelected(
+                                  _selected.length, entries.length) ??
+                              'Selected ${_selected.length} / ${entries.length}'),
                       style: theme.textTheme.labelMedium,
                     ),
                   ),
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '开始重放' : 'Run Batch',
+                    label: loc?.webReverseReplayRunBatch ?? 'Run Batch',
                     icon: Icons.send_rounded,
                     busy: _busy,
                     onPressed: (_busy || _selected.isEmpty) ? null : _runBatch,
                   ),
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseReplayClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

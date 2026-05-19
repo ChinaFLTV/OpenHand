@@ -5075,5 +5075,51 @@
         "type": "String"
       }
     }
+  },
+  "webReverseReplayJsonCopied": "JSON 已复制",
+  "webReverseReplayTitle": "网络请求批量重放器",
+  "webReverseReplaySubtitle": "多选 → 顺序重发 → 对比原状态与新状态",
+  "webReverseReplayCopyResultsJson": "复制结果 JSON",
+  "webReverseReplayFilterByUrl": "按 URL 过滤",
+  "webReverseReplaySelectAll": "全选",
+  "webReverseReplayClear": "清空",
+  "webReverseReplayEmpty": "当前会话没有 HTTP 请求",
+  "webReverseReplayRunBatch": "开始重放",
+  "webReverseReplayClose": "关闭",
+  "webReverseReplayDone": "重放完成：{ok}/{total} 成功",
+  "@webReverseReplayDone": {
+    "description": "Replay completed snackbar.",
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplayProgress": "重放中 {done} / {total}",
+  "@webReverseReplayProgress": {
+    "description": "Replay in progress label.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplaySelected": "已选 {count} / {total}",
+  "@webReverseReplaySelected": {
+    "description": "Selected count vs total label.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

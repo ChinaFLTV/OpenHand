@@ -7092,4 +7092,49 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReversePerfSaved(String path, String kb) {
     return '保存しました: $path ($kb KB)';
   }
+
+  @override
+  String get webReverseReplayJsonCopied => 'JSON をコピーしました';
+
+  @override
+  String get webReverseReplayTitle => 'ネットワーク一括リプレイ';
+
+  @override
+  String get webReverseReplaySubtitle => '複数選択 → 順次再送 → 差分';
+
+  @override
+  String get webReverseReplayCopyResultsJson => '結果 JSON をコピー';
+
+  @override
+  String get webReverseReplayFilterByUrl => 'URL で絞り込み';
+
+  @override
+  String get webReverseReplaySelectAll => '全選択';
+
+  @override
+  String get webReverseReplayClear => 'クリア';
+
+  @override
+  String get webReverseReplayEmpty => 'セッションに HTTP リクエストなし';
+
+  @override
+  String get webReverseReplayRunBatch => '再送開始';
+
+  @override
+  String get webReverseReplayClose => '閉じる';
+
+  @override
+  String webReverseReplayDone(int ok, int total) {
+    return '再送完了: $ok/$total 成功';
+  }
+
+  @override
+  String webReverseReplayProgress(int done, int total) {
+    return '再送中 $done / $total';
+  }
+
+  @override
+  String webReverseReplaySelected(int count, int total) {
+    return '選択 $count / $total';
+  }
 }

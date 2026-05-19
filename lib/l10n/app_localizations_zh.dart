@@ -6995,6 +6995,51 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReversePerfSaved(String path, String kb) {
     return '已保存：$path ($kb KB)';
   }
+
+  @override
+  String get webReverseReplayJsonCopied => 'JSON 已复制';
+
+  @override
+  String get webReverseReplayTitle => '网络请求批量重放器';
+
+  @override
+  String get webReverseReplaySubtitle => '多选 → 顺序重发 → 对比原状态与新状态';
+
+  @override
+  String get webReverseReplayCopyResultsJson => '复制结果 JSON';
+
+  @override
+  String get webReverseReplayFilterByUrl => '按 URL 过滤';
+
+  @override
+  String get webReverseReplaySelectAll => '全选';
+
+  @override
+  String get webReverseReplayClear => '清空';
+
+  @override
+  String get webReverseReplayEmpty => '当前会话没有 HTTP 请求';
+
+  @override
+  String get webReverseReplayRunBatch => '开始重放';
+
+  @override
+  String get webReverseReplayClose => '关闭';
+
+  @override
+  String webReverseReplayDone(int ok, int total) {
+    return '重放完成：$ok/$total 成功';
+  }
+
+  @override
+  String webReverseReplayProgress(int done, int total) {
+    return '重放中 $done / $total';
+  }
+
+  @override
+  String webReverseReplaySelected(int count, int total) {
+    return '已选 $count / $total';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -13988,6 +14033,51 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReversePerfSaved(String path, String kb) {
     return '已保存：$path ($kb KB)';
   }
+
+  @override
+  String get webReverseReplayJsonCopied => 'JSON 已复制';
+
+  @override
+  String get webReverseReplayTitle => '网络请求批量重放器';
+
+  @override
+  String get webReverseReplaySubtitle => '多选 → 顺序重发 → 对比原状态与新状态';
+
+  @override
+  String get webReverseReplayCopyResultsJson => '复制结果 JSON';
+
+  @override
+  String get webReverseReplayFilterByUrl => '按 URL 过滤';
+
+  @override
+  String get webReverseReplaySelectAll => '全选';
+
+  @override
+  String get webReverseReplayClear => '清空';
+
+  @override
+  String get webReverseReplayEmpty => '当前会话没有 HTTP 请求';
+
+  @override
+  String get webReverseReplayRunBatch => '开始重放';
+
+  @override
+  String get webReverseReplayClose => '关闭';
+
+  @override
+  String webReverseReplayDone(int ok, int total) {
+    return '重放完成：$ok/$total 成功';
+  }
+
+  @override
+  String webReverseReplayProgress(int done, int total) {
+    return '重放中 $done / $total';
+  }
+
+  @override
+  String webReverseReplaySelected(int count, int total) {
+    return '已选 $count / $total';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -20979,5 +21069,50 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReversePerfSaved(String path, String kb) {
     return '已保存：$path ($kb KB)';
+  }
+
+  @override
+  String get webReverseReplayJsonCopied => 'JSON 已复制';
+
+  @override
+  String get webReverseReplayTitle => '网络请求批量重放器';
+
+  @override
+  String get webReverseReplaySubtitle => '多选 → 顺序重发 → 对比原状态与新状态';
+
+  @override
+  String get webReverseReplayCopyResultsJson => '复制结果 JSON';
+
+  @override
+  String get webReverseReplayFilterByUrl => '按 URL 过滤';
+
+  @override
+  String get webReverseReplaySelectAll => '全选';
+
+  @override
+  String get webReverseReplayClear => '清空';
+
+  @override
+  String get webReverseReplayEmpty => '当前会话没有 HTTP 请求';
+
+  @override
+  String get webReverseReplayRunBatch => '开始重放';
+
+  @override
+  String get webReverseReplayClose => '关闭';
+
+  @override
+  String webReverseReplayDone(int ok, int total) {
+    return '重放完成：$ok/$total 成功';
+  }
+
+  @override
+  String webReverseReplayProgress(int done, int total) {
+    return '重放中 $done / $total';
+  }
+
+  @override
+  String webReverseReplaySelected(int count, int total) {
+    return '已选 $count / $total';
   }
 }

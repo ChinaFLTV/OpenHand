@@ -5006,5 +5006,51 @@
         "type": "String"
       }
     }
+  },
+  "webReverseReplayJsonCopied": "JSON copied",
+  "webReverseReplayTitle": "Network Request Replayer",
+  "webReverseReplaySubtitle": "multi-select → sequential replay → diff",
+  "webReverseReplayCopyResultsJson": "Copy results JSON",
+  "webReverseReplayFilterByUrl": "Filter by URL",
+  "webReverseReplaySelectAll": "Select All",
+  "webReverseReplayClear": "Clear",
+  "webReverseReplayEmpty": "No HTTP requests in session",
+  "webReverseReplayRunBatch": "Run Batch",
+  "webReverseReplayClose": "Close",
+  "webReverseReplayDone": "Replay done: {ok}/{total} ok",
+  "@webReverseReplayDone": {
+    "description": "Replay completed snackbar.",
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplayProgress": "Replaying {done} / {total}",
+  "@webReverseReplayProgress": {
+    "description": "Replay in progress label.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplaySelected": "Selected {count} / {total}",
+  "@webReverseReplaySelected": {
+    "description": "Selected count vs total label.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

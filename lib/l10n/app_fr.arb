@@ -5006,5 +5006,51 @@
         "type": "String"
       }
     }
+  },
+  "webReverseReplayJsonCopied": "JSON copié",
+  "webReverseReplayTitle": "Replay réseau en lot",
+  "webReverseReplaySubtitle": "Multi-sélection → rejeu séquentiel → diff",
+  "webReverseReplayCopyResultsJson": "Copier le JSON des résultats",
+  "webReverseReplayFilterByUrl": "Filtrer par URL",
+  "webReverseReplaySelectAll": "Tout sélectionner",
+  "webReverseReplayClear": "Effacer",
+  "webReverseReplayEmpty": "Aucune requête HTTP dans la session",
+  "webReverseReplayRunBatch": "Lancer le lot",
+  "webReverseReplayClose": "Fermer",
+  "webReverseReplayDone": "Replay terminé : {ok}/{total} ok",
+  "@webReverseReplayDone": {
+    "description": "Replay completed snackbar.",
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplayProgress": "Rejeu {done} / {total}",
+  "@webReverseReplayProgress": {
+    "description": "Replay in progress label.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseReplaySelected": "Sélectionné {count} / {total}",
+  "@webReverseReplaySelected": {
+    "description": "Selected count vs total label.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

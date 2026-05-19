@@ -12922,6 +12922,84 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已保存：{path} ({kb} KB)'**
   String webReversePerfSaved(String path, String kb);
+
+  /// No description provided for @webReverseReplayJsonCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JSON 已复制'**
+  String get webReverseReplayJsonCopied;
+
+  /// No description provided for @webReverseReplayTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'网络请求批量重放器'**
+  String get webReverseReplayTitle;
+
+  /// No description provided for @webReverseReplaySubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'多选 → 顺序重发 → 对比原状态与新状态'**
+  String get webReverseReplaySubtitle;
+
+  /// No description provided for @webReverseReplayCopyResultsJson.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制结果 JSON'**
+  String get webReverseReplayCopyResultsJson;
+
+  /// No description provided for @webReverseReplayFilterByUrl.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按 URL 过滤'**
+  String get webReverseReplayFilterByUrl;
+
+  /// No description provided for @webReverseReplaySelectAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全选'**
+  String get webReverseReplaySelectAll;
+
+  /// No description provided for @webReverseReplayClear.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空'**
+  String get webReverseReplayClear;
+
+  /// No description provided for @webReverseReplayEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前会话没有 HTTP 请求'**
+  String get webReverseReplayEmpty;
+
+  /// No description provided for @webReverseReplayRunBatch.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始重放'**
+  String get webReverseReplayRunBatch;
+
+  /// No description provided for @webReverseReplayClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseReplayClose;
+
+  /// Replay completed snackbar.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重放完成：{ok}/{total} 成功'**
+  String webReverseReplayDone(int ok, int total);
+
+  /// Replay in progress label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重放中 {done} / {total}'**
+  String webReverseReplayProgress(int done, int total);
+
+  /// Selected count vs total label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已选 {count} / {total}'**
+  String webReverseReplaySelected(int count, int total);
 }
 
 class _AppLocalizationsDelegate
