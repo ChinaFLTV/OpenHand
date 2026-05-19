@@ -4813,14 +4813,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   void _measureComposerHeightAndCompensate() {
     // 折叠/展开期间稳住消息：用 composer panel size delta 反向补偿 transcript
-    // scrollOffset，让用户「未在底部」时上方消息不被挤上去 / 压下来。
+    // scrollOffset，让上方消息无论用户是否在底部，都被 Q 弹自然地"压下来 /
+    // 顶上去"，与 AnimatedSize 节奏（260ms easeInOutCubicEmphasized）严丝合缝。
     //
-    // 2026-05-17：用户正在拖动 transcript 时，必须放弃这次补偿，否则
-    // jumpTo 会和触摸 / 鼠标滚轮事件同帧争夺 ScrollPosition.pixels，
-    // 表现为视口被强行拉回到一个"未补偿"位置，体感是"鬼畜"和"被拽住"。
-    if (_userScrollInProgress) {
-      return;
-    }
+    // 2026-05-19：从 jumpTo 切换到 ScrollPosition.correctBy(delta) ——
+    //   * correctBy 在 layout 阶段静默偏移 pixels，不触发 notification、
+    //     不与正在进行的用户拖动 / wheel tick / ballistic 抢 ScrollPosition；
+    //   * jumpTo 会发出 ScrollUpdateNotification 并打断 ballistic，造成
+    //     trackpad 慢速滚动时视口"抽搐"。
+    // 因此原先的 `_userScrollInProgress` 早退保护可以撤掉了。
     final composerCtx = _composerPanelKey.currentContext;
     final renderObject = composerCtx?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) {
@@ -4835,20 +4836,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     final position = _messageScrollController.position;
-    // 补偿策略：直接偏移 scroll position，不受 maxScrollExtent 限制。
-    // 在动画期间 maxScrollExtent 可能尚未更新（transcript layout 滞后），
-    // 使用 correctPixels 绕过 clamp 确保补偿立即生效。
-    final newPixels = position.pixels + delta;
-    if (newPixels >= position.minScrollExtent &&
-        newPixels <= position.maxScrollExtent) {
-      position.jumpTo(newPixels);
-    } else if (newPixels < position.minScrollExtent) {
-      position.jumpTo(position.minScrollExtent);
-    } else {
-      // maxScrollExtent 可能还没更新到位，先用 jumpTo 尝试，
-      // 如果被 clamp 了也没关系，下一帧会再次补偿。
-      position.jumpTo(position.maxScrollExtent);
-    }
+    // 反向偏移 scroll position：composer 长高 → pixels +delta，让"上方"内容
+    // 视觉上往上挪同等距离 = 像是被新出现的 composer 顶上去；反之 composer
+    // 收起 → 内容自然滑下来填补空间。correctBy 不做 clamp，由下一帧
+    // _maybeAutoFollowSession / ballistic settle 兜底；越界量在动画下一帧
+    // 自动回拉，体感上是 Q 弹自然的回弹而非硬截断。
+    position.correctBy(delta);
   }
 
   void _handleTranscriptLayoutChanged() {

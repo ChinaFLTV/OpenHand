@@ -1511,8 +1511,8 @@ class _SettingsViewState extends State<SettingsView> {
                     Localizations.localeOf(
                       context,
                     ).languageCode.startsWith('zh')
-                    ? 'AI 侧高速吐字时，UI 端按此速率均匀放出，避免卡片增量渲染卡顿、ANR 与列表抖动。0 表示关闭节流。默认 3。'
-                    : 'When AI streams chars at high speed, UI appends at this rate to avoid stutter, ANR and list bouncing. 0 disables throttling. Default 3.',
+                    ? 'AI 侧高速吐字时，UI 端按此速率均匀放出，避免卡片增量渲染卡顿、ANR 与列表抖动。0 表示关闭节流。默认 10。'
+                    : 'When AI streams chars at high speed, UI appends at this rate to avoid stutter, ANR and list bouncing. 0 disables throttling. Default 10.',
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

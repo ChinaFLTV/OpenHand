@@ -2798,8 +2798,19 @@ class _StreamThrottleSessionDialogState
                         ],
                       ),
                     ),
-                    Switch.adaptive(
+                    Switch(
+                      // 2026-05-19 — Material 3 Expressive 风格：原 Switch.adaptive
+                      // 在 macOS/iOS 走 Cupertino 渲染（与 M3 设计语言不一致），
+                      // 显式 Switch 强制走 M3 thumb/track。
                       value: effectiveEnabled,
+                      thumbIcon: WidgetStateProperty.resolveWith<Icon?>((
+                        states,
+                      ) {
+                        if (states.contains(WidgetState.selected)) {
+                          return const Icon(Icons.check_rounded, size: 16);
+                        }
+                        return const Icon(Icons.close_rounded, size: 16);
+                      }),
                       onChanged: (v) {
                         // 立即应用：会话级覆盖 + 推到活跃 throttle。
                         setState(() => _enabledOverride = v);
@@ -2833,6 +2844,15 @@ class _StreamThrottleSessionDialogState
                   hintText:
                       '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
                 ),
+                // 2026-05-19 — 立即生效：用户每输入一个字符都把覆盖推到
+                // 当前活跃 throttle，避免「等 Apply 才生效 / 等下一轮才生效」
+                // 的体感卡顿。空串 = 清除覆盖、回退到全局。
+                onChanged: (value) {
+                  session.setSessionStreamCharsOverride(
+                    widget.sessionId,
+                    _parse(value),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               TextField(
@@ -2848,6 +2868,12 @@ class _StreamThrottleSessionDialogState
                   hintText:
                       '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
                 ),
+                onChanged: (value) {
+                  session.setSessionStreamCardsOverride(
+                    widget.sessionId,
+                    _parse(value),
+                  );
+                },
               ),
               const SizedBox(height: 20),
               // 2026-05-25 — 三枚操作按钮明确居中聚集：丢到 SizedBox(double.infinity)
@@ -2926,9 +2952,17 @@ class _StreamThroughputMiniGauge extends StatefulWidget {
 }
 
 class _StreamThroughputMiniGaugeState
-    extends State<_StreamThroughputMiniGauge> {
+    extends State<_StreamThroughputMiniGauge>
+    with SingleTickerProviderStateMixin {
   Timer? _ticker;
   List<int> _samples = const <int>[];
+  // 2026-05-19 — 平滑过渡：每 500ms 拉一次新 snapshot，painter 读取的
+  // 是 `_displaySamples`，由 AnimationController 把 `_fromSamples →
+  // _toSamples` 跨 500ms 用 easeOutCubic 插值，曲线随 AI 实时吞吐 Q 弹
+  // 流畅滑动而不再跳变。
+  List<double> _fromSamples = const <double>[];
+  List<double> _toSamples = const <double>[];
+  late final AnimationController _morph;
   // 2026-05-18 — 鼠标悬停 / 触屏长按时高亮的桶索引；null = 不高亮。
   int? _hoveredIndex;
   Offset? _hoverLocal;
@@ -2938,19 +2972,31 @@ class _StreamThroughputMiniGaugeState
   double _zoomBase = 1.0;
   static const double _kMinZoom = 1.0;
   static const double _kMaxZoom = 4.0;
+  static const Duration _kRefreshInterval = Duration(milliseconds: 500);
 
   @override
   void initState() {
     super.initState();
+    _morph = AnimationController(
+      vsync: this,
+      duration: _kRefreshInterval,
+    )..addListener(_handleMorphTick);
     _refresh();
-    _ticker = Timer.periodic(const Duration(milliseconds: 200), (_) {
+    _ticker = Timer.periodic(_kRefreshInterval, (_) {
       if (mounted) _refresh();
     });
+  }
+
+  void _handleMorphTick() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _morph
+      ..removeListener(_handleMorphTick)
+      ..dispose();
     super.dispose();
   }
 
@@ -2959,9 +3005,46 @@ class _StreamThroughputMiniGaugeState
     final next = controller.sessionStreamCharThroughputSnapshot(
       widget.sessionId,
     );
-    if (!_listsEqual(next, _samples)) {
-      setState(() => _samples = next);
+    if (_listsEqual(next, _samples)) return;
+    // 把上一帧已渲染的插值结果作为起点，向新 snapshot 平滑过渡。
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final prevDisplay = _currentDisplaySamples();
+    final target = <double>[for (final v in next) v.toDouble()];
+    setState(() {
+      _samples = next;
+      _toSamples = target;
+      _fromSamples = _alignLength(prevDisplay, target.length);
+    });
+    if (reduceMotion) {
+      _morph.value = 1.0;
+    } else {
+      _morph
+        ..stop()
+        ..value = 0.0
+        ..forward();
     }
+  }
+
+  List<double> _currentDisplaySamples() {
+    if (_toSamples.isEmpty) return const <double>[];
+    if (_fromSamples.isEmpty) return List<double>.from(_toSamples);
+    final t = Curves.easeOutCubic.transform(_morph.value.clamp(0.0, 1.0));
+    final n = _toSamples.length;
+    final from = _alignLength(_fromSamples, n);
+    return <double>[
+      for (var i = 0; i < n; i++) from[i] + (_toSamples[i] - from[i]) * t,
+    ];
+  }
+
+  List<double> _alignLength(List<double> source, int targetLen) {
+    if (source.length == targetLen) return source;
+    if (source.length > targetLen) {
+      return source.sublist(0, targetLen);
+    }
+    return <double>[
+      ...source,
+      for (var i = 0; i < targetLen - source.length; i++) 0.0,
+    ];
   }
 
   bool _listsEqual(List<int> a, List<int> b) {
@@ -2986,6 +3069,15 @@ class _StreamThroughputMiniGaugeState
     final samples = fullSamples.isEmpty
         ? fullSamples
         : fullSamples.sublist(0, visibleN);
+    // 平滑显示样本：用从 _fromSamples → _toSamples 的 easeOutCubic 插值，
+    // 让 500ms 刷新节奏下曲线连续 Q 弹流动而非跳点。
+    final displaySamples = _currentDisplaySamples();
+    final visibleDisplay = displaySamples.isEmpty
+        ? const <double>[]
+        : displaySamples.sublist(
+            0,
+            math.min(visibleN, displaySamples.length),
+          );
     final peak = samples.isEmpty ? 0 : samples.reduce(math.max);
     final current = samples.isEmpty ? 0 : samples.first;
     final cap = math.max(widget.maxRate, peak == 0 ? 1 : peak);
@@ -3133,7 +3225,7 @@ class _StreamThroughputMiniGaugeState
                         Positioned.fill(
                           child: CustomPaint(
                             painter: _ThroughputBarsPainter(
-                              samples: samples,
+                              samples: visibleDisplay,
                               cap: cap,
                               color: scheme.primary,
                               gridColor: scheme.outlineVariant
@@ -3182,7 +3274,7 @@ class _ThroughputBarsPainter extends CustomPainter {
     this.hoverHighlightColor,
   });
 
-  final List<int> samples;
+  final List<double> samples;
   final int cap;
   final Color color;
   final Color gridColor;
