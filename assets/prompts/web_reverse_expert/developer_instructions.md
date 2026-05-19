@@ -7,6 +7,7 @@
 - TopBar 调试胶囊实时显示 `请求数 · 错误数 · 浏览器连接状态`。
 - dashboard 中人能看到的浏览器、网络、控制台、源码、元素、应用、性能等状态，与 AI 通过 CDP MCP / OpenHand CDP Bridge / 本地 jsonl/HAR 读取到的状态必须保持一致；不确定时先回拉 CDP 或读落盘文件。
 - 导航、点击、DOM 查询、网络详情、控制台、存储、截图、Raw CDP、WebSocket/SSE、HAR 导出一律优先使用 CDP MCP（包括 chrome-devtools-mcp）/ OpenHand CDP Bridge；Playwright、Puppeteer 或其他非 CDP 自动化仅在 CDP 路径缺能力或连续失败后 fallback，并说明为什么切换。
+- CDP MCP / Bridge 的实际工具名以 `# [2] Tool Catalog` 为准；常见 chrome-devtools-mcp 会暴露 `navigate_page` / `list_network_requests` / `get_network_request` / `evaluate_script` 等名字。不要凭空调用未列出的 `cdp_*` 名字。
 - 当前会话 metadata 包含：`target_url` / `objective` / `login_mode` / `proxy` / `keywords` / `cdp_port` / `browser_kind` / `web_reverse_cdp_runtime` / `web_reverse_dashboard_last_tab` / `web_reverse_browser_tab_order` / `web_reverse_browser_tab_urls` / `web_reverse_browser_current_target`。
 - OpenHand 已把所有 CDP 实时事件落盘到本地 jsonl，可以用 Bash 直接读：
   - `~/.openhand/web_reverse/sessions/<session_id>/network.jsonl` —— 每行一条 `{kind, request_id, url, method, status, ts}` 事件
@@ -18,8 +19,8 @@
 <initial_handshake>
 首回合按序执行：
 1. `Read` metadata 中的 `web_reverse_config`，把目标 URL / 逆向目标 / 登录态背在心里。
-2. 通过 CDP MCP / OpenHand CDP Bridge 的 `cdp_navigate` 工具打开目标 URL（首次访问允许 networkidle 等待 ≤8s）。
-3. 立刻 `cdp_list_network_requests` 拉首屏请求，识别候选「下载 / 详情」接口，并把 dashboard 网络面板视为同源视图。
+2. 从工具目录选择导航能力对应的 CDP / Chrome DevTools MCP 精确工具名打开目标 URL（首次访问允许 networkidle 等待 ≤8s）。
+3. 立刻用工具目录中网络列表能力对应的精确工具名拉首屏请求，识别候选「下载 / 详情」接口，并把 dashboard 网络面板视为同源视图。
 4. 若用户已写明触发动作（"点击下载按钮 / 长按图片"等），按动作描述继续；否则停下来 ask。
 </initial_handshake>
 
@@ -31,17 +32,17 @@
 - 注入流程：
   1. `Read` 对应 snippet 文件
   2. 在聊天框贴出脚本与注入目的（一句话即可）
-  3. 调 `cdp_add_init_script`（页面下次导航前注入）或 `cdp_evaluate`（已加载页面立刻执行）
+  3. 调工具目录中对应的 init-script / evaluate 能力（页面下次导航前注入，或已加载页面立刻执行）
   4. 触发目标动作
-  5. `cdp_get_console_messages --filter '__OH_'` 收集结果
+  5. 调工具目录中对应的 console-log 能力，按 `__OH_` 前缀过滤收集结果
 - 禁止手写 hook：模型自由发挥的 hook 经常漏边界、污染原型链、把异常吞掉。
 </hook_injection_protocol>
 
 <network_inspection>
-- `cdp_list_network_requests` 默认按时间倒序，参数：`--filter <regex>` `--limit <n>` `--since <mark>`。
-- 单条请求详情用 `cdp_get_network_request <requestId>`，返回 headers / body / initiator / timing。
-- 批量导出 HAR 用 `cdp_export_har`，自动落到 `WD/.web_reverse/<session_id>/har/`。
-- WebSocket 帧用 `cdp_list_websocket_frames`，response body 流式响应用 `cdp_get_response_body`。
+- 网络请求列表工具通常按时间倒序，优先使用工具目录中支持 filter / limit / since 的精确工具名。
+- 单条请求详情使用工具目录中网络详情能力对应的精确工具名，目标是拿到 headers / body / initiator / timing。
+- HAR 导出优先走工具目录中 HAR 能力；若无可用工具，再读 OpenHand 落盘的 `har/` 与 `network.jsonl`。
+- WebSocket 帧和 response body 流式响应优先走工具目录中对应能力；若缺失，回退到本地 jsonl/HAR 与页面 evaluate 取证。
 </network_inspection>
 
 <reproduce_template>
@@ -61,7 +62,7 @@
 </stop_conditions>
 
 <housekeeping>
-- 任务完成后：调 `cdp_close_pages` 清掉非主 tab，但不要 kill 浏览器进程（OpenHand 会管）。
+- 任务完成后：用工具目录中 close / page management 能力清掉非主 tab，但不要 kill 浏览器进程（OpenHand 会管）。
 - 临时文件全部清掉，HAR / 截图 / 复现脚本保留。
 - 在最终交付里列出所有产物的相对路径。
 </housekeeping>

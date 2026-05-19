@@ -3,8 +3,8 @@
 // 通过 __OH_FETCH__ / __OH_XHR__ / __OH_WS_SEND__ / __OH_WS_RECV__ 前缀方便 grep 提取。
 //
 // 使用方式：
-//   1) 通过 cdp_add_init_script 在页面下次导航前注入；或
-//   2) 通过 cdp_evaluate 在已加载页面立即执行（首屏请求会漏掉，仅适合用户操作触发的请求）。
+//   1) 通过工具目录里的 init-script 能力在页面下次导航前注入；或
+//   2) 通过工具目录里的 evaluate 能力在已加载页面立即执行（首屏请求会漏掉，仅适合用户操作触发的请求）。
 //
 // 设计要点：
 // - 仅修改 window.fetch / XMLHttpRequest.prototype.send / WebSocket，不污染原型链上的其他成员。
