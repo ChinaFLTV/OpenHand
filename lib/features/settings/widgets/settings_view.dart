@@ -921,7 +921,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
     final toolResultCompressionEnabledControl = Align(
       alignment: Alignment.centerLeft,
-      child: Switch(
+      child: _SettingsSwitch(
         key: const ValueKey<String>(
           'settingsToolResultCompressionEnabledSwitch',
         ),
@@ -1463,7 +1463,7 @@ class _SettingsViewState extends State<SettingsView> {
                     : 'Master switch for char/card throttling. When off, AI output renders at full speed.',
                 control: Align(
                   alignment: Alignment.centerLeft,
-                  child: Switch(
+                  child: _SettingsSwitch(
                     value: settingsController.aiStreamThrottleEnabled,
                     onChanged: (v) =>
                         settingsController.updateAiStreamThrottleEnabled(v),
@@ -1489,7 +1489,7 @@ class _SettingsViewState extends State<SettingsView> {
                   children: [
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Switch(
+                      child: _SettingsSwitch(
                         value: settingsController.aiStreamThrottleAutoMode,
                         onChanged: settingsController.aiStreamThrottleEnabled
                             ? (v) => settingsController
@@ -1779,7 +1779,7 @@ class _SettingsViewState extends State<SettingsView> {
                 )!.settingsWhenEnabledATitleIsAutomatically,
                 control: Align(
                   alignment: Alignment.centerLeft,
-                  child: Switch(
+                  child: _SettingsSwitch(
                     value: settingsController.aiAutoTitleEnabled,
                     onChanged: (value) =>
                         settingsController.updateAiAutoTitleEnabled(value),
@@ -1873,7 +1873,7 @@ class _SettingsViewState extends State<SettingsView> {
                 )!.settingsWhenEnabledNewSessionsStartIn,
                 control: Align(
                   alignment: Alignment.centerLeft,
-                  child: Switch(
+                  child: _SettingsSwitch(
                     value: settingsController.aiDefaultFullAccessPermission,
                     onChanged: (value) => settingsController
                         .updateAiDefaultFullAccessPermission(value),
@@ -2126,7 +2126,7 @@ class _SettingsViewState extends State<SettingsView> {
                 )!.settingsDisabledByDefaultWhenEnabledEvery,
                 control: Align(
                   alignment: Alignment.centerLeft,
-                  child: Switch(
+                  child: _SettingsSwitch(
                     key: const ValueKey<String>(
                       'settingsAiInputCacheEnabledSwitch',
                     ),
@@ -2352,7 +2352,7 @@ class _SettingsViewState extends State<SettingsView> {
                 subtitle: AppLocalizations.of(
                   context,
                 )!.settingsEnabledByDefaultWhenTheAi,
-                control: Switch(
+                control: _SettingsSwitch(
                   value: settingsController.aiWriteCommandConfirmationEnabled,
                   onChanged: (value) async {
                     final saved = await settingsController

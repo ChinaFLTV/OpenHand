@@ -205,6 +205,34 @@ class _ResponsiveSettingRow extends StatelessWidget {
   }
 }
 
+class _SettingsSwitch extends StatelessWidget {
+  const _SettingsSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Switch(
+      value: value,
+      onChanged: onChanged,
+      thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return const Icon(Icons.lock_outline_rounded, size: 16);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return const Icon(Icons.check_rounded, size: 16);
+        }
+        return const Icon(Icons.close_rounded, size: 16);
+      }),
+    );
+  }
+}
+
 class _ReadonlySettingRow extends StatelessWidget {
   const _ReadonlySettingRow({required this.label, required this.value});
 
@@ -815,7 +843,10 @@ class _AiModelTileState extends State<_AiModelTile> {
   /// 时才会按新顺序重新快照。
   List<String>? _stableChipOrder;
 
-  List<String> _resolveStableChipOrder(List<String> allModels, String activeId) {
+  List<String> _resolveStableChipOrder(
+    List<String> allModels,
+    String activeId,
+  ) {
     final cached = _stableChipOrder;
     if (cached != null) {
       // 同集合（顺序无关）即可复用，避免新增/删除模型后阵列错乱。
