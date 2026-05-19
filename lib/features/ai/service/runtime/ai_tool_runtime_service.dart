@@ -82,6 +82,7 @@ class AiResolvedTool {
     this.mcpTool,
     this.skill,
     this.builtinConfig,
+    this.toolSearchDeferredToolDefinitions = const <String, AiToolDefinition>{},
   });
 
   final String name;
@@ -95,6 +96,14 @@ class AiResolvedTool {
   /// 用户层面的内建工具配置（仅 builtin 来源）。携带 timeout / retry 等
   /// 运行时策略；execute() 据此包裹超时与重试逻辑（2026-04-29）。
   final AiBuiltinToolConfig? builtinConfig;
+
+  /// Per-catalog sidecar used only by the built-in ToolSearch tool.
+  ///
+  /// MCP lazy loading is resolved per session/round, while the tool registry
+  /// keeps one global ToolSearch instance. Keeping deferred schemas here lets
+  /// ToolSearch execute against the same catalog the model saw, even if another
+  /// session refreshes its own catalog before this tool call runs.
+  final Map<String, AiToolDefinition> toolSearchDeferredToolDefinitions;
 }
 
 enum AiBuiltinToolKind {

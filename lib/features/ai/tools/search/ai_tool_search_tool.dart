@@ -42,6 +42,20 @@ class AiToolSearchTool extends AiTool {
   Map<String, AiToolDefinition> deferredToolDefinitions =
       const <String, AiToolDefinition>{};
 
+  void setDeferredToolSnapshot(
+    Map<String, AiToolDefinition> definitionsByName,
+  ) {
+    deferredToolDefinitions = Map<String, AiToolDefinition>.unmodifiable(
+      definitionsByName,
+    );
+    deferredToolNames = List<String>.unmodifiable(definitionsByName.keys);
+  }
+
+  void clearDeferredToolSnapshot() {
+    deferredToolNames = const <String>[];
+    deferredToolDefinitions = const <String, AiToolDefinition>{};
+  }
+
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final stopwatch = Stopwatch()..start();
@@ -59,7 +73,16 @@ class AiToolSearchTool extends AiTool {
             '(e.g. `slack send`, `+github issues list`) for fuzzy search.',
       );
     }
-    final deferred = deferredToolNames;
+    final catalogDefinitions = context.catalog
+        .find('ToolSearch')
+        ?.toolSearchDeferredToolDefinitions;
+    final definitionsByName =
+        catalogDefinitions == null || catalogDefinitions.isEmpty
+        ? deferredToolDefinitions
+        : catalogDefinitions;
+    final deferred = definitionsByName.isEmpty
+        ? deferredToolNames
+        : definitionsByName.keys.toList(growable: false);
     if (deferred.isEmpty) {
       return AiToolUtils.simpleSuccessResult(
         command: 'ToolSearch query=$query',
@@ -78,8 +101,9 @@ class AiToolSearchTool extends AiTool {
       query: query,
       maxResults: maxResults,
       deferred: deferred,
+      deferredDefinitions: definitionsByName,
     );
-    final functions = _renderFunctionsBlock(matches);
+    final functions = _renderFunctionsBlock(matches, definitionsByName);
     final lines = <String>[];
     if (matches.isEmpty) {
       lines
@@ -136,6 +160,7 @@ class AiToolSearchTool extends AiTool {
       query: query,
       maxResults: maxResults,
       deferred: deferredToolNames,
+      deferredDefinitions: deferredToolDefinitions,
     );
   }
 
@@ -143,6 +168,7 @@ class AiToolSearchTool extends AiTool {
     required String query,
     required int maxResults,
     required List<String> deferred,
+    required Map<String, AiToolDefinition> deferredDefinitions,
   }) {
     final lower = query.toLowerCase();
 
@@ -198,7 +224,7 @@ class AiToolSearchTool extends AiTool {
     final scored = <_ScoredToolMatch>[];
     for (final name in deferred) {
       final parsed = _parseToolName(name);
-      final descLower = (deferredToolDefinitions[name]?.description ?? '')
+      final descLower = (deferredDefinitions[name]?.description ?? '')
           .toLowerCase();
       // Required-term gate.
       var passesRequired = true;
@@ -264,11 +290,14 @@ class AiToolSearchTool extends AiTool {
     return _ParsedToolName(parts: parts, full: parts.join(' '), isMcp: false);
   }
 
-  String _renderFunctionsBlock(List<String> names) {
+  String _renderFunctionsBlock(
+    List<String> names,
+    Map<String, AiToolDefinition> definitionsByName,
+  ) {
     if (names.isEmpty) return '';
     final buffer = StringBuffer('<functions>\n');
     for (final n in names) {
-      final def = deferredToolDefinitions[n];
+      final def = definitionsByName[n];
       if (def == null) continue;
       final entry = jsonEncode(<String, Object?>{
         'name': def.name,

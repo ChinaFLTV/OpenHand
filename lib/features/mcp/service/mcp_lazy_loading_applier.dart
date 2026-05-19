@@ -40,9 +40,7 @@ class McpLazyLoadingApplier {
 
     if (!shouldLazy) {
       if (toolSearchTool is AiToolSearchTool) {
-        toolSearchTool.deferredToolNames = const <String>[];
-        toolSearchTool.deferredToolDefinitions =
-            const <String, AiToolDefinition>{};
+        toolSearchTool.clearDeferredToolSnapshot();
       }
       return _stripToolSearch(catalog);
     }
@@ -61,13 +59,11 @@ class McpLazyLoadingApplier {
               !forceVisibleNames.contains(entry.key),
         )
         .toList(growable: false);
+    final deferredDefinitions = <String, AiToolDefinition>{
+      for (final entry in deferredEntries) entry.key: entry.value.definition,
+    };
     if (toolSearchTool is AiToolSearchTool) {
-      toolSearchTool.deferredToolNames = deferredEntries
-          .map((entry) => entry.key)
-          .toList(growable: false);
-      toolSearchTool.deferredToolDefinitions = <String, AiToolDefinition>{
-        for (final entry in deferredEntries) entry.key: entry.value.definition,
-      };
+      toolSearchTool.setDeferredToolSnapshot(deferredDefinitions);
     }
     if (deferredEntries.isEmpty) {
       final strippedCatalog = _stripToolSearch(catalog);
@@ -94,6 +90,7 @@ class McpLazyLoadingApplier {
             _augmentToolSearchDefinition(
               entry.value,
               deferredEntries: deferredEntries,
+              deferredDefinitions: deferredDefinitions,
             ),
           ),
         );
@@ -122,6 +119,7 @@ class McpLazyLoadingApplier {
   static AiResolvedTool _augmentToolSearchDefinition(
     AiResolvedTool original, {
     required List<MapEntry<String, AiResolvedTool>> deferredEntries,
+    required Map<String, AiToolDefinition> deferredDefinitions,
   }) {
     final lines = <String>[
       '',
@@ -154,6 +152,8 @@ class McpLazyLoadingApplier {
       mcpTool: original.mcpTool,
       skill: original.skill,
       builtinConfig: original.builtinConfig,
+      toolSearchDeferredToolDefinitions:
+          Map<String, AiToolDefinition>.unmodifiable(deferredDefinitions),
     );
   }
 

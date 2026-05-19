@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/model/ai_creation_mode.dart';
+import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
 import 'package:openhand/features/ai/model/ai_input_cache_runtime_config.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
@@ -8,6 +11,7 @@ import 'package:openhand/features/ai/service/chat/ai_chat_service.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/hook/ai_claude_hook_service.dart';
 import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dart';
+import 'package:openhand/features/ai/tools/ai_tool_execution_context.dart';
 import 'package:openhand/features/ai/tools/search/ai_tool_search_tool.dart';
 import 'package:openhand/features/mcp/index.dart';
 
@@ -59,6 +63,14 @@ void main() {
       contains('regular_browser_tool'),
     );
     expect(searchTool.deferredToolDefinitions, isNot(contains('cdp_evaluate')));
+    expect(
+      result.toolsByName['ToolSearch']!.toolSearchDeferredToolDefinitions,
+      contains('regular_browser_tool'),
+    );
+    expect(
+      result.toolsByName['ToolSearch']!.toolSearchDeferredToolDefinitions,
+      isNot(contains('cdp_evaluate')),
+    );
   });
 
   test('keeps ToolSearch-loaded MCP tools visible on next catalog build', () {
@@ -138,6 +150,69 @@ void main() {
       isEmpty,
     );
   });
+
+  test(
+    'ToolSearch execution uses catalog sidecar over stale global state',
+    () async {
+      final runtimeService = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+      final rawCatalog = AiResolvedToolCatalog(
+        definitions: <AiToolDefinition>[
+          _toolSearch.definition,
+          _mcpDefinition('mcp__session_a__navigate_page'),
+        ],
+        toolsByName: <String, AiResolvedTool>{
+          'ToolSearch': _toolSearch,
+          'mcp__session_a__navigate_page': _mcpTool(
+            'mcp__session_a__navigate_page',
+          ),
+        },
+      );
+      final catalogForSessionA = McpLazyLoadingApplier.apply(
+        catalog: rawCatalog,
+        runtimeContext: _runtimeContext,
+        toolRuntimeService: runtimeService,
+      );
+      final tool = AiToolSearchTool()
+        ..setDeferredToolSnapshot(<String, AiToolDefinition>{
+          'mcp__session_b__wrong_tool': _mcpDefinition(
+            'mcp__session_b__wrong_tool',
+          ),
+        });
+
+      final result = await tool.execute(
+        AiToolExecutionContext(
+          sessionId: 'session-a',
+          catalog: catalogForSessionA,
+          toolCall: AiToolCall(
+            id: 'tc-1',
+            name: 'ToolSearch',
+            arguments: jsonEncode(<String, Object?>{
+              'query': 'select:mcp__session_a__navigate_page',
+            }),
+          ),
+          decodedArguments: const <String, Object?>{
+            'query': 'select:mcp__session_a__navigate_page',
+          },
+          model: _model,
+          previouslyReadFiles: <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: null,
+        ),
+      );
+
+      expect(result.metadata['tool_search_loaded_names'], <String>[
+        'mcp__session_a__navigate_page',
+      ]);
+      expect(result.resultText, contains('mcp__session_a__navigate_page'));
+      expect(result.resultText, isNot(contains('mcp__session_b__wrong_tool')));
+    },
+  );
 }
 
 const AiResolvedTool _toolSearch = AiResolvedTool(
@@ -185,6 +260,15 @@ const AiSessionRuntimeContext _runtimeContext = AiSessionRuntimeContext(
   memoryEnabled: false,
   memoryEntries: <Never>[],
   mcpLazyLoadingMode: McpLazyLoadingMode.enabled,
+);
+
+const AiModelConfig _model = AiModelConfig(
+  id: 'model-1',
+  baseUrl: 'http://localhost/v1',
+  authScheme: AiAuthScheme.none,
+  token: '',
+  modelId: 'test-model',
+  protocolType: AiProtocolType.openai,
 );
 
 class _FakeMcpToolDiscoveryService implements McpToolDiscoveryService {
