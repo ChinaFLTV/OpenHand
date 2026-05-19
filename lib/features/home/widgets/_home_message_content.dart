@@ -996,7 +996,14 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     if (widget.data.length > _markdownDeferredParseThresholdChars &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
         !_canRenderMarkdownAsPlainText(widget.data)) {
-      _renderPlainTextPlaceholder();
+      // 2026-05-25 — 流式抽搐修复：仅在「真·首挂载」（_children == null）
+      // 时铺纯文本占位；后续 didUpdateWidget（流式 chunk / 主题变化）路径
+      // 保留上一帧已解析好的富文本，等帧节流回调 setState 再无缝替换。
+      // 之前每次 chunk 都把 _children 推回纯文本，造成「rich → plain
+      // (看起来像折叠摘要) → rich」反复闪烁。
+      if (_children == null) {
+        _renderPlainTextPlaceholder();
+      }
       if (!_deferredParseScheduled) {
         _deferredParseScheduled = true;
         _MarkdownFrameScheduler.instance.schedule(() {

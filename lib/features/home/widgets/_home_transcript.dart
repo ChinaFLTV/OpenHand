@@ -1199,6 +1199,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _replaceRenderEntries(visibleMessages, animate: false);
     }
     if (_renderEntries.isEmpty && visibleMessages.isEmpty) {
+      // 2026-05-25 — 两阶段加载窗口期（header 已注入 / full 未到）若用户
+      // 选中的会话当前 messages 为空，渲染丝滑加载占位卡而非 empty state，
+      // 避免「打开历史线程瞬间白屏」。
+      if (aiSessionController.isMessagesHydrating) {
+        return _TranscriptHydratingPlaceholder(
+          key: ValueKey<String>('hydrating-transcript-${session.id}'),
+        );
+      }
       return _WorkspaceEmptyState(
         key: ValueKey<String>('empty-session-transcript-${session.id}'),
         session: session,
@@ -1225,6 +1233,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (_renderEntries.isEmpty &&
         visibleMessages.isEmpty &&
         userVisibleError == null) {
+      if (aiSessionController.isMessagesHydrating) {
+        return _TranscriptHydratingPlaceholder(
+          key: ValueKey<String>('hydrating-transcript-${session.id}'),
+        );
+      }
       return _WorkspaceEmptyState(
         key: ValueKey<String>('empty-session-transcript-${session.id}'),
         session: session,
@@ -1817,6 +1830,64 @@ class _TranscriptLoadEarlierButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
+    );
+  }
+}
+
+class _TranscriptHydratingPlaceholder extends StatelessWidget {
+  const _TranscriptHydratingPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final label = _localizedText(
+      context,
+      zh: '加载消息中…',
+      en: 'Loading messages…',
+    );
+    final body = Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                colorScheme.primary.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+    if (reduceMotion) {
+      return body;
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1.0 - value) * 6.0),
+            child: child,
+          ),
+        );
+      },
+      child: body,
     );
   }
 }

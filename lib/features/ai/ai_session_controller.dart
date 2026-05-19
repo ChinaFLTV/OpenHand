@@ -556,6 +556,13 @@ class AiSessionController extends ChangeNotifier {
 
   bool _isDisposed = false;
   bool _isLoading = false;
+  // 2026-05-25 — `refresh()` 走两阶段：先 `loadAllHeaders` 把 sidebar
+  // 拍上 (messages 为空)，再 `loadAll` 注入完整消息。两阶段之间若用户已
+  // 选中一个会话，transcript 会读到 messages.isEmpty 直接渲染
+  // `_WorkspaceEmptyState`（白屏）。这个 flag 在 header 阶段置 true，
+  // full 阶段结束置 false；transcript 据此渲染一张丝滑的「加载消息中」
+  // 占位卡，避免白屏闪烁。
+  bool _isMessagesHydrating = false;
   final Map<String, AiSendPhase> _sessionSendPhases = <String, AiSendPhase>{};
   final Map<String, Future<void>> _sessionOperationQueues =
       <String, Future<void>>{};
@@ -646,6 +653,7 @@ class AiSessionController extends ChangeNotifier {
   Future<String>? _pendingAutoTitleSystemPromptLoad;
 
   bool get isLoading => _isLoading;
+  bool get isMessagesHydrating => _isMessagesHydrating;
   bool get isSending => _sessionSendPhases.isNotEmpty;
   AiSendPhase get sendPhase => sendPhaseForSession(_currentSessionId);
   String? get activeSendSessionId {
@@ -1072,6 +1080,7 @@ class AiSessionController extends ChangeNotifier {
     _networkSnapshotFuture ??= _localNetworkSnapshot();
     await _enqueueOperation(() async {
       _isLoading = true;
+      _isMessagesHydrating = true;
       _lastErrorMessage = null;
       _persistenceIssues = const <AiSessionPersistenceIssue>[];
       notifyListeners();
@@ -1132,6 +1141,7 @@ class AiSessionController extends ChangeNotifier {
         );
       } finally {
         _isLoading = false;
+        _isMessagesHydrating = false;
         notifyListeners();
       }
     });
@@ -3966,16 +3976,31 @@ class AiSessionController extends ChangeNotifier {
           reasoningPendingGraphemes,
         );
         final effectiveCharsPerSec = effChars;
-        // 持续节流：自然 drain 时长上限 = N/rate * 1.2 + 1s，最多 90s；
-        // 时长节流：沿用旧 8s 上限（throttle 自身在 duration 后会失效，
-        // UI 不会再被卡住）。
-        final ceilingMs = throttleDuration == null ? 90000 : 8000;
+        // 2026-05-25 — Bug 1 复发修复：彻底移除「持续节流」路径的 drain
+        // 上限。之前留了 90s 防呆顶，结果对几百到上千 grapheme 的正式
+        // 响应（80 char/s 速率下 1000 grapheme ≈ 15s，30000 grapheme ≈
+        // 375s）来说 90s 远远不够 —— drainGracefully 提前返回，紧接着
+        // release() + syncFinalAssistantMessage 把全文一次性 dump 进
+        // message content，用户看到的就是「思考节流正常 → 正式响应
+        // 突然一股脑输出」。
+        //
+        // 现在策略：
+        //   * 持续节流（throttleDuration == null）：完全按
+        //     `pendingChars / rate * 1.2 + 1s` 等待，不设上限。流式
+        //     卡片随节奏一格一格铺完才允许 release。用户主动 stop 时
+        //     `didCancelStreamEarly` 已经走 cancel 分支跳过等待。
+        //   * 时长节流（throttleDuration != null）：沿用旧 8s 上限，
+        //     因为 throttle 在 duration 后会自然 _isExpired，UI 立刻
+        //     恢复实时节奏，不会再有「等不完」的问题。
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
-            : math.min(
-                ceilingMs,
-                ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000,
-              );
+            : throttleDuration == null
+                ? ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000
+                : math.min(
+                    8000,
+                    ((pendingChars * 1200) / effectiveCharsPerSec).ceil() +
+                        1000,
+                  );
         if (maxWaitMs > 0) {
           await Future.wait(<Future<void>>[
             charThrottle.drainGracefully(
