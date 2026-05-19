@@ -55,6 +55,14 @@ void main() {
         filtered.toolsByName['ToolSearch']!.toolSearchDeferredToolDefinitions,
         contains(deferredDefinition.name),
       );
+
+      final loadedFiltered = const HardnessPromptBuilder().filterToolsForPhase(
+        phase: HardnessPhase.reviewing,
+        catalog: catalog,
+        loadedMcpToolNames: <String>{deferredDefinition.name},
+      );
+
+      expect(loadedFiltered.toolsByName, contains(deferredDefinition.name));
     },
   );
 }

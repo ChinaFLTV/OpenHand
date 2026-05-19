@@ -298,6 +298,8 @@ class HardnessApiPhaseRunner {
       return hardnessPromptBuilder.filterToolsForPhase(
         phase: phase,
         catalog: catalog,
+        loadedMcpToolNames:
+            _loadedMcpToolsBySession[phaseSessionId] ?? const <String>{},
       );
     }
 

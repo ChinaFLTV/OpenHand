@@ -105,6 +105,7 @@ class HardnessPromptBuilder {
   AiResolvedToolCatalog filterToolsForPhase({
     required HardnessPhase phase,
     required AiResolvedToolCatalog catalog,
+    Set<String> loadedMcpToolNames = const <String>{},
   }) {
     // Implementing phase gets full access
     if (phase == HardnessPhase.implementing) {
@@ -130,9 +131,21 @@ class HardnessPromptBuilder {
       if (!phaseNeedsWrite) AiBuiltinToolKind.write,
       AiBuiltinToolKind.notebookEdit,
     };
+    final loadedMcpNames = loadedMcpToolNames
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet();
 
     for (final entry in catalog.toolsByName.entries) {
       final tool = entry.value;
+
+      if (tool.source == AiRuntimeToolSource.mcp &&
+          (loadedMcpNames.contains(entry.key) ||
+              loadedMcpNames.contains(tool.name))) {
+        filteredToolsByName[entry.key] = tool;
+        filteredDefinitions.add(tool.definition);
+        continue;
+      }
 
       // Exclude write tools in read-only phases
       if (tool.source == AiRuntimeToolSource.builtin &&
