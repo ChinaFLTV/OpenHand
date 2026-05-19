@@ -92,62 +92,77 @@ void main() {
     },
   );
 
-  test('strips live CDP endpoints when Web Reverse browser is dead', () {
-    final now = DateTime.utc(2026, 5, 19);
-    final latestUserMessage = AiSessionMessage.user(
-      id: 'user-1',
-      content: 'Continue reversing https://example.test',
-      createdAt: now,
-    );
-    final session = _webReverseSession(
-      now: now,
-      latestUserMessage: latestUserMessage,
-      metadata: const <String, Object?>{
-        'web_reverse_config': <String, Object?>{
-          'target_url': 'https://example.test',
-          'cdp_port': 9222,
-        },
-        'web_reverse_cdp_runtime': <String, Object?>{
-          'cdp_port': 9233,
-          'cdp_host': '127.0.0.1',
-          'cdp_http_endpoint': 'http://127.0.0.1:9233',
-          'json_version_url': 'http://127.0.0.1:9233/json/version',
-          'json_list_url': 'http://127.0.0.1:9233/json/list',
-          'browser_alive': false,
-          'is_running': false,
-          'current_target': <String, Object?>{
+  test(
+    'strips live CDP endpoints and marks targets last when browser is dead',
+    () {
+      final now = DateTime.utc(2026, 5, 19);
+      final latestUserMessage = AiSessionMessage.user(
+        id: 'user-1',
+        content: 'Continue reversing https://example.test',
+        createdAt: now,
+      );
+      final session = _webReverseSession(
+        now: now,
+        latestUserMessage: latestUserMessage,
+        metadata: const <String, Object?>{
+          'web_reverse_config': <String, Object?>{
+            'target_url': 'https://example.test',
+            'cdp_port': 9222,
+          },
+          'web_reverse_cdp_runtime': <String, Object?>{
+            'cdp_port': 9233,
+            'cdp_host': '127.0.0.1',
+            'cdp_http_endpoint': 'http://127.0.0.1:9233',
+            'json_version_url': 'http://127.0.0.1:9233/json/version',
+            'json_list_url': 'http://127.0.0.1:9233/json/list',
+            'browser_alive': false,
+            'is_running': false,
+            'current_target': <String, Object?>{
+              'id': 'target-old',
+              'url': 'https://example.test/old-tab',
+              'title': 'Old Tab',
+            },
+          },
+          'web_reverse_browser_current_target': <String, Object?>{
             'id': 'target-old',
             'url': 'https://example.test/old-tab',
             'title': 'Old Tab',
           },
         },
-      },
-    );
+      );
 
-    final result = _buildWebReversePrompt(session, latestUserMessage);
+      final result = _buildWebReversePrompt(session, latestUserMessage);
 
-    final runtimeMap =
-        result.metadata['web_reverse_runtime']! as Map<String, Object?>;
-    final cdpRuntime = runtimeMap['cdp_runtime']! as Map<String, Object?>;
-    expect(cdpRuntime['browser_alive'], false);
-    expect(cdpRuntime['is_running'], false);
-    expect(cdpRuntime['last_cdp_port'], 9233);
-    expect(
-      cdpRuntime['last_current_target'],
-      containsPair('url', 'https://example.test/old-tab'),
-    );
-    expect(cdpRuntime, isNot(contains('cdp_port')));
-    expect(cdpRuntime, isNot(contains('cdp_http_endpoint')));
-    expect(cdpRuntime, isNot(contains('json_version_url')));
-    expect(cdpRuntime, isNot(contains('json_list_url')));
-    expect(cdpRuntime, isNot(contains('current_target')));
+      final runtimeMap =
+          result.metadata['web_reverse_runtime']! as Map<String, Object?>;
+      final cdpRuntime = runtimeMap['cdp_runtime']! as Map<String, Object?>;
+      expect(cdpRuntime['browser_alive'], false);
+      expect(cdpRuntime['is_running'], false);
+      expect(cdpRuntime['last_cdp_port'], 9233);
+      expect(
+        cdpRuntime['last_current_target'],
+        containsPair('url', 'https://example.test/old-tab'),
+      );
+      expect(cdpRuntime, isNot(contains('cdp_port')));
+      expect(cdpRuntime, isNot(contains('cdp_http_endpoint')));
+      expect(cdpRuntime, isNot(contains('json_version_url')));
+      expect(cdpRuntime, isNot(contains('json_list_url')));
+      expect(cdpRuntime, isNot(contains('current_target')));
+      final dashboardState =
+          runtimeMap['dashboard_state']! as Map<String, Object?>;
+      expect(
+        dashboardState['browser_last_current_target'],
+        containsPair('url', 'https://example.test/old-tab'),
+      );
+      expect(dashboardState, isNot(contains('browser_current_target')));
 
-    final promptText = result.messages.map((turn) => turn.content).join('\n');
-    expect(promptText, contains('"browser_alive": false'));
-    expect(promptText, contains('"last_cdp_port": 9233'));
-    expect(promptText, contains('"last_current_target"'));
-    expect(promptText, isNot(contains('http://127.0.0.1:9233')));
-  });
+      final promptText = result.messages.map((turn) => turn.content).join('\n');
+      expect(promptText, contains('"browser_alive": false'));
+      expect(promptText, contains('"last_cdp_port": 9233'));
+      expect(promptText, contains('"last_current_target"'));
+      expect(promptText, isNot(contains('http://127.0.0.1:9233')));
+    },
+  );
 }
 
 const _templateBundle = AiPromptTemplateBundle(

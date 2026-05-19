@@ -1426,6 +1426,8 @@ class AiPromptBuilder {
     final cdpRuntime = _sanitizeWebReverseCdpRuntime(
       meta('web_reverse_cdp_runtime'),
     );
+    final dashboardCurrentTarget = meta('web_reverse_browser_current_target');
+    final cdpRuntimeDead = _isWebReverseCdpRuntimeDead(cdpRuntime);
 
     final rootDir = p.join(
       OpenHandPaths.defaultRootDirectoryPath(),
@@ -1450,7 +1452,10 @@ class AiPromptBuilder {
         'last_tab': meta('web_reverse_dashboard_last_tab'),
         'browser_tab_order': meta('web_reverse_browser_tab_order'),
         'browser_tab_urls': meta('web_reverse_browser_tab_urls'),
-        'browser_current_target': meta('web_reverse_browser_current_target'),
+        if (cdpRuntimeDead)
+          'browser_last_current_target': dashboardCurrentTarget
+        else
+          'browser_current_target': dashboardCurrentTarget,
       },
       'dashboard_tabs': const <String>[
         'browser',
@@ -1548,6 +1553,10 @@ class AiPromptBuilder {
       runtime['last_current_target'] = lastTarget;
     }
     return runtime;
+  }
+
+  bool _isWebReverseCdpRuntimeDead(Object? value) {
+    return value is Map && value['browser_alive'] == false;
   }
 
   String _compressionSystemInstructionsForTemplate(AiThreadTemplate template) {
