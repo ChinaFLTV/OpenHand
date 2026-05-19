@@ -1618,6 +1618,10 @@ class AiPromptBuilder {
 
   bool _isWebReverseCdpRuntimeLive(Object? value) {
     if (value is! Map || value['browser_alive'] != true) return false;
+    return _hasWebReverseCdpLocator(value);
+  }
+
+  bool _hasWebReverseCdpLocator(Map value) {
     bool hasText(Object? raw) => raw is String && raw.trim().isNotEmpty;
     bool hasPort(Object? raw) {
       if (raw is num) return raw.toInt() > 0;
@@ -1626,6 +1630,7 @@ class AiPromptBuilder {
     }
 
     return hasPort(value['cdp_port']) ||
+        hasPort(value['last_cdp_port']) ||
         hasText(value['cdp_http_endpoint']) ||
         hasText(value['json_version_url']) ||
         hasText(value['json_list_url']);
@@ -1636,9 +1641,7 @@ class AiPromptBuilder {
     Object? cdpRuntime,
   ) {
     if (!config.containsKey('cdp_port')) return;
-    if (cdpRuntime is! Map ||
-        (!cdpRuntime.containsKey('cdp_port') &&
-            !cdpRuntime.containsKey('last_cdp_port'))) {
+    if (cdpRuntime is! Map || !_hasWebReverseCdpLocator(cdpRuntime)) {
       return;
     }
     config['desired_cdp_port'] = config.remove('cdp_port');
