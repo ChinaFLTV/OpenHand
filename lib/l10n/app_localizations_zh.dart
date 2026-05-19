@@ -5408,6 +5408,102 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseWaterfallHarSavedTo(String path) {
     return 'HAR 已保存到 $path';
   }
+
+  @override
+  String get webReverseCookieEditorTitle => 'Cookie 编辑器';
+
+  @override
+  String get webReverseCookieEditorSubtitle =>
+      'Network.getCookies / setCookie / deleteCookies — 精修级 CRUD';
+
+  @override
+  String get webReverseCookieEditorRefresh => '刷新';
+
+  @override
+  String get webReverseCookieEditorCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseCookieEditorCopiedJson => '已复制 JSON';
+
+  @override
+  String get webReverseCookieEditorFilterHint => '过滤 name / domain / value';
+
+  @override
+  String get webReverseCookieEditorNewBtn => '新增';
+
+  @override
+  String get webReverseCookieEditorEmptyCookies => '当前 target 无 Cookie';
+
+  @override
+  String get webReverseCookieEditorEdit => '编辑';
+
+  @override
+  String get webReverseCookieEditorDelete => '删除';
+
+  @override
+  String get webReverseCookieEditorFetching => '拉取 Cookies...';
+
+  @override
+  String get webReverseCookieEditorDeleteFailed => '删除失败';
+
+  @override
+  String get webReverseCookieEditorWriteFailed => '写入失败';
+
+  @override
+  String get webReverseCookieEditorSaved => '已保存';
+
+  @override
+  String get webReverseCookieEditorNewCookie => '新增 Cookie';
+
+  @override
+  String get webReverseCookieEditorFieldName => '名称 *';
+
+  @override
+  String get webReverseCookieEditorFieldValue => '值';
+
+  @override
+  String get webReverseCookieEditorFieldDomain => '域 (domain)';
+
+  @override
+  String get webReverseCookieEditorFieldPath => '路径 (path)';
+
+  @override
+  String get webReverseCookieEditorFieldUrl => 'URL（设 domain/path 时可不填）';
+
+  @override
+  String get webReverseCookieEditorFieldExpires => '过期时间 unix 秒（留空=会话级）';
+
+  @override
+  String get webReverseCookieEditorSameSiteUnset => '未指定';
+
+  @override
+  String get webReverseCookieEditorCancel => '取消';
+
+  @override
+  String get webReverseCookieEditorSave => '保存';
+
+  @override
+  String get webReverseCookieEditorNameRequired => 'name 必填';
+
+  @override
+  String webReverseCookieEditorFetchFailed(String error) {
+    return '失败：$error';
+  }
+
+  @override
+  String webReverseCookieEditorCookieCount(int count) {
+    return '共 $count 条';
+  }
+
+  @override
+  String webReverseCookieEditorDeleted(String name) {
+    return '已删除 $name';
+  }
+
+  @override
+  String webReverseCookieEditorEditCookie(String name) {
+    return '编辑 $name';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -10814,6 +10910,102 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseWaterfallHarSavedTo(String path) {
     return 'HAR 已保存到 $path';
   }
+
+  @override
+  String get webReverseCookieEditorTitle => 'Cookie 编辑器';
+
+  @override
+  String get webReverseCookieEditorSubtitle =>
+      'Network.getCookies / setCookie / deleteCookies — 精修级 CRUD';
+
+  @override
+  String get webReverseCookieEditorRefresh => '刷新';
+
+  @override
+  String get webReverseCookieEditorCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseCookieEditorCopiedJson => '已复制 JSON';
+
+  @override
+  String get webReverseCookieEditorFilterHint => '过滤 name / domain / value';
+
+  @override
+  String get webReverseCookieEditorNewBtn => '新增';
+
+  @override
+  String get webReverseCookieEditorEmptyCookies => '当前 target 无 Cookie';
+
+  @override
+  String get webReverseCookieEditorEdit => '编辑';
+
+  @override
+  String get webReverseCookieEditorDelete => '删除';
+
+  @override
+  String get webReverseCookieEditorFetching => '拉取 Cookies...';
+
+  @override
+  String get webReverseCookieEditorDeleteFailed => '删除失败';
+
+  @override
+  String get webReverseCookieEditorWriteFailed => '写入失败';
+
+  @override
+  String get webReverseCookieEditorSaved => '已保存';
+
+  @override
+  String get webReverseCookieEditorNewCookie => '新增 Cookie';
+
+  @override
+  String get webReverseCookieEditorFieldName => '名称 *';
+
+  @override
+  String get webReverseCookieEditorFieldValue => '值';
+
+  @override
+  String get webReverseCookieEditorFieldDomain => '域 (domain)';
+
+  @override
+  String get webReverseCookieEditorFieldPath => '路径 (path)';
+
+  @override
+  String get webReverseCookieEditorFieldUrl => 'URL（设 domain/path 时可不填）';
+
+  @override
+  String get webReverseCookieEditorFieldExpires => '过期时间 unix 秒（留空=会话级）';
+
+  @override
+  String get webReverseCookieEditorSameSiteUnset => '未指定';
+
+  @override
+  String get webReverseCookieEditorCancel => '取消';
+
+  @override
+  String get webReverseCookieEditorSave => '保存';
+
+  @override
+  String get webReverseCookieEditorNameRequired => 'name 必填';
+
+  @override
+  String webReverseCookieEditorFetchFailed(String error) {
+    return '失败：$error';
+  }
+
+  @override
+  String webReverseCookieEditorCookieCount(int count) {
+    return '共 $count 条';
+  }
+
+  @override
+  String webReverseCookieEditorDeleted(String name) {
+    return '已删除 $name';
+  }
+
+  @override
+  String webReverseCookieEditorEditCookie(String name) {
+    return '编辑 $name';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -16218,5 +16410,101 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseWaterfallHarSavedTo(String path) {
     return 'HAR 已保存到 $path';
+  }
+
+  @override
+  String get webReverseCookieEditorTitle => 'Cookie 编辑器';
+
+  @override
+  String get webReverseCookieEditorSubtitle =>
+      'Network.getCookies / setCookie / deleteCookies — 精修级 CRUD';
+
+  @override
+  String get webReverseCookieEditorRefresh => '刷新';
+
+  @override
+  String get webReverseCookieEditorCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseCookieEditorCopiedJson => '已复制 JSON';
+
+  @override
+  String get webReverseCookieEditorFilterHint => '过滤 name / domain / value';
+
+  @override
+  String get webReverseCookieEditorNewBtn => '新增';
+
+  @override
+  String get webReverseCookieEditorEmptyCookies => '当前 target 无 Cookie';
+
+  @override
+  String get webReverseCookieEditorEdit => '编辑';
+
+  @override
+  String get webReverseCookieEditorDelete => '删除';
+
+  @override
+  String get webReverseCookieEditorFetching => '拉取 Cookies...';
+
+  @override
+  String get webReverseCookieEditorDeleteFailed => '删除失败';
+
+  @override
+  String get webReverseCookieEditorWriteFailed => '写入失败';
+
+  @override
+  String get webReverseCookieEditorSaved => '已保存';
+
+  @override
+  String get webReverseCookieEditorNewCookie => '新增 Cookie';
+
+  @override
+  String get webReverseCookieEditorFieldName => '名称 *';
+
+  @override
+  String get webReverseCookieEditorFieldValue => '值';
+
+  @override
+  String get webReverseCookieEditorFieldDomain => '域 (domain)';
+
+  @override
+  String get webReverseCookieEditorFieldPath => '路径 (path)';
+
+  @override
+  String get webReverseCookieEditorFieldUrl => 'URL（设 domain/path 时可不填）';
+
+  @override
+  String get webReverseCookieEditorFieldExpires => '过期时间 unix 秒（留空=会话级）';
+
+  @override
+  String get webReverseCookieEditorSameSiteUnset => '未指定';
+
+  @override
+  String get webReverseCookieEditorCancel => '取消';
+
+  @override
+  String get webReverseCookieEditorSave => '保存';
+
+  @override
+  String get webReverseCookieEditorNameRequired => 'name 必填';
+
+  @override
+  String webReverseCookieEditorFetchFailed(String error) {
+    return '失败：$error';
+  }
+
+  @override
+  String webReverseCookieEditorCookieCount(int count) {
+    return '共 $count 条';
+  }
+
+  @override
+  String webReverseCookieEditorDeleted(String name) {
+    return '已删除 $name';
+  }
+
+  @override
+  String webReverseCookieEditorEditCookie(String name) {
+    return '编辑 $name';
   }
 }

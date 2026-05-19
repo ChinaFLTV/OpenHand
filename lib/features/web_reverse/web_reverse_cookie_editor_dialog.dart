@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -63,9 +64,10 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
 
   Future<void> _refresh() async {
     if (_loading) return;
+    final loc0 = AppLocalizations.of(context);
     setState(() {
       _loading = true;
-      _status = widget.isZh ? '拉取 Cookies...' : 'Fetching cookies...';
+      _status = loc0?.webReverseCookieEditorFetching ?? 'Fetching cookies...';
     });
     try {
       final r = await widget.controller.sendRawCdp(
@@ -74,11 +76,12 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
         useSession: true,
       );
       if (!mounted) return;
+      final loc1 = AppLocalizations.of(context);
       if (r == null || r['error'] != null) {
+        final err = (r?['error'] ?? 'unknown').toString();
         setState(() {
-          _status = widget.isZh
-              ? '失败：${r?['error'] ?? 'unknown'}'
-              : 'Failed: ${r?['error'] ?? 'unknown'}';
+          _status = loc1?.webReverseCookieEditorFetchFailed(err)
+              ?? 'Failed: $err';
         });
         return;
       }
@@ -92,9 +95,8 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
           if (d != 0) return d;
           return a.name.compareTo(b.name);
         });
-      setState(() => _status = widget.isZh
-          ? '共 ${_all.length} 条'
-          : '${_all.length} cookies');
+      setState(() => _status = loc1?.webReverseCookieEditorCookieCount(_all.length)
+          ?? '${_all.length} cookies');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -123,16 +125,17 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       useSession: true,
     );
     if (!mounted) return;
+    final loc1 = AppLocalizations.of(context);
     if (r == null || r['error'] != null) {
       if (messenger != null) {
         OpenHandSnackBar.showErrorOn(context, messenger,
-            widget.isZh ? '删除失败' : 'Delete failed');
+            loc1?.webReverseCookieEditorDeleteFailed ?? 'Delete failed');
       }
       return;
     }
     if (messenger != null) {
       OpenHandSnackBar.showSuccessOn(context, messenger,
-          widget.isZh ? '已删除 ${row.name}' : 'Deleted ${row.name}');
+          loc1?.webReverseCookieEditorDeleted(row.name) ?? 'Deleted ${row.name}');
     }
     await _refresh();
   }
@@ -140,7 +143,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   Future<void> _edit(_CookieRow? row) async {
     final result = await showAnimatedDialog<Map<String, Object?>>(
       context: context,
-      builder: (_) => _CookieEditPanel(row: row, isZh: widget.isZh),
+      builder: (_) => _CookieEditPanel(row: row),
     );
     if (result == null || !mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -150,16 +153,17 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       useSession: true,
     );
     if (!mounted) return;
+    final loc = AppLocalizations.of(context);
     if (r == null || r['error'] != null || r['success'] == false) {
       if (messenger != null) {
         OpenHandSnackBar.showErrorOn(context, messenger,
-            widget.isZh ? '写入失败' : 'Write failed');
+            loc?.webReverseCookieEditorWriteFailed ?? 'Write failed');
       }
       return;
     }
     if (messenger != null) {
       OpenHandSnackBar.showSuccessOn(context, messenger,
-          widget.isZh ? '已保存' : 'Saved');
+          loc?.webReverseCookieEditorSaved ?? 'Saved');
     }
     await _refresh();
   }
@@ -169,10 +173,11 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
         .convert(_visible.map((c) => c.raw).toList());
     await Clipboard.setData(ClipboardData(text: json));
     if (!mounted) return;
+    final loc = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger != null) {
       OpenHandSnackBar.showSuccessOn(context, messenger,
-          widget.isZh ? '已复制 JSON' : 'JSON copied');
+          loc?.webReverseCookieEditorCopiedJson ?? 'JSON copied');
     }
   }
 
@@ -180,7 +185,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final list = _visible;
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -201,14 +206,13 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'Cookie 编辑器' : 'Cookie Editor',
+                          loc?.webReverseCookieEditorTitle ?? 'Cookie Editor',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'Network.getCookies / setCookie / deleteCookies — 精修级 CRUD'
-                              : 'Network.getCookies / setCookie / deleteCookies — full CRUD',
+                          loc?.webReverseCookieEditorSubtitle ??
+                              'Network.getCookies / setCookie / deleteCookies — full CRUD',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -216,12 +220,12 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: isZh ? '刷新' : 'Refresh',
+                    tooltip: loc?.webReverseCookieEditorRefresh ?? 'Refresh',
                     onPressed: _loading ? null : _refresh,
                     icon: const Icon(Icons.refresh_rounded),
                   ),
                   IconButton(
-                    tooltip: isZh ? '复制 JSON' : 'Copy JSON',
+                    tooltip: loc?.webReverseCookieEditorCopyJson ?? 'Copy JSON',
                     onPressed: list.isEmpty ? null : _copyJson,
                     icon: const Icon(Icons.copy_all_rounded),
                   ),
@@ -240,9 +244,8 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                   Expanded(
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: isZh
-                            ? '过滤 name / domain / value'
-                            : 'Filter name / domain / value',
+                        hintText: loc?.webReverseCookieEditorFilterHint
+                            ?? 'Filter name / domain / value',
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
                         isDense: true,
                         border: const OutlineInputBorder(),
@@ -254,7 +257,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                   FilledButton.tonalIcon(
                     onPressed: _loading ? null : () => _edit(null),
                     icon: const Icon(Icons.add_rounded),
-                    label: Text(isZh ? '新增' : 'New'),
+                    label: Text(loc?.webReverseCookieEditorNewBtn ?? 'New'),
                   ),
                 ],
               ),
@@ -265,7 +268,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                   : list.isEmpty
                       ? Center(
                           child: Text(
-                            isZh ? '当前 target 无 Cookie' : 'No cookies',
+                            loc?.webReverseCookieEditorEmptyCookies ?? 'No cookies',
                             style: theme.textTheme.bodyMedium?.copyWith(
                                 color: cs.onSurfaceVariant),
                           ),
@@ -319,13 +322,13 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                                   if (c.sameSite.isNotEmpty)
                                     _badge(theme, c.sameSite, cs.secondary),
                                   IconButton(
-                                    tooltip: isZh ? '编辑' : 'Edit',
+                                    tooltip: loc?.webReverseCookieEditorEdit ?? 'Edit',
                                     onPressed: () => _edit(c),
                                     icon: const Icon(Icons.edit_rounded,
                                         size: 16),
                                   ),
                                   IconButton(
-                                    tooltip: isZh ? '删除' : 'Delete',
+                                    tooltip: loc?.webReverseCookieEditorDelete ?? 'Delete',
                                     onPressed: () => _delete(c),
                                     icon: const Icon(Icons.delete_outline_rounded,
                                         size: 16),
@@ -372,9 +375,8 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
 }
 
 class _CookieEditPanel extends StatefulWidget {
-  const _CookieEditPanel({required this.row, required this.isZh});
+  const _CookieEditPanel({required this.row});
   final _CookieRow? row;
-  final bool isZh;
   @override
   State<_CookieEditPanel> createState() => _CookieEditPanelState();
 }
@@ -418,13 +420,13 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
   }
 
   void _submit() {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final name = _name.text.trim();
     if (name.isEmpty) {
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
         OpenHandSnackBar.showErrorOn(
-            context, m, isZh ? 'name 必填' : 'name required');
+            context, m, loc?.webReverseCookieEditorNameRequired ?? 'name required');
       }
       return;
     }
@@ -447,7 +449,7 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -470,8 +472,9 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                   Expanded(
                     child: Text(
                       widget.row == null
-                          ? (isZh ? '新增 Cookie' : 'New Cookie')
-                          : (isZh ? '编辑 ${widget.row!.name}' : 'Edit ${widget.row!.name}'),
+                          ? (loc?.webReverseCookieEditorNewCookie ?? 'New Cookie')
+                          : (loc?.webReverseCookieEditorEditCookie(widget.row!.name)
+                              ?? 'Edit ${widget.row!.name}'),
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
@@ -490,15 +493,15 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _field(isZh ? '名称 *' : 'name *', _name),
-                    _field(isZh ? '值' : 'value', _value, maxLines: 4),
-                    _field(isZh ? '域 (domain)' : 'domain', _domain,
+                    _field(loc?.webReverseCookieEditorFieldName ?? 'name *', _name),
+                    _field(loc?.webReverseCookieEditorFieldValue ?? 'value', _value, maxLines: 4),
+                    _field(loc?.webReverseCookieEditorFieldDomain ?? 'domain', _domain,
                         hint: '.example.com'),
-                    _field(isZh ? '路径 (path)' : 'path', _path),
-                    _field(isZh ? 'URL（设 domain/path 时可不填）' : 'URL (optional)',
+                    _field(loc?.webReverseCookieEditorFieldPath ?? 'path', _path),
+                    _field(loc?.webReverseCookieEditorFieldUrl ?? 'URL (optional)',
                         _url, hint: 'https://...'),
                     _field(
-                        isZh ? '过期时间 unix 秒（留空=会话级）' : 'expires (unix sec)',
+                        loc?.webReverseCookieEditorFieldExpires ?? 'expires (unix sec)',
                         _expires,
                         hint: '1700000000'),
                     const SizedBox(height: 6),
@@ -529,15 +532,15 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(isZh ? 'SameSite' : 'SameSite',
+                    Text('SameSite',
                         style: theme.textTheme.labelMedium),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
-                      children: const ['', 'Strict', 'Lax', 'None']
+                      children: ['', 'Strict', 'Lax', 'None']
                           .map((s) => ChoiceChip(
                                 label: Text(s.isEmpty
-                                    ? (isZh ? '未指定' : 'unset')
+                                    ? (loc?.webReverseCookieEditorSameSiteUnset ?? 'unset')
                                     : s),
                                 selected: _sameSite == s,
                                 onSelected: (_) => setState(() => _sameSite = s),
@@ -556,12 +559,12 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    label: isZh ? '取消' : 'Cancel',
+                    label: loc?.webReverseCookieEditorCancel ?? 'Cancel',
                   ),
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(
                     onPressed: _submit,
-                    label: isZh ? '保存' : 'Save',
+                    label: loc?.webReverseCookieEditorSave ?? 'Save',
                   ),
                 ],
               ),

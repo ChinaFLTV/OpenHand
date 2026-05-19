@@ -5728,4 +5728,100 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseWaterfallHarSavedTo(String path) {
     return 'HAR saved to $path';
   }
+
+  @override
+  String get webReverseCookieEditorTitle => 'Cookie Editor';
+
+  @override
+  String get webReverseCookieEditorSubtitle =>
+      'Network.getCookies / setCookie / deleteCookies — full CRUD';
+
+  @override
+  String get webReverseCookieEditorRefresh => 'Refresh';
+
+  @override
+  String get webReverseCookieEditorCopyJson => 'Copy JSON';
+
+  @override
+  String get webReverseCookieEditorCopiedJson => 'JSON copied';
+
+  @override
+  String get webReverseCookieEditorFilterHint => 'Filter name / domain / value';
+
+  @override
+  String get webReverseCookieEditorNewBtn => 'New';
+
+  @override
+  String get webReverseCookieEditorEmptyCookies => 'No cookies';
+
+  @override
+  String get webReverseCookieEditorEdit => 'Edit';
+
+  @override
+  String get webReverseCookieEditorDelete => 'Delete';
+
+  @override
+  String get webReverseCookieEditorFetching => 'Fetching cookies...';
+
+  @override
+  String get webReverseCookieEditorDeleteFailed => 'Delete failed';
+
+  @override
+  String get webReverseCookieEditorWriteFailed => 'Write failed';
+
+  @override
+  String get webReverseCookieEditorSaved => 'Saved';
+
+  @override
+  String get webReverseCookieEditorNewCookie => 'New Cookie';
+
+  @override
+  String get webReverseCookieEditorFieldName => 'name *';
+
+  @override
+  String get webReverseCookieEditorFieldValue => 'value';
+
+  @override
+  String get webReverseCookieEditorFieldDomain => 'domain';
+
+  @override
+  String get webReverseCookieEditorFieldPath => 'path';
+
+  @override
+  String get webReverseCookieEditorFieldUrl => 'URL (optional)';
+
+  @override
+  String get webReverseCookieEditorFieldExpires => 'expires (unix sec)';
+
+  @override
+  String get webReverseCookieEditorSameSiteUnset => 'unset';
+
+  @override
+  String get webReverseCookieEditorCancel => 'Cancel';
+
+  @override
+  String get webReverseCookieEditorSave => 'Save';
+
+  @override
+  String get webReverseCookieEditorNameRequired => 'name required';
+
+  @override
+  String webReverseCookieEditorFetchFailed(String error) {
+    return 'Failed: $error';
+  }
+
+  @override
+  String webReverseCookieEditorCookieCount(int count) {
+    return '$count cookies';
+  }
+
+  @override
+  String webReverseCookieEditorDeleted(String name) {
+    return 'Deleted $name';
+  }
+
+  @override
+  String webReverseCookieEditorEditCookie(String name) {
+    return 'Edit $name';
+  }
 }

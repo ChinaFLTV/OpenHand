@@ -10031,6 +10031,180 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'HAR 已保存到 {path}'**
   String webReverseWaterfallHarSavedTo(String path);
+
+  /// web_reverse: Cookie editor · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cookie 编辑器'**
+  String get webReverseCookieEditorTitle;
+
+  /// web_reverse: Cookie editor · subtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Network.getCookies / setCookie / deleteCookies — 精修级 CRUD'**
+  String get webReverseCookieEditorSubtitle;
+
+  /// web_reverse: Cookie editor · refresh
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get webReverseCookieEditorRefresh;
+
+  /// web_reverse: Cookie editor · copyjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get webReverseCookieEditorCopyJson;
+
+  /// web_reverse: Cookie editor · copiedjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 JSON'**
+  String get webReverseCookieEditorCopiedJson;
+
+  /// web_reverse: Cookie editor · filterhint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'过滤 name / domain / value'**
+  String get webReverseCookieEditorFilterHint;
+
+  /// web_reverse: Cookie editor · newbtn
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增'**
+  String get webReverseCookieEditorNewBtn;
+
+  /// web_reverse: Cookie editor · emptycookies
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前 target 无 Cookie'**
+  String get webReverseCookieEditorEmptyCookies;
+
+  /// web_reverse: Cookie editor · edit
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑'**
+  String get webReverseCookieEditorEdit;
+
+  /// web_reverse: Cookie editor · delete
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get webReverseCookieEditorDelete;
+
+  /// web_reverse: Cookie editor · fetching
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'拉取 Cookies...'**
+  String get webReverseCookieEditorFetching;
+
+  /// web_reverse: Cookie editor · deletefailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除失败'**
+  String get webReverseCookieEditorDeleteFailed;
+
+  /// web_reverse: Cookie editor · writefailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写入失败'**
+  String get webReverseCookieEditorWriteFailed;
+
+  /// web_reverse: Cookie editor · saved
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已保存'**
+  String get webReverseCookieEditorSaved;
+
+  /// web_reverse: Cookie editor · newcookie
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增 Cookie'**
+  String get webReverseCookieEditorNewCookie;
+
+  /// web_reverse: Cookie editor · fieldname
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'名称 *'**
+  String get webReverseCookieEditorFieldName;
+
+  /// web_reverse: Cookie editor · fieldvalue
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'值'**
+  String get webReverseCookieEditorFieldValue;
+
+  /// web_reverse: Cookie editor · fielddomain
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'域 (domain)'**
+  String get webReverseCookieEditorFieldDomain;
+
+  /// web_reverse: Cookie editor · fieldpath
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'路径 (path)'**
+  String get webReverseCookieEditorFieldPath;
+
+  /// web_reverse: Cookie editor · fieldurl
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL（设 domain/path 时可不填）'**
+  String get webReverseCookieEditorFieldUrl;
+
+  /// web_reverse: Cookie editor · fieldexpires
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'过期时间 unix 秒（留空=会话级）'**
+  String get webReverseCookieEditorFieldExpires;
+
+  /// web_reverse: Cookie editor · samesiteunset
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未指定'**
+  String get webReverseCookieEditorSameSiteUnset;
+
+  /// web_reverse: Cookie editor · cancel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get webReverseCookieEditorCancel;
+
+  /// web_reverse: Cookie editor · save
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get webReverseCookieEditorSave;
+
+  /// web_reverse: Cookie editor · namerequired
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'name 必填'**
+  String get webReverseCookieEditorNameRequired;
+
+  /// web_reverse: Cookie editor · fetchfailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败：{error}'**
+  String webReverseCookieEditorFetchFailed(String error);
+
+  /// web_reverse: Cookie editor · cookiecount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'共 {count} 条'**
+  String webReverseCookieEditorCookieCount(int count);
+
+  /// web_reverse: Cookie editor · deleted
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已删除 {name}'**
+  String webReverseCookieEditorDeleted(String name);
+
+  /// web_reverse: Cookie editor · editcookie
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑 {name}'**
+  String webReverseCookieEditorEditCookie(String name);
 }
 
 class _AppLocalizationsDelegate

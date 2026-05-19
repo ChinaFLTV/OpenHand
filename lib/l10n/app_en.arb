@@ -3090,5 +3090,141 @@
         "type": "String"
       }
     }
+  },
+  "webReverseCookieEditorTitle": "Cookie Editor",
+  "@webReverseCookieEditorTitle": {
+    "description": "web_reverse: Cookie editor · title"
+  },
+  "webReverseCookieEditorSubtitle": "Network.getCookies / setCookie / deleteCookies — full CRUD",
+  "@webReverseCookieEditorSubtitle": {
+    "description": "web_reverse: Cookie editor · subtitle"
+  },
+  "webReverseCookieEditorRefresh": "Refresh",
+  "@webReverseCookieEditorRefresh": {
+    "description": "web_reverse: Cookie editor · refresh"
+  },
+  "webReverseCookieEditorCopyJson": "Copy JSON",
+  "@webReverseCookieEditorCopyJson": {
+    "description": "web_reverse: Cookie editor · copyjson"
+  },
+  "webReverseCookieEditorCopiedJson": "JSON copied",
+  "@webReverseCookieEditorCopiedJson": {
+    "description": "web_reverse: Cookie editor · copiedjson"
+  },
+  "webReverseCookieEditorFilterHint": "Filter name / domain / value",
+  "@webReverseCookieEditorFilterHint": {
+    "description": "web_reverse: Cookie editor · filterhint"
+  },
+  "webReverseCookieEditorNewBtn": "New",
+  "@webReverseCookieEditorNewBtn": {
+    "description": "web_reverse: Cookie editor · newbtn"
+  },
+  "webReverseCookieEditorEmptyCookies": "No cookies",
+  "@webReverseCookieEditorEmptyCookies": {
+    "description": "web_reverse: Cookie editor · emptycookies"
+  },
+  "webReverseCookieEditorEdit": "Edit",
+  "@webReverseCookieEditorEdit": {
+    "description": "web_reverse: Cookie editor · edit"
+  },
+  "webReverseCookieEditorDelete": "Delete",
+  "@webReverseCookieEditorDelete": {
+    "description": "web_reverse: Cookie editor · delete"
+  },
+  "webReverseCookieEditorFetching": "Fetching cookies...",
+  "@webReverseCookieEditorFetching": {
+    "description": "web_reverse: Cookie editor · fetching"
+  },
+  "webReverseCookieEditorDeleteFailed": "Delete failed",
+  "@webReverseCookieEditorDeleteFailed": {
+    "description": "web_reverse: Cookie editor · deletefailed"
+  },
+  "webReverseCookieEditorWriteFailed": "Write failed",
+  "@webReverseCookieEditorWriteFailed": {
+    "description": "web_reverse: Cookie editor · writefailed"
+  },
+  "webReverseCookieEditorSaved": "Saved",
+  "@webReverseCookieEditorSaved": {
+    "description": "web_reverse: Cookie editor · saved"
+  },
+  "webReverseCookieEditorNewCookie": "New Cookie",
+  "@webReverseCookieEditorNewCookie": {
+    "description": "web_reverse: Cookie editor · newcookie"
+  },
+  "webReverseCookieEditorFieldName": "name *",
+  "@webReverseCookieEditorFieldName": {
+    "description": "web_reverse: Cookie editor · fieldname"
+  },
+  "webReverseCookieEditorFieldValue": "value",
+  "@webReverseCookieEditorFieldValue": {
+    "description": "web_reverse: Cookie editor · fieldvalue"
+  },
+  "webReverseCookieEditorFieldDomain": "domain",
+  "@webReverseCookieEditorFieldDomain": {
+    "description": "web_reverse: Cookie editor · fielddomain"
+  },
+  "webReverseCookieEditorFieldPath": "path",
+  "@webReverseCookieEditorFieldPath": {
+    "description": "web_reverse: Cookie editor · fieldpath"
+  },
+  "webReverseCookieEditorFieldUrl": "URL (optional)",
+  "@webReverseCookieEditorFieldUrl": {
+    "description": "web_reverse: Cookie editor · fieldurl"
+  },
+  "webReverseCookieEditorFieldExpires": "expires (unix sec)",
+  "@webReverseCookieEditorFieldExpires": {
+    "description": "web_reverse: Cookie editor · fieldexpires"
+  },
+  "webReverseCookieEditorSameSiteUnset": "unset",
+  "@webReverseCookieEditorSameSiteUnset": {
+    "description": "web_reverse: Cookie editor · samesiteunset"
+  },
+  "webReverseCookieEditorCancel": "Cancel",
+  "@webReverseCookieEditorCancel": {
+    "description": "web_reverse: Cookie editor · cancel"
+  },
+  "webReverseCookieEditorSave": "Save",
+  "@webReverseCookieEditorSave": {
+    "description": "web_reverse: Cookie editor · save"
+  },
+  "webReverseCookieEditorNameRequired": "name required",
+  "@webReverseCookieEditorNameRequired": {
+    "description": "web_reverse: Cookie editor · namerequired"
+  },
+  "webReverseCookieEditorFetchFailed": "Failed: {error}",
+  "@webReverseCookieEditorFetchFailed": {
+    "description": "web_reverse: Cookie editor · fetchfailed",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCookieEditorCookieCount": "{count} cookies",
+  "@webReverseCookieEditorCookieCount": {
+    "description": "web_reverse: Cookie editor · cookiecount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCookieEditorDeleted": "Deleted {name}",
+  "@webReverseCookieEditorDeleted": {
+    "description": "web_reverse: Cookie editor · deleted",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCookieEditorEditCookie": "Edit {name}",
+  "@webReverseCookieEditorEditCookie": {
+    "description": "web_reverse: Cookie editor · editcookie",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

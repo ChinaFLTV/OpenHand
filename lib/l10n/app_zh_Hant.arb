@@ -3090,5 +3090,141 @@
         "type": "String"
       }
     }
+  },
+  "webReverseCookieEditorTitle": "Cookie 编辑器",
+  "@webReverseCookieEditorTitle": {
+    "description": "web_reverse: Cookie editor · title"
+  },
+  "webReverseCookieEditorSubtitle": "Network.getCookies / setCookie / deleteCookies — 精修级 CRUD",
+  "@webReverseCookieEditorSubtitle": {
+    "description": "web_reverse: Cookie editor · subtitle"
+  },
+  "webReverseCookieEditorRefresh": "刷新",
+  "@webReverseCookieEditorRefresh": {
+    "description": "web_reverse: Cookie editor · refresh"
+  },
+  "webReverseCookieEditorCopyJson": "复制 JSON",
+  "@webReverseCookieEditorCopyJson": {
+    "description": "web_reverse: Cookie editor · copyjson"
+  },
+  "webReverseCookieEditorCopiedJson": "已复制 JSON",
+  "@webReverseCookieEditorCopiedJson": {
+    "description": "web_reverse: Cookie editor · copiedjson"
+  },
+  "webReverseCookieEditorFilterHint": "过滤 name / domain / value",
+  "@webReverseCookieEditorFilterHint": {
+    "description": "web_reverse: Cookie editor · filterhint"
+  },
+  "webReverseCookieEditorNewBtn": "新增",
+  "@webReverseCookieEditorNewBtn": {
+    "description": "web_reverse: Cookie editor · newbtn"
+  },
+  "webReverseCookieEditorEmptyCookies": "当前 target 无 Cookie",
+  "@webReverseCookieEditorEmptyCookies": {
+    "description": "web_reverse: Cookie editor · emptycookies"
+  },
+  "webReverseCookieEditorEdit": "编辑",
+  "@webReverseCookieEditorEdit": {
+    "description": "web_reverse: Cookie editor · edit"
+  },
+  "webReverseCookieEditorDelete": "删除",
+  "@webReverseCookieEditorDelete": {
+    "description": "web_reverse: Cookie editor · delete"
+  },
+  "webReverseCookieEditorFetching": "拉取 Cookies...",
+  "@webReverseCookieEditorFetching": {
+    "description": "web_reverse: Cookie editor · fetching"
+  },
+  "webReverseCookieEditorDeleteFailed": "删除失败",
+  "@webReverseCookieEditorDeleteFailed": {
+    "description": "web_reverse: Cookie editor · deletefailed"
+  },
+  "webReverseCookieEditorWriteFailed": "写入失败",
+  "@webReverseCookieEditorWriteFailed": {
+    "description": "web_reverse: Cookie editor · writefailed"
+  },
+  "webReverseCookieEditorSaved": "已保存",
+  "@webReverseCookieEditorSaved": {
+    "description": "web_reverse: Cookie editor · saved"
+  },
+  "webReverseCookieEditorNewCookie": "新增 Cookie",
+  "@webReverseCookieEditorNewCookie": {
+    "description": "web_reverse: Cookie editor · newcookie"
+  },
+  "webReverseCookieEditorFieldName": "名称 *",
+  "@webReverseCookieEditorFieldName": {
+    "description": "web_reverse: Cookie editor · fieldname"
+  },
+  "webReverseCookieEditorFieldValue": "值",
+  "@webReverseCookieEditorFieldValue": {
+    "description": "web_reverse: Cookie editor · fieldvalue"
+  },
+  "webReverseCookieEditorFieldDomain": "域 (domain)",
+  "@webReverseCookieEditorFieldDomain": {
+    "description": "web_reverse: Cookie editor · fielddomain"
+  },
+  "webReverseCookieEditorFieldPath": "路径 (path)",
+  "@webReverseCookieEditorFieldPath": {
+    "description": "web_reverse: Cookie editor · fieldpath"
+  },
+  "webReverseCookieEditorFieldUrl": "URL（设 domain/path 时可不填）",
+  "@webReverseCookieEditorFieldUrl": {
+    "description": "web_reverse: Cookie editor · fieldurl"
+  },
+  "webReverseCookieEditorFieldExpires": "过期时间 unix 秒（留空=会话级）",
+  "@webReverseCookieEditorFieldExpires": {
+    "description": "web_reverse: Cookie editor · fieldexpires"
+  },
+  "webReverseCookieEditorSameSiteUnset": "未指定",
+  "@webReverseCookieEditorSameSiteUnset": {
+    "description": "web_reverse: Cookie editor · samesiteunset"
+  },
+  "webReverseCookieEditorCancel": "取消",
+  "@webReverseCookieEditorCancel": {
+    "description": "web_reverse: Cookie editor · cancel"
+  },
+  "webReverseCookieEditorSave": "保存",
+  "@webReverseCookieEditorSave": {
+    "description": "web_reverse: Cookie editor · save"
+  },
+  "webReverseCookieEditorNameRequired": "name 必填",
+  "@webReverseCookieEditorNameRequired": {
+    "description": "web_reverse: Cookie editor · namerequired"
+  },
+  "webReverseCookieEditorFetchFailed": "失败：{error}",
+  "@webReverseCookieEditorFetchFailed": {
+    "description": "web_reverse: Cookie editor · fetchfailed",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCookieEditorCookieCount": "共 {count} 条",
+  "@webReverseCookieEditorCookieCount": {
+    "description": "web_reverse: Cookie editor · cookiecount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCookieEditorDeleted": "已删除 {name}",
+  "@webReverseCookieEditorDeleted": {
+    "description": "web_reverse: Cookie editor · deleted",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCookieEditorEditCookie": "编辑 {name}",
+  "@webReverseCookieEditorEditCookie": {
+    "description": "web_reverse: Cookie editor · editcookie",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }
