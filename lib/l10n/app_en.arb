@@ -4337,5 +4337,90 @@
         "type": "String"
       }
     }
+  },
+  "webReverseWatchCopiedJson": "JSON copied",
+  "@webReverseWatchCopiedJson": {
+    "description": "watch dialog: webReverseWatchCopiedJson"
+  },
+  "webReverseWatchTitle": "Watch Expressions",
+  "@webReverseWatchTitle": {
+    "description": "watch dialog: webReverseWatchTitle"
+  },
+  "webReverseWatchExportJson": "Export JSON",
+  "@webReverseWatchExportJson": {
+    "description": "watch dialog: webReverseWatchExportJson"
+  },
+  "webReverseWatchPause": "Pause",
+  "@webReverseWatchPause": {
+    "description": "watch dialog: webReverseWatchPause"
+  },
+  "webReverseWatchResume": "Resume",
+  "@webReverseWatchResume": {
+    "description": "watch dialog: webReverseWatchResume"
+  },
+  "webReverseWatchNoExpressions": "No expressions",
+  "@webReverseWatchNoExpressions": {
+    "description": "watch dialog: webReverseWatchNoExpressions"
+  },
+  "webReverseWatchAwaiting": "awaiting…",
+  "@webReverseWatchAwaiting": {
+    "description": "watch dialog: webReverseWatchAwaiting"
+  },
+  "webReverseWatchDelete": "Delete",
+  "@webReverseWatchDelete": {
+    "description": "watch dialog: webReverseWatchDelete"
+  },
+  "webReverseWatchNameLabel": "Name (optional)",
+  "@webReverseWatchNameLabel": {
+    "description": "watch dialog: webReverseWatchNameLabel"
+  },
+  "webReverseWatchExpressionLabel": "JS expression",
+  "@webReverseWatchExpressionLabel": {
+    "description": "watch dialog: webReverseWatchExpressionLabel"
+  },
+  "webReverseWatchAddWatch": "Add watch",
+  "@webReverseWatchAddWatch": {
+    "description": "watch dialog: webReverseWatchAddWatch"
+  },
+  "webReverseWatchPickWatch": "Pick a watch",
+  "@webReverseWatchPickWatch": {
+    "description": "watch dialog: webReverseWatchPickWatch"
+  },
+  "webReverseWatchClose": "Close",
+  "@webReverseWatchClose": {
+    "description": "watch dialog: webReverseWatchClose"
+  },
+  "webReverseWatchInterval": "Interval",
+  "@webReverseWatchInterval": {
+    "description": "watch dialog: webReverseWatchInterval"
+  },
+  "webReverseWatchNewestFirst": "newest first",
+  "@webReverseWatchNewestFirst": {
+    "description": "watch dialog: webReverseWatchNewestFirst"
+  },
+  "webReverseWatchAwaitingFirst": "awaiting first eval…",
+  "@webReverseWatchAwaitingFirst": {
+    "description": "watch dialog: webReverseWatchAwaitingFirst"
+  },
+  "webReverseWatchSubtitleHint": "Polls Runtime.evaluate every {ms}ms, keeps last {count} samples",
+  "@webReverseWatchSubtitleHint": {
+    "description": "watch dialog: webReverseWatchSubtitleHint",
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWatchHistory": "History ({count})",
+  "@webReverseWatchHistory": {
+    "description": "watch dialog: webReverseWatchHistory",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

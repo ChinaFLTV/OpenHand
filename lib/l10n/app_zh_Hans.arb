@@ -4406,5 +4406,90 @@
         "type": "String"
       }
     }
+  },
+  "webReverseWatchCopiedJson": "已复制 JSON",
+  "@webReverseWatchCopiedJson": {
+    "description": "watch dialog: webReverseWatchCopiedJson"
+  },
+  "webReverseWatchTitle": "变量监视器",
+  "@webReverseWatchTitle": {
+    "description": "watch dialog: webReverseWatchTitle"
+  },
+  "webReverseWatchExportJson": "导出 JSON",
+  "@webReverseWatchExportJson": {
+    "description": "watch dialog: webReverseWatchExportJson"
+  },
+  "webReverseWatchPause": "暂停",
+  "@webReverseWatchPause": {
+    "description": "watch dialog: webReverseWatchPause"
+  },
+  "webReverseWatchResume": "继续",
+  "@webReverseWatchResume": {
+    "description": "watch dialog: webReverseWatchResume"
+  },
+  "webReverseWatchNoExpressions": "尚无表达式",
+  "@webReverseWatchNoExpressions": {
+    "description": "watch dialog: webReverseWatchNoExpressions"
+  },
+  "webReverseWatchAwaiting": "等待求值…",
+  "@webReverseWatchAwaiting": {
+    "description": "watch dialog: webReverseWatchAwaiting"
+  },
+  "webReverseWatchDelete": "删除",
+  "@webReverseWatchDelete": {
+    "description": "watch dialog: webReverseWatchDelete"
+  },
+  "webReverseWatchNameLabel": "名称（可选）",
+  "@webReverseWatchNameLabel": {
+    "description": "watch dialog: webReverseWatchNameLabel"
+  },
+  "webReverseWatchExpressionLabel": "JS 表达式",
+  "@webReverseWatchExpressionLabel": {
+    "description": "watch dialog: webReverseWatchExpressionLabel"
+  },
+  "webReverseWatchAddWatch": "添加监视",
+  "@webReverseWatchAddWatch": {
+    "description": "watch dialog: webReverseWatchAddWatch"
+  },
+  "webReverseWatchPickWatch": "左侧选择监视项",
+  "@webReverseWatchPickWatch": {
+    "description": "watch dialog: webReverseWatchPickWatch"
+  },
+  "webReverseWatchClose": "关闭",
+  "@webReverseWatchClose": {
+    "description": "watch dialog: webReverseWatchClose"
+  },
+  "webReverseWatchInterval": "轮询间隔",
+  "@webReverseWatchInterval": {
+    "description": "watch dialog: webReverseWatchInterval"
+  },
+  "webReverseWatchNewestFirst": "最新在上",
+  "@webReverseWatchNewestFirst": {
+    "description": "watch dialog: webReverseWatchNewestFirst"
+  },
+  "webReverseWatchAwaitingFirst": "等待第一次求值…",
+  "@webReverseWatchAwaitingFirst": {
+    "description": "watch dialog: webReverseWatchAwaitingFirst"
+  },
+  "webReverseWatchSubtitleHint": "每 {ms}ms 跑一次 Runtime.evaluate，记录最近 {count} 次结果",
+  "@webReverseWatchSubtitleHint": {
+    "description": "watch dialog: webReverseWatchSubtitleHint",
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWatchHistory": "历史（{count}）",
+  "@webReverseWatchHistory": {
+    "description": "watch dialog: webReverseWatchHistory",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

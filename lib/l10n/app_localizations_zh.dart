@@ -6313,6 +6313,64 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
     return '已应用 $w×$h @ ${dpr}x';
   }
+
+  @override
+  String get webReverseWatchCopiedJson => '已复制 JSON';
+
+  @override
+  String get webReverseWatchTitle => '变量监视器';
+
+  @override
+  String get webReverseWatchExportJson => '导出 JSON';
+
+  @override
+  String get webReverseWatchPause => '暂停';
+
+  @override
+  String get webReverseWatchResume => '继续';
+
+  @override
+  String get webReverseWatchNoExpressions => '尚无表达式';
+
+  @override
+  String get webReverseWatchAwaiting => '等待求值…';
+
+  @override
+  String get webReverseWatchDelete => '删除';
+
+  @override
+  String get webReverseWatchNameLabel => '名称（可选）';
+
+  @override
+  String get webReverseWatchExpressionLabel => 'JS 表达式';
+
+  @override
+  String get webReverseWatchAddWatch => '添加监视';
+
+  @override
+  String get webReverseWatchPickWatch => '左侧选择监视项';
+
+  @override
+  String get webReverseWatchClose => '关闭';
+
+  @override
+  String get webReverseWatchInterval => '轮询间隔';
+
+  @override
+  String get webReverseWatchNewestFirst => '最新在上';
+
+  @override
+  String get webReverseWatchAwaitingFirst => '等待第一次求值…';
+
+  @override
+  String webReverseWatchSubtitleHint(int ms, int count) {
+    return '每 ${ms}ms 跑一次 Runtime.evaluate，记录最近 $count 次结果';
+  }
+
+  @override
+  String webReverseWatchHistory(int count) {
+    return '历史（$count）';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -12624,6 +12682,64 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
     return '已应用 $w×$h @ ${dpr}x';
   }
+
+  @override
+  String get webReverseWatchCopiedJson => '已复制 JSON';
+
+  @override
+  String get webReverseWatchTitle => '变量监视器';
+
+  @override
+  String get webReverseWatchExportJson => '导出 JSON';
+
+  @override
+  String get webReverseWatchPause => '暂停';
+
+  @override
+  String get webReverseWatchResume => '继续';
+
+  @override
+  String get webReverseWatchNoExpressions => '尚无表达式';
+
+  @override
+  String get webReverseWatchAwaiting => '等待求值…';
+
+  @override
+  String get webReverseWatchDelete => '删除';
+
+  @override
+  String get webReverseWatchNameLabel => '名称（可选）';
+
+  @override
+  String get webReverseWatchExpressionLabel => 'JS 表达式';
+
+  @override
+  String get webReverseWatchAddWatch => '添加监视';
+
+  @override
+  String get webReverseWatchPickWatch => '左侧选择监视项';
+
+  @override
+  String get webReverseWatchClose => '关闭';
+
+  @override
+  String get webReverseWatchInterval => '轮询间隔';
+
+  @override
+  String get webReverseWatchNewestFirst => '最新在上';
+
+  @override
+  String get webReverseWatchAwaitingFirst => '等待第一次求值…';
+
+  @override
+  String webReverseWatchSubtitleHint(int ms, int count) {
+    return '每 ${ms}ms 跑一次 Runtime.evaluate，记录最近 $count 次结果';
+  }
+
+  @override
+  String webReverseWatchHistory(int count) {
+    return '历史（$count）';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -18933,5 +19049,63 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
     return '已应用 $w×$h @ ${dpr}x';
+  }
+
+  @override
+  String get webReverseWatchCopiedJson => '已复制 JSON';
+
+  @override
+  String get webReverseWatchTitle => '变量监视器';
+
+  @override
+  String get webReverseWatchExportJson => '导出 JSON';
+
+  @override
+  String get webReverseWatchPause => '暂停';
+
+  @override
+  String get webReverseWatchResume => '继续';
+
+  @override
+  String get webReverseWatchNoExpressions => '尚无表达式';
+
+  @override
+  String get webReverseWatchAwaiting => '等待求值…';
+
+  @override
+  String get webReverseWatchDelete => '删除';
+
+  @override
+  String get webReverseWatchNameLabel => '名称（可选）';
+
+  @override
+  String get webReverseWatchExpressionLabel => 'JS 表达式';
+
+  @override
+  String get webReverseWatchAddWatch => '添加监视';
+
+  @override
+  String get webReverseWatchPickWatch => '左侧选择监视项';
+
+  @override
+  String get webReverseWatchClose => '关闭';
+
+  @override
+  String get webReverseWatchInterval => '轮询间隔';
+
+  @override
+  String get webReverseWatchNewestFirst => '最新在上';
+
+  @override
+  String get webReverseWatchAwaitingFirst => '等待第一次求值…';
+
+  @override
+  String webReverseWatchSubtitleHint(int ms, int count) {
+    return '每 ${ms}ms 跑一次 Runtime.evaluate，记录最近 $count 次结果';
+  }
+
+  @override
+  String webReverseWatchHistory(int count) {
+    return '历史（$count）';
   }
 }

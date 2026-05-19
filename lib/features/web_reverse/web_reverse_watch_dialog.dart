@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -52,6 +53,7 @@ class _WatchSample {
 class _WatchDialog extends StatefulWidget {
   const _WatchDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_WatchDialog> createState() => _WatchDialogState();
@@ -188,6 +190,7 @@ class _WatchDialogState extends State<_WatchDialog> {
   }
 
   Future<void> _exportJson() async {
+    final loc = AppLocalizations.of(context);
     final out = const JsonEncoder.withIndent('  ').convert(_exprs
         .map((e) => {
               'name': e.name,
@@ -202,12 +205,13 @@ class _WatchDialogState extends State<_WatchDialog> {
             })
         .toList());
     await Clipboard.setData(ClipboardData(text: out));
+    if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '已复制 JSON' : 'JSON copied',
+        loc?.webReverseWatchCopiedJson ?? 'JSON copied',
       );
     }
   }
@@ -216,7 +220,7 @@ class _WatchDialogState extends State<_WatchDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final cur = (_selected >= 0 && _selected < _exprs.length)
         ? _exprs[_selected]
         : null;
@@ -239,14 +243,14 @@ class _WatchDialogState extends State<_WatchDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? '变量监视器' : 'Watch Expressions',
+                          loc?.webReverseWatchTitle ?? 'Watch Expressions',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '每 ${_interval.inMilliseconds}ms 跑一次 Runtime.evaluate，记录最近 $_maxSamples 次结果'
-                              : 'Polls Runtime.evaluate every ${_interval.inMilliseconds}ms, keeps last $_maxSamples samples',
+                          loc?.webReverseWatchSubtitleHint(
+                                  _interval.inMilliseconds, _maxSamples) ??
+                              'Polls Runtime.evaluate every ${_interval.inMilliseconds}ms, keeps last $_maxSamples samples',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -254,12 +258,14 @@ class _WatchDialogState extends State<_WatchDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: isZh ? '导出 JSON' : 'Export JSON',
+                    tooltip: loc?.webReverseWatchExportJson ?? 'Export JSON',
                     onPressed: _exportJson,
                     icon: const Icon(Icons.upload_rounded),
                   ),
                   IconButton(
-                    tooltip: _running ? (isZh ? '暂停' : 'Pause') : (isZh ? '继续' : 'Resume'),
+                    tooltip: _running
+                        ? (loc?.webReverseWatchPause ?? 'Pause')
+                        : (loc?.webReverseWatchResume ?? 'Resume'),
                     onPressed: _running ? _stop : _start,
                     icon: Icon(_running
                         ? Icons.pause_circle_filled_rounded
@@ -278,7 +284,6 @@ class _WatchDialogState extends State<_WatchDialog> {
                 setState(() => _interval = d);
                 if (_running) _start();
               },
-              isZh: isZh,
             ),
             Divider(height: 1, color: cs.outlineVariant),
             Expanded(
@@ -292,7 +297,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                           child: _exprs.isEmpty
                               ? Center(
                                   child: Text(
-                                    isZh ? '尚无表达式' : 'No expressions',
+                                    loc?.webReverseWatchNoExpressions ?? 'No expressions',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: cs.onSurfaceVariant,
                                     ),
@@ -349,9 +354,8 @@ class _WatchDialogState extends State<_WatchDialog> {
                                                     ),
                                                     Text(
                                                       e.last.isEmpty
-                                                          ? (isZh
-                                                              ? '等待求值…'
-                                                              : 'awaiting…')
+                                                          ? (loc?.webReverseWatchAwaiting ??
+                                                              'awaiting…')
                                                           : e.last,
                                                       maxLines: 1,
                                                       overflow:
@@ -372,7 +376,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                                               ),
                                               IconButton(
                                                 tooltip:
-                                                    isZh ? '删除' : 'Delete',
+                                                    loc?.webReverseWatchDelete ?? 'Delete',
                                                 onPressed: () => _removeAt(i),
                                                 icon: const Icon(
                                                     Icons.delete_outline,
@@ -394,7 +398,8 @@ class _WatchDialogState extends State<_WatchDialog> {
                               TextField(
                                 controller: _newName,
                                 decoration: InputDecoration(
-                                  labelText: isZh ? '名称（可选）' : 'Name (optional)',
+                                  labelText: loc?.webReverseWatchNameLabel ??
+                                      'Name (optional)',
                                   border: const OutlineInputBorder(),
                                   isDense: true,
                                 ),
@@ -407,7 +412,8 @@ class _WatchDialogState extends State<_WatchDialog> {
                                 style: const TextStyle(
                                     fontFamily: 'monospace', fontSize: 12),
                                 decoration: InputDecoration(
-                                  labelText: isZh ? 'JS 表达式' : 'JS expression',
+                                  labelText: loc?.webReverseWatchExpressionLabel ??
+                                      'JS expression',
                                   border: const OutlineInputBorder(),
                                   isDense: true,
                                 ),
@@ -418,7 +424,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                                 child: FilledButton.tonalIcon(
                                   onPressed: _addExpr,
                                   icon: const Icon(Icons.add_rounded, size: 16),
-                                  label: Text(isZh ? '添加监视' : 'Add watch'),
+                                  label: Text(loc?.webReverseWatchAddWatch ?? 'Add watch'),
                                 ),
                               ),
                             ],
@@ -432,13 +438,13 @@ class _WatchDialogState extends State<_WatchDialog> {
                     child: cur == null
                         ? Center(
                             child: Text(
-                              isZh ? '左侧选择监视项' : 'Pick a watch',
+                              loc?.webReverseWatchPickWatch ?? 'Pick a watch',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),
                             ),
                           )
-                        : _HistoryPane(expr: cur, isZh: isZh),
+                        : _HistoryPane(expr: cur),
                   ),
                 ],
               ),
@@ -450,7 +456,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseWatchClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -467,15 +473,14 @@ class _IntervalRow extends StatelessWidget {
   const _IntervalRow({
     required this.interval,
     required this.onChanged,
-    required this.isZh,
   });
   final Duration interval;
   final ValueChanged<Duration> onChanged;
-  final bool isZh;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final loc = AppLocalizations.of(context);
     const presets = <Duration>[
       Duration(milliseconds: 500),
       Duration(milliseconds: 1500),
@@ -486,7 +491,7 @@ class _IntervalRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
       child: Row(
         children: [
-          Text(isZh ? '轮询间隔' : 'Interval',
+          Text(loc?.webReverseWatchInterval ?? 'Interval',
               style: theme.textTheme.labelSmall
                   ?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(width: 8),
@@ -508,13 +513,13 @@ class _IntervalRow extends StatelessWidget {
 }
 
 class _HistoryPane extends StatelessWidget {
-  const _HistoryPane({required this.expr, required this.isZh});
+  const _HistoryPane({required this.expr});
   final _WatchExpr expr;
-  final bool isZh;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final loc = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -541,13 +546,14 @@ class _HistoryPane extends StatelessWidget {
           child: Row(
             children: [
               Text(
-                isZh ? '历史（${expr.samples.length}）' : 'History (${expr.samples.length})',
+                loc?.webReverseWatchHistory(expr.samples.length) ??
+                    'History (${expr.samples.length})',
                 style: theme.textTheme.labelMedium,
               ),
               const Spacer(),
               if (expr.samples.isNotEmpty)
                 Text(
-                  isZh ? '最新在上' : 'newest first',
+                  loc?.webReverseWatchNewestFirst ?? 'newest first',
                   style: theme.textTheme.labelSmall
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
@@ -558,7 +564,7 @@ class _HistoryPane extends StatelessWidget {
           child: expr.samples.isEmpty
               ? Center(
                   child: Text(
-                    isZh ? '等待第一次求值…' : 'awaiting first eval…',
+                    loc?.webReverseWatchAwaitingFirst ?? 'awaiting first eval…',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),

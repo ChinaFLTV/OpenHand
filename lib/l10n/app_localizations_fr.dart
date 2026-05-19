@@ -6683,4 +6683,63 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
     return '$w×$h @ ${dpr}x appliqué';
   }
+
+  @override
+  String get webReverseWatchCopiedJson => 'JSON copié';
+
+  @override
+  String get webReverseWatchTitle => 'Expressions surveillées';
+
+  @override
+  String get webReverseWatchExportJson => 'Exporter JSON';
+
+  @override
+  String get webReverseWatchPause => 'Pause';
+
+  @override
+  String get webReverseWatchResume => 'Reprendre';
+
+  @override
+  String get webReverseWatchNoExpressions => 'Aucune expression';
+
+  @override
+  String get webReverseWatchAwaiting => 'en attente…';
+
+  @override
+  String get webReverseWatchDelete => 'Supprimer';
+
+  @override
+  String get webReverseWatchNameLabel => 'Nom (facultatif)';
+
+  @override
+  String get webReverseWatchExpressionLabel => 'Expression JS';
+
+  @override
+  String get webReverseWatchAddWatch => 'Ajouter une surveillance';
+
+  @override
+  String get webReverseWatchPickWatch => 'Choisissez à gauche';
+
+  @override
+  String get webReverseWatchClose => 'Fermer';
+
+  @override
+  String get webReverseWatchInterval => 'Intervalle';
+
+  @override
+  String get webReverseWatchNewestFirst => 'plus récent en premier';
+
+  @override
+  String get webReverseWatchAwaitingFirst =>
+      'en attente de la première évaluation…';
+
+  @override
+  String webReverseWatchSubtitleHint(int ms, int count) {
+    return 'Exécute Runtime.evaluate toutes les ${ms}ms, garde $count échantillons';
+  }
+
+  @override
+  String webReverseWatchHistory(int count) {
+    return 'Historique ($count)';
+  }
 }

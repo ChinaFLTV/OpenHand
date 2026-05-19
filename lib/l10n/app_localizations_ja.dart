@@ -6408,4 +6408,62 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
     return '$w×$h @ ${dpr}x を適用しました';
   }
+
+  @override
+  String get webReverseWatchCopiedJson => 'JSON をコピーしました';
+
+  @override
+  String get webReverseWatchTitle => 'ウォッチ式';
+
+  @override
+  String get webReverseWatchExportJson => 'JSON をエクスポート';
+
+  @override
+  String get webReverseWatchPause => '一時停止';
+
+  @override
+  String get webReverseWatchResume => '再開';
+
+  @override
+  String get webReverseWatchNoExpressions => '式がありません';
+
+  @override
+  String get webReverseWatchAwaiting => '評価待ち…';
+
+  @override
+  String get webReverseWatchDelete => '削除';
+
+  @override
+  String get webReverseWatchNameLabel => '名前（任意）';
+
+  @override
+  String get webReverseWatchExpressionLabel => 'JS 式';
+
+  @override
+  String get webReverseWatchAddWatch => 'ウォッチを追加';
+
+  @override
+  String get webReverseWatchPickWatch => '左で監視項目を選択';
+
+  @override
+  String get webReverseWatchClose => '閉じる';
+
+  @override
+  String get webReverseWatchInterval => 'ポーリング間隔';
+
+  @override
+  String get webReverseWatchNewestFirst => '新しい順';
+
+  @override
+  String get webReverseWatchAwaitingFirst => '初回評価を待機中…';
+
+  @override
+  String webReverseWatchSubtitleHint(int ms, int count) {
+    return '${ms}ms ごとに Runtime.evaluate を実行し、直近 $count 件を記録';
+  }
+
+  @override
+  String webReverseWatchHistory(int count) {
+    return '履歴（$count）';
+  }
 }

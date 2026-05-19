@@ -4337,5 +4337,90 @@
         "type": "String"
       }
     }
+  },
+  "webReverseWatchCopiedJson": "JSON copié",
+  "@webReverseWatchCopiedJson": {
+    "description": "watch dialog: webReverseWatchCopiedJson"
+  },
+  "webReverseWatchTitle": "Expressions surveillées",
+  "@webReverseWatchTitle": {
+    "description": "watch dialog: webReverseWatchTitle"
+  },
+  "webReverseWatchExportJson": "Exporter JSON",
+  "@webReverseWatchExportJson": {
+    "description": "watch dialog: webReverseWatchExportJson"
+  },
+  "webReverseWatchPause": "Pause",
+  "@webReverseWatchPause": {
+    "description": "watch dialog: webReverseWatchPause"
+  },
+  "webReverseWatchResume": "Reprendre",
+  "@webReverseWatchResume": {
+    "description": "watch dialog: webReverseWatchResume"
+  },
+  "webReverseWatchNoExpressions": "Aucune expression",
+  "@webReverseWatchNoExpressions": {
+    "description": "watch dialog: webReverseWatchNoExpressions"
+  },
+  "webReverseWatchAwaiting": "en attente…",
+  "@webReverseWatchAwaiting": {
+    "description": "watch dialog: webReverseWatchAwaiting"
+  },
+  "webReverseWatchDelete": "Supprimer",
+  "@webReverseWatchDelete": {
+    "description": "watch dialog: webReverseWatchDelete"
+  },
+  "webReverseWatchNameLabel": "Nom (facultatif)",
+  "@webReverseWatchNameLabel": {
+    "description": "watch dialog: webReverseWatchNameLabel"
+  },
+  "webReverseWatchExpressionLabel": "Expression JS",
+  "@webReverseWatchExpressionLabel": {
+    "description": "watch dialog: webReverseWatchExpressionLabel"
+  },
+  "webReverseWatchAddWatch": "Ajouter une surveillance",
+  "@webReverseWatchAddWatch": {
+    "description": "watch dialog: webReverseWatchAddWatch"
+  },
+  "webReverseWatchPickWatch": "Choisissez à gauche",
+  "@webReverseWatchPickWatch": {
+    "description": "watch dialog: webReverseWatchPickWatch"
+  },
+  "webReverseWatchClose": "Fermer",
+  "@webReverseWatchClose": {
+    "description": "watch dialog: webReverseWatchClose"
+  },
+  "webReverseWatchInterval": "Intervalle",
+  "@webReverseWatchInterval": {
+    "description": "watch dialog: webReverseWatchInterval"
+  },
+  "webReverseWatchNewestFirst": "plus récent en premier",
+  "@webReverseWatchNewestFirst": {
+    "description": "watch dialog: webReverseWatchNewestFirst"
+  },
+  "webReverseWatchAwaitingFirst": "en attente de la première évaluation…",
+  "@webReverseWatchAwaitingFirst": {
+    "description": "watch dialog: webReverseWatchAwaitingFirst"
+  },
+  "webReverseWatchSubtitleHint": "Exécute Runtime.evaluate toutes les {ms}ms, garde {count} échantillons",
+  "@webReverseWatchSubtitleHint": {
+    "description": "watch dialog: webReverseWatchSubtitleHint",
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWatchHistory": "Historique ({count})",
+  "@webReverseWatchHistory": {
+    "description": "watch dialog: webReverseWatchHistory",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -4337,5 +4337,90 @@
         "type": "String"
       }
     }
+  },
+  "webReverseWatchCopiedJson": "JSON をコピーしました",
+  "@webReverseWatchCopiedJson": {
+    "description": "watch dialog: webReverseWatchCopiedJson"
+  },
+  "webReverseWatchTitle": "ウォッチ式",
+  "@webReverseWatchTitle": {
+    "description": "watch dialog: webReverseWatchTitle"
+  },
+  "webReverseWatchExportJson": "JSON をエクスポート",
+  "@webReverseWatchExportJson": {
+    "description": "watch dialog: webReverseWatchExportJson"
+  },
+  "webReverseWatchPause": "一時停止",
+  "@webReverseWatchPause": {
+    "description": "watch dialog: webReverseWatchPause"
+  },
+  "webReverseWatchResume": "再開",
+  "@webReverseWatchResume": {
+    "description": "watch dialog: webReverseWatchResume"
+  },
+  "webReverseWatchNoExpressions": "式がありません",
+  "@webReverseWatchNoExpressions": {
+    "description": "watch dialog: webReverseWatchNoExpressions"
+  },
+  "webReverseWatchAwaiting": "評価待ち…",
+  "@webReverseWatchAwaiting": {
+    "description": "watch dialog: webReverseWatchAwaiting"
+  },
+  "webReverseWatchDelete": "削除",
+  "@webReverseWatchDelete": {
+    "description": "watch dialog: webReverseWatchDelete"
+  },
+  "webReverseWatchNameLabel": "名前（任意）",
+  "@webReverseWatchNameLabel": {
+    "description": "watch dialog: webReverseWatchNameLabel"
+  },
+  "webReverseWatchExpressionLabel": "JS 式",
+  "@webReverseWatchExpressionLabel": {
+    "description": "watch dialog: webReverseWatchExpressionLabel"
+  },
+  "webReverseWatchAddWatch": "ウォッチを追加",
+  "@webReverseWatchAddWatch": {
+    "description": "watch dialog: webReverseWatchAddWatch"
+  },
+  "webReverseWatchPickWatch": "左で監視項目を選択",
+  "@webReverseWatchPickWatch": {
+    "description": "watch dialog: webReverseWatchPickWatch"
+  },
+  "webReverseWatchClose": "閉じる",
+  "@webReverseWatchClose": {
+    "description": "watch dialog: webReverseWatchClose"
+  },
+  "webReverseWatchInterval": "ポーリング間隔",
+  "@webReverseWatchInterval": {
+    "description": "watch dialog: webReverseWatchInterval"
+  },
+  "webReverseWatchNewestFirst": "新しい順",
+  "@webReverseWatchNewestFirst": {
+    "description": "watch dialog: webReverseWatchNewestFirst"
+  },
+  "webReverseWatchAwaitingFirst": "初回評価を待機中…",
+  "@webReverseWatchAwaitingFirst": {
+    "description": "watch dialog: webReverseWatchAwaitingFirst"
+  },
+  "webReverseWatchSubtitleHint": "{ms}ms ごとに Runtime.evaluate を実行し、直近 {count} 件を記録",
+  "@webReverseWatchSubtitleHint": {
+    "description": "watch dialog: webReverseWatchSubtitleHint",
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWatchHistory": "履歴（{count}）",
+  "@webReverseWatchHistory": {
+    "description": "watch dialog: webReverseWatchHistory",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

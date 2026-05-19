@@ -11699,6 +11699,114 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已应用 {w}×{h} @ {dpr}x'**
   String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr);
+
+  /// watch dialog: webReverseWatchCopiedJson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 JSON'**
+  String get webReverseWatchCopiedJson;
+
+  /// watch dialog: webReverseWatchTitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'变量监视器'**
+  String get webReverseWatchTitle;
+
+  /// watch dialog: webReverseWatchExportJson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出 JSON'**
+  String get webReverseWatchExportJson;
+
+  /// watch dialog: webReverseWatchPause
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂停'**
+  String get webReverseWatchPause;
+
+  /// watch dialog: webReverseWatchResume
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'继续'**
+  String get webReverseWatchResume;
+
+  /// watch dialog: webReverseWatchNoExpressions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚无表达式'**
+  String get webReverseWatchNoExpressions;
+
+  /// watch dialog: webReverseWatchAwaiting
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待求值…'**
+  String get webReverseWatchAwaiting;
+
+  /// watch dialog: webReverseWatchDelete
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get webReverseWatchDelete;
+
+  /// watch dialog: webReverseWatchNameLabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'名称（可选）'**
+  String get webReverseWatchNameLabel;
+
+  /// watch dialog: webReverseWatchExpressionLabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JS 表达式'**
+  String get webReverseWatchExpressionLabel;
+
+  /// watch dialog: webReverseWatchAddWatch
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'添加监视'**
+  String get webReverseWatchAddWatch;
+
+  /// watch dialog: webReverseWatchPickWatch
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'左侧选择监视项'**
+  String get webReverseWatchPickWatch;
+
+  /// watch dialog: webReverseWatchClose
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseWatchClose;
+
+  /// watch dialog: webReverseWatchInterval
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'轮询间隔'**
+  String get webReverseWatchInterval;
+
+  /// watch dialog: webReverseWatchNewestFirst
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最新在上'**
+  String get webReverseWatchNewestFirst;
+
+  /// watch dialog: webReverseWatchAwaitingFirst
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待第一次求值…'**
+  String get webReverseWatchAwaitingFirst;
+
+  /// watch dialog: webReverseWatchSubtitleHint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每 {ms}ms 跑一次 Runtime.evaluate，记录最近 {count} 次结果'**
+  String webReverseWatchSubtitleHint(int ms, int count);
+
+  /// watch dialog: webReverseWatchHistory
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'历史（{count}）'**
+  String webReverseWatchHistory(int count);
 }
 
 class _AppLocalizationsDelegate
