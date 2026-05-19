@@ -2927,5 +2927,168 @@
         "type": "String"
       }
     }
+  },
+  "webReverseWaterfallTitle": "Network Waterfall",
+  "@webReverseWaterfallTitle": {
+    "description": "web_reverse: Waterfall dialog · title"
+  },
+  "webReverseWaterfallSubtitle": "Blue = wait TTFB, Green = download; click row to copy URL",
+  "@webReverseWaterfallSubtitle": {
+    "description": "web_reverse: Waterfall dialog · subtitle"
+  },
+  "webReverseWaterfallRefresh": "Refresh",
+  "@webReverseWaterfallRefresh": {
+    "description": "web_reverse: Waterfall dialog · refresh"
+  },
+  "webReverseWaterfallImportHar": "Import HAR",
+  "@webReverseWaterfallImportHar": {
+    "description": "web_reverse: Waterfall dialog · importhar"
+  },
+  "webReverseWaterfallExportHar": "Export HAR",
+  "@webReverseWaterfallExportHar": {
+    "description": "web_reverse: Waterfall dialog · exporthar"
+  },
+  "webReverseWaterfallFilterHint": "filter URL substring",
+  "@webReverseWaterfallFilterHint": {
+    "description": "web_reverse: Waterfall dialog · filterhint"
+  },
+  "webReverseWaterfallOnlyXhr": "XHR/Fetch only",
+  "@webReverseWaterfallOnlyXhr": {
+    "description": "web_reverse: Waterfall dialog · onlyxhr"
+  },
+  "webReverseWaterfallSortTime": "Time",
+  "@webReverseWaterfallSortTime": {
+    "description": "web_reverse: Waterfall dialog · sorttime"
+  },
+  "webReverseWaterfallSortDuration": "Duration",
+  "@webReverseWaterfallSortDuration": {
+    "description": "web_reverse: Waterfall dialog · sortduration"
+  },
+  "webReverseWaterfallSortSize": "Size",
+  "@webReverseWaterfallSortSize": {
+    "description": "web_reverse: Waterfall dialog · sortsize"
+  },
+  "webReverseWaterfallNoRequests": "No requests",
+  "@webReverseWaterfallNoRequests": {
+    "description": "web_reverse: Waterfall dialog · norequests"
+  },
+  "webReverseWaterfallHeaderRequest": "Request",
+  "@webReverseWaterfallHeaderRequest": {
+    "description": "web_reverse: Waterfall dialog · headerrequest"
+  },
+  "webReverseWaterfallUrlCopied": "URL copied",
+  "@webReverseWaterfallUrlCopied": {
+    "description": "web_reverse: Waterfall dialog · urlcopied"
+  },
+  "webReverseWaterfallClose": "Close",
+  "@webReverseWaterfallClose": {
+    "description": "web_reverse: Waterfall dialog · close"
+  },
+  "webReverseWaterfallNoInitiator": "No initiator info",
+  "@webReverseWaterfallNoInitiator": {
+    "description": "web_reverse: Waterfall dialog · noinitiator"
+  },
+  "webReverseWaterfallInitiatorTitle": "Request Initiator",
+  "@webReverseWaterfallInitiatorTitle": {
+    "description": "web_reverse: Waterfall dialog · initiatortitle"
+  },
+  "webReverseWaterfallInitiatorTypeLabel": "Type",
+  "@webReverseWaterfallInitiatorTypeLabel": {
+    "description": "web_reverse: Waterfall dialog · initiatortypelabel"
+  },
+  "webReverseWaterfallJumpToSources": "Open in Sources",
+  "@webReverseWaterfallJumpToSources": {
+    "description": "web_reverse: Waterfall dialog · jumptosources"
+  },
+  "webReverseWaterfallNoJsStack": "No JavaScript stack (typical for parser/preflight)",
+  "@webReverseWaterfallNoJsStack": {
+    "description": "web_reverse: Waterfall dialog · nojsstack"
+  },
+  "webReverseWaterfallLoadHarTitle": "Load HAR",
+  "@webReverseWaterfallLoadHarTitle": {
+    "description": "web_reverse: Waterfall dialog · loadhartitle"
+  },
+  "webReverseWaterfallCancel": "Cancel",
+  "@webReverseWaterfallCancel": {
+    "description": "web_reverse: Waterfall dialog · cancel"
+  },
+  "webReverseWaterfallMerge": "Merge",
+  "@webReverseWaterfallMerge": {
+    "description": "web_reverse: Waterfall dialog · merge"
+  },
+  "webReverseWaterfallReplace": "Replace",
+  "@webReverseWaterfallReplace": {
+    "description": "web_reverse: Waterfall dialog · replace"
+  },
+  "webReverseWaterfallHarParseFailed": "HAR parse failed",
+  "@webReverseWaterfallHarParseFailed": {
+    "description": "web_reverse: Waterfall dialog · harparsefailed"
+  },
+  "webReverseWaterfallHarSaveFailed": "HAR save failed or timed out",
+  "@webReverseWaterfallHarSaveFailed": {
+    "description": "web_reverse: Waterfall dialog · harsavefailed"
+  },
+  "webReverseWaterfallInitiatorTooltipWithUrl": "Initiator: {type}\n{url}",
+  "@webReverseWaterfallInitiatorTooltipWithUrl": {
+    "description": "web_reverse: Waterfall dialog · initiatortooltipwithurl",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseWaterfallInitiatorTooltipNoUrl": "Initiator: {type}",
+  "@webReverseWaterfallInitiatorTooltipNoUrl": {
+    "description": "web_reverse: Waterfall dialog · initiatortooltipnourl",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseWaterfallLoadHarPrompt": "Network list has {count} entries. Choose load mode:",
+  "@webReverseWaterfallLoadHarPrompt": {
+    "description": "web_reverse: Waterfall dialog · loadharprompt",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWaterfallLoadMergedResult": "Merged: {loaded}; skipped {skipped}",
+  "@webReverseWaterfallLoadMergedResult": {
+    "description": "web_reverse: Waterfall dialog · loadmergedresult",
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWaterfallLoadReplacedResult": "Replaced: {loaded}; skipped {skipped}",
+  "@webReverseWaterfallLoadReplacedResult": {
+    "description": "web_reverse: Waterfall dialog · loadreplacedresult",
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWaterfallHarSavedTo": "HAR saved to {path}",
+  "@webReverseWaterfallHarSavedTo": {
+    "description": "web_reverse: Waterfall dialog · harsavedto",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
   }
 }

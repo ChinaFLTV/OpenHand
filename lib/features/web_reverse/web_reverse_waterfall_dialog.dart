@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -86,7 +87,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final entries = _filtered();
     final messenger = ScaffoldMessenger.maybeOf(context);
 
@@ -121,13 +122,12 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? '请求瀑布图' : 'Network Waterfall',
+                          loc?.webReverseWaterfallTitle ?? 'Network Waterfall',
                           style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '蓝段 = 等待 TTFB，绿段 = 下载；点击行复制 URL'
-                              : 'Blue = wait TTFB, Green = download; click row to copy URL',
+                          loc?.webReverseWaterfallSubtitle ??
+                              'Blue = wait TTFB, Green = download; click row to copy URL',
                           style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                         ),
                       ],
@@ -136,17 +136,17 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                   IconButton(
                     onPressed: () => setState(() {}),
                     icon: const Icon(Icons.refresh_rounded),
-                    tooltip: isZh ? '刷新' : 'Refresh',
+                    tooltip: loc?.webReverseWaterfallRefresh ?? 'Refresh',
                   ),
                   IconButton(
-                    onPressed: () => _importHar(isZh),
+                    onPressed: _importHar,
                     icon: const Icon(Icons.file_upload_outlined),
-                    tooltip: isZh ? '导入 HAR' : 'Import HAR',
+                    tooltip: loc?.webReverseWaterfallImportHar ?? 'Import HAR',
                   ),
                   IconButton(
-                    onPressed: entries.isEmpty ? null : () => _exportHar(isZh),
+                    onPressed: entries.isEmpty ? null : _exportHar,
                     icon: const Icon(Icons.file_download_outlined),
-                    tooltip: isZh ? '导出 HAR' : 'Export HAR',
+                    tooltip: loc?.webReverseWaterfallExportHar ?? 'Export HAR',
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -167,14 +167,14 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       decoration: InputDecoration(
                         isDense: true,
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        hintText: isZh ? 'URL 子串过滤' : 'filter URL substring',
+                        hintText: loc?.webReverseWaterfallFilterHint ?? 'filter URL substring',
                         border: const OutlineInputBorder(),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   FilterChip(
-                    label: Text(isZh ? '仅 XHR/Fetch' : 'XHR/Fetch only'),
+                    label: Text(loc?.webReverseWaterfallOnlyXhr ?? 'XHR/Fetch only'),
                     selected: _onlyXhr,
                     onSelected: (v) => setState(() => _onlyXhr = v),
                   ),
@@ -185,9 +185,9 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       if (v != null) setState(() => _sort = v);
                     },
                     items: [
-                      DropdownMenuItem(value: _SortMode.time, child: Text(isZh ? '时间' : 'Time')),
-                      DropdownMenuItem(value: _SortMode.duration, child: Text(isZh ? '耗时' : 'Duration')),
-                      DropdownMenuItem(value: _SortMode.size, child: Text(isZh ? '大小' : 'Size')),
+                      DropdownMenuItem(value: _SortMode.time, child: Text(loc?.webReverseWaterfallSortTime ?? 'Time')),
+                      DropdownMenuItem(value: _SortMode.duration, child: Text(loc?.webReverseWaterfallSortDuration ?? 'Duration')),
+                      DropdownMenuItem(value: _SortMode.size, child: Text(loc?.webReverseWaterfallSortSize ?? 'Size')),
                     ],
                   ),
                   const SizedBox(width: 12),
@@ -209,7 +209,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                 child: entries.isEmpty
                     ? Center(
                         child: Text(
-                          isZh ? '没有请求' : 'No requests',
+                          loc?.webReverseWaterfallNoRequests ?? 'No requests',
                           style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                         ),
                       )
@@ -219,7 +219,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                           final barWidth = (constraints.maxWidth - leftWidth - 16).clamp(120.0, 9999.0);
                           return Column(
                             children: [
-                              _scaleHeader(theme, cs, leftWidth, barWidth, windowMs, isZh),
+                              _scaleHeader(theme, cs, leftWidth, barWidth, windowMs),
                               Divider(height: 1, color: cs.outlineVariant),
                               Expanded(
                                 child: ListView.separated(
@@ -235,14 +235,13 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                       windowMs: windowMs,
                                       leftWidth: leftWidth,
                                       barWidth: barWidth,
-                                      isZh: isZh,
                                       onTap: () async {
                                         await Clipboard.setData(ClipboardData(text: e.url));
                                         if (messenger != null && mounted) {
                                           OpenHandSnackBar.showSuccessOn(
                                             context,
                                             messenger,
-                                            isZh ? '已复制 URL' : 'URL copied',
+                                            AppLocalizations.of(context)?.webReverseWaterfallUrlCopied ?? 'URL copied',
                                           );
                                         }
                                       },
@@ -263,7 +262,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseWaterfallClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -276,7 +275,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
   }
 
   Widget _scaleHeader(ThemeData theme, ColorScheme cs, double leftWidth,
-      double barWidth, int windowMs, bool isZh) {
+      double barWidth, int windowMs) {
     final ticks = <Widget>[];
     const tickCount = 5;
     for (var i = 0; i <= tickCount; i++) {
@@ -301,7 +300,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
           SizedBox(
             width: leftWidth,
             child: Text(
-              isZh ? '请求' : 'Request',
+              AppLocalizations.of(context)?.webReverseWaterfallHeaderRequest ?? 'Request',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
@@ -327,7 +326,6 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     required int windowMs,
     required double leftWidth,
     required double barWidth,
-    required bool isZh,
     required VoidCallback onTap,
   }) {
     final startMs = e.timestamp.difference(earliest).inMilliseconds;
@@ -388,7 +386,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       ),
                     ),
                   ),
-                  _initiatorBadge(theme, cs, e, isZh),
+                  _initiatorBadge(theme, cs, e),
                   Expanded(
                     child: Text(
                       _shortUrl(e.url),
@@ -447,7 +445,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     top: 0,
                     child: Text(
                       pending
-                          ? (isZh ? '…' : '…')
+                          ? '…'
                           : '${total}ms${size != null ? '·${_fmtSize(size)}' : ''}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.onSurfaceVariant,
@@ -470,8 +468,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     ThemeData theme,
     ColorScheme cs,
     CdpNetworkEntry e,
-    bool isZh,
   ) {
+    final loc = AppLocalizations.of(context);
     final hasAny = (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty) ||
         e.initiatorStack.isNotEmpty ||
         (e.initiatorType != null && e.initiatorType!.isNotEmpty);
@@ -483,16 +481,20 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       _ => 'O',
     };
     final color = hasAny ? cs.primary : cs.outlineVariant;
+    final initiatorUrl = e.initiatorUrl;
+    final tooltipMsg = hasAny
+        ? (initiatorUrl != null && initiatorUrl.isNotEmpty
+            ? (loc?.webReverseWaterfallInitiatorTooltipWithUrl(type, initiatorUrl)
+                ?? 'Initiator: $type\n$initiatorUrl')
+            : (loc?.webReverseWaterfallInitiatorTooltipNoUrl(type)
+                ?? 'Initiator: $type'))
+        : (loc?.webReverseWaterfallNoInitiator ?? 'No initiator info');
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: Tooltip(
-        message: hasAny
-            ? (isZh
-                ? '发起方：$type${e.initiatorUrl != null ? "\n${e.initiatorUrl}" : ""}'
-                : 'Initiator: $type${e.initiatorUrl != null ? "\n${e.initiatorUrl}" : ""}')
-            : (isZh ? '无 Initiator 信息' : 'No initiator info'),
+        message: tooltipMsg,
         child: InkWell(
-          onTap: hasAny ? () => _showInitiator(e, isZh) : null,
+          onTap: hasAny ? () => _showInitiator(e) : null,
           borderRadius: BorderRadius.circular(3),
           child: Container(
             width: 16,
@@ -518,13 +520,14 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     );
   }
 
-  Future<void> _showInitiator(CdpNetworkEntry e, bool isZh) async {
+  Future<void> _showInitiator(CdpNetworkEntry e) async {
     final ctrl = widget.controller;
     await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
         final cs = theme.colorScheme;
+        final loc = AppLocalizations.of(dialogContext);
         final frames = e.initiatorStack;
         return Dialog(
           backgroundColor: cs.surfaceContainer,
@@ -545,7 +548,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          isZh ? '请求发起方' : 'Request Initiator',
+                          loc?.webReverseWaterfallInitiatorTitle ?? 'Request Initiator',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -564,7 +567,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                   child: Row(
                     children: [
                       Text(
-                        '${isZh ? "类型" : "Type"}: ${e.initiatorType ?? "—"}',
+                        '${loc?.webReverseWaterfallInitiatorTypeLabel ?? "Type"}: ${e.initiatorType ?? "—"}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontFamily: 'monospace',
                         ),
@@ -582,7 +585,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                             if (mounted) Navigator.of(context).pop();
                           },
                           icon: const Icon(Icons.launch_rounded, size: 14),
-                          label: Text(isZh ? '跳到 Sources' : 'Open in Sources'),
+                          label: Text(loc?.webReverseWaterfallJumpToSources ?? 'Open in Sources'),
                         ),
                     ],
                   ),
@@ -606,9 +609,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       ? Padding(
                           padding: const EdgeInsets.all(18),
                           child: Text(
-                            isZh
-                                ? '没有 JavaScript 调用栈（parser/preflight 类型常见）'
-                                : 'No JavaScript stack (typical for parser/preflight)',
+                            loc?.webReverseWaterfallNoJsStack ??
+                                'No JavaScript stack (typical for parser/preflight)',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),
@@ -682,7 +684,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OpenHandDialogActionButton.secondary(
-                        label: isZh ? '关闭' : 'Close',
+                        label: loc?.webReverseWaterfallClose ?? 'Close',
                         onPressed: () => Navigator.of(dialogContext).pop(),
                       ),
                     ],
@@ -696,7 +698,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     );
   }
 
-  Future<void> _importHar(bool isZh) async {
+  Future<void> _importHar() async {
+    final loc = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     const typeGroup =
         XTypeGroup(label: 'HAR', extensions: <String>['har', 'json']);
@@ -712,28 +715,30 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     if (existing > 0 && mounted) {
       final mode = await showAnimatedDialog<String>(
         context: context,
-        builder: (dctx) => AlertDialog(
-          title: Text(isZh ? '加载 HAR' : 'Load HAR'),
-          content: Text(
-            isZh
-                ? '当前已有 $existing 条记录，选择加载方式：'
-                : 'Network list has $existing entries. Choose load mode:',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dctx).pop('cancel'),
-              child: Text(isZh ? '取消' : 'Cancel'),
+        builder: (dctx) {
+          final dloc = AppLocalizations.of(dctx);
+          return AlertDialog(
+            title: Text(dloc?.webReverseWaterfallLoadHarTitle ?? 'Load HAR'),
+            content: Text(
+              dloc?.webReverseWaterfallLoadHarPrompt(existing)
+                  ?? 'Network list has $existing entries. Choose load mode:',
             ),
-            TextButton(
-              onPressed: () => Navigator.of(dctx).pop('merge'),
-              child: Text(isZh ? '合并' : 'Merge'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dctx).pop('replace'),
-              child: Text(isZh ? '替换' : 'Replace'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dctx).pop('cancel'),
+                child: Text(dloc?.webReverseWaterfallCancel ?? 'Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dctx).pop('merge'),
+                child: Text(dloc?.webReverseWaterfallMerge ?? 'Merge'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dctx).pop('replace'),
+                child: Text(dloc?.webReverseWaterfallReplace ?? 'Replace'),
+              ),
+            ],
+          );
+        },
       );
       if (mode == null || mode == 'cancel') return;
       merge = mode == 'merge';
@@ -743,12 +748,15 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       final r = widget.controller.loadHarBytes(bytes, merge: merge);
       if (!mounted) return;
       setState(() {});
+      final loc2 = AppLocalizations.of(context);
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh
-            ? '${merge ? "合并" : "替换"}加载 ${r.loaded} 条；跳过 ${r.skipped} 条'
-            : '${merge ? "Merged" : "Replaced"}: ${r.loaded}; skipped ${r.skipped}',
+        merge
+            ? (loc2?.webReverseWaterfallLoadMergedResult(r.loaded, r.skipped)
+                ?? 'Merged: ${r.loaded}; skipped ${r.skipped}')
+            : (loc2?.webReverseWaterfallLoadReplacedResult(r.loaded, r.skipped)
+                ?? 'Replaced: ${r.loaded}; skipped ${r.skipped}'),
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
@@ -757,22 +765,22 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? 'HAR 解析失败' : 'HAR parse failed',
+        loc?.webReverseWaterfallHarParseFailed ?? 'HAR parse failed',
         duration: const Duration(seconds: 3),
       );
     }
   }
 
-  Future<void> _exportHar(bool isZh) async {
+  Future<void> _exportHar() async {
     final messenger = ScaffoldMessenger.of(context);
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
         .replaceAll('.', '-');
     const typeGroup = XTypeGroup(label: 'HAR', extensions: <String>['har']);
-    FileSaveLocation? loc;
+    FileSaveLocation? loc1;
     try {
-      loc = await getSaveLocation(
+      loc1 = await getSaveLocation(
         suggestedName: 'web-reverse-$ts.har',
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
@@ -780,29 +788,30 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       silentLog('web_reverse_waterfall_dialog', 'getSaveLocation har', error,
           stack);
     }
-    if (loc == null) return;
+    if (loc1 == null) return;
     String? written;
     try {
       written = await widget.controller
-          .exportHarToPath(loc.path)
+          .exportHarToPath(loc1.path)
           .timeout(const Duration(seconds: 10));
     } catch (error, stack) {
       silentLog(
           'web_reverse_waterfall_dialog', 'exportHarToPath', error, stack);
     }
     if (!mounted) return;
+    final loc2 = AppLocalizations.of(context);
     if (written == null) {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? 'HAR 保存失败或超时' : 'HAR save failed or timed out',
+        loc2?.webReverseWaterfallHarSaveFailed ?? 'HAR save failed or timed out',
         duration: const Duration(seconds: 3),
       );
     } else {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? 'HAR 已保存到 $written' : 'HAR saved to $written',
+        loc2?.webReverseWaterfallHarSavedTo(written) ?? 'HAR saved to $written',
         duration: const Duration(seconds: 3),
       );
     }

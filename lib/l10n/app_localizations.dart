@@ -9845,6 +9845,192 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'运行中 · 已轮转 {rotations} 次 · 下次 {remaining} 后'**
   String webReverseHarRunningInfo(int rotations, String remaining);
+
+  /// web_reverse: Waterfall dialog · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求瀑布图'**
+  String get webReverseWaterfallTitle;
+
+  /// web_reverse: Waterfall dialog · subtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'蓝段 = 等待 TTFB，绿段 = 下载；点击行复制 URL'**
+  String get webReverseWaterfallSubtitle;
+
+  /// web_reverse: Waterfall dialog · refresh
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get webReverseWaterfallRefresh;
+
+  /// web_reverse: Waterfall dialog · importhar
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导入 HAR'**
+  String get webReverseWaterfallImportHar;
+
+  /// web_reverse: Waterfall dialog · exporthar
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出 HAR'**
+  String get webReverseWaterfallExportHar;
+
+  /// web_reverse: Waterfall dialog · filterhint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL 子串过滤'**
+  String get webReverseWaterfallFilterHint;
+
+  /// web_reverse: Waterfall dialog · onlyxhr
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'仅 XHR/Fetch'**
+  String get webReverseWaterfallOnlyXhr;
+
+  /// web_reverse: Waterfall dialog · sorttime
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'时间'**
+  String get webReverseWaterfallSortTime;
+
+  /// web_reverse: Waterfall dialog · sortduration
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'耗时'**
+  String get webReverseWaterfallSortDuration;
+
+  /// web_reverse: Waterfall dialog · sortsize
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'大小'**
+  String get webReverseWaterfallSortSize;
+
+  /// web_reverse: Waterfall dialog · norequests
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有请求'**
+  String get webReverseWaterfallNoRequests;
+
+  /// web_reverse: Waterfall dialog · headerrequest
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求'**
+  String get webReverseWaterfallHeaderRequest;
+
+  /// web_reverse: Waterfall dialog · urlcopied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 URL'**
+  String get webReverseWaterfallUrlCopied;
+
+  /// web_reverse: Waterfall dialog · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseWaterfallClose;
+
+  /// web_reverse: Waterfall dialog · noinitiator
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无 Initiator 信息'**
+  String get webReverseWaterfallNoInitiator;
+
+  /// web_reverse: Waterfall dialog · initiatortitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求发起方'**
+  String get webReverseWaterfallInitiatorTitle;
+
+  /// web_reverse: Waterfall dialog · initiatortypelabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'类型'**
+  String get webReverseWaterfallInitiatorTypeLabel;
+
+  /// web_reverse: Waterfall dialog · jumptosources
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跳到 Sources'**
+  String get webReverseWaterfallJumpToSources;
+
+  /// web_reverse: Waterfall dialog · nojsstack
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有 JavaScript 调用栈（parser/preflight 类型常见）'**
+  String get webReverseWaterfallNoJsStack;
+
+  /// web_reverse: Waterfall dialog · loadhartitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载 HAR'**
+  String get webReverseWaterfallLoadHarTitle;
+
+  /// web_reverse: Waterfall dialog · cancel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get webReverseWaterfallCancel;
+
+  /// web_reverse: Waterfall dialog · merge
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'合并'**
+  String get webReverseWaterfallMerge;
+
+  /// web_reverse: Waterfall dialog · replace
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'替换'**
+  String get webReverseWaterfallReplace;
+
+  /// web_reverse: Waterfall dialog · harparsefailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HAR 解析失败'**
+  String get webReverseWaterfallHarParseFailed;
+
+  /// web_reverse: Waterfall dialog · harsavefailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HAR 保存失败或超时'**
+  String get webReverseWaterfallHarSaveFailed;
+
+  /// web_reverse: Waterfall dialog · initiatortooltipwithurl
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发起方：{type}\n{url}'**
+  String webReverseWaterfallInitiatorTooltipWithUrl(String type, String url);
+
+  /// web_reverse: Waterfall dialog · initiatortooltipnourl
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发起方：{type}'**
+  String webReverseWaterfallInitiatorTooltipNoUrl(String type);
+
+  /// web_reverse: Waterfall dialog · loadharprompt
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前已有 {count} 条记录，选择加载方式：'**
+  String webReverseWaterfallLoadHarPrompt(int count);
+
+  /// web_reverse: Waterfall dialog · loadmergedresult
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'合并加载 {loaded} 条；跳过 {skipped} 条'**
+  String webReverseWaterfallLoadMergedResult(int loaded, int skipped);
+
+  /// web_reverse: Waterfall dialog · loadreplacedresult
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'替换加载 {loaded} 条；跳过 {skipped} 条'**
+  String webReverseWaterfallLoadReplacedResult(int loaded, int skipped);
+
+  /// web_reverse: Waterfall dialog · harsavedto
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HAR 已保存到 {path}'**
+  String webReverseWaterfallHarSavedTo(String path);
 }
 
 class _AppLocalizationsDelegate

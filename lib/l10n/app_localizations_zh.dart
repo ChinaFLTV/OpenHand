@@ -5302,6 +5302,112 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseHarRunningInfo(int rotations, String remaining) {
     return '运行中 · 已轮转 $rotations 次 · 下次 $remaining 后';
   }
+
+  @override
+  String get webReverseWaterfallTitle => '请求瀑布图';
+
+  @override
+  String get webReverseWaterfallSubtitle => '蓝段 = 等待 TTFB，绿段 = 下载；点击行复制 URL';
+
+  @override
+  String get webReverseWaterfallRefresh => '刷新';
+
+  @override
+  String get webReverseWaterfallImportHar => '导入 HAR';
+
+  @override
+  String get webReverseWaterfallExportHar => '导出 HAR';
+
+  @override
+  String get webReverseWaterfallFilterHint => 'URL 子串过滤';
+
+  @override
+  String get webReverseWaterfallOnlyXhr => '仅 XHR/Fetch';
+
+  @override
+  String get webReverseWaterfallSortTime => '时间';
+
+  @override
+  String get webReverseWaterfallSortDuration => '耗时';
+
+  @override
+  String get webReverseWaterfallSortSize => '大小';
+
+  @override
+  String get webReverseWaterfallNoRequests => '没有请求';
+
+  @override
+  String get webReverseWaterfallHeaderRequest => '请求';
+
+  @override
+  String get webReverseWaterfallUrlCopied => '已复制 URL';
+
+  @override
+  String get webReverseWaterfallClose => '关闭';
+
+  @override
+  String get webReverseWaterfallNoInitiator => '无 Initiator 信息';
+
+  @override
+  String get webReverseWaterfallInitiatorTitle => '请求发起方';
+
+  @override
+  String get webReverseWaterfallInitiatorTypeLabel => '类型';
+
+  @override
+  String get webReverseWaterfallJumpToSources => '跳到 Sources';
+
+  @override
+  String get webReverseWaterfallNoJsStack =>
+      '没有 JavaScript 调用栈（parser/preflight 类型常见）';
+
+  @override
+  String get webReverseWaterfallLoadHarTitle => '加载 HAR';
+
+  @override
+  String get webReverseWaterfallCancel => '取消';
+
+  @override
+  String get webReverseWaterfallMerge => '合并';
+
+  @override
+  String get webReverseWaterfallReplace => '替换';
+
+  @override
+  String get webReverseWaterfallHarParseFailed => 'HAR 解析失败';
+
+  @override
+  String get webReverseWaterfallHarSaveFailed => 'HAR 保存失败或超时';
+
+  @override
+  String webReverseWaterfallInitiatorTooltipWithUrl(String type, String url) {
+    return '发起方：$type\n$url';
+  }
+
+  @override
+  String webReverseWaterfallInitiatorTooltipNoUrl(String type) {
+    return '发起方：$type';
+  }
+
+  @override
+  String webReverseWaterfallLoadHarPrompt(int count) {
+    return '当前已有 $count 条记录，选择加载方式：';
+  }
+
+  @override
+  String webReverseWaterfallLoadMergedResult(int loaded, int skipped) {
+    return '合并加载 $loaded 条；跳过 $skipped 条';
+  }
+
+  @override
+  String webReverseWaterfallLoadReplacedResult(int loaded, int skipped) {
+    return '替换加载 $loaded 条；跳过 $skipped 条';
+  }
+
+  @override
+  String webReverseWaterfallHarSavedTo(String path) {
+    return 'HAR 已保存到 $path';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -10602,6 +10708,112 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseHarRunningInfo(int rotations, String remaining) {
     return '运行中 · 已轮转 $rotations 次 · 下次 $remaining 后';
   }
+
+  @override
+  String get webReverseWaterfallTitle => '请求瀑布图';
+
+  @override
+  String get webReverseWaterfallSubtitle => '蓝段 = 等待 TTFB，绿段 = 下载；点击行复制 URL';
+
+  @override
+  String get webReverseWaterfallRefresh => '刷新';
+
+  @override
+  String get webReverseWaterfallImportHar => '导入 HAR';
+
+  @override
+  String get webReverseWaterfallExportHar => '导出 HAR';
+
+  @override
+  String get webReverseWaterfallFilterHint => 'URL 子串过滤';
+
+  @override
+  String get webReverseWaterfallOnlyXhr => '仅 XHR/Fetch';
+
+  @override
+  String get webReverseWaterfallSortTime => '时间';
+
+  @override
+  String get webReverseWaterfallSortDuration => '耗时';
+
+  @override
+  String get webReverseWaterfallSortSize => '大小';
+
+  @override
+  String get webReverseWaterfallNoRequests => '没有请求';
+
+  @override
+  String get webReverseWaterfallHeaderRequest => '请求';
+
+  @override
+  String get webReverseWaterfallUrlCopied => '已复制 URL';
+
+  @override
+  String get webReverseWaterfallClose => '关闭';
+
+  @override
+  String get webReverseWaterfallNoInitiator => '无 Initiator 信息';
+
+  @override
+  String get webReverseWaterfallInitiatorTitle => '请求发起方';
+
+  @override
+  String get webReverseWaterfallInitiatorTypeLabel => '类型';
+
+  @override
+  String get webReverseWaterfallJumpToSources => '跳到 Sources';
+
+  @override
+  String get webReverseWaterfallNoJsStack =>
+      '没有 JavaScript 调用栈（parser/preflight 类型常见）';
+
+  @override
+  String get webReverseWaterfallLoadHarTitle => '加载 HAR';
+
+  @override
+  String get webReverseWaterfallCancel => '取消';
+
+  @override
+  String get webReverseWaterfallMerge => '合并';
+
+  @override
+  String get webReverseWaterfallReplace => '替换';
+
+  @override
+  String get webReverseWaterfallHarParseFailed => 'HAR 解析失败';
+
+  @override
+  String get webReverseWaterfallHarSaveFailed => 'HAR 保存失败或超时';
+
+  @override
+  String webReverseWaterfallInitiatorTooltipWithUrl(String type, String url) {
+    return '发起方：$type\n$url';
+  }
+
+  @override
+  String webReverseWaterfallInitiatorTooltipNoUrl(String type) {
+    return '发起方：$type';
+  }
+
+  @override
+  String webReverseWaterfallLoadHarPrompt(int count) {
+    return '当前已有 $count 条记录，选择加载方式：';
+  }
+
+  @override
+  String webReverseWaterfallLoadMergedResult(int loaded, int skipped) {
+    return '合并加载 $loaded 条；跳过 $skipped 条';
+  }
+
+  @override
+  String webReverseWaterfallLoadReplacedResult(int loaded, int skipped) {
+    return '替换加载 $loaded 条；跳过 $skipped 条';
+  }
+
+  @override
+  String webReverseWaterfallHarSavedTo(String path) {
+    return 'HAR 已保存到 $path';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -15900,5 +16112,111 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseHarRunningInfo(int rotations, String remaining) {
     return '运行中 · 已轮转 $rotations 次 · 下次 $remaining 后';
+  }
+
+  @override
+  String get webReverseWaterfallTitle => '请求瀑布图';
+
+  @override
+  String get webReverseWaterfallSubtitle => '蓝段 = 等待 TTFB，绿段 = 下载；点击行复制 URL';
+
+  @override
+  String get webReverseWaterfallRefresh => '刷新';
+
+  @override
+  String get webReverseWaterfallImportHar => '导入 HAR';
+
+  @override
+  String get webReverseWaterfallExportHar => '导出 HAR';
+
+  @override
+  String get webReverseWaterfallFilterHint => 'URL 子串过滤';
+
+  @override
+  String get webReverseWaterfallOnlyXhr => '仅 XHR/Fetch';
+
+  @override
+  String get webReverseWaterfallSortTime => '时间';
+
+  @override
+  String get webReverseWaterfallSortDuration => '耗时';
+
+  @override
+  String get webReverseWaterfallSortSize => '大小';
+
+  @override
+  String get webReverseWaterfallNoRequests => '没有请求';
+
+  @override
+  String get webReverseWaterfallHeaderRequest => '请求';
+
+  @override
+  String get webReverseWaterfallUrlCopied => '已复制 URL';
+
+  @override
+  String get webReverseWaterfallClose => '关闭';
+
+  @override
+  String get webReverseWaterfallNoInitiator => '无 Initiator 信息';
+
+  @override
+  String get webReverseWaterfallInitiatorTitle => '请求发起方';
+
+  @override
+  String get webReverseWaterfallInitiatorTypeLabel => '类型';
+
+  @override
+  String get webReverseWaterfallJumpToSources => '跳到 Sources';
+
+  @override
+  String get webReverseWaterfallNoJsStack =>
+      '没有 JavaScript 调用栈（parser/preflight 类型常见）';
+
+  @override
+  String get webReverseWaterfallLoadHarTitle => '加载 HAR';
+
+  @override
+  String get webReverseWaterfallCancel => '取消';
+
+  @override
+  String get webReverseWaterfallMerge => '合并';
+
+  @override
+  String get webReverseWaterfallReplace => '替换';
+
+  @override
+  String get webReverseWaterfallHarParseFailed => 'HAR 解析失败';
+
+  @override
+  String get webReverseWaterfallHarSaveFailed => 'HAR 保存失败或超时';
+
+  @override
+  String webReverseWaterfallInitiatorTooltipWithUrl(String type, String url) {
+    return '发起方：$type\n$url';
+  }
+
+  @override
+  String webReverseWaterfallInitiatorTooltipNoUrl(String type) {
+    return '发起方：$type';
+  }
+
+  @override
+  String webReverseWaterfallLoadHarPrompt(int count) {
+    return '当前已有 $count 条记录，选择加载方式：';
+  }
+
+  @override
+  String webReverseWaterfallLoadMergedResult(int loaded, int skipped) {
+    return '合并加载 $loaded 条；跳过 $skipped 条';
+  }
+
+  @override
+  String webReverseWaterfallLoadReplacedResult(int loaded, int skipped) {
+    return '替换加载 $loaded 条；跳过 $skipped 条';
+  }
+
+  @override
+  String webReverseWaterfallHarSavedTo(String path) {
+    return 'HAR 已保存到 $path';
   }
 }

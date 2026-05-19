@@ -2927,5 +2927,168 @@
         "type": "String"
       }
     }
+  },
+  "webReverseWaterfallTitle": "请求瀑布图",
+  "@webReverseWaterfallTitle": {
+    "description": "web_reverse: Waterfall dialog · title"
+  },
+  "webReverseWaterfallSubtitle": "蓝段 = 等待 TTFB，绿段 = 下载；点击行复制 URL",
+  "@webReverseWaterfallSubtitle": {
+    "description": "web_reverse: Waterfall dialog · subtitle"
+  },
+  "webReverseWaterfallRefresh": "刷新",
+  "@webReverseWaterfallRefresh": {
+    "description": "web_reverse: Waterfall dialog · refresh"
+  },
+  "webReverseWaterfallImportHar": "导入 HAR",
+  "@webReverseWaterfallImportHar": {
+    "description": "web_reverse: Waterfall dialog · importhar"
+  },
+  "webReverseWaterfallExportHar": "导出 HAR",
+  "@webReverseWaterfallExportHar": {
+    "description": "web_reverse: Waterfall dialog · exporthar"
+  },
+  "webReverseWaterfallFilterHint": "URL 子串过滤",
+  "@webReverseWaterfallFilterHint": {
+    "description": "web_reverse: Waterfall dialog · filterhint"
+  },
+  "webReverseWaterfallOnlyXhr": "仅 XHR/Fetch",
+  "@webReverseWaterfallOnlyXhr": {
+    "description": "web_reverse: Waterfall dialog · onlyxhr"
+  },
+  "webReverseWaterfallSortTime": "时间",
+  "@webReverseWaterfallSortTime": {
+    "description": "web_reverse: Waterfall dialog · sorttime"
+  },
+  "webReverseWaterfallSortDuration": "耗时",
+  "@webReverseWaterfallSortDuration": {
+    "description": "web_reverse: Waterfall dialog · sortduration"
+  },
+  "webReverseWaterfallSortSize": "大小",
+  "@webReverseWaterfallSortSize": {
+    "description": "web_reverse: Waterfall dialog · sortsize"
+  },
+  "webReverseWaterfallNoRequests": "没有请求",
+  "@webReverseWaterfallNoRequests": {
+    "description": "web_reverse: Waterfall dialog · norequests"
+  },
+  "webReverseWaterfallHeaderRequest": "请求",
+  "@webReverseWaterfallHeaderRequest": {
+    "description": "web_reverse: Waterfall dialog · headerrequest"
+  },
+  "webReverseWaterfallUrlCopied": "已复制 URL",
+  "@webReverseWaterfallUrlCopied": {
+    "description": "web_reverse: Waterfall dialog · urlcopied"
+  },
+  "webReverseWaterfallClose": "关闭",
+  "@webReverseWaterfallClose": {
+    "description": "web_reverse: Waterfall dialog · close"
+  },
+  "webReverseWaterfallNoInitiator": "无 Initiator 信息",
+  "@webReverseWaterfallNoInitiator": {
+    "description": "web_reverse: Waterfall dialog · noinitiator"
+  },
+  "webReverseWaterfallInitiatorTitle": "请求发起方",
+  "@webReverseWaterfallInitiatorTitle": {
+    "description": "web_reverse: Waterfall dialog · initiatortitle"
+  },
+  "webReverseWaterfallInitiatorTypeLabel": "类型",
+  "@webReverseWaterfallInitiatorTypeLabel": {
+    "description": "web_reverse: Waterfall dialog · initiatortypelabel"
+  },
+  "webReverseWaterfallJumpToSources": "跳到 Sources",
+  "@webReverseWaterfallJumpToSources": {
+    "description": "web_reverse: Waterfall dialog · jumptosources"
+  },
+  "webReverseWaterfallNoJsStack": "没有 JavaScript 调用栈（parser/preflight 类型常见）",
+  "@webReverseWaterfallNoJsStack": {
+    "description": "web_reverse: Waterfall dialog · nojsstack"
+  },
+  "webReverseWaterfallLoadHarTitle": "加载 HAR",
+  "@webReverseWaterfallLoadHarTitle": {
+    "description": "web_reverse: Waterfall dialog · loadhartitle"
+  },
+  "webReverseWaterfallCancel": "取消",
+  "@webReverseWaterfallCancel": {
+    "description": "web_reverse: Waterfall dialog · cancel"
+  },
+  "webReverseWaterfallMerge": "合并",
+  "@webReverseWaterfallMerge": {
+    "description": "web_reverse: Waterfall dialog · merge"
+  },
+  "webReverseWaterfallReplace": "替换",
+  "@webReverseWaterfallReplace": {
+    "description": "web_reverse: Waterfall dialog · replace"
+  },
+  "webReverseWaterfallHarParseFailed": "HAR 解析失败",
+  "@webReverseWaterfallHarParseFailed": {
+    "description": "web_reverse: Waterfall dialog · harparsefailed"
+  },
+  "webReverseWaterfallHarSaveFailed": "HAR 保存失败或超时",
+  "@webReverseWaterfallHarSaveFailed": {
+    "description": "web_reverse: Waterfall dialog · harsavefailed"
+  },
+  "webReverseWaterfallInitiatorTooltipWithUrl": "发起方：{type}\n{url}",
+  "@webReverseWaterfallInitiatorTooltipWithUrl": {
+    "description": "web_reverse: Waterfall dialog · initiatortooltipwithurl",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseWaterfallInitiatorTooltipNoUrl": "发起方：{type}",
+  "@webReverseWaterfallInitiatorTooltipNoUrl": {
+    "description": "web_reverse: Waterfall dialog · initiatortooltipnourl",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseWaterfallLoadHarPrompt": "当前已有 {count} 条记录，选择加载方式：",
+  "@webReverseWaterfallLoadHarPrompt": {
+    "description": "web_reverse: Waterfall dialog · loadharprompt",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWaterfallLoadMergedResult": "合并加载 {loaded} 条；跳过 {skipped} 条",
+  "@webReverseWaterfallLoadMergedResult": {
+    "description": "web_reverse: Waterfall dialog · loadmergedresult",
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWaterfallLoadReplacedResult": "替换加载 {loaded} 条；跳过 {skipped} 条",
+  "@webReverseWaterfallLoadReplacedResult": {
+    "description": "web_reverse: Waterfall dialog · loadreplacedresult",
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWaterfallHarSavedTo": "HAR 已保存到 {path}",
+  "@webReverseWaterfallHarSavedTo": {
+    "description": "web_reverse: Waterfall dialog · harsavedto",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
   }
 }

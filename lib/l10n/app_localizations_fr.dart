@@ -5647,4 +5647,111 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseHarRunningInfo(int rotations, String remaining) {
     return 'Running · $rotations rotations · next in $remaining';
   }
+
+  @override
+  String get webReverseWaterfallTitle => 'Network Waterfall';
+
+  @override
+  String get webReverseWaterfallSubtitle =>
+      'Blue = wait TTFB, Green = download; click row to copy URL';
+
+  @override
+  String get webReverseWaterfallRefresh => 'Refresh';
+
+  @override
+  String get webReverseWaterfallImportHar => 'Import HAR';
+
+  @override
+  String get webReverseWaterfallExportHar => 'Export HAR';
+
+  @override
+  String get webReverseWaterfallFilterHint => 'filter URL substring';
+
+  @override
+  String get webReverseWaterfallOnlyXhr => 'XHR/Fetch only';
+
+  @override
+  String get webReverseWaterfallSortTime => 'Time';
+
+  @override
+  String get webReverseWaterfallSortDuration => 'Duration';
+
+  @override
+  String get webReverseWaterfallSortSize => 'Size';
+
+  @override
+  String get webReverseWaterfallNoRequests => 'No requests';
+
+  @override
+  String get webReverseWaterfallHeaderRequest => 'Request';
+
+  @override
+  String get webReverseWaterfallUrlCopied => 'URL copied';
+
+  @override
+  String get webReverseWaterfallClose => 'Close';
+
+  @override
+  String get webReverseWaterfallNoInitiator => 'No initiator info';
+
+  @override
+  String get webReverseWaterfallInitiatorTitle => 'Request Initiator';
+
+  @override
+  String get webReverseWaterfallInitiatorTypeLabel => 'Type';
+
+  @override
+  String get webReverseWaterfallJumpToSources => 'Open in Sources';
+
+  @override
+  String get webReverseWaterfallNoJsStack =>
+      'No JavaScript stack (typical for parser/preflight)';
+
+  @override
+  String get webReverseWaterfallLoadHarTitle => 'Load HAR';
+
+  @override
+  String get webReverseWaterfallCancel => 'Cancel';
+
+  @override
+  String get webReverseWaterfallMerge => 'Merge';
+
+  @override
+  String get webReverseWaterfallReplace => 'Replace';
+
+  @override
+  String get webReverseWaterfallHarParseFailed => 'HAR parse failed';
+
+  @override
+  String get webReverseWaterfallHarSaveFailed => 'HAR save failed or timed out';
+
+  @override
+  String webReverseWaterfallInitiatorTooltipWithUrl(String type, String url) {
+    return 'Initiator: $type\n$url';
+  }
+
+  @override
+  String webReverseWaterfallInitiatorTooltipNoUrl(String type) {
+    return 'Initiator: $type';
+  }
+
+  @override
+  String webReverseWaterfallLoadHarPrompt(int count) {
+    return 'Network list has $count entries. Choose load mode:';
+  }
+
+  @override
+  String webReverseWaterfallLoadMergedResult(int loaded, int skipped) {
+    return 'Merged: $loaded; skipped $skipped';
+  }
+
+  @override
+  String webReverseWaterfallLoadReplacedResult(int loaded, int skipped) {
+    return 'Replaced: $loaded; skipped $skipped';
+  }
+
+  @override
+  String webReverseWaterfallHarSavedTo(String path) {
+    return 'HAR saved to $path';
+  }
 }
