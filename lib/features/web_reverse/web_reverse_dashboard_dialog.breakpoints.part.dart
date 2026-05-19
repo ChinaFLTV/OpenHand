@@ -204,6 +204,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     if (!mounted) return;
     if (ok) {
       _xhrCtrl.clear();
+      widget.onPersist();
     } else {
       OpenHandSnackBar.showError(
         context,
@@ -213,7 +214,8 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
   }
 
   Future<void> _removeXhr(String s) async {
-    await widget.controller.removeXhrBreakpoint(s);
+    final ok = await widget.controller.removeXhrBreakpoint(s);
+    if (ok && mounted) widget.onPersist();
   }
 
   // 把 URL 收成「文件名」级别的短串展示在断点行标题：
@@ -247,6 +249,8 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
         context,
         widget.isZh ? '设置失败（页面未在调试态）' : 'Set failed (page not attached)',
       );
+    } else {
+      widget.onPersist();
     }
   }
 
@@ -261,6 +265,8 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
         context,
         widget.isZh ? '操作失败（页面未在调试态）' : 'Op failed (not attached)',
       );
+    } else {
+      widget.onPersist();
     }
   }
 
@@ -272,6 +278,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     if (!mounted) return;
     if (ok) {
       _domSelectorCtrl.clear();
+      widget.onPersist();
     } else {
       OpenHandSnackBar.showError(
         context,
@@ -283,8 +290,9 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
   }
 
   Future<void> _removeDomBp(({String selector, String type}) b) async {
-    await widget.controller
+    final ok = await widget.controller
         .removeDomBreakpoint(selector: b.selector, type: b.type);
+    if (ok && mounted) widget.onPersist();
   }
 
   Future<void> _toggleCspViolation(String type) async {
@@ -299,6 +307,8 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
         context,
         widget.isZh ? '设置失败' : 'Set failed',
       );
+    } else {
+      widget.onPersist();
     }
   }
 

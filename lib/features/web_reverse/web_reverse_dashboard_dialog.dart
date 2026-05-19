@@ -158,6 +158,15 @@ class _WebReverseDashboardDialogState
   static const _kBrowserTabUrlsMetaKey = 'web_reverse_browser_tab_urls';
   static const _kReplHistoryMetaKey = 'web_reverse_console_repl_history';
   static const _kBreakpointsMetaKey = 'web_reverse_sources_breakpoints';
+  // Stream E：除行断点外的其它 4 类 + pauseOnExceptions 也需要持久化。
+  // 历史会话只写过 `_kBreakpointsMetaKey`（{url,line}），现已升级为
+  // {url,line,condition?}；restoreBreakpoints 兼容旧格式。
+  static const _kXhrBreakpointsMetaKey = 'web_reverse_xhr_breakpoints';
+  static const _kEventListenerBreakpointsMetaKey =
+      'web_reverse_event_listener_breakpoints';
+  static const _kDomBreakpointsMetaKey = 'web_reverse_dom_breakpoints';
+  static const _kCspBreakpointsMetaKey = 'web_reverse_csp_breakpoints';
+  static const _kPauseExceptionsMetaKey = 'web_reverse_pause_on_exceptions';
   static const _kInterceptRulesMetaKey = 'web_reverse_intercept_rules';
   static const _kLspCommandMetaKey = 'web_reverse_lsp_command';
   static const _kLspArgsMetaKey = 'web_reverse_lsp_args';
@@ -454,15 +463,35 @@ class _WebReverseDashboardDialogState
   }
 
   /// 持久化 Sources tab 用户设过的断点。Sources 面板每次 set/remove 后调一次。
+  /// Stream E：除行断点外，DOM / EventListener / XHR / CSP / pauseOnExceptions
+  /// 也会一并写入 session metadata，下次打开 dashboard 时由 restoreBreakpoints
+  /// 恢复。行断点条件表达式同样持久化（注意：仅写到本会话 metadata 不会随
+  /// share 导出）。
   void persistBreakpoints() {
     if (!mounted) return;
     final session = context.read<AiSessionController>();
-    final bps = widget.controller.userBreakpoints
-        .map((b) => <String, Object?>{'url': b.url, 'line': b.line})
+    final c = widget.controller;
+    final bps = c.userBreakpoints.map((b) {
+      final cond = c.breakpointCondition(url: b.url, line: b.line);
+      return <String, Object?>{
+        'url': b.url,
+        'line': b.line,
+        if (cond.isNotEmpty) 'condition': cond,
+      };
+    }).toList(growable: false);
+    final dom = c.domBreakpoints
+        .map((b) => <String, Object?>{'selector': b.selector, 'type': b.type})
         .toList(growable: false);
     unawaited(
       session.updateSessionMetadata(widget.sessionId, <String, Object?>{
         _kBreakpointsMetaKey: bps,
+        _kXhrBreakpointsMetaKey: c.xhrBreakpoints.toList(growable: false),
+        _kEventListenerBreakpointsMetaKey:
+            c.eventListenerBreakpoints.toList(growable: false),
+        _kDomBreakpointsMetaKey: dom,
+        _kCspBreakpointsMetaKey:
+            c.cspViolationBreakpoints.toList(growable: false),
+        _kPauseExceptionsMetaKey: c.pauseOnExceptions,
       }),
     );
   }
@@ -606,25 +635,94 @@ class _WebReverseDashboardDialogState
   }
 
   /// 浏览器从 dead 切回 alive 时调用：恢复持久化的断点（先 enableDebugger）。
+  /// Stream E：除行断点外，依次恢复 pauseOnExceptions / XHR / EventListener /
+  /// DOM / CSP；任何单项失败用 silentLog 吞掉，确保后续步骤继续。DOM 断点
+  /// 依赖目标 selector 在页面上能 querySelector 到；若 selector 已失效则跳
+  /// 过——下次手动添加即可。
   Future<void> restoreBreakpoints() async {
     if (!mounted) return;
     final session = context.read<AiSessionController>().sessions.firstWhere(
           (s) => s.id == widget.sessionId,
           orElse: () => context.read<AiSessionController>().sessions.first,
         );
-    final raw = session.metadata[_kBreakpointsMetaKey];
-    if (raw is! List || raw.isEmpty) return;
+    final meta = session.metadata;
+    final rawBps = meta[_kBreakpointsMetaKey];
+    final rawXhr = meta[_kXhrBreakpointsMetaKey];
+    final rawEvent = meta[_kEventListenerBreakpointsMetaKey];
+    final rawDom = meta[_kDomBreakpointsMetaKey];
+    final rawCsp = meta[_kCspBreakpointsMetaKey];
+    final rawPause = meta[_kPauseExceptionsMetaKey];
+    final hasAny = (rawBps is List && rawBps.isNotEmpty) ||
+        (rawXhr is List && rawXhr.isNotEmpty) ||
+        (rawEvent is List && rawEvent.isNotEmpty) ||
+        (rawDom is List && rawDom.isNotEmpty) ||
+        (rawCsp is List && rawCsp.isNotEmpty) ||
+        (rawPause is String && rawPause != 'none');
+    if (!hasAny) return;
     await widget.controller.enableDebugger();
-    final list = <({String url, int line})>[];
-    for (final item in raw) {
-      if (item is! Map) continue;
-      final url = '${item['url'] ?? ''}';
-      final line = (item['line'] as num?)?.toInt() ?? -1;
-      if (url.isEmpty || line < 0) continue;
-      list.add((url: url, line: line));
+    final c = widget.controller;
+
+    // pauseOnExceptions
+    if (rawPause is String &&
+        (rawPause == 'uncaught' || rawPause == 'all')) {
+      try {
+        await c.setPauseOnExceptions(rawPause);
+      } catch (_) {}
     }
-    if (list.isNotEmpty) {
-      await widget.controller.restoreBreakpoints(list);
+    // 行断点（含 condition）。旧格式只有 url/line 时 condition 缺省。
+    if (rawBps is List) {
+      for (final item in rawBps) {
+        if (item is! Map) continue;
+        final url = '${item['url'] ?? ''}';
+        final line = (item['line'] as num?)?.toInt() ?? -1;
+        final condition = (item['condition'] as String?)?.trim() ?? '';
+        if (url.isEmpty || line < 0) continue;
+        try {
+          await c.setBreakpointByUrl(
+            url: url,
+            lineNumber: line,
+            condition: condition.isEmpty ? null : condition,
+          );
+        } catch (_) {}
+      }
+    }
+    if (rawXhr is List) {
+      for (final s in rawXhr) {
+        if (s is! String) continue;
+        try {
+          await c.addXhrBreakpoint(s);
+        } catch (_) {}
+      }
+    }
+    if (rawEvent is List) {
+      for (final s in rawEvent) {
+        if (s is! String || s.isEmpty) continue;
+        try {
+          await c.setEventListenerBreakpoint(s);
+        } catch (_) {}
+      }
+    }
+    if (rawDom is List) {
+      for (final item in rawDom) {
+        if (item is! Map) continue;
+        final sel = '${item['selector'] ?? ''}';
+        final t = '${item['type'] ?? ''}';
+        if (sel.isEmpty || t.isEmpty) continue;
+        try {
+          await c.addDomBreakpoint(selector: sel, type: t);
+        } catch (_) {}
+      }
+    }
+    if (rawCsp is List) {
+      final types = <String>{};
+      for (final s in rawCsp) {
+        if (s is String && s.isNotEmpty) types.add(s);
+      }
+      if (types.isNotEmpty) {
+        try {
+          await c.setCspViolationBreakpoints(types);
+        } catch (_) {}
+      }
     }
   }
 
