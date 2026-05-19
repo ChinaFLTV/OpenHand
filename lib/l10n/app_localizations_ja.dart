@@ -5968,4 +5968,75 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseStorageRefresh => 'Refresh';
+
+  @override
+  String get webReverseCorsUrlRequired => 'URL required';
+
+  @override
+  String get webReverseCorsBadEval => 'Bad eval result';
+
+  @override
+  String get webReverseCorsMissing => 'missing';
+
+  @override
+  String get webReverseCorsMatchOrigin => 'matches current origin';
+
+  @override
+  String get webReverseCorsAllHeadersAllowed => 'all requested headers allowed';
+
+  @override
+  String get webReverseCorsCredsRule =>
+      'must be true and Allow-Origin must not be *';
+
+  @override
+  String get webReverseCorsCacheSeconds => 'cache seconds';
+
+  @override
+  String get webReverseCorsResultCopied => 'Result copied';
+
+  @override
+  String get webReverseCorsTitle => 'CORS Preflight';
+
+  @override
+  String get webReverseCorsSubtitle =>
+      'OPTIONS · diagnose Allow-Origin / Methods / Headers / Credentials';
+
+  @override
+  String get webReverseCorsCopyJson => 'Copy JSON';
+
+  @override
+  String get webReverseCorsTargetUrl => 'Target URL';
+
+  @override
+  String get webReverseCorsActualMethod => 'Actual Method';
+
+  @override
+  String get webReverseCorsOriginOverride =>
+      'Origin override (optional, display only)';
+
+  @override
+  String get webReverseCorsCustomHeaders =>
+      'Custom headers (one K: V per line; only names sent in preflight)';
+
+  @override
+  String get webReverseCorsRunButton => 'Run Preflight';
+
+  @override
+  String get webReverseCorsDiagnostics => 'Diagnostics';
+
+  @override
+  String get webReverseCorsAllHeaders => 'All response headers';
+
+  @override
+  String get webReverseCorsClose => 'Close';
+
+  @override
+  String webReverseCorsMustInclude(String method) {
+    return 'must include $method';
+  }
+
+  @override
+  String webReverseCorsMissingHeaders(String names) {
+    return 'missing: $names';
+  }
 }

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -69,9 +70,13 @@ class _CorsDialogState extends State<_CorsDialog> {
   }
 
   Future<void> _run() async {
+    final loc = AppLocalizations.of(context)!;
+    final loc = AppLocalizations.of(context);
     final url = _urlCtl.text.trim();
     if (url.isEmpty) {
-      setState(() => _error = widget.isZh ? '请输入 URL' : 'URL required');
+      setState(() {
+        _error = loc?.webReverseCorsUrlRequired ?? 'URL required';
+      });
       return;
     }
     final method = _methodCtl.text.trim().toUpperCase();
@@ -127,7 +132,7 @@ class _CorsDialogState extends State<_CorsDialog> {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _error = widget.isZh ? '页面返回值异常' : 'Bad eval result';
+          _error = loc?.webReverseCorsBadEval ?? 'Bad eval result';
         });
         return;
       }
@@ -150,7 +155,7 @@ class _CorsDialogState extends State<_CorsDialog> {
     }
   }
 
-  List<_Diagnostic> _diagnose() {
+  List<_Diagnostic> _diagnose(AppLocalizations? loc) {
     final res = _result;
     if (res == null || res['ok'] != true) return const [];
     final hdr =
@@ -166,8 +171,8 @@ class _CorsDialogState extends State<_CorsDialog> {
         value: allowOrigin,
         pass: allowOrigin == '*' || allowOrigin == origin,
         hint: allowOrigin.isEmpty
-            ? (widget.isZh ? '缺失' : 'missing')
-            : (widget.isZh ? '与当前 origin 匹配' : 'matches current origin'),
+            ? (loc?.webReverseCorsMissing ?? 'missing')
+            : (loc?.webReverseCorsMatchOrigin ?? 'matches current origin'),
       ),
     );
     final allowMethods = '${hdr['access-control-allow-methods'] ?? ''}'
@@ -180,7 +185,7 @@ class _CorsDialogState extends State<_CorsDialog> {
         label: 'Access-Control-Allow-Methods',
         value: '${hdr['access-control-allow-methods'] ?? ''}',
         pass: allowMethods.contains(method) || allowMethods.contains('*'),
-        hint: widget.isZh ? '需包含 $method' : 'must include $method',
+        hint: loc?.webReverseCorsMustInclude(method) ?? 'must include $method',
       ),
     );
     final allowHeaders = '${hdr['access-control-allow-headers'] ?? ''}'
@@ -196,8 +201,8 @@ class _CorsDialogState extends State<_CorsDialog> {
         value: '${hdr['access-control-allow-headers'] ?? ''}',
         pass: missing.isEmpty,
         hint: missing.isEmpty
-            ? (widget.isZh ? '所有请求头都被允许' : 'all requested headers allowed')
-            : (widget.isZh ? '缺少：${missing.join(', ')}' : 'missing: ${missing.join(', ')}'),
+            ? (loc?.webReverseCorsAllHeadersAllowed ?? 'all requested headers allowed')
+            : (loc?.webReverseCorsMissingHeaders(missing.join(', ')) ?? 'missing: ${missing.join(', ')}'),
       ),
     );
     if (_withCredentials) {
@@ -207,9 +212,7 @@ class _CorsDialogState extends State<_CorsDialog> {
           label: 'Access-Control-Allow-Credentials',
           value: allowCreds,
           pass: allowCreds.toLowerCase() == 'true' && allowOrigin != '*',
-          hint: widget.isZh
-              ? '需 = true 且 Allow-Origin 不能为 *'
-              : 'must be true and Allow-Origin must not be *',
+          hint: loc?.webReverseCorsCredsRule ?? 'must be true and Allow-Origin must not be *',
         ),
       );
     }
@@ -219,15 +222,17 @@ class _CorsDialogState extends State<_CorsDialog> {
         label: 'Access-Control-Max-Age',
         value: maxAge,
         pass: true,
-        hint: widget.isZh ? '缓存时间（秒）' : 'cache seconds',
+        hint: loc?.webReverseCorsCacheSeconds ?? 'cache seconds',
       ));
     }
     return out;
   }
 
   Future<void> _copy() async {
+    final loc = AppLocalizations.of(context)!;
     final res = _result;
     if (res == null) return;
+    final loc = AppLocalizations.of(context);
     try {
       await Clipboard.setData(
         ClipboardData(
@@ -244,7 +249,7 @@ class _CorsDialogState extends State<_CorsDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '结果已复制' : 'Result copied',
+        loc?.webReverseCorsResultCopied ?? 'Result copied',
       );
     }
   }
@@ -253,9 +258,9 @@ class _CorsDialogState extends State<_CorsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final res = _result;
-    final diags = _diagnose();
+    final diags = _diagnose(loc);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -275,14 +280,13 @@ class _CorsDialogState extends State<_CorsDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'CORS Preflight 测试' : 'CORS Preflight',
+                          loc?.webReverseCorsTitle ?? 'CORS Preflight',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'OPTIONS · Allow-Origin / Methods / Headers / Credentials 诊断'
-                              : 'OPTIONS · diagnose Allow-Origin / Methods / Headers / Credentials',
+                          loc?.webReverseCorsSubtitle ??
+                              'OPTIONS · diagnose Allow-Origin / Methods / Headers / Credentials',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -292,7 +296,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                   IconButton(
                     onPressed: res == null ? null : _copy,
                     icon: const Icon(Icons.copy_rounded),
-                    tooltip: isZh ? '复制 JSON' : 'Copy JSON',
+                    tooltip: loc?.webReverseCorsCopyJson ?? 'Copy JSON',
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -310,7 +314,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                     controller: _urlCtl,
                     autofocus: true,
                     decoration: InputDecoration(
-                      labelText: isZh ? '目标 URL' : 'Target URL',
+                      labelText: loc?.webReverseCorsTargetUrl ?? 'Target URL',
                       border: const OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -323,7 +327,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                         child: TextField(
                           controller: _methodCtl,
                           decoration: InputDecoration(
-                            labelText: isZh ? '实际方法' : 'Actual Method',
+                            labelText: loc?.webReverseCorsActualMethod ?? 'Actual Method',
                             border: const OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -334,9 +338,8 @@ class _CorsDialogState extends State<_CorsDialog> {
                         child: TextField(
                           controller: _originCtl,
                           decoration: InputDecoration(
-                            labelText: isZh
-                                ? 'Origin 覆盖（可选，仅用于诊断显示）'
-                                : 'Origin override (optional, display only)',
+                            labelText: loc?.webReverseCorsOriginOverride ??
+                                'Origin override (optional, display only)',
                             border: const OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -350,9 +353,8 @@ class _CorsDialogState extends State<_CorsDialog> {
                     maxLines: 4,
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                     decoration: InputDecoration(
-                      labelText: isZh
-                          ? '自定义请求头（每行一个 K: V，仅头名参与 preflight）'
-                          : 'Custom headers (one K: V per line; only names sent in preflight)',
+                      labelText: loc?.webReverseCorsCustomHeaders ??
+                          'Custom headers (one K: V per line; only names sent in preflight)',
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -366,14 +368,14 @@ class _CorsDialogState extends State<_CorsDialog> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        isZh ? 'withCredentials' : 'withCredentials',
+                        'withCredentials',
                         style: theme.textTheme.labelMedium,
                       ),
                       const Spacer(),
                       FilledButton.icon(
                         onPressed: _busy ? null : _run,
                         icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text(isZh ? '运行 Preflight' : 'Run Preflight'),
+                        label: Text(loc?.webReverseCorsRunButton ?? 'Run Preflight'),
                       ),
                     ],
                   ),
@@ -429,14 +431,14 @@ class _CorsDialogState extends State<_CorsDialog> {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            '${isZh ? 'origin: ' : 'origin: '}${res['origin']}',
+                            'origin: ${res['origin']}',
                             style: theme.textTheme.labelSmall,
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        isZh ? '诊断' : 'Diagnostics',
+                        loc?.webReverseCorsDiagnostics ?? 'Diagnostics',
                         style: theme.textTheme.titleSmall
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
@@ -494,7 +496,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                         ),
                       const SizedBox(height: 10),
                       Text(
-                        isZh ? '所有响应头' : 'All response headers',
+                        loc?.webReverseCorsAllHeaders ?? 'All response headers',
                         style: theme.textTheme.titleSmall
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
@@ -524,7 +526,7 @@ class _CorsDialogState extends State<_CorsDialog> {
               child: SizedBox(
                 width: double.infinity,
                 child: OpenHandDialogActionButton.primary(
-                  label: isZh ? '关闭' : 'Close',
+                  label: loc?.webReverseCorsClose ?? 'Close',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

@@ -10901,6 +10901,132 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'刷新'**
   String get webReverseStorageRefresh;
+
+  /// web_reverse: CORS preflight · urlrequired
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 URL'**
+  String get webReverseCorsUrlRequired;
+
+  /// web_reverse: CORS preflight · badeval
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'页面返回值异常'**
+  String get webReverseCorsBadEval;
+
+  /// web_reverse: CORS preflight · missing
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缺失'**
+  String get webReverseCorsMissing;
+
+  /// web_reverse: CORS preflight · matchorigin
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'与当前 origin 匹配'**
+  String get webReverseCorsMatchOrigin;
+
+  /// web_reverse: CORS preflight · allheadersallowed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'所有请求头都被允许'**
+  String get webReverseCorsAllHeadersAllowed;
+
+  /// web_reverse: CORS preflight · credsrule
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'需 = true 且 Allow-Origin 不能为 *'**
+  String get webReverseCorsCredsRule;
+
+  /// web_reverse: CORS preflight · cacheseconds
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存时间（秒）'**
+  String get webReverseCorsCacheSeconds;
+
+  /// web_reverse: CORS preflight · resultcopied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'结果已复制'**
+  String get webReverseCorsResultCopied;
+
+  /// web_reverse: CORS preflight · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CORS Preflight 测试'**
+  String get webReverseCorsTitle;
+
+  /// web_reverse: CORS preflight · subtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OPTIONS · Allow-Origin / Methods / Headers / Credentials 诊断'**
+  String get webReverseCorsSubtitle;
+
+  /// web_reverse: CORS preflight · copyjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get webReverseCorsCopyJson;
+
+  /// web_reverse: CORS preflight · targeturl
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'目标 URL'**
+  String get webReverseCorsTargetUrl;
+
+  /// web_reverse: CORS preflight · actualmethod
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'实际方法'**
+  String get webReverseCorsActualMethod;
+
+  /// web_reverse: CORS preflight · originoverride
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Origin 覆盖（可选，仅用于诊断显示）'**
+  String get webReverseCorsOriginOverride;
+
+  /// web_reverse: CORS preflight · customheaders
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自定义请求头（每行一个 K: V，仅头名参与 preflight）'**
+  String get webReverseCorsCustomHeaders;
+
+  /// web_reverse: CORS preflight · runbutton
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行 Preflight'**
+  String get webReverseCorsRunButton;
+
+  /// web_reverse: CORS preflight · diagnostics
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'诊断'**
+  String get webReverseCorsDiagnostics;
+
+  /// web_reverse: CORS preflight · allheaders
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'所有响应头'**
+  String get webReverseCorsAllHeaders;
+
+  /// web_reverse: CORS preflight · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseCorsClose;
+
+  /// web_reverse: CORS preflight · mustinclude
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'需包含 {method}'**
+  String webReverseCorsMustInclude(String method);
+
+  /// web_reverse: CORS preflight · missingheaders
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缺少：{names}'**
+  String webReverseCorsMissingHeaders(String names);
 }
 
 class _AppLocalizationsDelegate

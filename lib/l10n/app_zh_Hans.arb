@@ -3834,5 +3834,99 @@
   "webReverseStorageRefresh": "刷新",
   "@webReverseStorageRefresh": {
     "description": "web_reverse: Storage dialog · refresh"
+  },
+  "webReverseCorsUrlRequired": "请输入 URL",
+  "@webReverseCorsUrlRequired": {
+    "description": "web_reverse: CORS preflight · urlrequired"
+  },
+  "webReverseCorsBadEval": "页面返回值异常",
+  "@webReverseCorsBadEval": {
+    "description": "web_reverse: CORS preflight · badeval"
+  },
+  "webReverseCorsMissing": "缺失",
+  "@webReverseCorsMissing": {
+    "description": "web_reverse: CORS preflight · missing"
+  },
+  "webReverseCorsMatchOrigin": "与当前 origin 匹配",
+  "@webReverseCorsMatchOrigin": {
+    "description": "web_reverse: CORS preflight · matchorigin"
+  },
+  "webReverseCorsAllHeadersAllowed": "所有请求头都被允许",
+  "@webReverseCorsAllHeadersAllowed": {
+    "description": "web_reverse: CORS preflight · allheadersallowed"
+  },
+  "webReverseCorsCredsRule": "需 = true 且 Allow-Origin 不能为 *",
+  "@webReverseCorsCredsRule": {
+    "description": "web_reverse: CORS preflight · credsrule"
+  },
+  "webReverseCorsCacheSeconds": "缓存时间（秒）",
+  "@webReverseCorsCacheSeconds": {
+    "description": "web_reverse: CORS preflight · cacheseconds"
+  },
+  "webReverseCorsResultCopied": "结果已复制",
+  "@webReverseCorsResultCopied": {
+    "description": "web_reverse: CORS preflight · resultcopied"
+  },
+  "webReverseCorsTitle": "CORS Preflight 测试",
+  "@webReverseCorsTitle": {
+    "description": "web_reverse: CORS preflight · title"
+  },
+  "webReverseCorsSubtitle": "OPTIONS · Allow-Origin / Methods / Headers / Credentials 诊断",
+  "@webReverseCorsSubtitle": {
+    "description": "web_reverse: CORS preflight · subtitle"
+  },
+  "webReverseCorsCopyJson": "复制 JSON",
+  "@webReverseCorsCopyJson": {
+    "description": "web_reverse: CORS preflight · copyjson"
+  },
+  "webReverseCorsTargetUrl": "目标 URL",
+  "@webReverseCorsTargetUrl": {
+    "description": "web_reverse: CORS preflight · targeturl"
+  },
+  "webReverseCorsActualMethod": "实际方法",
+  "@webReverseCorsActualMethod": {
+    "description": "web_reverse: CORS preflight · actualmethod"
+  },
+  "webReverseCorsOriginOverride": "Origin 覆盖（可选，仅用于诊断显示）",
+  "@webReverseCorsOriginOverride": {
+    "description": "web_reverse: CORS preflight · originoverride"
+  },
+  "webReverseCorsCustomHeaders": "自定义请求头（每行一个 K: V，仅头名参与 preflight）",
+  "@webReverseCorsCustomHeaders": {
+    "description": "web_reverse: CORS preflight · customheaders"
+  },
+  "webReverseCorsRunButton": "运行 Preflight",
+  "@webReverseCorsRunButton": {
+    "description": "web_reverse: CORS preflight · runbutton"
+  },
+  "webReverseCorsDiagnostics": "诊断",
+  "@webReverseCorsDiagnostics": {
+    "description": "web_reverse: CORS preflight · diagnostics"
+  },
+  "webReverseCorsAllHeaders": "所有响应头",
+  "@webReverseCorsAllHeaders": {
+    "description": "web_reverse: CORS preflight · allheaders"
+  },
+  "webReverseCorsClose": "关闭",
+  "@webReverseCorsClose": {
+    "description": "web_reverse: CORS preflight · close"
+  },
+  "webReverseCorsMustInclude": "需包含 {method}",
+  "@webReverseCorsMustInclude": {
+    "description": "web_reverse: CORS preflight · mustinclude",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCorsMissingHeaders": "缺少：{names}",
+  "@webReverseCorsMissingHeaders": {
+    "description": "web_reverse: CORS preflight · missingheaders",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -5881,6 +5881,74 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseStorageRefresh => '刷新';
+
+  @override
+  String get webReverseCorsUrlRequired => '请输入 URL';
+
+  @override
+  String get webReverseCorsBadEval => '页面返回值异常';
+
+  @override
+  String get webReverseCorsMissing => '缺失';
+
+  @override
+  String get webReverseCorsMatchOrigin => '与当前 origin 匹配';
+
+  @override
+  String get webReverseCorsAllHeadersAllowed => '所有请求头都被允许';
+
+  @override
+  String get webReverseCorsCredsRule => '需 = true 且 Allow-Origin 不能为 *';
+
+  @override
+  String get webReverseCorsCacheSeconds => '缓存时间（秒）';
+
+  @override
+  String get webReverseCorsResultCopied => '结果已复制';
+
+  @override
+  String get webReverseCorsTitle => 'CORS Preflight 测试';
+
+  @override
+  String get webReverseCorsSubtitle =>
+      'OPTIONS · Allow-Origin / Methods / Headers / Credentials 诊断';
+
+  @override
+  String get webReverseCorsCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseCorsTargetUrl => '目标 URL';
+
+  @override
+  String get webReverseCorsActualMethod => '实际方法';
+
+  @override
+  String get webReverseCorsOriginOverride => 'Origin 覆盖（可选，仅用于诊断显示）';
+
+  @override
+  String get webReverseCorsCustomHeaders => '自定义请求头（每行一个 K: V，仅头名参与 preflight）';
+
+  @override
+  String get webReverseCorsRunButton => '运行 Preflight';
+
+  @override
+  String get webReverseCorsDiagnostics => '诊断';
+
+  @override
+  String get webReverseCorsAllHeaders => '所有响应头';
+
+  @override
+  String get webReverseCorsClose => '关闭';
+
+  @override
+  String webReverseCorsMustInclude(String method) {
+    return '需包含 $method';
+  }
+
+  @override
+  String webReverseCorsMissingHeaders(String names) {
+    return '缺少：$names';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -11760,6 +11828,74 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseStorageRefresh => '刷新';
+
+  @override
+  String get webReverseCorsUrlRequired => '请输入 URL';
+
+  @override
+  String get webReverseCorsBadEval => '页面返回值异常';
+
+  @override
+  String get webReverseCorsMissing => '缺失';
+
+  @override
+  String get webReverseCorsMatchOrigin => '与当前 origin 匹配';
+
+  @override
+  String get webReverseCorsAllHeadersAllowed => '所有请求头都被允许';
+
+  @override
+  String get webReverseCorsCredsRule => '需 = true 且 Allow-Origin 不能为 *';
+
+  @override
+  String get webReverseCorsCacheSeconds => '缓存时间（秒）';
+
+  @override
+  String get webReverseCorsResultCopied => '结果已复制';
+
+  @override
+  String get webReverseCorsTitle => 'CORS Preflight 测试';
+
+  @override
+  String get webReverseCorsSubtitle =>
+      'OPTIONS · Allow-Origin / Methods / Headers / Credentials 诊断';
+
+  @override
+  String get webReverseCorsCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseCorsTargetUrl => '目标 URL';
+
+  @override
+  String get webReverseCorsActualMethod => '实际方法';
+
+  @override
+  String get webReverseCorsOriginOverride => 'Origin 覆盖（可选，仅用于诊断显示）';
+
+  @override
+  String get webReverseCorsCustomHeaders => '自定义请求头（每行一个 K: V，仅头名参与 preflight）';
+
+  @override
+  String get webReverseCorsRunButton => '运行 Preflight';
+
+  @override
+  String get webReverseCorsDiagnostics => '诊断';
+
+  @override
+  String get webReverseCorsAllHeaders => '所有响应头';
+
+  @override
+  String get webReverseCorsClose => '关闭';
+
+  @override
+  String webReverseCorsMustInclude(String method) {
+    return '需包含 $method';
+  }
+
+  @override
+  String webReverseCorsMissingHeaders(String names) {
+    return '缺少：$names';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -17638,4 +17774,72 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseStorageRefresh => '刷新';
+
+  @override
+  String get webReverseCorsUrlRequired => '请输入 URL';
+
+  @override
+  String get webReverseCorsBadEval => '页面返回值异常';
+
+  @override
+  String get webReverseCorsMissing => '缺失';
+
+  @override
+  String get webReverseCorsMatchOrigin => '与当前 origin 匹配';
+
+  @override
+  String get webReverseCorsAllHeadersAllowed => '所有请求头都被允许';
+
+  @override
+  String get webReverseCorsCredsRule => '需 = true 且 Allow-Origin 不能为 *';
+
+  @override
+  String get webReverseCorsCacheSeconds => '缓存时间（秒）';
+
+  @override
+  String get webReverseCorsResultCopied => '结果已复制';
+
+  @override
+  String get webReverseCorsTitle => 'CORS Preflight 测试';
+
+  @override
+  String get webReverseCorsSubtitle =>
+      'OPTIONS · Allow-Origin / Methods / Headers / Credentials 诊断';
+
+  @override
+  String get webReverseCorsCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseCorsTargetUrl => '目标 URL';
+
+  @override
+  String get webReverseCorsActualMethod => '实际方法';
+
+  @override
+  String get webReverseCorsOriginOverride => 'Origin 覆盖（可选，仅用于诊断显示）';
+
+  @override
+  String get webReverseCorsCustomHeaders => '自定义请求头（每行一个 K: V，仅头名参与 preflight）';
+
+  @override
+  String get webReverseCorsRunButton => '运行 Preflight';
+
+  @override
+  String get webReverseCorsDiagnostics => '诊断';
+
+  @override
+  String get webReverseCorsAllHeaders => '所有响应头';
+
+  @override
+  String get webReverseCorsClose => '关闭';
+
+  @override
+  String webReverseCorsMustInclude(String method) {
+    return '需包含 $method';
+  }
+
+  @override
+  String webReverseCorsMissingHeaders(String names) {
+    return '缺少：$names';
+  }
 }

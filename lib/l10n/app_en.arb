@@ -3765,5 +3765,99 @@
   "webReverseStorageRefresh": "Refresh",
   "@webReverseStorageRefresh": {
     "description": "web_reverse: Storage dialog · refresh"
+  },
+  "webReverseCorsUrlRequired": "URL required",
+  "@webReverseCorsUrlRequired": {
+    "description": "web_reverse: CORS preflight · urlrequired"
+  },
+  "webReverseCorsBadEval": "Bad eval result",
+  "@webReverseCorsBadEval": {
+    "description": "web_reverse: CORS preflight · badeval"
+  },
+  "webReverseCorsMissing": "missing",
+  "@webReverseCorsMissing": {
+    "description": "web_reverse: CORS preflight · missing"
+  },
+  "webReverseCorsMatchOrigin": "matches current origin",
+  "@webReverseCorsMatchOrigin": {
+    "description": "web_reverse: CORS preflight · matchorigin"
+  },
+  "webReverseCorsAllHeadersAllowed": "all requested headers allowed",
+  "@webReverseCorsAllHeadersAllowed": {
+    "description": "web_reverse: CORS preflight · allheadersallowed"
+  },
+  "webReverseCorsCredsRule": "must be true and Allow-Origin must not be *",
+  "@webReverseCorsCredsRule": {
+    "description": "web_reverse: CORS preflight · credsrule"
+  },
+  "webReverseCorsCacheSeconds": "cache seconds",
+  "@webReverseCorsCacheSeconds": {
+    "description": "web_reverse: CORS preflight · cacheseconds"
+  },
+  "webReverseCorsResultCopied": "Result copied",
+  "@webReverseCorsResultCopied": {
+    "description": "web_reverse: CORS preflight · resultcopied"
+  },
+  "webReverseCorsTitle": "CORS Preflight",
+  "@webReverseCorsTitle": {
+    "description": "web_reverse: CORS preflight · title"
+  },
+  "webReverseCorsSubtitle": "OPTIONS · diagnose Allow-Origin / Methods / Headers / Credentials",
+  "@webReverseCorsSubtitle": {
+    "description": "web_reverse: CORS preflight · subtitle"
+  },
+  "webReverseCorsCopyJson": "Copy JSON",
+  "@webReverseCorsCopyJson": {
+    "description": "web_reverse: CORS preflight · copyjson"
+  },
+  "webReverseCorsTargetUrl": "Target URL",
+  "@webReverseCorsTargetUrl": {
+    "description": "web_reverse: CORS preflight · targeturl"
+  },
+  "webReverseCorsActualMethod": "Actual Method",
+  "@webReverseCorsActualMethod": {
+    "description": "web_reverse: CORS preflight · actualmethod"
+  },
+  "webReverseCorsOriginOverride": "Origin override (optional, display only)",
+  "@webReverseCorsOriginOverride": {
+    "description": "web_reverse: CORS preflight · originoverride"
+  },
+  "webReverseCorsCustomHeaders": "Custom headers (one K: V per line; only names sent in preflight)",
+  "@webReverseCorsCustomHeaders": {
+    "description": "web_reverse: CORS preflight · customheaders"
+  },
+  "webReverseCorsRunButton": "Run Preflight",
+  "@webReverseCorsRunButton": {
+    "description": "web_reverse: CORS preflight · runbutton"
+  },
+  "webReverseCorsDiagnostics": "Diagnostics",
+  "@webReverseCorsDiagnostics": {
+    "description": "web_reverse: CORS preflight · diagnostics"
+  },
+  "webReverseCorsAllHeaders": "All response headers",
+  "@webReverseCorsAllHeaders": {
+    "description": "web_reverse: CORS preflight · allheaders"
+  },
+  "webReverseCorsClose": "Close",
+  "@webReverseCorsClose": {
+    "description": "web_reverse: CORS preflight · close"
+  },
+  "webReverseCorsMustInclude": "must include {method}",
+  "@webReverseCorsMustInclude": {
+    "description": "web_reverse: CORS preflight · mustinclude",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCorsMissingHeaders": "missing: {names}",
+  "@webReverseCorsMissingHeaders": {
+    "description": "web_reverse: CORS preflight · missingheaders",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
   }
 }
