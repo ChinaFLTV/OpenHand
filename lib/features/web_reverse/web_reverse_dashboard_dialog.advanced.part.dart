@@ -530,6 +530,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
         },
       ),
       _AdvancedEntry(
+        icon: Icons.animation_rounded,
+        title: isZh ? 'Animations 调试' : 'Animations',
+        subtitle: isZh
+            ? '全局倍速 + 暂停 / 继续 / 取消 + 活跃动画快照'
+            : 'global rate · pause/resume/cancel · live snapshot',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseAnimationsDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
+      _AdvancedEntry(
         icon: Icons.replay_circle_filled_rounded,
         title: isZh ? '网络请求重放器' : 'Network Replayer',
         subtitle: isZh
